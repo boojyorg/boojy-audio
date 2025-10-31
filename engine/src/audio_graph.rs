@@ -664,10 +664,8 @@ impl AudioGraph {
                         master_right *= master_snap.volume_gain;
 
                         // Apply master pan
-                        let temp_l = master_left * master_snap.pan_left + master_right * master_snap.pan_left;
-                        let temp_r = master_left * master_snap.pan_right + master_right * master_snap.pan_right;
-                        master_left = temp_l;
-                        master_right = temp_r;
+                        master_left *= master_snap.pan_left;
+                        master_right *= master_snap.pan_right;
 
                         // Process master FX chain
                         if let Ok(effect_mgr) = effect_manager.lock() {
