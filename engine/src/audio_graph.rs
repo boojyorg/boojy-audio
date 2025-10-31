@@ -562,8 +562,10 @@ impl AudioGraph {
                         track_right *= track_snap.volume_gain;
 
                         // Apply track pan (from snapshot)
-                        track_left *= track_snap.pan_left;
-                        track_right *= track_snap.pan_right;
+                        // For proper panning, sum stereo to mono first, then apply pan law
+                        let mono = (track_left + track_right) * 0.5;
+                        track_left = mono * track_snap.pan_left;
+                        track_right = mono * track_snap.pan_right;
 
                         // Process FX chain on this track
                         let mut fx_left = track_left;
@@ -664,8 +666,10 @@ impl AudioGraph {
                         master_right *= master_snap.volume_gain;
 
                         // Apply master pan
-                        master_left *= master_snap.pan_left;
-                        master_right *= master_snap.pan_right;
+                        // Sum stereo to mono first, then apply pan law
+                        let master_mono = (master_left + master_right) * 0.5;
+                        master_left = master_mono * master_snap.pan_left;
+                        master_right = master_mono * master_snap.pan_right;
 
                         // Process master FX chain
                         if let Ok(effect_mgr) = effect_manager.lock() {
