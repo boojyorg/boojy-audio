@@ -242,12 +242,6 @@ impl RecorderCallbackRefs {
             let beat_in_bar = position_in_bar / samples_per_beat;
             let position_in_beat = position_in_bar % samples_per_beat;
 
-            // Debug logging at the start of each beat (only when actually ticking)
-            if position_in_beat == 0 && should_tick {
-                eprintln!("🔔 Metronome beat! sample_idx={}, beat={}/{}, tempo={} BPM, samples_per_beat={}",
-                    sample_idx, beat_in_bar + 1, time_sig, tempo, samples_per_beat);
-            }
-
             // Generate click (short sine burst)
             if position_in_beat < 4000 { // ~80ms click at 48kHz (increased from 40ms for better audibility)
                 let t = position_in_beat as f32 / TARGET_SAMPLE_RATE as f32;

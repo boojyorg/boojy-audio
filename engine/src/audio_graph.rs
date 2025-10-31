@@ -10,7 +10,7 @@ use crate::track::{ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager
 use crate::effects::{Effect, EffectManager, Limiter};  // Import from effects module
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 /// Transport state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -492,16 +492,21 @@ impl AudioGraph {
                 let (track_snapshots, has_solo, master_snapshot) = track_data_option
                     .unwrap_or_else(|| (Vec::new(), false, None));
 
-                // DEBUG: Log track count once
-                static TRACK_COUNT_LOGGED: AtomicBool = AtomicBool::new(false);
-                if !TRACK_COUNT_LOGGED.swap(true, Ordering::Relaxed) {
-                    eprintln!("🎵 [AudioCallback] Processing {} tracks", track_snapshots.len());
+                // DEBUG: Log track info periodically (every ~2 seconds)
+                static DEBUG_COUNTER: AtomicUsize = AtomicUsize::new(0);
+                let counter = DEBUG_COUNTER.fetch_add(1, Ordering::Relaxed);
+                // Print every ~2 seconds (48000 samples/sec, 512 frames/buffer = ~94 buffers/sec, so every 188 buffers)
+                if counter % 188 == 0 {
+                    eprintln!("\n🎵 [AudioCallback] Processing {} tracks (playhead: {:.2}s)",
+                        track_snapshots.len(), current_playhead as f64 / TARGET_SAMPLE_RATE as f64);
                     for snap in &track_snapshots {
-                        eprintln!("   - Track {}: {} audio clips, {} MIDI clips, pan: L={:.3} R={:.3}",
-                            snap.id, snap.audio_clips.len(), snap.midi_clips.len(), snap.pan_left, snap.pan_right);
+                        eprintln!("   - Track {}: {} audio clips, {} MIDI clips, vol={:.2}, pan: L={:.3} R={:.3}",
+                            snap.id, snap.audio_clips.len(), snap.midi_clips.len(),
+                            snap.volume_gain, snap.pan_left, snap.pan_right);
                     }
                     if let Some(ref master) = master_snapshot {
-                        eprintln!("   - Master: pan: L={:.3} R={:.3}", master.pan_left, master.pan_right);
+                        eprintln!("   - Master: vol={:.2}, pan: L={:.3} R={:.3}",
+                            master.volume_gain, master.pan_left, master.pan_right);
                     }
                 }
 
