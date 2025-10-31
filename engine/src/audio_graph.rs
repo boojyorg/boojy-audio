@@ -497,7 +497,11 @@ impl AudioGraph {
                 if !TRACK_COUNT_LOGGED.swap(true, Ordering::Relaxed) {
                     eprintln!("🎵 [AudioCallback] Processing {} tracks", track_snapshots.len());
                     for snap in &track_snapshots {
-                        eprintln!("   - Track {}: {} audio clips, {} MIDI clips", snap.id, snap.audio_clips.len(), snap.midi_clips.len());
+                        eprintln!("   - Track {}: {} audio clips, {} MIDI clips, pan: L={:.3} R={:.3}",
+                            snap.id, snap.audio_clips.len(), snap.midi_clips.len(), snap.pan_left, snap.pan_right);
+                    }
+                    if let Some(ref master) = master_snapshot {
+                        eprintln!("   - Master: pan: L={:.3} R={:.3}", master.pan_left, master.pan_right);
                     }
                 }
 
@@ -561,11 +565,9 @@ impl AudioGraph {
                         track_left *= track_snap.volume_gain;
                         track_right *= track_snap.volume_gain;
 
-                        // Apply track pan (from snapshot)
-                        // For proper panning, sum stereo to mono first, then apply pan law
-                        let mono = (track_left + track_right) * 0.5;
-                        track_left = mono * track_snap.pan_left;
-                        track_right = mono * track_snap.pan_right;
+                        // Apply track pan (from snapshot) - stereo balance approach
+                        track_left *= track_snap.pan_left;
+                        track_right *= track_snap.pan_right;
 
                         // Process FX chain on this track
                         let mut fx_left = track_left;
@@ -665,11 +667,9 @@ impl AudioGraph {
                         master_left *= master_snap.volume_gain;
                         master_right *= master_snap.volume_gain;
 
-                        // Apply master pan
-                        // Sum stereo to mono first, then apply pan law
-                        let master_mono = (master_left + master_right) * 0.5;
-                        master_left = master_mono * master_snap.pan_left;
-                        master_right = master_mono * master_snap.pan_right;
+                        // Apply master pan - stereo balance approach
+                        master_left *= master_snap.pan_left;
+                        master_right *= master_snap.pan_right;
 
                         // Process master FX chain
                         if let Ok(effect_mgr) = effect_manager.lock() {
