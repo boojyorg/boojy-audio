@@ -406,6 +406,10 @@ class _PianoRollState extends State<PianoRoll> {
                                 behavior: HitTestBehavior.translucent,
                                 onTapDown: _onTapDown,
                                 onSecondaryTapDown: _onRightClick,
+                                // Long-press for touch deletion (same as right-click)
+                                onLongPressStart: (details) => _onRightClick(
+                                  TapDownDetails(localPosition: details.localPosition),
+                                ),
                                 onPanStart: _onPanStart,
                                 onPanUpdate: _onPanUpdate,
                                 onPanEnd: _onPanEnd,
@@ -1373,6 +1377,34 @@ class _NotePainter extends CustomPainter {
       final textY = y + (height / 2) - (textPainter.height / 2) + 1;
 
       textPainter.paint(canvas, Offset(textX, textY));
+    }
+
+    // Draw resize handles on selected notes (touch-friendly)
+    if (isSelected && !isPreview) {
+      final handlePaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+
+      const handleWidth = 6.0;
+      final noteRect = Rect.fromLTWH(x, y + 1, width, height);
+
+      // Left handle
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(noteRect.left - 1, noteRect.top, handleWidth, noteRect.height),
+          const Radius.circular(2),
+        ),
+        handlePaint,
+      );
+
+      // Right handle
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(noteRect.right - handleWidth + 1, noteRect.top, handleWidth, noteRect.height),
+          const Radius.circular(2),
+        ),
+        handlePaint,
+      );
     }
   }
 

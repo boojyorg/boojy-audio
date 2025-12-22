@@ -35,34 +35,54 @@ class _ResizableDividerState extends State<ResizableDivider> {
   bool _isHovered = false;
   bool _isDragging = false;
 
+  // Touch-friendly hit area (20px) while keeping visual line thin
+  static const double _hitAreaSize = 20.0;
+
   @override
   Widget build(BuildContext context) {
     final isVertical = widget.orientation == DividerOrientation.vertical;
+    final isActive = _isHovered || _isDragging;
 
-    return MouseRegion(
-      cursor: isVertical
-        ? SystemMouseCursors.resizeColumn
-        : SystemMouseCursors.resizeRow,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          if (!widget.isCollapsed) {
-            setState(() => _isDragging = true);
-            final delta = isVertical ? details.delta.dx : details.delta.dy;
-            widget.onDrag(delta);
-          }
-        },
-        onPanEnd: (_) => setState(() => _isDragging = false),
-        onDoubleTap: widget.onDoubleClick,
+    // Visual line dimensions
+    final lineWidth = isVertical ? (isActive ? 3.0 : 1.0) : double.infinity;
+    final lineHeight = isVertical ? double.infinity : (isActive ? 3.0 : 1.0);
+
+    // Line color based on state
+    final lineColor = _isDragging
+        ? const Color(0xFF00BCD4) // Cyan when dragging
+        : _isHovered
+            ? const Color(0xFF00838F) // Dim cyan on hover
+            : const Color(0xFF363636); // Dark grey default
+
+    return GestureDetector(
+      onPanStart: (_) => setState(() => _isDragging = true),
+      onPanUpdate: (details) {
+        if (!widget.isCollapsed) {
+          final delta = isVertical ? details.delta.dx : details.delta.dy;
+          widget.onDrag(delta);
+        }
+      },
+      onPanEnd: (_) => setState(() => _isDragging = false),
+      onDoubleTap: widget.onDoubleClick,
+      child: MouseRegion(
+        cursor: isVertical
+            ? SystemMouseCursors.resizeColumn
+            : SystemMouseCursors.resizeRow,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
         child: Container(
-          width: isVertical ? (_isHovered || _isDragging ? 3 : 1) : double.infinity,
-          height: isVertical ? double.infinity : (_isHovered || _isDragging ? 3 : 1),
-          color: _isDragging
-              ? const Color(0xFF00BCD4) // Cyan when dragging
-              : _isHovered
-                  ? const Color(0xFF00838F) // Dim cyan on hover
-                  : const Color(0xFF363636), // Dark grey default
+          // Large invisible hit area for touch
+          width: isVertical ? _hitAreaSize : double.infinity,
+          height: isVertical ? double.infinity : _hitAreaSize,
+          color: Colors.transparent,
+          child: Center(
+            // Thin visible line centered within hit area
+            child: Container(
+              width: lineWidth,
+              height: lineHeight,
+              color: lineColor,
+            ),
+          ),
         ),
       ),
     );
