@@ -31,8 +31,12 @@ This document breaks the MVP into **7 actionable milestones** (M1–M7), each re
 | **M5**    | Save & Export                | 1 week   | ✅ Complete        |
 | **M5.5**  | UI Polish & Resizable Panels | 1 week   | ✅ Complete        |
 | **M5.6**  | Track Duplication            | 1 day    | ✅ Complete        |
-| **M6**    | MIDI & Piano Roll            | 3 weeks  | 📋 Ready to Start  |
-| **M7**    | VST3 Plugin Support          | 2 weeks  | 📋 Ready           |
+| **M6**    | MIDI & Piano Roll            | 3 weeks  | ✅ Complete        |
+| **M6.5**  | MIDI & Arrangement Improvements | 1 week | ✅ Complete        |
+| **M6.6**  | iOS/iPad Support             | 1 week   | ✅ Complete        |
+| **M6.7**  | Piano Roll Improvements      | 1 week   | ✅ Complete        |
+| **M6.8**  | Track Height Resizing        | 1 day    | ✅ Complete        |
+| **M7**    | VST3 Plugin Support          | 2 weeks  | 🚧 In Progress     |
 | **M8**    | Stock Instruments            | 3 weeks  | 📋 Ready           |
 | **M9**    | Polish & UX                  | 2 weeks  | 📋 Ready           |
 | **M10**   | Beta Testing & Launch        | 2 weeks  | 📋 Ready           |
@@ -1752,9 +1756,9 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** October 26, 2025 (M4 Core Complete)
-**Next Review:** After M5 completion
+**Document Version:** 1.2
+**Last Updated:** December 22, 2025 (M6.8 Complete)
+**Next Review:** After M7 completion
 
 ---
 
@@ -1768,8 +1772,12 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 ✅ **M5:** Save & Export - COMPLETE
 ✅ **M5.5:** UI Polish & Resizable Panels - COMPLETE
 ✅ **M5.6:** Track Duplication - COMPLETE (Full state copying: instruments, effects, clips)
-📋 **M6:** MIDI & Piano Roll - Ready to Start
-📋 **M7:** VST3 Plugin Support - Ready
+✅ **M6:** MIDI & Piano Roll - COMPLETE
+✅ **M6.5:** MIDI & Arrangement Improvements - COMPLETE (Stereo meters, beat grid, pan fix, code refactoring)
+✅ **M6.6:** iOS/iPad Support - COMPLETE (Cross-platform support, audio latency control)
+✅ **M6.7:** Piano Roll Improvements - COMPLETE (FL Studio-style note preview)
+✅ **M6.8:** Track Height Resizing - COMPLETE (Mixer-controlled, synced with timeline)
+🚧 **M7:** VST3 Plugin Support - In Progress
 📋 **M8:** Stock Instruments - Ready
 📋 **M9:** Polish & UX - Ready
 📋 **M10:** Beta Testing & Launch - Ready

@@ -1,7 +1,7 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 20, 2025
-**Current Status:** M6.4 Complete (Bug Fixes & Synth Refinements), M7 In Progress
+**Last Updated:** December 22, 2025
+**Current Status:** M6.8 Complete (Track Height Resizing), M7 In Progress
 
 ---
 
@@ -38,6 +38,10 @@ Week 0    Week 10   Week 15   Week 22
 - M6.2: Toolbar Reorganization (grouped controls, enhanced File menu)
 - M6.3: Native Menu Bar & Editor Panel (macOS menu integration, keyboard shortcuts)
 - M6.4: Bug Fixes & Synth Refinements (virtual piano fix, MIDI bar-snapping, simplified synth)
+- M6.5: MIDI & Arrangement Improvements (stereo meters, beat grid, pan fix)
+- M6.6: iOS/iPad Support (cross-platform, audio latency control)
+- M6.7: Piano Roll Improvements (FL Studio-style note preview)
+- M6.8: Track Height Resizing (mixer-controlled, synced with timeline)
 
 **🚧 In Progress:**
 - M7: VST3 Plugin Support
@@ -129,6 +133,65 @@ Week 0    Week 10   Week 15   Week 22
 
 ---
 
+### M6.5: MIDI & Arrangement Improvements ✅
+
+**Completed:** December 2025
+
+**Implemented:**
+
+- ✅ Fixed MIDI clips rendering in timeline
+- ✅ MIDI clip move and delete functionality
+- ✅ Fixed note-off triggering at exact clip boundary
+- ✅ Piano roll note audition while editing
+- ✅ Beat-based grid display with transparency
+- ✅ Fixed pan implementation with proper stereo imaging
+- ✅ Stereo level meters in mixer
+- ✅ Refactored daw_screen.dart: extracted service managers
+- ✅ Fixed audio file routing to correct tracks
+- ✅ Fixed library path resolution for different working directories
+- ✅ Improved error handling throughout
+
+---
+
+### M6.6: iOS/iPad Support ✅
+
+**Completed:** December 2025
+
+**Implemented:**
+
+- ✅ iOS support with FFI linking and proper audio initialization
+- ✅ iPad/touch compatibility improvements
+- ✅ Configurable audio latency control (buffer size settings)
+- ✅ Optimized audio callback for mobile performance
+
+---
+
+### M6.7: Piano Roll Improvements ✅
+
+**Completed:** December 2025
+
+**Implemented:**
+
+- ✅ FL Studio-style note preview (click and drag to preview before placing)
+- ✅ Real-time pitch audition while moving notes
+- ✅ Improved note movement with horizontal constraints
+- ✅ Delete notes with right-click or delete key
+
+---
+
+### M6.8: Track Height Resizing ✅
+
+**Completed:** December 2025
+
+**Implemented:**
+
+- ✅ Drag bottom edge of mixer strips to resize track heights
+- ✅ Master track: drag TOP edge (opposite direction)
+- ✅ Heights sync between mixer panel and timeline view
+- ✅ Range: 50px min to 300px max, 100px default (60px for master)
+
+---
+
 ### M7: VST3 Plugin Support (Weeks 14-15)
 
 - Scan installed VST3 plugins
@@ -137,7 +200,7 @@ Week 0    Week 10   Week 15   Week 22
 - Parameter save/load with projects
 - Compatible with commercial plugins
 
-**Target:** Late November 2025
+**Target:** Late December 2025
 
 ---
 
@@ -202,13 +265,14 @@ Build 5 high-quality instruments:
 - 📋 Windows release (alongside macOS)
 
 **Won't-Have (v1.0):**
+
 - Cloud saving → Future (TBD)
 - Session View / DJ Mode → v1.2+
 - Send effects → v1.2+
 - MIDI learn → v1.2+
 - Templates → v1.1
 - Collaboration → Future (TBD)
-- iPad/iPhone → v1.1
+- iPad/iPhone → Basic support added in M6.6, full optimization in v1.1
 - Linux → Future (TBD)
 
 ---
@@ -381,6 +445,15 @@ Items identified for future cleanup (not blocking current development):
 - Private beta testing
 - Public beta launch
 
+**Recent Accomplishments (M6.5-M6.8):**
+
+- iOS/iPad support with proper audio initialization
+- FL Studio-style piano roll note preview
+- Track height resizing from mixer panel
+- Stereo level meters and proper pan implementation
+- MIDI clip editing improvements (move, delete, audition)
+- Code refactoring and improved error handling
+
 ---
 
-**Let's build the future of music production! 🌑☀️**
+**Let's build the future of music production! 🎵**

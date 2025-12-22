@@ -11,102 +11,104 @@ Boojy Audio combines professional workflows with beginner-friendly UX. Built wit
 ## Core Features (v1 MVP)
 
 - 🎙️ **Record audio & MIDI** with metronome and count-in
-- ✂️ **Edit with precision** - Piano roll, step sequencer, clip automation
-- 🎚️ **Mix like a pro** - Send effects, built-in EQ/reverb/compressor/delay
-- 🎹 **Built-in instruments** - Subtractive synth, drum sampler, piano ROMpler
-- 📋 **Track duplication** - Right-click to duplicate tracks with instruments & effects
-- 💾 **Save & export** - Local autosave, crash recovery, export to WAV/MP3/stems
-- ☁️ **Cloud snapshots** - Version history via Firebase
-- ⌨️ **Keyboard-driven** - Command palette (⌘K) and comprehensive shortcuts
-- 🎨 **Modern UI** - Flat design, clip gain handles, sample preview
+- ✂️ **Edit with precision** - Piano roll with FL Studio-style preview, clip move/delete
+- 🎚️ **Mix like a pro** - Built-in EQ/reverb/compressor/delay, stereo level meters
+- 🎹 **Built-in instruments** - Polyphonic synthesizer with ADSR & filter
+- 📋 **Track management** - Duplicate tracks, inline rename, resizable track heights
+- 💾 **Save & export** - Project save/load, WAV export
+- 📱 **Cross-platform** - macOS and iOS/iPad support
+- ⌨️ **Keyboard-driven** - Comprehensive shortcuts and native menu bar
+- 🎨 **Modern UI** - Ableton-style mixer, resizable panels, beat-based grid
 
-## Recent Updates (M7 - December 2025)
+## Recent Updates (December 2025)
 
-🚧 **VST3 Plugin Support - Native GUI Integration (In Progress):**
-- VST3 plugin scanning and loading infrastructure ✅
-- Plugin parameter automation and preset management ✅
-- Native VST3 GUI support (C++/Rust/Dart/Swift layers) 🚧
-  * C++ VST3 editor lifecycle functions (IPlugView creation, attachment, cleanup)
-  * Swift platform views and window manager for macOS
-  * Dart/Flutter UI integration with platform channels
-  * "Open GUI" button in plugin parameter panel
-  * Both docked and floating window modes planned
-- Context-aware editor placement (instruments in Instrument tab, effects in FX tab)
+### M6.8 - Track Height Resizing
 
-## Previous Updates (M6.4 - December 2025)
+✅ **Resizable Track Heights from Mixer Panel:**
+
+- Drag bottom edge of mixer strips to resize track heights
+- Master track: drag TOP edge (opposite direction)
+- Heights sync between mixer panel and timeline view
+- Range: 50px min to 300px max, 100px default (60px for master)
+
+### M6.7 - Piano Roll Improvements
+
+✅ **FL Studio-Style Note Preview:**
+
+- Click and drag to preview notes before placing
+- Real-time pitch audition while moving notes
+- Improved note movement with horizontal constraints
+- Delete notes with right-click or delete key
+
+### M6.6 - iOS/iPad Support
+
+✅ **Cross-Platform Expansion:**
+
+- iOS support with FFI linking and proper audio initialization
+- iPad/touch compatibility improvements
+- Configurable audio latency control (buffer size settings)
+- Optimized audio callback for mobile performance
+
+### M6.5 - MIDI & Arrangement Improvements
+
+✅ **MIDI Playback & Editing:**
+
+- Fixed MIDI clips rendering in timeline
+- MIDI clip move and delete functionality
+- Fixed note-off triggering at exact clip boundary
+- Piano roll note audition while editing
+
+✅ **Arrangement View Enhancements:**
+
+- Beat-based grid display with transparency
+- Improved grid alignment and visual clarity
+- Fixed pan implementation with proper stereo imaging
+- Stereo level meters in mixer
+
+✅ **Code Quality:**
+
+- Refactored daw_screen.dart: extracted service managers
+- Fixed audio file routing to correct tracks
+- Fixed library path resolution for different working directories
+- Improved error handling throughout
+
+### Previous Updates (M6.4 - December 2025)
 
 ✅ **Bug Fixes & Synth Refinements:**
 
 - Virtual piano now works during pause/stop (audio stream stays active)
 - MIDI clip bar-snapping (Ableton-style: clips align to bar boundaries)
 - Simplified synthesizer architecture:
-  * Single oscillator (sine/saw/square/triangle)
-  * One-pole lowpass filter with cutoff control
-  * ADSR envelope (attack, decay, sustain, release)
-  * 8-voice polyphony with voice stealing
+  - Single oscillator (sine/saw/square/triangle)
+  - One-pole lowpass filter with cutoff control
+  - ADSR envelope (attack, decay, sustain, release)
+  - 8-voice polyphony with voice stealing
+- Ableton-style mixer UI redesign
+- Inline track rename feature
 
-## Previous Updates (M6.3 - October 30, 2025)
+### Previous Updates (M6.3 - October 2025)
 
 ✅ **Native macOS Menu Bar & Editor Panel:**
-- Native macOS menu bar integration with PlatformMenuBar:
-  * **Audio menu**: About, Services, Hide, Quit (⌘Q)
-  * **File menu**: New (⌘N), Open (⌘O), Save (⌘S), Save As (⇧⌘S), Make Copy, Export Audio/MIDI, Settings (⌘,), Close (⌘W)
-  * **Edit menu**: Undo/Redo (disabled), Cut/Copy/Paste (disabled - future)
-  * **View menu**: Toggle Library (⌘L), Mixer (⌘M), Editor (⌘E), Piano (⌘P), Reset Layout, Zoom (disabled - future)
-- Renamed "Bottom Panel" to "Editor Panel" throughout codebase for clarity
-- Added View dropdown menu to toolbar with checkmarks for panel visibility
+
+- Native macOS menu bar integration with PlatformMenuBar
 - All keyboard shortcuts working natively through macOS system
 - Panel toggle methods for Library, Mixer, Editor, and Virtual Piano
 
-## Previous Updates (M6.2 - October 30, 2025)
+### Previous Updates (M6.1-6.2 - October 2025)
 
-✅ **Toolbar Reorganization:**
-- Reorganized transport bar with grouped controls for better workflow
-- New layout: `[Logo] [File] | [Transport Controls] | [Metronome Piano Tap BPM Time Position] | [Mixer]`
-- Enhanced File menu with 10 actions (New, Open, Save, Save As, Make Copy, Export Audio, Export MIDI, Project Settings, Close Project)
-- Visual dividers between control groups for improved clarity
-- File menu now uses Material icons instead of emojis
+✅ **MIDI & Instruments:**
 
-## Previous Updates (M6.1 - October 29, 2025)
-
-✅ **MIDI & Instruments Complete:**
 - Piano roll editor with FL Studio-style layout
 - Polyphonic synthesizer (8 voices, ADSR, filter)
 - Virtual piano keyboard (computer keyboard mapping)
 - Instrument browser with drag-and-drop workflow
-- MIDI clip playback during transport ✨
-- Proper track deletion cleanup (no stuck notes) ✨
-- Ableton-style drag from library → timeline
 
-✨ = Fixed in M6.1 post-release patch
+✅ **UI Polish:**
 
-## Previous Updates (M5.6 - October 29, 2025)
-
-✅ **Track Duplication (Ableton-style):**
-- Right-click context menu on tracks
-- Duplicates instruments with all parameters
-- Deep copies effects (independent instances)
-- Copies all clips and mixer settings
-- Delete option with confirmation dialog
-
-## Previous Updates (M5.5 - October 2025)
-
-✅ **UI Redesign Complete:**
 - Professional 3-panel layout (Library | Timeline | Mixer)
-- Light grey theme for better visibility
-- Master track repositioned to bottom of timeline and mixer
 - Resizable panel dividers (drag to adjust, double-click to collapse)
-- Panel sizes saved per project (restored on load)
+- Track duplication with full state copying
 - Compact zoom controls in timeline header
-- Improved track creation UX (+ button with dropdown menu)
-
-✅ **Core Features Working:**
-- Audio recording with count-in and metronome
-- Multi-track timeline with waveform display
-- Track mixer with volume, pan, mute, solo
-- Built-in effects (EQ, Compressor, Reverb, Delay, Chorus, Limiter)
-- Project save/load with audio files
-- WAV export
 
 ## Tech Stack
 

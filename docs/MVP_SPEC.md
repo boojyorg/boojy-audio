@@ -1,8 +1,8 @@
 # Boojy Audio - MVP Specification (v1.0)
 
-**Last Updated:** October 27, 2025
-**Status:** In Development (M5.5.1 Complete - UI + Resizable Panels, M6 Ready to Start)
-**Target Platform:** macOS 12+ (Monterey or later)
+**Last Updated:** December 22, 2025
+**Status:** In Development (M6.8 Complete - Track Height Resizing, M7 In Progress)
+**Target Platform:** macOS 12+, iOS 15+ (iPad support added)
 
 ---
 
