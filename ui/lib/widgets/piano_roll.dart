@@ -66,7 +66,31 @@ class _PianoRollState extends State<PianoRoll> {
   String? _resizingEdge; // 'left' or 'right'
 
   // Cursor state
-  MouseCursor _currentCursor = SystemMouseCursors.basic;
+  MouseCursor _currentCursor = SystemMouseCursors.basic; // Default cursor for empty space
+
+  // Slice mode state
+  bool _sliceModeEnabled = false;
+
+  // Paint mode state (drag to create multiple notes)
+  bool _isPainting = false;
+  double? _paintStartBeat;
+  int? _paintNote;
+  double _lastPaintedBeat = 0.0;
+
+  // Track note just created by click (for immediate drag-to-move)
+  String? _justCreatedNoteId;
+
+  // Track note currently being moved (without selection highlight)
+  String? _movingNoteId;
+
+  // Eraser mode state (right-click drag to delete multiple notes)
+  bool _isErasing = false;
+  Set<String> _erasedNoteIds = {};
+
+  // Velocity lane state
+  bool _velocityLaneExpanded = false;
+  static const double _velocityLaneHeight = 80.0;
+  String? _velocityDragNoteId; // Note being velocity-edited
 
   // Multi-select state
   bool _isSelecting = false;
@@ -84,6 +108,12 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Note audition (preview) when creating/selecting notes
   bool _auditionEnabled = true;
+
+  // Track currently held note for sustained audition (FL Studio style)
+  int? _currentlyHeldNote;
+
+  // Store original note positions at drag start for proper delta calculation
+  Map<String, MidiNoteData> _dragStartNotes = {};
 
   // Global undo/redo manager
   final UndoRedoManager _undoRedoManager = UndoRedoManager();
@@ -148,16 +178,45 @@ class _PianoRollState extends State<PianoRoll> {
     setState(() {});
   }
 
-  /// Preview/audition a note when creating or selecting
-  void _auditionNote(int midiNote, int velocity) {
+  /// Start sustained audition - note plays until _stopAudition is called (FL Studio style)
+  void _startAudition(int midiNote, int velocity) {
     if (!_auditionEnabled) return;
+
+    // Stop any currently held note first
+    _stopAudition();
+
     final trackId = _currentClip?.trackId;
     if (trackId != null && widget.audioEngine != null) {
       widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, velocity);
-      // Schedule note off after short preview duration
-      Future.delayed(const Duration(milliseconds: 200), () {
-        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 64);
-      });
+      _currentlyHeldNote = midiNote;
+    }
+  }
+
+  /// Stop the currently held audition note
+  void _stopAudition() {
+    if (_currentlyHeldNote != null) {
+      final trackId = _currentClip?.trackId;
+      if (trackId != null && widget.audioEngine != null) {
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, _currentlyHeldNote!, 64);
+      }
+      _currentlyHeldNote = null;
+    }
+  }
+
+  /// Change the audition pitch while holding (for dragging notes up/down)
+  void _changeAuditionPitch(int newMidiNote, int velocity) {
+    if (!_auditionEnabled) return;
+    if (newMidiNote == _currentlyHeldNote) return; // Same note, no change needed
+
+    final trackId = _currentClip?.trackId;
+    if (trackId != null && widget.audioEngine != null) {
+      // Stop old note
+      if (_currentlyHeldNote != null) {
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, _currentlyHeldNote!, 64);
+      }
+      // Start new note
+      widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
+      _currentlyHeldNote = newMidiNote;
     }
   }
 
@@ -166,6 +225,56 @@ class _PianoRollState extends State<PianoRoll> {
     setState(() {
       _auditionEnabled = !_auditionEnabled;
     });
+  }
+
+  /// Toggle slice mode on/off
+  void _toggleSliceMode() {
+    setState(() {
+      _sliceModeEnabled = !_sliceModeEnabled;
+    });
+  }
+
+  /// Toggle velocity lane on/off
+  void _toggleVelocityLane() {
+    setState(() {
+      _velocityLaneExpanded = !_velocityLaneExpanded;
+    });
+  }
+
+  /// Slice a note at the given beat position
+  void _sliceNoteAt(MidiNoteData note, double beatPosition) {
+    // Calculate split point (snap to grid if enabled)
+    final splitBeat = _snapEnabled ? _snapToGrid(beatPosition) : beatPosition;
+
+    // Validate split is within note bounds
+    if (splitBeat <= note.startTime || splitBeat >= note.endTime) return;
+
+    _saveToHistory();
+
+    // Create two notes from one
+    final leftNote = note.copyWith(
+      duration: splitBeat - note.startTime,
+      id: '${DateTime.now().microsecondsSinceEpoch}_left',
+    );
+    final rightNote = note.copyWith(
+      startTime: splitBeat,
+      duration: note.endTime - splitBeat,
+      id: '${DateTime.now().microsecondsSinceEpoch}_right',
+    );
+
+    // Replace original with two new notes
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes
+            .where((n) => n.id != note.id)
+            .followedBy([leftNote, rightNote])
+            .toList(),
+      );
+    });
+
+    _commitToHistory('Slice note');
+    _notifyClipUpdated();
+    debugPrint('✂️ Sliced note ${note.noteName} at beat $splitBeat');
   }
 
   /// Save current state snapshot before making changes
@@ -402,45 +511,65 @@ class _PianoRollState extends State<PianoRoll> {
                             child: SizedBox(
                               width: canvasWidth,
                               height: canvasHeight,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onTapDown: _onTapDown,
-                                onSecondaryTapDown: _onRightClick,
-                                // Long-press for touch deletion (same as right-click)
-                                onLongPressStart: (details) => _onRightClick(
-                                  TapDownDetails(localPosition: details.localPosition),
-                                ),
-                                onPanStart: _onPanStart,
-                                onPanUpdate: _onPanUpdate,
-                                onPanEnd: _onPanEnd,
-                                child: Container(
-                                  color: Colors.transparent,
-                                  child: Stack(
-                                    children: [
-                                      CustomPaint(
-                                        size: Size(canvasWidth, canvasHeight),
-                                        painter: _GridPainter(
-                                          pixelsPerBeat: _pixelsPerBeat,
-                                          pixelsPerNote: _pixelsPerNote,
-                                          gridDivision: _gridDivision,
-                                          maxMidiNote: _maxMidiNote,
-                                          totalBeats: totalBeats,
-                                          activeBeats: activeBeats,
+                              // Listener captures right-click drag for eraser mode
+                              child: Listener(
+                                onPointerDown: (event) {
+                                  if (event.buttons == kSecondaryMouseButton) {
+                                    _startErasing(event.localPosition);
+                                  }
+                                },
+                                onPointerMove: (event) {
+                                  if (_isErasing && event.buttons == kSecondaryMouseButton) {
+                                    _eraseNotesAt(event.localPosition);
+                                  }
+                                },
+                                onPointerUp: (event) {
+                                  if (_isErasing) {
+                                    _stopErasing();
+                                  }
+                                  // Stop sustained audition when mouse released
+                                  _stopAudition();
+                                },
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  onTapDown: _onTapDown,
+                                  onTapUp: (_) => _stopAudition(),
+                                  onTapCancel: _stopAudition,
+                                  onSecondaryTapDown: _onRightClick,
+                                  // Removed long-press deletion - it conflicts with hold-to-preview
+                                  // Touch users can use secondary tap or swipe gestures instead
+                                  onPanStart: _onPanStart,
+                                  onPanUpdate: _onPanUpdate,
+                                  onPanEnd: _onPanEnd,
+                                  child: Container(
+                                    color: Colors.transparent,
+                                    child: Stack(
+                                      children: [
+                                        CustomPaint(
+                                          size: Size(canvasWidth, canvasHeight),
+                                          painter: _GridPainter(
+                                            pixelsPerBeat: _pixelsPerBeat,
+                                            pixelsPerNote: _pixelsPerNote,
+                                            gridDivision: _gridDivision,
+                                            maxMidiNote: _maxMidiNote,
+                                            totalBeats: totalBeats,
+                                            activeBeats: activeBeats,
+                                          ),
                                         ),
-                                      ),
-                                      CustomPaint(
-                                        size: Size(canvasWidth, canvasHeight),
-                                        painter: _NotePainter(
-                                          notes: _currentClip?.notes ?? [],
-                                          previewNote: _previewNote,
-                                          pixelsPerBeat: _pixelsPerBeat,
-                                          pixelsPerNote: _pixelsPerNote,
-                                          maxMidiNote: _maxMidiNote,
-                                          selectionStart: _selectionStart,
-                                          selectionEnd: _selectionEnd,
+                                        CustomPaint(
+                                          size: Size(canvasWidth, canvasHeight),
+                                          painter: _NotePainter(
+                                            notes: _currentClip?.notes ?? [],
+                                            previewNote: _previewNote,
+                                            pixelsPerBeat: _pixelsPerBeat,
+                                            pixelsPerNote: _pixelsPerNote,
+                                            maxMidiNote: _maxMidiNote,
+                                            selectionStart: _selectionStart,
+                                            selectionEnd: _selectionEnd,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -454,9 +583,123 @@ class _PianoRollState extends State<PianoRoll> {
               ),
             ),
           ),
+          // Velocity editing lane (Ableton-style)
+          if (_velocityLaneExpanded)
+            _buildVelocityLane(totalBeats, canvasWidth),
         ],
       ),
     );
+  }
+
+  /// Build the velocity editing lane
+  Widget _buildVelocityLane(double totalBeats, double canvasWidth) {
+    return Container(
+      height: _velocityLaneHeight,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E1E1E),
+        border: Border(
+          top: BorderSide(color: Color(0xFF404040), width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Label area (same width as piano keys)
+          Container(
+            width: 60,
+            height: _velocityLaneHeight,
+            decoration: const BoxDecoration(
+              color: Color(0xFF2A2A2A),
+              border: Border(
+                right: BorderSide(color: Color(0xFF404040), width: 1),
+              ),
+            ),
+            child: const Center(
+              child: Text(
+                'Vel',
+                style: TextStyle(
+                  color: Color(0xFF808080),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          // Velocity bars area (scrolls with note grid)
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _horizontalScroll,
+              scrollDirection: Axis.horizontal,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: _onVelocityPanStart,
+                onPanUpdate: _onVelocityPanUpdate,
+                onPanEnd: _onVelocityPanEnd,
+                child: CustomPaint(
+                  size: Size(canvasWidth, _velocityLaneHeight),
+                  painter: _VelocityLanePainter(
+                    notes: _currentClip?.notes ?? [],
+                    pixelsPerBeat: _pixelsPerBeat,
+                    laneHeight: _velocityLaneHeight,
+                    totalBeats: totalBeats,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Handle velocity lane pan start
+  void _onVelocityPanStart(DragStartDetails details) {
+    final note = _findNoteAtVelocityPosition(details.localPosition);
+    if (note != null) {
+      _saveToHistory();
+      _velocityDragNoteId = note.id;
+    }
+  }
+
+  /// Handle velocity lane pan update
+  void _onVelocityPanUpdate(DragUpdateDetails details) {
+    if (_velocityDragNoteId == null) return;
+
+    // Calculate new velocity based on Y position (inverted - top = high velocity)
+    final newVelocity = ((1 - (details.localPosition.dy / _velocityLaneHeight)) * 127)
+        .round()
+        .clamp(1, 127);
+
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.map((n) {
+          if (n.id == _velocityDragNoteId) {
+            return n.copyWith(velocity: newVelocity);
+          }
+          return n;
+        }).toList(),
+      );
+    });
+    _notifyClipUpdated();
+  }
+
+  /// Handle velocity lane pan end
+  void _onVelocityPanEnd(DragEndDetails details) {
+    if (_velocityDragNoteId != null) {
+      _commitToHistory('Change velocity');
+      _velocityDragNoteId = null;
+    }
+  }
+
+  /// Find note at velocity lane position
+  MidiNoteData? _findNoteAtVelocityPosition(Offset position) {
+    final beat = _getBeatAtX(position.dx);
+
+    for (final note in _currentClip?.notes ?? []) {
+      if (beat >= note.startTime && beat < note.endTime) {
+        return note;
+      }
+    }
+    return null;
   }
 
   Widget _buildHeader() {
@@ -498,6 +741,16 @@ class _PianoRollState extends State<PianoRoll> {
 
           const SizedBox(width: 8),
 
+          // Slice mode toggle
+          _buildHeaderButton(
+            icon: Icons.content_cut,
+            label: 'Slice',
+            isActive: _sliceModeEnabled,
+            onTap: _toggleSliceMode,
+          ),
+
+          const SizedBox(width: 8),
+
           // Quantize dropdown
           _buildQuantizeButton(),
 
@@ -509,6 +762,16 @@ class _PianoRollState extends State<PianoRoll> {
             label: 'Audition',
             isActive: _auditionEnabled,
             onTap: _toggleAudition,
+          ),
+
+          const SizedBox(width: 8),
+
+          // Velocity lane toggle
+          _buildHeaderButton(
+            icon: Icons.equalizer,
+            label: 'Velocity',
+            isActive: _velocityLaneExpanded,
+            onTap: _toggleVelocityLane,
           ),
 
           const SizedBox(width: 8),
@@ -782,7 +1045,7 @@ class _PianoRollState extends State<PianoRoll> {
     return null; // Not near any edge
   }
 
-  // Handle hover for cursor feedback (FL Studio style)
+  // Handle hover for cursor feedback (smart context-aware cursors)
   void _onHover(PointerHoverEvent event) {
     // Don't update cursor during active drag operations
     if (_currentMode == InteractionMode.move || _currentMode == InteractionMode.resize) {
@@ -791,55 +1054,68 @@ class _PianoRollState extends State<PianoRoll> {
 
     final position = event.localPosition;
     final hoveredNote = _findNoteAtPosition(position);
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isSliceActive = _sliceModeEnabled || isAltPressed;
 
     if (hoveredNote != null) {
-      final edge = _getEdgeAtPosition(position, hoveredNote);
-
-      if (edge != null) {
-        // Near edge - show resize cursor
+      if (isSliceActive) {
+        // Slice mode - show vertical split cursor
         setState(() {
-          _currentCursor = SystemMouseCursors.resizeLeftRight;
+          _currentCursor = SystemMouseCursors.verticalText; // Vertical line cursor for slicing
           _hoveredNote = hoveredNote;
-          _hoveredEdge = edge;
+          _hoveredEdge = null;
         });
       } else {
-        // On note body - show grab cursor
-        setState(() {
-          _currentCursor = SystemMouseCursors.grab;
-          _hoveredNote = hoveredNote;
-          _hoveredEdge = null;
-        });
+        final edge = _getEdgeAtPosition(position, hoveredNote);
+
+        if (edge != null) {
+          // Near edge - show resize cursor
+          setState(() {
+            _currentCursor = SystemMouseCursors.resizeLeftRight;
+            _hoveredNote = hoveredNote;
+            _hoveredEdge = edge;
+          });
+        } else {
+          // On note body - show grab cursor
+          setState(() {
+            _currentCursor = SystemMouseCursors.grab;
+            _hoveredNote = hoveredNote;
+            _hoveredEdge = null;
+          });
+        }
       }
     } else {
-      // Empty space - default cursor
-      if (_currentCursor != SystemMouseCursors.basic) {
-        setState(() {
-          _currentCursor = SystemMouseCursors.basic;
-          _hoveredNote = null;
-          _hoveredEdge = null;
-        });
-      }
+      // Empty space - default cursor for note creation
+      setState(() {
+        _currentCursor = SystemMouseCursors.basic; // Default cursor
+        _hoveredNote = null;
+        _hoveredEdge = null;
+      });
     }
   }
 
   void _onTapDown(TapDownDetails details) {
     final clickedNote = _findNoteAtPosition(details.localPosition);
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isSliceActive = _sliceModeEnabled || isAltPressed;
 
     if (clickedNote != null) {
-      // Select note and preview it
-      setState(() {
-        _currentClip = _currentClip?.copyWith(
-          notes: _currentClip!.notes.map((n) {
-            return n.copyWith(isSelected: n.id == clickedNote.id);
-          }).toList(),
-        );
-      });
-      // Audition the selected note
-      _auditionNote(clickedNote.note, clickedNote.velocity);
-    } else {
-      // Create new note on single click (no dragging required)
-      _saveToHistory(); // Save before creating note
+      // Check if slice mode is active
+      if (isSliceActive) {
+        // Slice the note at click position
+        final beatPosition = _getBeatAtX(details.localPosition.dx);
+        _sliceNoteAt(clickedNote, beatPosition);
+        return;
+      }
 
+      // Start sustained audition (will stop on mouse up)
+      _startAudition(clickedNote.note, clickedNote.velocity);
+
+      // Clear just-created tracking since we clicked on existing note
+      _justCreatedNoteId = null;
+    } else if (!isSliceActive) {
+      // Empty space click - create note immediately
+      _saveToHistory();
       final beat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
       final note = _getNoteAtY(details.localPosition.dy);
 
@@ -847,19 +1123,21 @@ class _PianoRollState extends State<PianoRoll> {
         note: note,
         velocity: 100,
         startTime: beat,
-        duration: _lastNoteDuration, // Use remembered duration
+        duration: _lastNoteDuration,
       );
 
       setState(() {
         _currentClip = _currentClip?.addNote(newNote);
       });
+
+      // Track this note for immediate drag-to-move if user drags
+      _justCreatedNoteId = newNote.id;
+
+      _commitToHistory('Add note');
       _notifyClipUpdated();
-      _commitToHistory('Add note: ${newNote.noteName}');
-
-      // Audition the newly created note
-      _auditionNote(note, 100);
-
-      debugPrint('🎵 Created note: ${newNote.noteName} (duration: $_lastNoteDuration beats)');
+      // Start sustained audition (will stop on mouse up)
+      _startAudition(note, 100);
+      debugPrint('🎵 Created note at beat $beat');
     }
   }
 
@@ -867,6 +1145,8 @@ class _PianoRollState extends State<PianoRoll> {
     _dragStart = details.localPosition;
     final clickedNote = _findNoteAtPosition(details.localPosition);
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isSliceActive = _sliceModeEnabled || isAltPressed;
 
     if (isShiftPressed && clickedNote == null) {
       // Start multi-select with shift+drag
@@ -876,7 +1156,36 @@ class _PianoRollState extends State<PianoRoll> {
         _selectionEnd = details.localPosition;
         _currentMode = InteractionMode.select;
       });
-    } else if (clickedNote != null) {
+    } else if (_justCreatedNoteId != null) {
+      // User is dragging from where they just created a note - move it (FL Studio style)
+      final createdNote = _currentClip?.notes.firstWhere(
+        (n) => n.id == _justCreatedNoteId,
+        orElse: () => MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+      );
+
+      if (createdNote != null && createdNote.id == _justCreatedNoteId) {
+        // Start moving the just-created note
+        _saveToHistory();
+
+        // Store original positions of all notes for proper delta calculation
+        _dragStartNotes = {
+          for (final n in _currentClip?.notes ?? []) n.id: n
+        };
+
+        // Mark this note as the one being moved (for _onPanUpdate)
+        _movingNoteId = _justCreatedNoteId;
+
+        setState(() {
+          _currentMode = InteractionMode.move;
+          _currentCursor = SystemMouseCursors.grabbing;
+        });
+
+        debugPrint('🎵 Started moving just-created note');
+      }
+
+      // Clear just-created tracking
+      _justCreatedNoteId = null;
+    } else if (clickedNote != null && !isSliceActive) {
       // Check if we're near the edge for resizing (FL Studio style)
       final edge = _getEdgeAtPosition(details.localPosition, clickedNote);
 
@@ -893,16 +1202,22 @@ class _PianoRollState extends State<PianoRoll> {
       } else {
         // Start moving the note (clicked on body)
         _saveToHistory(); // Save before moving
+
+        // Store original positions of all notes for proper delta calculation
+        _dragStartNotes = {
+          for (final n in _currentClip?.notes ?? []) n.id: n
+        };
+
+        // Mark this note as the one being moved (no selection highlight)
+        _movingNoteId = clickedNote.id;
+
         setState(() {
           _currentMode = InteractionMode.move;
           _currentCursor = SystemMouseCursors.grabbing; // Closed hand while dragging
-          // Make sure note is selected
-          _currentClip = _currentClip?.copyWith(
-            notes: _currentClip!.notes.map((n) {
-              return n.copyWith(isSelected: n.id == clickedNote.id);
-            }).toList(),
-          );
         });
+
+        // Start sustained audition when starting to drag (FL Studio style)
+        _startAudition(clickedNote.note, clickedNote.velocity);
       }
     }
     // Note: No longer need to handle drawing here - single-click in _onTapDown creates notes
@@ -914,30 +1229,73 @@ class _PianoRollState extends State<PianoRoll> {
       setState(() {
         _selectionEnd = details.localPosition;
       });
+    } else if (_isPainting && _paintNote != null) {
+      // Paint mode - create additional notes as user drags right
+      final currentBeat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
+      final nextNoteBeat = _lastPaintedBeat + _lastNoteDuration;
+
+      // Only create note if we've dragged far enough for the next note
+      if (currentBeat >= nextNoteBeat) {
+        final newNote = MidiNoteData(
+          note: _paintNote!,
+          velocity: 100,
+          startTime: nextNoteBeat,
+          duration: _lastNoteDuration,
+        );
+
+        setState(() {
+          _currentClip = _currentClip?.addNote(newNote);
+          _lastPaintedBeat = nextNoteBeat;
+        });
+
+        debugPrint('🎨 Painted note at beat $nextNoteBeat');
+      }
     } else if (_currentMode == InteractionMode.move && _dragStart != null) {
-      // Move selected notes
+      // Move selected notes - use delta from original drag start position
       final deltaX = details.localPosition.dx - _dragStart!.dx;
       final deltaY = details.localPosition.dy - _dragStart!.dy;
 
       final deltaBeat = deltaX / _pixelsPerBeat;
       final deltaNote = -(deltaY / _pixelsPerNote).round(); // Inverted Y
 
+      // Track pitch changes for audition
+      int? newPitchForAudition;
+      int? velocityForAudition;
+
       setState(() {
         _currentClip = _currentClip?.copyWith(
           notes: _currentClip!.notes.map((n) {
-            if (n.isSelected) {
-              final newStartTime = _snapToGrid(n.startTime + deltaBeat).clamp(0.0, 64.0);
-              final newNote = (n.note + deltaNote).clamp(0, 127);
-              return n.copyWith(
-                startTime: newStartTime,
-                note: newNote,
-              );
+            // Move the note being dragged (by _movingNoteId) or any selected notes
+            if (n.id == _movingNoteId || n.isSelected) {
+              // Use original position from drag start, not current position
+              final originalNote = _dragStartNotes[n.id];
+              if (originalNote != null) {
+                final newStartTime = _snapToGrid(originalNote.startTime + deltaBeat).clamp(0.0, 64.0);
+                final newNote = (originalNote.note + deltaNote).clamp(0, 127);
+
+                // Capture the new pitch for audition
+                if (newPitchForAudition == null) {
+                  newPitchForAudition = newNote;
+                  velocityForAudition = n.velocity;
+                }
+
+                return n.copyWith(
+                  startTime: newStartTime,
+                  note: newNote,
+                );
+              }
             }
             return n;
           }).toList(),
         );
-        _dragStart = details.localPosition;
+        // Don't update _dragStart here - keep original for cumulative delta
       });
+
+      // Change audition pitch when dragging note up/down
+      if (newPitchForAudition != null) {
+        _changeAuditionPitch(newPitchForAudition!, velocityForAudition ?? 100);
+      }
+
       _notifyClipUpdated();
     } else if (_currentMode == InteractionMode.resize && _resizingNoteId != null) {
       // Resize note from left or right edge (FL Studio style)
@@ -971,6 +1329,30 @@ class _PianoRollState extends State<PianoRoll> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // Clear just-created tracking on any pan end
+    _justCreatedNoteId = null;
+
+    // Handle paint mode completion (legacy - kept for potential future use)
+    if (_isPainting) {
+      final paintedNotes = _lastPaintedBeat - (_paintStartBeat ?? 0);
+      final additionalNotes = (paintedNotes / _lastNoteDuration).round();
+
+      // Only commit if we actually painted additional notes (beyond the initial click-created one)
+      if (additionalNotes > 0) {
+        _saveToHistory();
+        _commitToHistory('Paint ${additionalNotes + 1} notes');
+        _notifyClipUpdated();
+      }
+
+      setState(() {
+        _isPainting = false;
+        _paintStartBeat = null;
+        _paintNote = null;
+        _lastPaintedBeat = 0.0;
+      });
+      return;
+    }
+
     if (_currentMode == InteractionMode.select && _isSelecting) {
       // Apply selection rectangle
       if (_selectionStart != null && _selectionEnd != null) {
@@ -1022,9 +1404,14 @@ class _PianoRollState extends State<PianoRoll> {
       }
     }
 
+    // Stop audition when mouse released
+    _stopAudition();
+
     // Reset state
     setState(() {
       _dragStart = null;
+      _dragStartNotes = {}; // Clear stored original positions
+      _movingNoteId = null; // Clear moving note tracking
       _isResizing = false;
       _resizingNoteId = null;
       _resizingEdge = null;
@@ -1146,7 +1533,7 @@ class _PianoRollState extends State<PianoRoll> {
     _commitToHistory(selectedCount == 1 ? 'Delete note' : 'Delete $selectedCount notes');
   }
 
-  /// Handle right-click on canvas
+  /// Handle right-click on canvas (single click delete)
   void _onRightClick(TapDownDetails details) {
     final clickedNote = _findNoteAtPosition(details.localPosition);
 
@@ -1162,6 +1549,40 @@ class _PianoRollState extends State<PianoRoll> {
       _commitToHistory('Delete note: ${clickedNote.noteName}');
       debugPrint('🗑️ Deleted note: ${clickedNote.noteName}');
     }
+  }
+
+  /// Start eraser mode (right-click drag)
+  void _startErasing(Offset position) {
+    _saveToHistory();
+    _isErasing = true;
+    _erasedNoteIds = {};
+    setState(() => _currentCursor = SystemMouseCursors.forbidden);
+    _eraseNotesAt(position);
+  }
+
+  /// Erase notes at the given position
+  void _eraseNotesAt(Offset position) {
+    final note = _findNoteAtPosition(position);
+    if (note != null && !_erasedNoteIds.contains(note.id)) {
+      _erasedNoteIds.add(note.id);
+      setState(() {
+        _currentClip = _currentClip?.copyWith(
+          notes: _currentClip!.notes.where((n) => n.id != note.id).toList(),
+        );
+      });
+      _notifyClipUpdated();
+      debugPrint('🧹 Erased note: ${note.noteName}');
+    }
+  }
+
+  /// Stop eraser mode
+  void _stopErasing() {
+    if (_erasedNoteIds.isNotEmpty) {
+      _commitToHistory('Delete ${_erasedNoteIds.length} notes');
+    }
+    _isErasing = false;
+    _erasedNoteIds = {};
+    setState(() => _currentCursor = SystemMouseCursors.basic);
   }
 }
 
@@ -1508,6 +1929,108 @@ class _BarRulerPainter extends CustomPainter {
   bool shouldRepaint(_BarRulerPainter oldDelegate) {
     return playheadPosition != oldDelegate.playheadPosition ||
            pixelsPerBeat != oldDelegate.pixelsPerBeat ||
+           totalBeats != oldDelegate.totalBeats;
+  }
+}
+
+/// Painter for velocity editing lane (Ableton-style)
+class _VelocityLanePainter extends CustomPainter {
+  final List<MidiNoteData> notes;
+  final double pixelsPerBeat;
+  final double laneHeight;
+  final double totalBeats;
+
+  _VelocityLanePainter({
+    required this.notes,
+    required this.pixelsPerBeat,
+    required this.laneHeight,
+    required this.totalBeats,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw background
+    final bgPaint = Paint()
+      ..color = const Color(0xFF1E1E1E);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // Draw horizontal grid lines at 25%, 50%, 75%, 100%
+    final gridPaint = Paint()
+      ..color = const Color(0xFF333333)
+      ..strokeWidth = 1;
+
+    for (var i = 1; i <= 4; i++) {
+      final y = size.height * (1 - i / 4);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Draw vertical bar lines (every 4 beats)
+    final barPaint = Paint()
+      ..color = const Color(0xFF404040)
+      ..strokeWidth = 1;
+
+    for (double beat = 0; beat <= totalBeats; beat += 4) {
+      final x = beat * pixelsPerBeat;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), barPaint);
+    }
+
+    // Draw velocity bars for each note
+    final barFillPaint = Paint()
+      ..color = const Color(0xFF00BCD4) // Cyan to match notes
+      ..style = PaintingStyle.fill;
+
+    final barBorderPaint = Paint()
+      ..color = const Color(0xFF00838F) // Darker cyan border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (final note in notes) {
+      final x = note.startTime * pixelsPerBeat;
+      final width = (note.duration * pixelsPerBeat).clamp(4.0, double.infinity);
+      final barHeight = (note.velocity / 127) * laneHeight;
+      final y = laneHeight - barHeight;
+
+      // Draw velocity bar
+      final barRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 1, y, width - 2, barHeight),
+        const Radius.circular(2),
+      );
+
+      canvas.drawRRect(barRect, barFillPaint);
+      canvas.drawRRect(barRect, barBorderPaint);
+
+      // Draw velocity value text for wider notes
+      if (width > 25) {
+        final textPainter = TextPainter(
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        );
+
+        textPainter.text = TextSpan(
+          text: '${note.velocity}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+          ),
+        );
+
+        textPainter.layout();
+        final textX = x + (width - textPainter.width) / 2;
+        final textY = y + 2;
+
+        if (barHeight > 14) {
+          textPainter.paint(canvas, Offset(textX, textY));
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_VelocityLanePainter oldDelegate) {
+    return notes != oldDelegate.notes ||
+           pixelsPerBeat != oldDelegate.pixelsPerBeat ||
+           laneHeight != oldDelegate.laneHeight ||
            totalBeats != oldDelegate.totalBeats;
   }
 }

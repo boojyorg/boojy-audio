@@ -157,10 +157,11 @@ impl AudioGraph {
         // Create audio stream immediately (prevents deadlock on first play)
         eprintln!("🔊 [AudioGraph] Creating audio stream during initialization...");
         let stream = graph.create_audio_stream()?;
-        // Pause immediately - stream will be started on play()
-        stream.pause()?;
+        // Keep stream running even when stopped - needed for real-time MIDI preview
+        // The callback checks transport state to decide whether to advance playhead
+        stream.play()?;
         graph.stream = Some(stream);
-        eprintln!("✅ [AudioGraph] Audio stream created and paused");
+        eprintln!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
 
         Ok(graph)
     }
@@ -347,12 +348,8 @@ impl AudioGraph {
         }
         self.state.store(TransportState::Playing as u8, Ordering::SeqCst);
 
-        // Stream is pre-created during initialization
-        if let Some(stream) = &self.stream {
-            stream.play()?;
-        } else {
-            return Err(anyhow::anyhow!("Audio stream not initialized"));
-        }
+        // Stream is always running (for MIDI preview) - no need to start/stop it
+        // The callback checks transport state to decide what to process
 
         Ok(())
     }
@@ -360,11 +357,7 @@ impl AudioGraph {
     /// Pause playback (keeps position) - lock-free state change
     pub fn pause(&mut self) -> anyhow::Result<()> {
         self.state.store(TransportState::Paused as u8, Ordering::SeqCst);
-
-        if let Some(stream) = &self.stream {
-            stream.pause()?;
-        }
-
+        // Stream keeps running for MIDI preview
         Ok(())
     }
 
@@ -373,10 +366,7 @@ impl AudioGraph {
         eprintln!("⏹️  [AudioGraph] stop() called - resetting playhead and metronome");
 
         self.state.store(TransportState::Stopped as u8, Ordering::SeqCst);
-
-        if let Some(stream) = &self.stream {
-            stream.pause()?;
-        }
+        // Stream keeps running for MIDI preview
 
         // Silence all synthesizers to prevent stuck notes/drone
         if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
@@ -447,9 +437,6 @@ impl AudioGraph {
 
     /// Restart the audio stream (used when changing buffer size)
     fn restart_audio_stream(&mut self) -> anyhow::Result<()> {
-        // Remember if we were playing
-        let was_playing = self.get_state() == TransportState::Playing;
-
         // Stop current stream
         if let Some(stream) = self.stream.take() {
             let _ = stream.pause();
@@ -460,11 +447,8 @@ impl AudioGraph {
         eprintln!("🔊 [AudioGraph] Restarting audio stream...");
         let stream = self.create_audio_stream()?;
 
-        if was_playing {
-            stream.play()?;
-        } else {
-            stream.pause()?;
-        }
+        // Always keep stream running for MIDI preview
+        stream.play()?;
 
         self.stream = Some(stream);
         eprintln!("✅ [AudioGraph] Audio stream restarted");
@@ -545,11 +529,27 @@ impl AudioGraph {
                 let is_playing = state.load(Ordering::SeqCst) == TransportState::Playing as u8;
 
                 if !is_playing {
-                    // Even when not playing, we might be recording
-                    // Process metronome and recording
+                    // Even when not playing, we might be recording or using virtual piano
+                    // Process metronome, recording, AND synths (for real-time MIDI input)
+                    // but DON'T advance playhead or trigger MIDI clips from timeline
+
+                    // Debug: log that we're in stopped callback (once)
+                    static LOGGED_STOPPED: AtomicBool = AtomicBool::new(false);
+                    if !LOGGED_STOPPED.swap(true, Ordering::Relaxed) {
+                        eprintln!("🔇 Audio callback: NOT PLAYING branch active");
+                    }
 
                     // Log channel info once
                     static LOGGED_CHANNELS: AtomicBool = AtomicBool::new(false);
+
+                    // Lock synth manager once for the entire buffer
+                    let mut synth_guard = track_synth_manager.lock().ok();
+
+                    // Debug: log if we got the lock
+                    static LOGGED_LOCK: AtomicBool = AtomicBool::new(false);
+                    if !LOGGED_LOCK.swap(true, Ordering::Relaxed) {
+                        eprintln!("🔇 Synth guard acquired: {}", synth_guard.is_some());
+                    }
 
                     for frame_idx in 0..frames {
                         // Get input samples (if recording)
@@ -586,9 +586,31 @@ impl AudioGraph {
                         // Process recording and get metronome output
                         let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, false);
 
-                        // Output only metronome when not playing
-                        data[frame_idx * 2] = met_left;
-                        data[frame_idx * 2 + 1] = met_right;
+                        // Process synths for real-time MIDI input (virtual piano)
+                        // This allows synths to produce sound from real-time note_on/note_off calls
+                        // without triggering notes from timeline MIDI clips
+                        let mut synth_output = 0.0;
+                        if let Some(ref mut synth_manager) = synth_guard {
+                            synth_output = synth_manager.process_all_synths();
+                        }
+
+                        // Debug: log if synth is producing output (only first frame to avoid spam)
+                        if frame_idx == 0 && synth_output.abs() > 0.001 {
+                            static LAST_LOG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+                            let now = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_millis() as u64;
+                            let last = LAST_LOG.load(Ordering::Relaxed);
+                            if now - last > 100 { // Log every 100ms max
+                                LAST_LOG.store(now, Ordering::Relaxed);
+                                eprintln!("🔊 Synth output (stopped): {:.4}", synth_output);
+                            }
+                        }
+
+                        // Output metronome + synths when not playing
+                        data[frame_idx * 2] = met_left + synth_output;
+                        data[frame_idx * 2 + 1] = met_right + synth_output;
                     }
                     return;
                 }

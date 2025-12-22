@@ -377,6 +377,8 @@ impl TrackSynthManager {
     pub fn note_on(&mut self, track_id: u64, note: u8, velocity: u8) {
         if let Some(synth) = self.synths.get_mut(&track_id) {
             synth.note_on(note, velocity);
+        } else {
+            eprintln!("⚠️ note_on: No synth for track {}. Available tracks: {:?}", track_id, self.synths.keys().collect::<Vec<_>>());
         }
     }
 
@@ -408,6 +410,35 @@ impl TrackSynthManager {
         for synth in self.synths.values_mut() {
             synth.all_notes_off();
         }
+    }
+
+    /// Get all track IDs that have synths
+    pub fn track_ids(&self) -> Vec<u64> {
+        self.synths.keys().copied().collect()
+    }
+
+    /// Process all synths and return combined output (for stopped state with virtual piano)
+    pub fn process_all_synths(&mut self) -> f32 {
+        // Debug: log synth count once
+        static LOGGED_COUNT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !LOGGED_COUNT.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("🔊 process_all_synths: {} synths available, tracks: {:?}",
+                self.synths.len(), self.synths.keys().collect::<Vec<_>>());
+        }
+
+        let mut output = 0.0;
+        for (track_id, synth) in self.synths.iter_mut() {
+            let sample = synth.process_sample();
+            if sample.abs() > 0.001 {
+                // Debug: only log once per note
+                static LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                if !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                    eprintln!("🔊 process_all_synths: track {} producing sample {:.4}", track_id, sample);
+                }
+            }
+            output += sample;
+        }
+        output
     }
 
     pub fn remove_synth(&mut self, track_id: u64) -> bool {
