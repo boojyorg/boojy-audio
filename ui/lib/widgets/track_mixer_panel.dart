@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'dart:async';
 import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
@@ -8,6 +7,7 @@ import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
+import 'platform_drop_target.dart';
 
 /// Track data model
 class TrackData {
@@ -336,7 +336,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return DropTarget(
+    return PlatformDropTarget(
       onDragDone: (details) {
         // Handle audio file drops
         for (final file in details.files) {

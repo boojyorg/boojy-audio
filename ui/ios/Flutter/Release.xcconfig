@@ -1,0 +1,6 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include "Generated.xcconfig"
+
+// Link Rust audio engine static library for device
+LIBRARY_SEARCH_PATHS = $(inherited) $(SRCROOT)/Frameworks
+OTHER_LDFLAGS = $(inherited) -force_load $(SRCROOT)/Frameworks/libengine_device.a

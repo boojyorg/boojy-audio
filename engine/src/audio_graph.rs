@@ -491,10 +491,17 @@ impl AudioGraph {
         // Check if device supports our preferred buffer size
         let buffer_size = match supported_config.buffer_size() {
             SupportedBufferSize::Range { min, max } => {
-                let clamped = preferred_samples.clamp(*min, *max);
-                eprintln!("🔊 [AudioGraph] Buffer size: requested={}, device range=[{}-{}], using={}",
-                    preferred_samples, min, max, clamped);
-                Some(cpal::BufferSize::Fixed(clamped))
+                // Handle invalid range (e.g., iOS simulator reports [0-0])
+                if *max == 0 || *min == *max && *max == 0 {
+                    eprintln!("🔊 [AudioGraph] Buffer size: device reports invalid range [{}-{}], using default",
+                        min, max);
+                    None
+                } else {
+                    let clamped = preferred_samples.clamp(*min, *max);
+                    eprintln!("🔊 [AudioGraph] Buffer size: requested={}, device range=[{}-{}], using={}",
+                        preferred_samples, min, max, clamped);
+                    Some(cpal::BufferSize::Fixed(clamped))
+                }
             }
             SupportedBufferSize::Unknown => {
                 eprintln!("🔊 [AudioGraph] Buffer size: device doesn't report range, using default");
@@ -1018,6 +1025,7 @@ impl AudioGraph {
                             effect_type_str = "limiter".to_string();
                             // Limiter has no user-adjustable parameters
                         }
+                        #[cfg(not(target_os = "ios"))]
                         ET::VST3(_vst3) => {
                             effect_type_str = "vst3".to_string();
                             // TODO M7: Save VST3 plugin path and state

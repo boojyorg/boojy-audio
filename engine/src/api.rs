@@ -118,8 +118,12 @@ pub fn init_audio_engine() -> Result<String, String> {
 /// Initialize the audio graph for playback
 pub fn init_audio_graph() -> Result<String, String> {
     // Initialize VST3 host first (required before loading any VST3 plugins)
-    use crate::vst3_host::VST3Host;
-    VST3Host::init().map_err(|e| format!("VST3 host init failed: {}", e))?;
+    // VST3 is not supported on iOS
+    #[cfg(not(target_os = "ios"))]
+    {
+        use crate::vst3_host::VST3Host;
+        VST3Host::init().map_err(|e| format!("VST3 host init failed: {}", e))?;
+    }
 
     let graph = AudioGraph::new().map_err(|e| e.to_string())?;
     AUDIO_GRAPH.set(Mutex::new(graph))
@@ -1765,6 +1769,7 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
                 "type:limiter,threshold:{},release:{}",
                 lim.threshold_db, lim.release_ms
             ),
+            #[cfg(not(target_os = "ios"))]
             EffectType::VST3(vst3) => {
                 // Return basic VST3 info
                 format!("type:vst3,name:{}", vst3.name())
@@ -1845,6 +1850,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                     _ => return Err(format!("Unknown Limiter parameter: {}", param_name)),
                 }
             }
+            #[cfg(not(target_os = "ios"))]
             EffectType::VST3(vst3) => {
                 // VST3 parameters are accessed by index (e.g., "param_0", "param_1")
                 if let Some(index_str) = param_name.strip_prefix("param_") {
@@ -1866,9 +1872,10 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
 }
 
 // ============================================================================
-// VST3 Plugin Functions (M7)
+// VST3 Plugin Functions (M7) - Desktop only (not available on iOS)
 // ============================================================================
 
+#[cfg(not(target_os = "ios"))]
 /// Load a VST3 plugin and add it to a track's FX chain
 pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<u64, String> {
     use crate::effects::EffectType;
@@ -1904,6 +1911,7 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Get the number of parameters in a VST3 plugin
 pub fn get_vst3_parameter_count(effect_id: u64) -> Result<u32, String> {
     use crate::effects::EffectType;
@@ -1926,6 +1934,7 @@ pub fn get_vst3_parameter_count(effect_id: u64) -> Result<u32, String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Get information about a VST3 parameter (returns "name,min,max,default")
 pub fn get_vst3_parameter_info(effect_id: u64, param_index: u32) -> Result<String, String> {
     use crate::effects::EffectType;
@@ -1950,6 +1959,7 @@ pub fn get_vst3_parameter_info(effect_id: u64, param_index: u32) -> Result<Strin
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Get a VST3 parameter value
 pub fn get_vst3_parameter_value(effect_id: u64, param_index: u32) -> Result<f64, String> {
     use crate::effects::EffectType;
@@ -1972,6 +1982,7 @@ pub fn get_vst3_parameter_value(effect_id: u64, param_index: u32) -> Result<f64,
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Set a VST3 parameter value (normalized 0.0-1.0)
 pub fn set_vst3_parameter_value(effect_id: u64, param_index: u32, value: f64) -> Result<String, String> {
     use crate::effects::EffectType;
@@ -1996,9 +2007,10 @@ pub fn set_vst3_parameter_value(effect_id: u64, param_index: u32, value: f64) ->
 }
 
 // ============================================================================
-// M7: VST3 Editor Functions
+// M7: VST3 Editor Functions - Desktop only (not available on iOS)
 // ============================================================================
 
+#[cfg(not(target_os = "ios"))]
 /// Check if a VST3 plugin has an editor GUI
 pub fn vst3_has_editor(effect_id: u64) -> Result<bool, String> {
     use crate::effects::EffectType;
@@ -2021,6 +2033,7 @@ pub fn vst3_has_editor(effect_id: u64) -> Result<bool, String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Open a VST3 plugin editor (creates IPlugView)
 pub fn vst3_open_editor(effect_id: u64) -> Result<String, String> {
     use crate::effects::EffectType;
@@ -2044,6 +2057,7 @@ pub fn vst3_open_editor(effect_id: u64) -> Result<String, String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Close a VST3 plugin editor
 pub fn vst3_close_editor(effect_id: u64) -> Result<(), String> {
     use crate::effects::EffectType;
@@ -2067,6 +2081,7 @@ pub fn vst3_close_editor(effect_id: u64) -> Result<(), String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Get VST3 editor size (returns "width,height")
 pub fn vst3_get_editor_size(effect_id: u64) -> Result<String, String> {
     use crate::effects::EffectType;
@@ -2090,6 +2105,7 @@ pub fn vst3_get_editor_size(effect_id: u64) -> Result<String, String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Attach VST3 editor to a parent window
 pub fn vst3_attach_editor(effect_id: u64, parent_ptr: *mut std::os::raw::c_void) -> Result<String, String> {
     use crate::effects::EffectType;
@@ -2113,6 +2129,7 @@ pub fn vst3_attach_editor(effect_id: u64, parent_ptr: *mut std::os::raw::c_void)
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Scan a directory for VST3 plugins (returns list of plugin paths)
 pub fn scan_vst3_plugins(directory_path: &str) -> Result<String, String> {
     use crate::vst3_host;
@@ -2128,6 +2145,7 @@ pub fn scan_vst3_plugins(directory_path: &str) -> Result<String, String> {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 /// Scan standard system locations for VST3 plugins
 pub fn scan_vst3_plugins_standard() -> Result<String, String> {
     use crate::vst3_host;
@@ -2170,6 +2188,67 @@ pub fn scan_vst3_plugins_standard() -> Result<String, String> {
 // ============================================================================
 // End VST3 Functions
 // ============================================================================
+
+// iOS stub functions for VST3 (return "not supported" errors)
+#[cfg(target_os = "ios")]
+pub fn add_vst3_effect_to_track(_track_id: u64, _plugin_path: &str) -> Result<u64, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn get_vst3_parameter_count(_effect_id: u64) -> Result<u32, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn get_vst3_parameter_info(_effect_id: u64, _param_index: u32) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn get_vst3_parameter_value(_effect_id: u64, _param_index: u32) -> Result<f64, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn set_vst3_parameter_value(_effect_id: u64, _param_index: u32, _value: f64) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn vst3_has_editor(_effect_id: u64) -> Result<bool, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn vst3_open_editor(_effect_id: u64) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn vst3_close_editor(_effect_id: u64) -> Result<(), String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn vst3_get_editor_size(_effect_id: u64) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn vst3_attach_editor(_effect_id: u64, _parent_ptr: *mut std::os::raw::c_void) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn scan_vst3_plugins(_directory_path: &str) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn scan_vst3_plugins_standard() -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
 
 /// Delete a track (cannot delete master)
 pub fn delete_track(track_id: TrackId) -> Result<String, String> {

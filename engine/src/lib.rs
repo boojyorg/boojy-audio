@@ -12,7 +12,10 @@ mod synth;
 mod track;      // M4: Track system
 mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
-mod vst3_host;  // M7: VST3 plugin hosting
+
+// VST3 plugin hosting - desktop only (not available on iOS)
+#[cfg(not(target_os = "ios"))]
+mod vst3_host;
 
 // Re-export API functions
 // Allow ambiguous re-exports - the API module is the canonical source
@@ -29,6 +32,8 @@ pub use synth::*;
 pub use track::*;
 pub use effects::*;
 pub use project::*;
+
+#[cfg(not(target_os = "ios"))]
 pub use vst3_host::*;
 // FFI exports are handled by #[no_mangle] in ffi.rs
 

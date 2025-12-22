@@ -171,8 +171,24 @@ class AudioEngine {
       _lib = ffi.DynamicLibrary.open('engine.dll');
     } else if (Platform.isLinux) {
       _lib = ffi.DynamicLibrary.open('libengine.so');
+    } else if (Platform.isIOS) {
+      // On iOS, the static library is linked into the app at build time
+      // In Debug mode, Flutter uses Runner.debug.dylib for Hot Restart support
+      // In Release mode, symbols are in the main executable
+      print('📱 [AudioEngine] Loading iOS embedded library');
+
+      // Try loading the debug dylib first (for debug builds)
+      try {
+        _lib = ffi.DynamicLibrary.open('Runner.debug.dylib');
+        print('✅ [AudioEngine] iOS debug dylib loaded');
+      } catch (e) {
+        // Fall back to process() for release builds
+        print('🔄 [AudioEngine] Debug dylib not found, trying process()');
+        _lib = ffi.DynamicLibrary.process();
+        print('✅ [AudioEngine] iOS library accessed via process()');
+      }
     } else {
-      throw UnsupportedError('Unsupported platform');
+      throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
     }
 
     // Bind M0 functions

@@ -6,15 +6,19 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "staticlib"]
 
+[features]
+default = ["desktop"]
+desktop = ["vst3", "midi"]
+mobile = []
+vst3 = []
+midi = []
+
 [dependencies]
 # Audio I/O and playback
 cpal = "0.15"                    # Cross-platform audio I/O
 symphonia = { version = "0.5", features = ["aac", "mp3", "isomp4", "alac"] }  # Audio decoding
 rubato = "0.15"                  # Sample rate conversion
 ringbuf = "0.4"                  # Lock-free audio buffers
-
-# MIDI I/O
-midir = "0.9"                    # Cross-platform MIDI I/O
 
 # Utilities
 anyhow = "1.0"                   # Error handling
@@ -37,3 +41,7 @@ parking_lot = "0.12"             # Better mutexes for plugin thread safety
 flate2 = "1.0"                   # Plugin state compression
 base64 = "0.21"                  # Base64 encoding for plugin state
 walkdir = "2.4"                  # Directory traversal for plugin scanning
+
+# MIDI I/O (desktop only - midir doesn't support iOS)
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+midir = "0.9"                    # Cross-platform MIDI I/O

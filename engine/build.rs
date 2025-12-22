@@ -2,7 +2,20 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    // Link against pre-built VST3 host libraries
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
+    // iOS: Only link audio frameworks, no VST3
+    if target_os == "ios" {
+        println!("cargo:rustc-link-lib=framework=AVFoundation");
+        println!("cargo:rustc-link-lib=framework=AudioToolbox");
+        println!("cargo:rustc-link-lib=framework=CoreAudio");
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
+        println!("cargo:rustc-link-lib=framework=Foundation");
+        println!("cargo:rustc-link-lib=c++");
+        return;
+    }
+
+    // Desktop (macOS, Linux, Windows): Link VST3 host libraries
     // The libraries are built separately using CMake/Xcode and copied to lib/
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -22,16 +35,16 @@ fn main() {
     println!("cargo:rustc-link-lib=static=base");
 
     // Link required system frameworks on macOS
-    if cfg!(target_os = "macos") {
+    if target_os == "macos" {
         println!("cargo:rustc-link-lib=framework=CoreFoundation");
         println!("cargo:rustc-link-lib=framework=Foundation");
         println!("cargo:rustc-link-lib=framework=Cocoa");
     }
 
     // Link C++ standard library
-    if cfg!(target_os = "macos") {
+    if target_os == "macos" {
         println!("cargo:rustc-link-lib=c++");
-    } else if cfg!(target_os = "linux") {
+    } else if target_os == "linux" {
         println!("cargo:rustc-link-lib=stdc++");
     }
 

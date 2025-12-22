@@ -1,7 +1,8 @@
-/// MIDI input device management using midir
+/// MIDI input device management
+/// Uses midir on desktop platforms, stub on iOS (midir not supported)
+
 use crate::midi::MidiEvent;
 use anyhow::{anyhow, Result};
-use midir::{MidiInput, MidiInputConnection, MidiInputPort};
 use std::sync::{Arc, Mutex};
 
 /// MIDI device information
@@ -12,10 +13,65 @@ pub struct MidiDevice {
     pub is_default: bool,
 }
 
+// ============================================================================
+// iOS STUB IMPLEMENTATION
+// ============================================================================
+#[cfg(target_os = "ios")]
+pub struct MidiInputManager {
+    // Stub - no MIDI input on iOS yet (future: Core MIDI support)
+}
+
+#[cfg(target_os = "ios")]
+impl MidiInputManager {
+    pub fn new() -> Result<Self> {
+        eprintln!("⚠️ [MIDI] MIDI input not yet supported on iOS");
+        Ok(Self {})
+    }
+
+    pub fn refresh_devices(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn get_devices(&self) -> Vec<MidiDevice> {
+        vec![]
+    }
+
+    pub fn select_device(&mut self, _index: usize) -> Result<()> {
+        Err(anyhow!("MIDI input not yet supported on iOS"))
+    }
+
+    pub fn set_event_callback<F>(&mut self, _callback: F)
+    where
+        F: FnMut(MidiEvent) + Send + 'static,
+    {
+        // No-op on iOS
+    }
+
+    pub fn start_capture(&mut self) -> Result<()> {
+        Err(anyhow!("MIDI input not yet supported on iOS"))
+    }
+
+    pub fn stop_capture(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn is_capturing(&self) -> bool {
+        false
+    }
+}
+
+// ============================================================================
+// DESKTOP IMPLEMENTATION (macOS, Windows, Linux)
+// ============================================================================
+#[cfg(not(target_os = "ios"))]
+use midir::{MidiInput, MidiInputConnection, MidiInputPort};
+
 /// MIDI event callback type
+#[cfg(not(target_os = "ios"))]
 type MidiEventCallback = Arc<Mutex<dyn FnMut(MidiEvent) + Send>>;
 
 /// MIDI input manager
+#[cfg(not(target_os = "ios"))]
 pub struct MidiInputManager {
     /// Available MIDI input ports
     ports: Vec<MidiInputPort>,
@@ -31,6 +87,7 @@ pub struct MidiInputManager {
     midi_input: Option<MidiInput>,
 }
 
+#[cfg(not(target_os = "ios"))]
 impl MidiInputManager {
     /// Create a new MIDI input manager
     pub fn new() -> Result<Self> {
@@ -135,7 +192,7 @@ impl MidiInputManager {
         // Create MIDI input connection
         let connection = midi_input.connect(
             port,
-            "solar-audio-input",
+            "boojy-audio-input",
             move |timestamp, message, _| {
                 // Parse MIDI message
                 if let Some(event) = parse_midi_message(message, timestamp) {
@@ -174,6 +231,7 @@ impl MidiInputManager {
 }
 
 /// Parse a MIDI message into a MidiEvent
+#[cfg(not(target_os = "ios"))]
 fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
     if message.is_empty() {
         return None;
@@ -216,6 +274,7 @@ fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
 }
 
 #[cfg(test)]
+#[cfg(not(target_os = "ios"))]
 mod tests {
     use super::*;
     use crate::midi::MidiEventType;

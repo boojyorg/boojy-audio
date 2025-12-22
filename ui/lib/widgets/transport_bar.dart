@@ -94,6 +94,10 @@ class TransportBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get screen width to determine layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 1100; // iPad portrait or smaller windows
+
     return Container(
       height: 60,
       decoration: const BoxDecoration(
@@ -104,16 +108,17 @@ class TransportBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 16),
+          SizedBox(width: isCompact ? 8 : 16),
 
-          // Audio logo image
-          Image.asset(
-            'assets/images/boojy_audio_text.png',
-            height: 32,
-            filterQuality: FilterQuality.high,
-          ),
+          // Audio logo image - hide on very compact screens
+          if (!isCompact)
+            Image.asset(
+              'assets/images/boojy_audio_text.png',
+              height: 32,
+              filterQuality: FilterQuality.high,
+            ),
 
-          const SizedBox(width: 12),
+          if (!isCompact) const SizedBox(width: 12),
 
           // File menu button
           PopupMenuButton<String>(
@@ -347,9 +352,9 @@ class TransportBar extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(width: 24),
+          SizedBox(width: isCompact ? 8 : 24),
           const VerticalDivider(color: Color(0xFF363636), width: 1),
-          const SizedBox(width: 16),
+          SizedBox(width: isCompact ? 8 : 16),
 
           // Transport buttons group - all same size (40px)
           Container(
@@ -407,9 +412,9 @@ class TransportBar extends StatelessWidget {
               playheadPosition: playheadPosition,
             ),
 
-          const SizedBox(width: 24),
+          SizedBox(width: isCompact ? 8 : 24),
           const VerticalDivider(color: Color(0xFF363636), width: 1),
-          const SizedBox(width: 16),
+          SizedBox(width: isCompact ? 8 : 16),
 
           // Metronome toggle
           _MetronomeButton(
@@ -417,7 +422,7 @@ class TransportBar extends StatelessWidget {
             onPressed: onMetronomeToggle,
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
 
           // Virtual piano toggle
           _PianoButton(
@@ -425,17 +430,18 @@ class TransportBar extends StatelessWidget {
             onPressed: onPianoToggle,
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
 
-          // MIDI device selector
-          _MidiDeviceSelector(
-            devices: midiDevices,
-            selectedIndex: selectedMidiDeviceIndex,
-            onDeviceSelected: onMidiDeviceSelected,
-            onRefresh: onRefreshMidiDevices,
-          ),
+          // MIDI device selector - hide on compact screens
+          if (!isCompact)
+            _MidiDeviceSelector(
+              devices: midiDevices,
+              selectedIndex: selectedMidiDeviceIndex,
+              onDeviceSelected: onMidiDeviceSelected,
+              onRefresh: onRefreshMidiDevices,
+            ),
 
-          const SizedBox(width: 8),
+          if (!isCompact) const SizedBox(width: 8),
 
           // Tempo control with drag and tap
           _TempoControl(
@@ -443,7 +449,7 @@ class TransportBar extends StatelessWidget {
             onTempoChanged: onTempoChanged,
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
 
           // Time display
           Container(
@@ -475,30 +481,30 @@ class TransportBar extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 4 : 8),
 
-          // Position display (bars.beats.subdivision)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF363636),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF363636)),
-            ),
-            child: Text(
-              _formatPosition(playheadPosition, tempo),
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+          // Position display (bars.beats.subdivision) - hide on very compact screens
+          if (!isCompact)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF363636),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFF363636)),
+              ),
+              child: Text(
+                _formatPosition(playheadPosition, tempo),
+                style: const TextStyle(
+                  color: Color(0xFFE0E0E0),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(width: 24),
-          const VerticalDivider(color: Color(0xFF363636), width: 1),
-          const SizedBox(width: 16),
+          // Use Spacer to push remaining items to the right edge
+          const Spacer(),
 
           // Mixer toggle button
           IconButton(
@@ -511,7 +517,7 @@ class TransportBar extends StatelessWidget {
             tooltip: 'Toggle Mixer',
           ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: isCompact ? 8 : 16),
         ],
       ),
     );

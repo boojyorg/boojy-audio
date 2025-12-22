@@ -1,0 +1,86 @@
+# Minimum iOS version for Boojy Audio
+platform :ios, '13.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
+
+  # Configure Runner target to link Rust engine static library
+  # We need to modify the main project's build settings directly
+  installer.pods_project.build_configurations.each do |config|
+    # Add library search path
+    lib_search_paths = config.build_settings['LIBRARY_SEARCH_PATHS'] || ['$(inherited)']
+    lib_search_paths << '"${PODS_ROOT}/../Frameworks"'
+    config.build_settings['LIBRARY_SEARCH_PATHS'] = lib_search_paths
+
+    # Add linker flags for the Rust library
+    other_ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+    if config.name == 'Release' || config.name == 'Profile'
+      other_ldflags << '-lengine_device'
+    else
+      other_ldflags << '-lengine_simulator'
+    end
+    config.build_settings['OTHER_LDFLAGS'] = other_ldflags
+  end
+
+  # Also update the xcconfig files for aggregate targets
+  installer.aggregate_targets.each do |target|
+    target.xcconfigs.each do |config_name, config_file|
+      # Add library search path for Rust static library
+      lib_paths = config_file.attributes['LIBRARY_SEARCH_PATHS'] || '$(inherited)'
+      unless lib_paths.include?('Frameworks')
+        config_file.attributes['LIBRARY_SEARCH_PATHS'] = "#{lib_paths} \"${PODS_ROOT}/../Frameworks\""
+      end
+
+      # Link the appropriate Rust library based on configuration
+      other_flags = config_file.attributes['OTHER_LDFLAGS'] || '$(inherited)'
+      if config_name == 'Release' || config_name == 'Profile'
+        unless other_flags.include?('-lengine')
+          config_file.attributes['OTHER_LDFLAGS'] = "#{other_flags} -lengine_device"
+        end
+      else
+        unless other_flags.include?('-lengine')
+          config_file.attributes['OTHER_LDFLAGS'] = "#{other_flags} -lengine_simulator"
+        end
+      end
+
+      config_file.save_as(Pathname.new("#{target.xcconfig_path(config_name)}"))
+    end
+  end
+end

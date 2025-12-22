@@ -21,10 +21,17 @@ class LibraryService extends ChangeNotifier {
     _loadPreferences();
   }
 
-  /// Get default user content path
-  static String get defaultUserContentPath {
-    final home = Platform.environment['HOME'] ?? '';
-    return '$home/Documents/Boojy/Audio';
+  /// Get default user content path based on platform
+  static Future<String> getDefaultUserContentPath() async {
+    if (Platform.isIOS) {
+      // On iOS, we can't use HOME environment variable
+      // Use the app's documents directory which is sandboxed
+      // This will be set during initialization
+      return '';  // Will be set by _loadPreferences
+    } else {
+      final home = Platform.environment['HOME'] ?? '';
+      return '$home/Documents/Boojy/Audio';
+    }
   }
 
   /// Load saved preferences
@@ -41,24 +48,48 @@ class LibraryService extends ChangeNotifier {
     _userFolderPaths.clear();
     _userFolderPaths.addAll(folders);
 
-    // Load user content path
-    _userContentPath = prefs.getString(_userContentPathKey) ?? defaultUserContentPath;
+    // Load user content path - platform specific handling
+    final savedPath = prefs.getString(_userContentPathKey);
+    if (savedPath != null && savedPath.isNotEmpty) {
+      _userContentPath = savedPath;
+    } else if (Platform.isIOS) {
+      // On iOS, skip folder creation - the app sandbox handles this
+      // User content will be managed differently on mobile
+      _userContentPath = '';
+      notifyListeners();
+      return;
+    } else {
+      final home = Platform.environment['HOME'] ?? '';
+      _userContentPath = '$home/Documents/Boojy/Audio';
+    }
 
-    // Ensure default folder exists
-    await _ensureDefaultFolderExists();
+    // Ensure default folder exists (skip on iOS if path is empty)
+    if (_userContentPath.isNotEmpty) {
+      await _ensureDefaultFolderExists();
+    }
 
     notifyListeners();
   }
 
   /// Ensure default user content folder exists
   Future<void> _ensureDefaultFolderExists() async {
-    final dir = Directory(_userContentPath);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-      // Create subfolders
-      await Directory('$_userContentPath/Samples').create(recursive: true);
-      await Directory('$_userContentPath/Presets').create(recursive: true);
-      await Directory('$_userContentPath/Projects').create(recursive: true);
+    // Skip folder creation on iOS - the sandbox doesn't allow arbitrary paths
+    if (Platform.isIOS || _userContentPath.isEmpty) {
+      return;
+    }
+
+    try {
+      final dir = Directory(_userContentPath);
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+        // Create subfolders
+        await Directory('$_userContentPath/Samples').create(recursive: true);
+        await Directory('$_userContentPath/Presets').create(recursive: true);
+        await Directory('$_userContentPath/Projects').create(recursive: true);
+      }
+    } catch (e) {
+      debugPrint('Error creating default folder: $e');
+      // Don't throw - just log the error and continue
     }
   }
 

@@ -12,6 +12,7 @@ import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../models/vst3_plugin_data.dart';
 import 'instrument_browser.dart';
+import 'platform_drop_target.dart';
 
 /// Track data model for timeline
 class TimelineTrackData {
@@ -470,7 +471,7 @@ class TimelineViewState extends State<TimelineView> {
         // Empty space drop target - wraps spacer to push master track to bottom
         // Supports: instruments, VST3 plugins, and audio files
         Expanded(
-          child: DropTarget(
+          child: PlatformDropTarget(
             onDragDone: (details) {
               // Handle audio file drops
               for (final file in details.files) {
@@ -716,7 +717,7 @@ class TimelineViewState extends State<TimelineView> {
             final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
             final isInstrumentRejected = rejectedInstruments.isNotEmpty || isVst3PluginRejected;
 
-        return DropTarget(
+        return PlatformDropTarget(
           onDragEntered: (details) {
             setState(() {
               _dragHoveredTrackId = track.id;

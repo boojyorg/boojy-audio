@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
@@ -50,7 +51,12 @@ class _FileDropZoneState extends State<FileDropZone> {
       );
     }
 
-    // Show drop zone when no file loaded
+    // On iOS/mobile, show file picker button only (no drag-drop support)
+    if (Platform.isIOS || Platform.isAndroid) {
+      return _buildMobileFilePicker();
+    }
+
+    // Show drop zone when no file loaded (desktop only)
     return DropTarget(
       onDragEntered: (details) {
         setState(() {
@@ -66,7 +72,7 @@ class _FileDropZoneState extends State<FileDropZone> {
         setState(() {
           _isDragging = false;
         });
-        
+
         if (details.files.isNotEmpty) {
           final file = details.files.first;
           widget.onFileLoaded(file.path);
@@ -76,11 +82,11 @@ class _FileDropZoneState extends State<FileDropZone> {
         width: double.infinity,
         padding: const EdgeInsets.all(48),
         decoration: BoxDecoration(
-          color: _isDragging 
+          color: _isDragging
               ? const Color(0xFF4CAF50).withOpacity(0.1)
               : const Color(0xFF2B2B2B),
           border: Border.all(
-            color: _isDragging 
+            color: _isDragging
                 ? const Color(0xFF4CAF50)
                 : const Color(0xFF404040),
             width: 2,
@@ -94,19 +100,19 @@ class _FileDropZoneState extends State<FileDropZone> {
             Icon(
               _isDragging ? Icons.cloud_upload : Icons.audio_file,
               size: 64,
-              color: _isDragging 
+              color: _isDragging
                   ? const Color(0xFF4CAF50)
                   : const Color(0xFF606060),
             ),
             const SizedBox(height: 16),
             Text(
-              _isDragging 
+              _isDragging
                   ? 'Drop audio file here'
                   : 'Drag & drop audio file here',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: _isDragging 
+                color: _isDragging
                     ? const Color(0xFF4CAF50)
                     : const Color(0xFF808080),
               ),
@@ -144,6 +150,65 @@ class _FileDropZoneState extends State<FileDropZone> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Mobile-friendly file picker UI (no drag-drop)
+  Widget _buildMobileFilePicker() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(48),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B2B2B),
+        border: Border.all(
+          color: const Color(0xFF404040),
+          width: 2,
+          strokeAlign: BorderSide.strokeAlignInside,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.audio_file,
+            size: 64,
+            color: Color(0xFF606060),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Import Audio File',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF808080),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Supports: WAV, MP3, FLAC, AIF',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF606060),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _pickFile,
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Browse Files'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFA0A0A0),
+              foregroundColor: const Color(0xFF2B2B2B),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 16,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
