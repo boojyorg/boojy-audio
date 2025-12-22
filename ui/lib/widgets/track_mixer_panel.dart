@@ -74,6 +74,12 @@ class TrackMixerPanel extends StatefulWidget {
   // Engine ready state
   final bool isEngineReady;
 
+  // Track height management (synced with timeline)
+  final Map<int, double> trackHeights; // trackId -> height
+  final double masterTrackHeight;
+  final Function(int trackId, double height)? onTrackHeightChanged;
+  final Function(double height)? onMasterTrackHeightChanged;
+
   const TrackMixerPanel({
     super.key,
     required this.audioEngine,
@@ -90,6 +96,10 @@ class TrackMixerPanel extends StatefulWidget {
     this.onVst3PluginDropped,
     this.onEditPluginsPressed, // M10
     this.onAudioFileDropped,
+    this.trackHeights = const {},
+    this.masterTrackHeight = 60.0,
+    this.onTrackHeightChanged,
+    this.onMasterTrackHeightChanged,
   });
 
   @override
@@ -117,6 +127,15 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       _updatePeakLevels();
     });
+  }
+
+  @override
+  void didUpdateWidget(TrackMixerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload tracks when audio engine becomes available
+    if (widget.audioEngine != null && oldWidget.audioEngine == null) {
+      _loadTracksAsync();
+    }
   }
 
   @override
@@ -558,6 +577,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id), // M10
                     onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin), // M10
                     onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id), // M10
+                    trackHeight: widget.trackHeights[track.id] ?? 100.0,
+                    onHeightChanged: (height) {
+                      widget.onTrackHeightChanged?.call(track.id, height);
+                    },
                     onTap: () {
                       widget.onTrackSelected?.call(track.id);
                     },
@@ -606,6 +629,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             pan: masterTrack.pan,
             peakLevelLeft: _peakLevels[masterTrack.id]?.$1 ?? 0.0,
             peakLevelRight: _peakLevels[masterTrack.id]?.$2 ?? 0.0,
+            trackHeight: widget.masterTrackHeight,
+            onHeightChanged: widget.onMasterTrackHeightChanged,
             onVolumeChanged: (volumeDb) {
               setState(() {
                 masterTrack.volumeDb = volumeDb;

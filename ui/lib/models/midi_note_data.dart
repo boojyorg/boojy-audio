@@ -145,10 +145,12 @@ class MidiClipData {
   /// Track this clip belongs to
   final int trackId;
 
-  /// Start time on timeline (in seconds)
+  /// Start time on timeline (in BEATS - tempo-independent)
+  /// Note: Convert to seconds (startTime / beatsPerSecond) when communicating with audio engine
   final double startTime;
 
-  /// Duration of a single iteration (in seconds)
+  /// Duration of a single iteration (in BEATS - tempo-independent)
+  /// Note: Convert to seconds (duration / beatsPerSecond) when communicating with audio engine
   final double duration;
 
   /// Number of times this clip loops (1 = no loop, 2 = plays twice, etc.)

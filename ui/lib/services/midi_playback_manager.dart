@@ -38,23 +38,20 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// Update a MIDI clip with new note data
   ///
   /// Handles clip creation, duration calculation, and scheduling.
+  /// Note: MIDI clips store startTime and duration in BEATS (not seconds)
+  /// for tempo-independent visual layout on the timeline.
   void updateClip(MidiClipData updatedClip, double tempo, double playheadPosition) {
-    // Calculate clip duration based on notes (convert from beats to seconds)
-    double durationInSeconds;
+    // Calculate clip duration based on notes (in BEATS for tempo-independent storage)
+    double durationInBeats;
 
     if (updatedClip.notes.isEmpty) {
       // Default to 4 bars (16 beats) if no notes
-      const defaultBeats = 16.0;
-      durationInSeconds = (defaultBeats / tempo) * 60.0;
+      durationInBeats = 16.0;
     } else {
-      // Find the furthest note end time (in beats)
-      final furthestBeat = updatedClip.notes
+      // Find the furthest note end time (notes are already in beats)
+      durationInBeats = updatedClip.notes
           .map((note) => note.startTime + note.duration)
           .reduce((a, b) => a > b ? a : b);
-
-      // Use exact note extent (no bar boundary snapping for free-form resize)
-      // Convert beats to seconds: seconds = (beats / BPM) * 60
-      durationInSeconds = (furthestBeat / tempo) * 60.0;
     }
 
     // Check if we're editing an existing clip or need to create a new one
@@ -65,7 +62,7 @@ class MidiPlaybackManager extends ChangeNotifier {
         _currentEditingClip = updatedClip.copyWith(
           clipId: _currentEditingClip!.clipId,
           startTime: _currentEditingClip!.startTime,
-          duration: durationInSeconds,
+          duration: durationInBeats,
         );
 
         // Update in clips list
@@ -79,8 +76,8 @@ class MidiPlaybackManager extends ChangeNotifier {
 
         _currentEditingClip = updatedClip.copyWith(
           clipId: newClipId,
-          startTime: playheadPosition,
-          duration: durationInSeconds,
+          startTime: playheadPosition, // playheadPosition should be in beats
+          duration: durationInBeats,
         );
         _selectedMidiClipId = newClipId;
 
@@ -89,13 +86,13 @@ class MidiPlaybackManager extends ChangeNotifier {
       } else {
         // No notes and no existing clip - just update current editing clip
         _currentEditingClip = updatedClip.copyWith(
-          duration: durationInSeconds,
+          duration: durationInBeats,
         );
       }
     } else {
       // Clip ID provided - update existing clip with new duration
       _currentEditingClip = updatedClip.copyWith(
-        duration: durationInSeconds,
+        duration: durationInBeats,
       );
 
       // Update in clips list
@@ -138,10 +135,12 @@ class MidiPlaybackManager extends ChangeNotifier {
 
     // Add all notes to the Rust clip for each loop iteration
     // Note: note.startTime is in beats RELATIVE to clip start (0 = first beat of clip)
-    final singleIterationDuration = clip.duration; // Already in seconds
+    // clip.duration is in BEATS (not seconds)
+    final beatsPerSecond = tempo / 60.0;
+    final singleIterationDurationSeconds = clip.duration / beatsPerSecond;
 
     for (int loop = 0; loop < clip.loopCount; loop++) {
-      final loopOffsetSeconds = loop * singleIterationDuration;
+      final loopOffsetSeconds = loop * singleIterationDurationSeconds;
 
       for (final note in clip.notes) {
         // Convert beats to seconds using current tempo
@@ -160,11 +159,13 @@ class MidiPlaybackManager extends ChangeNotifier {
     }
 
     // Only add to timeline if this is a new clip
+    // Convert clip.startTime from beats to seconds for the engine
     if (isNewClip) {
+      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
       final result = _audioEngine.addMidiClipToTrack(
         clip.trackId,
         rustClipId,
-        clip.startTime,
+        clipStartTimeSeconds,
       );
 
       if (result != 0) {

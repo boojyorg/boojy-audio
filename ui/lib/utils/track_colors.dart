@@ -57,6 +57,13 @@ class TrackColors {
     }
   }
 
+  /// Get a lighter shade of a color (for clip content like MIDI notes and waveforms)
+  /// [factor] controls how much lighter (0.0 = no change, 1.0 = white)
+  static Color getLighterShade(Color base, [double factor = 0.3]) {
+    final hsl = HSLColor.fromColor(base);
+    return hsl.withLightness((hsl.lightness + factor).clamp(0.0, 0.85)).toColor();
+  }
+
   /// Get track emoji based on name or type
   static String getTrackEmoji(String trackName, String trackType) {
     final lowerName = trackName.toLowerCase();

@@ -105,6 +105,32 @@ class _DAWScreenState extends State<DAWScreen> {
   int _selectedMidiDeviceIndex = -1;
   bool _isMidiRecording = false;
 
+  // Track height state (synced between mixer and timeline)
+  Map<int, double> _trackHeights = {}; // trackId -> height (default 100.0)
+  double _masterTrackHeight = 60.0;
+  static const double _defaultTrackHeight = 100.0;
+  static const double _minTrackHeight = 50.0;
+  static const double _maxTrackHeight = 300.0;
+
+  /// Get track height, returning default if not set
+  double _getTrackHeight(int trackId) {
+    return _trackHeights[trackId] ?? _defaultTrackHeight;
+  }
+
+  /// Set track height
+  void _setTrackHeight(int trackId, double height) {
+    setState(() {
+      _trackHeights[trackId] = height.clamp(_minTrackHeight, _maxTrackHeight);
+    });
+  }
+
+  /// Set master track height
+  void _setMasterTrackHeight(double height) {
+    setState(() {
+      _masterTrackHeight = height.clamp(_minTrackHeight, _maxTrackHeight);
+    });
+  }
+
   // GlobalKeys for child widgets that need immediate refresh
   final GlobalKey<TimelineViewState> _timelineKey = GlobalKey<TimelineViewState>();
   final GlobalKey<TrackMixerPanelState> _mixerKey = GlobalKey<TrackMixerPanelState>();
@@ -346,10 +372,8 @@ class _DAWScreenState extends State<DAWScreen> {
       });
       _stopPlayheadTimer();
 
-      // Keep audio stream running for virtual piano
-      if (_isVirtualPianoEnabled) {
-        _audioEngine!.transportPlay();
-      }
+      // NOTE: No longer need to call transportPlay() for virtual piano.
+      // Synths now process audio even when transport is paused.
     } catch (e) {
       setState(() {
         _statusMessage = 'Pause error: $e';
@@ -376,10 +400,9 @@ class _DAWScreenState extends State<DAWScreen> {
       });
       _stopPlayheadTimer();
 
-      // Keep audio stream running for virtual piano
-      if (_isVirtualPianoEnabled) {
-        _audioEngine!.transportPlay();
-      }
+      // NOTE: No longer need to call transportPlay() for virtual piano.
+      // Synths now process audio even when transport is stopped, allowing
+      // real-time MIDI input (virtual piano) without triggering timeline MIDI clips.
       print('🏁 [Flutter] _stopPlayback() completed');
     } catch (e) {
       print('❌ [Flutter] Stop error: $e');
@@ -487,16 +510,23 @@ class _DAWScreenState extends State<DAWScreen> {
             final parts = clipInfo.split(',');
             if (parts.length >= 5) {
               final trackId = int.parse(parts[1]);
-              final startTime = double.parse(parts[2]);
-              final duration = double.parse(parts[3]);
+              final startTimeSeconds = double.parse(parts[2]);
+              final durationSeconds = double.parse(parts[3]);
               final noteCount = int.parse(parts[4]);
+
+              // Convert from seconds to beats for MIDI clip storage
+              final beatsPerSecond = _tempo / 60.0;
+              final startTimeBeats = startTimeSeconds * beatsPerSecond;
+              final durationBeats = durationSeconds > 0
+                  ? durationSeconds * beatsPerSecond
+                  : 16.0; // Default 4 bars (16 beats) if no duration
 
               // Create MidiClipData and add to timeline
               final clipData = MidiClipData(
                 clipId: midiClipId,
                 trackId: trackId >= 0 ? trackId : (_selectedTrackId ?? 0),
-                startTime: startTime,
-                duration: duration > 0 ? duration : 4.0, // Default 4 seconds if no duration
+                startTime: startTimeBeats,
+                duration: durationBeats,
                 name: 'Recorded MIDI',
                 notes: [], // Notes are managed by the engine
               );
@@ -798,15 +828,14 @@ class _DAWScreenState extends State<DAWScreen> {
 
   /// Create a default 4-bar empty MIDI clip for a new track
   void _createDefaultMidiClip(int trackId) {
-    // 4 bars = 16 beats at any tempo
-    // Duration in seconds = (beats / BPM) * 60
-    final durationSeconds = (16.0 / _tempo) * 60.0;
+    // 4 bars = 16 beats (MIDI clips store duration in beats, not seconds)
+    const durationBeats = 16.0;
 
     final defaultClip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: trackId,
-      startTime: 0.0,
-      duration: durationSeconds,
+      startTime: 0.0, // Start at beat 0
+      duration: durationBeats,
       name: 'New MIDI Clip',
       notes: [],
     );
@@ -1486,7 +1515,10 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   void _onMidiClipUpdated(MidiClipData updatedClip) {
-    _midiPlaybackManager?.updateClip(updatedClip, _tempo, _playheadPosition);
+    // Convert playhead position from seconds to beats for MIDI clip placement
+    final beatsPerSecond = _tempo / 60.0;
+    final playheadPositionBeats = _playheadPosition * beatsPerSecond;
+    _midiPlaybackManager?.updateClip(updatedClip, _tempo, playheadPositionBeats);
   }
 
   void _onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
@@ -2403,6 +2435,8 @@ class _DAWScreenState extends State<DAWScreen> {
                           onVst3InstrumentDropped: _onVst3InstrumentDropped,
                           onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
                           onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+                          trackHeights: _trackHeights,
+                          masterTrackHeight: _masterTrackHeight,
                           onSeek: (position) {
                             _audioEngine?.transportSeek(position);
                             setState(() {
@@ -2448,6 +2482,10 @@ class _DAWScreenState extends State<DAWScreen> {
                             onVst3PluginDropped: _onVst3PluginDropped, // M10
                             onEditPluginsPressed: _showVst3PluginEditor, // M10
                             onAudioFileDropped: _onAudioFileDroppedOnEmpty,
+                            trackHeights: _trackHeights,
+                            masterTrackHeight: _masterTrackHeight,
+                            onTrackHeightChanged: _setTrackHeight,
+                            onMasterTrackHeightChanged: _setMasterTrackHeight,
                           ),
                         ),
                       ],

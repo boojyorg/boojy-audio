@@ -83,6 +83,15 @@ class _MixerPanelState extends State<MixerPanel> {
   }
 
   @override
+  void didUpdateWidget(MixerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload tracks when audio engine becomes available
+    if (widget.audioEngine != null && oldWidget.audioEngine == null) {
+      _loadTracksAsync();
+    }
+  }
+
+  @override
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();

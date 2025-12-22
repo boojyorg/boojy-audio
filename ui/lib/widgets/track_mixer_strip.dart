@@ -44,6 +44,10 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(Vst3Plugin)? onVst3PluginDropped;
   final VoidCallback? onEditPluginsPressed; // New: Edit active plugins
 
+  // Track height resizing
+  final double trackHeight;
+  final Function(double)? onHeightChanged;
+
   const TrackMixerStrip({
     super.key,
     required this.trackId,
@@ -74,6 +78,8 @@ class TrackMixerStrip extends StatefulWidget {
     this.onFxButtonPressed,
     this.onVst3PluginDropped,
     this.onEditPluginsPressed,
+    this.trackHeight = 100.0,
+    this.onHeightChanged,
   });
 
   @override
@@ -84,6 +90,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   bool _isEditing = false;
   late TextEditingController _nameController;
   late FocusNode _focusNode;
+
+  // Resize state
+  bool _isResizing = false;
+  double _resizeStartY = 0.0;
+  double _resizeStartHeight = 0.0;
 
   @override
   void initState() {
@@ -160,95 +171,134 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           onSecondaryTapDown: (TapDownDetails details) {
             _showContextMenu(context, details.globalPosition);
           },
-          child: Container(
+          child: SizedBox(
             width: 380,
-            height: 100, // Matches timeline track row height
-            margin: const EdgeInsets.only(bottom: 4), // Match timeline track spacing
-            decoration: BoxDecoration(
-              // Ableton-style selection: brighter background and thicker border when selected
-              // M10: Highlight when VST3 plugin is being dragged over
-              color: isHovered
-                  ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
-                  : (widget.isSelected ? const Color(0xFF363636) : const Color(0xFF242424)),
-              border: Border.all(
-                color: isHovered
-                    ? const Color(0xFF00BCD4)
-                    : (widget.isSelected ? (widget.trackColor ?? const Color(0xFF00BCD4)) : const Color(0xFF363636)),
-                width: isHovered ? 2 : (widget.isSelected ? 3 : 1),
-              ),
-            ),
-        child: Row(
-        children: [
-          // Left section: Colored track name area (Ableton style)
-          Container(
-            width: 120,
-            color: widget.trackColor ?? const Color(0xFF363636),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: _buildTrackNameSection(),
-          ),
-
-          // Right section: Controls area (dark grey)
-          Expanded(
-            child: Container(
-              color: const Color(0xFF2D2D2D),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(
-                children: [
-                  // Top row: M, S, R buttons + Pan knob
-                  Row(
+            height: widget.trackHeight,
+            child: Stack(
+              children: [
+                // Main content container
+                Container(
+                  width: 380,
+                  height: widget.trackHeight,
+                  margin: const EdgeInsets.only(bottom: 4), // Match timeline track spacing
+                  decoration: BoxDecoration(
+                    // Ableton-style selection: brighter background and thicker border when selected
+                    // M10: Highlight when VST3 plugin is being dragged over
+                    color: isHovered
+                        ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
+                        : (widget.isSelected ? const Color(0xFF363636) : const Color(0xFF242424)),
+                    border: Border.all(
+                      color: isHovered
+                          ? const Color(0xFF00BCD4)
+                          : (widget.isSelected ? (widget.trackColor ?? const Color(0xFF00BCD4)) : const Color(0xFF363636)),
+                      width: isHovered ? 2 : (widget.isSelected ? 3 : 1),
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      // M, S, R buttons
-                      _buildControlButtons(),
-
-                      const SizedBox(width: 6),
-
-                      // Pan knob (same size as M/S/R buttons)
-                      PanKnob(
-                        pan: widget.pan,
-                        onChanged: widget.onPanChanged,
-                        size: 22,
+                      // Left section: Colored track name area (Ableton style)
+                      Container(
+                        width: 120,
+                        color: widget.trackColor ?? const Color(0xFF363636),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        child: _buildTrackNameSection(),
                       ),
 
-                      const Spacer(),
+                      // Right section: Controls area (dark grey)
+                      Expanded(
+                        child: Container(
+                          color: const Color(0xFF2D2D2D),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Column(
+                            children: [
+                              // Top row: M, S, R buttons + Pan knob
+                              Row(
+                                children: [
+                                  // M, S, R buttons
+                                  _buildControlButtons(),
 
-                      // dB value display
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          '${widget.volumeDb.toStringAsFixed(1)} dB',
-                          style: const TextStyle(
-                            color: Color(0xFF9E9E9E),
-                            fontSize: 10,
-                            fontFamily: 'monospace',
+                                  const SizedBox(width: 6),
+
+                                  // Pan knob (same size as M/S/R buttons)
+                                  PanKnob(
+                                    pan: widget.pan,
+                                    onChanged: widget.onPanChanged,
+                                    size: 22,
+                                  ),
+
+                                  const Spacer(),
+
+                                  // dB value display
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1A1A1A),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      '${widget.volumeDb.toStringAsFixed(1)} dB',
+                                      style: const TextStyle(
+                                        color: Color(0xFF9E9E9E),
+                                        fontSize: 10,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 4),
+
+                              // Bottom row: Horizontal level meter (taller now)
+                              Expanded(
+                                child: HorizontalLevelMeter(
+                                  leftLevel: widget.peakLevelLeft,
+                                  rightLevel: widget.peakLevelRight,
+                                  volumeDb: widget.volumeDb,
+                                  onVolumeChanged: widget.onVolumeChanged,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 4),
-
-                  // Bottom row: Horizontal level meter (taller now)
-                  Expanded(
-                    child: HorizontalLevelMeter(
-                      leftLevel: widget.peakLevelLeft,
-                      rightLevel: widget.peakLevelRight,
-                      volumeDb: widget.volumeDb,
-                      onVolumeChanged: widget.onVolumeChanged,
+                ),
+                // Bottom resize handle
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 6,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeRow,
+                    child: GestureDetector(
+                      onVerticalDragStart: (details) {
+                        _isResizing = true;
+                        _resizeStartY = details.globalPosition.dy;
+                        _resizeStartHeight = widget.trackHeight;
+                      },
+                      onVerticalDragUpdate: (details) {
+                        if (_isResizing) {
+                          final delta = details.globalPosition.dy - _resizeStartY;
+                          final newHeight = (_resizeStartHeight + delta).clamp(50.0, 300.0);
+                          widget.onHeightChanged?.call(newHeight);
+                        }
+                      },
+                      onVerticalDragEnd: (details) {
+                        _isResizing = false;
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-            ],
-          ),
-        ),
-      );
+        );
       },
     );
   }
@@ -565,13 +615,17 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 }
 
 /// Master track strip - special styling for master track
-class MasterTrackMixerStrip extends StatelessWidget {
+class MasterTrackMixerStrip extends StatefulWidget {
   final double volumeDb;
   final double pan;
   final double peakLevelLeft;
   final double peakLevelRight;
   final Function(double)? onVolumeChanged;
   final Function(double)? onPanChanged;
+
+  // Track height resizing (top edge for master)
+  final double trackHeight;
+  final Function(double)? onHeightChanged;
 
   const MasterTrackMixerStrip({
     super.key,
@@ -581,127 +635,179 @@ class MasterTrackMixerStrip extends StatelessWidget {
     this.peakLevelRight = 0.0,
     this.onVolumeChanged,
     this.onPanChanged,
+    this.trackHeight = 60.0,
+    this.onHeightChanged,
   });
 
   @override
+  State<MasterTrackMixerStrip> createState() => _MasterTrackMixerStripState();
+}
+
+class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
+  // Resize state
+  bool _isResizing = false;
+  double _resizeStartY = 0.0;
+  double _resizeStartHeight = 0.0;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 380,
-      height: 100,
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: const BoxDecoration(
-        color: Color(0xFF242424),
-        border: Border(
-          left: BorderSide(color: Color(0xFF4CAF50), width: 4),
-          top: BorderSide(color: Color(0xFF4CAF50), width: 2),
-          right: BorderSide(color: Color(0xFF4CAF50), width: 2),
-          bottom: BorderSide(color: Color(0xFF4CAF50), width: 2),
-        ),
-      ),
-      child: Row(
+      height: widget.trackHeight,
+      child: Stack(
         children: [
-          // Left section: Master label
+          // Main content container
           Container(
-            width: 120,
-            color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+            width: 380,
+            height: widget.trackHeight,
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: const BoxDecoration(
+              color: Color(0xFF242424),
+              border: Border(
+                left: BorderSide(color: Color(0xFF4CAF50), width: 4),
+                top: BorderSide(color: Color(0xFF4CAF50), width: 2),
+                right: BorderSide(color: Color(0xFF4CAF50), width: 2),
+                bottom: BorderSide(color: Color(0xFF4CAF50), width: 2),
+              ),
+            ),
+            child: Row(
               children: [
-                const Row(
-                  children: [
-                    Text('🎚️', style: TextStyle(fontSize: 16)),
-                    SizedBox(width: 6),
-                    Text(
-                      'MASTER',
-                      style: TextStyle(
-                        color: Color(0xFFE0E0E0),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Limiter indicator chip
+                // Left section: Master label
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF363636),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF4CAF50)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
+                  width: 120,
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.security, size: 10, color: Color(0xFF4CAF50)),
-                      SizedBox(width: 4),
-                      Text(
-                        'LIMITER',
-                        style: TextStyle(
-                          color: Color(0xFF4CAF50),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
+                      const Row(
+                        children: [
+                          Text('🎚️', style: TextStyle(fontSize: 16)),
+                          SizedBox(width: 6),
+                          Text(
+                            'MASTER',
+                            style: TextStyle(
+                              color: Color(0xFFE0E0E0),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Limiter indicator chip
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF363636),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF4CAF50)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.security, size: 10, color: Color(0xFF4CAF50)),
+                            SizedBox(width: 4),
+                            Text(
+                              'LIMITER',
+                              style: TextStyle(
+                                color: Color(0xFF4CAF50),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
+                  ),
+                ),
+
+                // Right section: Controls
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFF2D2D2D),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Column(
+                      children: [
+                        // Top row: Pan knob + dB display
+                        Row(
+                          children: [
+                            PanKnob(
+                              pan: widget.pan,
+                              onChanged: widget.onPanChanged,
+                              size: 22,
+                            ),
+
+                            const Spacer(),
+
+                            // dB value display
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1A),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                '${widget.volumeDb.toStringAsFixed(1)} dB',
+                                style: const TextStyle(
+                                  color: Color(0xFF9E9E9E),
+                                  fontSize: 10,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        // Bottom row: Horizontal level meter (taller)
+                        Expanded(
+                          child: HorizontalLevelMeter(
+                            leftLevel: widget.peakLevelLeft,
+                            rightLevel: widget.peakLevelRight,
+                            volumeDb: widget.volumeDb,
+                            onVolumeChanged: widget.onVolumeChanged,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Right section: Controls
-          Expanded(
-            child: Container(
-              color: const Color(0xFF2D2D2D),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(
-                children: [
-                  // Top row: Pan knob + dB display
-                  Row(
-                    children: [
-                      PanKnob(
-                        pan: pan,
-                        onChanged: onPanChanged,
-                        size: 22,
-                      ),
-
-                      const Spacer(),
-
-                      // dB value display
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          '${volumeDb.toStringAsFixed(1)} dB',
-                          style: const TextStyle(
-                            color: Color(0xFF9E9E9E),
-                            fontSize: 10,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  // Bottom row: Horizontal level meter (taller)
-                  Expanded(
-                    child: HorizontalLevelMeter(
-                      leftLevel: peakLevelLeft,
-                      rightLevel: peakLevelRight,
-                      volumeDb: volumeDb,
-                      onVolumeChanged: onVolumeChanged,
-                    ),
-                  ),
-                ],
+          // Top resize handle (master uses top edge, opposite of regular tracks)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 6,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeRow,
+              child: GestureDetector(
+                onVerticalDragStart: (details) {
+                  _isResizing = true;
+                  _resizeStartY = details.globalPosition.dy;
+                  _resizeStartHeight = widget.trackHeight;
+                },
+                onVerticalDragUpdate: (details) {
+                  if (_isResizing) {
+                    // Note: negative delta because dragging UP should increase height
+                    final delta = _resizeStartY - details.globalPosition.dy;
+                    final newHeight = (_resizeStartHeight + delta).clamp(50.0, 300.0);
+                    widget.onHeightChanged?.call(newHeight);
+                  }
+                },
+                onVerticalDragEnd: (details) {
+                  _isResizing = false;
+                },
+                child: Container(
+                  color: Colors.transparent,
+                ),
               ),
             ),
           ),
