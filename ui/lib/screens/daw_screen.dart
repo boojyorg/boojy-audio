@@ -27,7 +27,8 @@ import '../services/midi_playback_manager.dart';
 import '../services/user_settings.dart';
 import '../services/auto_save_service.dart';
 import '../widgets/settings_dialog.dart';
-import '../utils/track_colors.dart';
+import '../controllers/controllers.dart';
+import '../state/ui_layout_state.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -39,8 +40,13 @@ class DAWScreen extends StatefulWidget {
 
 class _DAWScreenState extends State<DAWScreen> {
   AudioEngine? _audioEngine;
-  Timer? _playheadTimer;
-  Timer? _recordingStateTimer;
+
+  // Controllers (extracted from daw_screen for maintainability)
+  final PlaybackController _playbackController = PlaybackController();
+  final RecordingController _recordingController = RecordingController();
+  final TrackController _trackController = TrackController();
+  final MidiClipController _midiClipController = MidiClipController();
+  final UILayoutState _uiLayout = UILayoutState();
 
   // Undo/Redo manager
   final UndoRedoManager _undoRedoManager = UndoRedoManager();
@@ -61,116 +67,57 @@ class _DAWScreenState extends State<DAWScreen> {
   final UserSettings _userSettings = UserSettings();
   final AutoSaveService _autoSaveService = AutoSaveService();
 
-  // State
-  double _playheadPosition = 0.0;
+  // State (clip-specific state remains local)
   int? _loadedClipId;
   double? _clipDuration;
   List<double> _waveformPeaks = [];
-  bool _isPlaying = false;
   bool _isAudioGraphInitialized = false;
-  String _statusMessage = '';
   bool _isLoading = false;
 
-  // M2: Recording state
-  bool _isRecording = false;
-  bool _isCountingIn = false;
-  bool _isMetronomeEnabled = true;
-  double _tempo = 120.0;
+  // Playback state now managed by _playbackController
+  // Convenience getters/setters for backwards compatibility
+  double get _playheadPosition => _playbackController.playheadPosition;
+  set _playheadPosition(double value) => _playbackController.setPlayheadPosition(value);
+  bool get _isPlaying => _playbackController.isPlaying;
+  String get _statusMessage => _playbackController.statusMessage;
+  set _statusMessage(String value) => _playbackController.setStatusMessage(value);
 
-  // M3: Virtual piano state
-  bool _isVirtualPianoEnabled = false;
-  bool _isVirtualPianoVisible = false;
+  // Recording state now managed by _recordingController
+  // Convenience getters for backwards compatibility
+  bool get _isRecording => _recordingController.isRecording;
+  bool get _isCountingIn => _recordingController.isCountingIn;
+  bool get _isMetronomeEnabled => _recordingController.isMetronomeEnabled;
+  double get _tempo => _recordingController.tempo;
+  List<Map<String, dynamic>> get _midiDevices => _recordingController.midiDevices;
+  int get _selectedMidiDeviceIndex => _recordingController.selectedMidiDeviceIndex;
 
-  // M4: Mixer state
-  bool _isMixerVisible = true; // Always visible by default
+  // M3-M7: UI panel state now managed by _uiLayout (UILayoutState)
+  // Includes: virtual piano, mixer, library panel, editor panel, and panel sizes
 
-  // M5: Project state (managed by ProjectManager)
+  // M8-M10: Track state now managed by _trackController (TrackController)
 
-  // M6: UI panel state
-  bool _isLibraryPanelCollapsed = false;
-  bool _isEditorPanelVisible = true; // Show editor panel by default
+  // Convenience getters/setters that delegate to _trackController
+  int? get _selectedTrackId => _trackController.selectedTrackId;
+  set _selectedTrackId(int? value) => _trackController.selectTrack(value);
 
-  // M7: Resizable panels state
-  double _libraryPanelWidth = 200.0;
-  double _mixerPanelWidth = 380.0;
-  double _editorPanelHeight = 250.0;
-  static const double _libraryMinWidth = 40.0;
-  static const double _libraryMaxWidth = 400.0;
-  static const double _mixerMinWidth = 200.0;
-  static const double _mixerMaxWidth = 600.0;
-  static const double _editorMinHeight = 100.0;
-  static const double _editorMaxHeight = 500.0;
+  Map<int, InstrumentData> get _trackInstruments => _trackController.trackInstruments;
+  Map<int, double> get _trackHeights => _trackController.trackHeights;
+  double get _masterTrackHeight => _trackController.masterTrackHeight;
 
-  // M8: MIDI editing state (managed by MidiPlaybackManager, except track selection)
-  int? _selectedTrackId; // Unified track selection for piano roll, FX, and instrument panels
-
-  // M9: Instrument state
-  Map<int, InstrumentData> _trackInstruments = {}; // trackId -> InstrumentData
-
-  // M10: VST3 Plugin state is now managed by _vst3PluginManager
-
-  // MIDI Recording state
-  List<Map<String, dynamic>> _midiDevices = [];
-  int _selectedMidiDeviceIndex = -1;
-  bool _isMidiRecording = false;
-
-  // Track height state (synced between mixer and timeline)
-  Map<int, double> _trackHeights = {}; // trackId -> height (default 100.0)
-  double _masterTrackHeight = 60.0;
-  static const double _defaultTrackHeight = 100.0;
-  static const double _minTrackHeight = 50.0;
-  static const double _maxTrackHeight = 300.0;
-
-  // Track color state (auto-detected with manual override)
-  Map<int, Color> _trackColorOverrides = {}; // trackId -> color (manual override)
-
-  /// Get track height, returning default if not set
-  double _getTrackHeight(int trackId) {
-    return _trackHeights[trackId] ?? _defaultTrackHeight;
-  }
-
-  /// Set track height
   void _setTrackHeight(int trackId, double height) {
-    setState(() {
-      _trackHeights[trackId] = height.clamp(_minTrackHeight, _maxTrackHeight);
-    });
+    _trackController.setTrackHeight(trackId, height);
   }
 
-  /// Set master track height
   void _setMasterTrackHeight(double height) {
-    setState(() {
-      _masterTrackHeight = height.clamp(_minTrackHeight, _maxTrackHeight);
-    });
+    _trackController.setMasterTrackHeight(height);
   }
 
-  /// Get track color with auto-detection (respects manual overrides)
   Color _getTrackColor(int trackId, String trackName, String trackType) {
-    // Check for user override first
-    if (_trackColorOverrides.containsKey(trackId)) {
-      return _trackColorOverrides[trackId]!;
-    }
-
-    // Get instrument/plugin info for detection
-    final instrument = _trackInstruments[trackId];
-    final instrumentType = instrument?.type;
-    final pluginName = instrument?.pluginName;
-
-    // Auto-detect category based on keywords
-    final category = TrackColors.detectCategory(
-      trackName,
-      trackType,
-      instrumentType: instrumentType,
-      pluginName: pluginName,
-    );
-
-    return TrackColors.getColorForCategory(category);
+    return _trackController.getTrackColor(trackId, trackName, trackType);
   }
 
-  /// Set track color (manual override)
   void _setTrackColor(int trackId, Color color) {
-    setState(() {
-      _trackColorOverrides[trackId] = color;
-    });
+    _trackController.setTrackColor(trackId, color);
   }
 
   // GlobalKeys for child widgets that need immediate refresh
@@ -200,6 +147,13 @@ class _DAWScreenState extends State<DAWScreen> {
     // Listen for undo/redo state changes to update menu
     _undoRedoManager.addListener(_onUndoRedoChanged);
 
+    // Listen for controller state changes
+    _playbackController.addListener(_onControllerChanged);
+    _recordingController.addListener(_onControllerChanged);
+    _trackController.addListener(_onControllerChanged);
+    _midiClipController.addListener(_onControllerChanged);
+    _uiLayout.addListener(_onControllerChanged);
+
     // Load user settings
     _userSettings.load().then((_) {
       debugPrint('[DAW] User settings loaded');
@@ -214,6 +168,12 @@ class _DAWScreenState extends State<DAWScreen> {
         _initAudioEngine();
       }
     });
+  }
+
+  void _onControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onUndoRedoChanged() {
@@ -253,6 +213,16 @@ class _DAWScreenState extends State<DAWScreen> {
     // Remove undo/redo listener
     _undoRedoManager.removeListener(_onUndoRedoChanged);
 
+    // Remove controller listeners
+    _playbackController.removeListener(_onControllerChanged);
+    _recordingController.removeListener(_onControllerChanged);
+    _trackController.removeListener(_onControllerChanged);
+    _uiLayout.removeListener(_onControllerChanged);
+
+    // Dispose controllers
+    _playbackController.dispose();
+    _recordingController.dispose();
+
     // Remove VST3 manager listener
     _vst3PluginManager?.removeListener(_onVst3ManagerChanged);
 
@@ -266,10 +236,6 @@ class _DAWScreenState extends State<DAWScreen> {
     _autoSaveService.stop();
     _autoSaveService.cleanupBackups();
     _userSettings.recordCleanExit();
-
-    // Clean up timers
-    _playheadTimer?.cancel();
-    _recordingStateTimer?.cancel();
 
     // Stop playback
     _stopPlayback();
@@ -299,14 +265,16 @@ class _DAWScreenState extends State<DAWScreen> {
       if (mounted) {
         setState(() {
           _isAudioGraphInitialized = true;
-          _statusMessage = 'Ready to record or load audio files';
-          _tempo = 120.0;
-          _isMetronomeEnabled = true;
         });
+        _playbackController.setStatusMessage('Ready to record or load audio files');
       }
 
       // Initialize undo/redo manager with engine
       _undoRedoManager.initialize(_audioEngine!);
+
+      // Initialize controllers with audio engine
+      _playbackController.initialize(_audioEngine!);
+      _recordingController.initialize(_audioEngine!);
 
       // Initialize VST3 plugin manager
       _vst3PluginManager = Vst3PluginManager(_audioEngine!);
@@ -319,6 +287,10 @@ class _DAWScreenState extends State<DAWScreen> {
       // Initialize MIDI playback manager
       _midiPlaybackManager = MidiPlaybackManager(_audioEngine!);
       _midiPlaybackManager!.addListener(_onMidiPlaybackManagerChanged);
+
+      // Initialize MIDI clip controller with engine and manager
+      _midiClipController.initialize(_audioEngine!, _midiPlaybackManager!);
+      _midiClipController.setTempo(_recordingController.tempo);
 
       // Scan VST3 plugins after audio graph is ready
       if (!_vst3PluginManager!.isScanned && mounted) {
@@ -390,98 +362,16 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _startPlayheadTimer() {
-    _playheadTimer?.cancel();
-    // 16ms = ~60fps for smooth visual playhead updates
-    // Previous 50ms caused noticeable visual lag
-    _playheadTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      if (_audioEngine != null && mounted) {
-        final pos = _audioEngine!.getPlayheadPosition();
-        if (mounted) {
-          setState(() {
-            _playheadPosition = pos;
-          });
-        }
-
-        // Auto-stop at end of clip
-        if (_clipDuration != null && pos >= _clipDuration!) {
-          _stopPlayback();
-        }
-      }
-    });
-  }
-
-  void _stopPlayheadTimer() {
-    _playheadTimer?.cancel();
-  }
-
   void _play() {
-    if (_audioEngine == null) return;
-
-    try {
-      _audioEngine!.transportPlay();
-      setState(() {
-        _isPlaying = true;
-        _statusMessage = _loadedClipId != null ? 'Playing...' : 'Playing (empty)';
-      });
-      _startPlayheadTimer();
-      print('✅ [Flutter] _play() completed');
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Play error: $e';
-      });
-    }
+    _playbackController.play(loadedClipId: _loadedClipId);
   }
 
   void _pause() {
-    if (_audioEngine == null) return;
-
-    try {
-      _audioEngine!.transportPause();
-      setState(() {
-        _isPlaying = false;
-        _statusMessage = 'Paused';
-      });
-      _stopPlayheadTimer();
-
-      // NOTE: No longer need to call transportPlay() for virtual piano.
-      // Synths now process audio even when transport is paused.
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Pause error: $e';
-      });
-    }
+    _playbackController.pause();
   }
 
   void _stopPlayback() {
-    print('🛑 [Flutter] _stopPlayback() called');
-    if (_audioEngine == null) {
-      print('⚠️  [Flutter] _audioEngine is null, returning');
-      return;
-    }
-
-    try {
-      print('📞 [Flutter] Calling _audioEngine.transportStop()...');
-      final result = _audioEngine!.transportStop();
-      print('✅ [Flutter] transportStop() returned: $result');
-
-      setState(() {
-        _isPlaying = false;
-        _playheadPosition = 0.0;
-        _statusMessage = 'Stopped';
-      });
-      _stopPlayheadTimer();
-
-      // NOTE: No longer need to call transportPlay() for virtual piano.
-      // Synths now process audio even when transport is stopped, allowing
-      // real-time MIDI input (virtual piano) without triggering timeline MIDI clips.
-      print('🏁 [Flutter] _stopPlayback() completed');
-    } catch (e) {
-      print('❌ [Flutter] Stop error: $e');
-      setState(() {
-        _statusMessage = 'Stop error: $e';
-      });
-    }
+    _playbackController.stop();
   }
 
   // File picking method
@@ -497,327 +387,149 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  // M2: Recording methods
+  // M2: Recording methods - delegate to RecordingController
   void _toggleRecording() {
-    if (_audioEngine == null) return;
-
     if (_isRecording || _isCountingIn) {
-      // Stop recording
       _stopRecording();
     } else {
-      // Start recording
       _startRecording();
     }
   }
 
   void _startRecording() {
-    if (_audioEngine == null) return;
-
-    try {
-      // Check current settings for status message
-      final countInBars = _audioEngine!.getCountInBars();
-      final tempo = _audioEngine!.getTempo();
-
-      // Start audio recording
-      _audioEngine!.startRecording();
-
-      // Also start MIDI recording (for armed MIDI tracks)
-      _audioEngine!.startMidiRecording();
-
-      setState(() {
-        _isCountingIn = true;
-        _isMidiRecording = true;
-        _statusMessage = 'Count-in... ($countInBars bars at $tempo BPM)';
-        _tempo = tempo;
-      });
-
-      // Start timer to poll recording state
-      _startRecordingStateTimer();
-    } catch (e) {
-      debugPrint('❌ Recording error: $e');
-      setState(() {
-        _statusMessage = 'Recording error: $e';
-      });
-    }
+    // Set up callback to handle recording completion with MIDI clip processing
+    _recordingController.onRecordingComplete = _handleRecordingComplete;
+    _recordingController.startRecording();
   }
 
   void _stopRecording() {
-    if (_audioEngine == null) return;
-
-    try {
-      // Stop audio recording
-      final audioClipId = _audioEngine!.stopRecording();
-
-      // Stop MIDI recording
-      final midiClipId = _audioEngine!.stopMidiRecording();
-
-      setState(() {
-        _isRecording = false;
-        _isCountingIn = false;
-        _isMidiRecording = false;
-      });
-
-      // Build status message based on what was recorded
-      final List<String> recordedItems = [];
-
-      if (audioClipId >= 0) {
-        // Audio recording successful - get clip info
-        final duration = _audioEngine!.getClipDuration(audioClipId);
-        final peaks = _audioEngine!.getWaveformPeaks(audioClipId, 2000);
-
-        setState(() {
-          _loadedClipId = audioClipId;
-          _clipDuration = duration;
-          _waveformPeaks = peaks;
-        });
-        recordedItems.add('Audio ${duration.toStringAsFixed(2)}s');
-      }
-
-      if (midiClipId > 0) {
-        // Get clip info from engine: "clip_id,track_id,start_time,duration,note_count"
-        final clipInfo = _audioEngine!.getMidiClipInfo(midiClipId);
-
-        if (!clipInfo.startsWith('Error')) {
-          try {
-            final parts = clipInfo.split(',');
-            if (parts.length >= 5) {
-              final trackId = int.parse(parts[1]);
-              final startTimeSeconds = double.parse(parts[2]);
-              final durationSeconds = double.parse(parts[3]);
-              final noteCount = int.parse(parts[4]);
-
-              // Convert from seconds to beats for MIDI clip storage
-              final beatsPerSecond = _tempo / 60.0;
-              final startTimeBeats = startTimeSeconds * beatsPerSecond;
-              final durationBeats = durationSeconds > 0
-                  ? durationSeconds * beatsPerSecond
-                  : 16.0; // Default 4 bars (16 beats) if no duration
-
-              // Create MidiClipData and add to timeline
-              final clipData = MidiClipData(
-                clipId: midiClipId,
-                trackId: trackId >= 0 ? trackId : (_selectedTrackId ?? 0),
-                startTime: startTimeBeats,
-                duration: durationBeats,
-                name: 'Recorded MIDI',
-                notes: [], // Notes are managed by the engine
-              );
-
-              _midiPlaybackManager?.addRecordedClip(clipData);
-
-              recordedItems.add('MIDI ($noteCount notes)');
-            }
-          } catch (e) {
-            debugPrint('❌ Failed to parse MIDI clip info: $e');
-            recordedItems.add('MIDI clip');
-          }
-        } else {
-          recordedItems.add('MIDI clip');
-        }
-      }
-
-      setState(() {
-        if (recordedItems.isNotEmpty) {
-          _statusMessage = 'Recorded: ${recordedItems.join(', ')}';
-        } else {
-          _statusMessage = 'No recording captured';
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Stop recording error: $e';
-        _isRecording = false;
-        _isCountingIn = false;
-        _isMidiRecording = false;
-      });
-    }
+    final result = _recordingController.stopRecording();
+    _handleRecordingComplete(result);
   }
 
-  void _startRecordingStateTimer() {
-    // Cancel any existing timer to prevent leaks
-    _recordingStateTimer?.cancel();
+  /// Handle recording completion - process audio and MIDI clips
+  void _handleRecordingComplete(RecordingResult result) {
+    final List<String> recordedItems = [];
 
-    _recordingStateTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_audioEngine == null || (!_isRecording && !_isCountingIn)) {
-        timer.cancel();
-        _recordingStateTimer = null;
-        return;
+    // Handle audio clip
+    if (result.audioClipId != null) {
+      setState(() {
+        _loadedClipId = result.audioClipId;
+        _clipDuration = result.duration;
+        _waveformPeaks = result.waveformPeaks ?? [];
+      });
+      recordedItems.add('Audio ${result.duration?.toStringAsFixed(2) ?? ""}s');
+    }
+
+    // Handle MIDI clip
+    if (result.midiClipId != null && result.midiClipInfo != null) {
+      final clipInfo = result.midiClipInfo!;
+      if (!clipInfo.startsWith('Error')) {
+        try {
+          final parts = clipInfo.split(',');
+          if (parts.length >= 5) {
+            final trackId = int.parse(parts[1]);
+            final startTimeSeconds = double.parse(parts[2]);
+            final durationSeconds = double.parse(parts[3]);
+            final noteCount = int.parse(parts[4]);
+
+            // Convert from seconds to beats for MIDI clip storage
+            final beatsPerSecond = _tempo / 60.0;
+            final startTimeBeats = startTimeSeconds * beatsPerSecond;
+            final durationBeats = durationSeconds > 0
+                ? durationSeconds * beatsPerSecond
+                : 16.0; // Default 4 bars (16 beats) if no duration
+
+            // Create MidiClipData and add to timeline
+            final clipData = MidiClipData(
+              clipId: result.midiClipId!,
+              trackId: trackId >= 0 ? trackId : (_selectedTrackId ?? 0),
+              startTime: startTimeBeats,
+              duration: durationBeats,
+              name: 'Recorded MIDI',
+              notes: [], // Notes are managed by the engine
+            );
+
+            _midiPlaybackManager?.addRecordedClip(clipData);
+            recordedItems.add('MIDI ($noteCount notes)');
+          }
+        } catch (e) {
+          debugPrint('❌ Failed to parse MIDI clip info: $e');
+          recordedItems.add('MIDI clip');
+        }
+      } else {
+        recordedItems.add('MIDI clip');
       }
+    }
 
-      final state = _audioEngine!.getRecordingState();
-      final duration = _audioEngine!.getRecordedDuration();
-
-      if (state == 1 && !_isCountingIn) {
-        // Transitioned to count-in
-        setState(() {
-          _isCountingIn = true;
-          _statusMessage = 'Count-in...';
-        });
-      } else if (state == 2 && !_isRecording) {
-        // Transitioned to recording
-        setState(() {
-          _isCountingIn = false;
-          _isRecording = true;
-          _statusMessage = 'Recording... ${duration.toStringAsFixed(1)}s';
-        });
-      } else if (state == 2 && _isRecording) {
-        // Update recording duration display
-        setState(() {
-          _statusMessage = 'Recording... ${duration.toStringAsFixed(1)}s';
-        });
-      } else if (state == 0 && (_isRecording || _isCountingIn)) {
-        // Recording stopped
-        timer.cancel();
-        _recordingStateTimer = null;
-        setState(() {
-          _isRecording = false;
-          _isCountingIn = false;
-        });
-      }
-    });
+    // Update status message
+    if (recordedItems.isNotEmpty) {
+      _playbackController.setStatusMessage('Recorded: ${recordedItems.join(', ')}');
+    } else if (result.audioClipId == null && result.midiClipId == null) {
+      _playbackController.setStatusMessage('No recording captured');
+    }
   }
 
   void _toggleMetronome() {
-    if (_audioEngine == null) return;
-
-    try {
-      final newState = !_isMetronomeEnabled;
-      _audioEngine!.setMetronomeEnabled(newState);
-      setState(() {
-        _isMetronomeEnabled = newState;
-        _statusMessage = newState ? 'Metronome enabled' : 'Metronome disabled';
-      });
-    } catch (e) {
-      debugPrint('❌ Metronome toggle error: $e');
-      setState(() {
-        _statusMessage = 'Metronome toggle error: $e';
-      });
-    }
+    _recordingController.toggleMetronome();
+    final newState = _recordingController.isMetronomeEnabled;
+    _playbackController.setStatusMessage(newState ? 'Metronome enabled' : 'Metronome disabled');
   }
 
   void _onTempoChanged(double bpm) {
-    if (_audioEngine == null) return;
-
-    // Clamp tempo to valid range (20-300 BPM)
-    final clampedBpm = bpm.clamp(20.0, 300.0);
-
-    try {
-      _audioEngine!.setTempo(clampedBpm);
-      setState(() {
-        _tempo = clampedBpm;
-      });
-    } catch (e) {
-      debugPrint('❌ Tempo change error: $e');
-      setState(() {
-        _statusMessage = 'Tempo change error: $e';
-      });
-    }
+    _recordingController.setTempo(bpm);
+    _midiClipController.setTempo(bpm);
   }
 
   // M3: Virtual piano methods
   void _toggleVirtualPiano() {
-    if (_audioEngine == null) return;
-
-    setState(() {
-      _isVirtualPianoEnabled = !_isVirtualPianoEnabled;
-
-      if (_isVirtualPianoEnabled) {
-        // Enable: Initialize MIDI, start audio stream, and show panel
-        try {
-          _audioEngine!.startMidiInput();
-
-          // CRITICAL: Start audio output stream so synthesizer can be heard
-          // The synthesizer generates audio but needs the stream running to output it
-          _audioEngine!.transportPlay();
-
-          _isVirtualPianoVisible = true;
-          _statusMessage = 'Virtual piano enabled - Press keys to play!';
-        } catch (e) {
-          debugPrint('❌ Virtual piano enable error: $e');
-          _statusMessage = 'Virtual piano error: $e';
-          _isVirtualPianoEnabled = false;
-          _isVirtualPianoVisible = false;
-        }
-      } else {
-        // Disable: Hide panel
-        _isVirtualPianoVisible = false;
-        _isEditorPanelVisible = false; // Hide editor panel when piano disabled
-        _statusMessage = 'Virtual piano disabled';
-      }
-    });
-  }
-
-  // MIDI Device methods
-  void _loadMidiDevices() {
-    if (_audioEngine == null) return;
-
-    try {
-      final devices = _audioEngine!.getMidiInputDevices();
-
-      setState(() {
-        _midiDevices = devices;
-
-        // Auto-select default device if available
-        if (_selectedMidiDeviceIndex < 0 && devices.isNotEmpty) {
-          final defaultIndex = devices.indexWhere((d) => d['isDefault'] == true);
-          if (defaultIndex >= 0) {
-            _selectedMidiDeviceIndex = defaultIndex;
-            _onMidiDeviceSelected(defaultIndex);
-          }
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ Failed to load MIDI devices: $e');
+    final success = _recordingController.toggleVirtualPiano();
+    if (success) {
+      _uiLayout.setVirtualPianoEnabled(_recordingController.isVirtualPianoEnabled);
+      _playbackController.setStatusMessage(
+        _recordingController.isVirtualPianoEnabled
+            ? 'Virtual piano enabled - Press keys to play!'
+            : 'Virtual piano disabled',
+      );
+    } else {
+      _playbackController.setStatusMessage('Virtual piano error');
     }
   }
 
+  // MIDI Device methods - delegate to RecordingController
+  void _loadMidiDevices() {
+    _recordingController.loadMidiDevices();
+  }
+
   void _onMidiDeviceSelected(int deviceIndex) {
-    if (_audioEngine == null) return;
+    _recordingController.selectMidiDevice(deviceIndex);
 
-    try {
-      _audioEngine!.selectMidiInputDevice(deviceIndex);
-
-      setState(() {
-        _selectedMidiDeviceIndex = deviceIndex;
-      });
-
-      // Show feedback
-      if (_midiDevices.isNotEmpty && deviceIndex >= 0 && deviceIndex < _midiDevices.length) {
-        final deviceName = _midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🎹 Selected: $deviceName'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Failed to select MIDI device: $e');
+    // Show feedback
+    if (_midiDevices.isNotEmpty && deviceIndex >= 0 && deviceIndex < _midiDevices.length) {
+      final deviceName = _midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎹 Selected: $deviceName'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
   void _refreshMidiDevices() {
-    if (_audioEngine == null) return;
-
-    try {
-      _audioEngine!.refreshMidiDevices();
-      _loadMidiDevices();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🎹 MIDI devices refreshed'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      debugPrint('❌ Failed to refresh MIDI devices: $e');
-    }
+    _recordingController.refreshMidiDevices();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🎹 MIDI devices refreshed'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   // M4: Mixer methods
   void _toggleMixer() {
     setState(() {
-      _isMixerVisible = !_isMixerVisible;
+      _uiLayout.isMixerVisible = !_uiLayout.isMixerVisible;
     });
   }
 
@@ -826,14 +538,14 @@ class _DAWScreenState extends State<DAWScreen> {
     if (trackId == null) {
       setState(() {
         _selectedTrackId = null;
-        _isEditorPanelVisible = false;
+        _uiLayout.isEditorPanelVisible = false;
       });
       return;
     }
 
     setState(() {
       _selectedTrackId = trackId;
-      _isEditorPanelVisible = true;
+      _uiLayout.isEditorPanelVisible = true;
     });
 
     // Try to find an existing clip for this track and select it
@@ -854,43 +566,29 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // M9: Instrument methods
   void _onInstrumentSelected(int trackId, String instrumentId) {
-    setState(() {
-      // Create default instrument data for the track
-      final instrumentData = InstrumentData.defaultSynthesizer(trackId);
-      _trackInstruments[trackId] = instrumentData;
-      _selectedTrackId = trackId; // Select the track when instrument is assigned
-      _isEditorPanelVisible = true; // Show editor panel when instrument selected
+    // Create default instrument data for the track
+    final instrumentData = InstrumentData.defaultSynthesizer(trackId);
+    _trackController.setTrackInstrument(trackId, instrumentData);
+    _trackController.selectTrack(trackId);
+    _uiLayout.isEditorPanelVisible = true;
 
-      // Call audio engine to set instrument
-      if (_audioEngine != null) {
-        _audioEngine!.setTrackInstrument(trackId, instrumentId);
-      }
-    });
+    // Call audio engine to set instrument
+    if (_audioEngine != null) {
+      _audioEngine!.setTrackInstrument(trackId, instrumentId);
+    }
   }
 
   void _onTrackDeleted(int trackId) {
     // Remove all MIDI clips for this track via manager
     _midiPlaybackManager?.removeClipsForTrack(trackId);
 
-    setState(() {
-      // Remove instrument mapping
-      _trackInstruments.remove(trackId);
-    });
+    // Remove track state from controller
+    _trackController.onTrackDeleted(trackId);
   }
 
   void _onTrackDuplicated(int sourceTrackId, int newTrackId) {
-    setState(() {
-      // Copy instrument mapping from source track to new track if it exists
-      if (_trackInstruments.containsKey(sourceTrackId)) {
-        final sourceInstrument = _trackInstruments[sourceTrackId]!;
-        // Create a copy with the new track ID
-        _trackInstruments[newTrackId] = InstrumentData(
-          trackId: newTrackId,
-          type: sourceInstrument.type,
-          parameters: Map.from(sourceInstrument.parameters),
-        );
-      }
-    });
+    // Copy track state via controller
+    _trackController.onTrackDuplicated(sourceTrackId, newTrackId);
   }
 
   void _onInstrumentDropped(int trackId, Instrument instrument) {
@@ -958,14 +656,12 @@ class _DAWScreenState extends State<DAWScreen> {
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      setState(() {
-        _trackInstruments[trackId] = InstrumentData.vst3Instrument(
-          trackId: trackId,
-          pluginPath: plugin.path,
-          pluginName: plugin.name,
-          effectId: effectId,
-        );
-      });
+      _trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
+        trackId: trackId,
+        pluginPath: plugin.path,
+        pluginName: plugin.name,
+        effectId: effectId,
+      ));
     } catch (e) {
       debugPrint('❌ Error loading VST3 instrument: $e');
     }
@@ -1000,14 +696,12 @@ class _DAWScreenState extends State<DAWScreen> {
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      setState(() {
-        _trackInstruments[trackId] = InstrumentData.vst3Instrument(
-          trackId: trackId,
-          pluginPath: plugin.path,
-          pluginName: plugin.name,
-          effectId: effectId,
-        );
-      });
+      _trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
+        trackId: trackId,
+        pluginPath: plugin.path,
+        pluginName: plugin.name,
+        effectId: effectId,
+      ));
 
       // Select the newly created track and its clip
       _onTrackSelected(trackId);
@@ -1357,9 +1051,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   void _onInstrumentParameterChanged(InstrumentData instrumentData) {
-    setState(() {
-      _trackInstruments[instrumentData.trackId] = instrumentData;
-    });
+    _trackController.setTrackInstrument(instrumentData.trackId, instrumentData);
   }
 
   // M10: VST3 Plugin methods - delegating to Vst3PluginManager
@@ -1606,27 +1298,27 @@ class _DAWScreenState extends State<DAWScreen> {
   // M6: Panel toggle methods
   void _toggleLibraryPanel() {
     setState(() {
-      _isLibraryPanelCollapsed = !_isLibraryPanelCollapsed;
+      _uiLayout.isLibraryPanelCollapsed = !_uiLayout.isLibraryPanelCollapsed;
     });
   }
 
   void _toggleEditor() {
     setState(() {
-      _isEditorPanelVisible = !_isEditorPanelVisible;
+      _uiLayout.isEditorPanelVisible = !_uiLayout.isEditorPanelVisible;
     });
   }
 
   void _resetPanelLayout() {
     setState(() {
       // Reset to default panel sizes
-      _libraryPanelWidth = 200.0;
-      _mixerPanelWidth = 380.0;
-      _editorPanelHeight = 250.0;
+      _uiLayout.libraryPanelWidth = 200.0;
+      _uiLayout.mixerPanelWidth = 380.0;
+      _uiLayout.editorPanelHeight = 250.0;
 
       // Reset visibility states
-      _isLibraryPanelCollapsed = false;
-      _isMixerVisible = true;
-      _isEditorPanelVisible = true;
+      _uiLayout.isLibraryPanelCollapsed = false;
+      _uiLayout.isMixerVisible = true;
+      _uiLayout.isEditorPanelVisible = true;
 
       _statusMessage = 'Panel layout reset';
     });
@@ -1640,56 +1332,29 @@ class _DAWScreenState extends State<DAWScreen> {
     KeyboardShortcutsOverlay.show(context);
   }
 
-  // M8: MIDI clip selection methods - delegating to MidiPlaybackManager
+  // M8: MIDI clip methods - delegating to MidiClipController
   void _onMidiClipSelected(int? clipId, MidiClipData? clipData) {
-    final trackId = _midiPlaybackManager?.selectClip(clipId, clipData);
+    final trackId = _midiClipController.selectClip(clipId, clipData);
     if (clipId != null && clipData != null) {
-      setState(() {
-        // Open piano roll and set the selected track
-        _isEditorPanelVisible = true;
-        _selectedTrackId = trackId ?? clipData.trackId;
-      });
+      _uiLayout.isEditorPanelVisible = true;
+      _selectedTrackId = trackId ?? clipData.trackId;
     }
   }
 
   void _onMidiClipUpdated(MidiClipData updatedClip) {
-    // Convert playhead position from seconds to beats for MIDI clip placement
-    final beatsPerSecond = _tempo / 60.0;
-    final playheadPositionBeats = _playheadPosition * beatsPerSecond;
-    _midiPlaybackManager?.updateClip(updatedClip, _tempo, playheadPositionBeats);
+    _midiClipController.updateClip(updatedClip, _playheadPosition);
   }
 
   void _onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
-    _midiPlaybackManager?.copyClip(sourceClip, newStartTime, _tempo);
-    setState(() {});
+    _midiClipController.copyClipToTime(sourceClip, newStartTime);
   }
 
-  /// Duplicate the currently selected clip in place (Cmd+D)
-  /// Places the duplicate immediately after the original clip
   void _duplicateSelectedClip() {
-    final clip = _midiPlaybackManager?.currentEditingClip;
-    if (clip == null) return;
-
-    // Place duplicate immediately after original
-    final newStartTime = clip.startTime + clip.duration;
-    _midiPlaybackManager?.copyClip(clip, newStartTime, _tempo);
-    setState(() {});
+    _midiClipController.duplicateSelectedClip();
   }
 
-  /// Delete a MIDI clip by ID
   void _deleteMidiClip(int clipId, int trackId) {
-    // Get Rust clip ID before removing from Dart side
-    final rustClipId = _midiPlaybackManager?.dartToRustClipIds[clipId];
-
-    // Remove from Dart side (MidiPlaybackManager)
-    _midiPlaybackManager?.removeClip(clipId);
-
-    // Remove from Rust engine
-    if (rustClipId != null) {
-      _audioEngine?.removeMidiClip(trackId, rustClipId);
-    }
-
-    setState(() {});
+    _midiClipController.deleteClip(clipId, trackId);
   }
 
   // ========================================================================
@@ -2009,13 +1674,13 @@ class _DAWScreenState extends State<DAWScreen> {
   void _applyUILayout(UILayoutData layout) {
     setState(() {
       // Apply panel sizes with clamping
-      _libraryPanelWidth = layout.libraryWidth.clamp(_libraryMinWidth, _libraryMaxWidth);
-      _mixerPanelWidth = layout.mixerWidth.clamp(_mixerMinWidth, _mixerMaxWidth);
-      _editorPanelHeight = layout.bottomHeight.clamp(_editorMinHeight, _editorMaxHeight);
+      _uiLayout.libraryPanelWidth = layout.libraryWidth.clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryMaxWidth);
+      _uiLayout.mixerPanelWidth = layout.mixerWidth.clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerMaxWidth);
+      _uiLayout.editorPanelHeight = layout.bottomHeight.clamp(UILayoutState.editorMinHeight, UILayoutState.editorMaxHeight);
 
       // Apply collapsed states
-      _isLibraryPanelCollapsed = layout.libraryCollapsed;
-      _isMixerVisible = !layout.mixerCollapsed;
+      _uiLayout.isLibraryPanelCollapsed = layout.libraryCollapsed;
+      _uiLayout.isMixerVisible = !layout.mixerCollapsed;
       // Don't auto-open bottom panel on load
     });
   }
@@ -2023,12 +1688,12 @@ class _DAWScreenState extends State<DAWScreen> {
   /// Get current UI layout for saving
   UILayoutData _getCurrentUILayout() {
     return UILayoutData(
-      libraryWidth: _libraryPanelWidth,
-      mixerWidth: _mixerPanelWidth,
-      bottomHeight: _editorPanelHeight,
-      libraryCollapsed: _isLibraryPanelCollapsed,
-      mixerCollapsed: !_isMixerVisible,
-      bottomCollapsed: !(_isEditorPanelVisible || _isVirtualPianoVisible),
+      libraryWidth: _uiLayout.libraryPanelWidth,
+      mixerWidth: _uiLayout.mixerPanelWidth,
+      bottomHeight: _uiLayout.editorPanelHeight,
+      libraryCollapsed: _uiLayout.isLibraryPanelCollapsed,
+      mixerCollapsed: !_uiLayout.isMixerVisible,
+      bottomCollapsed: !(_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible),
     );
   }
 
@@ -2604,22 +2269,22 @@ class _DAWScreenState extends State<DAWScreen> {
           label: 'View',
           menus: [
             PlatformMenuItem(
-              label: !_isLibraryPanelCollapsed ? '✓ Show Library Panel' : 'Show Library Panel',
+              label: !_uiLayout.isLibraryPanelCollapsed ? '✓ Show Library Panel' : 'Show Library Panel',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyL, meta: true),
               onSelected: _toggleLibraryPanel,
             ),
             PlatformMenuItem(
-              label: _isMixerVisible ? '✓ Show Mixer Panel' : 'Show Mixer Panel',
+              label: _uiLayout.isMixerVisible ? '✓ Show Mixer Panel' : 'Show Mixer Panel',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyM, meta: true),
               onSelected: _toggleMixer,
             ),
             PlatformMenuItem(
-              label: _isEditorPanelVisible ? '✓ Show Editor Panel' : 'Show Editor Panel',
+              label: _uiLayout.isEditorPanelVisible ? '✓ Show Editor Panel' : 'Show Editor Panel',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
               onSelected: _toggleEditor,
             ),
             PlatformMenuItem(
-              label: _isVirtualPianoEnabled ? '✓ Show Virtual Piano' : 'Show Virtual Piano',
+              label: _uiLayout.isVirtualPianoEnabled ? '✓ Show Virtual Piano' : 'Show Virtual Piano',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyP, meta: true),
               onSelected: _toggleVirtualPiano,
             ),
@@ -2674,7 +2339,7 @@ class _DAWScreenState extends State<DAWScreen> {
             isRecording: _isRecording,
             isCountingIn: _isCountingIn,
             metronomeEnabled: _isMetronomeEnabled,
-            virtualPianoEnabled: _isVirtualPianoEnabled,
+            virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
             tempo: _tempo,
             onTempoChanged: _onTempoChanged,
             // MIDI device selection
@@ -2698,10 +2363,10 @@ class _DAWScreenState extends State<DAWScreen> {
             onToggleEditor: _toggleEditor,
             onTogglePiano: _toggleVirtualPiano,
             onResetPanelLayout: _resetPanelLayout,
-            libraryVisible: !_isLibraryPanelCollapsed,
-            mixerVisible: _isMixerVisible,
-            editorVisible: _isEditorPanelVisible,
-            pianoVisible: _isVirtualPianoEnabled,
+            libraryVisible: !_uiLayout.isLibraryPanelCollapsed,
+            mixerVisible: _uiLayout.isMixerVisible,
+            editorVisible: _uiLayout.isEditorPanelVisible,
+            pianoVisible: _uiLayout.isVirtualPianoEnabled,
             onHelpPressed: _showKeyboardShortcuts,
             isLoading: _isLoading,
           ),
@@ -2716,9 +2381,9 @@ class _DAWScreenState extends State<DAWScreen> {
                     children: [
                       // Left: Library panel
                       SizedBox(
-                        width: _isLibraryPanelCollapsed ? 40 : _libraryPanelWidth,
+                        width: _uiLayout.isLibraryPanelCollapsed ? 40 : _uiLayout.libraryPanelWidth,
                         child: LibraryPanel(
-                          isCollapsed: _isLibraryPanelCollapsed,
+                          isCollapsed: _uiLayout.isLibraryPanelCollapsed,
                           onToggle: _toggleLibraryPanel,
                           availableVst3Plugins: _vst3PluginManager?.availablePlugins ?? [],
                           libraryService: _libraryService,
@@ -2730,16 +2395,16 @@ class _DAWScreenState extends State<DAWScreen> {
                       // Divider: Library/Timeline
                       ResizableDivider(
                         orientation: DividerOrientation.vertical,
-                        isCollapsed: _isLibraryPanelCollapsed,
+                        isCollapsed: _uiLayout.isLibraryPanelCollapsed,
                         onDrag: (delta) {
                           setState(() {
-                            _libraryPanelWidth = (_libraryPanelWidth + delta)
-                                .clamp(_libraryMinWidth, _libraryMaxWidth);
+                            _uiLayout.libraryPanelWidth = (_uiLayout.libraryPanelWidth + delta)
+                                .clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryMaxWidth);
                           });
                         },
                         onDoubleClick: () {
                           setState(() {
-                            _isLibraryPanelCollapsed = !_isLibraryPanelCollapsed;
+                            _uiLayout.isLibraryPanelCollapsed = !_uiLayout.isLibraryPanelCollapsed;
                           });
                         },
                       ),
@@ -2783,26 +2448,26 @@ class _DAWScreenState extends State<DAWScreen> {
                       ),
 
                       // Right: Track mixer panel (always visible)
-                      if (_isMixerVisible) ...[
+                      if (_uiLayout.isMixerVisible) ...[
                         // Divider: Timeline/Mixer
                         ResizableDivider(
                           orientation: DividerOrientation.vertical,
                           isCollapsed: false,
                           onDrag: (delta) {
                             setState(() {
-                              _mixerPanelWidth = (_mixerPanelWidth - delta)
-                                  .clamp(_mixerMinWidth, _mixerMaxWidth);
+                              _uiLayout.mixerPanelWidth = (_uiLayout.mixerPanelWidth - delta)
+                                  .clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerMaxWidth);
                             });
                           },
                           onDoubleClick: () {
                             setState(() {
-                              _isMixerVisible = false;
+                              _uiLayout.isMixerVisible = false;
                             });
                           },
                         ),
 
                         SizedBox(
-                          width: _mixerPanelWidth,
+                          width: _uiLayout.mixerPanelWidth,
                           child: TrackMixerPanel(
                             key: _mixerKey,
                             audioEngine: _audioEngine,
@@ -2834,31 +2499,31 @@ class _DAWScreenState extends State<DAWScreen> {
                 ),
 
                 // Editor panel: Piano Roll / FX Chain / Instrument / Virtual Piano
-                if (_isEditorPanelVisible || _isVirtualPianoVisible) ...[
+                if (_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible) ...[
                   // Divider: Timeline/Editor Panel
                   ResizableDivider(
                     orientation: DividerOrientation.horizontal,
                     isCollapsed: false,
                     onDrag: (delta) {
                       setState(() {
-                        _editorPanelHeight = (_editorPanelHeight - delta)
-                            .clamp(_editorMinHeight, _editorMaxHeight);
+                        _uiLayout.editorPanelHeight = (_uiLayout.editorPanelHeight - delta)
+                            .clamp(UILayoutState.editorMinHeight, UILayoutState.editorMaxHeight);
                       });
                     },
                     onDoubleClick: () {
                       setState(() {
-                        _isEditorPanelVisible = false;
-                        _isVirtualPianoVisible = false;
-                        _isVirtualPianoEnabled = false;
+                        _uiLayout.isEditorPanelVisible = false;
+                        _uiLayout.isVirtualPianoVisible = false;
+                        _uiLayout.isVirtualPianoEnabled = false;
                       });
                     },
                   ),
 
                   SizedBox(
-                    height: _editorPanelHeight,
+                    height: _uiLayout.editorPanelHeight,
                     child: EditorPanel(
                       audioEngine: _audioEngine,
-                      virtualPianoEnabled: _isVirtualPianoEnabled,
+                      virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
                       selectedTrackId: _selectedTrackId,
                       currentInstrumentData: _selectedTrackId != null
                           ? _trackInstruments[_selectedTrackId]
@@ -2866,9 +2531,9 @@ class _DAWScreenState extends State<DAWScreen> {
                       onVirtualPianoClose: _toggleVirtualPiano,
                       onClosePanel: () {
                         setState(() {
-                          _isEditorPanelVisible = false;
-                          _isVirtualPianoVisible = false;
-                          _isVirtualPianoEnabled = false;
+                          _uiLayout.isEditorPanelVisible = false;
+                          _uiLayout.isVirtualPianoVisible = false;
+                          _uiLayout.isVirtualPianoEnabled = false;
                         });
                       },
                       currentEditingClip: _midiPlaybackManager?.currentEditingClip,
