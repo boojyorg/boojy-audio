@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::f32::consts::PI;
+use crate::project::SynthData;
 
 const MAX_VOICES: usize = 8;
 
@@ -340,6 +341,24 @@ impl Synth {
     pub fn active_voice_count(&self) -> usize {
         self.voices.iter().filter(|v| v.is_active).count()
     }
+
+    /// Get current synth parameters for serialization
+    pub fn get_parameters(&self) -> SynthData {
+        let osc_name = match self.osc_type {
+            OscillatorType::Sine => "sine",
+            OscillatorType::Saw => "saw",
+            OscillatorType::Square => "square",
+            OscillatorType::Triangle => "triangle",
+        };
+        SynthData {
+            osc_type: osc_name.to_string(),
+            filter_cutoff: self.filter_cutoff,
+            attack: self.envelope.attack,
+            decay: self.envelope.decay,
+            sustain: self.envelope.sustain,
+            release: self.envelope.release,
+        }
+    }
 }
 
 // ============================================================================
@@ -456,6 +475,24 @@ impl TrackSynthManager {
             true
         } else {
             false
+        }
+    }
+
+    /// Get synth parameters for serialization
+    pub fn get_synth_parameters(&self, track_id: u64) -> Option<SynthData> {
+        self.synths.get(&track_id).map(|synth| synth.get_parameters())
+    }
+
+    /// Restore synth parameters from saved data
+    pub fn restore_synth_parameters(&mut self, track_id: u64, data: &SynthData) {
+        if let Some(synth) = self.synths.get_mut(&track_id) {
+            synth.set_parameter("osc_type", &data.osc_type);
+            synth.set_parameter("filter_cutoff", &data.filter_cutoff.to_string());
+            synth.set_parameter("attack", &data.attack.to_string());
+            synth.set_parameter("decay", &data.decay.to_string());
+            synth.set_parameter("sustain", &data.sustain.to_string());
+            synth.set_parameter("release", &data.release.to_string());
+            println!("✅ Restored synth parameters for track {}: osc={}", track_id, data.osc_type);
         }
     }
 }

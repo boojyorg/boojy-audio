@@ -992,6 +992,51 @@ pub fn get_midi_clip_count() -> Result<usize, String> {
     Ok(graph.midi_clip_count())
 }
 
+/// Get all MIDI clips info
+/// Returns semicolon-separated list of clip info strings
+/// Each clip: "clip_id,track_id,start_time,duration,note_count"
+pub fn get_all_midi_clips_info() -> Result<String, String> {
+    let graph_mutex = AUDIO_GRAPH.get()
+        .ok_or("Audio graph not initialized")?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let mut clips_info = Vec::new();
+
+    // Get clips from global MIDI clips storage
+    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    for timeline_clip in midi_clips.iter() {
+        let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
+        let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
+        let duration = timeline_clip.clip.duration_seconds();
+        let note_count = timeline_clip.clip.events.len() / 2; // NoteOn/NoteOff pairs
+        clips_info.push(format!("{},{},{},{},{}",
+            timeline_clip.id, track_id_str, timeline_clip.start_time, duration, note_count));
+    }
+    drop(midi_clips);
+
+    // Also get clips from tracks (they might have different IDs)
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    for track in track_manager.get_all_tracks() {
+        if let Ok(track_lock) = track.lock() {
+            for timeline_clip in &track_lock.midi_clips {
+                // Check if we already have this clip
+                let already_added = clips_info.iter().any(|info| {
+                    info.split(',').next().unwrap_or("") == timeline_clip.id.to_string()
+                });
+                if !already_added {
+                    let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
+                    let duration = timeline_clip.clip.duration_seconds();
+                    let note_count = timeline_clip.clip.events.len() / 2;
+                    clips_info.push(format!("{},{},{},{},{}",
+                        timeline_clip.id, track_id, timeline_clip.start_time, duration, note_count));
+                }
+            }
+        }
+    }
+
+    Ok(clips_info.join(";"))
+}
+
 /// Get info about a MIDI clip
 /// Returns: "clip_id,track_id,start_time,duration,note_count"
 /// track_id is -1 if not assigned to a track
@@ -1029,6 +1074,68 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     }
 
     Err(format!("MIDI clip {} not found", clip_id))
+}
+
+/// Get MIDI notes from a clip
+/// Returns semicolon-separated list of notes: "note,velocity,start_time,duration"
+pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
+    let graph_mutex = AUDIO_GRAPH.get()
+        .ok_or("Audio graph not initialized")?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let sample_rate = crate::audio_graph::AudioGraph::get_sample_rate();
+
+    // First check global MIDI clips
+    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    if let Some(timeline_clip) = midi_clips.iter().find(|c| c.id == clip_id) {
+        let notes = extract_notes_from_clip(&timeline_clip.clip, sample_rate);
+        return Ok(notes);
+    }
+    drop(midi_clips);
+
+    // Also check track-specific MIDI clips
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    for track in track_manager.get_all_tracks() {
+        if let Ok(track_lock) = track.lock() {
+            for timeline_clip in &track_lock.midi_clips {
+                if timeline_clip.id == clip_id {
+                    let notes = extract_notes_from_clip(&timeline_clip.clip, sample_rate);
+                    return Ok(notes);
+                }
+            }
+        }
+    }
+
+    Err(format!("MIDI clip {} not found", clip_id))
+}
+
+/// Helper function to extract notes from a MIDI clip
+fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> String {
+    use crate::midi::MidiEventType;
+    use std::collections::HashMap;
+
+    let mut notes_info = Vec::new();
+    let mut note_starts: HashMap<u8, (u64, u8)> = HashMap::new(); // note -> (start_samples, velocity)
+
+    for event in &clip.events {
+        match event.event_type {
+            MidiEventType::NoteOn { note, velocity } => {
+                note_starts.insert(note, (event.timestamp_samples, velocity));
+            }
+            MidiEventType::NoteOff { note, .. } => {
+                if let Some((start_samples, velocity)) = note_starts.remove(&note) {
+                    let start_time = start_samples as f64 / sample_rate as f64;
+                    let end_time = event.timestamp_samples as f64 / sample_rate as f64;
+                    let duration = end_time - start_time;
+
+                    // Format: note,velocity,start_time,duration
+                    notes_info.push(format!("{},{},{},{}", note, velocity, start_time, duration));
+                }
+            }
+        }
+    }
+
+    notes_info.join(";")
 }
 
 /// Send MIDI note on event directly to synthesizer (for virtual piano)
@@ -2273,6 +2380,71 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     } else {
         Err(format!("Cannot delete track {} (either not found or is master track)", track_id))
     }
+}
+
+/// Clear all tracks except master - used for New Project / Close Project
+///
+/// This removes all tracks, clips, and effects, leaving only the master track.
+/// The master track is reset to default settings.
+///
+/// # Returns
+/// Success message
+pub fn clear_all_tracks() -> Result<String, String> {
+    let graph_mutex = AUDIO_GRAPH.get()
+        .ok_or("Audio graph not initialized")?;
+    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    // Stop playback if running
+    let _ = graph.stop();
+
+    // Get all track IDs except master
+    let track_ids_to_remove: Vec<u64> = {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let all_tracks = track_manager.get_all_tracks();
+        all_tracks.iter()
+            .filter_map(|track_arc| {
+                let track = track_arc.lock().expect("mutex poisoned");
+                if track.id != 0 { Some(track.id) } else { None }
+            })
+            .collect()
+    };
+
+    // Delete all non-master tracks
+    for track_id in &track_ids_to_remove {
+        // Stop any playing notes on the per-track synth
+        if let Ok(mut synth_manager) = graph.track_synth_manager.lock() {
+            synth_manager.all_notes_off(*track_id);
+            synth_manager.remove_synth(*track_id);
+        }
+
+        // Remove all MIDI clips belonging to this track
+        graph.remove_midi_clips_for_track(*track_id);
+
+        // Remove the track
+        let mut track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        track_manager.remove_track(*track_id);
+    }
+
+    // Clear all audio clips from global storage
+    let clips_mutex = AUDIO_CLIPS.get()
+        .ok_or("Audio clips not initialized")?;
+    let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    clips_map.clear();
+
+    // Reset master track to defaults (volume = 0dB, pan = 0, unmuted)
+    {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        if let Some(master_arc) = track_manager.get_track(0) {
+            let mut master = master_arc.lock().expect("mutex poisoned");
+            master.volume_db = 0.0;
+            master.pan = 0.0;
+            master.mute = false;
+            master.solo = false;
+        }
+    }
+
+    eprintln!("🧹 [API] Cleared {} tracks (master track preserved)", track_ids_to_remove.len());
+    Ok(format!("Cleared {} tracks", track_ids_to_remove.len()))
 }
 
 /// Duplicate a track (cannot duplicate master)

@@ -281,6 +281,13 @@ class TimelineViewState extends State<TimelineView> {
     _loadTracksAsync();
   }
 
+  /// Public method to clear all clips (used when project is cleared)
+  void clearClips() {
+    setState(() {
+      _clips.clear();
+    });
+  }
+
   /// Public method to add a clip to the timeline
   void addClip(ClipData clip) {
     setState(() {

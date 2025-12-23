@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
 import 'commands/command.dart';
+import 'user_settings.dart';
 
 /// Global undo/redo manager for the DAW
 /// Uses the Command pattern to track and reverse actions
@@ -11,7 +12,9 @@ class UndoRedoManager extends ChangeNotifier {
 
   final List<Command> _undoStack = [];
   final List<Command> _redoStack = [];
-  static const int maxHistorySize = 100;
+
+  /// Maximum history size (configurable via UserSettings)
+  int get maxHistorySize => UserSettings().undoLimit;
 
   AudioEngine? _engine;
 

@@ -837,6 +837,15 @@ pub extern "C" fn delete_track_ffi(track_id: u64) -> *mut c_char {
     }
 }
 
+/// Clear all tracks except master - used for New Project / Close Project
+#[no_mangle]
+pub extern "C" fn clear_all_tracks_ffi() -> *mut c_char {
+    match api::clear_all_tracks() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Duplicate a track
 ///
 /// Returns the new track ID as a string on success, or "Error: <message>" on failure.
@@ -1199,6 +1208,31 @@ pub extern "C" fn vst3_attach_editor_ffi(
             eprintln!("❌ [FFI] Failed to attach VST3 editor: {}", e);
             safe_cstring(format!("Error: {}", e)).into_raw()
         }
+    }
+}
+
+// ============================================================================
+// MIDI Clip Info FFI (for restoring clips after project load)
+// ============================================================================
+
+/// Get all MIDI clips info
+/// Returns semicolon-separated list: "clip_id,track_id,start_time,duration,note_count"
+/// Each clip info is separated by semicolon
+#[no_mangle]
+pub extern "C" fn get_all_midi_clips_info_ffi() -> *mut c_char {
+    match api::get_all_midi_clips_info() {
+        Ok(info) => safe_cstring(info).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get MIDI notes from a clip
+/// Returns semicolon-separated list: "note,velocity,start_time,duration"
+#[no_mangle]
+pub extern "C" fn get_midi_clip_notes_ffi(clip_id: u64) -> *mut c_char {
+    match api::get_midi_clip_notes(clip_id) {
+        Ok(notes) => safe_cstring(notes).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
     }
 }
 

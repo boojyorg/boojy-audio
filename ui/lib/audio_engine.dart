@@ -79,6 +79,7 @@ class AudioEngine {
   late final _GetTrackPeakLevelsFfi _getTrackPeakLevels;
   late final _DeleteTrackFfi _deleteTrack;
   late final _DuplicateTrackFfi _duplicateTrack;
+  late final _ClearAllTracksFfi _clearAllTracks;
 
   // M4 functions - Effects
   late final _AddEffectToTrackFfi _addEffectToTrack;
@@ -116,6 +117,8 @@ class AudioEngine {
   late final _GetMidiRecordingStateFfi _getMidiRecordingState;
   late final _QuantizeMidiClipFfi _quantizeMidiClip;
   late final _GetMidiClipInfoFfi _getMidiClipInfo;
+  late final _GetAllMidiClipsInfoFfi _getAllMidiClipsInfo;
+  late final _GetMidiClipNotesFfi _getMidiClipNotes;
 
   // Audio Device functions
   late final _GetAudioInputDevicesFfi _getAudioInputDevices;
@@ -528,6 +531,12 @@ class AudioEngine {
           .asFunction();
       print('  ✅ delete_track_ffi bound');
 
+      _clearAllTracks = _lib
+          .lookup<ffi.NativeFunction<_ClearAllTracksFfiNative>>(
+              'clear_all_tracks_ffi')
+          .asFunction();
+      print('  ✅ clear_all_tracks_ffi bound');
+
       // Bind M4 effect functions
       _addEffectToTrack = _lib
           .lookup<ffi.NativeFunction<_AddEffectToTrackFfiNative>>(
@@ -725,6 +734,18 @@ class AudioEngine {
               'get_midi_clip_info_ffi')
           .asFunction();
       print('  ✅ get_midi_clip_info_ffi bound');
+
+      _getAllMidiClipsInfo = _lib
+          .lookup<ffi.NativeFunction<_GetAllMidiClipsInfoFfiNative>>(
+              'get_all_midi_clips_info_ffi')
+          .asFunction();
+      print('  ✅ get_all_midi_clips_info_ffi bound');
+
+      _getMidiClipNotes = _lib
+          .lookup<ffi.NativeFunction<_GetMidiClipNotesFfiNative>>(
+              'get_midi_clip_notes_ffi')
+          .asFunction();
+      print('  ✅ get_midi_clip_notes_ffi bound');
 
       // Bind Audio Device functions
       _getAudioInputDevices = _lib
@@ -1612,6 +1633,35 @@ class AudioEngine {
     }
   }
 
+  /// Get all MIDI clips info
+  /// Returns semicolon-separated list: "clip_id,track_id,start_time,duration,note_count"
+  /// Each clip info is separated by semicolon
+  String getAllMidiClipsInfo() {
+    try {
+      final resultPtr = _getAllMidiClipsInfo();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Get all MIDI clips info failed: $e');
+      return 'Error: $e';
+    }
+  }
+
+  /// Get MIDI notes from a clip
+  /// Returns semicolon-separated list: "note,velocity,start_time,duration"
+  String getMidiClipNotes(int clipId) {
+    try {
+      final resultPtr = _getMidiClipNotes(clipId);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Get MIDI clip notes failed: $e');
+      return 'Error: $e';
+    }
+  }
+
   // ========================================================================
   // M4 API - Tracks & Mixer
   // ========================================================================
@@ -1806,6 +1856,21 @@ class AudioEngine {
     } catch (e) {
       print('❌ [AudioEngine] Duplicate track failed: $e');
       return -1;
+    }
+  }
+
+  /// Clear all tracks except master - used for New Project / Close Project
+  String clearAllTracks() {
+    print('🧹 [AudioEngine] Clearing all tracks...');
+    try {
+      final resultPtr = _clearAllTracks();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      print('✅ [AudioEngine] $result');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Clear all tracks failed: $e');
+      rethrow;
     }
   }
 
@@ -2448,6 +2513,9 @@ typedef _DeleteTrackFfi = ffi.Pointer<Utf8> Function(int);
 typedef _DuplicateTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
 typedef _DuplicateTrackFfi = int Function(int);
 
+typedef _ClearAllTracksFfiNative = ffi.Pointer<Utf8> Function();
+typedef _ClearAllTracksFfi = ffi.Pointer<Utf8> Function();
+
 // M4 types - Effects
 typedef _AddEffectToTrackFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
 typedef _AddEffectToTrackFfi = int Function(int, ffi.Pointer<ffi.Char>);
@@ -2549,6 +2617,12 @@ typedef _QuantizeMidiClipFfi = ffi.Pointer<Utf8> Function(int, int);
 
 typedef _GetMidiClipInfoFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _GetMidiClipInfoFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetAllMidiClipsInfoFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAllMidiClipsInfoFfi = ffi.Pointer<Utf8> Function();
+
+typedef _GetMidiClipNotesFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetMidiClipNotesFfi = ffi.Pointer<Utf8> Function(int);
 
 // Audio Device types
 typedef _GetAudioInputDevicesFfiNative = ffi.Pointer<Utf8> Function();

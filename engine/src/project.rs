@@ -35,7 +35,20 @@ pub struct ProjectData {
     pub tracks: Vec<TrackData>,
     /// All audio files referenced in the project
     pub audio_files: Vec<AudioFileData>,
+    /// Metronome enabled state
+    #[serde(default = "default_true")]
+    pub metronome_enabled: bool,
+    /// Count-in duration in bars
+    #[serde(default = "default_count_in")]
+    pub count_in_bars: u32,
+    /// Buffer size preset (0=Lowest, 1=Low, 2=Balanced, 3=Safe, 4=High)
+    #[serde(default = "default_buffer_size")]
+    pub buffer_size_preset: u32,
 }
+
+fn default_true() -> bool { true }
+fn default_count_in() -> u32 { 2 }
+fn default_buffer_size() -> u32 { 2 } // Balanced
 
 impl ProjectData {
     /// Create a new empty project
@@ -49,6 +62,9 @@ impl ProjectData {
             time_sig_denominator: 4,
             tracks: Vec::new(),
             audio_files: Vec::new(),
+            metronome_enabled: true,
+            count_in_bars: 2,
+            buffer_size_preset: 2, // Balanced
         }
     }
 }
@@ -76,6 +92,18 @@ pub struct TrackData {
     pub clips: Vec<ClipData>,
     /// Effect chain
     pub fx_chain: Vec<EffectData>,
+    /// Synthesizer settings (for MIDI tracks)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub synth_settings: Option<SynthData>,
+    /// Send routing to return tracks
+    #[serde(default)]
+    pub sends: Vec<SendData>,
+    /// Parent group track ID (for folder hierarchy)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_group_id: Option<u64>,
+    /// Input monitoring enabled
+    #[serde(default)]
+    pub input_monitoring: bool,
 }
 
 /// Clip data (audio or MIDI)
@@ -134,6 +162,47 @@ pub struct EffectData {
     pub effect_type: String,
     /// Effect parameters
     pub parameters: HashMap<String, f32>,
+}
+
+/// Send routing data for serialization
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SendData {
+    /// Target return track ID
+    pub target_track_id: u64,
+    /// Send amount (0.0 - 1.0)
+    pub amount: f32,
+    /// Pre-fader send
+    pub pre_fader: bool,
+}
+
+/// Synthesizer settings data
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SynthData {
+    /// Oscillator type: "sine", "saw", "square", "triangle"
+    pub osc_type: String,
+    /// Filter cutoff (0.0 - 1.0)
+    pub filter_cutoff: f32,
+    /// Envelope attack time (seconds)
+    pub attack: f32,
+    /// Envelope decay time (seconds)
+    pub decay: f32,
+    /// Envelope sustain level (0.0 - 1.0)
+    pub sustain: f32,
+    /// Envelope release time (seconds)
+    pub release: f32,
+}
+
+impl Default for SynthData {
+    fn default() -> Self {
+        Self {
+            osc_type: "saw".to_string(),
+            filter_cutoff: 1.0,
+            attack: 0.01,
+            decay: 0.1,
+            sustain: 0.7,
+            release: 0.3,
+        }
+    }
 }
 
 // ========================================================================

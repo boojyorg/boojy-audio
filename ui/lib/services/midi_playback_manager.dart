@@ -298,4 +298,96 @@ class MidiPlaybackManager extends ChangeNotifier {
     _currentEditingClip = null;
     notifyListeners();
   }
+
+  /// Restore MIDI clips from engine after loading a project
+  ///
+  /// This queries the engine for all MIDI clips and reconstructs
+  /// the Flutter MidiClipData objects for UI display.
+  void restoreClipsFromEngine(double tempo) {
+    debugPrint('🎹 [MidiPlaybackManager] Restoring MIDI clips from engine...');
+
+    // Clear existing clips first
+    _midiClips.clear();
+    _dartToRustClipIds.clear();
+
+    // Get all clips info from engine
+    final clipsInfoStr = _audioEngine.getAllMidiClipsInfo();
+    if (clipsInfoStr.isEmpty || clipsInfoStr.startsWith('Error:')) {
+      debugPrint('🎹 [MidiPlaybackManager] No MIDI clips found or error: $clipsInfoStr');
+      notifyListeners();
+      return;
+    }
+
+    // Parse clips: "clip_id,track_id,start_time,duration,note_count;..."
+    final clipEntries = clipsInfoStr.split(';').where((s) => s.isNotEmpty);
+    final beatsPerSecond = tempo / 60.0;
+
+    for (final entry in clipEntries) {
+      final parts = entry.split(',');
+      if (parts.length < 5) continue;
+
+      final rustClipId = int.tryParse(parts[0]) ?? -1;
+      final trackId = int.tryParse(parts[1]) ?? -1;
+      final startTimeSeconds = double.tryParse(parts[2]) ?? 0.0;
+      final durationSeconds = double.tryParse(parts[3]) ?? 0.0;
+      // parts[4] is note_count - not needed since we fetch notes
+
+      if (rustClipId < 0 || trackId < 0) continue;
+
+      // Convert from seconds to beats for UI
+      final startTimeBeats = startTimeSeconds * beatsPerSecond;
+      final durationBeats = durationSeconds * beatsPerSecond;
+
+      // Get notes for this clip
+      final notesStr = _audioEngine.getMidiClipNotes(rustClipId);
+      final notes = <MidiNoteData>[];
+
+      if (notesStr.isNotEmpty && !notesStr.startsWith('Error:')) {
+        // Parse notes: "note,velocity,start_time,duration;..."
+        final noteEntries = notesStr.split(';').where((s) => s.isNotEmpty);
+        for (final noteEntry in noteEntries) {
+          final noteParts = noteEntry.split(',');
+          if (noteParts.length < 4) continue;
+
+          final midiNote = int.tryParse(noteParts[0]) ?? 60;
+          final velocity = int.tryParse(noteParts[1]) ?? 100;
+          final noteStartSeconds = double.tryParse(noteParts[2]) ?? 0.0;
+          final noteDurationSeconds = double.tryParse(noteParts[3]) ?? 0.25;
+
+          // Convert from seconds to beats for UI
+          final noteStartBeats = noteStartSeconds * beatsPerSecond;
+          final noteDurationBeats = noteDurationSeconds * beatsPerSecond;
+
+          notes.add(MidiNoteData(
+            note: midiNote,
+            velocity: velocity,
+            startTime: noteStartBeats,
+            duration: noteDurationBeats,
+          ));
+        }
+      }
+
+      // Create a Dart clip ID (use rustClipId as base to maintain consistency)
+      final dartClipId = rustClipId;
+
+      // Create the MidiClipData
+      final clipData = MidiClipData(
+        clipId: dartClipId,
+        trackId: trackId,
+        startTime: startTimeBeats,
+        duration: durationBeats > 0 ? durationBeats : 16.0, // Default 4 bars
+        loopLength: durationBeats > 0 ? durationBeats : 16.0,
+        notes: notes,
+        name: 'MIDI Clip',
+      );
+
+      _midiClips.add(clipData);
+      _dartToRustClipIds[dartClipId] = rustClipId;
+
+      debugPrint('🎹 [MidiPlaybackManager] Restored clip $rustClipId on track $trackId with ${notes.length} notes');
+    }
+
+    debugPrint('🎹 [MidiPlaybackManager] Restored ${_midiClips.length} MIDI clips');
+    notifyListeners();
+  }
 }

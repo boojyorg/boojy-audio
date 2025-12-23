@@ -989,6 +989,7 @@ impl AudioGraph {
         // Get all tracks
         let track_manager = self.track_manager.lock().expect("mutex poisoned");
         let effect_manager = self.effect_manager.lock().expect("mutex poisoned");
+        let synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
 
         let all_tracks = track_manager.get_all_tracks();
         let tracks_data: Vec<TrackData> = all_tracks.iter().map(|track_arc| {
@@ -1066,8 +1067,8 @@ impl AudioGraph {
                 }
             }).collect();
 
-            // Get clips on this track
-            let clips_data: Vec<ClipData> = track.audio_clips.iter().map(|timeline_clip| {
+            // Get audio clips on this track
+            let audio_clips_data: Vec<ClipData> = track.audio_clips.iter().map(|timeline_clip| {
                 ClipData {
                     id: timeline_clip.id,
                     start_time: timeline_clip.start_time,
@@ -1077,13 +1078,52 @@ impl AudioGraph {
                     midi_notes: None,
                 }
             }).collect();
-            // TODO: Add MIDI clip serialization
-            // MIDI clips use Note On/Note Off events, need to pair them into notes with duration
+
+            // Get MIDI clips on this track - convert events to note data
+            let midi_clips_data: Vec<ClipData> = track.midi_clips.iter().map(|timeline_clip| {
+                let midi_notes = convert_midi_events_to_notes(
+                    &timeline_clip.clip.events,
+                    timeline_clip.clip.sample_rate
+                );
+                let duration_seconds = timeline_clip.clip.duration_samples as f64
+                    / timeline_clip.clip.sample_rate as f64;
+
+                ClipData {
+                    id: timeline_clip.id,
+                    start_time: timeline_clip.start_time,
+                    offset: 0.0,
+                    duration: Some(duration_seconds),
+                    audio_file_id: None, // MIDI clip, not audio
+                    midi_notes: Some(midi_notes),
+                }
+            }).collect();
+
+            // Combine audio and MIDI clips
+            let clips_data: Vec<ClipData> = audio_clips_data.into_iter()
+                .chain(midi_clips_data.into_iter())
+                .collect();
+
+            // Get track type string
+            let track_type_str = format!("{:?}", track.track_type);
+
+            // Get synth settings for MIDI tracks
+            let synth_settings = if track_type_str == "Midi" {
+                synth_manager.get_synth_parameters(track.id)
+            } else {
+                None
+            };
+
+            // Export send routing
+            let sends: Vec<SendData> = track.sends.iter().map(|s| SendData {
+                target_track_id: s.target_track_id,
+                amount: s.amount,
+                pre_fader: s.pre_fader,
+            }).collect();
 
             TrackData {
                 id: track.id,
                 name: track.name.clone(),
-                track_type: format!("{:?}", track.track_type), // "Audio", "MIDI", etc.
+                track_type: track_type_str,
                 volume_db: track.volume_db,
                 pan: track.pan,
                 mute: track.mute,
@@ -1091,6 +1131,10 @@ impl AudioGraph {
                 armed: track.armed,
                 clips: clips_data,
                 fx_chain,
+                synth_settings,
+                sends,
+                parent_group_id: track.parent_group,
+                input_monitoring: track.input_monitoring,
             }
         }).collect();
 
@@ -1110,15 +1154,29 @@ impl AudioGraph {
         eprintln!("   - {} tracks", tracks_data.len());
         eprintln!("   - {} audio files", audio_files.len());
 
+        // Get project-level settings
+        let metronome_enabled = self.recorder.is_metronome_enabled();
+        let count_in_bars = self.recorder.get_count_in_bars();
+        let buffer_size_preset = match self.get_buffer_size_preset() {
+            BufferSizePreset::Lowest => 0,
+            BufferSizePreset::Low => 1,
+            BufferSizePreset::Balanced => 2,
+            BufferSizePreset::Safe => 3,
+            BufferSizePreset::HighStability => 4,
+        };
+
         ProjectData {
             version: "1.0".to_string(),
             name: project_name,
-            tempo: 120.0, // TODO: Get from actual tempo setting
+            tempo: self.recorder.get_tempo(),
             sample_rate: TARGET_SAMPLE_RATE,
             time_sig_numerator: 4,
             time_sig_denominator: 4,
             tracks: tracks_data,
             audio_files,
+            metronome_enabled,
+            count_in_bars,
+            buffer_size_preset,
         }
     }
 
@@ -1155,6 +1213,27 @@ impl AudioGraph {
         // Restore tempo (via recorder)
         self.recorder.set_tempo(project_data.tempo);
         eprintln!("   - Tempo: {} BPM", project_data.tempo);
+
+        // Restore metronome and count-in settings
+        self.recorder.set_metronome_enabled(project_data.metronome_enabled);
+        self.recorder.set_count_in_bars(project_data.count_in_bars);
+        eprintln!("   - Metronome: {}, Count-in: {} bars",
+            if project_data.metronome_enabled { "ON" } else { "OFF" },
+            project_data.count_in_bars);
+
+        // Restore buffer size preset
+        let buffer_preset = match project_data.buffer_size_preset {
+            0 => BufferSizePreset::Lowest,
+            1 => BufferSizePreset::Low,
+            2 => BufferSizePreset::Balanced,
+            3 => BufferSizePreset::Safe,
+            _ => BufferSizePreset::HighStability,
+        };
+        if let Err(e) = self.set_buffer_size(buffer_preset) {
+            eprintln!("⚠️  Failed to restore buffer size: {}", e);
+        } else {
+            eprintln!("   - Buffer size: {:?}", buffer_preset);
+        }
 
         // Recreate tracks and effects
         for track_data in project_data.tracks {
@@ -1204,6 +1283,30 @@ impl AudioGraph {
                     track.mute = track_data.mute;
                     track.solo = track_data.solo;
                     track.armed = track_data.armed;
+
+                    // Restore parent group and input monitoring
+                    track.parent_group = track_data.parent_group_id;
+                    track.input_monitoring = track_data.input_monitoring;
+
+                    // Restore send routing
+                    for send_data in &track_data.sends {
+                        track.sends.push(crate::track::Send {
+                            target_track_id: send_data.target_track_id,
+                            amount: send_data.amount,
+                            pre_fader: send_data.pre_fader,
+                        });
+                    }
+                }
+            }
+
+            // Create and restore synth for MIDI tracks
+            if track_type == TrackType::Midi {
+                let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                synth_manager.create_synth(track_id);
+
+                // Restore synth parameters if saved
+                if let Some(synth_data) = &track_data.synth_settings {
+                    synth_manager.restore_synth_parameters(track_id, synth_data);
                 }
             }
 
@@ -1274,13 +1377,60 @@ impl AudioGraph {
                 }
             }
 
-            eprintln!("   - Created track '{}' (type: {:?}, {} effects)",
-                track_data.name, track_type, track_data.fx_chain.len());
+            // Restore MIDI clips for this track
+            let mut midi_clip_count = 0;
+            for clip_data in &track_data.clips {
+                if let Some(midi_notes) = &clip_data.midi_notes {
+                    // Reconstruct MIDI clip from serialized notes (with saved duration)
+                    let midi_clip = reconstruct_midi_clip_from_notes(
+                        midi_notes,
+                        project_data.sample_rate,
+                        clip_data.duration,
+                    );
+                    let clip_arc = std::sync::Arc::new(midi_clip);
+
+                    // Generate a new clip ID
+                    let clip_id = {
+                        let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
+                        let id = *next_id;
+                        *next_id += 1;
+                        id
+                    };
+
+                    // Add to global MIDI clips storage
+                    {
+                        let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+                        midi_clips.push(TimelineMidiClip {
+                            id: clip_id,
+                            clip: clip_arc.clone(),
+                            start_time: clip_data.start_time,
+                            track_id: Some(track_id),
+                        });
+                    }
+
+                    // Add to track's MIDI clips
+                    let tm = self.track_manager.lock().expect("mutex poisoned");
+                    if let Some(track_arc) = tm.get_track(track_id) {
+                        let mut track = track_arc.lock().expect("mutex poisoned");
+                        track.midi_clips.push(TimelineMidiClip {
+                            id: clip_id,
+                            clip: clip_arc,
+                            start_time: clip_data.start_time,
+                            track_id: Some(track_id),
+                        });
+                    }
+
+                    midi_clip_count += 1;
+                }
+                // Note: Audio clips are restored in the API layer after audio files are loaded
+            }
+
+            eprintln!("   - Created track '{}' (type: {:?}, {} effects, {} MIDI clips)",
+                track_data.name, track_type, track_data.fx_chain.len(), midi_clip_count);
         }
 
-        // TODO: Restore clips to tracks
-        // This is deferred because we need access to the loaded AudioClip objects
-        // which are handled in the API layer
+        // Note: Audio clips are restored in the API layer (load_project)
+        // because they need access to the loaded AudioClip objects
 
         Ok(())
     }
@@ -1587,6 +1737,107 @@ impl AudioGraph {
     /// Get current sample rate
     pub fn get_sample_rate() -> u32 {
         TARGET_SAMPLE_RATE
+    }
+}
+
+// ============================================================================
+// MIDI SERIALIZATION HELPERS
+// ============================================================================
+
+/// Convert MIDI events (NoteOn/NoteOff pairs) to MidiNoteData for serialization
+fn convert_midi_events_to_notes(
+    events: &[crate::midi::MidiEvent],
+    sample_rate: u32,
+) -> Vec<crate::project::MidiNoteData> {
+    use crate::midi::MidiEventType;
+    use crate::project::MidiNoteData;
+    use std::collections::HashMap;
+
+    // Track active notes: note_number -> (start_time_seconds, velocity)
+    let mut active_notes: HashMap<u8, (f64, u8)> = HashMap::new();
+    let mut notes = Vec::new();
+
+    for event in events {
+        let time_seconds = event.timestamp_samples as f64 / sample_rate as f64;
+        match event.event_type {
+            MidiEventType::NoteOn { note, velocity } if velocity > 0 => {
+                active_notes.insert(note, (time_seconds, velocity));
+            }
+            MidiEventType::NoteOff { note, .. } => {
+                if let Some((start, vel)) = active_notes.remove(&note) {
+                    notes.push(MidiNoteData {
+                        note,
+                        velocity: vel,
+                        start_time: start,
+                        duration: time_seconds - start,
+                    });
+                }
+            }
+            // NoteOn with velocity 0 is treated as NoteOff
+            MidiEventType::NoteOn { note, velocity: 0 } => {
+                if let Some((start, vel)) = active_notes.remove(&note) {
+                    notes.push(MidiNoteData {
+                        note,
+                        velocity: vel,
+                        start_time: start,
+                        duration: time_seconds - start,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Sort by start time for consistency
+    notes.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
+    notes
+}
+
+/// Reconstruct MidiClip from serialized MidiNoteData
+fn reconstruct_midi_clip_from_notes(
+    notes: &[crate::project::MidiNoteData],
+    sample_rate: u32,
+    saved_duration: Option<f64>,
+) -> crate::midi::MidiClip {
+    use crate::midi::{MidiClip, MidiEvent, MidiEventType};
+
+    let mut events = Vec::new();
+
+    for note in notes {
+        let start_samples = (note.start_time * sample_rate as f64) as u64;
+        let end_samples = ((note.start_time + note.duration) * sample_rate as f64) as u64;
+
+        events.push(MidiEvent::new(
+            MidiEventType::NoteOn { note: note.note, velocity: note.velocity },
+            start_samples,
+        ));
+        events.push(MidiEvent::new(
+            MidiEventType::NoteOff { note: note.note, velocity: 0 },
+            end_samples,
+        ));
+    }
+
+    // Sort events by timestamp
+    events.sort_by_key(|e| e.timestamp_samples);
+
+    // Use saved duration if available, otherwise calculate from notes
+    let duration_samples = if let Some(dur) = saved_duration {
+        (dur * sample_rate as f64) as u64
+    } else {
+        // Calculate duration as the end of the last note
+        notes.iter()
+            .map(|n| ((n.start_time + n.duration) * sample_rate as f64) as u64)
+            .max()
+            .unwrap_or(0)
+    };
+
+    // Apply snap_to_bar to ensure proper alignment
+    let snapped_duration = MidiClip::snap_to_bar(duration_samples, sample_rate);
+
+    MidiClip {
+        events,
+        duration_samples: snapped_duration,
+        sample_rate,
     }
 }
 

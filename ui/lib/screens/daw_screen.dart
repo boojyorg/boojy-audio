@@ -24,6 +24,9 @@ import '../services/library_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
+import '../services/user_settings.dart';
+import '../services/auto_save_service.dart';
+import '../widgets/settings_dialog.dart';
 import '../utils/track_colors.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
@@ -53,6 +56,10 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // M8: MIDI playback manager (lazy initialized when audio engine is ready)
   MidiPlaybackManager? _midiPlaybackManager;
+
+  // User settings and auto-save
+  final UserSettings _userSettings = UserSettings();
+  final AutoSaveService _autoSaveService = AutoSaveService();
 
   // State
   double _playheadPosition = 0.0;
@@ -171,9 +178,19 @@ class _DAWScreenState extends State<DAWScreen> {
   final GlobalKey<TrackMixerPanelState> _mixerKey = GlobalKey<TrackMixerPanelState>();
 
   /// Trigger immediate refresh of track lists in both timeline and mixer panels
-  void _refreshTrackWidgets() {
-    _timelineKey.currentState?.refreshTracks();
-    _mixerKey.currentState?.refreshTracks();
+  void _refreshTrackWidgets({bool clearClips = false}) {
+    // Use post-frame callback to ensure the engine state has settled
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        if (clearClips) {
+          _timelineKey.currentState?.clearClips();
+        }
+        _timelineKey.currentState?.refreshTracks();
+        _mixerKey.currentState?.refreshTracks();
+        // Force a rebuild of the parent widget as well
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -182,6 +199,11 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Listen for undo/redo state changes to update menu
     _undoRedoManager.addListener(_onUndoRedoChanged);
+
+    // Load user settings
+    _userSettings.load().then((_) {
+      debugPrint('[DAW] User settings loaded');
+    });
 
     // CRITICAL: Schedule audio engine initialization with a delay to prevent UI freeze
     // Even with postFrameCallback, FFI calls to Rust/C++ can block the main thread
@@ -239,6 +261,11 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Remove MIDI playback manager listener
     _midiPlaybackManager?.removeListener(_onMidiPlaybackManagerChanged);
+
+    // Stop auto-save and record clean exit
+    _autoSaveService.stop();
+    _autoSaveService.cleanupBackups();
+    _userSettings.recordCleanExit();
 
     // Clean up timers
     _playheadTimer?.cancel();
@@ -300,6 +327,16 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Load MIDI devices
       _loadMidiDevices();
+
+      // Initialize auto-save service
+      _autoSaveService.initialize(
+        projectManager: _projectManager!,
+        getUILayout: _getCurrentUILayout,
+      );
+      _autoSaveService.start();
+
+      // Check for crash recovery
+      _checkForCrashRecovery();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -1695,13 +1732,32 @@ class _DAWScreenState extends State<DAWScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+
+              // Stop playback if active
+              if (_isPlaying) {
+                _stopPlayback();
+              }
+
+              // Clear all tracks from the audio engine
+              _audioEngine?.clearAllTracks();
+
+              // Reset project manager state
               _projectManager?.newProject();
               _midiPlaybackManager?.clear();
+              _undoRedoManager.clear();
+
+              // Refresh track widgets to show empty state (clear clips too)
+              _refreshTrackWidgets(clearClips: true);
+
               setState(() {
                 _loadedClipId = null;
                 _waveformPeaks = [];
                 _statusMessage = 'New project created';
               });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('New project created')),
+              );
             },
             child: const Text('Create'),
           ),
@@ -1743,11 +1799,21 @@ class _DAWScreenState extends State<DAWScreen> {
 
         // Clear MIDI clip ID mappings since Rust side has reset
         _midiPlaybackManager?.clearClipIdMappings();
+        _undoRedoManager.clear();
+
+        // Restore MIDI clips from engine for UI display
+        _midiPlaybackManager?.restoreClipsFromEngine(_tempo);
 
         // Apply UI layout if available
         if (loadResult.uiLayout != null) {
           _applyUILayout(loadResult.uiLayout!);
         }
+
+        // Refresh track widgets to show loaded tracks
+        _refreshTrackWidgets();
+
+        // Add to recent projects
+        _userSettings.addRecentProject(path, _projectManager!.currentName);
 
         setState(() {
           _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
@@ -1765,6 +1831,91 @@ class _DAWScreenState extends State<DAWScreen> {
         SnackBar(content: Text('Failed to open project: $e')),
       );
     }
+  }
+
+  /// Open a project from a specific path (used by Open Recent)
+  void _openRecentProject(String path) async {
+    // Check if path still exists
+    final dir = Directory(path);
+    if (!await dir.exists()) {
+      _userSettings.removeRecentProject(path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Project no longer exists')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isLoading = true);
+
+      // Load via project manager
+      final loadResult = await _projectManager!.loadProject(path);
+
+      // Clear MIDI clip ID mappings since Rust side has reset
+      _midiPlaybackManager?.clearClipIdMappings();
+      _undoRedoManager.clear();
+
+      // Restore MIDI clips from engine for UI display
+      _midiPlaybackManager?.restoreClipsFromEngine(_tempo);
+
+      // Apply UI layout if available
+      if (loadResult.uiLayout != null) {
+        _applyUILayout(loadResult.uiLayout!);
+      }
+
+      // Refresh track widgets to show loaded tracks
+      _refreshTrackWidgets();
+
+      // Update recent projects (moves to top)
+      _userSettings.addRecentProject(path, _projectManager!.currentName);
+
+      setState(() {
+        _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loadResult.result.message)),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint('Open recent project failed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open project: $e')),
+      );
+    }
+  }
+
+  /// Build the Open Recent submenu items
+  List<PlatformMenuItem> _buildRecentProjectsMenu() {
+    final recent = _userSettings.recentProjects;
+
+    if (recent.isEmpty) {
+      return [
+        PlatformMenuItem(
+          label: 'No Recent Projects',
+          onSelected: null,
+        ),
+      ];
+    }
+
+    return [
+      ...recent.map((project) => PlatformMenuItem(
+        label: project.name,
+        onSelected: () => _openRecentProject(project.path),
+      )),
+      PlatformMenuItemGroup(
+        members: [
+          PlatformMenuItem(
+            label: 'Clear Recent Projects',
+            onSelected: () {
+              _userSettings.clearRecentProjects();
+              setState(() {});
+            },
+          ),
+        ],
+      ),
+    ];
   }
 
   void _saveProject() async {
@@ -1837,6 +1988,11 @@ class _DAWScreenState extends State<DAWScreen> {
 
     final result = await _projectManager!.saveProjectToPath(path, _getCurrentUILayout());
 
+    // Add to recent projects on successful save
+    if (result.success) {
+      _userSettings.addRecentProject(path, _projectManager!.currentName);
+    }
+
     setState(() {
       _statusMessage = result.success ? 'Project saved' : result.message;
       _isLoading = false;
@@ -1874,6 +2030,55 @@ class _DAWScreenState extends State<DAWScreen> {
       mixerCollapsed: !_isMixerVisible,
       bottomCollapsed: !(_isEditorPanelVisible || _isVirtualPianoVisible),
     );
+  }
+
+  /// Check for crash recovery backup on startup
+  Future<void> _checkForCrashRecovery() async {
+    try {
+      final backupPath = await _autoSaveService.checkForRecovery();
+      if (backupPath == null || !mounted) return;
+
+      // Get backup modification time
+      final backupDir = Directory(backupPath);
+      if (!await backupDir.exists()) return;
+
+      final stat = await backupDir.stat();
+      final backupDate = stat.modified;
+
+      if (!mounted) return;
+
+      // Show recovery dialog
+      final shouldRecover = await RecoveryDialog.show(
+        context,
+        backupPath: backupPath,
+        backupDate: backupDate,
+      );
+
+      if (shouldRecover == true && mounted) {
+        // Load the backup project
+        final result = await _projectManager?.loadProject(backupPath);
+        if (result?.result.success == true) {
+          // Clear and restore MIDI clips from engine for UI display
+          _midiPlaybackManager?.clearClipIdMappings();
+          _midiPlaybackManager?.restoreClipsFromEngine(_tempo);
+
+          setState(() {
+            _statusMessage = 'Recovered from backup';
+          });
+          _refreshTrackWidgets();
+
+          // Apply UI layout if available
+          if (result?.uiLayout != null) {
+            _applyUILayout(result!.uiLayout!);
+          }
+        }
+      }
+
+      // Clear the recovery marker regardless of choice
+      await _autoSaveService.clearRecoveryMarker();
+    } catch (e) {
+      debugPrint('[DAW] Crash recovery check failed: $e');
+    }
   }
 
   void _exportAudio() {
@@ -2209,9 +2414,20 @@ class _DAWScreenState extends State<DAWScreen> {
                 _stopPlayback();
               }
 
+              // Clear all tracks from the audio engine
+              _audioEngine?.clearAllTracks();
+
               // Clear project state via manager
               _projectManager?.closeProject();
+              _midiPlaybackManager?.clear();
+              _undoRedoManager.clear();
+
+              // Refresh track widgets to show empty state (clear clips too)
+              _refreshTrackWidgets(clearClips: true);
+
               setState(() {
+                _loadedClipId = null;
+                _waveformPeaks = [];
                 _statusMessage = 'No project loaded';
               });
 
@@ -2284,6 +2500,10 @@ class _DAWScreenState extends State<DAWScreen> {
               label: 'Open Project...',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyO, meta: true),
               onSelected: _openProject,
+            ),
+            PlatformMenu(
+              label: 'Open Recent',
+              menus: _buildRecentProjectsMenu(),
             ),
             PlatformMenuItem(
               label: 'Save',
@@ -2406,6 +2626,10 @@ class _DAWScreenState extends State<DAWScreen> {
             PlatformMenuItem(
               label: 'Reset Panel Layout',
               onSelected: _resetPanelLayout,
+            ),
+            PlatformMenuItem(
+              label: 'Settings...',
+              onSelected: () => SettingsDialog.show(context),
             ),
             PlatformMenuItem(
               label: 'Zoom In',

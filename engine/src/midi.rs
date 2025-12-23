@@ -85,7 +85,7 @@ impl MidiClip {
     /// Snap duration to next bar boundary (at 120 BPM, 4/4 time)
     /// One bar = 4 beats = 2 seconds = 96000 samples at 48kHz
     /// Examples: 3.5 bars -> 4 bars, 3.1 bars -> 4 bars, 3.0 bars -> 3 bars
-    fn snap_to_bar(samples: u64, sample_rate: u32) -> u64 {
+    pub fn snap_to_bar(samples: u64, sample_rate: u32) -> u64 {
         let samples_per_bar = (sample_rate as u64) * 2; // 2 seconds per bar at 120 BPM
         if samples == 0 {
             return samples_per_bar; // Minimum 1 bar
