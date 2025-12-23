@@ -1548,7 +1548,9 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 After v1.0 launches, gather feedback and plan future versions:
 
 ### v1.1 (Priority 1 - Q1 2026)
+
 **Focus:** iPad + More Instruments
+
 1. iPad version (shared SwiftUI codebase)
 2. Touch-optimized UI
 3. Apple Pencil support
@@ -1560,26 +1562,83 @@ After v1.0 launches, gather feedback and plan future versions:
 ---
 
 ### v1.2 (Priority 2 - Q2 2026)
-**Focus:** Live Performance
+
+**Focus:** Advanced Production Features
+
 1. MIDI learn (controller mapping)
-2. DJ/Live Performance mode
-3. Send effects (reverb/delay buses)
-4. Loop recording
-5. Session View (Ableton-style clip launching)
+2. Send effects (reverb/delay buses)
+3. Loop recording
+4. Cloud saving (optional via Boojy Cloud)
+5. Collaboration features
+6. Linux support
 
 **Timeline:** 3-4 months post-v1.1
 
 ---
 
-### v1.3+ (Priority 3 - Q3 2026+)
-**Focus:** Collaboration + Cross-Platform
-1. Real-time collaboration (Google Docs-style)
-2. Async sharing (Dropbox-style)
-3. iPhone version
-4. Windows/Linux ports
-5. Templates
-6. MPE support
-7. Advanced features (spectral editing, notation)
+### v2.0+ — Live Mode & Advanced Features
+
+**Focus:** Pro Features, Live Performance & Specialized Workflows
+
+#### Live Mode Implementation
+
+**Session View (Ableton-style clip grid):**
+
+- Clip grid UI with per-track columns
+- Scene launching (trigger full rows)
+- Stop clips per track or globally
+- Clip recording in session view
+- Convert session to arrangement
+
+**DJ Mode:**
+
+- Two deck architecture
+- Waveform display with beat grid
+- BPM and key detection
+- Cue points and loops
+- Crossfader with curve control
+- Sync and manual beatmatching
+
+**Hybrid Mode:**
+
+- Combined clip grid + DJ deck
+- Launch stems while mixing full tracks
+- Best for live remixing
+
+#### Library Mode Implementation
+
+- Media player architecture
+- Browse and play audio files
+- Filter by BPM, key, genre
+- Integration with Boojy projects
+- Audio analysis (BPM, key, energy)
+- Playlist management
+
+#### Optional Content Downloads
+
+Sound packs and instruments available as optional downloads:
+
+- **Sound Packs:** Starter Kit, Electronic Producer, Lo-Fi Collection, Orchestral, Hip-Hop & Trap
+- **Instruments:** Boojy Keys (pianos), Boojy Strings (orchestral)
+- **Workflows:** Podcast Mode, Film Scoring
+
+#### Additional v2+ Features
+
+- **iPad + Mobile support** (early 2026)
+- **Video sync for film/TV scoring**
+  - Import video file (MP4, MOV) to timeline
+  - Video preview window synced to playhead
+  - Frame-accurate positioning (timecode support)
+  - Markers for scene changes
+- **Podcast mode** — Voice presets, noise reduction, chapter markers
+- **Real-time collaboration** with other Boojy users
+- **A/B snapshots within effects**
+- **Audio restoration/repair tools**
+- **Score/notation view** (integrated or separate Boojy Score app)
+- **Localization** (12-15 languages over time)
+- **Spectral editing**
+- **Surround sound** (5.1/7.1)
+- **MPE support** (ROLI, Linnstrument)
 
 **Timeline:** 6+ months post-v1.2
 

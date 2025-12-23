@@ -1,8 +1,26 @@
 # Boojy Audio - MVP Specification (v1.0)
 
-**Last Updated:** December 22, 2025
+**Last Updated:** December 23, 2025
 **Status:** In Development (M6.8 Complete - Track Height Resizing, M7 In Progress)
-**Target Platform:** macOS 12+, iOS 15+ (iPad support added)
+**Target Platform:** macOS 12+, Windows 10+, iOS 15+ (iPad support added)
+
+---
+
+## Vision
+
+Boojy Audio is a free, open-source, cross-platform DAW designed to fill the gap between beginner-friendly but limited tools (GarageBand) and powerful but overwhelming professional software (Ableton, Logic, Pro Tools).
+
+Part of the larger **Boojy creative software suite**, it aims to be the first DAW that is simultaneously accessible to beginners and capable enough for serious production.
+
+---
+
+## Core Principles
+
+- **Performance first** — Runs smoothly on modest hardware
+- **Minimal but complete** — Every feature polished, nothing half-done
+- **Progressive disclosure** — Simple by default, powerful when needed
+- **Cross-platform** — Same experience on Mac, Windows, Linux, and Web
+- **Ecosystem thinking** — Designed as part of the Boojy suite from day one
 
 ---
 
@@ -15,11 +33,30 @@
 - **Audio recording first, MIDI second** (optimized for recording, mixing, editing)
 
 **Core Values:**
-- ☀️ **Free forever** - No paywalls, no track limits, no subscriptions
-- 🌍 **Open-source** - GPL v3, community-driven, transparent
-- 🎨 **Modern design** - Beautiful UI, Ableton-inspired, not dated
-- 🚀 **Cross-platform** - macOS, iPad, iPhone, Web (future: Windows, Linux)
-- 🔒 **Privacy-first** - No data selling, no tracking, local-first
+- **Free forever** - No paywalls, no track limits, no subscriptions
+- **Open-source** - GPL v3, community-driven, transparent
+- **Modern design** - Beautiful UI, Ableton-inspired, not dated
+- **Cross-platform** - macOS, iPad, iPhone, Web (future: Windows, Linux)
+- **Privacy-first** - No data selling, no tracking, local-first
+
+---
+
+## Design References
+
+Each major feature draws inspiration from the best existing implementation:
+
+| Feature | Primary Reference | Reasoning |
+|---------|-------------------|-----------|
+| Piano Roll | FL Studio | Gold standard — ghost notes, scale highlighting, intuitive interactions |
+| Arrangement View | Studio One | Draggable sections, scratch pads, excellent drag-and-drop |
+| Audio Recording | Logic Pro | Excellent comping, beginner-friendly, professional results |
+| Audio Editing/Warping | Ableton Live | Best-in-class warping, intuitive, sounds good |
+| Automation | Studio One / Bitwig | Inline lanes below tracks, no mode switching, multiple visible |
+| Mixer | Ableton Live | Minimal, readable, clean |
+| Stock Sounds | Logic Pro | High quality, well-organized, massive library |
+| Stock Effects | Ableton Live | Simple interfaces, hard to mess up, good defaults |
+| UI Design | Logic Pro | Cohesive, polished, modern but timeless |
+| Sidechaining | Logic Pro | Simple dropdown in compressor, easy to discover |
 
 ---
 
@@ -259,35 +296,49 @@
 
 ### Built-in Instruments (v1.0)
 
-**Instrument Types:**
-1. **Piano**
-   - Realistic grand piano (sampled)
-   - Velocity-sensitive (127 levels)
-   - Sustain pedal support (MIDI CC64)
-   - 88 keys (A0 to C8)
+**Boojy Synth** — Simplified Serum-style wavetable synth
 
-2. **Synth**
+- Wavetable oscillator with visual waveform display
+- Basic modulation (filter envelope, LFO)
+- High-quality presets out of the box
+- Simple interface that doesn't overwhelm beginners
+- Advanced mode for power users
+
+**Boojy Sampler** — Simple/Advanced toggle
+
+- Simple mode: Drop sample, play keys, done
+- Advanced mode: Multi-sample zones, velocity layers, round robin
+- Works for both one-shots and multi-sampled instruments
+- Replaces need for separate "simple sampler" and "complex sampler"
+
+**Boojy Drums** — Pad grid + step sequencer hybrid
+
+- 16-pad grid for auditioning sounds
+- Click pad → highlights row in step sequencer
+- Step sequencer for programming patterns
+- Pre-loaded drum kits: "808", "909", "Acoustic", "Electronic"
+- Drag samples to pads to customize
+- Velocity-sensitive pads
+- Pattern variations (A/B/C/D)
+
+**Preset Instrument Player** — For bundled sounds
+
+- Piano: Realistic sampled grand piano (88 keys)
+- Strings: Orchestral string ensemble
+- Other bundled sounds with simple interface
+- Velocity-sensitive (127 levels)
+- Sustain pedal support (MIDI CC64)
+
+**Legacy Instruments (from current implementation):**
+
+1. **Basic Synth**
    - 2-oscillator subtractive synth
    - Waveforms: Sine, Saw, Square, Triangle
    - ADSR envelope (Attack, Decay, Sustain, Release)
    - Low-pass filter with resonance
    - LFO for vibrato/tremolo
 
-3. **Sampler**
-   - Drag any audio file to map to keys
-   - Multi-sample support (different samples per key)
-   - Velocity layers (loud/soft samples)
-   - Loop points (sustain loops)
-   - ADSR envelope
-
-4. **Drums**
-   - 16-pad machine (4×4 grid)
-   - Pre-loaded drum kits: "808", "909", "Acoustic", "Electronic"
-   - Drag samples to pads to customize
-   - Velocity-sensitive pads
-   - Step sequencer (future v1.1)
-
-5. **Bass**
+2. **Bass**
    - Sub bass synthesizer
    - 808-style sine wave oscillator
    - Pitch envelope (snap/glide)
@@ -295,16 +346,18 @@
    - Filter with envelope
 
 **Instrument Presets:**
+
 - Each instrument ships with 3-5 presets
+- Boojy Synth: "Init", "Warm Pad", "Pluck Lead", "Bass", "Ambient"
+- Boojy Drums: "808", "909", "Acoustic", "Lo-Fi", "Electronic"
 - Piano: "Grand", "Bright", "Soft", "Honky Tonk"
-- Synth: "Lead", "Pad", "Bass", "Pluck", "FX"
-- Drums: "808", "909", "Acoustic", "Electronic"
 
 **Loading Instruments:**
+
 - Click `[+]` in mixer → Add MIDI Track
 - Track appears with default instrument (Piano)
 - Click instrument name in mixer to change
-- Dropdown: Piano, Synth, Sampler, Drums, Bass
+- Dropdown: Boojy Synth, Boojy Sampler, Boojy Drums, Piano, Bass
 
 ---
 
@@ -596,14 +649,17 @@ MyProject.audio/
 ### Deferred to v1.1+
 
 **❌ Cloud Saving**
-- Optional cloud sync
+- Optional cloud sync via Boojy Cloud
 - Version history
+- Cross-device project sync
 - Deferred to future release (TBD)
 
-**❌ Session View / DJ Mode**
-- Clip launching (Ableton-style grid)
-- Live performance features
-- Deferred to v1.2+ (after launch feedback)
+**❌ Session View / DJ Mode / Library Mode** → v2.0+
+- **Session View**: Ableton-style clip launching grid
+- **DJ Mode**: Two decks, crossfader, beatmatching
+- **Hybrid Mode**: Clip grid + DJ deck
+- **Library Mode**: Media player for browsing music
+- Deferred to v2.0+ (major feature expansion)
 
 **❌ Send Effects**
 - Reverb/delay buses
@@ -617,34 +673,40 @@ MyProject.audio/
 
 **❌ MPE Support**
 - ROLI Seaboard, Linnstrument, etc.
-- Deferred to v2.0 (niche feature, <5% of users)
-
-**❌ Templates**
-- Save as template
-- Template picker on first run
-- Deferred to v1.1 (nice-to-have)
+- Deferred to v2.0+ (niche feature, <5% of users)
 
 **❌ Collaboration**
 - Real-time editing (Google Docs-style)
 - Async sharing (Dropbox-style)
-- Deferred to future (TBD)
+- Deferred to v2.0+ (TBD)
 
 **❌ iPad/iPhone Versions**
 - Touch-optimized UI
 - Mobile workflows
-- Deferred to v1.1 (January 2026)
+- Basic support added in M6.6
+- Full optimization deferred to v1.1 (January 2026)
 
 **❌ Linux Port**
 - Cross-platform build
 - Platform-specific audio APIs
-- Deferred to future (TBD)
+- Deferred to v1.2+ (TBD)
 
-**❌ Advanced Features**
+**❌ Optional Content Downloads** → v2.0+
+- Sound packs: Starter Kit, Electronic Producer, Lo-Fi Collection, Orchestral, Hip-Hop & Trap
+- Instruments: Boojy Keys (pianos), Boojy Strings (orchestral)
+- Workflows: Podcast Mode, Film Scoring
+- Deferred to v2.0+ (content expansion)
+
+**❌ Advanced Features** → v2.0+
+- Video sync (import video, sync playhead, frame-accurate scoring)
+- Podcast mode (voice presets, noise reduction, chapter markers)
+- Score/notation view (integrated or separate Boojy Score app)
 - Spectral editing
-- Notation/score export
-- **Video sync** (import video, sync playhead, frame-accurate scoring)
 - Surround sound (5.1/7.1)
 - Advanced time-stretching
+- Audio restoration/repair tools
+- A/B snapshots within effects
+- Localization (12-15 languages)
 - All deferred to v2.0+ (pro features)
 
 ---
@@ -904,6 +966,7 @@ MyProject.audio/
 ### v1.1 (January 2026)
 
 **Focus:** iPad + More Instruments
+
 - iPad version (shared SwiftUI code)
 - Touch-optimized UI
 - Apple Pencil support
@@ -914,19 +977,57 @@ MyProject.audio/
 
 ---
 
-### v1.2+ (Timeline TBD)
+### v1.2 (Timeline TBD)
 
 **Focus:** Live Performance & Advanced Features
+
 - MIDI learn (controller mapping)
-- DJ/Live Performance mode
 - Send effects (reverb/delay buses)
-- Session View (Ableton-style clip launching)
 - Loop recording
-- Cloud saving (optional)
+- Cloud saving (optional via Boojy Cloud)
 - Collaboration features
 - Linux support
-- Templates
-- Advanced features (time-stretch, spectral editing)
+
+**Timeline:** TBD (based on user feedback and priorities)
+
+---
+
+### v2.0+ — Live Mode & Advanced Features
+
+**Focus:** Pro Features, Live Performance & Specialized Workflows
+
+**Live Mode** with three sub-modes:
+
+| Sub-mode | What It Is |
+|----------|------------|
+| Session | Ableton-style clip grid. Launch loops, build arrangements live |
+| DJ | Two decks, crossfader, beatmatching |
+| Hybrid | Both — clip grid + deck. Launch stems while mixing full tracks |
+
+**Library Mode** (Media Player):
+
+- Browse and play audio files like iTunes/Spotify
+- Filter by BPM, key, genre
+- Integration with Boojy projects
+- Audio analysis (BPM, key, energy)
+
+**Optional Content Downloads:**
+
+- Sound packs: Starter Kit, Electronic Producer, Lo-Fi Collection, Orchestral, Hip-Hop & Trap
+- Instruments: Boojy Keys (pianos), Boojy Strings (orchestral)
+- Workflows: Podcast Mode, Film Scoring
+
+**Additional v2+ Features:**
+
+- iPad + Mobile support (early 2026)
+- Video sync for film/TV scoring
+- Podcast mode (voice presets, noise reduction, chapter markers)
+- Real-time collaboration with other Boojy users
+- Score/notation view
+- Spectral editing
+- Surround sound (5.1/7.1)
+- MPE support (ROLI, Linnstrument)
+- Localization (12-15 languages)
 
 **Timeline:** TBD (based on user feedback and priorities)
 

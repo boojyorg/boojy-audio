@@ -1,7 +1,52 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 22, 2025
+**Last Updated:** December 23, 2025
 **Current Status:** M6.8 Complete (Track Height Resizing), M7 In Progress
+
+---
+
+## Vision
+
+Boojy Audio is a free, open-source, cross-platform DAW designed to fill the gap between beginner-friendly but limited tools (GarageBand) and powerful but overwhelming professional software (Ableton, Logic, Pro Tools).
+
+Part of the larger **Boojy creative software suite**, it aims to be the first DAW that is simultaneously accessible to beginners and capable enough for serious production.
+
+### Core Principles
+
+- **Performance first** — Runs smoothly on modest hardware
+- **Minimal but complete** — Every feature polished, nothing half-done
+- **Progressive disclosure** — Simple by default, powerful when needed
+- **Cross-platform** — Same experience on Mac, Windows, Linux, and Web
+- **Ecosystem thinking** — Designed as part of the Boojy suite from day one
+
+### Boojy Suite Branding
+
+Each app in the Boojy suite uses a letter in its name as a cloud connection status indicator:
+
+| App | Status Letter | Connected | Offline | Error |
+|-----|---------------|-----------|---------|-------|
+| Boojy Audio | O (outline) | Blue | Yellow | Red |
+| Boojy Video | O (filled) | Blue | Yellow | Red |
+| Boojy Design | D | Blue | Yellow | Red |
+
+---
+
+## Design References
+
+Each major feature draws inspiration from the best existing implementation:
+
+| Feature | Primary Reference | Reasoning |
+|---------|-------------------|-----------|
+| Piano Roll | FL Studio | Gold standard — ghost notes, scale highlighting, intuitive interactions |
+| Arrangement View | Studio One | Draggable sections, scratch pads, excellent drag-and-drop |
+| Audio Recording | Logic Pro | Excellent comping, beginner-friendly, professional results |
+| Audio Editing/Warping | Ableton Live | Best-in-class warping, intuitive, sounds good |
+| Automation | Studio One / Bitwig | Inline lanes below tracks, no mode switching, multiple visible |
+| Mixer | Ableton Live | Minimal, readable, clean |
+| Stock Sounds | Logic Pro | High quality, well-organized, massive library |
+| Stock Effects | Ableton Live | Simple interfaces, hard to mess up, good defaults |
+| UI Design | Logic Pro | Cohesive, polished, modern but timeless |
+| Sidechaining | Logic Pro | Simple dropdown in compressor, easy to discover |
 
 ---
 
@@ -16,9 +61,9 @@ Week 0    Week 10   Week 15   Week 22
                              Beta: Dec 1
 ```
 
-**Weeks 0-10:** Foundation (audio, recording, mixing) ✅  
-**Weeks 11-15:** MIDI, VST3, Instruments 🚧  
-**Weeks 16-22:** Polish, Beta Launch 📋  
+**Weeks 0-10:** Foundation (audio, recording, mixing) ✅
+**Weeks 11-15:** MIDI, VST3, Instruments 🚧
+**Weeks 16-22:** Polish, Beta Launch 📋
 **Target Beta:** December 1, 2025
 
 ---
@@ -252,7 +297,8 @@ Build 5 high-quality instruments:
 
 ### v1.0 (Launch)
 
-**Must-Have:**
+**Must-Have (Complete):**
+
 - ✅ Audio recording/playback
 - ✅ Multiple tracks with mixing
 - ✅ Built-in effects (EQ, Compressor, Reverb, Delay, Limiter)
@@ -260,17 +306,33 @@ Build 5 high-quality instruments:
 - ✅ MIDI editing with piano roll
 - ✅ MIDI playback during transport
 - ✅ Synthesizer instrument
-- 📋 VST3 plugin support
-- 📋 Additional stock instruments (4 more)
+
+**Must-Have (In Progress):**
+
+- 📋 VST3/AU plugin support
+- 📋 Additional stock instruments:
+  - **Boojy Synth** — Simplified Serum-style wavetable synth
+  - **Boojy Sampler** — Simple/Advanced toggle, one instrument for all sampling needs
+  - **Boojy Drums** — Pad grid + step sequencer hybrid
+  - **Preset Player** — For bundled sounds (piano, strings, etc.)
 - 📋 Windows release (alongside macOS)
+- 📋 Inline automation lanes (Studio One/Bitwig approach)
+- 📋 Mastering Assistant with LUFS metering and platform targets
+- 📋 Reference track comparison with auto-volume matching
+- 📋 Genre templates (Lo-Fi, Hip-Hop, Pop, Electronic, etc.)
+- 📋 Track templates/presets (save and reuse track configurations)
+- 📋 Freeze/flatten with non-destructive undo
+- 📋 Markers and arrangement markers
+- 📋 Stem separation
+- 📋 Tempo and time signature automation
 
 **Won't-Have (v1.0):**
 
 - Cloud saving → Future (TBD)
-- Session View / DJ Mode → v1.2+
+- Session View / DJ Mode → v2.0+
+- Library Mode → v2.0+
 - Send effects → v1.2+
 - MIDI learn → v1.2+
-- Templates → v1.1
 - Collaboration → Future (TBD)
 - iPad/iPhone → Basic support added in M6.6, full optimization in v1.1
 - Linux → Future (TBD)
@@ -294,8 +356,6 @@ Build 5 high-quality instruments:
 **Focus:** Live Performance & Advanced Features
 
 - MIDI learn (controller mapping)
-- DJ/Live mode
-- Session View (clip launching)
 - Send effects (reverb/delay buses)
 - Loop recording
 - Collaboration features
@@ -304,29 +364,67 @@ Build 5 high-quality instruments:
 
 ---
 
-### v2.0+ (Future Ideas)
+### v2.0+ — Live Mode & Advanced Features
 
-**Focus:** Pro Features & Specialized Workflows
+**Focus:** Pro Features, Live Performance & Specialized Workflows
 
-**Video Sync for Soundtracks:**
-- Import video file (MP4, MOV) to timeline
-- Video preview window synced to playhead
-- Frame-accurate positioning (timecode support)
-- Markers for scene changes
-- Export audio aligned to video
-- Use cases:
-  - Film scoring
-  - YouTube/TikTok soundtracks
-  - Game audio
-  - Podcast video editing
+#### Live Mode
 
-**Other v2.0+ Ideas:**
-- Advanced automation (curves, LFOs)
-- Spectral editing
-- Notation/score export
-- Surround sound (5.1/7.1)
-- Advanced time-stretching
-- MPE support (ROLI, Linnstrument)
+Three sub-modes for performance and DJing:
+
+| Sub-mode | What It Is |
+|----------|------------|
+| Session | Ableton-style clip grid. Launch loops, build arrangements live |
+| DJ | Two decks, crossfader, beatmatching |
+| Hybrid | Both — clip grid + deck. Launch stems while mixing full tracks |
+
+**Session View:**
+- Clip grid with per-track columns
+- Scene launching (trigger full rows)
+- Stop clips per track or globally
+- Volume control per track
+
+**DJ Mode:**
+- Two decks with waveform display
+- BPM and key detection
+- Cue points and loops
+- Crossfader with curve control
+- Sync and manual beatmatching
+
+#### Library Mode (Media Player)
+
+- Browse and play audio files like iTunes/Spotify
+- Filter by BPM, key, genre
+- Integration with Boojy projects
+- Right-click to load to DJ deck or import to project
+- Audio analysis (BPM, key, energy)
+
+#### Optional Content Downloads
+
+Sound packs and instruments available as optional downloads:
+
+- **Sound Packs:** Starter Kit, Electronic Producer, Lo-Fi Collection, Orchestral, Hip-Hop & Trap
+- **Instruments:** Boojy Keys (pianos), Boojy Strings (orchestral)
+- **Workflows:** Podcast Mode, Film Scoring
+
+#### Additional v2+ Features
+
+- **iPad + Mobile support** (early 2026)
+- **Video sync for film/TV scoring**
+  - Import video file (MP4, MOV) to timeline
+  - Video preview window synced to playhead
+  - Frame-accurate positioning (timecode support)
+  - Markers for scene changes
+- **Podcast mode** — Voice presets, noise reduction, chapter markers
+- **Real-time collaboration** with other Boojy users
+- **A/B snapshots within effects**
+- **Audio restoration/repair tools**
+- **Score/notation view** (integrated or separate Boojy Score app)
+- **Localization** (12-15 languages over time)
+- **Advanced automation** (curves, LFOs)
+- **Spectral editing**
+- **Surround sound** (5.1/7.1)
+- **MPE support** (ROLI, Linnstrument)
 
 ---
 
