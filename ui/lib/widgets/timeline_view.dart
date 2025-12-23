@@ -81,6 +81,9 @@ class TimelineView extends StatefulWidget {
   final Map<int, double> trackHeights; // trackId -> height
   final double masterTrackHeight;
 
+  // Track color callback (for auto-detected colors with override support)
+  final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
+
   const TimelineView({
     super.key,
     required this.playheadPosition,
@@ -108,6 +111,7 @@ class TimelineView extends StatefulWidget {
     this.onCreateClipOnTrack,
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
+    this.getTrackColor,
   });
 
   @override
@@ -482,7 +486,9 @@ class TimelineViewState extends State<TimelineView> {
             midiCount++;
           }
 
-          final trackColor = TrackColors.getTrackColor(index);
+          // Use auto-detected color with override support, fallback to index-based
+          final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
+              ?? TrackColors.getTrackColor(index);
           final currentAudioCount = track.type.toLowerCase() == 'audio' ? audioCount : 0;
           final currentMidiCount = track.type.toLowerCase() == 'midi' ? midiCount : 0;
 

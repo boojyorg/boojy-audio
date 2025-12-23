@@ -3,6 +3,7 @@ import '../audio_engine.dart';
 import 'instrument_browser.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
+import '../utils/track_colors.dart';
 import 'pan_knob.dart';
 import 'horizontal_level_meter.dart';
 
@@ -48,6 +49,9 @@ class TrackMixerStrip extends StatefulWidget {
   final double trackHeight;
   final Function(double)? onHeightChanged;
 
+  // Track color change callback
+  final Function(Color)? onColorChanged;
+
   const TrackMixerStrip({
     super.key,
     required this.trackId,
@@ -80,6 +84,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onEditPluginsPressed,
     this.trackHeight = 100.0,
     this.onHeightChanged,
+    this.onColorChanged,
   });
 
   @override
@@ -328,6 +333,24 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ],
           ),
         ),
+        PopupMenuItem<String>(
+          value: 'color',
+          child: Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: widget.trackColor ?? const Color(0xFF90A4AE),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFF505050)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text('Change Color', style: TextStyle(color: Color(0xFFE0E0E0))),
+            ],
+          ),
+        ),
         const PopupMenuItem<String>(
           value: 'duplicate',
           child: Row(
@@ -350,14 +373,131 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         ),
       ],
     ).then((value) {
+      if (!mounted) return;
       if (value == 'rename') {
         _startEditing();
+      } else if (value == 'color') {
+        _showColorPicker(context, position);
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
         widget.onDeletePressed!();
       }
     });
+  }
+
+  void _showColorPicker(BuildContext context, Offset position) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Track Color',
+                style: TextStyle(
+                  color: Color(0xFFE0E0E0),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 16 color grid (2 rows × 8 columns)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Row 1: Vibrant colors (first 8)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(8, (index) {
+                      final color = TrackColors.manualPalette[index];
+                      final isSelected = widget.trackColor == color;
+                      return Padding(
+                        padding: EdgeInsets.only(right: index < 7 ? 6 : 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            widget.onColorChanged?.call(color);
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF505050),
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 6),
+                  // Row 2: Softer variants (last 8)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(8, (index) {
+                      final color = TrackColors.manualPalette[index + 8];
+                      final isSelected = widget.trackColor == color;
+                      return Padding(
+                        padding: EdgeInsets.only(right: index < 7 ? 6 : 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            widget.onColorChanged?.call(color);
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF505050),
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTrackNameSection() {

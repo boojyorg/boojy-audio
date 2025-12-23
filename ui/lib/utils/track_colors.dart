@@ -1,23 +1,142 @@
 import 'package:flutter/material.dart';
 
+/// Track color categories for auto-detection
+enum TrackColorCategory {
+  drums,
+  bass,
+  synth,
+  guitar,
+  vocals,
+  orchestral,
+  fx,
+  audio,
+  master,
+}
+
 /// Track color utilities for assigning colors to tracks
 class TrackColors {
-  /// Available track colors (Ableton-style pastels with cooler tones)
+  /// Category-based colors for auto-detection (Row 1 - Vibrant)
+  static const Map<TrackColorCategory, Color> categoryColors = {
+    TrackColorCategory.drums: Color(0xFFFF6B6B), // Coral Red
+    TrackColorCategory.bass: Color(0xFF4DABF7), // Ocean Blue
+    TrackColorCategory.synth: Color(0xFFF06ACD), // Hot Pink
+    TrackColorCategory.guitar: Color(0xFFFFD43B), // Sunflower
+    TrackColorCategory.vocals: Color(0xFF69DB7C), // Lime Green
+    TrackColorCategory.orchestral: Color(0xFFFF922B), // Tangerine
+    TrackColorCategory.fx: Color(0xFF9775FA), // Violet
+    TrackColorCategory.audio: Color(0xFF868E96), // Slate Grey
+    TrackColorCategory.master: Color(0xFF74C0FC), // Sky Blue
+  };
+
+  /// 16-color manual palette for user override (2 rows of 8)
+  /// Row 1: Softer variants (rainbow order + pink before grey)
+  /// Row 2: Vibrant colors (rainbow order + pink before grey)
+  static const List<Color> manualPalette = [
+    // Row 1: Softer variants (rainbow order + pink before grey)
+    Color(0xFFFFA8A8), // Salmon (soft red)
+    Color(0xFFFFC078), // Peach (soft orange)
+    Color(0xFFFFF3BF), // Butter (soft yellow)
+    Color(0xFF96F2D7), // Mint (soft green)
+    Color(0xFF74C0FC), // Sky Blue (soft blue)
+    Color(0xFFB197FC), // Lavender (soft purple)
+    Color(0xFFFCC2D7), // Light Pink
+    Color(0xFFCED4DA), // Silver (soft grey)
+    // Row 2: Vibrant colors (rainbow order + pink before grey)
+    Color(0xFFFF6B6B), // Coral Red
+    Color(0xFFFF922B), // Tangerine
+    Color(0xFFFFD43B), // Sunflower
+    Color(0xFF69DB7C), // Lime Green
+    Color(0xFF4DABF7), // Ocean Blue
+    Color(0xFF9775FA), // Violet
+    Color(0xFFF06595), // Hot Pink
+    Color(0xFF868E96), // Slate Grey
+  ];
+
+  /// Legacy palette for backwards compatibility (cycles through for index-based access)
   static const List<Color> palette = [
-    Color(0xFF7DB3D9), // Light blue
-    Color(0xFF6BA3A3), // Teal/cyan (cooler replacement for coral)
-    Color(0xFF8B9B85), // Sage grey-green (cooler replacement for brown)
-    Color(0xFFA898C4), // Muted lavender (cooler replacement for pink)
-    Color(0xFF7FA894), // Sage green
-    Color(0xFF9BB0C4), // Steel blue
-    Color(0xFF9B8DC4), // Light purple/lavender
-    Color(0xFFA0A8B0), // Cool grey
+    Color(0xFF4DABF7), // Ocean Blue
+    Color(0xFFF06ACD), // Hot Pink
+    Color(0xFF69DB7C), // Lime Green
+    Color(0xFFFFD43B), // Sunflower
+    Color(0xFF9775FA), // Violet
+    Color(0xFFFF922B), // Tangerine
+    Color(0xFF868E96), // Slate Grey
+    Color(0xFFFF6B6B), // Coral Red
   ];
 
   /// Master track color
-  static const Color masterColor = Color(0xFF4CAF50); // Green
+  static const Color masterColor = Color(0xFF74C0FC); // Sky Blue
 
-  /// Get color for a track by index (cycles through palette)
+  /// Detect category from track name, type, instrument, and plugin
+  static TrackColorCategory detectCategory(
+    String trackName,
+    String trackType, {
+    String? instrumentType,
+    String? pluginName,
+  }) {
+    if (trackType.toLowerCase() == 'master') {
+      return TrackColorCategory.master;
+    }
+
+    // Combine all sources for keyword matching
+    final searchText = '$trackName ${instrumentType ?? ''} ${pluginName ?? ''}'.toLowerCase();
+
+    // Check keywords for each category (order matters - more specific first)
+    if (_matchesKeywords(searchText, [
+      'drum', 'percussion', 'beat', 'kit', '808', 'kick', 'snare',
+      'hi-hat', 'hihat', 'cymbal', 'tom', 'clap', 'hats'
+    ])) {
+      return TrackColorCategory.drums;
+    }
+    if (_matchesKeywords(searchText, ['bass', 'sub', 'low', '808 bass'])) {
+      return TrackColorCategory.bass;
+    }
+    if (_matchesKeywords(searchText, [
+      'synth', 'piano', 'keys', 'keyboard', 'pad', 'lead', 'pluck',
+      'arp', 'chord', 'organ', 'electric piano', 'rhodes'
+    ])) {
+      return TrackColorCategory.synth;
+    }
+    if (_matchesKeywords(searchText, [
+      'guitar', 'string', 'violin', 'cello', 'acoustic', 'ukulele',
+      'banjo', 'mandolin', 'harp'
+    ])) {
+      return TrackColorCategory.guitar;
+    }
+    if (_matchesKeywords(searchText, [
+      'vocal', 'voice', 'vox', 'choir', 'sing', 'acapella', 'harmony'
+    ])) {
+      return TrackColorCategory.vocals;
+    }
+    if (_matchesKeywords(searchText, [
+      'orchestra', 'brass', 'woodwind', 'horn', 'trumpet', 'flute',
+      'clarinet', 'oboe', 'trombone', 'tuba', 'french horn'
+    ])) {
+      return TrackColorCategory.orchestral;
+    }
+    if (_matchesKeywords(searchText, [
+      'fx', 'effect', 'ambience', 'ambient', 'noise', 'riser',
+      'impact', 'sweep', 'transition', 'foley', 'sfx'
+    ])) {
+      return TrackColorCategory.fx;
+    }
+
+    // Default based on track type
+    return trackType.toLowerCase() == 'midi'
+        ? TrackColorCategory.synth // Default MIDI to synth (pink)
+        : TrackColorCategory.audio; // Default audio to grey
+  }
+
+  static bool _matchesKeywords(String text, List<String> keywords) {
+    return keywords.any((kw) => text.contains(kw));
+  }
+
+  /// Get color for a category
+  static Color getColorForCategory(TrackColorCategory category) {
+    return categoryColors[category] ?? categoryColors[TrackColorCategory.audio]!;
+  }
+
+  /// Get color for a track by index (legacy - cycles through palette)
   static Color getTrackColor(int trackIndex, {bool isMaster = false}) {
     if (isMaster) return masterColor;
     return palette[trackIndex % palette.length];

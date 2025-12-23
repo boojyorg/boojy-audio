@@ -48,6 +48,9 @@ class TransportBar extends StatelessWidget {
   final bool editorVisible;
   final bool pianoVisible;
 
+  // Help callback
+  final VoidCallback? onHelpPressed;
+
   final bool isLoading;
 
   const TransportBar({
@@ -89,6 +92,7 @@ class TransportBar extends StatelessWidget {
     this.mixerVisible = true,
     this.editorVisible = true,
     this.pianoVisible = false,
+    this.onHelpPressed,
     this.isLoading = false,
   });
 
@@ -506,15 +510,15 @@ class TransportBar extends StatelessWidget {
           // Use Spacer to push remaining items to the right edge
           const Spacer(),
 
-          // Mixer toggle button
+          // Help button
           IconButton(
-            icon: Icon(
-              Icons.tune,
-              color: mixerVisible ? const Color(0xFF00BCD4) : const Color(0xFF9E9E9E),
+            icon: const Icon(
+              Icons.help_outline,
+              color: Color(0xFF9E9E9E),
               size: 20,
             ),
-            onPressed: onToggleMixer,
-            tooltip: 'Toggle Mixer',
+            onPressed: onHelpPressed,
+            tooltip: 'Keyboard Shortcuts (?)',
           ),
 
           SizedBox(width: isCompact ? 8 : 16),

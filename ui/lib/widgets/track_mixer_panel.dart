@@ -83,6 +83,13 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(int trackId, double height)? onTrackHeightChanged;
   final Function(double height)? onMasterTrackHeightChanged;
 
+  // Panel toggle callback (clicking header hides panel)
+  final VoidCallback? onTogglePanel;
+
+  // Track color management
+  final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
+  final Function(int trackId, Color color)? onTrackColorChanged;
+
   const TrackMixerPanel({
     super.key,
     required this.audioEngine,
@@ -104,6 +111,9 @@ class TrackMixerPanel extends StatefulWidget {
     this.masterTrackHeight = 60.0,
     this.onTrackHeightChanged,
     this.onMasterTrackHeightChanged,
+    this.onTogglePanel,
+    this.getTrackColor,
+    this.onTrackColorChanged,
   });
 
   @override
@@ -470,19 +480,31 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.tune,
-            color: Color(0xFFE0E0E0),
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'TRACK MIXER',
-            style: TextStyle(
-              color: Color(0xFFE0E0E0),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+          // Clickable header to toggle panel
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onTogglePanel,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune,
+                    color: Color(0xFFE0E0E0),
+                    size: 16,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'TRACK MIXER',
+                    style: TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const Spacer(),
@@ -562,7 +584,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               children: regularTracks.asMap().entries.map((entry) {
                 final index = entry.key;
                 final track = entry.value;
-                final trackColor = TrackColors.getTrackColor(index);
+                // Use auto-detected color with override support, fallback to index-based
+                final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
+                    ?? TrackColors.getTrackColor(index);
 
                 return TrackMixerStrip(
                     key: ValueKey(track.id),
@@ -625,6 +649,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                         track.name = newName;
                       });
                     },
+                    onColorChanged: widget.onTrackColorChanged != null
+                        ? (color) => widget.onTrackColorChanged!(track.id, color)
+                        : null,
                   );
                 }).toList(),
             ),

@@ -12,6 +12,7 @@ import '../widgets/editor_panel.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
 import '../widgets/vst3_plugin_browser.dart';
+import '../widgets/keyboard_shortcuts_overlay.dart';
 import '../models/midi_note_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
@@ -23,6 +24,7 @@ import '../services/library_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
+import '../utils/track_colors.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -112,6 +114,9 @@ class _DAWScreenState extends State<DAWScreen> {
   static const double _minTrackHeight = 50.0;
   static const double _maxTrackHeight = 300.0;
 
+  // Track color state (auto-detected with manual override)
+  Map<int, Color> _trackColorOverrides = {}; // trackId -> color (manual override)
+
   /// Get track height, returning default if not set
   double _getTrackHeight(int trackId) {
     return _trackHeights[trackId] ?? _defaultTrackHeight;
@@ -128,6 +133,36 @@ class _DAWScreenState extends State<DAWScreen> {
   void _setMasterTrackHeight(double height) {
     setState(() {
       _masterTrackHeight = height.clamp(_minTrackHeight, _maxTrackHeight);
+    });
+  }
+
+  /// Get track color with auto-detection (respects manual overrides)
+  Color _getTrackColor(int trackId, String trackName, String trackType) {
+    // Check for user override first
+    if (_trackColorOverrides.containsKey(trackId)) {
+      return _trackColorOverrides[trackId]!;
+    }
+
+    // Get instrument/plugin info for detection
+    final instrument = _trackInstruments[trackId];
+    final instrumentType = instrument?.type;
+    final pluginName = instrument?.pluginName;
+
+    // Auto-detect category based on keywords
+    final category = TrackColors.detectCategory(
+      trackName,
+      trackType,
+      instrumentType: instrumentType,
+      pluginName: pluginName,
+    );
+
+    return TrackColors.getColorForCategory(category);
+  }
+
+  /// Set track color (manual override)
+  void _setTrackColor(int trackId, Color color) {
+    setState(() {
+      _trackColorOverrides[trackId] = color;
     });
   }
 
@@ -1564,6 +1599,10 @@ class _DAWScreenState extends State<DAWScreen> {
     );
   }
 
+  void _showKeyboardShortcuts() {
+    KeyboardShortcutsOverlay.show(context);
+  }
+
   // M8: MIDI clip selection methods - delegating to MidiPlaybackManager
   void _onMidiClipSelected(int? clipId, MidiClipData? clipData) {
     final trackId = _midiPlaybackManager?.selectClip(clipId, clipData);
@@ -2386,7 +2425,14 @@ class _DAWScreenState extends State<DAWScreen> {
           ],
         ),
       ],
-      child: Scaffold(
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // ? key (Shift + /) to show keyboard shortcuts
+          const SingleActivator(LogicalKeyboardKey.slash, shift: true): _showKeyboardShortcuts,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
         backgroundColor: const Color(0xFF242424), // Dark grey background
         body: Column(
         children: [
@@ -2432,6 +2478,7 @@ class _DAWScreenState extends State<DAWScreen> {
             mixerVisible: _isMixerVisible,
             editorVisible: _isEditorPanelVisible,
             pianoVisible: _isVirtualPianoEnabled,
+            onHelpPressed: _showKeyboardShortcuts,
             isLoading: _isLoading,
           ),
 
@@ -2501,6 +2548,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           onCreateClipOnTrack: _onCreateClipOnTrack,
                           trackHeights: _trackHeights,
                           masterTrackHeight: _masterTrackHeight,
+                          getTrackColor: _getTrackColor,
                           onSeek: (position) {
                             _audioEngine?.transportSeek(position);
                             setState(() {
@@ -2551,6 +2599,9 @@ class _DAWScreenState extends State<DAWScreen> {
                             masterTrackHeight: _masterTrackHeight,
                             onTrackHeightChanged: _setTrackHeight,
                             onMasterTrackHeightChanged: _setMasterTrackHeight,
+                            onTogglePanel: _toggleMixer,
+                            getTrackColor: _getTrackColor,
+                            onTrackColorChanged: _setTrackColor,
                           ),
                         ),
                       ],
@@ -2616,6 +2667,8 @@ class _DAWScreenState extends State<DAWScreen> {
         ],
       ),
     ),
+        ),  // Close Focus
+      ),  // Close CallbackShortcuts
     );
   }
 
