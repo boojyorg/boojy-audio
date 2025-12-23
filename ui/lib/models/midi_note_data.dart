@@ -149,11 +149,18 @@ class MidiClipData {
   /// Note: Convert to seconds (startTime / beatsPerSecond) when communicating with audio engine
   final double startTime;
 
-  /// Duration of a single iteration (in BEATS - tempo-independent)
+  /// Arrangement length on timeline (in BEATS - tempo-independent)
+  /// This is how long the clip appears/plays in the arrangement view
   /// Note: Convert to seconds (duration / beatsPerSecond) when communicating with audio engine
   final double duration;
 
-  /// Number of times this clip loops (1 = no loop, 2 = plays twice, etc.)
+  /// Loop length in piano roll (in BEATS - tempo-independent)
+  /// This is the loop boundary shown in the piano roll editor
+  /// When duration > loopLength, the clip content repeats
+  /// When duration < loopLength, playback truncates at duration
+  final double loopLength;
+
+  /// Number of times this clip loops (DEPRECATED - use duration/loopLength instead)
   final int loopCount;
 
   /// List of MIDI notes in this clip
@@ -170,11 +177,12 @@ class MidiClipData {
     required this.trackId,
     required this.startTime,
     required this.duration,
+    double? loopLength,
     this.loopCount = 1,
     this.notes = const [],
     this.name = 'MIDI Clip',
     this.color,
-  });
+  }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
   double get totalDuration => duration * loopCount;
@@ -189,6 +197,7 @@ class MidiClipData {
       trackId: trackId,
       startTime: startTime,
       duration: duration,
+      loopLength: loopLength,
       loopCount: loopCount,
       notes: [...notes, note],
       name: name,
@@ -203,6 +212,7 @@ class MidiClipData {
       trackId: trackId,
       startTime: startTime,
       duration: duration,
+      loopLength: loopLength,
       loopCount: loopCount,
       notes: notes.where((n) => n.id != noteId).toList(),
       name: name,
@@ -217,6 +227,7 @@ class MidiClipData {
       trackId: trackId,
       startTime: startTime,
       duration: duration,
+      loopLength: loopLength,
       loopCount: loopCount,
       notes: notes.map((n) => n.id == noteId ? updatedNote : n).toList(),
       name: name,
@@ -234,6 +245,7 @@ class MidiClipData {
       trackId: trackId,
       startTime: startTime,
       duration: duration,
+      loopLength: loopLength,
       loopCount: loopCount,
       notes: notes.map((note) {
         final inTimeRange = note.startTime >= startBeat && note.endTime <= endBeat;
@@ -252,6 +264,7 @@ class MidiClipData {
       trackId: trackId,
       startTime: startTime,
       duration: duration,
+      loopLength: loopLength,
       loopCount: loopCount,
       notes: notes.map((n) => n.copyWith(isSelected: false)).toList(),
       name: name,
@@ -265,6 +278,7 @@ class MidiClipData {
     int? trackId,
     double? startTime,
     double? duration,
+    double? loopLength,
     int? loopCount,
     List<MidiNoteData>? notes,
     String? name,
@@ -275,6 +289,7 @@ class MidiClipData {
       trackId: trackId ?? this.trackId,
       startTime: startTime ?? this.startTime,
       duration: duration ?? this.duration,
+      loopLength: loopLength ?? this.loopLength,
       loopCount: loopCount ?? this.loopCount,
       notes: notes ?? this.notes,
       name: name ?? this.name,

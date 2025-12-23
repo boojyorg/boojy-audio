@@ -103,6 +103,15 @@ class _PianoRollState extends State<PianoRoll> {
   // Clipboard for copy/paste
   List<MidiNoteData> _clipboard = [];
 
+  // Loop boundary dragging state
+  bool _isDraggingLoopEnd = false;
+  double _loopDragStartX = 0;
+  double _loopLengthAtDragStart = 0;
+
+  // Zoom drag state (Ableton-style ruler zoom)
+  double _zoomDragStartY = 0;
+  double _zoomStartPixelsPerBeat = 0;
+
   // Remember last note duration (default = 1 beat = quarter note)
   double _lastNoteDuration = 1.0;
 
@@ -387,10 +396,20 @@ class _PianoRollState extends State<PianoRoll> {
     return '1/16';
   }
 
-  /// Calculate required beats based on notes, extending by 4-bar sections
-  double _calculateRequiredBeats() {
+  /// Get the loop length (active region in piano roll)
+  /// This is the boundary shown as the loop end marker
+  double _getLoopLength() {
+    return _currentClip?.loopLength ?? 16.0; // Default 4 bars
+  }
+
+  /// Calculate total visible beats (extends beyond loop for scrolling)
+  /// Shows at least 1 bar beyond the loop end or furthest note
+  double _calculateTotalBeats() {
+    final loopLength = _getLoopLength();
+
     if (_currentClip == null || _currentClip!.notes.isEmpty) {
-      return 16.0; // Default 4 bars (4 * 4 beats)
+      // Show loop length + 1 bar for scrolling room
+      return loopLength + 4.0;
     }
 
     // Find the furthest note end time
@@ -398,13 +417,12 @@ class _PianoRollState extends State<PianoRoll> {
         .map((note) => note.startTime + note.duration)
         .reduce((a, b) => a > b ? a : b);
 
-    // Round up to next 4-bar boundary
-    final requiredBars = (furthestBeat / 4).ceil();
+    // Total is max of loop length or furthest note, plus 1 bar for room
+    final maxBeat = furthestBeat > loopLength ? furthestBeat : loopLength;
 
-    // Minimum 4 bars, extend by 4 bars at a time
-    final bars = requiredBars < 4 ? 4 : ((requiredBars / 4).ceil() * 4);
-
-    return bars * 4.0; // Convert bars to beats
+    // Round up to next bar boundary and add 1 bar
+    final requiredBars = (maxBeat / 4).ceil();
+    return (requiredBars + 1) * 4.0;
   }
 
   @override
@@ -432,10 +450,10 @@ class _PianoRollState extends State<PianoRoll> {
   }
 
   Widget _buildPianoRollContent() {
-    // Calculate required beats dynamically (auto-extends by 4 bars)
-    final requiredBeats = _calculateRequiredBeats();
-    final totalBeats = requiredBeats;
-    final activeBeats = requiredBeats; // Active region (not greyed out)
+    // Loop length is the active region (before the shaded area)
+    final activeBeats = _getLoopLength();
+    // Total beats extends beyond loop for scrolling
+    final totalBeats = _calculateTotalBeats();
 
     final canvasWidth = totalBeats * _pixelsPerBeat;
     final canvasHeight = (_maxMidiNote - _minMidiNote + 1) * _pixelsPerNote;
@@ -568,6 +586,8 @@ class _PianoRollState extends State<PianoRoll> {
                                             selectionEnd: _selectionEnd,
                                           ),
                                         ),
+                                        // Loop end marker (draggable)
+                                        _buildLoopEndMarker(activeBeats, canvasHeight),
                                       ],
                                     ),
                                   ),
@@ -700,6 +720,90 @@ class _PianoRollState extends State<PianoRoll> {
       }
     }
     return null;
+  }
+
+  /// Build the draggable loop end marker
+  Widget _buildLoopEndMarker(double loopLength, double canvasHeight) {
+    final markerX = loopLength * _pixelsPerBeat;
+    const handleWidth = 12.0;
+
+    return Positioned(
+      left: markerX - handleWidth / 2,
+      top: 0,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeLeftRight,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (details) {
+            _isDraggingLoopEnd = true;
+            _loopDragStartX = details.globalPosition.dx;
+            _loopLengthAtDragStart = _currentClip?.loopLength ?? loopLength;
+          },
+          onHorizontalDragUpdate: (details) {
+            if (!_isDraggingLoopEnd || _currentClip == null) return;
+
+            // Calculate delta from drag start position
+            final deltaX = details.globalPosition.dx - _loopDragStartX;
+            final deltaBeats = deltaX / _pixelsPerBeat;
+
+            // Calculate new loop length from initial value + delta
+            var newLoopLength = _loopLengthAtDragStart + deltaBeats;
+
+            // Snap to grid
+            newLoopLength = _snapToGrid(newLoopLength);
+
+            // Minimum 1 bar (4 beats)
+            newLoopLength = newLoopLength.clamp(4.0, 256.0);
+
+            // Update clip with new loop length
+            setState(() {
+              _currentClip = _currentClip!.copyWith(loopLength: newLoopLength);
+            });
+
+            _notifyClipUpdated();
+          },
+          onHorizontalDragEnd: (details) {
+            _isDraggingLoopEnd = false;
+            debugPrint('🔄 Loop length set to ${_currentClip?.loopLength} beats');
+          },
+          child: Container(
+            width: handleWidth,
+            height: canvasHeight,
+            decoration: BoxDecoration(
+              // Vertical line
+              border: Border(
+                left: BorderSide(
+                  color: const Color(0xFFFF9800).withValues(alpha: 0.8), // Orange line
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Center(
+              child: Container(
+                width: handleWidth,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9800), // Orange handle
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.drag_indicator,
+                  size: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildHeader() {
@@ -983,23 +1087,45 @@ class _PianoRollState extends State<PianoRoll> {
     return '$noteName$octave';
   }
 
-  /// Build bar number ruler (no ScrollView - will be inside grid's horizontal scroll)
+  /// Build bar number ruler with Ableton-style drag-to-zoom
+  /// Click and drag vertically: up = zoom in, down = zoom out
   Widget _buildBarRuler(double totalBeats, double canvasWidth) {
-    return Container(
-      height: 30,
-      width: canvasWidth,
-      decoration: const BoxDecoration(
-        color: Color(0xFF363636), // Dark background
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF363636), width: 1),
-        ),
-      ),
-      child: CustomPaint(
-        size: Size(canvasWidth, 30),
-        painter: _BarRulerPainter(
-          pixelsPerBeat: _pixelsPerBeat,
-          totalBeats: totalBeats,
-          playheadPosition: 0.0, // TODO: Sync with actual playhead
+    return GestureDetector(
+      onVerticalDragStart: (details) {
+        _zoomDragStartY = details.globalPosition.dy;
+        _zoomStartPixelsPerBeat = _pixelsPerBeat;
+      },
+      onVerticalDragUpdate: (details) {
+        // Calculate drag delta (negative = dragged up = zoom in)
+        final deltaY = details.globalPosition.dy - _zoomDragStartY;
+
+        // Sensitivity: ~100 pixels of drag = 2x zoom change
+        // Negative deltaY (drag up) = positive zoom multiplier
+        final zoomFactor = 1.0 - (deltaY / 100.0);
+
+        setState(() {
+          _pixelsPerBeat = (_zoomStartPixelsPerBeat * zoomFactor).clamp(20.0, 500.0);
+        });
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeUpDown, // Visual hint for zoom
+        child: Container(
+          height: 30,
+          width: canvasWidth,
+          decoration: const BoxDecoration(
+            color: Color(0xFF363636), // Dark background
+            border: Border(
+              bottom: BorderSide(color: Color(0xFF363636), width: 1),
+            ),
+          ),
+          child: CustomPaint(
+            size: Size(canvasWidth, 30),
+            painter: _BarRulerPainter(
+              pixelsPerBeat: _pixelsPerBeat,
+              totalBeats: totalBeats,
+              playheadPosition: 0.0, // TODO: Sync with actual playhead
+            ),
+          ),
         ),
       ),
     );
@@ -1128,6 +1254,9 @@ class _PianoRollState extends State<PianoRoll> {
 
       setState(() {
         _currentClip = _currentClip?.addNote(newNote);
+
+        // Auto-extend loop length if note extends beyond current loop
+        _autoExtendLoopIfNeeded(newNote);
       });
 
       // Track this note for immediate drag-to-move if user drags
@@ -1138,6 +1267,21 @@ class _PianoRollState extends State<PianoRoll> {
       // Start sustained audition (will stop on mouse up)
       _startAudition(note, 100);
       debugPrint('🎵 Created note at beat $beat');
+    }
+  }
+
+  /// Auto-extend loop length if a note extends beyond the current loop boundary
+  void _autoExtendLoopIfNeeded(MidiNoteData note) {
+    if (_currentClip == null) return;
+
+    final noteEndTime = note.startTime + note.duration;
+    final currentLoopLength = _currentClip!.loopLength;
+
+    if (noteEndTime > currentLoopLength) {
+      // Round up to next bar boundary (4 beats)
+      final newLoopLength = ((noteEndTime / 4).ceil() * 4).toDouble();
+      _currentClip = _currentClip!.copyWith(loopLength: newLoopLength);
+      debugPrint('🔄 Auto-extended loop to $newLoopLength beats');
     }
   }
 
@@ -1262,6 +1406,9 @@ class _PianoRollState extends State<PianoRoll> {
       int? newPitchForAudition;
       int? velocityForAudition;
 
+      // Track moved notes for auto-extend
+      final List<MidiNoteData> movedNotes = [];
+
       setState(() {
         _currentClip = _currentClip?.copyWith(
           notes: _currentClip!.notes.map((n) {
@@ -1279,15 +1426,22 @@ class _PianoRollState extends State<PianoRoll> {
                   velocityForAudition = n.velocity;
                 }
 
-                return n.copyWith(
+                final movedNote = n.copyWith(
                   startTime: newStartTime,
                   note: newNote,
                 );
+                movedNotes.add(movedNote);
+                return movedNote;
               }
             }
             return n;
           }).toList(),
         );
+
+        // Auto-extend loop if any moved note extends beyond loop boundary
+        for (final movedNote in movedNotes) {
+          _autoExtendLoopIfNeeded(movedNote);
+        }
         // Don't update _dragStart here - keep original for cumulative delta
       });
 
@@ -1299,6 +1453,7 @@ class _PianoRollState extends State<PianoRoll> {
       _notifyClipUpdated();
     } else if (_currentMode == InteractionMode.resize && _resizingNoteId != null) {
       // Resize note from left or right edge (FL Studio style)
+      MidiNoteData? resizedNote;
       setState(() {
         _currentClip = _currentClip?.copyWith(
           notes: _currentClip!.notes.map((n) {
@@ -1308,21 +1463,28 @@ class _PianoRollState extends State<PianoRoll> {
               if (_resizingEdge == 'right') {
                 // Right edge: change duration only
                 final newDuration = (newBeat - n.startTime).clamp(_gridDivision, 64.0);
-                return n.copyWith(duration: newDuration);
+                resizedNote = n.copyWith(duration: newDuration);
+                return resizedNote!;
               } else if (_resizingEdge == 'left') {
                 // Left edge: change start time and duration
                 final oldEndTime = n.endTime;
                 final newStartTime = newBeat.clamp(0.0, oldEndTime - _gridDivision);
                 final newDuration = oldEndTime - newStartTime;
-                return n.copyWith(
+                resizedNote = n.copyWith(
                   startTime: newStartTime,
                   duration: newDuration,
                 );
+                return resizedNote!;
               }
             }
             return n;
           }).toList(),
         );
+
+        // Auto-extend loop if note was resized beyond loop boundary
+        if (resizedNote != null) {
+          _autoExtendLoopIfNeeded(resizedNote!);
+        }
       });
       _notifyClipUpdated();
     }
@@ -1652,34 +1814,8 @@ class _GridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Draw grey overlay for inactive bars (beyond active region)
-    if (totalBeats > activeBeats) {
-      final inactiveStartX = activeBeats * pixelsPerBeat;
-      final overlayRect = Rect.fromLTWH(
-        inactiveStartX,
-        0,
-        size.width - inactiveStartX,
-        size.height,
-      );
-
-      // Dark overlay on inactive region
-      final overlayPaint = Paint()
-        ..color = Colors.black.withOpacity(0.15); // 15% dark overlay
-
-      canvas.drawRect(overlayRect, overlayPaint);
-
-      // Separator line at the boundary
-      final separatorPaint = Paint()
-        ..color = const Color(0xFF606060)
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-
-      canvas.drawLine(
-        Offset(inactiveStartX, 0),
-        Offset(inactiveStartX, size.height),
-        separatorPaint,
-      );
-    }
+    // Note: Grey shaded overlay removed per user preference
+    // Orange loop end marker is drawn by _buildLoopEndMarker widget
   }
 
   bool _isBlackKey(int midiNote) {
@@ -1691,7 +1827,9 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(_GridPainter oldDelegate) {
     return pixelsPerBeat != oldDelegate.pixelsPerBeat ||
            pixelsPerNote != oldDelegate.pixelsPerNote ||
-           gridDivision != oldDelegate.gridDivision;
+           gridDivision != oldDelegate.gridDivision ||
+           totalBeats != oldDelegate.totalBeats ||
+           activeBeats != oldDelegate.activeBeats;
   }
 }
 

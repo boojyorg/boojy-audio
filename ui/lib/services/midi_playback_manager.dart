@@ -37,32 +37,25 @@ class MidiPlaybackManager extends ChangeNotifier {
 
   /// Update a MIDI clip with new note data
   ///
-  /// Handles clip creation, duration calculation, and scheduling.
-  /// Note: MIDI clips store startTime and duration in BEATS (not seconds)
+  /// Handles clip creation and scheduling.
+  /// Note: MIDI clips store startTime, duration, and loopLength in BEATS (not seconds)
   /// for tempo-independent visual layout on the timeline.
+  ///
+  /// Ableton-style clip model:
+  /// - `duration`: Arrangement length (user-controlled via timeline resize)
+  /// - `loopLength`: Piano roll loop boundary (user-controlled via piano roll)
+  /// Both are preserved from the updatedClip - not auto-calculated from notes.
   void updateClip(MidiClipData updatedClip, double tempo, double playheadPosition) {
-    // Calculate clip duration based on notes (in BEATS for tempo-independent storage)
-    double durationInBeats;
-
-    if (updatedClip.notes.isEmpty) {
-      // Default to 4 bars (16 beats) if no notes
-      durationInBeats = 16.0;
-    } else {
-      // Find the furthest note end time (notes are already in beats)
-      durationInBeats = updatedClip.notes
-          .map((note) => note.startTime + note.duration)
-          .reduce((a, b) => a > b ? a : b);
-    }
-
     // Check if we're editing an existing clip or need to create a new one
     if (updatedClip.clipId == -1) {
       // No clip ID provided - check if we're editing an existing clip
       if (_currentEditingClip != null && _currentEditingClip!.clipId != -1) {
-        // Reuse the existing clip we're editing
+        // Reuse the existing clip we're editing, preserving duration and loopLength
         _currentEditingClip = updatedClip.copyWith(
           clipId: _currentEditingClip!.clipId,
           startTime: _currentEditingClip!.startTime,
-          duration: durationInBeats,
+          duration: updatedClip.duration > 0 ? updatedClip.duration : _currentEditingClip!.duration,
+          loopLength: updatedClip.loopLength > 0 ? updatedClip.loopLength : _currentEditingClip!.loopLength,
         );
 
         // Update in clips list
@@ -74,10 +67,13 @@ class MidiPlaybackManager extends ChangeNotifier {
         // Create a brand new clip only if we have notes and no clip is being edited
         final newClipId = DateTime.now().millisecondsSinceEpoch;
 
+        // Default to 4 bars (16 beats) if no duration/loopLength specified
+        final defaultBeats = 16.0;
         _currentEditingClip = updatedClip.copyWith(
           clipId: newClipId,
           startTime: playheadPosition, // playheadPosition should be in beats
-          duration: durationInBeats,
+          duration: updatedClip.duration > 0 ? updatedClip.duration : defaultBeats,
+          loopLength: updatedClip.loopLength > 0 ? updatedClip.loopLength : defaultBeats,
         );
         _selectedMidiClipId = newClipId;
 
@@ -85,15 +81,11 @@ class MidiPlaybackManager extends ChangeNotifier {
         _midiClips.add(_currentEditingClip!);
       } else {
         // No notes and no existing clip - just update current editing clip
-        _currentEditingClip = updatedClip.copyWith(
-          duration: durationInBeats,
-        );
+        _currentEditingClip = updatedClip;
       }
     } else {
-      // Clip ID provided - update existing clip with new duration
-      _currentEditingClip = updatedClip.copyWith(
-        duration: durationInBeats,
-      );
+      // Clip ID provided - preserve the clip's duration and loopLength
+      _currentEditingClip = updatedClip;
 
       // Update in clips list
       final index = _midiClips.indexWhere((c) => c.clipId == updatedClip.clipId);
@@ -111,6 +103,13 @@ class MidiPlaybackManager extends ChangeNotifier {
   }
 
   /// Schedule MIDI clip notes for playback during transport
+  ///
+  /// Uses the Ableton-style clip model:
+  /// - `loopLength`: The loop boundary in the piano roll (notes loop at this point)
+  /// - `duration`: The arrangement length (total playback time on timeline)
+  ///
+  /// When duration > loopLength: Notes repeat (loop) within the arrangement
+  /// When duration < loopLength: Only the portion up to duration plays
   void _scheduleMidiClipPlayback(MidiClipData clip, double tempo) {
     // Check if this Dart clip already has a Rust clip
     int rustClipId;
@@ -133,28 +132,63 @@ class MidiPlaybackManager extends ChangeNotifier {
       isNewClip = true;
     }
 
-    // Add all notes to the Rust clip for each loop iteration
-    // Note: note.startTime is in beats RELATIVE to clip start (0 = first beat of clip)
-    // clip.duration is in BEATS (not seconds)
+    // Ableton-style loop handling:
+    // - loopLength: piano roll loop boundary (in beats)
+    // - duration: arrangement length on timeline (in beats)
+    // - Notes within loopLength repeat if duration > loopLength
+    // - Playback stops at duration regardless of loopLength
     final beatsPerSecond = tempo / 60.0;
-    final singleIterationDurationSeconds = clip.duration / beatsPerSecond;
+    final loopLengthSeconds = clip.loopLength / beatsPerSecond;
 
-    for (int loop = 0; loop < clip.loopCount; loop++) {
-      final loopOffsetSeconds = loop * singleIterationDurationSeconds;
+    // Calculate how many loop iterations fit within the arrangement duration
+    // If duration < loopLength, we still play once but truncated
+    final numLoops = clip.duration >= clip.loopLength
+        ? (clip.duration / clip.loopLength).ceil()
+        : 1;
+
+    for (int loop = 0; loop < numLoops; loop++) {
+      final loopOffsetBeats = loop * clip.loopLength;
+      final loopOffsetSeconds = loop * loopLengthSeconds;
 
       for (final note in clip.notes) {
-        // Convert beats to seconds using current tempo
-        // note.startTime is already relative to clip start (0-based)
-        final noteStartSeconds = note.startTimeInSeconds(tempo) + loopOffsetSeconds;
-        final durationSeconds = note.durationInSeconds(tempo);
+        // Only include notes that are within the loopLength boundary
+        if (note.startTime >= clip.loopLength) continue;
 
-        _audioEngine.addMidiNoteToClip(
-          rustClipId,
-          note.note,
-          note.velocity,
-          noteStartSeconds,
-          durationSeconds,
-        );
+        // Calculate note position within the arrangement
+        final noteStartBeats = loopOffsetBeats + note.startTime;
+        final noteEndBeats = loopOffsetBeats + note.startTime + note.duration;
+
+        // Skip notes that start beyond the arrangement duration
+        if (noteStartBeats >= clip.duration) continue;
+
+        // Convert to seconds
+        final noteStartSeconds = note.startTimeInSeconds(tempo) + loopOffsetSeconds;
+        var durationSeconds = note.durationInSeconds(tempo);
+
+        // Truncate note if it extends beyond the arrangement duration
+        if (noteEndBeats > clip.duration) {
+          final truncatedDurationBeats = clip.duration - noteStartBeats;
+          durationSeconds = truncatedDurationBeats / beatsPerSecond;
+        }
+
+        // Also truncate if note extends beyond the loop boundary (for looped notes)
+        final noteEndInLoop = note.startTime + note.duration;
+        if (noteEndInLoop > clip.loopLength) {
+          final truncatedDurationBeats = clip.loopLength - note.startTime;
+          final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
+          durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
+        }
+
+        // Only add if we have a positive duration
+        if (durationSeconds > 0) {
+          _audioEngine.addMidiNoteToClip(
+            rustClipId,
+            note.note,
+            note.velocity,
+            noteStartSeconds,
+            durationSeconds,
+          );
+        }
       }
     }
 

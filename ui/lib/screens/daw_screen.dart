@@ -997,6 +997,68 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  // Drag-to-create handlers
+  void _onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
+    if (_audioEngine == null) return;
+
+    try {
+      // Create new track
+      final command = CreateTrackCommand(
+        trackType: trackType,
+        trackName: trackType == 'midi' ? 'MIDI' : 'Audio',
+      );
+
+      await _undoRedoManager.execute(command);
+
+      final trackId = command.createdTrackId;
+      if (trackId == null || trackId < 0) {
+        debugPrint('❌ Failed to create new $trackType track');
+        return;
+      }
+
+      // For MIDI tracks, create a clip with the specified position and duration
+      if (trackType == 'midi') {
+        _createMidiClipWithParams(trackId, startBeats, durationBeats);
+      }
+      // For audio tracks, they start empty (user will drop audio files)
+
+      // Select the newly created track
+      _onTrackSelected(trackId);
+
+      // Refresh track widgets
+      _refreshTrackWidgets();
+
+      debugPrint('✅ Created $trackType track $trackId with ${durationBeats / 4} bar clip at beat $startBeats');
+    } catch (e) {
+      debugPrint('❌ Error creating track with clip: $e');
+    }
+  }
+
+  void _onCreateClipOnTrack(int trackId, double startBeats, double durationBeats) {
+    // Create a new MIDI clip on the specified track
+    _createMidiClipWithParams(trackId, startBeats, durationBeats);
+
+    // Select the track
+    _onTrackSelected(trackId);
+
+    debugPrint('✅ Created MIDI clip on track $trackId: ${durationBeats / 4} bars at beat $startBeats');
+  }
+
+  /// Create a MIDI clip with custom start position and duration
+  void _createMidiClipWithParams(int trackId, double startBeats, double durationBeats) {
+    final clip = MidiClipData(
+      clipId: DateTime.now().millisecondsSinceEpoch,
+      trackId: trackId,
+      startTime: startBeats,
+      duration: durationBeats,
+      loopLength: durationBeats, // Loop length matches arrangement length initially
+      name: 'New MIDI Clip',
+      notes: [],
+    );
+
+    _midiPlaybackManager?.addRecordedClip(clip);
+  }
+
   // Library double-click handlers
   void _handleLibraryItemDoubleClick(LibraryItem item) {
     if (_audioEngine == null) return;
@@ -2435,6 +2497,8 @@ class _DAWScreenState extends State<DAWScreen> {
                           onVst3InstrumentDropped: _onVst3InstrumentDropped,
                           onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
                           onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+                          onCreateTrackWithClip: _onCreateTrackWithClip,
+                          onCreateClipOnTrack: _onCreateClipOnTrack,
                           trackHeights: _trackHeights,
                           masterTrackHeight: _masterTrackHeight,
                           onSeek: (position) {
@@ -2482,6 +2546,7 @@ class _DAWScreenState extends State<DAWScreen> {
                             onVst3PluginDropped: _onVst3PluginDropped, // M10
                             onEditPluginsPressed: _showVst3PluginEditor, // M10
                             onAudioFileDropped: _onAudioFileDroppedOnEmpty,
+                            onMidiTrackCreated: _createDefaultMidiClip,
                             trackHeights: _trackHeights,
                             masterTrackHeight: _masterTrackHeight,
                             onTrackHeightChanged: _setTrackHeight,

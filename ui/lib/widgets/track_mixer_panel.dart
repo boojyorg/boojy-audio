@@ -71,6 +71,9 @@ class TrackMixerPanel extends StatefulWidget {
   // Audio file drag-and-drop
   final Function(String filePath)? onAudioFileDropped;
 
+  // Callback when MIDI track is created from mixer (to add default clip)
+  final Function(int trackId)? onMidiTrackCreated;
+
   // Engine ready state
   final bool isEngineReady;
 
@@ -96,6 +99,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.onVst3PluginDropped,
     this.onEditPluginsPressed, // M10
     this.onAudioFileDropped,
+    this.onMidiTrackCreated,
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
     this.onTrackHeightChanged,
@@ -236,6 +240,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
     if (command.createdTrackId != null && command.createdTrackId! >= 0) {
       _loadTracksAsync();
+
+      // Notify parent to create default MIDI clip for MIDI tracks
+      if (type == 'midi') {
+        widget.onMidiTrackCreated?.call(command.createdTrackId!);
+      }
     } else {
       // Show error to user when track creation fails
       if (mounted) {

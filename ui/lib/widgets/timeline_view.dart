@@ -73,6 +73,10 @@ class TimelineView extends StatefulWidget {
   // Audio file drag-and-drop on empty space
   final Function(String filePath)? onAudioFileDroppedOnEmpty;
 
+  // Drag-to-create callbacks
+  final Function(String trackType, double startBeats, double durationBeats)? onCreateTrackWithClip;
+  final Function(int trackId, double startBeats, double durationBeats)? onCreateClipOnTrack;
+
   // Track heights (synced from mixer panel)
   final Map<int, double> trackHeights; // trackId -> height
   final double masterTrackHeight;
@@ -100,6 +104,8 @@ class TimelineView extends StatefulWidget {
     this.onVst3InstrumentDropped,
     this.onVst3InstrumentDroppedOnEmpty,
     this.onAudioFileDroppedOnEmpty,
+    this.onCreateTrackWithClip,
+    this.onCreateClipOnTrack,
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
   });
@@ -135,6 +141,17 @@ class TimelineViewState extends State<TimelineView> {
   // Snap and copy state
   bool _snapBypassActive = false; // True when Alt/Option held during drag
   bool _isCopyDrag = false; // True when Shift held at drag start
+
+  // Edge resize state for MIDI clips (arrangement length)
+  int? _resizingMidiClipId;
+  double _resizeStartDuration = 0.0;
+  double _resizeStartX = 0.0;
+
+  // Drag-to-create new clip state
+  bool _isDraggingNewClip = false;
+  double _newClipStartBeats = 0.0;
+  double _newClipEndBeats = 0.0;
+  int? _newClipTrackId; // null = create new track, otherwise create clip on existing track
 
   @override
   void initState() {
@@ -185,6 +202,19 @@ class TimelineViewState extends State<TimelineView> {
     if (_pixelsPerBeat < 40) return 0.5;     // Snap to half beats (1/8th notes)
     if (_pixelsPerBeat < 80) return 0.25;    // Snap to quarter beats (1/16th notes)
     return 0.125;                            // Snap to eighth beats (1/32nd notes)
+  }
+
+  /// Calculate beat position from mouse X coordinate (for MIDI/beat-based operations)
+  double _calculateBeatPosition(Offset localPosition) {
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final totalX = localPosition.dx + scrollOffset;
+    return totalX / _pixelsPerBeat;
+  }
+
+  /// Snap a beat value to the current grid resolution
+  double _snapToGrid(double beats) {
+    final snapResolution = _getGridSnapResolution();
+    return (beats / snapResolution).round() * snapResolution;
   }
 
   /// Handle file drop on track
@@ -466,112 +496,162 @@ class TimelineViewState extends State<TimelineView> {
         }),
 
         // Empty space drop target - wraps spacer to push master track to bottom
-        // Supports: instruments, VST3 plugins, and audio files
+        // Supports: instruments, VST3 plugins, audio files, AND drag-to-create
         Expanded(
-          child: PlatformDropTarget(
-            onDragDone: (details) {
-              // Handle audio file drops
-              for (final file in details.files) {
-                final ext = file.path.split('.').last.toLowerCase();
-                if (['wav', 'mp3', 'flac', 'aif', 'aiff'].contains(ext)) {
-                  widget.onAudioFileDroppedOnEmpty?.call(file.path);
-                  return; // Only handle first valid audio file
-                }
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (details) {
+              final startBeats = _calculateBeatPosition(details.localPosition);
+              setState(() {
+                _isDraggingNewClip = true;
+                _newClipStartBeats = _snapToGrid(startBeats);
+                _newClipEndBeats = _newClipStartBeats;
+                _newClipTrackId = null; // null = create new track
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              if (!_isDraggingNewClip) return;
+              final currentBeats = _calculateBeatPosition(details.localPosition);
+              setState(() {
+                _newClipEndBeats = _snapToGrid(currentBeats);
+              });
+            },
+            onHorizontalDragEnd: (details) {
+              if (!_isDraggingNewClip) return;
+
+              // Calculate final start and duration (handle reverse drag)
+              final startBeats = math.min(_newClipStartBeats, _newClipEndBeats);
+              final endBeats = math.max(_newClipStartBeats, _newClipEndBeats);
+              final durationBeats = endBeats - startBeats;
+
+              // Minimum clip length is 1 bar (4 beats)
+              if (durationBeats >= 4.0) {
+                // Show track type selection popup
+                _showTrackTypePopup(context, details.globalPosition, startBeats, durationBeats);
               }
-            },
-            onDragEntered: (details) {
+
               setState(() {
-                _isAudioFileDraggingOverEmpty = true;
+                _isDraggingNewClip = false;
               });
             },
-            onDragExited: (details) {
+            onHorizontalDragCancel: () {
               setState(() {
-                _isAudioFileDraggingOverEmpty = false;
+                _isDraggingNewClip = false;
               });
             },
-            child: DragTarget<Vst3Plugin>(
-              onWillAcceptWithDetails: (details) {
-                debugPrint('🎯 VST3 onWillAccept EMPTY SPACE: plugin=${details.data.name}, isInstrument=${details.data.isInstrument}');
-                return details.data.isInstrument; // Only accept VST3 instruments
+            child: PlatformDropTarget(
+              onDragDone: (details) {
+                // Handle audio file drops
+                for (final file in details.files) {
+                  final ext = file.path.split('.').last.toLowerCase();
+                  if (['wav', 'mp3', 'flac', 'aif', 'aiff'].contains(ext)) {
+                    widget.onAudioFileDroppedOnEmpty?.call(file.path);
+                    return; // Only handle first valid audio file
+                  }
+                }
               },
-              onAcceptWithDetails: (details) {
-                debugPrint('🎯 VST3 onAccept EMPTY SPACE: plugin=${details.data.name}');
-                widget.onVst3InstrumentDroppedOnEmpty?.call(details.data);
+              onDragEntered: (details) {
+                setState(() {
+                  _isAudioFileDraggingOverEmpty = true;
+                });
               },
-              builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
-                final isVst3PluginHovering = candidateVst3Plugins.isNotEmpty;
+              onDragExited: (details) {
+                setState(() {
+                  _isAudioFileDraggingOverEmpty = false;
+                });
+              },
+              child: DragTarget<Vst3Plugin>(
+                onWillAcceptWithDetails: (details) {
+                  debugPrint('🎯 VST3 onWillAccept EMPTY SPACE: plugin=${details.data.name}, isInstrument=${details.data.isInstrument}');
+                  return details.data.isInstrument; // Only accept VST3 instruments
+                },
+                onAcceptWithDetails: (details) {
+                  debugPrint('🎯 VST3 onAccept EMPTY SPACE: plugin=${details.data.name}');
+                  widget.onVst3InstrumentDroppedOnEmpty?.call(details.data);
+                },
+                builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
+                  final isVst3PluginHovering = candidateVst3Plugins.isNotEmpty;
 
-                return DragTarget<Instrument>(
-                  onWillAcceptWithDetails: (details) {
-                    debugPrint('🎯 onWillAccept EMPTY SPACE: instrument=${details.data.name}');
-                    return true; // Always accept instruments
-                  },
-                  onAcceptWithDetails: (details) {
-                    debugPrint('🎯 onAccept EMPTY SPACE: instrument=${details.data.name}');
-                    widget.onInstrumentDroppedOnEmpty?.call(details.data);
-                  },
-                  builder: (context, candidateInstruments, rejectedInstruments) {
-                    final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
-                    final isAnyHovering = isInstrumentHovering || _isAudioFileDraggingOverEmpty;
+                  return DragTarget<Instrument>(
+                    onWillAcceptWithDetails: (details) {
+                      debugPrint('🎯 onWillAccept EMPTY SPACE: instrument=${details.data.name}');
+                      return true; // Always accept instruments
+                    },
+                    onAcceptWithDetails: (details) {
+                      debugPrint('🎯 onAccept EMPTY SPACE: instrument=${details.data.name}');
+                      widget.onInstrumentDroppedOnEmpty?.call(details.data);
+                    },
+                    builder: (context, candidateInstruments, rejectedInstruments) {
+                      final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
+                      final isAnyHovering = isInstrumentHovering || _isAudioFileDraggingOverEmpty;
 
-                    // Determine label text
-                    String dropLabel;
-                    if (_isAudioFileDraggingOverEmpty) {
-                      dropLabel = 'Drop to create new Audio track';
-                    } else if (candidateVst3Plugins.isNotEmpty) {
-                      dropLabel = 'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
-                    } else if (candidateInstruments.isNotEmpty) {
-                      dropLabel = 'Drop to create new MIDI track with ${candidateInstruments.first?.name ?? "instrument"}';
-                    } else {
-                      dropLabel = 'Drop to create new track';
-                    }
+                      // Determine label text
+                      String dropLabel;
+                      if (_isAudioFileDraggingOverEmpty) {
+                        dropLabel = 'Drop to create new Audio track';
+                      } else if (candidateVst3Plugins.isNotEmpty) {
+                        dropLabel = 'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
+                      } else if (candidateInstruments.isNotEmpty) {
+                        dropLabel = 'Drop to create new MIDI track with ${candidateInstruments.first?.name ?? "instrument"}';
+                      } else {
+                        dropLabel = 'Drop to create new track';
+                      }
 
-                    return Container(
-                      decoration: isAnyHovering
-                          ? BoxDecoration(
-                              color: const Color(0xFF4CAF50).withOpacity(0.1),
-                              border: Border.all(
-                                color: const Color(0xFF4CAF50),
-                                width: 3,
-                                style: BorderStyle.solid,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            )
-                          : null,
-                      child: isAnyHovering
-                          ? Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.add_circle_outline,
-                                      color: Colors.white,
-                                      size: 20,
+                      return Stack(
+                        children: [
+                          // Drop target feedback
+                          Container(
+                            decoration: isAnyHovering
+                                ? BoxDecoration(
+                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                                    border: Border.all(
+                                      color: const Color(0xFF4CAF50),
+                                      width: 3,
+                                      style: BorderStyle.solid,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      dropLabel,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
+                                    borderRadius: BorderRadius.circular(8),
+                                  )
+                                : null,
+                            child: isAnyHovering
+                                ? Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4CAF50),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.add_circle_outline,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            dropLabel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : const SizedBox.expand(),
-                    );
-                  },
-                );
-              },
+                                  )
+                                : const SizedBox.expand(),
+                          ),
+                          // Drag-to-create preview (for empty space)
+                          if (_isDraggingNewClip && _newClipTrackId == null)
+                            _buildDragToCreatePreview(),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -746,6 +826,55 @@ class TimelineViewState extends State<TimelineView> {
                 widget.onMidiTrackSelected?.call(track.id);
               }
             : null,
+        onHorizontalDragStart: (details) {
+          // Check if drag starts on empty space (not on a clip)
+          final beatPosition = _calculateBeatPosition(details.localPosition);
+          final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
+
+          if (!isOnClip && isMidiTrack) {
+            // Start drag-to-create on this track
+            setState(() {
+              _isDraggingNewClip = true;
+              _newClipStartBeats = _snapToGrid(beatPosition);
+              _newClipEndBeats = _newClipStartBeats;
+              _newClipTrackId = track.id;
+            });
+          }
+        },
+        onHorizontalDragUpdate: (details) {
+          if (_isDraggingNewClip && _newClipTrackId == track.id) {
+            final currentBeats = _calculateBeatPosition(details.localPosition);
+            setState(() {
+              _newClipEndBeats = _snapToGrid(currentBeats);
+            });
+          }
+        },
+        onHorizontalDragEnd: (details) {
+          if (_isDraggingNewClip && _newClipTrackId == track.id) {
+            // Calculate final start and duration (handle reverse drag)
+            final startBeats = math.min(_newClipStartBeats, _newClipEndBeats);
+            final endBeats = math.max(_newClipStartBeats, _newClipEndBeats);
+            final durationBeats = endBeats - startBeats;
+
+            // Minimum clip length is 1 bar (4 beats)
+            if (durationBeats >= 4.0) {
+              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+            }
+
+            setState(() {
+              _isDraggingNewClip = false;
+              _newClipTrackId = null;
+            });
+          }
+        },
+        onHorizontalDragCancel: () {
+          if (_newClipTrackId == track.id) {
+            setState(() {
+              _isDraggingNewClip = false;
+              _newClipTrackId = null;
+            });
+          }
+        },
         child: Container(
         height: widget.trackHeights[track.id] ?? 100.0,
         decoration: BoxDecoration(
@@ -783,6 +912,10 @@ class TimelineViewState extends State<TimelineView> {
             // Show preview clip if hovering over this track
             if (_previewClip != null && _previewClip!.trackId == track.id)
               _buildPreviewClip(_previewClip!),
+
+            // Drag-to-create preview for this track
+            if (_isDraggingNewClip && _newClipTrackId == track.id)
+              _buildDragToCreatePreviewOnTrack(trackColor, widget.trackHeights[track.id] ?? 100.0),
           ],
         ),
       ),
@@ -989,8 +1122,8 @@ class TimelineViewState extends State<TimelineView> {
       left: clipX,
       top: 4,
       child: GestureDetector(
-        onDoubleTap: () {
-          // Double-click to open in piano roll
+        onTap: () {
+          // Single-click to open in piano roll editor
           widget.onMidiClipSelected?.call(midiClip.clipId, midiClip);
         },
         onHorizontalDragStart: (details) {
@@ -1044,84 +1177,162 @@ class TimelineViewState extends State<TimelineView> {
           });
         },
         child: MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: Container(
-            width: clipWidth,
-            height: totalHeight,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isDragging
-                    ? trackColor
-                    : isSelected
-                        ? trackColor.withValues(alpha: 1.0)
-                        : trackColor.withValues(alpha: 0.7),
-                width: isDragging || isSelected ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  height: headerHeight,
-                  decoration: BoxDecoration(
-                    color: trackColor,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(3),
-                    ),
+          cursor: _resizingMidiClipId == midiClip.clipId
+              ? SystemMouseCursors.resizeRight
+              : SystemMouseCursors.grab,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Main clip container
+              Container(
+                width: clipWidth,
+                height: totalHeight,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isDragging
+                        ? trackColor
+                        : isSelected
+                            ? trackColor.withValues(alpha: 1.0)
+                            : trackColor.withValues(alpha: 0.7),
+                    width: isDragging || isSelected ? 2 : 1,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.piano,
-                        size: 10,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          midiClip.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    // Header
+                    Container(
+                      height: headerHeight,
+                      decoration: BoxDecoration(
+                        color: trackColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(3),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                // Content area with notes (transparent background)
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(3),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.piano,
+                            size: 10,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              midiClip.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: midiClip.notes.isNotEmpty
-                        ? LayoutBuilder(
-                            builder: (context, constraints) {
-                              return CustomPaint(
-                                size: Size(constraints.maxWidth, constraints.maxHeight),
-                                painter: _MidiClipPainter(
-                                  notes: midiClip.notes,
-                                  clipDuration: clipDurationBeats,
-                                  trackColor: trackColor,
-                                ),
-                              );
-                            },
-                          )
-                        : const SizedBox.shrink(),
+                    // Content area with notes (transparent background)
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(3),
+                        ),
+                        child: midiClip.notes.isNotEmpty
+                            ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return CustomPaint(
+                                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                                    painter: _MidiClipPainter(
+                                      notes: midiClip.notes,
+                                      clipDuration: clipDurationBeats,
+                                      loopLength: midiClip.loopLength,
+                                      trackColor: trackColor,
+                                    ),
+                                  );
+                                },
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Loop boundary lines overlay
+              if (clipDurationBeats > midiClip.loopLength)
+                _buildLoopBoundaryLines(midiClip.loopLength, clipDurationBeats, totalHeight, trackColor),
+              // Right edge resize handle
+              Positioned(
+                right: 0,
+                top: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    setState(() {
+                      _resizingMidiClipId = midiClip.clipId;
+                      _resizeStartDuration = midiClip.duration;
+                      _resizeStartX = details.globalPosition.dx;
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    if (_resizingMidiClipId != midiClip.clipId) return;
+                    final deltaX = details.globalPosition.dx - _resizeStartX;
+                    final deltaBeats = deltaX / _pixelsPerBeat;
+                    var newDuration = (_resizeStartDuration + deltaBeats).clamp(1.0, 256.0);
+
+                    // Snap to grid
+                    final snapResolution = _getGridSnapResolution();
+                    newDuration = (newDuration / snapResolution).round() * snapResolution;
+                    newDuration = newDuration.clamp(1.0, 256.0);
+
+                    final updatedClip = midiClip.copyWith(duration: newDuration);
+                    widget.onMidiClipUpdated?.call(updatedClip);
+                  },
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      _resizingMidiClipId = null;
+                    });
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeRight,
+                    child: Container(
+                      width: 8,
+                      height: totalHeight,
+                      color: Colors.transparent,
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// Build loop boundary lines for when arrangement > loop length
+  Widget _buildLoopBoundaryLines(double loopLength, double clipDuration, double height, Color trackColor) {
+    final List<Widget> lines = [];
+    var loopBeat = loopLength;
+
+    while (loopBeat < clipDuration) {
+      final lineX = loopBeat * _pixelsPerBeat;
+      lines.add(
+        Positioned(
+          left: lineX,
+          top: 0,
+          child: Container(
+            width: 1,
+            height: height,
+            color: trackColor.withValues(alpha: 0.4),
+          ),
+        ),
+      );
+      loopBeat += loopLength;
+    }
+
+    return Stack(children: lines);
   }
 
   Widget _buildPreviewClip(PreviewClip preview) {
@@ -1136,7 +1347,7 @@ class TimelineViewState extends State<TimelineView> {
         width: clipWidth,
         height: 72,
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50).withOpacity(0.3),
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
           border: Border.all(
             color: const Color(0xFF4CAF50),
             width: 2,
@@ -1147,7 +1358,7 @@ class TimelineViewState extends State<TimelineView> {
         child: Center(
           child: Icon(
             Icons.audiotrack,
-            color: const Color(0xFF4CAF50).withOpacity(0.6),
+            color: const Color(0xFF4CAF50).withValues(alpha: 0.6),
             size: 32,
           ),
         ),
@@ -1206,6 +1417,160 @@ class TimelineViewState extends State<TimelineView> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build the drag-to-create preview rectangle
+  Widget _buildDragToCreatePreview() {
+    // Calculate positions (handle reverse drag)
+    final startBeats = math.min(_newClipStartBeats, _newClipEndBeats);
+    final endBeats = math.max(_newClipStartBeats, _newClipEndBeats);
+    final durationBeats = endBeats - startBeats;
+
+    // Convert to pixels
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final startX = (startBeats * _pixelsPerBeat) - scrollOffset;
+    final width = durationBeats * _pixelsPerBeat;
+
+    // Calculate bars for label
+    final bars = (durationBeats / 4.0);
+    final barsLabel = bars >= 1.0
+        ? '${bars.toStringAsFixed(bars == bars.roundToDouble() ? 0 : 1)} bar${bars != 1.0 ? 's' : ''}'
+        : '${durationBeats.toStringAsFixed(1)} beats';
+
+    return Positioned(
+      left: startX,
+      top: 8,
+      child: Container(
+        width: math.max(width, 20.0),
+        height: 60,
+        decoration: BoxDecoration(
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+          border: Border.all(
+            color: const Color(0xFF4CAF50),
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            barsLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show track type selection popup after drag-to-create
+  void _showTrackTypePopup(BuildContext context, Offset globalPosition, double startBeats, double durationBeats) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem<String>(
+          value: 'midi',
+          child: Row(
+            children: [
+              Icon(Icons.piano, size: 18, color: Color(0xFF9E9E9E)),
+              SizedBox(width: 8),
+              Text('MIDI Track'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'audio',
+          child: Row(
+            children: [
+              Icon(Icons.audiotrack, size: 18, color: Color(0xFF9E9E9E)),
+              SizedBox(width: 8),
+              Text('Audio Track'),
+            ],
+          ),
+        ),
+      ],
+      color: const Color(0xFF363636),
+    ).then((value) {
+      if (value != null) {
+        widget.onCreateTrackWithClip?.call(value, startBeats, durationBeats);
+      }
+    });
+  }
+
+  /// Check if a beat position is on an existing clip
+  bool _isPositionOnClip(double beatPosition, int trackId, List<ClipData> audioClips, List<MidiClipData> midiClips) {
+    // Check audio clips (convert seconds to beats for comparison)
+    final beatsPerSecond = widget.tempo / 60.0;
+    for (final clip in audioClips) {
+      final clipStartBeats = clip.startTime * beatsPerSecond;
+      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      if (beatPosition >= clipStartBeats && beatPosition <= clipEndBeats) {
+        return true;
+      }
+    }
+
+    // Check MIDI clips (already in beats)
+    for (final clip in midiClips) {
+      if (beatPosition >= clip.startTime && beatPosition <= clip.endTime) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// Build drag-to-create preview for an existing track
+  Widget _buildDragToCreatePreviewOnTrack(Color trackColor, double trackHeight) {
+    // Calculate positions (handle reverse drag)
+    final startBeats = math.min(_newClipStartBeats, _newClipEndBeats);
+    final endBeats = math.max(_newClipStartBeats, _newClipEndBeats);
+    final durationBeats = endBeats - startBeats;
+
+    // Convert to pixels
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final startX = (startBeats * _pixelsPerBeat) - scrollOffset;
+    final width = durationBeats * _pixelsPerBeat;
+
+    // Calculate bars for label
+    final bars = (durationBeats / 4.0);
+    final barsLabel = bars >= 1.0
+        ? '${bars.toStringAsFixed(bars == bars.roundToDouble() ? 0 : 1)} bar${bars != 1.0 ? 's' : ''}'
+        : '${durationBeats.toStringAsFixed(1)} beats';
+
+    return Positioned(
+      left: startX,
+      top: 4,
+      child: Container(
+        width: math.max(width, 20.0),
+        height: trackHeight - 8,
+        decoration: BoxDecoration(
+          color: trackColor.withValues(alpha: 0.3),
+          border: Border.all(
+            color: trackColor,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            barsLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -1409,7 +1774,7 @@ class _WaveformPainter extends CustomPainter {
     if (peaks.isEmpty) return;
 
     final paint = Paint()
-      ..color = color.withOpacity(0.5) // Semi-transparent so grid shows through
+      ..color = color.withValues(alpha: 0.5) // Semi-transparent so grid shows through
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -1447,7 +1812,7 @@ class _WaveformPainter extends CustomPainter {
 
     // Draw center line
     final centerLinePaint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..strokeWidth = 1;
     canvas.drawLine(
       Offset(0, centerY),
@@ -1479,12 +1844,14 @@ class _GridPatternPainter extends CustomPainter {
 /// - Range 9+: Full height (100%), notes compress to fit
 class _MidiClipPainter extends CustomPainter {
   final List<MidiNoteData> notes;
-  final double clipDuration; // Total clip duration in beats
+  final double clipDuration; // Total clip duration in beats (arrangement length)
+  final double loopLength; // Loop length in beats
   final Color trackColor;
 
   _MidiClipPainter({
     required this.notes,
     required this.clipDuration,
+    required this.loopLength,
     required this.trackColor,
   });
 
