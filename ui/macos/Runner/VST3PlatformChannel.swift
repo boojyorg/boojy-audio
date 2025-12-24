@@ -19,6 +19,9 @@ class VST3PlatformChannel {
             self?.handleMethodCall(call, result: result)
         }
 
+        // Give window manager access to channel for sending notifications to Dart
+        windowManager.setMethodChannel(channel)
+
         print("✅ VST3PlatformChannel: Initialized")
     }
 
@@ -64,7 +67,14 @@ class VST3PlatformChannel {
 
         let size = NSSize(width: width, height: height)
 
-        if windowManager.openWindow(effectId: effectId, pluginName: pluginName, size: size) != nil {
+        // Optional saved position
+        var position: NSPoint? = nil
+        if let x = args["x"] as? Double, let y = args["y"] as? Double {
+            position = NSPoint(x: x, y: y)
+            print("📍 VST3PlatformChannel: Using saved position (\(x), \(y))")
+        }
+
+        if windowManager.openWindow(effectId: effectId, pluginName: pluginName, size: size, position: position) != nil {
             // Get the container view pointer for FFI attachment
             if let viewPtr = windowManager.getContainerViewPointer(effectId: effectId) {
                 let viewPtrInt = Int64(Int(bitPattern: viewPtr))
@@ -107,6 +117,7 @@ class VST3PlatformChannel {
     }
 
     /// Attach a VST3 editor to a docked platform view
+    /// Returns the view pointer so Dart can call FFI to attach the editor
     private func attachEditor(args: [String: Any], result: @escaping FlutterResult) {
         guard let effectId = args["effectId"] as? Int else {
             result(FlutterError(
@@ -117,10 +128,45 @@ class VST3PlatformChannel {
             return
         }
 
-        // TODO: Implement attaching editor to embedded platform view
-        // This will require finding the platform view and calling attachEditor on it
         print("📎 VST3PlatformChannel: Attach editor for effect \(effectId)")
-        result(true)
+
+        // Find the VST3EditorView from the registry
+        guard let editorView = VST3EditorViewRegistry.shared.getView(effectId: effectId) else {
+            result(FlutterError(
+                code: "VIEW_NOT_FOUND",
+                message: "No VST3EditorView found for effect \(effectId)",
+                details: nil
+            ))
+            return
+        }
+
+        // Ensure view is in a window
+        guard editorView.window != nil else {
+            result(FlutterError(
+                code: "VIEW_NOT_IN_WINDOW",
+                message: "VST3EditorView is not in a window hierarchy",
+                details: nil
+            ))
+            return
+        }
+
+        // Create child window and get container view pointer
+        guard let viewPointer = editorView.prepareForAttachment() else {
+            result(FlutterError(
+                code: "PREPARE_FAILED",
+                message: "Failed to prepare editor view for attachment",
+                details: nil
+            ))
+            return
+        }
+
+        print("✅ VST3PlatformChannel: Attachment prepared, viewPointer=\(viewPointer)")
+
+        // Return success with the view pointer so Dart can call FFI
+        result([
+            "success": true,
+            "viewPointer": viewPointer
+        ])
     }
 
     /// Detach a VST3 editor from a platform view
@@ -134,8 +180,20 @@ class VST3PlatformChannel {
             return
         }
 
-        // TODO: Implement detaching editor from embedded platform view
         print("📎 VST3PlatformChannel: Detach editor for effect \(effectId)")
+
+        // Find the VST3EditorView from the registry
+        guard let editorView = VST3EditorViewRegistry.shared.getView(effectId: effectId) else {
+            // View might already be gone, which is fine
+            print("⚠️ VST3PlatformChannel: No view found for effect \(effectId) - may already be cleaned up")
+            result(true)
+            return
+        }
+
+        // Clean up the child window
+        editorView.cleanupAfterDetachment()
+
+        print("✅ VST3PlatformChannel: Editor detached for effect \(effectId)")
         result(true)
     }
 

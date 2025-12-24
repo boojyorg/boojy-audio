@@ -384,10 +384,36 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       // Create Vst3PluginInstance from the track's instrument data
       // This ensures the Instruments panel shows the VST3 instrument,
       // not the FX chain plugins
+      final effectId = widget.currentInstrumentData!.effectId!;
+
+      // Fetch parameter count and info from the audio engine
+      final paramCount = widget.audioEngine?.getVst3ParameterCount(effectId) ?? 0;
+      final parameters = <int, Vst3ParameterInfo>{};
+      final parameterValues = <int, double>{};
+
+      debugPrint('🎛️ [EditorPanel] VST3 instrument effectId=$effectId, paramCount=$paramCount');
+
+      for (int i = 0; i < paramCount; i++) {
+        final info = widget.audioEngine?.getVst3ParameterInfo(effectId, i);
+        if (info != null) {
+          parameters[i] = Vst3ParameterInfo(
+            index: i,
+            name: info['name'] as String? ?? 'Parameter $i',
+            min: (info['min'] as num?)?.toDouble() ?? 0.0,
+            max: (info['max'] as num?)?.toDouble() ?? 1.0,
+            defaultValue: (info['default'] as num?)?.toDouble() ?? 0.5,
+            unit: '',
+          );
+          parameterValues[i] = widget.audioEngine?.getVst3ParameterValue(effectId, i) ?? 0.5;
+        }
+      }
+
       final vst3Instrument = Vst3PluginInstance(
-        effectId: widget.currentInstrumentData!.effectId!,
+        effectId: effectId,
         pluginName: widget.currentInstrumentData!.pluginName ?? 'VST3 Instrument',
         pluginPath: widget.currentInstrumentData!.pluginPath ?? '',
+        parameters: parameters,
+        parameterValues: parameterValues,
       );
 
       // Show VST3 plugin parameter panel for VST3 instruments

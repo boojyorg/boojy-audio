@@ -356,8 +356,39 @@ impl AudioGraph {
 
     /// Pause playback (keeps position) - lock-free state change
     pub fn pause(&mut self) -> anyhow::Result<()> {
+        eprintln!("⏸️  [AudioGraph] pause() called");
         self.state.store(TransportState::Paused as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
+
+        // Silence all synthesizers to prevent stuck notes/drone
+        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+            synth_manager.all_notes_off_all_tracks();
+            eprintln!("   All synth notes silenced");
+        }
+
+        // Silence all VST3 instruments to prevent stuck notes/drone
+        if let Ok(track_mgr) = self.track_manager.lock() {
+            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                for track_arc in track_mgr.get_all_tracks() {
+                    if let Ok(track) = track_arc.lock() {
+                        for effect_id in &track.fx_chain {
+                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                if let Ok(mut effect) = effect_arc.lock() {
+                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                        // Send note-off for all 128 MIDI notes
+                                        for note in 0..128i32 {
+                                            let _ = vst3.process_midi_event(1, 0, note, 0, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                eprintln!("   All VST3 notes silenced");
+            }
+        }
+
         Ok(())
     }
 
@@ -372,6 +403,29 @@ impl AudioGraph {
         if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
             synth_manager.all_notes_off_all_tracks();
             eprintln!("   All synth notes silenced");
+        }
+
+        // Silence all VST3 instruments to prevent stuck notes/drone
+        if let Ok(track_mgr) = self.track_manager.lock() {
+            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                for track_arc in track_mgr.get_all_tracks() {
+                    if let Ok(track) = track_arc.lock() {
+                        for effect_id in &track.fx_chain {
+                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                if let Ok(mut effect) = effect_arc.lock() {
+                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                        // Send note-off for all 128 MIDI notes
+                                        for note in 0..128i32 {
+                                            let _ = vst3.process_midi_event(1, 0, note, 0, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                eprintln!("   All VST3 notes silenced");
+            }
         }
 
         // Reset playhead to start

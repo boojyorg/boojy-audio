@@ -27,6 +27,7 @@ import '../services/midi_playback_manager.dart';
 import '../services/user_settings.dart';
 import '../services/auto_save_service.dart';
 import '../services/vst3_editor_service.dart';
+import '../services/plugin_preferences_service.dart';
 import '../widgets/settings_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
@@ -246,6 +247,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
   void _initAudioEngine() async {
     try {
+      // Load plugin preferences early (before any plugin operations)
+      await PluginPreferencesService.load();
+
       // Called after 800ms delay from initState, so UI has rendered
       _audioEngine = AudioEngine();
       _audioEngine!.initAudioEngine();

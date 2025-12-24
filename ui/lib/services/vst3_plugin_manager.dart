@@ -42,15 +42,19 @@ class Vst3PluginManager extends ChangeNotifier {
 
   /// Get all VST3 plugin instances for a specific track
   List<Vst3PluginInstance> getTrackPlugins(int trackId) {
+    debugPrint('🎛️ [VST3PluginManager] getTrackPlugins called for track $trackId');
     final effectIds = _trackEffects[trackId] ?? [];
+    debugPrint('🎛️ [VST3PluginManager] Found ${effectIds.length} effect IDs: $effectIds');
     final plugins = <Vst3PluginInstance>[];
 
     for (final effectId in effectIds) {
       final pluginInfo = _pluginCache[effectId];
+      debugPrint('🎛️ [VST3PluginManager] Processing effect $effectId, pluginInfo=$pluginInfo');
       if (pluginInfo != null) {
         try {
           // Fetch parameter count and info
           final paramCount = _audioEngine.getVst3ParameterCount(effectId);
+          debugPrint('🎛️ [VST3PluginManager] Effect $effectId (${pluginInfo['name']}): paramCount=$paramCount');
           final parameters = <int, Vst3ParameterInfo>{};
           final parameterValues = <int, double>{};
 

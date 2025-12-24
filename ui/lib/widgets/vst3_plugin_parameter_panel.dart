@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../models/vst3_plugin_data.dart';
+import '../services/plugin_preferences_service.dart';
 import '../services/vst3_editor_service.dart';
 import 'vst3_editor_widget.dart';
 
@@ -31,6 +32,51 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   String _searchQuery = '';
   final Map<String, bool> _expandedSections = {}; // Section name -> expanded state
   int? _showEmbeddedGUIForEffect; // Effect ID showing embedded native GUI
+
+  // Track which plugins we've already auto-opened to avoid repeated opens
+  final Set<int> _autoOpenedPlugins = {};
+
+  @override
+  void didUpdateWidget(covariant Vst3PluginParameterPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Check if track changed or new plugins were added
+    if (widget.trackId != oldWidget.trackId) {
+      // Track changed - reset auto-opened set and check all plugins
+      _autoOpenedPlugins.clear();
+      _checkAutoOpenPlugins();
+    } else {
+      // Same track - check for newly added plugins
+      final oldEffectIds = oldWidget.plugins.map((p) => p.effectId).toSet();
+      final newPlugins = widget.plugins.where((p) => !oldEffectIds.contains(p.effectId));
+      for (final plugin in newPlugins) {
+        _checkAutoOpenPlugin(plugin);
+      }
+    }
+  }
+
+  /// Check all plugins for auto-open preference
+  void _checkAutoOpenPlugins() {
+    for (final plugin in widget.plugins) {
+      _checkAutoOpenPlugin(plugin);
+    }
+  }
+
+  /// Check if a plugin should auto-open in floating mode
+  void _checkAutoOpenPlugin(Vst3PluginInstance plugin) {
+    // Skip if already auto-opened
+    if (_autoOpenedPlugins.contains(plugin.effectId)) return;
+
+    // Mark as processed
+    _autoOpenedPlugins.add(plugin.effectId);
+
+    // Check preference
+    if (PluginPreferencesService.prefersFloating(plugin.pluginName)) {
+      debugPrint('🔄 Auto-opening ${plugin.pluginName} in floating mode (user preference)');
+      // Delay slightly to ensure widget is fully built
+      Future.microtask(() => _openPluginGUI(plugin));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,36 +115,40 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
       );
     }
 
+    // Check if any plugin is showing embedded GUI
+    final showingEmbeddedGUI = _showEmbeddedGUIForEffect != null;
+
     return Container(
       color: const Color(0xFF707070),
       child: Column(
         children: [
-          // Search bar
-          Container(
-            padding: const EdgeInsets.all(8),
-            color: const Color(0xFF656565),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search parameters...',
-                hintStyle: const TextStyle(color: Color(0xFF808080)),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF808080), size: 18),
-                filled: true,
-                fillColor: const Color(0xFF505050),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
+          // Search bar - hide when embedded GUI is shown (not useful for native GUI)
+          if (!showingEmbeddedGUI)
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: const Color(0xFF656565),
+              child: TextField(
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search parameters...',
+                  hintStyle: const TextStyle(color: Color(0xFF808080)),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF808080), size: 18),
+                  filled: true,
+                  fillColor: const Color(0xFF505050),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  isDense: true,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                isDense: true,
+                style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 12),
               ),
-              style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 12),
             ),
-          ),
 
           // Plugin list
           Expanded(
@@ -162,8 +212,11 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      // Show different subtitle based on current view mode
                       Text(
-                        '${plugin.parameters.length} parameters',
+                        _showEmbeddedGUIForEffect == plugin.effectId
+                            ? 'Native GUI'
+                            : '${plugin.parameters.length} parameters',
                         style: const TextStyle(
                           color: Color(0xFF808080),
                           fontSize: 10,
@@ -183,16 +236,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                       ? const Color(0xFF2196F3)
                       : const Color(0xFF4CAF50),
                   iconSize: 18,
-                  onPressed: () {
-                    setState(() {
-                      if (_showEmbeddedGUIForEffect == plugin.effectId) {
-                        _showEmbeddedGUIForEffect = null;
-                      } else {
-                        _showEmbeddedGUIForEffect = plugin.effectId;
-                        _expandedPluginId = plugin.effectId;
-                      }
-                    });
-                  },
+                  onPressed: () => _toggleEmbeddedGUI(plugin),
                   tooltip: _showEmbeddedGUIForEffect == plugin.effectId
                       ? 'Show Parameters'
                       : 'Show Plugin GUI (Embedded)',
@@ -542,9 +586,73 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     );
   }
 
+  // Flag to prevent rapid toggle that can cause crashes
+  bool _isTogglingGUI = false;
+
+  // Toggle embedded GUI visibility
+  void _toggleEmbeddedGUI(Vst3PluginInstance plugin) async {
+    // Prevent rapid toggling which can cause race conditions
+    if (_isTogglingGUI) {
+      debugPrint('⚠️ _toggleEmbeddedGUI: Already toggling, ignoring request');
+      return;
+    }
+    _isTogglingGUI = true;
+
+    debugPrint('🔘 _toggleEmbeddedGUI called for ${plugin.pluginName}, current state: $_showEmbeddedGUIForEffect');
+
+    try {
+      if (_showEmbeddedGUIForEffect == plugin.effectId) {
+        // Hide embedded GUI - detach editor first
+        debugPrint('📺 Hiding embedded GUI for ${plugin.pluginName} - calling detachEditor...');
+        await VST3EditorService.detachEditor(effectId: plugin.effectId);
+        debugPrint('📺 detachEditor completed for ${plugin.pluginName}');
+        setState(() {
+          _showEmbeddedGUIForEffect = null;
+        });
+        debugPrint('📺 setState completed - GUI hidden');
+
+        // Give Flutter time to fully dispose the old platform view
+        // This prevents crashes when the new view is created before cleanup completes
+        await Future.delayed(const Duration(milliseconds: 100));
+        debugPrint('📺 Cleanup delay completed');
+      } else {
+        // Show embedded GUI - the platform view will be created by setState
+        // and Swift will notify when ready for attachment
+        debugPrint('📺 Showing embedded GUI for ${plugin.pluginName}');
+
+        // Save preference for embedded mode
+        debugPrint('📺 Saving display mode preference...');
+        await PluginPreferencesService.setDisplayMode(
+          plugin.pluginName,
+          PluginDisplayMode.embedded,
+        );
+        debugPrint('📺 Display mode saved, calling setState...');
+
+        setState(() {
+          _showEmbeddedGUIForEffect = plugin.effectId;
+          _expandedPluginId = plugin.effectId;
+        });
+        debugPrint('📺 setState completed - GUI should be showing');
+        // Note: Attachment happens via the platform view lifecycle:
+        // 1. VST3EditorWidget creates AppKitView
+        // 2. Swift's VST3EditorView.viewDidMoveToWindow() fires
+        // 3. Swift sends "viewReady" notification
+        // 4. Dart's _handleViewReady calls attachEditor
+      }
+    } finally {
+      _isTogglingGUI = false;
+    }
+  }
+
   // M7 Phase 3: Open native VST3 plugin GUI
   void _openPluginGUI(Vst3PluginInstance plugin) async {
     debugPrint('📺 Opening native GUI for ${plugin.pluginName} (effect ${plugin.effectId})');
+
+    // Save preference for floating mode
+    await PluginPreferencesService.setDisplayMode(
+      plugin.pluginName,
+      PluginDisplayMode.floating,
+    );
 
     // Default VST3 editor size (will be updated with actual size from plugin)
     const defaultWidth = 800.0;

@@ -75,7 +75,47 @@ class VST3EditorView: NSView {
     }
 
     /// Create the child window for plugin hosting
-    /// This is called when the view is added to the window hierarchy
+    /// This is called when the view is added to the window hierarchy or when Dart requests attachment
+    /// Returns the container view pointer for FFI attachment, or nil on failure
+    func prepareForAttachment() -> Int64? {
+        // Reset state to allow re-attachment after hide/show cycles
+        // This is critical for fixing the freeze on second toggle
+        isEditorAttached = false
+
+        // Destroy any existing child window before creating a new one
+        if childWindow != nil {
+            print("⚠️ VST3EditorView: Destroying existing child window before re-attachment")
+            destroyChildWindow()
+        }
+
+        createChildWindow()
+
+        // Return the container view pointer for FFI attachment
+        guard let container = pluginContainerView else {
+            print("❌ VST3EditorView: prepareForAttachment failed - no container view")
+            return nil
+        }
+
+        let viewPtr = Unmanaged.passUnretained(container).toOpaque()
+        let viewPtrInt = Int64(Int(bitPattern: viewPtr))
+        print("✅ VST3EditorView: prepareForAttachment succeeded - viewPointer=\(viewPtrInt)")
+        return viewPtrInt
+    }
+
+    /// Cleanup when detaching the editor
+    /// This is called BEFORE the view is removed from the tree
+    func cleanupAfterDetachment() {
+        isEditorAttached = false
+        hasNotifiedReady = false
+        destroyChildWindow()
+
+        // IMPORTANT: Unregister from registry NOW, not in deinit
+        // This prevents race conditions when a new view is created immediately
+        VST3EditorViewRegistry.shared.unregister(effectId: effectId)
+
+        print("✅ VST3EditorView: cleanupAfterDetachment complete (unregistered from registry)")
+    }
+
     private func createChildWindow() {
         guard childWindow == nil, let parentWindow = window else { return }
 
@@ -149,22 +189,26 @@ class VST3EditorView: NSView {
         super.viewDidMoveToWindow()
         print("🪟 VST3EditorView: viewDidMoveToWindow - window=\(window != nil), hasNotifiedReady=\(hasNotifiedReady)")
 
-        // DISABLED: Automatic attachment is temporarily disabled for debugging
-        // We're testing the floating window path instead
-        // if window != nil {
-        //     // Create the child window when we're added to a window
-        //     createChildWindow()
-        //
-        //     // When added to window, notify Dart that we're ready for attachment
-        //     if !hasNotifiedReady && effectId >= 0 {
-        //         notifyViewReady()
-        //     }
-        // } else {
-        //     // Destroy child window when removed from window
-        //     destroyChildWindow()
-        // }
+        if window != nil && !hasNotifiedReady && effectId >= 0 {
+            // View is now in a window hierarchy - notify Dart that we're ready
+            // Dart will then call attachEditor to create the child window and get the view pointer
+            hasNotifiedReady = true
+            print("🔔 VST3EditorView: Notifying Dart that view is ready for effect \(effectId)")
 
-        print("⚠️ VST3EditorView: Automatic attachment DISABLED for debugging")
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                // Send simple ready notification without view pointer
+                // Dart will call attachEditor which creates child window and returns the pointer
+                VST3PlatformChannelHandler.shared.notifyViewReady(
+                    effectId: self.effectId,
+                    viewPointer: 0  // Placeholder - actual pointer returned by attachEditor
+                )
+            }
+        } else if window == nil {
+            // View removed from window - cleanup
+            hasNotifiedReady = false
+            destroyChildWindow()
+        }
     }
 
     override func layout() {
@@ -286,15 +330,17 @@ class VST3EditorView: NSView {
     }
 
     deinit {
-        // Unregister from registry
+        // Unregister from registry (may already be done in cleanupAfterDetachment)
+        // The registry handles duplicate unregister calls gracefully
         VST3EditorViewRegistry.shared.unregister(effectId: effectId)
 
-        // Notify Dart to close the editor via FFI
-        if effectId >= 0 && isEditorAttached {
-            VST3PlatformChannelHandler.shared.notifyViewClosed(effectId: effectId)
-        }
+        // DON'T notify Dart about view closed - Dart already knows and may have
+        // already started creating a new view. Sending a notification here can
+        // cause race conditions and crashes.
+        // The editor is closed by Dart BEFORE calling detachEditor, so we don't
+        // need to close it again here.
 
-        // Clean up child window
+        // Clean up child window (may already be done in cleanupAfterDetachment)
         destroyChildWindow()
 
         detachEditor()

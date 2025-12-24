@@ -6,14 +6,27 @@ import FlutterMacOS
 ///
 /// This is a STANDALONE floating window approach that bypasses Flutter platform views.
 /// Used for testing VST3 plugin UIs without Flutter embedding complexity.
-class VST3WindowManager {
+class VST3WindowManager: NSObject, NSWindowDelegate {
     static let shared = VST3WindowManager()
 
     private var windows: [Int: NSWindow] = [:]
     /// Plain NSView containers for each window (not VST3EditorView - for direct FFI testing)
     private var containerViews: [Int: NSView] = [:]
+    /// Plugin names for each window (for preferences)
+    private var pluginNames: [Int: String] = [:]
+    /// Reverse lookup: window -> effectId
+    private var windowToEffectId: [NSWindow: Int] = [:]
+    /// Platform channel for notifying Dart
+    private var methodChannel: FlutterMethodChannel?
 
-    private init() {}
+    private override init() {
+        super.init()
+    }
+
+    /// Set the method channel for notifying Dart about window events
+    func setMethodChannel(_ channel: FlutterMethodChannel) {
+        methodChannel = channel
+    }
 
     /// Open a floating window for a VST3 plugin editor
     /// This version creates a REAL NSWindow and plain NSView, bypassing Flutter entirely
@@ -21,8 +34,9 @@ class VST3WindowManager {
     ///   - effectId: The effect ID from the audio engine
     ///   - pluginName: Display name for the window title
     ///   - size: Initial window size
+    ///   - position: Optional saved window position (x, y)
     /// - Returns: The created window, or nil if creation failed
-    func openWindow(effectId: Int, pluginName: String, size: NSSize) -> NSWindow? {
+    func openWindow(effectId: Int, pluginName: String, size: NSSize, position: NSPoint? = nil) -> NSWindow? {
         // Close existing window if open
         closeWindow(effectId: effectId)
 
@@ -41,6 +55,7 @@ class VST3WindowManager {
 
         window.title = pluginName
         window.isReleasedWhenClosed = false
+        window.delegate = self  // Track window events
         // Don't set backgroundColor - let it use default
 
         // USE THE WINDOW'S DEFAULT CONTENT VIEW - don't create a custom one
@@ -54,12 +69,19 @@ class VST3WindowManager {
         containerView.wantsLayer = true
 
         containerViews[effectId] = containerView
+        pluginNames[effectId] = pluginName
+        windowToEffectId[window] = effectId
 
         print("🪟 VST3WindowManager: Using window's default contentView: \(containerView), frame=\(containerView.frame)")
         print("🪟 VST3WindowManager: ContentView wantsLayer=\(containerView.wantsLayer)")
 
-        // Position window (center like SDK does)
-        window.center()
+        // Position window - use saved position if provided, otherwise center
+        if let pos = position {
+            window.setFrameOrigin(pos)
+            print("🪟 VST3WindowManager: Restored window position to (\(pos.x), \(pos.y))")
+        } else {
+            window.center()
+        }
 
         // Track window BEFORE showing
         windows[effectId] = window
@@ -95,8 +117,13 @@ class VST3WindowManager {
 
         print("🔄 VST3WindowManager: Closing floating window for effect \(effectId)")
 
-        // Clean up container view reference
+        // Notify Dart of final position before closing
+        notifyWindowPosition(window: window)
+
+        // Clean up all tracking
         containerViews.removeValue(forKey: effectId)
+        pluginNames.removeValue(forKey: effectId)
+        windowToEffectId.removeValue(forKey: window)
 
         window.close()
         windows.removeValue(forKey: effectId)
@@ -112,6 +139,8 @@ class VST3WindowManager {
 
         windows.removeAll()
         containerViews.removeAll()
+        pluginNames.removeAll()
+        windowToEffectId.removeAll()
     }
 
     /// Get window for effect ID
@@ -122,5 +151,49 @@ class VST3WindowManager {
     /// Check if window is open for effect
     func isWindowOpen(effectId: Int) -> Bool {
         return windows[effectId] != nil
+    }
+
+    // MARK: - NSWindowDelegate
+
+    /// Called when window finishes moving
+    func windowDidMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        notifyWindowPosition(window: window)
+    }
+
+    /// Called when window is about to close
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              let effectId = windowToEffectId[window] else { return }
+
+        // Final position notification
+        notifyWindowPosition(window: window)
+
+        print("🔄 VST3WindowManager: Window closing for effect \(effectId)")
+
+        // Clean up (in case closeWindow wasn't called directly)
+        containerViews.removeValue(forKey: effectId)
+        pluginNames.removeValue(forKey: effectId)
+        windowToEffectId.removeValue(forKey: window)
+        windows.removeValue(forKey: effectId)
+    }
+
+    /// Notify Dart about window position change
+    private func notifyWindowPosition(window: NSWindow) {
+        guard let effectId = windowToEffectId[window],
+              let pluginName = pluginNames[effectId] else { return }
+
+        let frame = window.frame
+        let x = Double(frame.origin.x)
+        let y = Double(frame.origin.y)
+
+        print("📍 VST3WindowManager: Window position for \(pluginName): (\(x), \(y))")
+
+        methodChannel?.invokeMethod("windowMoved", arguments: [
+            "effectId": effectId,
+            "pluginName": pluginName,
+            "x": x,
+            "y": y
+        ])
     }
 }

@@ -817,12 +817,20 @@ bool vst3_process_midi_event(
 }
 
 int vst3_get_parameter_count(VST3PluginHandle handle) {
-    if (!handle) return 0;
+    if (!handle) {
+        printf("🎛️ [C++] vst3_get_parameter_count: handle is null\n");
+        return 0;
+    }
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
-    if (!instance->controller) return 0;
+    if (!instance->controller) {
+        printf("🎛️ [C++] vst3_get_parameter_count: controller is null\n");
+        return 0;
+    }
 
-    return instance->controller->getParameterCount();
+    int count = instance->controller->getParameterCount();
+    printf("🎛️ [C++] vst3_get_parameter_count: handle=%p, count=%d\n", handle, count);
+    return count;
 }
 
 bool vst3_get_parameter_info(VST3PluginHandle handle, int index, VST3ParameterInfo* info) {

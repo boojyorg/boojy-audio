@@ -2,6 +2,7 @@ import 'dart:ffi' as ffi;
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import 'plugin_preferences_service.dart';
 
 /// Service for managing VST3 plugin editor windows
 /// Communicates with native platform code to show/hide editor GUIs
@@ -25,7 +26,7 @@ class VST3EditorService {
     debugPrint('✅ VST3EditorService: Initialized with AudioEngine');
   }
 
-  /// Handle method calls from Swift (view ready, view closed, etc.)
+  /// Handle method calls from Swift (view ready, view closed, window moved, etc.)
   static Future<dynamic> _handleNativeCall(MethodCall call) async {
     debugPrint('📥 VST3EditorService: Received ${call.method} from Swift');
 
@@ -34,6 +35,8 @@ class VST3EditorService {
         return _handleViewReady(call.arguments);
       case 'viewClosed':
         return _handleViewClosed(call.arguments);
+      case 'windowMoved':
+        return _handleWindowMoved(call.arguments);
       default:
         throw PlatformException(
           code: 'UNIMPLEMENTED',
@@ -42,57 +45,51 @@ class VST3EditorService {
     }
   }
 
+  /// Handle window moved notification from Swift
+  /// Save the window position to preferences
+  static Future<void> _handleWindowMoved(dynamic args) async {
+    final pluginName = args['pluginName'] as String?;
+    final x = args['x'] as double?;
+    final y = args['y'] as double?;
+
+    if (pluginName == null || x == null || y == null) {
+      debugPrint('❌ VST3EditorService: Invalid windowMoved args: $args');
+      return;
+    }
+
+    debugPrint('📍 VST3EditorService: Window moved for $pluginName: ($x, $y)');
+    await PluginPreferencesService.saveWindowPosition(pluginName, x, y);
+  }
+
   /// Handle view ready notification from Swift
-  /// Swift sends effectId and viewPointer, we call FFI to attach
+  /// Swift sends effectId when the platform view is in window hierarchy
+  /// We then call attachEditor to complete the attachment
+  ///
+  /// IMPORTANT: This is called from within the platform channel handler.
+  /// We must NOT await attachEditor here, as it sends a message back to Swift,
+  /// which would deadlock the platform channel. Instead, we schedule it async.
   static Future<void> _handleViewReady(dynamic args) async {
     final effectId = args['effectId'] as int?;
-    final viewPointer = args['viewPointer'] as int?;
 
-    if (effectId == null || viewPointer == null) {
+    if (effectId == null) {
       debugPrint('❌ VST3EditorService: Invalid viewReady args: $args');
       return;
     }
 
-    debugPrint('🔔 VST3EditorService: View ready for effect $effectId, ptr=$viewPointer');
+    debugPrint('🔔 VST3EditorService: View ready for effect $effectId - returning immediately');
 
-    if (_audioEngine == null) {
-      debugPrint('❌ VST3EditorService: AudioEngine not initialized');
-      return;
-    }
-
-    try {
-      // First, open the editor (creates IPlugView)
-      final openResult = _audioEngine!.vst3OpenEditor(effectId);
-      if (openResult.isNotEmpty) {
-        debugPrint('⚠️ VST3EditorService: Open editor error: $openResult');
-        return;
+    // Schedule attachEditor asynchronously to avoid deadlocking the platform channel
+    // We can't await here because attachEditor sends a message back to Swift,
+    // and Swift is waiting for this handler to return first.
+    Future.delayed(const Duration(milliseconds: 100), () async {
+      debugPrint('🔔 VST3EditorService: Starting delayed attachEditor for effect $effectId');
+      final success = await attachEditor(effectId: effectId);
+      if (!success) {
+        debugPrint('❌ VST3EditorService: Failed to attach editor for effect $effectId');
       }
-      debugPrint('✅ VST3EditorService: Editor opened for effect $effectId');
+    });
 
-      // Get editor size (returns Map<String, int>? with 'width' and 'height')
-      final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
-      int width = sizeResult?['width'] ?? 800;
-      int height = sizeResult?['height'] ?? 600;
-      debugPrint('📏 VST3EditorService: Editor size ${width}x$height');
-
-      // Attach editor to the NSView
-      final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(viewPointer);
-      final attachResult = _audioEngine!.vst3AttachEditor(effectId, viewPtr);
-      if (attachResult.isNotEmpty) {
-        debugPrint('⚠️ VST3EditorService: Attach editor error: $attachResult');
-        return;
-      }
-      debugPrint('✅ VST3EditorService: Editor attached for effect $effectId');
-
-      // Confirm attachment back to Swift
-      await _channel.invokeMethod('confirmAttachment', {
-        'effectId': effectId,
-        'width': width,
-        'height': height,
-      });
-    } catch (e) {
-      debugPrint('❌ VST3EditorService: Failed to handle viewReady: $e');
-    }
+    debugPrint('🔔 VST3EditorService: _handleViewReady returning for effect $effectId');
   }
 
   /// Handle view closed notification from Swift
@@ -158,12 +155,20 @@ class VST3EditorService {
       debugPrint('📏 VST3EditorService: Editor size ${editorWidth.toInt()}x${editorHeight.toInt()}');
 
       // Step 3: Create the floating window at the CORRECT size
-      final result = await _channel.invokeMethod('openFloatingWindow', {
+      // Include saved position if available
+      final savedPosition = PluginPreferencesService.getWindowPosition(pluginName);
+      final Map<String, dynamic> openArgs = {
         'effectId': effectId,
         'pluginName': pluginName,
         'width': editorWidth,
         'height': editorHeight,
-      });
+      };
+      if (savedPosition != null) {
+        openArgs['x'] = savedPosition.x;
+        openArgs['y'] = savedPosition.y;
+        debugPrint('📍 VST3EditorService: Using saved position (${savedPosition.x}, ${savedPosition.y})');
+      }
+      final result = await _channel.invokeMethod('openFloatingWindow', openArgs);
 
       if (result is! Map) {
         debugPrint('❌ VST3EditorService: Unexpected result type: ${result.runtimeType}');
@@ -225,29 +230,126 @@ class VST3EditorService {
     }
   }
 
-  /// Attach a VST3 editor to a docked platform view
+  /// Attach a VST3 editor to a docked (embedded) platform view
+  /// This is called when the user clicks "Show Plugin GUI" in the bottom panel
+  ///
+  /// Flow:
+  /// 1. Ask Swift to prepare the child window and return view pointer
+  /// 2. Open the editor via FFI (creates IPlugView)
+  /// 3. Attach the editor to the view via FFI
+  /// 4. Confirm attachment to Swift
   static Future<bool> attachEditor({
     required int effectId,
   }) async {
+    if (_audioEngine == null) {
+      debugPrint('❌ VST3EditorService: AudioEngine not initialized');
+      return false;
+    }
+
     try {
+      debugPrint('📎 VST3EditorService: Attaching editor for effect $effectId...');
+
+      // Step 1: Ask Swift to prepare the view and return the pointer
+      // Use timeout to prevent infinite blocking if something goes wrong
       final result = await _channel.invokeMethod('attachEditor', {
         'effectId': effectId,
+      }).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⏰ VST3EditorService: attachEditor timed out after 5 seconds');
+          return null;
+        },
+      );
+
+      if (result == null) {
+        debugPrint('❌ VST3EditorService: attachEditor returned null (likely timeout)');
+        return false;
+      }
+
+      if (result is! Map) {
+        debugPrint('❌ VST3EditorService: Unexpected result type: ${result.runtimeType}');
+        return false;
+      }
+
+      final success = result['success'] as bool? ?? false;
+      final viewPointer = result['viewPointer'] as int?;
+
+      if (!success || viewPointer == null) {
+        debugPrint('❌ VST3EditorService: Swift failed to prepare view');
+        return false;
+      }
+
+      debugPrint('✅ VST3EditorService: View prepared, viewPointer=$viewPointer');
+
+      // Step 2: Open the editor via FFI (creates IPlugView)
+      final openResult = _audioEngine!.vst3OpenEditor(effectId);
+      if (openResult.isNotEmpty) {
+        debugPrint('⚠️ VST3EditorService: Open editor error: $openResult');
+        await _channel.invokeMethod('detachEditor', {'effectId': effectId});
+        return false;
+      }
+      debugPrint('✅ VST3EditorService: Editor opened for effect $effectId');
+
+      // Step 3: Get editor size
+      final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
+      int width = sizeResult?['width'] ?? 800;
+      int height = sizeResult?['height'] ?? 600;
+      debugPrint('📏 VST3EditorService: Editor size ${width}x$height');
+
+      // Step 4: Attach editor to the NSView via FFI
+      final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(viewPointer);
+      final attachResult = _audioEngine!.vst3AttachEditor(effectId, viewPtr);
+      if (attachResult.isNotEmpty) {
+        debugPrint('⚠️ VST3EditorService: Attach editor error: $attachResult');
+        _audioEngine!.vst3CloseEditor(effectId);
+        await _channel.invokeMethod('detachEditor', {'effectId': effectId});
+        return false;
+      }
+      debugPrint('✅ VST3EditorService: Editor attached for effect $effectId');
+
+      // Step 5: Confirm attachment back to Swift
+      await _channel.invokeMethod('confirmAttachment', {
+        'effectId': effectId,
+        'width': width,
+        'height': height,
       });
-      return result == true;
+
+      debugPrint('✅ VST3EditorService: Embedded editor fully attached!');
+      return true;
     } catch (e) {
       debugPrint('❌ VST3EditorService: Failed to attach editor: $e');
       return false;
     }
   }
 
-  /// Detach a VST3 editor from a platform view
+  /// Detach a VST3 editor from a docked platform view
+  /// This is called when the user clicks "Hide Plugin GUI" in the bottom panel
   static Future<bool> detachEditor({
     required int effectId,
   }) async {
     try {
+      debugPrint('📎 VST3EditorService: Detaching editor for effect $effectId...');
+
+      // Step 1: Close the editor via FFI
+      if (_audioEngine != null) {
+        debugPrint('📎 VST3EditorService: Calling vst3CloseEditor...');
+        _audioEngine!.vst3CloseEditor(effectId);
+        debugPrint('✅ VST3EditorService: Editor closed for effect $effectId');
+      }
+
+      // Step 2: Tell Swift to cleanup the child window (with timeout)
+      debugPrint('📎 VST3EditorService: Calling Swift detachEditor...');
       final result = await _channel.invokeMethod('detachEditor', {
         'effectId': effectId,
-      });
+      }).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⏰ VST3EditorService: detachEditor timed out after 5 seconds');
+          return false;
+        },
+      );
+
+      debugPrint('✅ VST3EditorService: Detach complete, result=$result');
       return result == true;
     } catch (e) {
       debugPrint('❌ VST3EditorService: Failed to detach editor: $e');
