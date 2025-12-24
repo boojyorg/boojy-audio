@@ -381,11 +381,20 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
     // Check if this is a VST3 instrument
     if (widget.currentInstrumentData!.isVst3) {
+      // Create Vst3PluginInstance from the track's instrument data
+      // This ensures the Instruments panel shows the VST3 instrument,
+      // not the FX chain plugins
+      final vst3Instrument = Vst3PluginInstance(
+        effectId: widget.currentInstrumentData!.effectId!,
+        pluginName: widget.currentInstrumentData!.pluginName ?? 'VST3 Instrument',
+        pluginPath: widget.currentInstrumentData!.pluginPath ?? '',
+      );
+
       // Show VST3 plugin parameter panel for VST3 instruments
       return Vst3PluginParameterPanel(
         audioEngine: widget.audioEngine,
         trackId: widget.selectedTrackId!,
-        plugins: widget.currentTrackPlugins ?? [],
+        plugins: [vst3Instrument],
         onParameterChanged: widget.onVst3ParameterChanged,
         onRemovePlugin: widget.onVst3PluginRemoved,
       );

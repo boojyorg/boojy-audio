@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/vst3_editor_service.dart';
+import 'vst3_editor_widget.dart';
 
 /// VST3 Plugin Parameter Panel - shows parameters for loaded plugins on a track
 class Vst3PluginParameterPanel extends StatefulWidget {
@@ -29,6 +30,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   int? _expandedPluginId;
   String _searchQuery = '';
   final Map<String, bool> _expandedSections = {}; // Section name -> expanded state
+  int? _showEmbeddedGUIForEffect; // Effect ID showing embedded native GUI
 
   @override
   Widget build(BuildContext context) {
@@ -170,13 +172,41 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                     ],
                   ),
                 ),
-                // Open GUI button
+                // Embed GUI button (toggle)
                 IconButton(
-                  icon: const Icon(Icons.window),
+                  icon: Icon(
+                    _showEmbeddedGUIForEffect == plugin.effectId
+                        ? Icons.tune
+                        : Icons.display_settings,
+                  ),
+                  color: _showEmbeddedGUIForEffect == plugin.effectId
+                      ? const Color(0xFF2196F3)
+                      : const Color(0xFF4CAF50),
+                  iconSize: 18,
+                  onPressed: () {
+                    setState(() {
+                      if (_showEmbeddedGUIForEffect == plugin.effectId) {
+                        _showEmbeddedGUIForEffect = null;
+                      } else {
+                        _showEmbeddedGUIForEffect = plugin.effectId;
+                        _expandedPluginId = plugin.effectId;
+                      }
+                    });
+                  },
+                  tooltip: _showEmbeddedGUIForEffect == plugin.effectId
+                      ? 'Show Parameters'
+                      : 'Show Plugin GUI (Embedded)',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                const SizedBox(width: 4),
+                // Open floating GUI button
+                IconButton(
+                  icon: const Icon(Icons.open_in_new),
                   color: const Color(0xFF4CAF50),
                   iconSize: 18,
                   onPressed: () => _openPluginGUI(plugin),
-                  tooltip: 'Open Plugin GUI (Floating)',
+                  tooltip: 'Open Plugin GUI (Floating Window)',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
@@ -196,9 +226,28 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           ),
         ),
 
-        // Parameters (shown when expanded)
-        if (isExpanded) _buildParameterList(plugin),
+        // Content (shown when expanded) - either embedded GUI or parameters
+        if (isExpanded)
+          _showEmbeddedGUIForEffect == plugin.effectId
+              ? _buildEmbeddedGUI(plugin)
+              : _buildParameterList(plugin),
       ],
+    );
+  }
+
+  Widget _buildEmbeddedGUI(Vst3PluginInstance plugin) {
+    return Container(
+      color: const Color(0xFF303030),
+      constraints: const BoxConstraints(
+        minHeight: 400,
+        maxHeight: 600,
+      ),
+      child: VST3EditorWidget(
+        effectId: plugin.effectId,
+        pluginName: plugin.pluginName,
+        width: double.infinity,
+        height: 500,
+      ),
     );
   }
 

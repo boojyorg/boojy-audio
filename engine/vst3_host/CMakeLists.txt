@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
-project(vst3_host)
+
+# Enable Objective-C++ for macOS
+if(APPLE)
+    project(vst3_host LANGUAGES C CXX OBJCXX)
+else()
+    project(vst3_host LANGUAGES C CXX)
+endif()
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -35,10 +41,20 @@ endif()
 add_subdirectory(${VST3_SDK_DIR} vst3sdk_build EXCLUDE_FROM_ALL)
 
 # Our VST3 host library
-add_library(vst3_host STATIC
+set(VST3_HOST_SOURCES
     vst3_host.cpp
     vst3_host.h
+    # EventList from SDK for MIDI event queueing (not included in sdk_hosting)
+    ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/eventlist.cpp
+    ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/eventlist.h
 )
+
+# Add macOS-specific Objective-C++ file
+if(APPLE)
+    list(APPEND VST3_HOST_SOURCES vst3_host_mac.mm)
+endif()
+
+add_library(vst3_host STATIC ${VST3_HOST_SOURCES})
 
 # Include directories
 target_include_directories(vst3_host PUBLIC

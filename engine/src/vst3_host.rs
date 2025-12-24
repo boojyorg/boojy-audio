@@ -321,7 +321,7 @@ pub fn scan_standard_locations() -> Result<Vec<VST3PluginInfo>, String> {
 }
 
 pub struct VST3Plugin {
-    handle: *mut VST3PluginHandle,
+    pub handle: *mut VST3PluginHandle,
 }
 
 impl VST3Plugin {
@@ -530,8 +530,45 @@ impl VST3Plugin {
     }
 
     pub fn attach_editor(&self, parent: *mut c_void) -> Result<(), String> {
+        use std::io::Write;
+
+        // Get thread ID for debugging
+        let thread_id = std::thread::current().id();
+        eprintln!("🔧 [VST3Plugin] attach_editor on thread {:?}", thread_id);
+        eprintln!("🔧 [VST3Plugin] handle={:?}, handle_addr={:p}", self.handle, &self.handle);
+        eprintln!("🔧 [VST3Plugin] parent={:?}", parent);
+        let _ = std::io::stderr().flush();
+
+        // Verify handle is not null
+        if self.handle.is_null() {
+            eprintln!("❌ [VST3Plugin] Handle is null!");
+            let _ = std::io::stderr().flush();
+            return Err("VST3 plugin handle is null".to_string());
+        }
+
+        // Verify parent is not null
+        if parent.is_null() {
+            eprintln!("❌ [VST3Plugin] Parent is null!");
+            let _ = std::io::stderr().flush();
+            return Err("Parent view pointer is null".to_string());
+        }
+
+        eprintln!("🔧 [VST3Plugin] Pointers validated, calling C++ FFI...");
+        let _ = std::io::stderr().flush();
+
         unsafe {
-            if vst3_attach_editor(self.handle, parent) {
+            eprintln!("🔧 [VST3Plugin] Inside unsafe block, about to call vst3_attach_editor");
+            eprintln!("🔧 [VST3Plugin] self.handle as usize = 0x{:x}", self.handle as usize);
+            eprintln!("🔧 [VST3Plugin] parent as usize = 0x{:x}", parent as usize);
+            let _ = std::io::stderr().flush();
+
+            // Try calling the function
+            let result = vst3_attach_editor(self.handle, parent);
+
+            eprintln!("🔧 [VST3Plugin] C++ vst3_attach_editor returned: {}", result);
+            let _ = std::io::stderr().flush();
+
+            if result {
                 Ok(())
             } else {
                 Err(VST3Host::get_last_error())
@@ -571,6 +608,7 @@ pub struct VST3Effect {
     sample_rate: f64,
     block_size: i32,
     initialized: bool,
+    pub is_instrument: bool,  // True if this is a VST3 instrument (generates audio from MIDI)
 }
 
 impl VST3Effect {
@@ -579,6 +617,7 @@ impl VST3Effect {
         let plugin = VST3Plugin::load(plugin_path)?;
         let info = plugin.get_info()?;
         let name = info.name_str().to_string();
+        let is_instrument = info.is_instrument;
 
         Ok(Self {
             plugin: Arc::new(Mutex::new(plugin)),
@@ -586,6 +625,7 @@ impl VST3Effect {
             sample_rate,
             block_size,
             initialized: false,
+            is_instrument,
         })
     }
 
@@ -678,6 +718,35 @@ impl VST3Effect {
     pub fn attach_editor(&self, parent: *mut c_void) -> Result<(), String> {
         let plugin = self.plugin.lock().expect("mutex poisoned");
         plugin.attach_editor(parent)
+    }
+
+    /// Get the raw C++ handle for the plugin
+    /// This is used for calling attach_editor without holding Rust locks
+    pub fn get_handle(&self) -> *mut c_void {
+        let plugin = self.plugin.lock().expect("mutex poisoned");
+        plugin.handle as *mut c_void
+    }
+
+    /// Attach editor to parent window using raw handle (no locks held)
+    /// This is used to avoid deadlocks when plugins call back during attached()
+    pub fn attach_editor_raw(handle: *mut c_void, parent: *mut c_void) -> Result<(), String> {
+        eprintln!("🔧 [VST3Effect] attach_editor_raw: handle={:?}, parent={:?}", handle, parent);
+
+        if handle.is_null() {
+            return Err("Invalid plugin handle".to_string());
+        }
+        if parent.is_null() {
+            return Err("Invalid parent pointer".to_string());
+        }
+
+        unsafe {
+            let result = vst3_attach_editor(handle as *mut VST3PluginHandle, parent);
+            if result {
+                Ok(())
+            } else {
+                Err(VST3Host::get_last_error())
+            }
+        }
     }
 }
 

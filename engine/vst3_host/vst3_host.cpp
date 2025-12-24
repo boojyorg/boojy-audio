@@ -10,17 +10,28 @@
 #include <cctype>
 #include <filesystem>
 
+// macOS specific includes for main thread check
+#ifdef __APPLE__
+#include <pthread.h>
+#endif
+
+#include <stdexcept>
+#include <atomic>
+
 // VST3 SDK includes
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
+#include "pluginterfaces/vst/ivstpluginterfacesupport.h"  // For IComponentHandler
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/gui/iplugview.h"
+#include "pluginterfaces/vst/ivstmessage.h"  // For IConnectionPoint
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/plugprovider.h"
+#include "public.sdk/source/vst/hosting/eventlist.h"  // For MIDI event queue
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -32,6 +43,123 @@ static std::string g_last_error;
 
 // Global host application
 static IPtr<HostApplication> g_host_app;
+
+// Forward declaration
+struct VST3PluginInstance;
+
+//------------------------------------------------------------------------
+// IComponentHandler implementation - required for plugins to communicate back to host
+// Plugins use this to notify about parameter changes, restarts, etc.
+// Many plugins may crash or malfunction without a valid component handler.
+//------------------------------------------------------------------------
+class ComponentHandler : public IComponentHandler
+{
+public:
+    ComponentHandler() : refCount_(1) {}
+
+    // IComponentHandler
+    tresult PLUGIN_API beginEdit(ParamID id) override {
+        fprintf(stderr, "📊 [ComponentHandler] beginEdit: param %u\n", id);
+        fflush(stderr);
+        return kResultOk;  // Accept the edit start
+    }
+
+    tresult PLUGIN_API performEdit(ParamID id, ParamValue valueNormalized) override {
+        // Don't log every performEdit as it can be very frequent
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API endEdit(ParamID id) override {
+        fprintf(stderr, "📊 [ComponentHandler] endEdit: param %u\n", id);
+        fflush(stderr);
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API restartComponent(int32 flags) override {
+        fprintf(stderr, "📊 [ComponentHandler] restartComponent: flags=%d\n", flags);
+        fflush(stderr);
+        // TODO: Handle restart flags properly (kReloadComponent, kIoChanged, etc.)
+        return kResultOk;
+    }
+
+    // FUnknown
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) override {
+        if (FUnknownPrivate::iidEqual(_iid, IComponentHandler::iid) ||
+            FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
+            *obj = this;
+            addRef();
+            return kResultTrue;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+
+    uint32 PLUGIN_API addRef() override {
+        return ++refCount_;
+    }
+
+    uint32 PLUGIN_API release() override {
+        uint32 count = --refCount_;
+        if (count == 0) {
+            delete this;
+        }
+        return count;
+    }
+
+private:
+    std::atomic<uint32> refCount_;
+};
+
+// Global component handler - shared by all plugin instances
+static IPtr<ComponentHandler> g_component_handler;
+
+//------------------------------------------------------------------------
+// IPlugFrame declaration - implementation after VST3PluginInstance is defined
+// Many plugins (especially Serum) crash if setFrame() is not called before attached()
+//------------------------------------------------------------------------
+
+#ifdef __APPLE__
+// Forward declare the Objective-C helper function
+extern "C" void vst3_resize_nsview(void* nsview, int width, int height);
+#endif
+
+class PlugFrame : public IPlugFrame
+{
+public:
+    PlugFrame(VST3PluginInstance* instance);
+
+    // IPlugFrame - implemented after VST3PluginInstance is defined
+    tresult PLUGIN_API resizeView(IPlugView* view, ViewRect* newSize) override;
+
+    // FUnknown
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) override {
+        if (FUnknownPrivate::iidEqual(_iid, IPlugFrame::iid) ||
+            FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
+            *obj = this;
+            addRef();
+            return kResultTrue;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+
+    uint32 PLUGIN_API addRef() override {
+        return ++refCount_;
+    }
+
+    uint32 PLUGIN_API release() override {
+        uint32 count = --refCount_;
+        if (count == 0) {
+            delete this;
+        }
+        return count;
+    }
+
+private:
+    VST3PluginInstance* instance_;
+    std::atomic<uint32> refCount_;
+    bool resizeRecursionGuard_;
+};
 
 // Plugin instance wrapper
 struct VST3PluginInstance {
@@ -50,11 +178,12 @@ struct VST3PluginInstance {
     // Processing buffers
     ProcessData process_data;
 
-    // Event list for MIDI
-    IPtr<IEventList> event_list;
+    // Event list for MIDI - concrete class for queuing MIDI events
+    EventList midi_events;
 
     // Editor view (M7 Phase 1: Native GUI support)
     IPtr<IPlugView> editor_view;
+    IPtr<PlugFrame> plug_frame;  // IPlugFrame for resize notifications
     void* parent_window;  // Platform-specific window handle (NSView* on macOS)
     bool editor_open;
 
@@ -63,11 +192,69 @@ struct VST3PluginInstance {
         , max_block_size(512)
         , initialized(false)
         , active(false)
+        , midi_events(128)  // Up to 128 MIDI events per buffer
         , parent_window(nullptr)
         , editor_open(false) {
         std::memset(&process_data, 0, sizeof(ProcessData));
     }
 };
+
+//------------------------------------------------------------------------
+// PlugFrame implementation (needs VST3PluginInstance to be complete)
+//------------------------------------------------------------------------
+PlugFrame::PlugFrame(VST3PluginInstance* instance)
+    : instance_(instance)
+    , refCount_(1)
+    , resizeRecursionGuard_(false) {}
+
+tresult PLUGIN_API PlugFrame::resizeView(IPlugView* view, ViewRect* newSize) {
+    if (!newSize || !view) {
+        fprintf(stderr, "📐 [PlugFrame] resizeView: invalid args\n");
+        fflush(stderr);
+        return kInvalidArgument;
+    }
+
+    int width = newSize->right - newSize->left;
+    int height = newSize->bottom - newSize->top;
+
+    fprintf(stderr, "📐 [PlugFrame] resizeView: %dx%d\n", width, height);
+    fflush(stderr);
+
+    // Prevent recursion
+    if (resizeRecursionGuard_) {
+        fprintf(stderr, "📐 [PlugFrame] resizeView: recursion guard - returning kResultFalse\n");
+        fflush(stderr);
+        return kResultFalse;
+    }
+
+    resizeRecursionGuard_ = true;
+
+#ifdef __APPLE__
+    // Actually resize the parent NSView to match the plugin's requested size
+    if (instance_ && instance_->parent_window) {
+        fprintf(stderr, "📐 [PlugFrame] Resizing NSView %p to %dx%d\n",
+                instance_->parent_window, width, height);
+        fflush(stderr);
+        vst3_resize_nsview(instance_->parent_window, width, height);
+    } else {
+        fprintf(stderr, "📐 [PlugFrame] No parent window to resize\n");
+        fflush(stderr);
+    }
+#endif
+
+    // Also tell the view about the new size
+    ViewRect r;
+    if (view->getSize(&r) == kResultTrue) {
+        if (r.right - r.left != width || r.bottom - r.top != height) {
+            fprintf(stderr, "📐 [PlugFrame] Calling view->onSize\n");
+            fflush(stderr);
+            view->onSize(newSize);
+        }
+    }
+
+    resizeRecursionGuard_ = false;
+    return kResultTrue;
+}
 
 // Helper function to set error message
 static void set_error(const std::string& error) {
@@ -81,11 +268,18 @@ bool vst3_host_init() {
     if (!g_host_app) {
         g_host_app = owned(new HostApplication());
     }
+    // Initialize component handler
+    if (!g_component_handler) {
+        g_component_handler = owned(new ComponentHandler());
+        fprintf(stdout, "✅ VST3 Host: Created global ComponentHandler\n");
+        fflush(stdout);
+    }
     return true;
 }
 
 void vst3_host_shutdown() {
     // Cleanup global resources
+    g_component_handler = nullptr;
     g_host_app = nullptr;
     g_last_error.clear();
 }
@@ -282,6 +476,32 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
                     if (controller) {
                         instance->controller = controller;
                         controller->initialize(g_host_app);
+
+                        // CRITICAL: Set the component handler on the controller
+                        // This allows the plugin to notify us of parameter changes, restarts, etc.
+                        // Many plugins may crash or malfunction without this!
+                        if (g_component_handler) {
+                            tresult handlerResult = controller->setComponentHandler(g_component_handler);
+                            fprintf(stdout, "📊 setComponentHandler result: %d\n", handlerResult);
+                            fflush(stdout);
+                        }
+
+                        // CRITICAL: Connect component and controller via IConnectionPoint
+                        // This allows them to communicate - many plugins crash without this!
+                        // This matches what the SDK's PlugProvider::connectComponents() does.
+                        FUnknownPtr<IConnectionPoint> componentCP(component);
+                        FUnknownPtr<IConnectionPoint> controllerCP(controller);
+
+                        if (componentCP && controllerCP) {
+                            componentCP->connect(controllerCP);
+                            controllerCP->connect(componentCP);
+                            fprintf(stdout, "✅ Connected component and controller via IConnectionPoint\n");
+                            fflush(stdout);
+                        } else {
+                            fprintf(stdout, "⚠️ Plugin does not support IConnectionPoint (componentCP=%p, controllerCP=%p)\n",
+                                    (void*)componentCP.get(), (void*)controllerCP.get());
+                            fflush(stdout);
+                        }
                     }
                 }
 
@@ -307,6 +527,19 @@ void vst3_unload_plugin(VST3PluginHandle handle) {
     if (instance->active && instance->processor) {
         instance->processor->setProcessing(false);
         instance->active = false;
+    }
+
+    // Disconnect component and controller via IConnectionPoint before terminating
+    if (instance->component && instance->controller) {
+        FUnknownPtr<IConnectionPoint> componentCP(instance->component);
+        FUnknownPtr<IConnectionPoint> controllerCP(instance->controller);
+
+        if (componentCP && controllerCP) {
+            componentCP->disconnect(controllerCP);
+            controllerCP->disconnect(componentCP);
+            fprintf(stdout, "✅ Disconnected component and controller via IConnectionPoint\n");
+            fflush(stdout);
+        }
     }
 
     // Cleanup
@@ -342,6 +575,10 @@ bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
 }
 
 bool vst3_initialize_plugin(VST3PluginHandle handle, double sample_rate, int max_block_size) {
+    fprintf(stdout, "🎛️ [C++] vst3_initialize_plugin called: handle=%p, sample_rate=%f, block_size=%d\n",
+            handle, sample_rate, max_block_size);
+    fflush(stdout);
+
     if (!handle) {
         set_error("Invalid handle");
         return false;
@@ -350,6 +587,8 @@ bool vst3_initialize_plugin(VST3PluginHandle handle, double sample_rate, int max
     auto instance = static_cast<VST3PluginInstance*>(handle);
     if (!instance->processor) {
         set_error("No audio processor interface");
+        fprintf(stderr, "❌ [C++] vst3_initialize_plugin: No audio processor interface\n");
+        fflush(stderr);
         return false;
     }
 
@@ -363,26 +602,40 @@ bool vst3_initialize_plugin(VST3PluginHandle handle, double sample_rate, int max
     setup.maxSamplesPerBlock = max_block_size;
     setup.sampleRate = sample_rate;
 
-    if (instance->processor->setupProcessing(setup) != kResultOk) {
+    tresult setupResult = instance->processor->setupProcessing(setup);
+    fprintf(stdout, "🎛️ [C++] setupProcessing result: %d\n", setupResult);
+    fflush(stdout);
+
+    if (setupResult != kResultOk) {
         set_error("Failed to setup processing");
         return false;
     }
 
     // Activate busses
-    if (instance->component->activateBus(kAudio, kInput, 0, true) != kResultOk) {
-        // Some plugins don't have input (instruments)
-    }
+    tresult inputBusResult = instance->component->activateBus(kAudio, kInput, 0, true);
+    fprintf(stdout, "🎛️ [C++] activateBus(input) result: %d\n", inputBusResult);
+    fflush(stdout);
+    // Some plugins don't have input (instruments) - that's OK
 
-    if (instance->component->activateBus(kAudio, kOutput, 0, true) != kResultOk) {
+    tresult outputBusResult = instance->component->activateBus(kAudio, kOutput, 0, true);
+    fprintf(stdout, "🎛️ [C++] activateBus(output) result: %d\n", outputBusResult);
+    fflush(stdout);
+
+    if (outputBusResult != kResultOk) {
         set_error("Failed to activate output bus");
         return false;
     }
 
     instance->initialized = true;
+    fprintf(stdout, "✅ [C++] vst3_initialize_plugin: success\n");
+    fflush(stdout);
     return true;
 }
 
 bool vst3_activate_plugin(VST3PluginHandle handle) {
+    fprintf(stdout, "🎛️ [C++] vst3_activate_plugin called: handle=%p\n", handle);
+    fflush(stdout);
+
     if (!handle) {
         set_error("Invalid handle");
         return false;
@@ -391,10 +644,16 @@ bool vst3_activate_plugin(VST3PluginHandle handle) {
     auto instance = static_cast<VST3PluginInstance*>(handle);
     if (!instance->initialized || !instance->processor) {
         set_error("Plugin not initialized");
+        fprintf(stderr, "❌ [C++] vst3_activate_plugin: Plugin not initialized\n");
+        fflush(stderr);
         return false;
     }
 
-    if (instance->processor->setProcessing(true) != kResultOk) {
+    tresult result = instance->processor->setProcessing(true);
+    fprintf(stdout, "🎛️ [C++] setProcessing(true) result: %d\n", result);
+    fflush(stdout);
+
+    if (result != kResultOk) {
         set_error("Failed to start processing");
         return false;
     }
@@ -468,12 +727,19 @@ bool vst3_process_audio(
     data.outputs = &output_bus;
     data.inputParameterChanges = nullptr;
     data.outputParameterChanges = nullptr;
-    data.inputEvents = nullptr;
+
+    // Pass queued MIDI events to the plugin
+    // For instruments, this is critical - they need MIDI to generate audio
+    data.inputEvents = (instance->midi_events.getEventCount() > 0) ? &instance->midi_events : nullptr;
     data.outputEvents = nullptr;
     data.processContext = nullptr;
 
     // Process the audio
     tresult result = instance->processor->process(data);
+
+    // Clear MIDI events after processing (they've been consumed)
+    instance->midi_events.clear();
+
     if (result != kResultOk && result != kResultTrue) {
         set_error("Audio processing failed");
         return false;
@@ -540,9 +806,12 @@ bool vst3_process_midi_event(
             return false;
     }
 
-    // Note: This creates and adds the event, but for proper MIDI handling,
-    // events should be queued and passed during the next process() call.
-    // For now, we're setting up the infrastructure.
+    // Add the event to the queue - will be sent during next process() call
+    tresult result = instance->midi_events.addEvent(event);
+    if (result != kResultOk) {
+        set_error("Failed to queue MIDI event");
+        return false;
+    }
 
     return true;
 }
@@ -635,31 +904,41 @@ bool vst3_has_editor(VST3PluginHandle handle) {
 }
 
 bool vst3_open_editor(VST3PluginHandle handle) {
+    fprintf(stderr, "🎨 [C++] vst3_open_editor called: handle=%p\n", handle);
+
     if (!handle) {
         set_error("Invalid handle");
+        fprintf(stderr, "❌ [C++] vst3_open_editor: handle is null\n");
         return false;
     }
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
+
     if (!instance->controller) {
         set_error("No edit controller available");
+        fprintf(stderr, "❌ [C++] vst3_open_editor: no edit controller\n");
         return false;
     }
 
     if (instance->editor_open) {
-        set_error("Editor is already open");
-        return false;
+        // Already open is okay, just return success
+        fprintf(stderr, "⏭️ [C++] vst3_open_editor: editor already open\n");
+        return true;
     }
 
     // Create the editor view
+    fprintf(stderr, "📝 [C++] Creating editor view via controller->createView\n");
     auto view = instance->controller->createView(ViewType::kEditor);
     if (!view) {
         set_error("Failed to create editor view");
+        fprintf(stderr, "❌ [C++] vst3_open_editor: createView returned null\n");
         return false;
     }
 
     instance->editor_view = view;
     instance->editor_open = true;
+
+    fprintf(stderr, "✅ [C++] vst3_open_editor: success, editor_view=%p\n", (void*)view);
 
     return true;
 }
@@ -670,6 +949,9 @@ void vst3_close_editor(VST3PluginHandle handle) {
     auto instance = static_cast<VST3PluginInstance*>(handle);
 
     if (instance->editor_view) {
+        // Clear the frame first
+        instance->editor_view->setFrame(nullptr);
+
         // Detach from parent if attached
         if (instance->parent_window) {
             instance->editor_view->removed();
@@ -679,6 +961,9 @@ void vst3_close_editor(VST3PluginHandle handle) {
         // Release the view
         instance->editor_view = nullptr;
     }
+
+    // Release the plug frame
+    instance->plug_frame = nullptr;
 
     instance->editor_open = false;
 }
@@ -708,30 +993,179 @@ bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height) {
 }
 
 bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
-    if (!handle || !parent) {
-        set_error("Invalid parameters");
+    // Immediate flush to ensure output appears before any crash
+    fprintf(stderr, "🔗 [C++] ENTER vst3_attach_editor\n");
+    fflush(stderr);
+
+    fprintf(stderr, "🔗 [C++] vst3_attach_editor called: handle=%p, parent=%p\n", handle, parent);
+    fflush(stderr);
+
+    if (!handle) {
+        set_error("Invalid handle (null)");
+        fprintf(stderr, "❌ [C++] vst3_attach_editor: handle is null\n");
+        fflush(stderr);
         return false;
     }
 
-    auto instance = static_cast<VST3PluginInstance*>(handle);
-    if (!instance->editor_view) {
-        set_error("No editor view available");
+    if (!parent) {
+        set_error("Invalid parent (null)");
+        fprintf(stderr, "❌ [C++] vst3_attach_editor: parent is null\n");
+        fflush(stderr);
         return false;
     }
+
+    fprintf(stderr, "🔗 [C++] About to cast handle to VST3PluginInstance*\n");
+    fflush(stderr);
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+
+    fprintf(stderr, "🔗 [C++] Cast successful, instance=%p\n", (void*)instance);
+    fflush(stderr);
+
+    fprintf(stderr, "🔗 [C++] Checking instance->editor_open...\n");
+    fflush(stderr);
+
+    // Check if editor was opened first
+    if (!instance->editor_open) {
+        set_error("Editor not opened - call vst3_open_editor first");
+        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor not opened first\n");
+        fflush(stderr);
+        return false;
+    }
+
+    fprintf(stderr, "🔗 [C++] editor_open=%d, checking editor_view...\n", instance->editor_open);
+    fflush(stderr);
+
+    if (!instance->editor_view) {
+        set_error("No editor view available (editor_view is null)");
+        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor_view is null\n");
+        fflush(stderr);
+        return false;
+    }
+
+    fprintf(stderr, "✅ [C++] vst3_attach_editor: editor_view=%p, editor_open=%d\n",
+            (void*)instance->editor_view.get(), instance->editor_open);
+    fflush(stderr);
 
     // Detach from previous parent if needed
     if (instance->parent_window) {
+        fprintf(stderr, "📤 [C++] Detaching from previous parent: %p\n", instance->parent_window);
+        fflush(stderr);
+        instance->editor_view->setFrame(nullptr);  // Clear frame before removing
         instance->editor_view->removed();
+        instance->parent_window = nullptr;
+        fprintf(stderr, "📤 [C++] Detach complete\n");
+        fflush(stderr);
     }
 
     // Attach to new parent
     // On macOS, parent is NSView*
-    if (instance->editor_view->attached(parent, kPlatformTypeNSView) != kResultOk) {
+    fprintf(stderr, "📥 [C++] Calling IPlugView->attached with parent=%p, type=%s\n", parent, kPlatformTypeNSView);
+    fflush(stderr);
+
+#ifdef __APPLE__
+    // Check if we're on the main thread
+    bool is_main_thread = pthread_main_np() != 0;
+    fprintf(stderr, "📥 [C++] Is main thread: %s\n", is_main_thread ? "YES" : "NO");
+    fflush(stderr);
+#endif
+
+    // Try to get the IPlugView pointer and check it's valid before calling attached()
+    IPlugView* view = instance->editor_view.get();
+    if (!view) {
+        set_error("IPlugView pointer is null");
+        fprintf(stderr, "❌ [C++] IPlugView pointer is null\n");
+        fflush(stderr);
+        return false;
+    }
+
+    fprintf(stderr, "📥 [C++] IPlugView pointer valid: %p\n", (void*)view);
+    fflush(stderr);
+
+    // Check if the platform type is supported before attaching
+    if (view->isPlatformTypeSupported(kPlatformTypeNSView) != kResultTrue) {
+        fprintf(stderr, "❌ [C++] NSView platform type NOT supported by this plugin\n");
+        fflush(stderr);
+        set_error("Plugin does not support NSView platform type");
+        return false;
+    }
+    fprintf(stderr, "✅ [C++] NSView platform type is supported\n");
+    fflush(stderr);
+
+    // Get the plugin's preferred size and log it
+    ViewRect preferredSize;
+    if (view->getSize(&preferredSize) == kResultOk) {
+        fprintf(stderr, "📏 [C++] Plugin preferred size: %dx%d (rect: l=%d,t=%d,r=%d,b=%d)\n",
+                preferredSize.right - preferredSize.left,
+                preferredSize.bottom - preferredSize.top,
+                preferredSize.left, preferredSize.top,
+                preferredSize.right, preferredSize.bottom);
+        fflush(stderr);
+    } else {
+        fprintf(stderr, "⚠️ [C++] Could not get plugin preferred size\n");
+        fflush(stderr);
+    }
+
+    // CRITICAL: Create and set the IPlugFrame BEFORE calling attached()
+    // Many plugins (especially Serum) crash if setFrame() is not called first
+    // The IPlugFrame allows plugins to request view resizes
+    if (!instance->plug_frame) {
+        instance->plug_frame = owned(new PlugFrame(instance));
+        fprintf(stderr, "📐 [C++] Created PlugFrame: %p\n", (void*)instance->plug_frame.get());
+        fflush(stderr);
+    }
+
+    fprintf(stderr, "📐 [C++] Calling view->setFrame()...\n");
+    fflush(stderr);
+    tresult frameResult = view->setFrame(instance->plug_frame.get());
+    fprintf(stderr, "📐 [C++] setFrame returned: %d\n", frameResult);
+    fflush(stderr);
+
+    fprintf(stderr, "📥 [C++] Calling view->attached(parent=%p, type=%s)...\n", parent, kPlatformTypeNSView);
+    fflush(stderr);
+
+    // Additional validation: Check that the view is in a valid state
+    ViewRect currentRect;
+    tresult sizeResult = view->getSize(&currentRect);
+    fprintf(stderr, "📏 [C++] Pre-attach getSize result: %d, rect: (%d,%d,%d,%d)\n",
+            sizeResult, currentRect.left, currentRect.top, currentRect.right, currentRect.bottom);
+    fflush(stderr);
+
+    // Call attached() - this is where plugins can crash if not on main thread or context is wrong
+    tresult result;
+    fprintf(stderr, "🚀 [C++] About to call view->attached NOW...\n");
+    fflush(stderr);
+
+    try {
+        result = view->attached(parent, kPlatformTypeNSView);
+    } catch (const std::exception& e) {
+        fprintf(stderr, "❌ [C++] C++ exception in attached(): %s\n", e.what());
+        fflush(stderr);
+        set_error("C++ exception in IPlugView->attached()");
+        return false;
+    } catch (...) {
+        fprintf(stderr, "❌ [C++] Unknown exception in attached()\n");
+        fflush(stderr);
+        set_error("Unknown exception in IPlugView->attached()");
+        return false;
+    }
+
+    fprintf(stderr, "✅ [C++] view->attached returned!\n");
+    fflush(stderr);
+
+    fprintf(stderr, "📥 [C++] IPlugView->attached returned: %d\n", result);
+    fflush(stderr);
+
+    if (result != kResultOk) {
         set_error("Failed to attach editor to parent window");
+        fprintf(stderr, "❌ [C++] IPlugView->attached failed with result: %d\n", result);
+        fflush(stderr);
         return false;
     }
 
     instance->parent_window = parent;
+    fprintf(stderr, "✅ [C++] vst3_attach_editor: success\n");
+    fflush(stderr);
 
     return true;
 }

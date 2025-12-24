@@ -1195,6 +1195,13 @@ pub extern "C" fn vst3_attach_editor_ffi(
 ) -> *mut c_char {
     println!("🎨 [FFI] Attaching VST3 editor for effect {} to parent {:?}", effect_id, parent_ptr);
 
+    // Flush stdout to ensure logs appear before potential crash
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+
+    println!("🔍 [FFI] About to call api::vst3_attach_editor...");
+    let _ = std::io::stdout().flush();
+
     match api::vst3_attach_editor(effect_id as u64, parent_ptr) {
         Ok(msg) => {
             if msg.is_empty() {
@@ -1208,6 +1215,23 @@ pub extern "C" fn vst3_attach_editor_ffi(
             eprintln!("❌ [FFI] Failed to attach VST3 editor: {}", e);
             safe_cstring(format!("Error: {}", e)).into_raw()
         }
+    }
+}
+
+/// Send a MIDI note event to a VST3 plugin
+/// event_type: 0 = note on, 1 = note off
+/// Returns empty string on success, error message on failure
+#[no_mangle]
+pub extern "C" fn vst3_send_midi_note_ffi(
+    effect_id: i64,
+    event_type: i32,
+    channel: i32,
+    note: i32,
+    velocity: i32,
+) -> *mut c_char {
+    match api::vst3_send_midi_note(effect_id as u64, event_type, channel, note, velocity) {
+        Ok(()) => safe_cstring(String::new()).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
     }
 }
 

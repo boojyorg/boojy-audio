@@ -56,6 +56,7 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
 /// * `track_id` - Track ID
 /// * `volume_db` - Volume in dB (-96.0 to +6.0)
 pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, String> {
+    eprintln!("🎚️ set_track_volume called: track={}, volume_db={:.2}", track_id, volume_db);
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
@@ -63,6 +64,7 @@ pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, Str
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.volume_db = volume_db.clamp(-96.0, 6.0);
+        eprintln!("🎚️ Track {} volume now = {:.2} dB, gain = {:.4}", track_id, track.volume_db, track.get_gain());
         Ok(format!("Track {} volume set to {:.2} dB", track_id, track.volume_db))
     } else {
         Err(format!("Track {} not found", track_id))

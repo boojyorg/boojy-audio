@@ -107,6 +107,7 @@ class AudioEngine {
   late final _Vst3CloseEditorFfi _vst3CloseEditor;
   late final _Vst3GetEditorSizeFfi _vst3GetEditorSize;
   late final _Vst3AttachEditorFfi _vst3AttachEditor;
+  late final _Vst3SendMidiNoteFfi _vst3SendMidiNote;
 
   // MIDI Recording functions
   late final _GetMidiInputDevicesFfi _getMidiInputDevices;
@@ -129,34 +130,52 @@ class AudioEngine {
   AudioEngine() {
     // Load the native library
     if (Platform.isMacOS) {
-      // Find the library by searching from current directory upward for the engine folder
-      // This works regardless of where flutter is launched from
+      // Find the library by searching multiple locations
+      // Priority: 1) Executable-relative paths, 2) Current directory paths
 
       String? libPath;
-      var searchDir = Directory.current;
 
-      // Search up to 5 levels up from current directory
+      // Get the executable path to find library relative to app bundle
+      final executablePath = Platform.resolvedExecutable;
+      final executableDir = File(executablePath).parent.path;
+
+      // List of paths to try, in order of priority
+      final pathsToTry = <String>[
+        // Development: symlink in Runner directory (relative to app bundle)
+        '$executableDir/../../../macos/Runner/libengine.dylib',
+        // Development: engine folder relative to app bundle
+        '$executableDir/../../../../engine/target/release/libengine.dylib',
+        // Development: direct path from project root
+        '/Users/tyrbujac/Documents/Developments/2025/Flutter/Boojy Audio/engine/target/release/libengine.dylib',
+      ];
+
+      // Also search from current directory (works for flutter run)
+      var searchDir = Directory.current;
       for (var i = 0; i < 5; i++) {
-        final engineLib = File('${searchDir.path}/engine/target/release/libengine.dylib');
-        if (engineLib.existsSync()) {
-          libPath = engineLib.path;
-          break;
-        }
-        // Also check if we're in the ui directory
-        final symlinkPath = File('${searchDir.path}/macos/Runner/libengine.dylib');
-        if (symlinkPath.existsSync()) {
-          libPath = symlinkPath.path;
-          break;
-        }
-        // Go up one directory
+        pathsToTry.add('${searchDir.path}/engine/target/release/libengine.dylib');
+        pathsToTry.add('${searchDir.path}/macos/Runner/libengine.dylib');
         final parent = searchDir.parent;
-        if (parent.path == searchDir.path) break; // Reached root
+        if (parent.path == searchDir.path) break;
         searchDir = parent;
+      }
+
+      // Try each path
+      for (final path in pathsToTry) {
+        final file = File(path);
+        if (file.existsSync()) {
+          libPath = path;
+          break;
+        }
       }
 
       if (libPath == null) {
         print('❌ [AudioEngine] Library file NOT found');
+        print('   Executable: $executablePath');
         print('   Current directory: ${Directory.current.path}');
+        print('   Tried paths:');
+        for (final path in pathsToTry.take(5)) {
+          print('     - $path');
+        }
         print('   Make sure to run: cd engine && cargo build --release');
         throw Exception('Library file not found. Run: cd engine && cargo build --release');
       }
@@ -685,6 +704,12 @@ class AudioEngine {
               'vst3_attach_editor_ffi')
           .asFunction();
       print('  ✅ vst3_attach_editor_ffi bound');
+
+      _vst3SendMidiNote = _lib
+          .lookup<ffi.NativeFunction<_Vst3SendMidiNoteFfiNative>>(
+              'vst3_send_midi_note_ffi')
+          .asFunction();
+      print('  ✅ vst3_send_midi_note_ffi bound');
 
       // Bind MIDI Recording functions
       _getMidiInputDevices = _lib
@@ -2328,6 +2353,24 @@ class AudioEngine {
       return 'Failed to attach editor: $e';
     }
   }
+
+  /// Send a MIDI note event to a VST3 plugin
+  /// eventType: 0 = note on, 1 = note off
+  /// channel: MIDI channel (0-15)
+  /// note: MIDI note number (0-127)
+  /// velocity: MIDI velocity (0-127)
+  /// Returns error message or empty string on success
+  String vst3SendMidiNote(int effectId, int eventType, int channel, int note, int velocity) {
+    try {
+      final resultPtr = _vst3SendMidiNote(effectId, eventType, channel, note, velocity);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] VST3 send MIDI note failed: $e');
+      return 'Failed to send MIDI note: $e';
+    }
+  }
 }
 
 // ==========================================================================
@@ -2592,6 +2635,9 @@ typedef _Vst3GetEditorSizeFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _Vst3AttachEditorFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Void>);
 typedef _Vst3AttachEditorFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Void>);
+
+typedef _Vst3SendMidiNoteFfiNative = ffi.Pointer<Utf8> Function(ffi.Int64, ffi.Int32, ffi.Int32, ffi.Int32, ffi.Int32);
+typedef _Vst3SendMidiNoteFfi = ffi.Pointer<Utf8> Function(int, int, int, int, int);
 
 // MIDI Recording types
 typedef _GetMidiInputDevicesFfiNative = ffi.Pointer<Utf8> Function();

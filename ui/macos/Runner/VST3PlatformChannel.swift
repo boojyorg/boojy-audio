@@ -39,12 +39,16 @@ class VST3PlatformChannel {
         case "detachEditor":
             detachEditor(args: args, result: result)
 
+        case "confirmAttachment":
+            confirmAttachment(args: args, result: result)
+
         default:
             result(FlutterMethodNotImplemented)
         }
     }
 
     /// Open a floating (undocked) editor window
+    /// Returns the view pointer so Dart can call FFI to attach the editor
     private func openFloatingWindow(args: [String: Any], result: @escaping FlutterResult) {
         guard let effectId = args["effectId"] as? Int,
               let pluginName = args["pluginName"] as? String,
@@ -61,9 +65,23 @@ class VST3PlatformChannel {
         let size = NSSize(width: width, height: height)
 
         if windowManager.openWindow(effectId: effectId, pluginName: pluginName, size: size) != nil {
-            // TODO: Call Rust FFI to attach the native VST3 editor view
-            // For now, just return success
-            result(true)
+            // Get the container view pointer for FFI attachment
+            if let viewPtr = windowManager.getContainerViewPointer(effectId: effectId) {
+                let viewPtrInt = Int64(Int(bitPattern: viewPtr))
+                print("✅ VST3PlatformChannel: Floating window opened, viewPointer=\(viewPtrInt)")
+
+                // Return success with the view pointer so Dart can call FFI
+                result([
+                    "success": true,
+                    "viewPointer": viewPtrInt
+                ])
+            } else {
+                result(FlutterError(
+                    code: "VIEW_POINTER_FAILED",
+                    message: "Failed to get view pointer for effect \(effectId)",
+                    details: nil
+                ))
+            }
         } else {
             result(FlutterError(
                 code: "WINDOW_CREATION_FAILED",
@@ -118,6 +136,32 @@ class VST3PlatformChannel {
 
         // TODO: Implement detaching editor from embedded platform view
         print("📎 VST3PlatformChannel: Detach editor for effect \(effectId)")
+        result(true)
+    }
+
+    /// Confirm that Dart has attached the editor via FFI
+    /// This is called by Dart after successful FFI attachment
+    private func confirmAttachment(args: [String: Any], result: @escaping FlutterResult) {
+        guard let effectId = args["effectId"] as? Int,
+              let width = args["width"] as? Int,
+              let height = args["height"] as? Int else {
+            result(FlutterError(
+                code: "INVALID_ARGS",
+                message: "Missing required arguments: effectId, width, height",
+                details: nil
+            ))
+            return
+        }
+
+        print("✅ VST3PlatformChannel: Attachment confirmed for effect \(effectId), size \(width)x\(height)")
+
+        // Notify the view that attachment is complete
+        VST3PlatformChannelHandler.shared.handleAttachmentConfirmed(
+            effectId: effectId,
+            width: width,
+            height: height
+        )
+
         result(true)
     }
 }

@@ -26,6 +26,7 @@ import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
 import '../services/user_settings.dart';
 import '../services/auto_save_service.dart';
+import '../services/vst3_editor_service.dart';
 import '../widgets/settings_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
@@ -262,11 +263,15 @@ class _DAWScreenState extends State<DAWScreen> {
         debugPrint('❌ Failed to initialize recording settings: $e');
       }
 
+      debugPrint('🔧 [DAW] About to set initialized state, mounted=$mounted');
       if (mounted) {
         setState(() {
           _isAudioGraphInitialized = true;
         });
+        debugPrint('✅ [DAW] Audio graph initialized state set to true');
         _playbackController.setStatusMessage('Ready to record or load audio files');
+      } else {
+        debugPrint('❌ [DAW] Widget not mounted, cannot set state!');
       }
 
       // Initialize undo/redo manager with engine
@@ -275,6 +280,9 @@ class _DAWScreenState extends State<DAWScreen> {
       // Initialize controllers with audio engine
       _playbackController.initialize(_audioEngine!);
       _recordingController.initialize(_audioEngine!);
+
+      // Initialize VST3 editor service (for platform channel communication)
+      VST3EditorService.initialize(_audioEngine!);
 
       // Initialize VST3 plugin manager
       _vst3PluginManager = Vst3PluginManager(_audioEngine!);
@@ -662,6 +670,21 @@ class _DAWScreenState extends State<DAWScreen> {
         pluginName: plugin.name,
         effectId: effectId,
       ));
+
+      // Send a test note to trigger audio processing (some VST3 instruments
+      // like Serum show "Audio Processing disabled" until they receive MIDI)
+      debugPrint('🎹 Sending test note to VST3 instrument $effectId');
+      final noteOnResult = _audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
+      if (noteOnResult.isNotEmpty) {
+        debugPrint('⚠️ Note on error: $noteOnResult');
+      }
+      // Send note off after a short delay
+      Future.delayed(const Duration(milliseconds: 100), () {
+        final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
+        if (noteOffResult.isNotEmpty) {
+          debugPrint('⚠️ Note off error: $noteOffResult');
+        }
+      });
     } catch (e) {
       debugPrint('❌ Error loading VST3 instrument: $e');
     }
@@ -702,6 +725,21 @@ class _DAWScreenState extends State<DAWScreen> {
         pluginName: plugin.name,
         effectId: effectId,
       ));
+
+      // Send a test note to trigger audio processing (some VST3 instruments
+      // like Serum show "Audio Processing disabled" until they receive MIDI)
+      debugPrint('🎹 Sending test note to VST3 instrument $effectId');
+      final noteOnResult = _audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
+      if (noteOnResult.isNotEmpty) {
+        debugPrint('⚠️ Note on error: $noteOnResult');
+      }
+      // Send note off after a short delay
+      Future.delayed(const Duration(milliseconds: 100), () {
+        final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
+        if (noteOffResult.isNotEmpty) {
+          debugPrint('⚠️ Note off error: $noteOffResult');
+        }
+      });
 
       // Select the newly created track and its clip
       _onTrackSelected(trackId);
