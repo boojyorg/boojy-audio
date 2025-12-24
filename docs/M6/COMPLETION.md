@@ -227,11 +227,21 @@ M6 implemented MIDI support, piano roll editor, polyphonic synthesizer, and Able
 - Add quantize functionality
 - ~~Hook up MIDI clip playback in timeline~~ ✅ **DONE in M6.1**
 
-### M7: VST3 Plugin Support
-- Scan installed VST3 plugins
-- Load third-party instruments
-- Plugin UI in separate window
-- Parameter automation
+### M7: VST3 Plugin Support (In Progress)
+
+**Completed:**
+- ✅ VST3 plugin scanning (Serum, Serum 2, Serum 2 FX detected)
+- ✅ Plugin loading and audio processing
+- ✅ MIDI event handling
+- ✅ Plugin UI in embedded panel (docked mode)
+- ✅ Floating window support with position persistence
+- ✅ Plugin state save/load with projects (base64-encoded blobs)
+
+**Remaining:**
+- 🚧 FX Chain view (visual effect chain)
+- 📋 Per-plugin preferences (embed vs float)
+- 📋 Plugin bypass toggle
+- 📋 Preset management
 
 ### M8: Stock Instruments
 - Implement Piano (sampled)

@@ -6,7 +6,7 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 Boojy Audio combines professional workflows with beginner-friendly UX. Built with Flutter (UI) and Rust (audio engine), it's designed to work seamlessly across macOS, iPad, and eventually web, Windows, Linux, iOS, and Android.
 
-**Current Status:** 🚧 M7 In Progress - VST3 Plugin Support (Native GUI Integration)
+**Current Status:** 🚧 M7 In Progress - VST3 Plugin Support (State Persistence Complete)
 
 ## Core Features (v1 MVP)
 
@@ -21,6 +21,19 @@ Boojy Audio combines professional workflows with beginner-friendly UX. Built wit
 - 🎨 **Modern UI** - Ableton-style mixer, resizable panels, beat-based grid
 
 ## Recent Updates (December 2025)
+
+### M7 - VST3 Plugin Support (In Progress)
+
+**Core VST3 Features:**
+
+- ✅ VST3 plugin scanning (Serum, Serum 2, Serum 2 FX detected)
+- ✅ Plugin loading and audio processing
+- ✅ MIDI note on/off event handling
+- ✅ Plugin UI embedded in bottom panel (docked mode)
+- ✅ Floating window support with position persistence
+- ✅ Native NSView hosting via AppKitView on macOS
+- ✅ Plugin state save/load with projects (base64-encoded blobs)
+- 🚧 FX Chain view for visual effect management
 
 ### M6.8 - Track Height Resizing
 

@@ -36,7 +36,7 @@ This document breaks the MVP into **7 actionable milestones** (M1–M7), each re
 | **M6.6**  | iOS/iPad Support               | 1 week   | ✅ Complete                        |
 | **M6.7**  | Piano Roll Improvements        | 1 week   | ✅ Complete                        |
 | **M6.8**  | Track Height Resizing          | 1 day    | ✅ Complete                        |
-| **M7**    | VST3 Plugin Support            | 2 weeks  | 🚧 In Progress (Scanning Complete) |
+| **M7**    | VST3 Plugin Support            | 2 weeks  | 🚧 In Progress (State Persistence Complete) |
 | **M8**    | Stock Instruments              | 3 weeks  | 📋 Ready                           |
 | **M9**    | Polish & UX                    | 2 weeks  | 📋 Ready                           |
 | **M10**   | Beta Testing & Launch          | 2 weeks  | 📋 Ready                           |
@@ -1062,13 +1062,48 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 
 **Goal:** Load and use VST3 plugins (third-party instruments and effects).
 
-**Duration:** 2 weeks  
+**Duration:** 2 weeks
+**Status:** 🚧 **IN PROGRESS** (Core features complete, FX Chain view remaining)
 **Deliverable:** Users can scan VST3 plugins, add them to tracks, and use their native UIs.
 
-### Tasks
+### Completed Features ✅
+
+#### Phase 1: C++ VST3 Core ✅
+- [x] VST3 SDK integration (git submodule)
+- [x] C++ wrapper with clean C ABI (`vst3_host.h`, `vst3_host.cpp`)
+- [x] Plugin scanning (`vst3_scan_directory`, `vst3_scan_standard_locations`)
+- [x] Plugin loading and unloading
+- [x] Audio processing through plugins
+- [x] MIDI event handling (Note On/Off)
+
+#### Phase 2: Plugin Editor UI ✅
+- [x] Embedded editor in bottom panel (docked mode)
+- [x] Floating window support with position persistence
+- [x] Native NSView hosting via AppKitView on macOS
+- [x] Swift → Rust FFI → C++ for `vst3_attach_editor()`
+
+#### Phase 3: VST3 State Persistence ✅
+- [x] Plugin state save/load with projects
+- [x] Binary state blob (processor + controller) serialized to base64
+- [x] Automatic restoration on project load
+- [x] `Vst3PluginData` struct in project format
+
+### Remaining Tasks
+
+#### Phase 4: FX Chain View 🚧
+- [ ] Visual effect chain with per-effect [Edit] button
+- [ ] Drag to reorder effects
+- [ ] [+ Add Effect] opens browser
+
+#### Phase 5: Preferences & Polish 📋
+- [ ] Remember per-plugin embedded vs floating preference
+- [ ] Auto-scroll for large plugins
+- [ ] Floating indicator icon in track mixer
+
+### Tasks (Original Plan)
 
 #### Rust: VST3 Scanner
-- [ ] Scan VST3 folders:
+- [x] Scan VST3 folders:
   - `/Library/Audio/Plug-Ins/VST3/`
   - `~/Library/Audio/Plug-Ins/VST3/`
 - [ ] Parse VST3 bundle structure (`.vst3` bundles)
@@ -1815,9 +1850,9 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** December 22, 2025 (M6.8 Complete)
-**Next Review:** After M7 completion
+**Document Version:** 1.3
+**Last Updated:** December 24, 2025 (M7 State Persistence Complete)
+**Next Review:** After M7 FX Chain view completion
 
 ---
 
@@ -1836,7 +1871,7 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 ✅ **M6.6:** iOS/iPad Support - COMPLETE (Cross-platform support, audio latency control)
 ✅ **M6.7:** Piano Roll Improvements - COMPLETE (FL Studio-style note preview)
 ✅ **M6.8:** Track Height Resizing - COMPLETE (Mixer-controlled, synced with timeline)
-🚧 **M7:** VST3 Plugin Support - In Progress
+🚧 **M7:** VST3 Plugin Support - In Progress (Core complete, FX Chain view remaining)
 📋 **M8:** Stock Instruments - Ready
 📋 **M9:** Polish & UX - Ready
 📋 **M10:** Beta Testing & Launch - Ready

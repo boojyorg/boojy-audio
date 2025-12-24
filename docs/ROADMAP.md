@@ -243,11 +243,14 @@ Week 0    Week 10   Week 15   Week 22
 - ✅ Re-enable plugin loading backend (C++ vst3_host)
 - ✅ Audio processing implementation (ProcessData, buffer setup)
 - ✅ MIDI event handling (Note On/Off)
-- 🚧 Plugin UI in bottom panel (embedded-first approach)
-- 📋 Floating window support (pop-out option)
-- 📋 FX Chain view (visual effect chain)
-- 📋 Parameter save/load with projects
+- ✅ Plugin UI embedded in bottom panel (docked mode)
+- ✅ Floating window support with position persistence
+- ✅ Native NSView hosting via AppKitView on macOS
+- ✅ Plugin state save/load with projects (base64-encoded state blobs)
+- 🚧 FX Chain view (visual effect chain)
 - 📋 Per-plugin preferences (embed vs float)
+- 📋 Plugin bypass toggle
+- 📋 Preset management (factory/user presets)
 
 **Target:** Late December 2025
 
@@ -534,10 +537,12 @@ Items identified for future cleanup (not blocking current development):
 
 - ✅ VST3 scanning complete (Serum, Serum 2, Serum 2 FX detected)
 - ✅ C++ backend re-enabled (loading, audio processing, MIDI)
-- 🚧 Build embedded plugin view (bottom panel)
-- 📋 Floating window support
-- 📋 FX Chain view
-- 📋 Plugin preset save/load with projects
+- ✅ Embedded plugin UI in bottom panel (docked mode)
+- ✅ Floating window support with position persistence
+- ✅ Plugin state save/load with projects (base64-encoded blobs)
+- 🚧 FX Chain view (visual effect chain)
+- 📋 Plugin bypass toggle
+- 📋 Preset management
 
 **Next Up (M8):**
 

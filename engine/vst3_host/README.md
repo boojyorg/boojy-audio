@@ -17,6 +17,8 @@ This directory contains a C++ wrapper for the Steinberg VST3 SDK, providing a C 
 - `cargo build` works successfully
 - All VST3 FFI functions implemented and available to Flutter
 - Plugin scanning, loading, parameter access, and audio processing all implemented
+- Plugin state persistence (save/load) fully implemented
+- Editor UI hosting (embedded and floating windows) working
 
 **🚧 Known Test Limitation:**
 - `cargo test` fails to link due to missing `Module::create` symbol in pre-built libraries
@@ -66,7 +68,35 @@ The C API provides:
 - Audio processing (`vst3_process_audio`)
 - MIDI events (`vst3_process_midi_event`)
 - Parameter management (`vst3_get/set_parameter_value`)
-- State persistence (`vst3_get/set_state`)
+- State persistence (`vst3_get_state`, `vst3_set_state`) - **✅ IMPLEMENTED**
+- Editor UI (`vst3_open_editor`, `vst3_close_editor`, `vst3_attach_editor`)
+
+## State Persistence
+
+The state persistence system saves and restores complete VST3 plugin states:
+
+**Binary Format:**
+```
+[4 bytes: processor_state_size (little-endian u32)]
+[4 bytes: controller_state_size (little-endian u32)]
+[processor_state_size bytes: processor state data]
+[controller_state_size bytes: controller state data]
+```
+
+**Implementation:**
+- `MemoryStream` class implements `Steinberg::IBStream` interface
+- `vst3_get_state()` - Retrieves processor + controller state as combined binary blob
+- `vst3_set_state()` - Restores processor + controller state from binary blob
+- States are base64-encoded for JSON serialization in project files
+
+**Project Integration:**
+- `Vst3PluginData` struct in `engine/src/project.rs` stores:
+  - `plugin_path` - Path to .vst3 bundle (for reloading)
+  - `plugin_name` - Display name
+  - `is_instrument` - Whether plugin is an instrument
+  - `state_base64` - Base64-encoded state blob
+- Saved in `TrackData.vst3_plugins` array in project.json
+- Automatic restoration when project is loaded
 
 ## Next Steps
 
