@@ -423,6 +423,65 @@ pub fn vst3_send_midi_note(
 }
 
 // ============================================================================
+// VST3 State Functions (for project save/load)
+// ============================================================================
+
+#[cfg(not(target_os = "ios"))]
+/// Get a VST3 plugin's state as a binary blob
+/// Returns base64-encoded state data
+pub fn get_vst3_state(effect_id: u64) -> Result<Vec<u8>, String> {
+    use crate::effects::EffectType;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
+        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+
+        if let EffectType::VST3(vst3) = &*effect {
+            vst3.get_state()
+        } else {
+            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+        }
+    } else {
+        Err(format!("Effect {} not found", effect_id))
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+/// Set a VST3 plugin's state from a binary blob
+pub fn set_vst3_state(effect_id: u64, data: &[u8]) -> Result<(), String> {
+    use crate::effects::EffectType;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
+        let mut effect = effect_arc.lock().map_err(|e| e.to_string())?;
+
+        if let EffectType::VST3(vst3) = &mut *effect {
+            vst3.set_state(data)
+        } else {
+            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+        }
+    } else {
+        Err(format!("Effect {} not found", effect_id))
+    }
+}
+
+#[cfg(target_os = "ios")]
+pub fn get_vst3_state(_effect_id: u64) -> Result<Vec<u8>, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn set_vst3_state(_effect_id: u64, _data: &[u8]) -> Result<(), String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+// ============================================================================
 // iOS stub functions for VST3 (return "not supported" errors)
 // ============================================================================
 

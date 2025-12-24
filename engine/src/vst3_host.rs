@@ -605,6 +605,7 @@ use std::sync::{Arc, Mutex};
 pub struct VST3Effect {
     plugin: Arc<Mutex<VST3Plugin>>,
     name: String,
+    plugin_path: String,  // Path to the .vst3 bundle (for project save/load)
     sample_rate: f64,
     block_size: i32,
     initialized: bool,
@@ -622,11 +623,22 @@ impl VST3Effect {
         Ok(Self {
             plugin: Arc::new(Mutex::new(plugin)),
             name,
+            plugin_path: plugin_path.to_string(),
             sample_rate,
             block_size,
             initialized: false,
             is_instrument,
         })
+    }
+
+    /// Get the plugin path
+    pub fn get_plugin_path(&self) -> &str {
+        &self.plugin_path
+    }
+
+    /// Get the plugin name
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 
     /// Initialize the plugin (must be called before processing)

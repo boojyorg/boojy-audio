@@ -74,9 +74,9 @@ pub use transport::{
 };
 pub use vst3::{
     add_vst3_effect_to_track, get_vst3_parameter_count, get_vst3_parameter_info,
-    get_vst3_parameter_value, scan_vst3_plugins, scan_vst3_plugins_standard,
-    set_vst3_parameter_value, vst3_attach_editor, vst3_close_editor, vst3_get_editor_size,
-    vst3_has_editor, vst3_open_editor, vst3_send_midi_note,
+    get_vst3_parameter_value, get_vst3_state, scan_vst3_plugins, scan_vst3_plugins_standard,
+    set_vst3_parameter_value, set_vst3_state, vst3_attach_editor, vst3_close_editor,
+    vst3_get_editor_size, vst3_has_editor, vst3_open_editor, vst3_send_midi_note,
 };
 
 // ============================================================================

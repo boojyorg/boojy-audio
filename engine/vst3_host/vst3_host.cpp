@@ -28,6 +28,7 @@
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstmessage.h"  // For IConnectionPoint
+#include "pluginterfaces/base/ibstream.h"     // For IBStream (state save/load)
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/plugprovider.h"
@@ -876,19 +877,243 @@ bool vst3_set_parameter_value(VST3PluginHandle handle, uint32_t param_id, double
     return instance->controller->setParamNormalized(param_id, value) == kResultOk;
 }
 
+// ============================================================================
+// Memory Stream for State Save/Load
+// ============================================================================
+
+class MemoryStream : public IBStream {
+public:
+    MemoryStream() : position_(0), refCount_(1) {}
+
+    MemoryStream(const void* data, int size) : position_(0), refCount_(1) {
+        buffer_.resize(size);
+        std::memcpy(buffer_.data(), data, size);
+    }
+
+    virtual ~MemoryStream() = default;
+
+    // IBStream
+    tresult PLUGIN_API read(void* buffer, int32 numBytes, int32* numBytesRead) override {
+        if (!buffer || numBytes < 0) return kInvalidArgument;
+
+        int32 available = static_cast<int32>(buffer_.size()) - position_;
+        int32 toRead = std::min(numBytes, available);
+
+        if (toRead > 0) {
+            std::memcpy(buffer, buffer_.data() + position_, toRead);
+            position_ += toRead;
+        }
+
+        if (numBytesRead) *numBytesRead = toRead;
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API write(void* buffer, int32 numBytes, int32* numBytesWritten) override {
+        if (!buffer || numBytes < 0) return kInvalidArgument;
+
+        // Expand buffer if needed
+        int32 endPos = position_ + numBytes;
+        if (endPos > static_cast<int32>(buffer_.size())) {
+            buffer_.resize(endPos);
+        }
+
+        std::memcpy(buffer_.data() + position_, buffer, numBytes);
+        position_ += numBytes;
+
+        if (numBytesWritten) *numBytesWritten = numBytes;
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API seek(int64 pos, int32 mode, int64* result) override {
+        int64 newPos = 0;
+        switch (mode) {
+            case IBStream::kIBSeekSet: newPos = pos; break;
+            case IBStream::kIBSeekCur: newPos = position_ + pos; break;
+            case IBStream::kIBSeekEnd: newPos = static_cast<int64>(buffer_.size()) + pos; break;
+            default: return kInvalidArgument;
+        }
+
+        if (newPos < 0) newPos = 0;
+        position_ = static_cast<int32>(newPos);
+
+        if (result) *result = position_;
+        return kResultOk;
+    }
+
+    tresult PLUGIN_API tell(int64* pos) override {
+        if (pos) *pos = position_;
+        return kResultOk;
+    }
+
+    // FUnknown
+    tresult PLUGIN_API queryInterface(const TUID _iid, void** obj) override {
+        if (FUnknownPrivate::iidEqual(_iid, IBStream::iid) ||
+            FUnknownPrivate::iidEqual(_iid, FUnknown::iid)) {
+            *obj = this;
+            addRef();
+            return kResultTrue;
+        }
+        *obj = nullptr;
+        return kNoInterface;
+    }
+
+    uint32 PLUGIN_API addRef() override { return ++refCount_; }
+    uint32 PLUGIN_API release() override {
+        uint32 count = --refCount_;
+        if (count == 0) delete this;
+        return count;
+    }
+
+    // Accessors
+    const std::vector<uint8_t>& getData() const { return buffer_; }
+    int32 getSize() const { return static_cast<int32>(buffer_.size()); }
+
+private:
+    std::vector<uint8_t> buffer_;
+    int32 position_;
+    std::atomic<uint32> refCount_;
+};
+
+// ============================================================================
+// State Save/Load Functions
+// ============================================================================
+
 int vst3_get_state_size(VST3PluginHandle handle) {
-    // TODO: Implement state size query
-    return 0;
+    if (!handle) return 0;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->component) return 0;
+
+    // Create a temporary stream to get the state size
+    MemoryStream stream;
+
+    // Get processor state
+    if (instance->component->getState(&stream) != kResultOk) {
+        fprintf(stderr, "❌ [C++] vst3_get_state_size: component->getState failed\n");
+        return 0;
+    }
+
+    int32 processorSize = stream.getSize();
+
+    // Get controller state if available
+    int32 controllerSize = 0;
+    if (instance->controller) {
+        MemoryStream controllerStream;
+        if (instance->controller->getState(&controllerStream) == kResultOk) {
+            controllerSize = controllerStream.getSize();
+        }
+    }
+
+    // Total size = 8 bytes header + processor state + controller state
+    // Header format: [4 bytes processor size][4 bytes controller size]
+    int totalSize = 8 + processorSize + controllerSize;
+
+    fprintf(stderr, "📦 [C++] vst3_get_state_size: processor=%d, controller=%d, total=%d\n",
+            processorSize, controllerSize, totalSize);
+
+    return totalSize;
 }
 
 int vst3_get_state(VST3PluginHandle handle, void* data, int max_size) {
-    // TODO: Implement state save
-    return -1;
+    if (!handle || !data || max_size < 8) return -1;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->component) return -1;
+
+    // Get processor state
+    MemoryStream processorStream;
+    if (instance->component->getState(&processorStream) != kResultOk) {
+        fprintf(stderr, "❌ [C++] vst3_get_state: component->getState failed\n");
+        return -1;
+    }
+
+    // Get controller state
+    MemoryStream controllerStream;
+    bool hasControllerState = false;
+    if (instance->controller) {
+        hasControllerState = (instance->controller->getState(&controllerStream) == kResultOk);
+    }
+
+    int32 processorSize = processorStream.getSize();
+    int32 controllerSize = hasControllerState ? controllerStream.getSize() : 0;
+    int32 totalSize = 8 + processorSize + controllerSize;
+
+    if (totalSize > max_size) {
+        fprintf(stderr, "❌ [C++] vst3_get_state: buffer too small (%d < %d)\n", max_size, totalSize);
+        return -1;
+    }
+
+    // Write header
+    uint8_t* ptr = static_cast<uint8_t*>(data);
+    std::memcpy(ptr, &processorSize, 4);
+    std::memcpy(ptr + 4, &controllerSize, 4);
+    ptr += 8;
+
+    // Write processor state
+    std::memcpy(ptr, processorStream.getData().data(), processorSize);
+    ptr += processorSize;
+
+    // Write controller state
+    if (controllerSize > 0) {
+        std::memcpy(ptr, controllerStream.getData().data(), controllerSize);
+    }
+
+    fprintf(stderr, "✅ [C++] vst3_get_state: saved %d bytes (processor=%d, controller=%d)\n",
+            totalSize, processorSize, controllerSize);
+
+    return totalSize;
 }
 
 bool vst3_set_state(VST3PluginHandle handle, const void* data, int size) {
-    // TODO: Implement state load
-    return false;
+    if (!handle || !data || size < 8) return false;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->component) return false;
+
+    // Read header
+    const uint8_t* ptr = static_cast<const uint8_t*>(data);
+    int32 processorSize, controllerSize;
+    std::memcpy(&processorSize, ptr, 4);
+    std::memcpy(&controllerSize, ptr + 4, 4);
+    ptr += 8;
+
+    // Validate sizes
+    if (8 + processorSize + controllerSize > size) {
+        fprintf(stderr, "❌ [C++] vst3_set_state: invalid sizes (header says %d, got %d)\n",
+                8 + processorSize + controllerSize, size);
+        return false;
+    }
+
+    fprintf(stderr, "📦 [C++] vst3_set_state: loading %d bytes (processor=%d, controller=%d)\n",
+            size, processorSize, controllerSize);
+
+    // Set processor state
+    if (processorSize > 0) {
+        MemoryStream processorStream(ptr, processorSize);
+        if (instance->component->setState(&processorStream) != kResultOk) {
+            fprintf(stderr, "❌ [C++] vst3_set_state: component->setState failed\n");
+            return false;
+        }
+        ptr += processorSize;
+
+        // Also sync to controller (important for parameter display)
+        if (instance->controller) {
+            MemoryStream processorStream2(ptr - processorSize, processorSize);
+            instance->controller->setComponentState(&processorStream2);
+        }
+    }
+
+    // Set controller state
+    if (controllerSize > 0 && instance->controller) {
+        MemoryStream controllerStream(ptr, controllerSize);
+        if (instance->controller->setState(&controllerStream) != kResultOk) {
+            fprintf(stderr, "⚠️ [C++] vst3_set_state: controller->setState failed (non-fatal)\n");
+            // Controller state is optional, don't fail
+        }
+    }
+
+    fprintf(stderr, "✅ [C++] vst3_set_state: state restored successfully\n");
+    return true;
 }
 
 // ============================================================================

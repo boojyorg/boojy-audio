@@ -104,6 +104,9 @@ pub struct TrackData {
     /// Input monitoring enabled
     #[serde(default)]
     pub input_monitoring: bool,
+    /// VST3 plugins on this track
+    #[serde(default)]
+    pub vst3_plugins: Vec<Vst3PluginData>,
 }
 
 /// Clip data (audio or MIDI)
@@ -173,6 +176,21 @@ pub struct SendData {
     pub amount: f32,
     /// Pre-fader send
     pub pre_fader: bool,
+}
+
+/// VST3 plugin data for serialization
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Vst3PluginData {
+    /// Effect ID in the audio graph (runtime identifier)
+    pub effect_id: u64,
+    /// Plugin file path (to reload the plugin)
+    pub plugin_path: String,
+    /// Plugin name
+    pub plugin_name: String,
+    /// Is this an instrument (vs effect)?
+    pub is_instrument: bool,
+    /// Base64-encoded plugin state blob
+    pub state_base64: String,
 }
 
 /// Synthesizer settings data

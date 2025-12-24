@@ -11,6 +11,16 @@ Build a beginner-friendly plugin UI system with embedded-first approach and opti
 - Detects Serum, Serum 2, and Serum 2 FX plugins
 - Plugin type detection (instruments vs effects) working
 
+**Phase 2: Plugin Editor UI - COMPLETE**
+- Embedded editor in bottom panel (docked mode)
+- Floating window support with position persistence
+- Native NSView hosting via AppKitView on macOS
+
+**Phase 3: VST3 State Persistence - COMPLETE**
+- Plugin state save/load with projects
+- Binary state blob (processor + controller) serialized to base64
+- Automatic restoration on project load
+
 ---
 
 ## Design Summary
@@ -176,7 +186,25 @@ Build a beginner-friendly plugin UI system with embedded-first approach and opti
 ## Execution Order
 
 1. **Phase 1** — C++ backend ✅ COMPLETE
-2. **Phase 2** — Embedded view (core functionality)
-3. **Phase 3** — Floating windows (power user feature)
-4. **Phase 4** — FX Chain view (effect management)
-5. **Phase 5** — Preferences and polish
+2. **Phase 2** — Embedded view ✅ COMPLETE
+3. **Phase 3** — Floating windows ✅ COMPLETE
+4. **Phase 3.5** — State persistence ✅ COMPLETE
+5. **Phase 4** — FX Chain view (effect management)
+6. **Phase 5** — Preferences and polish
+
+---
+
+## Remaining Work
+
+### Not Yet Implemented
+
+| Feature | Priority | Effort | Description |
+|---------|----------|--------|-------------|
+| Plugin Bypass | High | Low | Enable/disable effect without removing |
+| Preset Management | Medium | Medium | Factory/user presets, browsing, saving |
+| Latency Compensation | Medium | Medium | Report & compensate for plugin latency |
+| Performance Optimization | Medium | Medium | Batch frame processing instead of single-sample |
+| Multi-Output Plugins | Medium | Medium | Currently only uses first stereo pair |
+| Sidechain Support | Low | High | For compressors, etc. |
+| Parameter Automation | Medium | High | Record/playback parameter changes |
+| Windows/Linux Support | High | Very High | Currently macOS only |

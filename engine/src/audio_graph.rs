@@ -1158,6 +1158,7 @@ impl AudioGraph {
         use crate::project::*;
         use crate::effects::EffectType as ET;
         use std::collections::HashMap;
+        use base64::Engine as _;
 
         // Get all tracks
         let track_manager = self.track_manager.lock().expect("mutex poisoned");
@@ -1293,6 +1294,37 @@ impl AudioGraph {
                 pre_fader: s.pre_fader,
             }).collect();
 
+            // Collect VST3 plugin data with state
+            #[cfg(not(target_os = "ios"))]
+            let vst3_plugins: Vec<Vst3PluginData> = track.fx_chain.iter().filter_map(|effect_id| {
+                if let Some(effect_arc) = effect_manager.get_effect(*effect_id) {
+                    let effect = effect_arc.lock().expect("mutex poisoned");
+                    if let ET::VST3(vst3) = &*effect {
+                        // Get plugin state
+                        let state_data = vst3.get_state().unwrap_or_default();
+                        let state_base64 = base64::Engine::encode(
+                            &base64::engine::general_purpose::STANDARD,
+                            &state_data
+                        );
+
+                        Some(Vst3PluginData {
+                            effect_id: *effect_id,
+                            plugin_path: vst3.get_plugin_path().to_string(),
+                            plugin_name: vst3.get_name().to_string(),
+                            is_instrument: vst3.is_instrument,
+                            state_base64,
+                        })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }).collect();
+
+            #[cfg(target_os = "ios")]
+            let vst3_plugins: Vec<Vst3PluginData> = Vec::new();
+
             TrackData {
                 id: track.id,
                 name: track.name.clone(),
@@ -1308,6 +1340,7 @@ impl AudioGraph {
                 sends,
                 parent_group_id: track.parent_group,
                 input_monitoring: track.input_monitoring,
+                vst3_plugins,
             }
         }).collect();
 
@@ -1485,6 +1518,11 @@ impl AudioGraph {
 
             // Recreate effects on this track
             for effect_data in &track_data.fx_chain {
+                // Skip VST3 effects in fx_chain - they are restored from vst3_plugins
+                if effect_data.effect_type == "vst3" {
+                    continue;
+                }
+
                 let effect = match effect_data.effect_type.as_str() {
                     "eq" => {
                         let mut eq = ParametricEQ::new();
@@ -1547,6 +1585,64 @@ impl AudioGraph {
                 if let Some(track_arc) = tm.get_track(track_id) {
                     let mut track = track_arc.lock().expect("mutex poisoned");
                     track.fx_chain.push(effect_id);
+                }
+            }
+
+            // Restore VST3 plugins from vst3_plugins field
+            #[cfg(not(target_os = "ios"))]
+            {
+                use base64::Engine as _;
+                use crate::vst3_host::VST3Effect;
+                use crate::audio_file::TARGET_SAMPLE_RATE;
+
+                for vst3_data in &track_data.vst3_plugins {
+                    eprintln!("   - Restoring VST3 plugin: {} from {}", vst3_data.plugin_name, vst3_data.plugin_path);
+
+                    // Load the VST3 plugin
+                    let sample_rate = TARGET_SAMPLE_RATE as f64;
+                    let block_size = 512; // TODO: Get from config
+
+                    match VST3Effect::new(&vst3_data.plugin_path, sample_rate, block_size) {
+                        Ok(mut vst3_effect) => {
+                            // Initialize the plugin
+                            if let Err(e) = vst3_effect.initialize() {
+                                eprintln!("⚠️  Failed to initialize VST3 plugin {}: {}", vst3_data.plugin_name, e);
+                                continue;
+                            }
+
+                            // Restore plugin state
+                            if !vst3_data.state_base64.is_empty() {
+                                match base64::engine::general_purpose::STANDARD.decode(&vst3_data.state_base64) {
+                                    Ok(state_bytes) => {
+                                        if let Err(e) = vst3_effect.set_state(&state_bytes) {
+                                            eprintln!("⚠️  Failed to restore VST3 state for {}: {}", vst3_data.plugin_name, e);
+                                        } else {
+                                            eprintln!("   ✅ Restored VST3 state ({} bytes)", state_bytes.len());
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("⚠️  Failed to decode VST3 state for {}: {}", vst3_data.plugin_name, e);
+                                    }
+                                }
+                            }
+
+                            // Add to effect manager
+                            let effect = EffectType::VST3(vst3_effect);
+                            let effect_id = effect_manager.create_effect(effect);
+
+                            // Add to track's FX chain
+                            let tm = self.track_manager.lock().expect("mutex poisoned");
+                            if let Some(track_arc) = tm.get_track(track_id) {
+                                let mut track = track_arc.lock().expect("mutex poisoned");
+                                track.fx_chain.push(effect_id);
+                            }
+
+                            eprintln!("   ✅ Loaded VST3 plugin {} (effect_id={})", vst3_data.plugin_name, effect_id);
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  Failed to load VST3 plugin {}: {}", vst3_data.plugin_name, e);
+                        }
+                    }
                 }
             }
 
