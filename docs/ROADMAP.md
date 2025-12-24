@@ -1,7 +1,7 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 23, 2025
-**Current Status:** M6.8 Complete (Track Height Resizing), M7 In Progress
+**Last Updated:** December 24, 2025
+**Current Status:** M7 In Progress (VST3 Scanning Complete)
 
 ---
 
@@ -239,11 +239,15 @@ Week 0    Week 10   Week 15   Week 22
 
 ### M7: VST3 Plugin Support (Weeks 14-15)
 
-- Scan installed VST3 plugins
-- Load third-party plugins
-- Plugin UI in separate window (Ableton-style)
-- Parameter save/load with projects
-- Compatible with commercial plugins
+- ✅ Scan installed VST3 plugins (Serum, Serum 2, Serum 2 FX detected)
+- ✅ Re-enable plugin loading backend (C++ vst3_host)
+- ✅ Audio processing implementation (ProcessData, buffer setup)
+- ✅ MIDI event handling (Note On/Off)
+- 🚧 Plugin UI in bottom panel (embedded-first approach)
+- 📋 Floating window support (pop-out option)
+- 📋 FX Chain view (visual effect chain)
+- 📋 Parameter save/load with projects
+- 📋 Per-plugin preferences (embed vs float)
 
 **Target:** Late December 2025
 
@@ -528,9 +532,12 @@ Items identified for future cleanup (not blocking current development):
 
 **Current Focus (M7):**
 
-- Complete VST3 native GUI integration
-- Test with commercial plugins (Serum, Vital, etc.)
-- Plugin preset save/load with projects
+- ✅ VST3 scanning complete (Serum, Serum 2, Serum 2 FX detected)
+- ✅ C++ backend re-enabled (loading, audio processing, MIDI)
+- 🚧 Build embedded plugin view (bottom panel)
+- 📋 Floating window support
+- 📋 FX Chain view
+- 📋 Plugin preset save/load with projects
 
 **Next Up (M8):**
 

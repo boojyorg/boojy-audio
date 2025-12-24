@@ -21,25 +21,25 @@ This document breaks the MVP into **7 actionable milestones** (M1–M7), each re
 
 ## Milestone Overview (Gantt-Style Timeline)
 
-| Milestone | Focus Area                   | Duration | Status             |
-|-----------|------------------------------|----------|---------------------|
-| **M0**    | Project Setup                | 1 week   | ✅ Complete        |
-| **M1**    | Core Playback                | 2 weeks  | ✅ Complete        |
-| **M2**    | Recording                    | 2 weeks  | ✅ Complete        |
-| **M3**    | Editing                      | 3 weeks  | ✅ Complete        |
-| **M4**    | Mixing                       | 2 weeks  | ✅ Complete        |
-| **M5**    | Save & Export                | 1 week   | ✅ Complete        |
-| **M5.5**  | UI Polish & Resizable Panels | 1 week   | ✅ Complete        |
-| **M5.6**  | Track Duplication            | 1 day    | ✅ Complete        |
-| **M6**    | MIDI & Piano Roll            | 3 weeks  | ✅ Complete        |
-| **M6.5**  | MIDI & Arrangement Improvements | 1 week | ✅ Complete        |
-| **M6.6**  | iOS/iPad Support             | 1 week   | ✅ Complete        |
-| **M6.7**  | Piano Roll Improvements      | 1 week   | ✅ Complete        |
-| **M6.8**  | Track Height Resizing        | 1 day    | ✅ Complete        |
-| **M7**    | VST3 Plugin Support          | 2 weeks  | 🚧 In Progress     |
-| **M8**    | Stock Instruments            | 3 weeks  | 📋 Ready           |
-| **M9**    | Polish & UX                  | 2 weeks  | 📋 Ready           |
-| **M10**   | Beta Testing & Launch        | 2 weeks  | 📋 Ready           |
+| Milestone | Focus Area                      | Duration | Status                             |
+|-----------|--------------------------------|----------|-------------------------------------|
+| **M0**    | Project Setup                  | 1 week   | ✅ Complete                        |
+| **M1**    | Core Playback                  | 2 weeks  | ✅ Complete                        |
+| **M2**    | Recording                      | 2 weeks  | ✅ Complete                        |
+| **M3**    | Editing                        | 3 weeks  | ✅ Complete                        |
+| **M4**    | Mixing                         | 2 weeks  | ✅ Complete                        |
+| **M5**    | Save & Export                  | 1 week   | ✅ Complete                        |
+| **M5.5**  | UI Polish & Resizable Panels   | 1 week   | ✅ Complete                        |
+| **M5.6**  | Track Duplication              | 1 day    | ✅ Complete                        |
+| **M6**    | MIDI & Piano Roll              | 3 weeks  | ✅ Complete                        |
+| **M6.5**  | MIDI & Arrangement Improvements| 1 week   | ✅ Complete                        |
+| **M6.6**  | iOS/iPad Support               | 1 week   | ✅ Complete                        |
+| **M6.7**  | Piano Roll Improvements        | 1 week   | ✅ Complete                        |
+| **M6.8**  | Track Height Resizing          | 1 day    | ✅ Complete                        |
+| **M7**    | VST3 Plugin Support            | 2 weeks  | 🚧 In Progress (Scanning Complete) |
+| **M8**    | Stock Instruments              | 3 weeks  | 📋 Ready                           |
+| **M9**    | Polish & UX                    | 2 weeks  | 📋 Ready                           |
+| **M10**   | Beta Testing & Launch          | 2 weeks  | 📋 Ready                           |
 
 **Total estimated time:** 22 weeks (~5-6 months)
 
