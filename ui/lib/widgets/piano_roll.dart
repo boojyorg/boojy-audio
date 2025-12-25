@@ -45,14 +45,12 @@ class _PianoRollState extends State<PianoRoll> {
   // View range (88 piano keys: A0 = 21 to C8 = 108)
   static const int _minMidiNote = 0;
   static const int _maxMidiNote = 127;
-  static const int _defaultViewStartNote = 36; // C2
-  static const int _defaultViewEndNote = 84;   // C6 (4 octaves)
+  static const int _defaultViewEndNote = 84; // C6 (default scroll position)
 
   // Clip state
   MidiClipData? _currentClip;
 
   // UI state
-  bool _isDrawingNote = false;
   MidiNoteData? _previewNote;
   Offset? _dragStart;
 
@@ -60,9 +58,6 @@ class _PianoRollState extends State<PianoRoll> {
   InteractionMode _currentMode = InteractionMode.draw;
 
   // Selection state
-  MidiNoteData? _hoveredNote;
-  String? _hoveredEdge; // 'left', 'right', or null
-  bool _isResizing = false;
   String? _resizingNoteId;
   String? _resizingEdge; // 'left' or 'right'
 
@@ -84,9 +79,19 @@ class _PianoRollState extends State<PianoRoll> {
   // Track note currently being moved (without selection highlight)
   String? _movingNoteId;
 
-  // Eraser mode state (right-click drag to delete multiple notes)
+  // Eraser mode state (Ctrl/Cmd+drag to delete multiple notes)
   bool _isErasing = false;
   Set<String> _erasedNoteIds = {};
+  Offset? _rightClickStartPosition; // Track right-click start for context menu
+  MidiNoteData? _rightClickNote; // Note under right-click for context menu on release
+
+  // Duplicate mode state (Alt+drag to duplicate notes)
+  bool _isDuplicating = false;
+  MidiNoteData? _duplicateSourceNote; // Original note being duplicated
+
+  // Stamp copy state for Alt+drag (creates repeated copies when extended)
+  int _stampCopyCount = 0;
+  List<MidiNoteData> _stampCopyPreviews = [];
 
   // Velocity lane state
   bool _velocityLaneExpanded = false;
@@ -124,6 +129,9 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Store original note positions at drag start for proper delta calculation
   Map<String, MidiNoteData> _dragStartNotes = {};
+
+  // Insert marker position (in beats, separate from playhead)
+  double? _insertMarkerBeats;
 
   // Global undo/redo manager
   final UndoRedoManager _undoRedoManager = UndoRedoManager();
@@ -530,19 +538,52 @@ class _PianoRollState extends State<PianoRoll> {
                             child: SizedBox(
                               width: canvasWidth,
                               height: canvasHeight,
-                              // Listener captures right-click drag for eraser mode
+                              // Listener captures right-click for context menu and Ctrl/Cmd for eraser/delete
                               child: Listener(
                                 onPointerDown: (event) {
                                   if (event.buttons == kSecondaryMouseButton) {
-                                    _startErasing(event.localPosition);
+                                    // Right-click: record position for context menu on release
+                                    _rightClickStartPosition = event.localPosition;
+                                    _rightClickNote = _findNoteAtPosition(event.localPosition);
+                                  } else if (event.buttons == kPrimaryMouseButton) {
+                                    // Left-click with Ctrl/Cmd: prepare for delete/eraser
+                                    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                                        HardwareKeyboard.instance.isControlPressed;
+                                    if (isCtrlOrCmd) {
+                                      final note = _findNoteAtPosition(event.localPosition);
+                                      if (note != null) {
+                                        // Ctrl/Cmd+click on note = instant delete
+                                        _deleteNote(note);
+                                      }
+                                    }
                                   }
                                 },
                                 onPointerMove: (event) {
-                                  if (_isErasing && event.buttons == kSecondaryMouseButton) {
-                                    _eraseNotesAt(event.localPosition);
+                                  if (event.buttons == kPrimaryMouseButton) {
+                                    // Ctrl/Cmd+drag = eraser mode
+                                    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                                        HardwareKeyboard.instance.isControlPressed;
+                                    if (isCtrlOrCmd) {
+                                      if (!_isErasing) {
+                                        _startErasing(event.localPosition);
+                                      } else {
+                                        _eraseNotesAt(event.localPosition);
+                                      }
+                                    }
                                   }
                                 },
                                 onPointerUp: (event) {
+                                  // Show context menu on right-click release
+                                  if (_rightClickNote != null && _rightClickStartPosition != null) {
+                                    // Convert local position to global for menu positioning
+                                    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+                                    if (renderBox != null) {
+                                      final globalPosition = renderBox.localToGlobal(_rightClickStartPosition!);
+                                      _showNoteContextMenu(globalPosition, _rightClickNote!);
+                                    }
+                                  }
+                                  _rightClickStartPosition = null;
+                                  _rightClickNote = null;
                                   if (_isErasing) {
                                     _stopErasing();
                                   }
@@ -554,7 +595,7 @@ class _PianoRollState extends State<PianoRoll> {
                                   onTapDown: _onTapDown,
                                   onTapUp: (_) => _stopAudition(),
                                   onTapCancel: _stopAudition,
-                                  onSecondaryTapDown: _onRightClick,
+                                  // Right-click handled by Listener above (context menu on release, eraser on drag)
                                   // Removed long-press deletion - it conflicts with hold-to-preview
                                   // Touch users can use secondary tap or swipe gestures instead
                                   onPanStart: _onPanStart,
@@ -587,8 +628,12 @@ class _PianoRollState extends State<PianoRoll> {
                                             selectionEnd: _selectionEnd,
                                           ),
                                         ),
+                                        // Stamp copy previews (Alt+drag)
+                                        ..._buildStampCopyNotePreviews(),
                                         // Loop end marker (draggable)
                                         _buildLoopEndMarker(activeBeats, canvasHeight),
+                                        // Insert marker (blue dashed line)
+                                        _buildInsertMarker(canvasHeight),
                                       ],
                                     ),
                                   ),
@@ -800,6 +845,62 @@ class _PianoRollState extends State<PianoRoll> {
                   color: Colors.white,
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build ghost preview widgets for stamp copy notes during Alt+drag
+  List<Widget> _buildStampCopyNotePreviews() {
+    if (_stampCopyPreviews.isEmpty) return [];
+
+    return _stampCopyPreviews.map((previewNote) {
+      final noteX = previewNote.startTime * _pixelsPerBeat;
+      final noteY = (_maxMidiNote - previewNote.note) * _pixelsPerNote;
+      final noteWidth = previewNote.duration * _pixelsPerBeat;
+
+      return Positioned(
+        left: noteX,
+        top: noteY,
+        child: IgnorePointer(
+          child: Container(
+            width: noteWidth,
+            height: _pixelsPerNote,
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+              border: Border.all(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.6),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Build insert marker (blue dashed line) - spec v2.0
+  Widget _buildInsertMarker(double canvasHeight) {
+    if (_insertMarkerBeats == null) return const SizedBox.shrink();
+
+    final markerX = _insertMarkerBeats! * _pixelsPerBeat;
+
+    return Positioned(
+      left: markerX - 1, // Center the 2px line
+      top: 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: 2,
+          height: canvasHeight,
+          child: CustomPaint(
+            painter: _DashedLinePainter(
+              color: const Color(0xFF2196F3), // Blue color
+              strokeWidth: 2,
+              dashLength: 6,
+              gapLength: 4,
             ),
           ),
         ),
@@ -1090,8 +1191,18 @@ class _PianoRollState extends State<PianoRoll> {
 
   /// Build bar number ruler with Ableton-style drag-to-zoom
   /// Click and drag vertically: up = zoom in, down = zoom out
+  /// Click: place insert marker (spec v2.0)
   Widget _buildBarRuler(double totalBeats, double canvasWidth) {
     return GestureDetector(
+      onTapUp: (details) {
+        // Click ruler to place insert marker (spec v2.0)
+        final scrollOffset = _horizontalScroll.hasClients ? _horizontalScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beats = xInContent / _pixelsPerBeat;
+        setState(() {
+          _insertMarkerBeats = beats.clamp(0.0, double.infinity);
+        });
+      },
       onVerticalDragStart: (details) {
         _zoomDragStartY = details.globalPosition.dy;
         _zoomStartPixelsPerBeat = _pixelsPerBeat;
@@ -1182,15 +1293,24 @@ class _PianoRollState extends State<PianoRoll> {
     final position = event.localPosition;
     final hoveredNote = _findNoteAtPosition(position);
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isSliceActive = _sliceModeEnabled || isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
 
     if (hoveredNote != null) {
-      if (isSliceActive) {
-        // Slice mode - show vertical split cursor
+      if (isCtrlOrCmd) {
+        // Ctrl/Cmd held - show delete cursor
         setState(() {
-          _currentCursor = SystemMouseCursors.verticalText; // Vertical line cursor for slicing
-          _hoveredNote = hoveredNote;
-          _hoveredEdge = null;
+          _currentCursor = SystemMouseCursors.forbidden;
+        });
+      } else if (_sliceModeEnabled) {
+        // Slice mode (toggle button only) - show vertical split cursor
+        setState(() {
+          _currentCursor = SystemMouseCursors.verticalText;
+        });
+      } else if (isAltPressed) {
+        // Alt held - show copy cursor for duplicate
+        setState(() {
+          _currentCursor = SystemMouseCursors.copy;
         });
       } else {
         final edge = _getEdgeAtPosition(position, hoveredNote);
@@ -1199,39 +1319,55 @@ class _PianoRollState extends State<PianoRoll> {
           // Near edge - show resize cursor
           setState(() {
             _currentCursor = SystemMouseCursors.resizeLeftRight;
-            _hoveredNote = hoveredNote;
-            _hoveredEdge = edge;
           });
         } else {
           // On note body - show grab cursor
           setState(() {
             _currentCursor = SystemMouseCursors.grab;
-            _hoveredNote = hoveredNote;
-            _hoveredEdge = null;
           });
         }
       }
     } else {
       // Empty space - default cursor for note creation
       setState(() {
-        _currentCursor = SystemMouseCursors.basic; // Default cursor
-        _hoveredNote = null;
-        _hoveredEdge = null;
+        _currentCursor = SystemMouseCursors.basic;
       });
     }
   }
 
   void _onTapDown(TapDownDetails details) {
     final clickedNote = _findNoteAtPosition(details.localPosition);
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isSliceActive = _sliceModeEnabled || isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+
+    // Ctrl/Cmd+click = delete (handled by Listener, but skip normal handling)
+    if (isCtrlOrCmd) {
+      return;
+    }
 
     if (clickedNote != null) {
-      // Check if slice mode is active
-      if (isSliceActive) {
+      // Check if slice mode is active (toggle button only, Alt is now for duplicate)
+      if (_sliceModeEnabled) {
         // Slice the note at click position
         final beatPosition = _getBeatAtX(details.localPosition.dx);
         _sliceNoteAt(clickedNote, beatPosition);
+        return;
+      }
+
+      // Shift+click on note = toggle selection
+      if (isShiftPressed) {
+        setState(() {
+          _currentClip = _currentClip?.copyWith(
+            notes: _currentClip!.notes.map((n) {
+              if (n.id == clickedNote.id) {
+                return n.copyWith(isSelected: !n.isSelected);
+              }
+              return n;
+            }).toList(),
+          );
+        });
+        _notifyClipUpdated();
         return;
       }
 
@@ -1240,8 +1376,8 @@ class _PianoRollState extends State<PianoRoll> {
 
       // Clear just-created tracking since we clicked on existing note
       _justCreatedNoteId = null;
-    } else if (!isSliceActive) {
-      // Empty space click - create note immediately
+    } else {
+      // Single-click on empty space creates a note (FL Studio style)
       _saveToHistory();
       final beat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
       final note = _getNoteAtY(details.localPosition.dy);
@@ -1291,16 +1427,49 @@ class _PianoRollState extends State<PianoRoll> {
     final clickedNote = _findNoteAtPosition(details.localPosition);
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isSliceActive = _sliceModeEnabled || isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+
+    // Skip normal pan handling if Ctrl/Cmd is held (eraser mode handled by Listener)
+    if (isCtrlOrCmd) {
+      return;
+    }
 
     if (isShiftPressed && clickedNote == null) {
-      // Start multi-select with shift+drag
+      // Shift+drag on empty = marquee select
       setState(() {
         _isSelecting = true;
         _selectionStart = details.localPosition;
         _selectionEnd = details.localPosition;
         _currentMode = InteractionMode.select;
       });
+    } else if (isAltPressed && clickedNote != null) {
+      // Alt+drag on note = duplicate mode
+      _saveToHistory();
+      _isDuplicating = true;
+      _duplicateSourceNote = clickedNote;
+
+      // Create a duplicate immediately at the same position
+      final duplicatedNote = clickedNote.copyWith(
+        id: '${clickedNote.note}_${clickedNote.startTime}_${DateTime.now().microsecondsSinceEpoch}',
+        isSelected: false,
+      );
+
+      // Store original positions for proper delta calculation
+      _dragStartNotes = {duplicatedNote.id: duplicatedNote};
+
+      setState(() {
+        // Add the duplicate to the clip
+        _currentClip = _currentClip?.copyWith(
+          notes: [..._currentClip!.notes, duplicatedNote],
+        );
+        _movingNoteId = duplicatedNote.id; // Track the duplicate for moving
+        _currentMode = InteractionMode.move;
+        _currentCursor = SystemMouseCursors.copy;
+      });
+
+      _startAudition(clickedNote.note, clickedNote.velocity);
+      debugPrint('📋 Started Alt+drag duplicate of ${clickedNote.noteName}');
     } else if (_justCreatedNoteId != null) {
       // User is dragging from where they just created a note - move it (FL Studio style)
       final createdNote = _currentClip?.notes.firstWhere(
@@ -1330,7 +1499,7 @@ class _PianoRollState extends State<PianoRoll> {
 
       // Clear just-created tracking
       _justCreatedNoteId = null;
-    } else if (clickedNote != null && !isSliceActive) {
+    } else if (clickedNote != null && !_sliceModeEnabled) {
       // Check if we're near the edge for resizing (FL Studio style)
       final edge = _getEdgeAtPosition(details.localPosition, clickedNote);
 
@@ -1338,7 +1507,6 @@ class _PianoRollState extends State<PianoRoll> {
         // Start resizing from left or right edge
         _saveToHistory(); // Save before resizing
         setState(() {
-          _isResizing = true;
           _resizingNoteId = clickedNote.id;
           _resizingEdge = edge; // Store which edge ('left' or 'right')
           _currentMode = InteractionMode.resize;
@@ -1397,11 +1565,36 @@ class _PianoRollState extends State<PianoRoll> {
       }
     } else if (_currentMode == InteractionMode.move && _dragStart != null) {
       // Move selected notes - use delta from original drag start position
+      // Shift key bypasses grid snap for fine adjustment
+      final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
       final deltaX = details.localPosition.dx - _dragStart!.dx;
       final deltaY = details.localPosition.dy - _dragStart!.dy;
 
       final deltaBeat = deltaX / _pixelsPerBeat;
       final deltaNote = -(deltaY / _pixelsPerNote).round(); // Inverted Y
+
+      // Calculate stamp copies for Alt+drag (spec v2.0)
+      if (_isDuplicating && _duplicateSourceNote != null) {
+        final sourceDuration = _duplicateSourceNote!.duration;
+        if (deltaBeat > sourceDuration) {
+          final newStampCount = (deltaBeat / sourceDuration).floor();
+          if (newStampCount != _stampCopyCount) {
+            // Update stamp copy previews
+            final previews = <MidiNoteData>[];
+            for (int i = 1; i <= newStampCount; i++) {
+              previews.add(_duplicateSourceNote!.copyWith(
+                startTime: _duplicateSourceNote!.startTime + (i * sourceDuration),
+                id: 'preview_$i',
+              ));
+            }
+            _stampCopyCount = newStampCount;
+            _stampCopyPreviews = previews;
+          }
+        } else {
+          _stampCopyCount = 0;
+          _stampCopyPreviews = [];
+        }
+      }
 
       // Track pitch changes for audition
       int? newPitchForAudition;
@@ -1418,7 +1611,8 @@ class _PianoRollState extends State<PianoRoll> {
               // Use original position from drag start, not current position
               final originalNote = _dragStartNotes[n.id];
               if (originalNote != null) {
-                final newStartTime = _snapToGrid(originalNote.startTime + deltaBeat).clamp(0.0, 64.0);
+                final rawStartTime = originalNote.startTime + deltaBeat;
+                final newStartTime = (isShiftPressed ? rawStartTime : _snapToGrid(rawStartTime)).clamp(0.0, 64.0);
                 final newNote = (originalNote.note + deltaNote).clamp(0, 127);
 
                 // Capture the new pitch for audition
@@ -1454,12 +1648,15 @@ class _PianoRollState extends State<PianoRoll> {
       _notifyClipUpdated();
     } else if (_currentMode == InteractionMode.resize && _resizingNoteId != null) {
       // Resize note from left or right edge (FL Studio style)
+      // Shift key bypasses grid snap for fine adjustment
+      final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
       MidiNoteData? resizedNote;
       setState(() {
         _currentClip = _currentClip?.copyWith(
           notes: _currentClip!.notes.map((n) {
             if (n.id == _resizingNoteId) {
-              final newBeat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
+              final rawBeat = _getBeatAtX(details.localPosition.dx);
+              final newBeat = isShiftPressed ? rawBeat : _snapToGrid(rawBeat);
 
               if (_resizingEdge == 'right') {
                 // Right edge: change duration only
@@ -1549,11 +1746,37 @@ class _PianoRollState extends State<PianoRoll> {
       });
     }
 
-    // Commit move operation to history
+    // Commit move or duplicate operation to history
     if (_currentMode == InteractionMode.move) {
-      final selectedCount = _currentClip?.selectedNotes.length ?? 0;
-      if (selectedCount > 0) {
-        _commitToHistory(selectedCount == 1 ? 'Move note' : 'Move $selectedCount notes');
+      if (_isDuplicating) {
+        // Create stamp copies if any (spec v2.0)
+        if (_stampCopyCount > 0 && _duplicateSourceNote != null) {
+          final sourceDuration = _duplicateSourceNote!.duration;
+          final newNotes = <MidiNoteData>[];
+          for (int i = 1; i <= _stampCopyCount; i++) {
+            newNotes.add(_duplicateSourceNote!.copyWith(
+              startTime: _duplicateSourceNote!.startTime + (i * sourceDuration),
+              id: '${_duplicateSourceNote!.note}_${_duplicateSourceNote!.startTime + (i * sourceDuration)}_${DateTime.now().microsecondsSinceEpoch + i}',
+              isSelected: false,
+            ));
+          }
+          setState(() {
+            _currentClip = _currentClip?.copyWith(
+              notes: [..._currentClip!.notes, ...newNotes],
+            );
+          });
+          _commitToHistory('Stamp ${_stampCopyCount + 1} notes');
+          debugPrint('📋 Created $_stampCopyCount stamp copies');
+        } else {
+          // Single duplicate
+          _commitToHistory('Duplicate note');
+          debugPrint('📋 Alt+drag duplicate completed');
+        }
+      } else {
+        final selectedCount = _currentClip?.selectedNotes.length ?? 0;
+        if (selectedCount > 0) {
+          _commitToHistory(selectedCount == 1 ? 'Move note' : 'Move $selectedCount notes');
+        }
       }
     }
 
@@ -1575,7 +1798,10 @@ class _PianoRollState extends State<PianoRoll> {
       _dragStart = null;
       _dragStartNotes = {}; // Clear stored original positions
       _movingNoteId = null; // Clear moving note tracking
-      _isResizing = false;
+      _isDuplicating = false; // Clear duplicate mode
+      _duplicateSourceNote = null;
+      _stampCopyCount = 0; // Clear stamp copy state
+      _stampCopyPreviews = [];
       _resizingNoteId = null;
       _resizingEdge = null;
       _currentMode = InteractionMode.draw;
@@ -1620,7 +1846,48 @@ class _PianoRollState extends State<PianoRoll> {
            HardwareKeyboard.instance.isControlPressed)) {
         _pasteNotes();
       }
+      // Q to quantize selected notes
+      else if (event.logicalKey == LogicalKeyboardKey.keyQ &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        _quantizeSelectedNotes();
+      }
+      // Cmd+D or Ctrl+D to duplicate selected notes
+      else if ((event.logicalKey == LogicalKeyboardKey.keyD) &&
+          (HardwareKeyboard.instance.isMetaPressed ||
+           HardwareKeyboard.instance.isControlPressed)) {
+        _duplicateSelectedNotes();
+      }
+      // Cmd+A or Ctrl+A to select all notes
+      else if ((event.logicalKey == LogicalKeyboardKey.keyA) &&
+          (HardwareKeyboard.instance.isMetaPressed ||
+           HardwareKeyboard.instance.isControlPressed)) {
+        _selectAllNotes();
+      }
+      // Escape to deselect all notes
+      else if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _deselectAllNotes();
+      }
     }
+  }
+
+  /// Deselect all notes
+  void _deselectAllNotes() {
+    if (_currentClip == null) return;
+
+    final hasSelection = _currentClip!.notes.any((n) => n.isSelected);
+    if (!hasSelection) {
+      debugPrint('⚠️ No notes selected to deselect');
+      return;
+    }
+
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+      );
+    });
+
+    debugPrint('⎋ Deselected all notes');
   }
 
   /// Copy selected notes to clipboard
@@ -1634,6 +1901,30 @@ class _PianoRollState extends State<PianoRoll> {
     // Store copies of selected notes (deselected)
     _clipboard = selectedNotes.map((note) => note.copyWith(isSelected: false)).toList();
     debugPrint('📋 Copied ${_clipboard.length} notes to clipboard');
+  }
+
+  /// Cut selected notes (copy to clipboard, then delete)
+  void _cutSelectedNotes() {
+    final selectedNotes = _currentClip?.selectedNotes ?? [];
+    if (selectedNotes.isEmpty) {
+      debugPrint('⚠️ No notes selected to cut');
+      return;
+    }
+
+    // Copy to clipboard first
+    _clipboard = selectedNotes.map((note) => note.copyWith(isSelected: false)).toList();
+
+    // Then delete the selected notes
+    _saveToHistory();
+    final selectedIds = selectedNotes.map((n) => n.id).toSet();
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.where((n) => !selectedIds.contains(n.id)).toList(),
+      );
+    });
+    _notifyClipUpdated();
+    _commitToHistory(selectedNotes.length == 1 ? 'Cut note' : 'Cut ${selectedNotes.length} notes');
+    debugPrint('✂️ Cut ${_clipboard.length} notes to clipboard');
   }
 
   /// Paste notes from clipboard
@@ -1684,6 +1975,66 @@ class _PianoRollState extends State<PianoRoll> {
     debugPrint('📌 Pasted ${newNotes.length} notes');
   }
 
+  /// Duplicate selected notes (place copies after originals)
+  void _duplicateSelectedNotes() {
+    final selectedNotes = _currentClip?.selectedNotes ?? [];
+    if (selectedNotes.isEmpty) {
+      debugPrint('⚠️ No notes selected to duplicate');
+      return;
+    }
+
+    _saveToHistory();
+
+    // Find duration of selection to offset duplicates
+    final minStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
+    final maxEnd = selectedNotes.map((n) => n.endTime).reduce((a, b) => a > b ? a : b);
+    final selectionDuration = maxEnd - minStart;
+
+    // Create duplicates offset by selection duration
+    final duplicates = selectedNotes.map((note) {
+      return note.copyWith(
+        id: '${note.note}_${note.startTime + selectionDuration}_${DateTime.now().microsecondsSinceEpoch}',
+        startTime: note.startTime + selectionDuration,
+        isSelected: true,
+      );
+    }).toList();
+
+    // Deselect originals and add duplicates
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: [
+          ..._currentClip!.notes.map((n) => n.copyWith(isSelected: false)),
+          ...duplicates,
+        ],
+      );
+
+      // Auto-extend loop if needed
+      for (final note in duplicates) {
+        _autoExtendLoopIfNeeded(note);
+      }
+    });
+
+    _notifyClipUpdated();
+    _commitToHistory(duplicates.length == 1 ? 'Duplicate note' : 'Duplicate ${duplicates.length} notes');
+    debugPrint('📋 Duplicated ${duplicates.length} notes');
+  }
+
+  /// Select all notes in the current clip
+  void _selectAllNotes() {
+    if (_currentClip == null || _currentClip!.notes.isEmpty) {
+      debugPrint('⚠️ No notes to select');
+      return;
+    }
+
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.map((n) => n.copyWith(isSelected: true)).toList(),
+      );
+    });
+
+    debugPrint('🎯 Selected all ${_currentClip!.notes.length} notes');
+  }
+
   void _deleteSelectedNotes() {
     final selectedCount = _currentClip?.selectedNotes.length ?? 0;
     setState(() {
@@ -1696,22 +2047,198 @@ class _PianoRollState extends State<PianoRoll> {
     _commitToHistory(selectedCount == 1 ? 'Delete note' : 'Delete $selectedCount notes');
   }
 
-  /// Handle right-click on canvas (single click delete)
-  void _onRightClick(TapDownDetails details) {
-    final clickedNote = _findNoteAtPosition(details.localPosition);
+  /// Show context menu for a note
+  void _showNoteContextMenu(Offset position, MidiNoteData note) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selectedNotes = _currentClip?.selectedNotes ?? [];
+    final bool hasSelection = selectedNotes.isNotEmpty;
+    final int selectedCount = hasSelection ? selectedNotes.length : 1;
+    final String noteLabel = selectedCount == 1 ? 'Note' : '$selectedCount Notes';
 
-    if (clickedNote != null) {
-      // Right-clicked on a note - delete it immediately
-      _saveToHistory(); // Save before deleting
-      setState(() {
-        _currentClip = _currentClip?.copyWith(
-          notes: _currentClip!.notes.where((n) => n.id != clickedNote.id).toList(),
-        );
-      });
-      _notifyClipUpdated();
-      _commitToHistory('Delete note: ${clickedNote.noteName}');
-      debugPrint('🗑️ Deleted note: ${clickedNote.noteName}');
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 18),
+              const SizedBox(width: 8),
+              Text('Delete $noteLabel'),
+              const Spacer(),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              const Icon(Icons.content_copy, size: 18),
+              const SizedBox(width: 8),
+              Text('Duplicate $noteLabel'),
+              const Spacer(),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'cut',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              Text('Cut $noteLabel'),
+              const Spacer(),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'copy',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 18),
+              const SizedBox(width: 8),
+              Text('Copy $noteLabel'),
+              const Spacer(),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'paste',
+          enabled: _clipboard.isNotEmpty,
+          child: Row(
+            children: [
+              const Icon(Icons.paste, size: 18),
+              const SizedBox(width: 8),
+              const Text('Paste'),
+              const Spacer(),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'quantize',
+          child: Row(
+            children: [
+              Icon(Icons.grid_on, size: 18),
+              SizedBox(width: 8),
+              Text('Quantize'),
+              Spacer(),
+              Text('Q', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'velocity',
+          child: Row(
+            children: [
+              const Icon(Icons.speed, size: 18),
+              const SizedBox(width: 8),
+              Text('Velocity: ${note.velocity}'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      switch (value) {
+        case 'delete':
+          if (hasSelection) {
+            _deleteSelectedNotes();
+          } else {
+            _deleteNote(note);
+          }
+          break;
+        case 'duplicate':
+          if (hasSelection) {
+            _duplicateSelectedNotes();
+          } else {
+            _duplicateNote(note);
+          }
+          break;
+        case 'cut':
+          _cutSelectedNotes();
+          break;
+        case 'copy':
+          _copySelectedNotes();
+          break;
+        case 'paste':
+          _pasteNotes();
+          break;
+        case 'velocity':
+          // Show velocity dialog - for now just toggle velocity lane
+          setState(() => _velocityLaneExpanded = true);
+          break;
+        case 'quantize':
+          _quantizeSelectedNotes();
+          break;
+      }
+    });
+  }
+
+  /// Delete a specific note
+  void _deleteNote(MidiNoteData note) {
+    _saveToHistory();
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.where((n) => n.id != note.id).toList(),
+      );
+    });
+    _notifyClipUpdated();
+    _commitToHistory('Delete note: ${note.noteName}');
+    debugPrint('🗑️ Deleted note: ${note.noteName}');
+  }
+
+  /// Duplicate a note (place copy slightly after original)
+  void _duplicateNote(MidiNoteData note) {
+    _saveToHistory();
+    final newNote = note.copyWith(
+      startTime: note.startTime + note.duration,
+      id: '${note.note}_${note.startTime + note.duration}_${DateTime.now().microsecondsSinceEpoch}',
+    );
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: [..._currentClip!.notes, newNote],
+      );
+    });
+    _notifyClipUpdated();
+    _commitToHistory('Duplicate note: ${note.noteName}');
+    debugPrint('📋 Duplicated note: ${note.noteName}');
+  }
+
+  /// Quantize selected notes to grid
+  void _quantizeSelectedNotes() {
+    final selectedNotes = _currentClip?.notes.where((n) => n.isSelected).toList() ?? [];
+    if (selectedNotes.isEmpty) {
+      debugPrint('No notes selected for quantize');
+      return;
     }
+
+    _saveToHistory();
+    final gridSize = _gridDivision;
+    setState(() {
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.map((n) {
+          if (n.isSelected) {
+            return n.quantize(gridSize);
+          }
+          return n;
+        }).toList(),
+      );
+    });
+    _notifyClipUpdated();
+    _commitToHistory('Quantize ${selectedNotes.length} notes');
+    debugPrint('📐 Quantized ${selectedNotes.length} notes to grid');
   }
 
   /// Start eraser mode (right-click drag)
@@ -1746,5 +2273,46 @@ class _PianoRollState extends State<PianoRoll> {
     _isErasing = false;
     _erasedNoteIds = {};
     setState(() => _currentCursor = SystemMouseCursors.basic);
+  }
+}
+
+/// Painter for dashed vertical line (insert marker)
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashLength;
+  final double gapLength;
+
+  _DashedLinePainter({
+    required this.color,
+    this.strokeWidth = 2,
+    this.dashLength = 6,
+    this.gapLength = 4,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    double y = 0;
+    while (y < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, (y + dashLength).clamp(0, size.height)),
+        paint,
+      );
+      y += dashLength + gapLength;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashLength != dashLength ||
+        oldDelegate.gapLength != gapLength;
   }
 }

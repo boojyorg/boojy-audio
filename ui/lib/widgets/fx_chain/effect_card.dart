@@ -35,12 +35,12 @@ class EffectCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
         color: effect.bypassed
-            ? const Color(0xFF1E1E1E).withOpacity(0.5)
+            ? const Color(0xFF1E1E1E).withValues(alpha: 0.5)
             : const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: effect.bypassed
-              ? const Color(0xFF404040).withOpacity(0.5)
+              ? const Color(0xFF404040).withValues(alpha: 0.5)
               : const Color(0xFF404040),
         ),
       ),
@@ -65,7 +65,7 @@ class EffectCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: effect.bypassed
-            ? const Color(0xFF2B2B2B).withOpacity(0.5)
+            ? const Color(0xFF2B2B2B).withValues(alpha: 0.5)
             : const Color(0xFF2B2B2B),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),

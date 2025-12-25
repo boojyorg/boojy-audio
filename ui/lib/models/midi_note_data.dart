@@ -47,17 +47,18 @@ class MidiNoteData {
     final velocityNorm = velocity / 127.0;
 
     // Base mint green color
-    final baseColor = const Color(0xFF7FD4A0);
+    const baseColor = Color(0xFF7FD4A0);
 
     // Adjust brightness: darker for low velocity, brighter for high velocity
     // Range from 0.4 (dark) to 1.0 (bright)
     final brightness = 0.4 + (velocityNorm * 0.6);
 
-    return Color.fromRGBO(
-      (baseColor.red * brightness).round(),
-      (baseColor.green * brightness).round(),
-      (baseColor.blue * brightness).round(),
-      1.0, // Fully opaque - no transparency
+    // Use new Color API (.r/.g/.b return 0-1 values)
+    return Color.from(
+      alpha: 1.0,
+      red: baseColor.r * brightness,
+      green: baseColor.g * brightness,
+      blue: baseColor.b * brightness,
     );
   }
 
@@ -172,6 +173,12 @@ class MidiClipData {
   /// Clip color (inherited from track)
   final Color? color;
 
+  /// Whether this clip is muted
+  final bool isMuted;
+
+  /// Whether this clip is looping (vs one-shot)
+  final bool isLooping;
+
   MidiClipData({
     required this.clipId,
     required this.trackId,
@@ -182,6 +189,8 @@ class MidiClipData {
     this.notes = const [],
     this.name = 'MIDI Clip',
     this.color,
+    this.isMuted = false,
+    this.isLooping = false,
   }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
@@ -202,6 +211,8 @@ class MidiClipData {
       notes: [...notes, note],
       name: name,
       color: color,
+      isMuted: isMuted,
+      isLooping: isLooping,
     );
   }
 
@@ -217,6 +228,8 @@ class MidiClipData {
       notes: notes.where((n) => n.id != noteId).toList(),
       name: name,
       color: color,
+      isMuted: isMuted,
+      isLooping: isLooping,
     );
   }
 
@@ -232,6 +245,8 @@ class MidiClipData {
       notes: notes.map((n) => n.id == noteId ? updatedNote : n).toList(),
       name: name,
       color: color,
+      isMuted: isMuted,
+      isLooping: isLooping,
     );
   }
 
@@ -254,6 +269,8 @@ class MidiClipData {
       }).toList(),
       name: name,
       color: color,
+      isMuted: isMuted,
+      isLooping: isLooping,
     );
   }
 
@@ -269,6 +286,8 @@ class MidiClipData {
       notes: notes.map((n) => n.copyWith(isSelected: false)).toList(),
       name: name,
       color: color,
+      isMuted: isMuted,
+      isLooping: isLooping,
     );
   }
 
@@ -283,6 +302,8 @@ class MidiClipData {
     List<MidiNoteData>? notes,
     String? name,
     Color? color,
+    bool? isMuted,
+    bool? isLooping,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -294,6 +315,8 @@ class MidiClipData {
       notes: notes ?? this.notes,
       name: name ?? this.name,
       color: color ?? this.color,
+      isMuted: isMuted ?? this.isMuted,
+      isLooping: isLooping ?? this.isLooping,
     );
   }
 }

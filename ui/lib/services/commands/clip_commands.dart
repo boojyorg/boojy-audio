@@ -234,3 +234,139 @@ class ResizeMidiNotesCommand extends Command {
   @override
   String get description => noteCount == 1 ? 'Resize note' : 'Resize $noteCount notes';
 }
+
+/// Command to split a MIDI clip at the playhead position
+/// Creates two clips: one before the split point, one after
+class SplitMidiClipCommand extends Command {
+  final MidiClipData originalClip;
+  final double splitPointBeats; // Split position relative to clip start (in beats)
+  final void Function(MidiClipData leftClip, MidiClipData rightClip)? onSplit;
+  final void Function(MidiClipData originalClip)? onUndo;
+
+  // Generated clip IDs for the split clips
+  late final int leftClipId;
+  late final int rightClipId;
+
+  SplitMidiClipCommand({
+    required this.originalClip,
+    required this.splitPointBeats,
+    this.onSplit,
+    this.onUndo,
+  }) {
+    leftClipId = DateTime.now().millisecondsSinceEpoch;
+    rightClipId = leftClipId + 1;
+  }
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    // Split notes into two groups based on the split point
+    final leftNotes = <MidiNoteData>[];
+    final rightNotes = <MidiNoteData>[];
+
+    for (final note in originalClip.notes) {
+      if (note.endTime <= splitPointBeats) {
+        // Note is entirely in the left clip
+        leftNotes.add(note);
+      } else if (note.startTime >= splitPointBeats) {
+        // Note is entirely in the right clip - adjust its start time
+        rightNotes.add(note.copyWith(
+          startTime: note.startTime - splitPointBeats,
+          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
+        ));
+      } else {
+        // Note straddles the split point - truncate it to the left clip
+        leftNotes.add(note.copyWith(
+          duration: splitPointBeats - note.startTime,
+        ));
+      }
+    }
+
+    // Create left clip (same start, shortened duration)
+    final leftClip = originalClip.copyWith(
+      clipId: leftClipId,
+      duration: splitPointBeats,
+      loopLength: splitPointBeats.clamp(0.25, originalClip.loopLength),
+      notes: leftNotes,
+      name: '${originalClip.name} (L)',
+    );
+
+    // Create right clip (starts at split point, remaining duration)
+    final rightDuration = originalClip.duration - splitPointBeats;
+    final rightClip = originalClip.copyWith(
+      clipId: rightClipId,
+      startTime: originalClip.startTime + splitPointBeats,
+      duration: rightDuration,
+      loopLength: rightDuration.clamp(0.25, originalClip.loopLength),
+      notes: rightNotes,
+      name: '${originalClip.name} (R)',
+    );
+
+    onSplit?.call(leftClip, rightClip);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onUndo?.call(originalClip);
+  }
+
+  @override
+  String get description => 'Split MIDI clip: ${originalClip.name}';
+}
+
+/// Command to split an audio clip at the playhead position
+/// Creates two clips using offset for non-destructive editing
+class SplitAudioClipCommand extends Command {
+  final int originalClipId;
+  final int originalTrackId;
+  final String originalFilePath;
+  final double originalStartTime;
+  final double originalDuration;
+  final double originalOffset;
+  final List<double> originalWaveformPeaks;
+  final double splitPointSeconds; // Split position in seconds from timeline start
+
+  final void Function(int leftClipId, int rightClipId)? onSplit;
+  final void Function()? onUndo;
+
+  // Generated clip IDs for the split clips
+  late final int leftClipId;
+  late final int rightClipId;
+
+  SplitAudioClipCommand({
+    required this.originalClipId,
+    required this.originalTrackId,
+    required this.originalFilePath,
+    required this.originalStartTime,
+    required this.originalDuration,
+    required this.originalOffset,
+    required this.originalWaveformPeaks,
+    required this.splitPointSeconds,
+    this.onSplit,
+    this.onUndo,
+  }) {
+    leftClipId = DateTime.now().millisecondsSinceEpoch;
+    rightClipId = leftClipId + 1;
+  }
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    // The actual clip creation happens in the callback
+    // because we need to interact with both the engine and the UI state.
+    // Use the helper getters (leftDuration, rightStartTime, etc.) in the callback.
+    onSplit?.call(leftClipId, rightClipId);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onUndo?.call();
+  }
+
+  @override
+  String get description => 'Split audio clip';
+
+  // Helper getters for the callback to use
+  double get leftDuration => splitPointSeconds - originalStartTime;
+  double get rightStartTime => splitPointSeconds;
+  double get rightDuration => originalDuration - leftDuration;
+  double get rightOffset => originalOffset + leftDuration;
+}

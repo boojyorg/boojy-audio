@@ -288,7 +288,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.2),
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -330,8 +330,8 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: plugin.isInstrument
-                  ? const Color(0xFF2196F3).withOpacity(0.2)
-                  : const Color(0xFFFF9800).withOpacity(0.2),
+                  ? const Color(0xFF2196F3).withValues(alpha: 0.2)
+                  : const Color(0xFFFF9800).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

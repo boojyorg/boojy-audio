@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import '../audio_engine.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/timeline_view.dart';
@@ -81,7 +80,6 @@ class _DAWScreenState extends State<DAWScreen> {
   double get _playheadPosition => _playbackController.playheadPosition;
   set _playheadPosition(double value) => _playbackController.setPlayheadPosition(value);
   bool get _isPlaying => _playbackController.isPlaying;
-  String get _statusMessage => _playbackController.statusMessage;
   set _statusMessage(String value) => _playbackController.setStatusMessage(value);
 
   // Recording state now managed by _recordingController
@@ -245,7 +243,7 @@ class _DAWScreenState extends State<DAWScreen> {
     super.dispose();
   }
 
-  void _initAudioEngine() async {
+  Future<void> _initAudioEngine() async {
     try {
       // Load plugin preferences early (before any plugin operations)
       await PluginPreferencesService.load();
@@ -331,49 +329,6 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _loadAudioFile(String path) async {
-    if (_audioEngine == null || !_isAudioGraphInitialized) return;
-
-    setState(() {
-      _isLoading = true;
-      _statusMessage = 'Loading file...';
-    });
-
-    try {
-      // Load the file
-      final clipId = _audioEngine!.loadAudioFile(path);
-      
-      if (clipId < 0) {
-        setState(() {
-          _statusMessage = 'Failed to load file';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Get duration
-      final duration = _audioEngine!.getClipDuration(clipId);
-      
-      // Get waveform peaks for visualization
-      final peaks = _audioEngine!.getWaveformPeaks(clipId, 2000);
-      
-      setState(() {
-        _loadedClipId = clipId;
-        _clipDuration = duration;
-        _waveformPeaks = peaks;
-        _statusMessage = 'Loaded: ${path.split('/').last} (${duration.toStringAsFixed(2)}s)';
-        _isLoading = false;
-      });
-      
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error loading file: $e';
-        _isLoading = false;
-      });
-      debugPrint('❌ Load error: $e');
-    }
-  }
-
   void _play() {
     _playbackController.play(loadedClipId: _loadedClipId);
   }
@@ -384,19 +339,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
   void _stopPlayback() {
     _playbackController.stop();
-  }
-
-  // File picking method
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['wav', 'mp3', 'flac', 'aif', 'aiff'],
-      dialogTitle: 'Select Audio File',
-    );
-
-    if (result != null && result.files.single.path != null) {
-      _loadAudioFile(result.files.single.path!);
-    }
   }
 
   // M2: Recording methods - delegate to RecordingController
@@ -625,7 +567,7 @@ class _DAWScreenState extends State<DAWScreen> {
     _midiPlaybackManager?.addRecordedClip(defaultClip);
   }
 
-  void _onInstrumentDroppedOnEmpty(Instrument instrument) async {
+  Future<void> _onInstrumentDroppedOnEmpty(Instrument instrument) async {
     if (_audioEngine == null) return;
 
     // Create a new MIDI track using UndoRedoManager
@@ -656,7 +598,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // VST3 Instrument drop handlers
-  void _onVst3InstrumentDropped(int trackId, Vst3Plugin plugin) async {
+  Future<void> _onVst3InstrumentDropped(int trackId, Vst3Plugin plugin) async {
     if (_audioEngine == null) return;
 
     try {
@@ -694,7 +636,7 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _onVst3InstrumentDroppedOnEmpty(Vst3Plugin plugin) async {
+  Future<void> _onVst3InstrumentDroppedOnEmpty(Vst3Plugin plugin) async {
     if (_audioEngine == null) return;
 
     try {
@@ -756,7 +698,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Audio file drop handler - creates new audio track with clip
-  void _onAudioFileDroppedOnEmpty(String filePath) async {
+  Future<void> _onAudioFileDroppedOnEmpty(String filePath) async {
     if (_audioEngine == null) return;
 
     try {
@@ -806,7 +748,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Drag-to-create handlers
-  void _onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
+  Future<void> _onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
     if (_audioEngine == null) return;
 
     try {
@@ -1098,7 +1040,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // M10: VST3 Plugin methods - delegating to Vst3PluginManager
 
-  void _scanVst3Plugins({bool forceRescan = false}) async {
+  Future<void> _scanVst3Plugins({bool forceRescan = false}) async {
     if (_vst3PluginManager == null) return;
 
     setState(() {
@@ -1143,7 +1085,7 @@ class _DAWScreenState extends State<DAWScreen> {
     });
   }
 
-  void _showVst3PluginBrowser(int trackId) async {
+  Future<void> _showVst3PluginBrowser(int trackId) async {
     if (_vst3PluginManager == null) return;
 
     final vst3Browser = await showVst3PluginBrowser(
@@ -1395,6 +1337,213 @@ class _DAWScreenState extends State<DAWScreen> {
     _midiClipController.duplicateSelectedClip();
   }
 
+  void _splitSelectedClipAtPlayhead() {
+    // Use insert marker position if available, otherwise fall back to playhead
+    final insertMarkerSeconds = _timelineKey.currentState?.getInsertMarkerSeconds();
+    final splitPosition = insertMarkerSeconds ?? _playheadPosition;
+    final usingInsertMarker = insertMarkerSeconds != null;
+
+    // Try MIDI clip first
+    if (_midiPlaybackManager?.selectedClipId != null) {
+      final success = _midiClipController.splitSelectedClipAtPlayhead(splitPosition);
+      if (success && mounted) {
+        setState(() {
+          _statusMessage = usingInsertMarker
+              ? 'Split MIDI clip at insert marker'
+              : 'Split MIDI clip at playhead';
+        });
+        return;
+      }
+    }
+
+    // Try audio clip if no MIDI clip or MIDI split failed
+    final audioSplit = _timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
+    if (audioSplit && mounted) {
+      setState(() {
+        _statusMessage = usingInsertMarker
+            ? 'Split audio clip at insert marker'
+            : 'Split audio clip at playhead';
+      });
+      return;
+    }
+
+    // Neither worked
+    if (mounted) {
+      setState(() {
+        _statusMessage = usingInsertMarker
+            ? 'Cannot split: select a clip and place insert marker within it'
+            : 'Cannot split: select a clip and place playhead within it';
+      });
+    }
+  }
+
+  void _quantizeSelectedClip() {
+    // Default grid size: 1 beat (quarter note)
+    const gridSizeBeats = 1.0;
+    final beatsPerSecond = _tempo / 60.0;
+    final gridSizeSeconds = gridSizeBeats / beatsPerSecond;
+
+    // Try MIDI clip first
+    if (_midiPlaybackManager?.selectedClipId != null) {
+      final success = _midiClipController.quantizeSelectedClip(gridSizeBeats);
+      if (success && mounted) {
+        setState(() {
+          _statusMessage = 'Quantized MIDI clip to grid';
+        });
+        return;
+      }
+    }
+
+    // Try audio clip
+    final audioQuantized = _timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ?? false;
+    if (audioQuantized && mounted) {
+      setState(() {
+        _statusMessage = 'Quantized audio clip to grid';
+      });
+      return;
+    }
+
+    // Neither worked
+    if (mounted) {
+      setState(() {
+        _statusMessage = 'Cannot quantize: select a clip first';
+      });
+    }
+  }
+
+  /// Select all clips in the timeline view
+  void _selectAllClips() {
+    _timelineKey.currentState?.selectAllClips();
+    if (mounted) {
+      setState(() {
+        _statusMessage = 'Selected all clips';
+      });
+    }
+  }
+
+  /// Bounce MIDI to Audio - renders MIDI through instrument to audio file
+  /// NOTE: This is a placeholder that shows planned feature message.
+  /// Full implementation requires Rust-side single-track offline rendering.
+  void _bounceMidiToAudio() {
+    final selectedClipId = _midiPlaybackManager?.selectedClipId;
+    final selectedClip = _midiPlaybackManager?.currentEditingClip;
+
+    if (selectedClipId == null || selectedClip == null) {
+      setState(() {
+        _statusMessage = 'Select a MIDI clip to bounce to audio';
+      });
+      return;
+    }
+
+    // Show dialog explaining this is a planned feature
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bounce MIDI to Audio'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Selected clip: ${selectedClip.name}'),
+            const SizedBox(height: 12),
+            const Text(
+              'This feature will render the MIDI clip through its instrument '
+              'to create an audio file.\n\n'
+              'Coming soon in a future update.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Consolidate multiple selected MIDI clips into a single clip
+  void _consolidateSelectedClips() {
+    final timelineState = _timelineKey.currentState;
+    if (timelineState == null) return;
+
+    // Get selected MIDI clips
+    final selectedMidiClips = timelineState.selectedMidiClips;
+
+    if (selectedMidiClips.length < 2) {
+      setState(() {
+        _statusMessage = 'Select 2 or more MIDI clips to consolidate';
+      });
+      return;
+    }
+
+    // Ensure all clips are on the same track
+    final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
+    if (trackIds.length > 1) {
+      setState(() {
+        _statusMessage = 'Cannot consolidate clips from different tracks';
+      });
+      return;
+    }
+
+    final trackId = trackIds.first;
+
+    // Sort clips by start time
+    final sortedClips = List<MidiClipData>.from(selectedMidiClips)
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Calculate consolidated clip bounds
+    final firstClipStart = sortedClips.first.startTime;
+    final lastClipEnd = sortedClips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
+    final totalDuration = lastClipEnd - firstClipStart;
+
+    // Merge all notes with adjusted timing
+    final mergedNotes = <MidiNoteData>[];
+    for (final clip in sortedClips) {
+      final clipOffset = clip.startTime - firstClipStart;
+      for (final note in clip.notes) {
+        mergedNotes.add(note.copyWith(
+          startTime: note.startTime + clipOffset,
+          id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
+        ));
+      }
+    }
+
+    // Sort notes by start time
+    mergedNotes.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Create consolidated clip
+    final consolidatedClip = MidiClipData(
+      clipId: DateTime.now().millisecondsSinceEpoch,
+      trackId: trackId,
+      startTime: firstClipStart,
+      duration: totalDuration,
+      loopLength: totalDuration,
+      notes: mergedNotes,
+      name: 'Consolidated',
+      color: sortedClips.first.color,
+    );
+
+    // Delete original clips
+    for (final clip in sortedClips) {
+      _midiClipController.deleteClip(clip.clipId, clip.trackId);
+    }
+
+    // Add consolidated clip
+    _midiClipController.addClip(consolidatedClip);
+    _midiClipController.updateClip(consolidatedClip, _playheadPosition);
+
+    // Select the new consolidated clip
+    _midiPlaybackManager?.selectClip(consolidatedClip.clipId, consolidatedClip);
+    timelineState.clearClipSelection();
+
+    setState(() {
+      _statusMessage = 'Consolidated ${sortedClips.length} clips into one';
+    });
+  }
+
   void _deleteMidiClip(int clipId, int trackId) {
     _midiClipController.deleteClip(clipId, trackId);
   }
@@ -1403,7 +1552,7 @@ class _DAWScreenState extends State<DAWScreen> {
   // Undo/Redo methods
   // ========================================================================
 
-  void _performUndo() async {
+  Future<void> _performUndo() async {
     final success = await _undoRedoManager.undo();
     if (success && mounted) {
       setState(() {
@@ -1413,7 +1562,7 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _performRedo() async {
+  Future<void> _performRedo() async {
     final success = await _undoRedoManager.redo();
     if (success && mounted) {
       setState(() {
@@ -1473,7 +1622,7 @@ class _DAWScreenState extends State<DAWScreen> {
     );
   }
 
-  void _openProject() async {
+  Future<void> _openProject() async {
     try {
       // Use macOS native file picker
       final result = await Process.run('osascript', [
@@ -1493,6 +1642,7 @@ class _DAWScreenState extends State<DAWScreen> {
         }
 
         if (!path.endsWith('.audio')) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please select a .audio folder')),
           );
@@ -1527,6 +1677,7 @@ class _DAWScreenState extends State<DAWScreen> {
           _isLoading = false;
         });
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(loadResult.result.message)),
         );
@@ -1534,6 +1685,7 @@ class _DAWScreenState extends State<DAWScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       debugPrint('Open project failed: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to open project: $e')),
       );
@@ -1541,11 +1693,12 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   /// Open a project from a specific path (used by Open Recent)
-  void _openRecentProject(String path) async {
+  Future<void> _openRecentProject(String path) async {
     // Check if path still exists
     final dir = Directory(path);
     if (!await dir.exists()) {
       _userSettings.removeRecentProject(path);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Project no longer exists')),
       );
@@ -1581,12 +1734,14 @@ class _DAWScreenState extends State<DAWScreen> {
         _isLoading = false;
       });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(loadResult.result.message)),
       );
     } catch (e) {
       setState(() => _isLoading = false);
       debugPrint('Open recent project failed: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to open project: $e')),
       );
@@ -1625,7 +1780,7 @@ class _DAWScreenState extends State<DAWScreen> {
     ];
   }
 
-  void _saveProject() async {
+  Future<void> _saveProject() async {
     if (_projectManager?.currentPath != null) {
       _saveProjectToPath(_projectManager!.currentPath!);
     } else {
@@ -1633,7 +1788,7 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _saveProjectAs() async {
+  Future<void> _saveProjectAs() async {
     // Show dialog to enter project name
     final nameController = TextEditingController(text: _projectManager?.currentName ?? 'Untitled Project');
 
@@ -1690,7 +1845,7 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _saveProjectToPath(String path) async {
+  Future<void> _saveProjectToPath(String path) async {
     setState(() => _isLoading = true);
 
     final result = await _projectManager!.saveProjectToPath(path, _getCurrentUILayout());
@@ -1811,6 +1966,7 @@ class _DAWScreenState extends State<DAWScreen> {
           ),
           TextButton(
             onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
 
               // Get export path
@@ -1825,18 +1981,18 @@ class _DAWScreenState extends State<DAWScreen> {
                   if (path.isNotEmpty) {
                     try {
                       final exportResult = _audioEngine!.exportToWav(path, true);
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      scaffoldMessenger.showSnackBar(
                         SnackBar(content: Text(exportResult)),
                       );
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      scaffoldMessenger.showSnackBar(
                         SnackBar(content: Text('Export not yet implemented: $e')),
                       );
                     }
                   }
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   SnackBar(content: Text('Failed to export: $e')),
                 );
               }
@@ -1875,7 +2031,7 @@ class _DAWScreenState extends State<DAWScreen> {
     );
   }
 
-  void _makeCopy() async {
+  Future<void> _makeCopy() async {
     if (_projectManager?.currentPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2299,6 +2455,36 @@ class _DAWScreenState extends State<DAWScreen> {
               onSelected: _duplicateSelectedClip,
             ),
             PlatformMenuItem(
+              label: 'Split at Marker',
+              shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
+              onSelected: (_midiPlaybackManager?.selectedClipId != null ||
+                      _timelineKey.currentState?.selectedAudioClipId != null)
+                  ? _splitSelectedClipAtPlayhead
+                  : null,
+            ),
+            PlatformMenuItem(
+              label: 'Quantize Clip',
+              shortcut: const SingleActivator(LogicalKeyboardKey.keyQ),
+              onSelected: (_midiPlaybackManager?.selectedClipId != null ||
+                      _timelineKey.currentState?.selectedAudioClipId != null)
+                  ? _quantizeSelectedClip
+                  : null,
+            ),
+            PlatformMenuItem(
+              label: 'Consolidate Clips',
+              shortcut: const SingleActivator(LogicalKeyboardKey.keyJ, meta: true),
+              onSelected: (_timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
+                  ? _consolidateSelectedClips
+                  : null,
+            ),
+            PlatformMenuItem(
+              label: 'Bounce MIDI to Audio',
+              shortcut: const SingleActivator(LogicalKeyboardKey.keyB, meta: true),
+              onSelected: _midiPlaybackManager?.selectedClipId != null
+                  ? _bounceMidiToAudio
+                  : null,
+            ),
+            PlatformMenuItem(
               label: 'Select All',
               shortcut: const SingleActivator(LogicalKeyboardKey.keyA, meta: true),
               onSelected: null, // Disabled - future feature
@@ -2360,6 +2546,18 @@ class _DAWScreenState extends State<DAWScreen> {
         bindings: <ShortcutActivator, VoidCallback>{
           // ? key (Shift + /) to show keyboard shortcuts
           const SingleActivator(LogicalKeyboardKey.slash, shift: true): _showKeyboardShortcuts,
+          // Cmd+E to split clip at insert marker (or playhead if no marker)
+          const SingleActivator(LogicalKeyboardKey.keyE, meta: true): _splitSelectedClipAtPlayhead,
+          // Q to quantize clip (context-aware: works for clips in arrangement)
+          const SingleActivator(LogicalKeyboardKey.keyQ): _quantizeSelectedClip,
+          // Cmd+D to duplicate clip
+          const SingleActivator(LogicalKeyboardKey.keyD, meta: true): _duplicateSelectedClip,
+          // Cmd+A to select all clips (in timeline view)
+          const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAllClips,
+          // Cmd+J to consolidate clips
+          const SingleActivator(LogicalKeyboardKey.keyJ, meta: true): _consolidateSelectedClips,
+          // Cmd+B to bounce MIDI to audio
+          const SingleActivator(LogicalKeyboardKey.keyB, meta: true): _bounceMidiToAudio,
         },
         child: Focus(
           autofocus: true,

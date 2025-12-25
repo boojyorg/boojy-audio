@@ -431,7 +431,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             if (_isAudioFileDragging)
               Positioned.fill(
                 child: Container(
-                  color: const Color(0xFF4CAF50).withOpacity(0.1),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -83,7 +83,7 @@ class _FileDropZoneState extends State<FileDropZone> {
         padding: const EdgeInsets.all(48),
         decoration: BoxDecoration(
           color: _isDragging
-              ? const Color(0xFF4CAF50).withOpacity(0.1)
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
               : const Color(0xFF2B2B2B),
           border: Border.all(
             color: _isDragging

@@ -83,6 +83,134 @@ class MidiClipController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Split the selected MIDI clip at the playhead position
+  /// Returns true if split was successful, false otherwise
+  bool splitSelectedClipAtPlayhead(double playheadPositionSeconds) {
+    final clip = _midiPlaybackManager?.currentEditingClip;
+    if (clip == null) {
+      debugPrint('[MidiClipController] No clip selected for split');
+      return false;
+    }
+
+    // Convert playhead from seconds to beats
+    final playheadBeats = secondsToBeats(playheadPositionSeconds);
+
+    // Check if playhead is within the clip bounds
+    if (playheadBeats <= clip.startTime || playheadBeats >= clip.endTime) {
+      debugPrint('[MidiClipController] Playhead ($playheadBeats) not within clip bounds (${clip.startTime} - ${clip.endTime})');
+      return false;
+    }
+
+    // Calculate split point relative to clip start (in beats)
+    final splitPointRelative = playheadBeats - clip.startTime;
+
+    // Split notes into two groups based on the split point
+    final leftNotes = <MidiNoteData>[];
+    final rightNotes = <MidiNoteData>[];
+
+    for (final note in clip.notes) {
+      if (note.endTime <= splitPointRelative) {
+        // Note is entirely in the left clip
+        leftNotes.add(note);
+      } else if (note.startTime >= splitPointRelative) {
+        // Note is entirely in the right clip - adjust its start time
+        rightNotes.add(note.copyWith(
+          startTime: note.startTime - splitPointRelative,
+          id: '${note.note}_${note.startTime - splitPointRelative}_${DateTime.now().microsecondsSinceEpoch}',
+        ));
+      } else {
+        // Note straddles the split point - truncate it to the left clip
+        leftNotes.add(note.copyWith(
+          duration: splitPointRelative - note.startTime,
+        ));
+      }
+    }
+
+    // Generate new clip IDs
+    final leftClipId = DateTime.now().millisecondsSinceEpoch;
+    final rightClipId = leftClipId + 1;
+
+    // Create left clip (same start, shortened duration)
+    final leftClip = clip.copyWith(
+      clipId: leftClipId,
+      duration: splitPointRelative,
+      loopLength: splitPointRelative.clamp(0.25, clip.loopLength),
+      notes: leftNotes,
+      name: '${clip.name} (L)',
+    );
+
+    // Create right clip (starts at split point, remaining duration)
+    final rightDuration = clip.duration - splitPointRelative;
+    final rightClip = clip.copyWith(
+      clipId: rightClipId,
+      startTime: clip.startTime + splitPointRelative,
+      duration: rightDuration,
+      loopLength: rightDuration.clamp(0.25, clip.loopLength),
+      notes: rightNotes,
+      name: '${clip.name} (R)',
+    );
+
+    // Get Rust clip ID before removing
+    final rustClipId = _midiPlaybackManager?.dartToRustClipIds[clip.clipId];
+
+    // Remove original clip from Dart side
+    _midiPlaybackManager?.removeClip(clip.clipId);
+
+    // Remove from Rust engine
+    if (rustClipId != null) {
+      _audioEngine?.removeMidiClip(clip.trackId, rustClipId);
+    }
+
+    // Add both new clips
+    _midiPlaybackManager?.addRecordedClip(leftClip);
+    _midiPlaybackManager?.addRecordedClip(rightClip);
+
+    // Schedule both clips for playback
+    _midiPlaybackManager?.updateClip(leftClip, _tempo, 0);
+    _midiPlaybackManager?.updateClip(rightClip, _tempo, 0);
+
+    // Select the right clip (more intuitive for continued editing after split)
+    _midiPlaybackManager?.selectClip(rightClipId, rightClip);
+
+    debugPrint('[MidiClipController] Split clip "${clip.name}" at beat $playheadBeats');
+    notifyListeners();
+    return true;
+  }
+
+  /// Quantize the selected MIDI clip's start time to the nearest grid position
+  /// [gridSizeBeats] is the grid resolution in beats (e.g., 1.0 for quarter notes, 0.5 for eighth notes)
+  /// Returns true if quantize was successful
+  bool quantizeSelectedClip(double gridSizeBeats) {
+    final clip = _midiPlaybackManager?.currentEditingClip;
+    if (clip == null) {
+      debugPrint('[MidiClipController] No clip selected for quantize');
+      return false;
+    }
+
+    // Quantize start time to nearest grid position
+    final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
+
+    // Only update if position changed
+    if ((quantizedStart - clip.startTime).abs() < 0.001) {
+      debugPrint('[MidiClipController] Clip already quantized');
+      return false;
+    }
+
+    // Create updated clip with quantized start time
+    final quantizedClip = clip.copyWith(startTime: quantizedStart);
+
+    // Update in manager
+    final index = _midiPlaybackManager!.midiClips.indexWhere((c) => c.clipId == clip.clipId);
+    if (index >= 0) {
+      // We need to update the clip through the manager
+      _midiPlaybackManager!.updateClip(quantizedClip, _tempo, 0);
+    }
+
+    debugPrint('[MidiClipController] Quantized clip "${clip.name}" from ${clip.startTime} to $quantizedStart beats');
+    notifyListeners();
+    return true;
+  }
+
   /// Delete a MIDI clip by ID
   void deleteClip(int clipId, int trackId) {
     // Get Rust clip ID before removing from Dart side

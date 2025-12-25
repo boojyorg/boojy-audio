@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
 import 'instrument_browser.dart';

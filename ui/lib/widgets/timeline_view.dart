@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/gestures.dart' show PointerScrollEvent;
+import 'package:flutter/gestures.dart' show PointerScrollEvent, kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
 import 'dart:async';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
 import '../audio_engine.dart';
 import '../utils/track_colors.dart';
@@ -120,7 +119,7 @@ class TimelineView extends StatefulWidget {
 
 class TimelineViewState extends State<TimelineView> {
   final ScrollController _scrollController = ScrollController();
-  double _pixelsPerBeat = 50.0; // Zoom level (beat-based, tempo-independent)
+  double _pixelsPerBeat = 25.0; // Zoom level (beat-based, tempo-independent)
   List<TimelineTrackData> _tracks = [];
   Timer? _refreshTimer;
 
@@ -144,18 +143,59 @@ class TimelineViewState extends State<TimelineView> {
 
   // Snap and copy state
   bool _snapBypassActive = false; // True when Alt/Option held during drag
-  bool _isCopyDrag = false; // True when Shift held at drag start
+  bool _isCopyDrag = false; // True when Alt held at drag start
 
-  // Edge resize state for MIDI clips (arrangement length)
+  // Stamp copy state (Alt+drag creates repeated copies when extended)
+  double _stampCopySourceDuration = 0.0; // Duration of source clip (in beats for MIDI, seconds for audio)
+  int _stampCopyCount = 0; // Number of stamp copies to create (calculated during drag)
+
+  // Edge resize state for MIDI clips (arrangement length - right edge)
   int? _resizingMidiClipId;
   double _resizeStartDuration = 0.0;
   double _resizeStartX = 0.0;
+
+  // Left edge trim state for MIDI clips
+  int? _trimmingMidiClipId;
+  double _trimStartTime = 0.0; // Clip start time at trim begin
+  double _trimStartDuration = 0.0; // Clip duration at trim begin
+  double _trimStartX = 0.0; // Mouse X at trim begin
+
+  // Audio clip selection state (single selection, deprecated - use multi-select)
+  int? _selectedAudioClipId;
+
+  // Multi-selection state for clips
+  final Set<int> _selectedMidiClipIds = {};
+  final Set<int> _selectedAudioClipIds = {};
+
+  // Audio clip trim state (left and right edges)
+  int? _trimmingAudioClipId;
+  bool _isTrimmingLeftEdge = false;
+  double _audioTrimStartTime = 0.0; // Clip start time at trim begin
+  double _audioTrimStartDuration = 0.0; // Clip duration at trim begin
+  double _audioTrimStartOffset = 0.0; // Clip offset at trim begin
+  double _audioTrimStartX = 0.0; // Mouse X at trim begin
 
   // Drag-to-create new clip state
   bool _isDraggingNewClip = false;
   double _newClipStartBeats = 0.0;
   double _newClipEndBeats = 0.0;
   int? _newClipTrackId; // null = create new track, otherwise create clip on existing track
+
+  // Eraser mode state (right-click drag to delete multiple clips)
+  bool _isErasing = false;
+  final Set<int> _erasedAudioClipIds = {};
+  final Set<int> _erasedMidiClipIds = {};
+
+  // Split preview state (hover shows vertical line, Alt+click splits)
+  int? _splitPreviewAudioClipId;
+  int? _splitPreviewMidiClipId;
+  double _splitPreviewBeatPosition = 0.0; // Position within clip bounds (in beats)
+
+  // Insert marker state (separate from playhead, for split/paste operations)
+  double? _insertMarkerBeats; // Position in beats (null = not visible)
+
+  // Clipboard state for copy/paste operations
+  MidiClipData? _clipboardMidiClip;
 
   @override
   void initState() {
@@ -300,6 +340,1110 @@ class TimelineViewState extends State<TimelineView> {
     return _clips.any((clip) => clip.trackId == trackId);
   }
 
+  /// Get selected audio clip ID (if any)
+  int? get selectedAudioClipId => _selectedAudioClipId;
+
+  /// Get selected audio clip data (if any)
+  ClipData? get selectedAudioClip {
+    if (_selectedAudioClipId == null) return null;
+    try {
+      return _clips.firstWhere((c) => c.clipId == _selectedAudioClipId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Select an audio clip by ID
+  void selectAudioClip(int? clipId) {
+    setState(() {
+      _selectedAudioClipId = clipId;
+      // Also update multi-select
+      _selectedAudioClipIds.clear();
+      if (clipId != null) {
+        _selectedAudioClipIds.add(clipId);
+      }
+    });
+  }
+
+  /// Get all selected MIDI clip IDs (multi-selection)
+  Set<int> get selectedMidiClipIds => Set.unmodifiable(_selectedMidiClipIds);
+
+  /// Get all selected audio clip IDs (multi-selection)
+  Set<int> get selectedAudioClipIds => Set.unmodifiable(_selectedAudioClipIds);
+
+  /// Check if a MIDI clip is selected
+  bool isMidiClipSelected(int clipId) => _selectedMidiClipIds.contains(clipId);
+
+  /// Check if an audio clip is selected
+  bool isAudioClipSelected(int clipId) => _selectedAudioClipIds.contains(clipId);
+
+  /// Select a MIDI clip with multi-selection support
+  /// - Normal click: Select only this clip (clear others)
+  /// - Shift+click: Add to selection
+  /// - Cmd+click: Toggle selection
+  void selectMidiClipMulti(int clipId, {bool addToSelection = false, bool toggleSelection = false}) {
+    setState(() {
+      if (toggleSelection) {
+        // Cmd+click: Toggle this clip's selection
+        if (_selectedMidiClipIds.contains(clipId)) {
+          _selectedMidiClipIds.remove(clipId);
+        } else {
+          _selectedMidiClipIds.add(clipId);
+        }
+      } else if (addToSelection) {
+        // Shift+click: Add to selection
+        _selectedMidiClipIds.add(clipId);
+      } else {
+        // Normal click: Select only this clip
+        _selectedMidiClipIds.clear();
+        _selectedMidiClipIds.add(clipId);
+      }
+      // Clear audio selection when selecting MIDI
+      _selectedAudioClipIds.clear();
+      _selectedAudioClipId = null;
+    });
+  }
+
+  /// Select an audio clip with multi-selection support
+  /// - Normal click: Select only this clip (clear others)
+  /// - Shift+click: Add to selection
+  /// - Cmd+click: Toggle selection
+  void selectAudioClipMulti(int clipId, {bool addToSelection = false, bool toggleSelection = false}) {
+    setState(() {
+      if (toggleSelection) {
+        // Cmd+click: Toggle this clip's selection
+        if (_selectedAudioClipIds.contains(clipId)) {
+          _selectedAudioClipIds.remove(clipId);
+          if (_selectedAudioClipId == clipId) {
+            _selectedAudioClipId = _selectedAudioClipIds.isEmpty ? null : _selectedAudioClipIds.first;
+          }
+        } else {
+          _selectedAudioClipIds.add(clipId);
+          _selectedAudioClipId = clipId;
+        }
+      } else if (addToSelection) {
+        // Shift+click: Add to selection
+        _selectedAudioClipIds.add(clipId);
+        _selectedAudioClipId = clipId;
+      } else {
+        // Normal click: Select only this clip
+        _selectedAudioClipIds.clear();
+        _selectedAudioClipIds.add(clipId);
+        _selectedAudioClipId = clipId;
+      }
+      // Clear MIDI selection when selecting audio
+      _selectedMidiClipIds.clear();
+    });
+  }
+
+  /// Clear all clip selections
+  void clearClipSelection() {
+    setState(() {
+      _selectedMidiClipIds.clear();
+      _selectedAudioClipIds.clear();
+      _selectedAudioClipId = null;
+    });
+  }
+
+  /// Select all clips (both MIDI and audio)
+  void selectAllClips() {
+    setState(() {
+      // Select all MIDI clips
+      _selectedMidiClipIds.clear();
+      for (final clip in widget.midiClips) {
+        _selectedMidiClipIds.add(clip.clipId);
+      }
+
+      // Select all audio clips
+      _selectedAudioClipIds.clear();
+      for (final clip in _clips) {
+        _selectedAudioClipIds.add(clip.clipId);
+      }
+    });
+    debugPrint('🎯 Selected all clips: ${_selectedMidiClipIds.length} MIDI, ${_selectedAudioClipIds.length} audio');
+  }
+
+  /// Get all selected MIDI clips data
+  List<MidiClipData> get selectedMidiClips {
+    return widget.midiClips.where((c) => _selectedMidiClipIds.contains(c.clipId)).toList();
+  }
+
+  /// Get all selected audio clips data
+  List<ClipData> get selectedAudioClips {
+    return _clips.where((c) => _selectedAudioClipIds.contains(c.clipId)).toList();
+  }
+
+  /// Split the selected audio clip at the given position (in seconds)
+  /// Returns true if split was successful
+  bool splitSelectedAudioClipAtPlayhead(double playheadSeconds) {
+    final clip = selectedAudioClip;
+    if (clip == null) {
+      debugPrint('[Timeline] No audio clip selected for split');
+      return false;
+    }
+
+    // Check if playhead is within clip bounds
+    if (playheadSeconds <= clip.startTime || playheadSeconds >= clip.endTime) {
+      debugPrint('[Timeline] Playhead ($playheadSeconds) not within audio clip bounds (${clip.startTime} - ${clip.endTime})');
+      return false;
+    }
+
+    // Calculate split point relative to clip start
+    final splitRelative = playheadSeconds - clip.startTime;
+
+    // Generate new clip IDs
+    final leftClipId = DateTime.now().millisecondsSinceEpoch;
+    final rightClipId = leftClipId + 1;
+
+    // Create left clip (same start, shorter duration)
+    final leftClip = clip.copyWith(
+      clipId: leftClipId,
+      duration: splitRelative,
+    );
+
+    // Create right clip (starts at split point, uses offset for audio position)
+    final rightClip = clip.copyWith(
+      clipId: rightClipId,
+      startTime: playheadSeconds,
+      duration: clip.duration - splitRelative,
+      offset: clip.offset + splitRelative,
+    );
+
+    // Remove original clip
+    setState(() {
+      _clips.removeWhere((c) => c.clipId == clip.clipId);
+      _clips.add(leftClip);
+      _clips.add(rightClip);
+      _selectedAudioClipId = rightClipId; // Select the right clip
+    });
+
+    // TODO: Update engine with split clips when engine API supports it
+    // For now, the visual split is applied but engine audio may need refresh
+
+    debugPrint('[Timeline] Split audio clip at ${playheadSeconds}s');
+    return true;
+  }
+
+  /// Quantize the selected audio clip's start time to the nearest grid position
+  /// [gridSizeSeconds] is the grid resolution in seconds
+  /// Returns true if quantize was successful
+  bool quantizeSelectedAudioClip(double gridSizeSeconds) {
+    final clip = selectedAudioClip;
+    if (clip == null) {
+      debugPrint('[Timeline] No audio clip selected for quantize');
+      return false;
+    }
+
+    // Quantize start time to nearest grid position
+    final quantizedStart = (clip.startTime / gridSizeSeconds).round() * gridSizeSeconds;
+
+    // Only update if position changed
+    if ((quantizedStart - clip.startTime).abs() < 0.001) {
+      debugPrint('[Timeline] Audio clip already quantized');
+      return false;
+    }
+
+    // Update clip position
+    widget.audioEngine?.setClipStartTime(clip.trackId, clip.clipId, quantizedStart);
+
+    setState(() {
+      final index = _clips.indexWhere((c) => c.clipId == clip.clipId);
+      if (index >= 0) {
+        _clips[index] = _clips[index].copyWith(startTime: quantizedStart);
+      }
+    });
+
+    debugPrint('[Timeline] Quantized audio clip from ${clip.startTime}s to ${quantizedStart}s');
+    return true;
+  }
+
+  // =========================================================================
+  // Context Menus
+  // =========================================================================
+
+  /// Show context menu for an audio clip
+  void _showAudioClipContextMenu(Offset position, ClipData clip) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 18),
+              const SizedBox(width: 8),
+              const Text('Delete Clip'),
+              const Spacer(),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              const Icon(Icons.content_copy, size: 18),
+              const SizedBox(width: 8),
+              const Text('Duplicate'),
+              const Spacer(),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'split',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              const Text('Split at Marker'),
+              const Spacer(),
+              Text('⌘E', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'cut',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              const Text('Cut'),
+              const Spacer(),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'copy',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 18),
+              const SizedBox(width: 8),
+              const Text('Copy'),
+              const Spacer(),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'paste',
+          child: Row(
+            children: [
+              const Icon(Icons.paste, size: 18),
+              const SizedBox(width: 8),
+              const Text('Paste'),
+              const Spacer(),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'mute',
+          child: Row(
+            children: [
+              Icon(Icons.volume_off, size: 18),
+              SizedBox(width: 8),
+              Text('Mute Clip'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'color',
+          child: Row(
+            children: [
+              Icon(Icons.color_lens, size: 18),
+              SizedBox(width: 8),
+              Text('Color...'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'rename',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 8),
+              Text('Rename...'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      switch (value) {
+        case 'delete':
+          _deleteAudioClip(clip);
+          break;
+        case 'duplicate':
+          _duplicateAudioClip(clip);
+          break;
+        case 'split':
+          // TODO: Implement split for audio clips
+          debugPrint('Split audio clip: ${clip.fileName}');
+          break;
+        case 'cut':
+          // TODO: Implement cut for audio clips
+          debugPrint('Cut audio clip: ${clip.fileName}');
+          break;
+        case 'copy':
+          // TODO: Implement copy for audio clips
+          debugPrint('Copy audio clip: ${clip.fileName}');
+          break;
+        case 'paste':
+          // TODO: Implement paste for audio clips
+          debugPrint('Paste audio clip');
+          break;
+        case 'mute':
+          // TODO: Implement mute for audio clips
+          debugPrint('Mute audio clip: ${clip.fileName}');
+          break;
+        case 'color':
+          // TODO: Implement color picker for audio clips
+          debugPrint('Color audio clip: ${clip.fileName}');
+          break;
+        case 'rename':
+          // TODO: Implement rename for audio clips
+          debugPrint('Rename audio clip: ${clip.fileName}');
+          break;
+      }
+    });
+  }
+
+  /// Show context menu for a MIDI clip
+  void _showMidiClipContextMenu(Offset position, MidiClipData clip) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 18),
+              const SizedBox(width: 8),
+              const Text('Delete Clip'),
+              const Spacer(),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              const Icon(Icons.content_copy, size: 18),
+              const SizedBox(width: 8),
+              const Text('Duplicate'),
+              const Spacer(),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'split',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              const Text('Split at Marker'),
+              const Spacer(),
+              Text('⌘E', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'cut',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut, size: 18),
+              const SizedBox(width: 8),
+              const Text('Cut'),
+              const Spacer(),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'copy',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 18),
+              const SizedBox(width: 8),
+              const Text('Copy'),
+              const Spacer(),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'paste',
+          child: Row(
+            children: [
+              const Icon(Icons.paste, size: 18),
+              const SizedBox(width: 8),
+              const Text('Paste'),
+              const Spacer(),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'mute',
+          child: Row(
+            children: [
+              Icon(Icons.volume_off, size: 18),
+              SizedBox(width: 8),
+              Text('Mute Clip'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'loop',
+          child: Row(
+            children: [
+              Icon(Icons.loop, size: 18),
+              SizedBox(width: 8),
+              Text('Loop Clip'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'bounce',
+          child: Row(
+            children: [
+              Icon(Icons.audiotrack, size: 18),
+              SizedBox(width: 8),
+              Text('Bounce to Audio'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'color',
+          child: Row(
+            children: [
+              Icon(Icons.color_lens, size: 18),
+              SizedBox(width: 8),
+              Text('Color...'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'rename',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 8),
+              Text('Rename...'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      switch (value) {
+        case 'delete':
+          widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+          break;
+        case 'duplicate':
+          _duplicateMidiClip(clip);
+          break;
+        case 'split':
+          // Split at insert marker position
+          _splitMidiClipAtInsertMarker(clip);
+          break;
+        case 'cut':
+          _cutMidiClip(clip);
+          break;
+        case 'copy':
+          _copyMidiClip(clip);
+          break;
+        case 'paste':
+          _pasteMidiClip(clip.trackId);
+          break;
+        case 'mute':
+          _toggleMidiClipMute(clip);
+          break;
+        case 'loop':
+          _toggleMidiClipLoop(clip);
+          break;
+        case 'bounce':
+          // TODO: Implement bounce to audio
+          debugPrint('Bounce MIDI clip: ${clip.name}');
+          break;
+        case 'color':
+          _showColorPicker(clip);
+          break;
+        case 'rename':
+          _showRenameDialog(clip);
+          break;
+      }
+    });
+  }
+
+  /// Delete an audio clip
+  void _deleteAudioClip(ClipData clip) {
+    // Note: Audio clips are managed locally in Flutter state
+    // The Rust engine doesn't have a remove_audio_clip FFI yet
+    setState(() {
+      _clips.removeWhere((c) => c.clipId == clip.clipId);
+      if (_selectedAudioClipId == clip.clipId) {
+        _selectedAudioClipId = null;
+      }
+      _selectedAudioClipIds.remove(clip.clipId);
+    });
+    debugPrint('🗑️ Deleted audio clip: ${clip.fileName}');
+  }
+
+  /// Duplicate an audio clip (place copy after original)
+  void _duplicateAudioClip(ClipData clip) {
+    final newClipId = DateTime.now().millisecondsSinceEpoch;
+    final newStartTime = clip.startTime + clip.duration;
+
+    // Note: Audio clips are managed locally in Flutter state
+    // For full engine support, we'd need to load the file again via loadAudioFileToTrack
+    final newClip = clip.copyWith(
+      clipId: newClipId,
+      startTime: newStartTime,
+    );
+    setState(() {
+      _clips.add(newClip);
+    });
+    debugPrint('📋 Duplicated audio clip: ${clip.fileName}');
+  }
+
+  /// Duplicate a MIDI clip
+  void _duplicateMidiClip(MidiClipData clip) {
+    final newStartTime = clip.startTime + clip.duration;
+    widget.onMidiClipCopied?.call(clip, newStartTime);
+    debugPrint('📋 Duplicated MIDI clip: ${clip.name}');
+  }
+
+  /// Quantize a MIDI clip
+  void _quantizeMidiClip(MidiClipData clip) {
+    const gridSizeBeats = 1.0; // 1 beat
+    final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
+
+    if ((quantizedStart - clip.startTime).abs() < 0.001) {
+      debugPrint('[Timeline] MIDI clip already quantized');
+      return;
+    }
+
+    final quantizedClip = clip.copyWith(startTime: quantizedStart);
+    widget.onMidiClipUpdated?.call(quantizedClip);
+    debugPrint('📐 Quantized MIDI clip to $quantizedStart beats');
+  }
+
+  // ========================================================================
+  // MIDI CLIP CLIPBOARD OPERATIONS
+  // ========================================================================
+
+  /// Copy a MIDI clip to clipboard
+  void _copyMidiClip(MidiClipData clip) {
+    _clipboardMidiClip = clip;
+    debugPrint('📋 Copied MIDI clip: ${clip.name}');
+  }
+
+  /// Cut a MIDI clip (copy to clipboard, then delete)
+  void _cutMidiClip(MidiClipData clip) {
+    _clipboardMidiClip = clip;
+    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+    debugPrint('✂️ Cut MIDI clip: ${clip.name}');
+  }
+
+  /// Paste a MIDI clip from clipboard to track
+  void _pasteMidiClip(int trackId) {
+    if (_clipboardMidiClip == null) {
+      debugPrint('⚠️ No MIDI clip in clipboard');
+      return;
+    }
+
+    // Paste at insert marker if available, otherwise at start
+    final pastePosition = _insertMarkerBeats ?? 0.0;
+    widget.onMidiClipCopied?.call(_clipboardMidiClip!, pastePosition);
+    debugPrint('📌 Pasted MIDI clip at beat $pastePosition');
+  }
+
+  // ========================================================================
+  // MIDI CLIP PROPERTY TOGGLES
+  // ========================================================================
+
+  /// Toggle mute state of a MIDI clip
+  void _toggleMidiClipMute(MidiClipData clip) {
+    final mutedClip = clip.copyWith(isMuted: !clip.isMuted);
+    widget.onMidiClipUpdated?.call(mutedClip);
+    debugPrint('${clip.isMuted ? '🔊' : '🔇'} ${clip.isMuted ? 'Unmuted' : 'Muted'} MIDI clip: ${clip.name}');
+  }
+
+  /// Toggle loop state of a MIDI clip
+  void _toggleMidiClipLoop(MidiClipData clip) {
+    final loopedClip = clip.copyWith(isLooping: !clip.isLooping);
+    widget.onMidiClipUpdated?.call(loopedClip);
+    debugPrint('${clip.isLooping ? '⏹️' : '🔁'} ${clip.isLooping ? 'Disabled' : 'Enabled'} loop for MIDI clip: ${clip.name}');
+  }
+
+  // ========================================================================
+  // MIDI CLIP DIALOGS
+  // ========================================================================
+
+  /// Show color picker for a MIDI clip
+  void _showColorPicker(MidiClipData clip) {
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.pink,
+      Colors.amber,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clip Color'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: colors.map((color) {
+            return GestureDetector(
+              onTap: () {
+                final coloredClip = clip.copyWith(color: color);
+                widget.onMidiClipUpdated?.call(coloredClip);
+                Navigator.of(context).pop();
+                debugPrint('🎨 Set MIDI clip color to ${color.toString()}');
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: clip.color == color ? Colors.white : Colors.transparent,
+                    width: 3,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show rename dialog for a MIDI clip
+  void _showRenameDialog(MidiClipData clip) {
+    final controller = TextEditingController(text: clip.name);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Clip'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Clip Name',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.isNotEmpty) {
+              final renamedClip = clip.copyWith(name: value);
+              widget.onMidiClipUpdated?.call(renamedClip);
+              Navigator.of(context).pop();
+              debugPrint('✏️ Renamed MIDI clip to: $value');
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final value = controller.text;
+              if (value.isNotEmpty) {
+                final renamedClip = clip.copyWith(name: value);
+                widget.onMidiClipUpdated?.call(renamedClip);
+                Navigator.of(context).pop();
+                debugPrint('✏️ Renamed MIDI clip to: $value');
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================================================
+  // ERASER MODE (Ctrl/Cmd+drag to delete multiple clips)
+  // ========================================================================
+
+  /// Start eraser mode
+  void _startErasing(Offset globalPosition) {
+    setState(() {
+      _isErasing = true;
+      _erasedAudioClipIds.clear();
+      _erasedMidiClipIds.clear();
+    });
+    _eraseClipsAt(globalPosition);
+  }
+
+  /// Erase clips at the given position
+  void _eraseClipsAt(Offset globalPosition) {
+    if (!_isErasing) return;
+
+    // Convert global position to local position relative to timeline content
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final localPosition = box.globalToLocal(globalPosition);
+
+    // Calculate beat position from mouse X
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final beatPosition = (localPosition.dx + scrollOffset) / _pixelsPerBeat;
+
+    // Check audio clips
+    for (final clip in _clips) {
+      if (_erasedAudioClipIds.contains(clip.clipId)) continue;
+
+      // Convert clip times from seconds to beats for comparison
+      final beatsPerSecond = widget.tempo / 60.0;
+      final clipStartBeats = clip.startTime * beatsPerSecond;
+      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+
+      // Find track Y position
+      final trackIndex = _tracks.indexWhere((t) => t.id == clip.trackId);
+      if (trackIndex < 0) continue;
+
+      final trackTop = trackIndex * 80.0; // Track height
+      final trackBottom = trackTop + 80.0;
+
+      // Check if mouse is within clip bounds
+      if (beatPosition >= clipStartBeats &&
+          beatPosition <= clipEndBeats &&
+          localPosition.dy >= trackTop &&
+          localPosition.dy <= trackBottom) {
+        _erasedAudioClipIds.add(clip.clipId);
+        _deleteAudioClip(clip);
+        debugPrint('🧹 Erased audio clip: ${clip.fileName}');
+      }
+    }
+
+    // Check MIDI clips
+    for (final midiClip in widget.midiClips) {
+      if (_erasedMidiClipIds.contains(midiClip.clipId)) continue;
+
+      final clipStartBeats = midiClip.startTime;
+      final clipEndBeats = midiClip.startTime + midiClip.duration;
+
+      // Find track Y position
+      final trackIndex = _tracks.indexWhere((t) => t.id == midiClip.trackId);
+      if (trackIndex < 0) continue;
+
+      final trackTop = trackIndex * 80.0;
+      final trackBottom = trackTop + 80.0;
+
+      // Check if mouse is within clip bounds
+      if (beatPosition >= clipStartBeats &&
+          beatPosition <= clipEndBeats &&
+          localPosition.dy >= trackTop &&
+          localPosition.dy <= trackBottom) {
+        _erasedMidiClipIds.add(midiClip.clipId);
+        widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
+        debugPrint('🧹 Erased MIDI clip: ${midiClip.name}');
+      }
+    }
+  }
+
+  /// Stop eraser mode
+  void _stopErasing() {
+    if (_isErasing) {
+      final totalErased = _erasedAudioClipIds.length + _erasedMidiClipIds.length;
+      if (totalErased > 0) {
+        debugPrint('🧹 Eraser mode ended: deleted $totalErased clips');
+      }
+    }
+    setState(() {
+      _isErasing = false;
+      _erasedAudioClipIds.clear();
+      _erasedMidiClipIds.clear();
+    });
+  }
+
+  // ========================================================================
+  // SELECTION (Escape to deselect, Cmd+A to select all)
+  // ========================================================================
+
+  /// Deselect all clips (audio and MIDI)
+  void _deselectAllClips() {
+    final hadSelection = _selectedAudioClipIds.isNotEmpty ||
+        _selectedMidiClipIds.isNotEmpty ||
+        widget.selectedMidiClipId != null;
+
+    setState(() {
+      _selectedAudioClipIds.clear();
+      _selectedMidiClipIds.clear();
+      _selectedAudioClipId = null;
+    });
+
+    // Notify parent to clear MIDI clip selection (for piano roll)
+    widget.onMidiClipSelected?.call(null, null);
+
+    if (hadSelection) {
+      debugPrint('⎋ Deselected all clips');
+    }
+  }
+
+  /// Select all clips (audio and MIDI)
+  void _selectAllClips() {
+    setState(() {
+      // Select all audio clips
+      _selectedAudioClipIds.clear();
+      for (final clip in _clips) {
+        _selectedAudioClipIds.add(clip.clipId);
+      }
+
+      // Select all MIDI clips
+      _selectedMidiClipIds.clear();
+      for (final clip in widget.midiClips) {
+        _selectedMidiClipIds.add(clip.clipId);
+      }
+    });
+
+    debugPrint('⌘A Selected ${_selectedAudioClipIds.length} audio clips and ${_selectedMidiClipIds.length} MIDI clips');
+  }
+
+  // ========================================================================
+  // SPLIT PREVIEW (hover shows line, Alt+click splits)
+  // ========================================================================
+
+  /// Update split preview for MIDI clip
+  void _updateMidiClipSplitPreview(int clipId, double localX, double clipWidth, MidiClipData clip) {
+    // Convert local X position to beat position within clip
+    final positionRatio = localX / clipWidth;
+    final beatPosition = positionRatio * clip.duration;
+
+    setState(() {
+      _splitPreviewAudioClipId = null;
+      _splitPreviewMidiClipId = clipId;
+      _splitPreviewBeatPosition = beatPosition;
+    });
+  }
+
+  /// Clear split preview
+  void _clearSplitPreview() {
+    setState(() {
+      _splitPreviewAudioClipId = null;
+      _splitPreviewMidiClipId = null;
+    });
+  }
+
+  /// Split audio clip at preview position
+  void _splitAudioClipAtPreview(ClipData clip) {
+    if (_splitPreviewAudioClipId != clip.clipId) return;
+
+    // Convert beat position back to seconds
+    final splitTimeRelative = _splitPreviewBeatPosition * (60.0 / widget.tempo);
+    final splitTimeAbsolute = clip.startTime + splitTimeRelative;
+
+    // Validate split point is within clip bounds
+    if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) {
+      debugPrint('[Timeline] Split point outside clip bounds');
+      return;
+    }
+
+    // Create left clip (original, shortened)
+    final leftClip = clip.copyWith(
+      duration: splitTimeRelative,
+    );
+
+    // Create right clip (new, starting at split point)
+    final rightClipId = DateTime.now().millisecondsSinceEpoch;
+    final rightClip = clip.copyWith(
+      clipId: rightClipId,
+      startTime: splitTimeAbsolute,
+      duration: clip.duration - splitTimeRelative,
+      offset: clip.offset + splitTimeRelative,
+    );
+
+    // Update local state
+    setState(() {
+      final index = _clips.indexWhere((c) => c.clipId == clip.clipId);
+      if (index >= 0) {
+        _clips[index] = leftClip;
+        _clips.add(rightClip);
+      }
+    });
+
+    // Update engine for left clip
+    widget.audioEngine?.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
+
+    debugPrint('✂️ Split audio clip at ${splitTimeAbsolute.toStringAsFixed(2)}s');
+    _clearSplitPreview();
+  }
+
+  /// Split MIDI clip at preview position
+  void _splitMidiClipAtPreview(MidiClipData clip) {
+    if (_splitPreviewMidiClipId != clip.clipId) return;
+
+    // Split point in beats relative to clip start
+    final splitPointBeats = _splitPreviewBeatPosition;
+
+    // Validate split point is within clip bounds
+    if (splitPointBeats <= 0 || splitPointBeats >= clip.duration) {
+      debugPrint('[Timeline] Split point outside MIDI clip bounds');
+      return;
+    }
+
+    // Split notes into two groups
+    final leftNotes = <MidiNoteData>[];
+    final rightNotes = <MidiNoteData>[];
+
+    for (final note in clip.notes) {
+      if (note.endTime <= splitPointBeats) {
+        leftNotes.add(note);
+      } else if (note.startTime >= splitPointBeats) {
+        rightNotes.add(note.copyWith(
+          startTime: note.startTime - splitPointBeats,
+          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
+        ));
+      } else {
+        // Note straddles split - truncate to left
+        leftNotes.add(note.copyWith(
+          duration: splitPointBeats - note.startTime,
+        ));
+      }
+    }
+
+    // Create left and right clips
+    final leftClipId = DateTime.now().millisecondsSinceEpoch;
+    final rightClipId = leftClipId + 1;
+
+    final leftClip = clip.copyWith(
+      clipId: leftClipId,
+      duration: splitPointBeats,
+      loopLength: splitPointBeats.clamp(0.25, clip.loopLength),
+      notes: leftNotes,
+      name: '${clip.name} (L)',
+    );
+
+    final rightClip = clip.copyWith(
+      clipId: rightClipId,
+      startTime: clip.startTime + splitPointBeats,
+      duration: clip.duration - splitPointBeats,
+      loopLength: (clip.duration - splitPointBeats).clamp(0.25, clip.loopLength),
+      notes: rightNotes,
+      name: '${clip.name} (R)',
+    );
+
+    // Delete original and add both new clips via callbacks
+    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+
+    // Add both new clips (need to call the copy callback twice)
+    widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
+    widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
+
+    debugPrint('✂️ Split MIDI clip at ${(clip.startTime + splitPointBeats).toStringAsFixed(2)} beats');
+    _clearSplitPreview();
+  }
+
+  /// Split MIDI clip at insert marker position
+  void _splitMidiClipAtInsertMarker(MidiClipData clip) {
+    if (_insertMarkerBeats == null) {
+      debugPrint('[Timeline] No insert marker set for split');
+      return;
+    }
+
+    // Check if insert marker is within clip bounds
+    final markerBeats = _insertMarkerBeats!;
+    if (markerBeats <= clip.startTime || markerBeats >= clip.endTime) {
+      debugPrint('[Timeline] Insert marker not within clip bounds');
+      return;
+    }
+
+    // Split point in beats relative to clip start
+    final splitPointBeats = markerBeats - clip.startTime;
+
+    // Split notes into two groups
+    final leftNotes = <MidiNoteData>[];
+    final rightNotes = <MidiNoteData>[];
+
+    for (final note in clip.notes) {
+      if (note.endTime <= splitPointBeats) {
+        leftNotes.add(note);
+      } else if (note.startTime >= splitPointBeats) {
+        rightNotes.add(note.copyWith(
+          startTime: note.startTime - splitPointBeats,
+          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
+        ));
+      } else {
+        // Note straddles split - truncate to left
+        leftNotes.add(note.copyWith(
+          duration: splitPointBeats - note.startTime,
+        ));
+      }
+    }
+
+    // Create left and right clips
+    final leftClipId = DateTime.now().millisecondsSinceEpoch;
+    final rightClipId = leftClipId + 1;
+
+    final leftClip = clip.copyWith(
+      clipId: leftClipId,
+      duration: splitPointBeats,
+      loopLength: splitPointBeats.clamp(0.25, clip.loopLength),
+      notes: leftNotes,
+      name: '${clip.name} (L)',
+    );
+
+    final rightClip = clip.copyWith(
+      clipId: rightClipId,
+      startTime: clip.startTime + splitPointBeats,
+      duration: clip.duration - splitPointBeats,
+      loopLength: (clip.duration - splitPointBeats).clamp(0.25, clip.loopLength),
+      notes: rightNotes,
+      name: '${clip.name} (R)',
+    );
+
+    // Delete original and add both new clips via callbacks
+    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+
+    // Add both new clips
+    widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
+    widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
+
+    debugPrint('✂️ Split MIDI clip at insert marker (${markerBeats.toStringAsFixed(2)} beats)');
+  }
+
   /// Load tracks from audio engine
   Future<void> _loadTracksAsync() async {
     if (widget.audioEngine == null) return;
@@ -375,6 +1519,50 @@ class TimelineViewState extends State<TimelineView> {
               }
             }
           }
+
+          // Handle Escape to deselect all clips (spec v2.0)
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            _deselectAllClips();
+            return KeyEventResult.handled;
+          }
+
+          // Cmd+D to duplicate selected clip (spec v2.0)
+          if (event.logicalKey == LogicalKeyboardKey.keyD &&
+              (HardwareKeyboard.instance.isMetaPressed ||
+               HardwareKeyboard.instance.isControlPressed)) {
+            if (widget.selectedMidiClipId != null) {
+              final clip = widget.midiClips.firstWhere(
+                (c) => c.clipId == widget.selectedMidiClipId,
+                orElse: () => MidiClipData(clipId: -1, trackId: -1, startTime: 0, duration: 0),
+              );
+              if (clip.clipId != -1) {
+                _duplicateMidiClip(clip);
+                return KeyEventResult.handled;
+              }
+            }
+          }
+
+          // Cmd+A to select all clips (spec v2.0)
+          if (event.logicalKey == LogicalKeyboardKey.keyA &&
+              (HardwareKeyboard.instance.isMetaPressed ||
+               HardwareKeyboard.instance.isControlPressed)) {
+            _selectAllClips();
+            return KeyEventResult.handled;
+          }
+
+          // Q to quantize selected clip (spec v2.0)
+          if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+            if (widget.selectedMidiClipId != null) {
+              final clip = widget.midiClips.firstWhere(
+                (c) => c.clipId == widget.selectedMidiClipId,
+                orElse: () => MidiClipData(clipId: -1, trackId: -1, startTime: 0, duration: 0),
+              );
+              if (clip.clipId != -1) {
+                _quantizeMidiClip(clip);
+                return KeyEventResult.handled;
+              }
+            }
+          }
         }
         return KeyEventResult.ignored;
       },
@@ -418,19 +1606,46 @@ class TimelineViewState extends State<TimelineView> {
                     // Time ruler (scrolls with content)
                     _buildTimeRuler(totalWidth, duration),
 
-                    // Timeline tracks area
+                    // Timeline tracks area with eraser mode support (Ctrl/Cmd+drag)
                     Expanded(
-                      child: Stack(
-                        children: [
-                          // Grid lines
-                          _buildGrid(totalWidth, duration),
+                      child: Listener(
+                        onPointerDown: (event) {
+                          // Ctrl/Cmd+click on empty space - no action needed
+                        },
+                        onPointerMove: (event) {
+                          // Ctrl/Cmd+drag = eraser mode
+                          if (event.buttons == kPrimaryButton) {
+                            final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                                HardwareKeyboard.instance.isControlPressed;
+                            if (isCtrlOrCmd) {
+                              if (!_isErasing) {
+                                _startErasing(event.position);
+                              } else {
+                                _eraseClipsAt(event.position);
+                              }
+                            }
+                          }
+                        },
+                        onPointerUp: (event) {
+                          if (_isErasing) {
+                            _stopErasing();
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            // Grid lines
+                            _buildGrid(totalWidth, duration),
 
-                          // Tracks
-                          _buildTracks(totalWidth),
+                            // Tracks
+                            _buildTracks(totalWidth),
 
-                          // Playhead
-                          _buildPlayhead(),
-                        ],
+                            // Insert marker (blue dashed line)
+                            _buildInsertMarker(),
+
+                            // Playhead
+                            _buildPlayhead(),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -677,18 +1892,27 @@ class TimelineViewState extends State<TimelineView> {
   }
 
   Widget _buildTimeRuler(double width, double duration) {
-    return Container(
-      height: 30,
-      width: width,
-      decoration: const BoxDecoration(
-        color: Color(0xFF363636),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF363636)),
+    return GestureDetector(
+      onTapUp: (details) {
+        // Click ruler to place insert marker (spec v2.0)
+        final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beats = xInContent / _pixelsPerBeat;
+        setInsertMarker(beats.clamp(0.0, double.infinity));
+      },
+      child: Container(
+        height: 30,
+        width: width,
+        decoration: const BoxDecoration(
+          color: Color(0xFF363636),
+          border: Border(
+            bottom: BorderSide(color: Color(0xFF363636)),
+          ),
         ),
-      ),
-      child: CustomPaint(
-        painter: _TimeRulerPainter(
-          pixelsPerBeat: _pixelsPerBeat,
+        child: CustomPaint(
+          painter: _TimeRulerPainter(
+            pixelsPerBeat: _pixelsPerBeat,
+          ),
         ),
       ),
     );
@@ -759,15 +1983,6 @@ class TimelineViewState extends State<TimelineView> {
     int audioCount,
     int midiCount,
   ) {
-    // Build formatted name
-    final formattedName = TrackColors.getFormattedTrackName(
-      trackType: track.type,
-      trackName: track.name,
-      audioCount: audioCount,
-      midiCount: midiCount,
-    );
-    final emoji = TrackColors.getTrackEmoji(track.name, track.type);
-
     // Find clips for this track
     final trackClips = _clips.where((c) => c.trackId == track.id).toList();
     final trackMidiClips = widget.midiClips.where((c) => c.trackId == track.id).toList();
@@ -786,8 +2001,7 @@ class TimelineViewState extends State<TimelineView> {
         widget.onVst3InstrumentDropped?.call(track.id, details.data);
       },
       builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
-        final isVst3PluginHovering = candidateVst3Plugins.isNotEmpty;
-        final isVst3PluginRejected = rejectedVst3Plugins.isNotEmpty;
+        // Note: candidateVst3Plugins/rejectedVst3Plugins available for visual feedback
 
         // Nest Instrument drag target inside
         return DragTarget<Instrument>(
@@ -800,8 +2014,8 @@ class TimelineViewState extends State<TimelineView> {
             widget.onInstrumentDropped?.call(track.id, details.data);
           },
           builder: (context, candidateInstruments, rejectedInstruments) {
-            final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
-            final isInstrumentRejected = rejectedInstruments.isNotEmpty || isVst3PluginRejected;
+            // Note: candidateInstruments/rejectedInstruments and isVst3PluginHovering/Rejected
+            // are available for visual feedback if needed in the future
 
         return PlatformDropTarget(
           onDragEntered: (details) {
@@ -833,10 +2047,33 @@ class TimelineViewState extends State<TimelineView> {
             await _handleFileDrop(details.files, track.id, details.localPosition);
           },
           child: GestureDetector(
-        onTap: isMidiTrack
-            ? () {
-                // Select MIDI track when clicked
-                widget.onMidiTrackSelected?.call(track.id);
+        onTapUp: (details) {
+          // Place insert marker at click position on empty space (spec v2.0)
+          final beatPosition = _calculateBeatPosition(details.localPosition);
+          final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
+
+          if (!isOnClip) {
+            setInsertMarker(beatPosition);
+          }
+
+          // Select track if it's a MIDI track
+          if (isMidiTrack) {
+            widget.onMidiTrackSelected?.call(track.id);
+          }
+        },
+        onDoubleTapDown: isMidiTrack
+            ? (details) {
+                // Double-click: create a default MIDI clip at this position (spec v2.0: 1 bar)
+                final beatPosition = _calculateBeatPosition(details.localPosition);
+                final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
+
+                if (!isOnClip) {
+                  // Create a 1-bar clip at the clicked position (snapped to grid)
+                  final startBeats = _snapToGrid(beatPosition);
+                  const durationBeats = 4.0; // 1 bar (spec v2.0)
+                  widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+                  debugPrint('🎵 Created 1-bar MIDI clip at beat $startBeats (double-click)');
+                }
               }
             : null,
         onHorizontalDragStart: (details) {
@@ -922,6 +2159,11 @@ class TimelineViewState extends State<TimelineView> {
                   widget.trackHeights[track.id] ?? 100.0,
                 )),
 
+            // Stamp copy ghost previews for Alt+drag
+            ...trackMidiClips
+                .where((midiClip) => _draggingMidiClipId == midiClip.clipId && _isCopyDrag && _stampCopyCount > 0)
+                .expand((midiClip) => _buildStampCopyPreviews(midiClip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+
             // Show preview clip if hovering over this track
             if (_previewClip != null && _previewClip!.trackId == track.id)
               _buildPreviewClip(_previewClip!),
@@ -994,16 +2236,86 @@ class TimelineViewState extends State<TimelineView> {
         : clip.startTime;
     final clipX = displayStartTime.clamp(0.0, double.infinity) * _pixelsPerSecond;
     final isDragging = _draggingClipId == clip.clipId;
+    final isSelected = _selectedAudioClipIds.contains(clip.clipId);
+    final isMultiSelected = _selectedAudioClipIds.length > 1 && isSelected;
 
     const headerHeight = 18.0;
     final totalHeight = trackHeight - 8.0; // Track height minus padding
+
+    // Check if this clip has split preview active
+    final hasSplitPreview = _splitPreviewAudioClipId == clip.clipId;
+    final splitPreviewX = hasSplitPreview
+        ? (_splitPreviewBeatPosition / (clip.duration * (widget.tempo / 60.0))) * clipWidth
+        : 0.0;
 
     return Positioned(
       left: clipX,
       top: 4,
       child: GestureDetector(
+        onTapDown: (details) {
+          // Ctrl/Cmd+click: delete clip immediately
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) {
+            _deleteAudioClip(clip);
+            return;
+          }
+
+          // Alt+click: split at hover position
+          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+          if (isAltPressed && hasSplitPreview) {
+            _splitAudioClipAtPreview(clip);
+            return;
+          }
+        },
+        onTapUp: (details) {
+          // Skip if Ctrl/Cmd was pressed (delete handled in onTapDown)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
+          // Skip if Alt was pressed (split handled in onTapDown)
+          if (HardwareKeyboard.instance.isAltPressed) return;
+
+          // Shift+click = toggle selection (spec v2.0)
+          final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+
+          selectAudioClipMulti(
+            clip.clipId,
+            addToSelection: false,
+            toggleSelection: isShiftPressed,
+          );
+          // Deselect any MIDI clip (notify parent)
+          widget.onMidiClipSelected?.call(null, null);
+
+          // Place insert marker at click position (spec v2.0)
+          // Convert local X position in clip to global beats
+          final clickXInClip = details.localPosition.dx;
+          final clickSeconds = clip.startTime + (clickXInClip / _pixelsPerSecond);
+          final beatsPerSecond = widget.tempo / 60.0;
+          final clickBeats = clickSeconds * beatsPerSecond;
+          setInsertMarker(clickBeats.clamp(0.0, double.infinity));
+        },
+        onSecondaryTapDown: (details) {
+          // Right-click: show context menu
+          _showAudioClipContextMenu(details.globalPosition, clip);
+        },
         onHorizontalDragStart: (details) {
+          // Skip if Ctrl/Cmd is held (eraser mode)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
+          // Check if this clip is in the multi-selection
+          final isInMultiSelection = _selectedAudioClipIds.contains(clip.clipId);
+
           setState(() {
+            // If not in multi-selection, select just this clip
+            if (!isInMultiSelection) {
+              _selectedAudioClipIds.clear();
+              _selectedAudioClipIds.add(clip.clipId);
+            }
+            _selectedAudioClipId = clip.clipId;
             _draggingClipId = clip.clipId;
             _dragStartTime = clip.startTime;
             _dragStartX = details.globalPosition.dx;
@@ -1011,11 +2323,18 @@ class TimelineViewState extends State<TimelineView> {
           });
         },
         onHorizontalDragUpdate: (details) {
+          // Skip if Ctrl/Cmd is held (eraser mode)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
           setState(() {
             _dragCurrentX = details.globalPosition.dx;
           });
         },
         onHorizontalDragEnd: (details) {
+          if (_draggingClipId == null) return;
+
           // Calculate final position and persist to engine
           final newStartTime = (_dragStartTime + (_dragCurrentX - _dragStartX) / _pixelsPerSecond)
               .clamp(0.0, double.infinity);
@@ -1030,79 +2349,265 @@ class TimelineViewState extends State<TimelineView> {
           });
         },
         child: MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: Container(
-            width: clipWidth,
-            height: totalHeight,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isDragging
-                    ? trackColor
-                    : trackColor.withValues(alpha: 0.7),
-                width: isDragging ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Column(
-              children: [
-                // Header with track color
-                Container(
-                  height: headerHeight,
-                  decoration: BoxDecoration(
-                    color: trackColor,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(3),
-                    ),
+          cursor: _trimmingAudioClipId == clip.clipId
+              ? (_isTrimmingLeftEdge ? SystemMouseCursors.resizeLeft : SystemMouseCursors.resizeRight)
+              : (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)
+                  ? SystemMouseCursors.forbidden // Ctrl/Cmd = delete
+                  : HardwareKeyboard.instance.isAltPressed
+                      ? SystemMouseCursors.copy // Alt = duplicate
+                      : SystemMouseCursors.grab,
+          onHover: (event) {
+            // Track hover position for split preview (only when Alt is pressed - but Alt is now duplicate)
+            // Keep split preview disabled for now, we'll use a different approach later
+          },
+          onExit: (_) {
+            if (_splitPreviewAudioClipId == clip.clipId) {
+              _clearSplitPreview();
+            }
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Main clip container
+              Container(
+                width: clipWidth,
+                height: totalHeight,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isSelected
+                        ? (isMultiSelected ? const Color(0xFF64B5F6) : Colors.white) // Blue for multi, white for single
+                        : isDragging
+                            ? trackColor
+                            : trackColor.withValues(alpha: 0.7),
+                    width: isSelected || isDragging ? 2 : 1,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.audiotrack,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          clip.fileName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    // Header with track color
+                    Container(
+                      height: headerHeight,
+                      decoration: BoxDecoration(
+                        color: trackColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(3),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                // Content area with waveform (transparent background)
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(3),
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return CustomPaint(
-                          size: Size(constraints.maxWidth, constraints.maxHeight),
-                          painter: _WaveformPainter(
-                            peaks: clip.waveformPeaks,
-                            color: TrackColors.getLighterShade(trackColor),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.audiotrack,
+                            size: 12,
+                            color: Colors.white,
                           ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              clip.fileName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Content area with waveform (transparent background)
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(3),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return CustomPaint(
+                              size: Size(constraints.maxWidth, constraints.maxHeight),
+                              painter: _WaveformPainter(
+                                peaks: clip.waveformPeaks,
+                                color: TrackColors.getLighterShade(trackColor),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Left edge trim handle
+              Positioned(
+                left: 0,
+                top: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    setState(() {
+                      _trimmingAudioClipId = clip.clipId;
+                      _isTrimmingLeftEdge = true;
+                      _audioTrimStartTime = clip.startTime;
+                      _audioTrimStartDuration = clip.duration;
+                      _audioTrimStartOffset = clip.offset;
+                      _audioTrimStartX = details.globalPosition.dx;
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    if (_trimmingAudioClipId != clip.clipId || !_isTrimmingLeftEdge) return;
+                    final deltaX = details.globalPosition.dx - _audioTrimStartX;
+                    final deltaSeconds = deltaX / _pixelsPerSecond;
+
+                    // Calculate new start time and duration
+                    var newStartTime = _audioTrimStartTime + deltaSeconds;
+                    var newDuration = _audioTrimStartDuration - deltaSeconds;
+                    var newOffset = _audioTrimStartOffset + deltaSeconds;
+
+                    // Clamp to valid bounds
+                    newStartTime = newStartTime.clamp(0.0, _audioTrimStartTime + _audioTrimStartDuration - 0.1);
+                    newDuration = (_audioTrimStartTime + _audioTrimStartDuration) - newStartTime;
+                    newDuration = newDuration.clamp(0.1, double.infinity);
+                    newOffset = newOffset.clamp(0.0, double.infinity);
+
+                    setState(() {
+                      final index = _clips.indexWhere((c) => c.clipId == clip.clipId);
+                      if (index >= 0) {
+                        _clips[index] = _clips[index].copyWith(
+                          startTime: newStartTime,
+                          duration: newDuration,
+                          offset: newOffset,
                         );
-                      },
+                      }
+                    });
+                  },
+                  onHorizontalDragEnd: (details) {
+                    // Persist to engine
+                    final trimmedClip = _clips.firstWhere((c) => c.clipId == clip.clipId, orElse: () => clip);
+                    widget.audioEngine?.setClipStartTime(trimmedClip.trackId, trimmedClip.clipId, trimmedClip.startTime);
+                    setState(() {
+                      _trimmingAudioClipId = null;
+                      _isTrimmingLeftEdge = false;
+                    });
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeLeft,
+                    child: Container(
+                      width: 8,
+                      height: totalHeight,
+                      color: Colors.transparent,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              // Right edge trim handle
+              Positioned(
+                right: 0,
+                top: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    setState(() {
+                      _trimmingAudioClipId = clip.clipId;
+                      _isTrimmingLeftEdge = false;
+                      _audioTrimStartDuration = clip.duration;
+                      _audioTrimStartX = details.globalPosition.dx;
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    if (_trimmingAudioClipId != clip.clipId || _isTrimmingLeftEdge) return;
+                    final deltaX = details.globalPosition.dx - _audioTrimStartX;
+                    final deltaSeconds = deltaX / _pixelsPerSecond;
+
+                    // Calculate new duration
+                    var newDuration = _audioTrimStartDuration + deltaSeconds;
+                    newDuration = newDuration.clamp(0.1, double.infinity);
+
+                    setState(() {
+                      final index = _clips.indexWhere((c) => c.clipId == clip.clipId);
+                      if (index >= 0) {
+                        _clips[index] = _clips[index].copyWith(duration: newDuration);
+                      }
+                    });
+                  },
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      _trimmingAudioClipId = null;
+                    });
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeRight,
+                    child: Container(
+                      width: 8,
+                      height: totalHeight,
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+              ),
+              // Split preview line (shown when Alt is pressed and hovering)
+              if (hasSplitPreview)
+                Positioned(
+                  left: splitPreviewX,
+                  top: 0,
+                  child: Container(
+                    width: 2,
+                    height: totalHeight,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// Build ghost preview widgets for stamp copies during Alt+drag
+  List<Widget> _buildStampCopyPreviews(MidiClipData sourceClip, Color trackColor, double trackHeight) {
+    final previews = <Widget>[];
+    final clipWidth = sourceClip.duration * _pixelsPerBeat;
+    final totalHeight = trackHeight - 8.0;
+
+    for (int i = 1; i <= _stampCopyCount; i++) {
+      final copyStartBeats = sourceClip.startTime + (i * _stampCopySourceDuration);
+      final copyX = copyStartBeats * _pixelsPerBeat;
+
+      previews.add(
+        Positioned(
+          left: copyX,
+          top: 4,
+          child: IgnorePointer(
+            child: Container(
+              width: clipWidth,
+              height: totalHeight,
+              decoration: BoxDecoration(
+                color: trackColor.withValues(alpha: 0.3),
+                border: Border.all(
+                  color: trackColor.withValues(alpha: 0.6),
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Center(
+                child: Text(
+                  '+$i',
+                  style: TextStyle(
+                    color: trackColor.withValues(alpha: 0.8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return previews;
   }
 
   Widget _buildMidiClip(MidiClipData midiClip, Color trackColor, double trackHeight) {
@@ -1125,54 +2630,151 @@ class TimelineViewState extends State<TimelineView> {
     }
     final clipX = displayStartBeats * _pixelsPerBeat;
 
-    final isSelected = widget.selectedMidiClipId == midiClip.clipId;
+    // Use both widget prop (single) and internal multi-selection
+    final isSelected = widget.selectedMidiClipId == midiClip.clipId || _selectedMidiClipIds.contains(midiClip.clipId);
+    final isMultiSelected = _selectedMidiClipIds.length > 1 && _selectedMidiClipIds.contains(midiClip.clipId);
     final isDragging = _draggingMidiClipId == midiClip.clipId;
 
     const headerHeight = 18.0;
     final totalHeight = trackHeight - 8.0; // Track height minus padding
 
+    // Check if this clip has split preview active
+    final hasSplitPreview = _splitPreviewMidiClipId == midiClip.clipId;
+    final splitPreviewX = hasSplitPreview
+        ? (_splitPreviewBeatPosition / midiClip.duration) * clipWidth
+        : 0.0;
+
     return Positioned(
       left: clipX,
       top: 4,
       child: GestureDetector(
-        onTap: () {
-          // Single-click to open in piano roll editor
-          widget.onMidiClipSelected?.call(midiClip.clipId, midiClip);
+        onTapDown: (details) {
+          // Ctrl/Cmd+click: delete clip immediately
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) {
+            widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
+            return;
+          }
+
+          // Alt+click: split at hover position
+          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+          if (isAltPressed && hasSplitPreview) {
+            _splitMidiClipAtPreview(midiClip);
+            return;
+          }
+        },
+        onTapUp: (details) {
+          // Skip if Ctrl/Cmd was pressed (delete handled in onTapDown)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
+          // Skip if Alt was pressed (split handled in onTapDown)
+          if (HardwareKeyboard.instance.isAltPressed) return;
+
+          // Shift+click = toggle selection (spec v2.0)
+          final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+
+          selectMidiClipMulti(
+            midiClip.clipId,
+            addToSelection: false,
+            toggleSelection: isShiftPressed,
+          );
+
+          // Notify parent about selection (for piano roll, use primary selection)
+          if (!isShiftPressed || _selectedMidiClipIds.contains(midiClip.clipId)) {
+            widget.onMidiClipSelected?.call(midiClip.clipId, midiClip);
+          } else if (_selectedMidiClipIds.isEmpty) {
+            widget.onMidiClipSelected?.call(null, null);
+          }
+
+          // Place insert marker at click position (spec v2.0)
+          final clickXInClip = details.localPosition.dx;
+          final clickBeats = midiClip.startTime + (clickXInClip / _pixelsPerBeat);
+          setInsertMarker(clickBeats.clamp(0.0, double.infinity));
+        },
+        onSecondaryTapDown: (details) {
+          _showMidiClipContextMenu(details.globalPosition, midiClip);
         },
         onHorizontalDragStart: (details) {
-          // Check if Shift is held at drag start for copy mode
-          final isCopy = HardwareKeyboard.instance.isShiftPressed;
+          // Check if Ctrl/Cmd is held (eraser mode - don't start drag)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
+          // Check if this clip is in the multi-selection
+          final isInMultiSelection = _selectedMidiClipIds.contains(midiClip.clipId);
+          // Alt+drag = duplicate (spec v2.0)
+          final isDuplicate = HardwareKeyboard.instance.isAltPressed;
           setState(() {
+            // If not in multi-selection, select just this clip
+            if (!isInMultiSelection) {
+              _selectedMidiClipIds.clear();
+              _selectedMidiClipIds.add(midiClip.clipId);
+            }
             _draggingMidiClipId = midiClip.clipId;
             _midiDragStartTime = midiClip.startTime;
             _midiDragStartX = details.globalPosition.dx;
             _midiDragCurrentX = details.globalPosition.dx;
-            _isCopyDrag = isCopy;
+            _isCopyDrag = isDuplicate; // Alt = duplicate
+            // Store source clip duration for stamp copies
+            _stampCopySourceDuration = midiClip.duration;
+            _stampCopyCount = 0;
           });
         },
         onHorizontalDragUpdate: (details) {
-          // Check Alt/Option for snap bypass during drag
-          final bypassSnap = HardwareKeyboard.instance.isAltPressed;
+          // Skip if Ctrl/Cmd is held (eraser mode)
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+          if (isCtrlOrCmd) return;
+
+          // Shift bypasses snap (spec v2.0)
+          final bypassSnap = HardwareKeyboard.instance.isShiftPressed;
+
+          // Calculate stamp copy count for Alt+drag (spec v2.0)
+          int stampCount = 0;
+          if (_isCopyDrag && _stampCopySourceDuration > 0) {
+            final dragDeltaBeats = (details.globalPosition.dx - _midiDragStartX) / _pixelsPerBeat;
+            // Only stamp copies when dragging forward past the clip's own length
+            if (dragDeltaBeats > _stampCopySourceDuration) {
+              stampCount = (dragDeltaBeats / _stampCopySourceDuration).floor();
+            }
+          }
+
           setState(() {
             _midiDragCurrentX = details.globalPosition.dx;
             _snapBypassActive = bypassSnap;
+            _stampCopyCount = stampCount;
           });
         },
         onHorizontalDragEnd: (details) {
+          if (_draggingMidiClipId == null) return;
+
           // Calculate final position with beat-based snapping
           final startBeats = _midiDragStartTime;
           final dragDeltaBeats = (_midiDragCurrentX - _midiDragStartX) / _pixelsPerBeat;
           var newStartBeats = (startBeats + dragDeltaBeats).clamp(0.0, double.infinity);
 
-          // Snap to beat grid (unless Alt/Option bypasses snap)
+          // Snap to beat grid (unless Shift bypasses snap)
           if (!_snapBypassActive) {
             final snapResolution = _getGridSnapResolution();
             newStartBeats = (newStartBeats / snapResolution).round() * snapResolution;
           }
 
           if (_isCopyDrag) {
-            // Copy: create new clip at new position (in beats)
-            widget.onMidiClipCopied?.call(midiClip, newStartBeats);
+            // Alt+drag: create stamp copies (spec v2.0)
+            if (_stampCopyCount > 0) {
+              // Create multiple stamp copies at regular intervals
+              for (int i = 1; i <= _stampCopyCount; i++) {
+                final copyStartBeats = midiClip.startTime + (i * _stampCopySourceDuration);
+                widget.onMidiClipCopied?.call(midiClip, copyStartBeats);
+              }
+              debugPrint('📋 Created $_stampCopyCount stamp copies');
+            } else {
+              // Single copy at new position
+              widget.onMidiClipCopied?.call(midiClip, newStartBeats);
+            }
           } else {
             // Move: update existing clip position
             final beatsPerSecond = widget.tempo / 60.0;
@@ -1187,12 +2789,28 @@ class TimelineViewState extends State<TimelineView> {
             _draggingMidiClipId = null;
             _isCopyDrag = false;
             _snapBypassActive = false;
+            _stampCopyCount = 0;
           });
         },
         child: MouseRegion(
           cursor: _resizingMidiClipId == midiClip.clipId
               ? SystemMouseCursors.resizeRight
-              : SystemMouseCursors.grab,
+              : (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)
+                  ? SystemMouseCursors.forbidden // Ctrl/Cmd = delete
+                  : HardwareKeyboard.instance.isAltPressed
+                      ? SystemMouseCursors.copy // Alt = duplicate
+                      : SystemMouseCursors.grab,
+          onHover: (event) {
+            // Track hover position for split preview (only when Alt is pressed)
+            if (HardwareKeyboard.instance.isAltPressed) {
+              _updateMidiClipSplitPreview(midiClip.clipId, event.localPosition.dx, clipWidth, midiClip);
+            }
+          },
+          onExit: (_) {
+            if (_splitPreviewMidiClipId == midiClip.clipId) {
+              _clearSplitPreview();
+            }
+          },
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -1205,7 +2823,7 @@ class TimelineViewState extends State<TimelineView> {
                     color: isDragging
                         ? trackColor
                         : isSelected
-                            ? trackColor.withValues(alpha: 1.0)
+                            ? (isMultiSelected ? const Color(0xFF64B5F6) : Colors.white) // Blue for multi, white for single
                             : trackColor.withValues(alpha: 0.7),
                     width: isDragging || isSelected ? 2 : 1,
                   ),
@@ -1275,6 +2893,79 @@ class TimelineViewState extends State<TimelineView> {
               // Loop boundary lines overlay
               if (clipDurationBeats > midiClip.loopLength)
                 _buildLoopBoundaryLines(midiClip.loopLength, clipDurationBeats, totalHeight, trackColor),
+              // Left edge trim handle
+              Positioned(
+                left: 0,
+                top: 0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    setState(() {
+                      _trimmingMidiClipId = midiClip.clipId;
+                      _trimStartTime = midiClip.startTime;
+                      _trimStartDuration = midiClip.duration;
+                      _trimStartX = details.globalPosition.dx;
+                    });
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    if (_trimmingMidiClipId != midiClip.clipId) return;
+                    final deltaX = details.globalPosition.dx - _trimStartX;
+                    final deltaBeats = deltaX / _pixelsPerBeat;
+
+                    // Calculate new start time and duration
+                    var newStartTime = _trimStartTime + deltaBeats;
+                    var newDuration = _trimStartDuration - deltaBeats;
+
+                    // Snap to grid
+                    final snapResolution = _getGridSnapResolution();
+                    newStartTime = (newStartTime / snapResolution).round() * snapResolution;
+                    newStartTime = newStartTime.clamp(0.0, _trimStartTime + _trimStartDuration - 1.0);
+
+                    // Recalculate duration based on snapped start
+                    newDuration = (_trimStartTime + _trimStartDuration) - newStartTime;
+                    newDuration = newDuration.clamp(1.0, 256.0);
+
+                    // Filter notes that are now outside the clip (cropped by left trim)
+                    final trimOffset = newStartTime - midiClip.startTime;
+                    final filteredNotes = midiClip.notes.where((note) {
+                      // Keep notes that end after the new start
+                      return note.endTime > trimOffset;
+                    }).map((note) {
+                      // Adjust note start times relative to new clip start
+                      final adjustedStart = note.startTime - trimOffset;
+                      if (adjustedStart < 0) {
+                        // Note starts before new clip start - truncate it
+                        return note.copyWith(
+                          startTime: 0,
+                          duration: note.duration + adjustedStart, // Reduce duration
+                        );
+                      }
+                      return note.copyWith(startTime: adjustedStart);
+                    }).where((note) => note.duration > 0).toList();
+
+                    final updatedClip = midiClip.copyWith(
+                      startTime: newStartTime,
+                      duration: newDuration,
+                      loopLength: newDuration.clamp(0.25, midiClip.loopLength),
+                      notes: filteredNotes,
+                    );
+                    widget.onMidiClipUpdated?.call(updatedClip);
+                  },
+                  onHorizontalDragEnd: (details) {
+                    setState(() {
+                      _trimmingMidiClipId = null;
+                    });
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeLeft,
+                    child: Container(
+                      width: 8,
+                      height: totalHeight,
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+              ),
               // Right edge resize handle
               Positioned(
                 right: 0,
@@ -1317,6 +3008,17 @@ class TimelineViewState extends State<TimelineView> {
                   ),
                 ),
               ),
+              // Split preview line (shown when Alt is pressed and hovering)
+              if (hasSplitPreview)
+                Positioned(
+                  left: splitPreviewX,
+                  top: 0,
+                  child: Container(
+                    width: 2,
+                    height: totalHeight,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1435,6 +3137,47 @@ class TimelineViewState extends State<TimelineView> {
         ),
       ),
     );
+  }
+
+  /// Build the insert marker (blue dashed line, separate from playhead)
+  /// Used for split operations (Cmd+E) and paste location
+  Widget _buildInsertMarker() {
+    if (_insertMarkerBeats == null) return const SizedBox.shrink();
+
+    final markerX = _insertMarkerBeats! * _pixelsPerBeat;
+
+    return Positioned(
+      left: markerX - 1, // Center the 2px line
+      top: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: SizedBox(
+          width: 2,
+          child: CustomPaint(
+            painter: _DashedLinePainter(
+              color: const Color(0xFF2196F3), // Blue color
+              strokeWidth: 2,
+              dashLength: 6,
+              gapLength: 4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Set insert marker position (in beats)
+  void setInsertMarker(double? beats) {
+    setState(() {
+      _insertMarkerBeats = beats;
+    });
+  }
+
+  /// Get insert marker position in seconds (for split operations)
+  double? getInsertMarkerSeconds() {
+    if (_insertMarkerBeats == null) return null;
+    final beatsPerSecond = widget.tempo / 60.0;
+    return _insertMarkerBeats! / beatsPerSecond;
   }
 
   /// Build the drag-to-create preview rectangle
@@ -1849,6 +3592,47 @@ class _GridPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPatternPainter oldDelegate) => false;
+}
+
+/// Painter for dashed vertical line (insert marker)
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashLength;
+  final double gapLength;
+
+  _DashedLinePainter({
+    required this.color,
+    this.strokeWidth = 2,
+    this.dashLength = 6,
+    this.gapLength = 4,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    double y = 0;
+    while (y < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, math.min(y + dashLength, size.height)),
+        paint,
+      );
+      y += dashLength + gapLength;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashLength != dashLength ||
+        oldDelegate.gapLength != gapLength;
+  }
 }
 
 /// Painter for mini MIDI clip preview with dynamic height based on note range

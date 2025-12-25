@@ -7,6 +7,7 @@ class ClipData {
   final String filePath;
   final double startTime; // in seconds
   final double duration; // in seconds
+  final double offset; // Start offset within audio file for non-destructive trimming (seconds)
   final List<double> waveformPeaks;
   final Color? color;
 
@@ -16,6 +17,7 @@ class ClipData {
     required this.filePath,
     required this.startTime,
     required this.duration,
+    this.offset = 0.0,
     this.waveformPeaks = const [],
     this.color,
   });
@@ -32,6 +34,7 @@ class ClipData {
     String? filePath,
     double? startTime,
     double? duration,
+    double? offset,
     List<double>? waveformPeaks,
     Color? color,
   }) {
@@ -41,6 +44,7 @@ class ClipData {
       filePath: filePath ?? this.filePath,
       startTime: startTime ?? this.startTime,
       duration: duration ?? this.duration,
+      offset: offset ?? this.offset,
       waveformPeaks: waveformPeaks ?? this.waveformPeaks,
       color: color ?? this.color,
     );

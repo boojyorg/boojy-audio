@@ -258,6 +258,35 @@ Week 0    Week 10   Week 15   Week 22
 
 ---
 
+### M7.5: Arrangement View & Clip Editing ✅
+
+**Completed:** December 25, 2025
+
+**Implemented:**
+
+- ✅ Default zoom changed from 50 to 25 pixels/beat (better overview)
+- ✅ Split clips at playhead (Cmd+E) - works for both MIDI and audio clips
+- ✅ Quantize clips to grid (Q key) - snaps clip start to nearest beat
+- ✅ Audio clip selection with visual feedback (white border)
+- ✅ Non-destructive audio trimming using offset field
+- ✅ MIDI clip left edge trim (crops notes, adjusts timing)
+- ✅ Audio clip left/right edge trim handles
+- ✅ Grid snapping for all clip operations
+- ✅ Multi-selection for clips (Shift+click to add, Cmd+click to toggle)
+- ✅ Consolidate clips (Cmd+J) - merge multiple MIDI clips into one
+- ✅ Bounce MIDI to Audio (Cmd+B) - placeholder UI (full implementation planned)
+
+**Keyboard Shortcuts:**
+
+- `Cmd+E` - Split selected clip at playhead
+- `Q` - Quantize selected clip to grid
+- `Cmd+J` - Consolidate selected clips (2+ MIDI clips on same track)
+- `Cmd+B` - Bounce MIDI to Audio (coming soon)
+- `Shift+Click` - Add clip to selection
+- `Cmd+Click` - Toggle clip selection
+
+---
+
 ### M8: Stock Instruments (Weeks 16-18)
 
 Build 5 high-quality instruments:

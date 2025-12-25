@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
@@ -239,12 +238,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     }
   }
 
-  double _midiNoteToFrequency(int midiNote) {
-    // A4 (MIDI 69) = 440 Hz
-    // f = 440 * 2^((n - 69) / 12)
-    return 440.0 * pow(2.0, (midiNote - 69) / 12.0);
-  }
-
   @override
   Widget build(BuildContext context) {
     return SlideTransition(
@@ -283,13 +276,13 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
                 if (_hasFocus)
                   BoxShadow(
-                    color: const Color(0xFF4CAF50).withOpacity(0.3),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -429,7 +422,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
             boxShadow: isPressed
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF4CAF50).withOpacity(0.5),
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -496,14 +489,14 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           boxShadow: isPressed
               ? [
                   BoxShadow(
-                    color: const Color(0xFF9C27B0).withOpacity(0.5),
+                    color: const Color(0xFF9C27B0).withValues(alpha: 0.5),
                     blurRadius: 8,
                     spreadRadius: 2,
                   ),
                 ]
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),

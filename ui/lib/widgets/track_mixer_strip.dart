@@ -155,13 +155,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  void _cancelEditing() {
-    setState(() {
-      _isEditing = false;
-      _nameController.text = widget.trackName;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return DragTarget<Vst3Plugin>(
@@ -377,7 +370,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       if (value == 'rename') {
         _startEditing();
       } else if (value == 'color') {
-        _showColorPicker(context, position);
+        // Use this.context since we've verified mounted above
+        _showColorPicker(this.context, position);
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
