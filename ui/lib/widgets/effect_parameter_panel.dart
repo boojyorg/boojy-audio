@@ -6,18 +6,21 @@ class EffectData {
   final int id;
   final String type;
   final Map<String, double> parameters;
+  final bool bypassed;
 
   EffectData({
     required this.id,
     required this.type,
     required this.parameters,
+    this.bypassed = false,
   });
 
-  /// Parse effect info from format: "type:eq,low_freq:100,low_gain:0,..."
+  /// Parse effect info from format: "type:eq,bypassed:0,low_freq:100,low_gain:0,..."
   static EffectData? fromInfo(int id, String info) {
     try {
       final Map<String, double> params = {};
       String? type;
+      bool bypassed = false;
 
       final pairs = info.split(',');
       for (final pair in pairs) {
@@ -25,6 +28,8 @@ class EffectData {
         if (parts.length == 2) {
           if (parts[0] == 'type') {
             type = parts[1];
+          } else if (parts[0] == 'bypassed') {
+            bypassed = parts[1] == '1';
           } else {
             params[parts[0]] = double.parse(parts[1]);
           }
@@ -33,11 +38,21 @@ class EffectData {
 
       if (type == null) return null;
 
-      return EffectData(id: id, type: type, parameters: params);
+      return EffectData(id: id, type: type, parameters: params, bypassed: bypassed);
     } catch (e) {
       debugPrint('❌ Failed to parse effect data: $e');
       return null;
     }
+  }
+
+  /// Create a copy with updated bypass state
+  EffectData copyWith({bool? bypassed}) {
+    return EffectData(
+      id: id,
+      type: type,
+      parameters: parameters,
+      bypassed: bypassed ?? this.bypassed,
+    );
   }
 }
 

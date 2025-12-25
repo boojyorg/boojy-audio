@@ -87,6 +87,9 @@ class AudioEngine {
   late final _GetTrackEffectsFfi _getTrackEffects;
   late final _GetEffectInfoFfi _getEffectInfo;
   late final _SetEffectParameterFfi _setEffectParameter;
+  late final _SetEffectBypassFfi _setEffectBypass;
+  late final _GetEffectBypassFfi _getEffectBypass;
+  late final _ReorderTrackEffectsFfi _reorderTrackEffects;
 
   // M5 functions - Save/Load Project
   late final _SaveProjectFfi _saveProject;
@@ -586,6 +589,24 @@ class AudioEngine {
               'set_effect_parameter_ffi')
           .asFunction();
       print('  ✅ set_effect_parameter_ffi bound');
+
+      _setEffectBypass = _lib
+          .lookup<ffi.NativeFunction<_SetEffectBypassFfiNative>>(
+              'set_effect_bypass_ffi')
+          .asFunction();
+      print('  ✅ set_effect_bypass_ffi bound');
+
+      _getEffectBypass = _lib
+          .lookup<ffi.NativeFunction<_GetEffectBypassFfiNative>>(
+              'get_effect_bypass_ffi')
+          .asFunction();
+      print('  ✅ get_effect_bypass_ffi bound');
+
+      _reorderTrackEffects = _lib
+          .lookup<ffi.NativeFunction<_ReorderTrackEffectsFfiNative>>(
+              'reorder_track_effects_ffi')
+          .asFunction();
+      print('  ✅ reorder_track_effects_ffi bound');
 
       // Bind M5 functions - Save/Load
       _saveProject = _lib
@@ -1983,6 +2004,47 @@ class AudioEngine {
     }
   }
 
+  /// Set effect bypass state
+  /// Returns true on success, false on failure
+  bool setEffectBypass(int effectId, bool bypassed) {
+    try {
+      final result = _setEffectBypass(effectId, bypassed ? 1 : 0);
+      return result == 1;
+    } catch (e) {
+      print('❌ [AudioEngine] Set effect bypass failed: $e');
+      return false;
+    }
+  }
+
+  /// Get effect bypass state
+  /// Returns true if bypassed, false if not bypassed or on error
+  bool getEffectBypass(int effectId) {
+    try {
+      final result = _getEffectBypass(effectId);
+      return result == 1;
+    } catch (e) {
+      print('❌ [AudioEngine] Get effect bypass failed: $e');
+      return false;
+    }
+  }
+
+  /// Reorder effects in a track's FX chain
+  /// Takes a list of effect IDs in the desired order
+  String reorderTrackEffects(int trackId, List<int> effectIds) {
+    try {
+      final idsStr = effectIds.join(',');
+      final idsPtr = idsStr.toNativeUtf8();
+      final resultPtr = _reorderTrackEffects(trackId, idsPtr.cast());
+      malloc.free(idsPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Reorder track effects failed: $e');
+      return 'Error: $e';
+    }
+  }
+
   // ========================================================================
   // M5 API - Save/Load Project
   // ========================================================================
@@ -2574,6 +2636,15 @@ typedef _GetEffectInfoFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _SetEffectParameterFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>, ffi.Float);
 typedef _SetEffectParameterFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Char>, double);
+
+typedef _SetEffectBypassFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Int32);
+typedef _SetEffectBypassFfi = int Function(int, int);
+
+typedef _GetEffectBypassFfiNative = ffi.Int32 Function(ffi.Uint64);
+typedef _GetEffectBypassFfi = int Function(int);
+
+typedef _ReorderTrackEffectsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
+typedef _ReorderTrackEffectsFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Char>);
 
 // M5 types - Save/Load Project
 typedef _SaveProjectFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);

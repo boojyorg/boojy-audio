@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import 'virtual_piano.dart';
-import 'effect_parameter_panel.dart';
 import 'piano_roll.dart';
 import 'synthesizer_panel.dart';
 import 'vst3_plugin_parameter_panel.dart';
+import 'fx_chain/fx_chain_view.dart';
 import '../models/midi_note_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
@@ -14,6 +14,7 @@ class EditorPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool virtualPianoEnabled;
   final int? selectedTrackId; // Unified track selection
+  final String? selectedTrackName; // Track name for display
   final InstrumentData? currentInstrumentData;
   final VoidCallback? onVirtualPianoClose;
   final VoidCallback? onClosePanel; // Close the entire editor panel
@@ -31,6 +32,7 @@ class EditorPanel extends StatefulWidget {
     this.audioEngine,
     this.virtualPianoEnabled = false,
     this.selectedTrackId,
+    this.selectedTrackName,
     this.currentInstrumentData,
     this.onVirtualPianoClose,
     this.onClosePanel,
@@ -282,62 +284,19 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildFeatureItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Color(0xFF9E9E9E),
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-
   Widget _buildFXChainTab() {
-    if (widget.selectedTrackId == null) {
-      return Container(
-        color: const Color(0xFF242424),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.graphic_eq,
-                size: 64,
-                color: Colors.grey[700],
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'FX Chain',
-                style: TextStyle(
-                  color: Color(0xFFE0E0E0),
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Select a track to edit effects',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Show effect parameter panel when track selected
-    return EffectParameterPanel(
+    // Use the new horizontal FxChainView
+    return FxChainView(
+      selectedTrackId: widget.selectedTrackId,
       audioEngine: widget.audioEngine,
-      trackId: widget.selectedTrackId!,
-      onClose: () {
-        // Don't close the panel, just show empty state
-        // Parent widget handles clearing selectedTrackId
+      trackName: widget.selectedTrackName,
+      onVst3PopOut: (effectId) {
+        // TODO: Handle VST3 pop-out to floating window
+        debugPrint('🎛️ [EditorPanel] VST3 pop-out requested for effect $effectId');
+      },
+      onVst3BringBack: (effectId) {
+        // TODO: Handle VST3 bring back from floating window
+        debugPrint('🎛️ [EditorPanel] VST3 bring-back requested for effect $effectId');
       },
     );
   }

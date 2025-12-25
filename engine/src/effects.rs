@@ -438,13 +438,16 @@ pub struct Reverb {
     // Comb filters (8 per channel for stereo)
     comb_buffers_l: Vec<Vec<f32>>,
     comb_buffers_r: Vec<Vec<f32>>,
-    comb_positions: Vec<usize>,
-    comb_filter_state: Vec<f32>,
+    comb_positions_l: Vec<usize>,
+    comb_positions_r: Vec<usize>,
+    comb_filter_state_l: Vec<f32>,
+    comb_filter_state_r: Vec<f32>,
 
     // Allpass filters (4 per channel)
     allpass_buffers_l: Vec<Vec<f32>>,
     allpass_buffers_r: Vec<Vec<f32>>,
-    allpass_positions: Vec<usize>,
+    allpass_positions_l: Vec<usize>,
+    allpass_positions_r: Vec<usize>,
 }
 
 impl Reverb {
@@ -481,11 +484,14 @@ impl Reverb {
             wet_dry_mix: 0.3,
             comb_buffers_l,
             comb_buffers_r,
-            comb_positions: vec![0; 8],
-            comb_filter_state: vec![0.0; 8],
+            comb_positions_l: vec![0; 8],
+            comb_positions_r: vec![0; 8],
+            comb_filter_state_l: vec![0.0; 8],
+            comb_filter_state_r: vec![0.0; 8],
             allpass_buffers_l,
             allpass_buffers_r,
-            allpass_positions: vec![0; 4],
+            allpass_positions_l: vec![0; 4],
+            allpass_positions_r: vec![0; 4],
         }
     }
 
@@ -527,7 +533,7 @@ impl Effect for Reverb {
         // Mix to mono for input
         let mono_input = (left + right) * 0.5;
 
-        // Process comb filters (parallel)
+        // Process comb filters (parallel) - separate positions for L and R
         let mut comb_out_l = 0.0;
         let mut comb_out_r = 0.0;
         for i in 0..8 {
@@ -536,32 +542,32 @@ impl Effect for Reverb {
                 self.room_size,
                 self.damping,
                 &mut self.comb_buffers_l[i],
-                &mut self.comb_positions[i],
-                &mut self.comb_filter_state[i],
+                &mut self.comb_positions_l[i],
+                &mut self.comb_filter_state_l[i],
             );
             comb_out_r += Self::process_comb(
                 mono_input,
                 self.room_size,
                 self.damping,
                 &mut self.comb_buffers_r[i],
-                &mut self.comb_positions[i],
-                &mut self.comb_filter_state[i],
+                &mut self.comb_positions_r[i],
+                &mut self.comb_filter_state_r[i],
             );
         }
 
-        // Process allpass filters (series)
+        // Process allpass filters (series) - separate positions for L and R
         let mut out_l = comb_out_l;
         let mut out_r = comb_out_r;
         for i in 0..4 {
             out_l = Self::process_allpass(
                 out_l,
                 &mut self.allpass_buffers_l[i],
-                &mut self.allpass_positions[i],
+                &mut self.allpass_positions_l[i],
             );
             out_r = Self::process_allpass(
                 out_r,
                 &mut self.allpass_buffers_r[i],
-                &mut self.allpass_positions[i],
+                &mut self.allpass_positions_r[i],
             );
         }
 
@@ -585,9 +591,12 @@ impl Effect for Reverb {
         for buffer in &mut self.allpass_buffers_r {
             buffer.fill(0.0);
         }
-        self.comb_positions.fill(0);
-        self.comb_filter_state.fill(0.0);
-        self.allpass_positions.fill(0);
+        self.comb_positions_l.fill(0);
+        self.comb_positions_r.fill(0);
+        self.comb_filter_state_l.fill(0.0);
+        self.comb_filter_state_r.fill(0.0);
+        self.allpass_positions_l.fill(0);
+        self.allpass_positions_r.fill(0);
     }
 
     fn name(&self) -> &str {
@@ -829,6 +838,8 @@ use std::collections::HashMap;
 /// Effect manager: holds all effect instances
 pub struct EffectManager {
     effects: HashMap<EffectId, Arc<Mutex<EffectType>>>,
+    /// Bypass state per effect (true = bypassed, audio passes through unchanged)
+    bypass_states: HashMap<EffectId, bool>,
     next_id: EffectId,
 }
 
@@ -836,6 +847,7 @@ impl EffectManager {
     pub fn new() -> Self {
         Self {
             effects: HashMap::new(),
+            bypass_states: HashMap::new(),
             next_id: 0,
         }
     }
@@ -848,6 +860,7 @@ impl EffectManager {
         eprintln!("🎛️ [EffectManager] Created {} effect (ID: {})", effect.name(), id);
 
         self.effects.insert(id, Arc::new(Mutex::new(effect)));
+        self.bypass_states.insert(id, false); // Effects start not bypassed
         id
     }
 
@@ -859,11 +872,33 @@ impl EffectManager {
     /// Remove an effect
     pub fn remove_effect(&mut self, id: EffectId) -> bool {
         if self.effects.remove(&id).is_some() {
+            self.bypass_states.remove(&id);
             eprintln!("🗑️ [EffectManager] Removed effect {}", id);
             true
         } else {
             false
         }
+    }
+
+    /// Set bypass state for an effect
+    pub fn set_bypass(&mut self, id: EffectId, bypassed: bool) -> bool {
+        if self.effects.contains_key(&id) {
+            self.bypass_states.insert(id, bypassed);
+            eprintln!("🎛️ [EffectManager] Effect {} bypass: {}", id, bypassed);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get bypass state for an effect
+    pub fn get_bypass(&self, id: EffectId) -> Option<bool> {
+        self.bypass_states.get(&id).copied()
+    }
+
+    /// Check if an effect is bypassed (returns false if effect doesn't exist)
+    pub fn is_bypassed(&self, id: EffectId) -> bool {
+        self.bypass_states.get(&id).copied().unwrap_or(false)
     }
 
     /// Get all effect IDs

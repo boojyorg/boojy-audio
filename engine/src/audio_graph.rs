@@ -709,6 +709,10 @@ impl AudioGraph {
                                         let mut track_left = 0.0f32;
                                         let mut track_right = 0.0f32;
                                         for effect_id in &track.fx_chain {
+                                            // Skip bypassed effects (audio passes through unchanged)
+                                            if effect_mgr.is_bypassed(*effect_id) {
+                                                continue;
+                                            }
                                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                                 if let Ok(mut effect) = effect_arc.lock() {
                                                     let (fx_l, fx_r) = effect.process_frame(track_left, track_right);
@@ -959,6 +963,10 @@ impl AudioGraph {
 
                         if let Ok(effect_mgr) = effect_manager.lock() {
                             for effect_id in &track_snap.fx_chain {
+                                // Skip bypassed effects (audio passes through unchanged)
+                                if effect_mgr.is_bypassed(*effect_id) {
+                                    continue;
+                                }
                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                     if let Ok(mut effect) = effect_arc.lock() {
                                         let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
@@ -1062,6 +1070,10 @@ impl AudioGraph {
                         // Process master FX chain
                         if let Ok(effect_mgr) = effect_manager.lock() {
                             for effect_id in &master_snap.fx_chain {
+                                // Skip bypassed effects (audio passes through unchanged)
+                                if effect_mgr.is_bypassed(*effect_id) {
+                                    continue;
+                                }
                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                     if let Ok(mut effect) = effect_arc.lock() {
                                         let (out_l, out_r) = effect.process_frame(master_left, master_right);

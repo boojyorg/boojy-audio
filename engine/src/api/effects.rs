@@ -99,44 +99,123 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
     let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
 
+    // Get bypass state
+    let bypassed = effect_manager.is_bypassed(effect_id);
+    let bypass_str = if bypassed { "1" } else { "0" };
+
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
         let effect = effect_arc.lock().map_err(|e| e.to_string())?;
 
         let info = match &*effect {
             EffectType::EQ(eq) => format!(
-                "type:eq,low_freq:{},low_gain:{},mid1_freq:{},mid1_gain:{},mid1_q:{},mid2_freq:{},mid2_gain:{},mid2_q:{},high_freq:{},high_gain:{}",
-                eq.low_freq, eq.low_gain_db, eq.mid1_freq, eq.mid1_gain_db, eq.mid1_q,
+                "type:eq,bypassed:{},low_freq:{},low_gain:{},mid1_freq:{},mid1_gain:{},mid1_q:{},mid2_freq:{},mid2_gain:{},mid2_q:{},high_freq:{},high_gain:{}",
+                bypass_str, eq.low_freq, eq.low_gain_db, eq.mid1_freq, eq.mid1_gain_db, eq.mid1_q,
                 eq.mid2_freq, eq.mid2_gain_db, eq.mid2_q, eq.high_freq, eq.high_gain_db
             ),
             EffectType::Compressor(comp) => format!(
-                "type:compressor,threshold:{},ratio:{},attack:{},release:{},makeup:{}",
-                comp.threshold_db, comp.ratio, comp.attack_ms, comp.release_ms, comp.makeup_gain_db
+                "type:compressor,bypassed:{},threshold:{},ratio:{},attack:{},release:{},makeup:{}",
+                bypass_str, comp.threshold_db, comp.ratio, comp.attack_ms, comp.release_ms, comp.makeup_gain_db
             ),
             EffectType::Reverb(rev) => format!(
-                "type:reverb,room_size:{},damping:{},wet_dry:{}",
-                rev.room_size, rev.damping, rev.wet_dry_mix
+                "type:reverb,bypassed:{},room_size:{},damping:{},wet_dry:{}",
+                bypass_str, rev.room_size, rev.damping, rev.wet_dry_mix
             ),
             EffectType::Delay(delay) => format!(
-                "type:delay,time:{},feedback:{},wet_dry:{}",
-                delay.delay_time_ms, delay.feedback, delay.wet_dry_mix
+                "type:delay,bypassed:{},time:{},feedback:{},wet_dry:{}",
+                bypass_str, delay.delay_time_ms, delay.feedback, delay.wet_dry_mix
             ),
             EffectType::Chorus(chorus) => format!(
-                "type:chorus,rate:{},depth:{},wet_dry:{}",
-                chorus.rate_hz, chorus.depth, chorus.wet_dry_mix
+                "type:chorus,bypassed:{},rate:{},depth:{},wet_dry:{}",
+                bypass_str, chorus.rate_hz, chorus.depth, chorus.wet_dry_mix
             ),
             EffectType::Limiter(lim) => format!(
-                "type:limiter,threshold:{},release:{}",
-                lim.threshold_db, lim.release_ms
+                "type:limiter,bypassed:{},threshold:{},release:{}",
+                bypass_str, lim.threshold_db, lim.release_ms
             ),
             #[cfg(not(target_os = "ios"))]
             EffectType::VST3(vst3) => {
                 // Return basic VST3 info
-                format!("type:vst3,name:{}", vst3.name())
+                format!("type:vst3,bypassed:{},name:{}", bypass_str, vst3.name())
             }
         };
         Ok(info)
     } else {
         Err(format!("Effect {} not found", effect_id))
+    }
+}
+
+/// Set effect bypass state
+pub fn set_effect_bypass(effect_id: u64, bypassed: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+
+    if effect_manager.set_bypass(effect_id, bypassed) {
+        Ok(format!(
+            "Effect {} bypass set to {}",
+            effect_id,
+            if bypassed { "on" } else { "off" }
+        ))
+    } else {
+        Err(format!("Effect {} not found", effect_id))
+    }
+}
+
+/// Get effect bypass state
+pub fn get_effect_bypass(effect_id: u64) -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+
+    effect_manager
+        .get_bypass(effect_id)
+        .ok_or_else(|| format!("Effect {} not found", effect_id))
+}
+
+/// Reorder effects in a track's FX chain
+/// Takes a comma-separated list of effect IDs in the desired order
+pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    // Parse the effect IDs
+    let new_order: Vec<u64> = effect_ids_csv
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.trim().parse::<u64>().ok())
+        .collect();
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        // Validate that all IDs in new_order are in the current fx_chain
+        for id in &new_order {
+            if !track.fx_chain.contains(id) {
+                return Err(format!("Effect {} not found in track {}'s FX chain", id, track_id));
+            }
+        }
+
+        // Validate that all current effects are in the new order
+        if new_order.len() != track.fx_chain.len() {
+            return Err(format!(
+                "Effect count mismatch: expected {} effects, got {}",
+                track.fx_chain.len(),
+                new_order.len()
+            ));
+        }
+
+        // Apply the new order
+        track.fx_chain = new_order;
+
+        eprintln!(
+            "🔄 [API] Reordered effects on track {}: {:?}",
+            track_id, track.fx_chain
+        );
+
+        Ok(format!("Effects reordered on track {}", track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
     }
 }
 

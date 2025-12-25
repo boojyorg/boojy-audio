@@ -828,6 +828,49 @@ pub extern "C" fn set_effect_parameter_ffi(
     }
 }
 
+/// Set effect bypass state
+/// Returns 1 on success, 0 on failure
+#[no_mangle]
+pub extern "C" fn set_effect_bypass_ffi(effect_id: u64, bypassed: i32) -> i32 {
+    match api::set_effect_bypass(effect_id, bypassed != 0) {
+        Ok(_) => 1,
+        Err(e) => {
+            eprintln!("❌ [FFI] set_effect_bypass error: {}", e);
+            0
+        }
+    }
+}
+
+/// Get effect bypass state
+/// Returns 1 if bypassed, 0 if not bypassed, -1 on error
+#[no_mangle]
+pub extern "C" fn get_effect_bypass_ffi(effect_id: u64) -> i32 {
+    match api::get_effect_bypass(effect_id) {
+        Ok(bypassed) => if bypassed { 1 } else { 0 },
+        Err(e) => {
+            eprintln!("❌ [FFI] get_effect_bypass error: {}", e);
+            -1
+        }
+    }
+}
+
+/// Reorder effects in a track's FX chain
+/// effect_ids_csv: comma-separated list of effect IDs in the desired order
+#[no_mangle]
+pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *const c_char) -> *mut c_char {
+    let ids_str = unsafe {
+        match CStr::from_ptr(effect_ids_csv).to_str() {
+            Ok(s) => s,
+            Err(_) => return safe_cstring("Error: Invalid effect IDs string".to_string()).into_raw(),
+        }
+    };
+
+    match api::reorder_track_effects(track_id, ids_str) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Delete a track
 #[no_mangle]
 pub extern "C" fn delete_track_ffi(track_id: u64) -> *mut c_char {
