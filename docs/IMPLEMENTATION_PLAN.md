@@ -36,7 +36,7 @@ This document breaks the MVP into **7 actionable milestones** (M1–M7), each re
 | **M6.6**  | iOS/iPad Support               | 1 week   | ✅ Complete                        |
 | **M6.7**  | Piano Roll Improvements        | 1 week   | ✅ Complete                        |
 | **M6.8**  | Track Height Resizing          | 1 day    | ✅ Complete                        |
-| **M7**    | VST3 Plugin Support            | 2 weeks  | 🚧 In Progress (State Persistence Complete) |
+| **M7**    | VST3 Plugin Support            | 2 weeks  | ✅ Complete                        |
 | **M8**    | Stock Instruments              | 3 weeks  | 📋 Ready                           |
 | **M9**    | Polish & UX                    | 2 weeks  | 📋 Ready                           |
 | **M10**   | Beta Testing & Launch          | 2 weeks  | 📋 Ready                           |
@@ -1063,7 +1063,8 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 **Goal:** Load and use VST3 plugins (third-party instruments and effects).
 
 **Duration:** 2 weeks
-**Status:** 🚧 **IN PROGRESS** (Core features complete, FX Chain view remaining)
+**Status:** ✅ **COMPLETE**
+**Completed:** December 25, 2025
 **Deliverable:** Users can scan VST3 plugins, add them to tracks, and use their native UIs.
 
 ### Completed Features ✅
@@ -1088,17 +1089,19 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 - [x] Automatic restoration on project load
 - [x] `Vst3PluginData` struct in project format
 
-### Remaining Tasks
+#### Phase 4: FX Chain View ✅
+- [x] Horizontal FX chain in Editor Panel (signal flow IN → effects → OUT)
+- [x] Effect cards with bypass toggle, parameters, and delete button
+- [x] Drag to reorder effects (ReorderableListView)
+- [x] [+ Add Effect] dropdown menu (EQ, Compressor, Reverb, Delay, Chorus)
+- [x] VST3 pop-out/bring-back buttons for floating window mode
 
-#### Phase 4: FX Chain View 🚧
-- [ ] Visual effect chain with per-effect [Edit] button
-- [ ] Drag to reorder effects
-- [ ] [+ Add Effect] opens browser
-
-#### Phase 5: Preferences & Polish 📋
-- [ ] Remember per-plugin embedded vs floating preference
-- [ ] Auto-scroll for large plugins
-- [ ] Floating indicator icon in track mixer
+#### Phase 5: Preferences & Plugin Management ✅
+- [x] Per-plugin preferences service (`plugin_preferences_service.dart`)
+- [x] Remember embed vs float mode per plugin
+- [x] Window position persistence for floating plugins
+- [x] VST3 state get/set for preset management
+- [x] Reverb crash fix (separate L/R buffer positions for stereo spread)
 
 ### Tasks (Original Plan)
 
@@ -1850,9 +1853,9 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 
 ---
 
-**Document Version:** 1.3
-**Last Updated:** December 24, 2025 (M7 State Persistence Complete)
-**Next Review:** After M7 FX Chain view completion
+**Document Version:** 1.4
+**Last Updated:** December 25, 2025 (M7 Complete)
+**Next Review:** After M8 Stock Instruments implementation
 
 ---
 
@@ -1871,7 +1874,7 @@ This plan is **aggressive but achievable** if you work consistently (~15-20 hour
 ✅ **M6.6:** iOS/iPad Support - COMPLETE (Cross-platform support, audio latency control)
 ✅ **M6.7:** Piano Roll Improvements - COMPLETE (FL Studio-style note preview)
 ✅ **M6.8:** Track Height Resizing - COMPLETE (Mixer-controlled, synced with timeline)
-🚧 **M7:** VST3 Plugin Support - In Progress (Core complete, FX Chain view remaining)
+✅ **M7:** VST3 Plugin Support - COMPLETE (Scanning, loading, UI, state persistence, FX chain, preferences)
 📋 **M8:** Stock Instruments - Ready
 📋 **M9:** Polish & UX - Ready
 📋 **M10:** Beta Testing & Launch - Ready

@@ -1,7 +1,7 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 24, 2025
-**Current Status:** M7 In Progress (VST3 Scanning Complete)
+**Last Updated:** December 25, 2025
+**Current Status:** M7 Complete (VST3 Plugin Support)
 
 ---
 
@@ -88,8 +88,8 @@ Week 0    Week 10   Week 15   Week 22
 - M6.7: Piano Roll Improvements (FL Studio-style note preview)
 - M6.8: Track Height Resizing (mixer-controlled, synced with timeline)
 
-**🚧 In Progress:**
-- M7: VST3 Plugin Support
+**✅ Complete:**
+- M7: VST3 Plugin Support (scanning, loading, UI, state persistence, FX chain, preferences)
 
 **📋 Upcoming:**
 - M8: Stock Instruments
@@ -237,8 +237,11 @@ Week 0    Week 10   Week 15   Week 22
 
 ---
 
-### M7: VST3 Plugin Support (Weeks 14-15)
+### M7: VST3 Plugin Support (Weeks 14-15) ✅
 
+**Completed:** December 25, 2025
+
+**Implemented:**
 - ✅ Scan installed VST3 plugins (Serum, Serum 2, Serum 2 FX detected)
 - ✅ Re-enable plugin loading backend (C++ vst3_host)
 - ✅ Audio processing implementation (ProcessData, buffer setup)
@@ -247,12 +250,11 @@ Week 0    Week 10   Week 15   Week 22
 - ✅ Floating window support with position persistence
 - ✅ Native NSView hosting via AppKitView on macOS
 - ✅ Plugin state save/load with projects (base64-encoded state blobs)
-- 🚧 FX Chain view (visual effect chain)
-- 📋 Per-plugin preferences (embed vs float)
-- 📋 Plugin bypass toggle
-- 📋 Preset management (factory/user presets)
-
-**Target:** Late December 2025
+- ✅ Horizontal FX Chain view (signal flow IN → effects → OUT)
+- ✅ Effect bypass toggle (per-effect green/grey indicator)
+- ✅ Drag-to-reorder effects in chain
+- ✅ Per-plugin preferences (embed vs float mode persistence)
+- ✅ Plugin preset management (get/set VST3 state)
 
 ---
 
@@ -533,18 +535,7 @@ Items identified for future cleanup (not blocking current development):
 
 ## Next Steps
 
-**Current Focus (M7):**
-
-- ✅ VST3 scanning complete (Serum, Serum 2, Serum 2 FX detected)
-- ✅ C++ backend re-enabled (loading, audio processing, MIDI)
-- ✅ Embedded plugin UI in bottom panel (docked mode)
-- ✅ Floating window support with position persistence
-- ✅ Plugin state save/load with projects (base64-encoded blobs)
-- 🚧 FX Chain view (visual effect chain)
-- 📋 Plugin bypass toggle
-- 📋 Preset management
-
-**Next Up (M8):**
+**Current Focus (M8):**
 
 - Stock instruments (Piano, Drums, Sampler, Bass)
 - Expand instrument library
@@ -554,6 +545,18 @@ Items identified for future cleanup (not blocking current development):
 - Complete M8-M9
 - Private beta testing
 - Public beta launch
+
+**Recent Accomplishments (M7):**
+
+- VST3 plugin scanning and loading (Serum, Serum 2, etc.)
+- Embedded and floating plugin UI windows
+- Plugin state persistence with projects
+- Horizontal FX Chain view in Editor Panel
+- Signal flow visualization (IN → effects → OUT)
+- Effect bypass toggle with visual feedback
+- Drag-to-reorder effects
+- Per-plugin display preferences (embed/float)
+- Reverb crash fix (L/R buffer position separation)
 
 **Recent Accomplishments (M6.5-M6.8):**
 
