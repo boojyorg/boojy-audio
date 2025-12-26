@@ -89,9 +89,6 @@ class _PianoRollState extends State<PianoRoll> {
   bool _isDuplicating = false;
   MidiNoteData? _duplicateSourceNote; // Original note being duplicated
 
-  // Stamp copy state for Cmd/Ctrl+drag (creates repeated copies when extended)
-  int _stampCopyCount = 0;
-  List<MidiNoteData> _stampCopyPreviews = [];
 
   // Velocity lane state
   bool _velocityLaneExpanded = false;
@@ -655,8 +652,6 @@ class _PianoRollState extends State<PianoRoll> {
                                             selectionEnd: _selectionEnd,
                                           ),
                                         ),
-                                        // Stamp copy previews (Cmd/Ctrl+drag)
-                                        ..._buildStampCopyNotePreviews(),
                                         // Loop end marker (draggable)
                                         _buildLoopEndMarker(activeBeats, canvasHeight),
                                         // Insert marker (blue dashed line)
@@ -878,36 +873,6 @@ class _PianoRollState extends State<PianoRoll> {
         ),
       ),
     );
-  }
-
-  /// Build ghost preview widgets for stamp copy notes during Alt+drag
-  List<Widget> _buildStampCopyNotePreviews() {
-    if (_stampCopyPreviews.isEmpty) return [];
-
-    return _stampCopyPreviews.map((previewNote) {
-      final noteX = previewNote.startTime * _pixelsPerBeat;
-      final noteY = (_maxMidiNote - previewNote.note) * _pixelsPerNote;
-      final noteWidth = previewNote.duration * _pixelsPerBeat;
-
-      return Positioned(
-        left: noteX,
-        top: noteY,
-        child: IgnorePointer(
-          child: Container(
-            width: noteWidth,
-            height: _pixelsPerNote,
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
-              border: Border.all(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.6),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      );
-    }).toList();
   }
 
   /// Build insert marker (blue dashed line) - spec v2.0
@@ -1550,32 +1515,58 @@ class _PianoRollState extends State<PianoRoll> {
         _currentMode = InteractionMode.select;
       });
     } else if (isCtrlOrCmd && clickedNote != null) {
-      // Cmd/Ctrl+drag on note = duplicate mode
+      // Cmd/Ctrl+drag on note = duplicate mode (supports multiple selected notes)
       _saveToHistory();
       _isDuplicating = true;
       _duplicateSourceNote = clickedNote;
 
-      // Create a duplicate immediately at the same position
-      final duplicatedNote = clickedNote.copyWith(
-        id: '${clickedNote.note}_${clickedNote.startTime}_${DateTime.now().microsecondsSinceEpoch}',
-        isSelected: false,
-      );
+      // Determine which notes to duplicate: all selected notes, or just the clicked note if none selected
+      final selectedNotes = _currentClip?.selectedNotes ?? [];
+      final notesToDuplicate = selectedNotes.isNotEmpty && selectedNotes.any((n) => n.id == clickedNote.id)
+          ? selectedNotes  // Duplicate all selected notes (clicked note is part of selection)
+          : [clickedNote]; // Just duplicate the single clicked note
 
-      // Store original positions for proper delta calculation
-      _dragStartNotes = {duplicatedNote.id: duplicatedNote};
+      // Create duplicates for all notes to be duplicated
+      final timestamp = DateTime.now().microsecondsSinceEpoch;
+      final duplicatedNotes = <MidiNoteData>[];
+      _dragStartNotes = {};
+
+      for (int i = 0; i < notesToDuplicate.length; i++) {
+        final sourceNote = notesToDuplicate[i];
+        final duplicatedNote = sourceNote.copyWith(
+          id: '${sourceNote.note}_${sourceNote.startTime}_${timestamp}_$i',
+          isSelected: false,
+        );
+        duplicatedNotes.add(duplicatedNote);
+        // Store original positions for proper delta calculation
+        _dragStartNotes[duplicatedNote.id] = duplicatedNote;
+      }
+
+      // Track the first duplicate as the "primary" moving note (for audition)
+      final primaryDuplicate = duplicatedNotes.first;
 
       setState(() {
-        // Add the duplicate to the clip
+        // Deselect all original notes, then add all duplicates
+        final deselectedNotes = _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList();
         _currentClip = _currentClip?.copyWith(
-          notes: [..._currentClip!.notes, duplicatedNote],
+          notes: [...deselectedNotes, ...duplicatedNotes],
         );
-        _movingNoteId = duplicatedNote.id; // Track the duplicate for moving
+        // Mark all duplicates as selected so they move together
+        _currentClip = _currentClip?.copyWith(
+          notes: _currentClip!.notes.map((n) {
+            if (duplicatedNotes.any((dup) => dup.id == n.id)) {
+              return n.copyWith(isSelected: true);
+            }
+            return n;
+          }).toList(),
+        );
+        _movingNoteId = primaryDuplicate.id; // Track primary duplicate
         _currentMode = InteractionMode.move;
         _currentCursor = SystemMouseCursors.copy;
       });
 
       _startAudition(clickedNote.note, clickedNote.velocity);
-      debugPrint('📋 Started Cmd+drag duplicate of ${clickedNote.noteName}');
+      debugPrint('📋 Started Cmd+drag duplicate of ${duplicatedNotes.length} note(s)');
     } else if (_justCreatedNoteId != null) {
       // User is dragging from where they just created a note - move it (FL Studio style)
       final createdNote = _currentClip?.notes.firstWhere(
@@ -1703,29 +1694,6 @@ class _PianoRollState extends State<PianoRoll> {
 
       final deltaBeat = deltaX / _pixelsPerBeat;
       final deltaNote = -(deltaY / _pixelsPerNote).round(); // Inverted Y
-
-      // Calculate stamp copies for Alt+drag (spec v2.0)
-      if (_isDuplicating && _duplicateSourceNote != null) {
-        final sourceDuration = _duplicateSourceNote!.duration;
-        if (deltaBeat > sourceDuration) {
-          final newStampCount = (deltaBeat / sourceDuration).floor();
-          if (newStampCount != _stampCopyCount) {
-            // Update stamp copy previews
-            final previews = <MidiNoteData>[];
-            for (int i = 1; i <= newStampCount; i++) {
-              previews.add(_duplicateSourceNote!.copyWith(
-                startTime: _duplicateSourceNote!.startTime + (i * sourceDuration),
-                id: 'preview_$i',
-              ));
-            }
-            _stampCopyCount = newStampCount;
-            _stampCopyPreviews = previews;
-          }
-        } else {
-          _stampCopyCount = 0;
-          _stampCopyPreviews = [];
-        }
-      }
 
       // Track pitch changes for audition
       int? newPitchForAudition;
@@ -1857,29 +1825,9 @@ class _PianoRollState extends State<PianoRoll> {
     // Commit move or duplicate operation to history
     if (_currentMode == InteractionMode.move) {
       if (_isDuplicating) {
-        // Create stamp copies if any (spec v2.0)
-        if (_stampCopyCount > 0 && _duplicateSourceNote != null) {
-          final sourceDuration = _duplicateSourceNote!.duration;
-          final newNotes = <MidiNoteData>[];
-          for (int i = 1; i <= _stampCopyCount; i++) {
-            newNotes.add(_duplicateSourceNote!.copyWith(
-              startTime: _duplicateSourceNote!.startTime + (i * sourceDuration),
-              id: '${_duplicateSourceNote!.note}_${_duplicateSourceNote!.startTime + (i * sourceDuration)}_${DateTime.now().microsecondsSinceEpoch + i}',
-              isSelected: false,
-            ));
-          }
-          setState(() {
-            _currentClip = _currentClip?.copyWith(
-              notes: [..._currentClip!.notes, ...newNotes],
-            );
-          });
-          _commitToHistory('Stamp ${_stampCopyCount + 1} notes');
-          debugPrint('📋 Created $_stampCopyCount stamp copies');
-        } else {
-          // Single duplicate
-          _commitToHistory('Duplicate note');
-          debugPrint('📋 Cmd+drag duplicate completed');
-        }
+        final duplicateCount = _currentClip?.selectedNotes.length ?? 1;
+        _commitToHistory(duplicateCount == 1 ? 'Duplicate note' : 'Duplicate $duplicateCount notes');
+        debugPrint('📋 Cmd+drag duplicate completed ($duplicateCount notes)');
       } else {
         final selectedCount = _currentClip?.selectedNotes.length ?? 0;
         if (selectedCount > 0) {
@@ -1908,8 +1856,6 @@ class _PianoRollState extends State<PianoRoll> {
       _movingNoteId = null; // Clear moving note tracking
       _isDuplicating = false; // Clear duplicate mode
       _duplicateSourceNote = null;
-      _stampCopyCount = 0; // Clear stamp copy state
-      _stampCopyPreviews = [];
       _resizingNoteId = null;
       _resizingEdge = null;
       _currentMode = InteractionMode.draw;
@@ -1962,6 +1908,12 @@ class _PianoRollState extends State<PianoRoll> {
       }
       // Cmd+D or Ctrl+D to duplicate selected notes
       else if ((event.logicalKey == LogicalKeyboardKey.keyD) &&
+          (HardwareKeyboard.instance.isMetaPressed ||
+           HardwareKeyboard.instance.isControlPressed)) {
+        _duplicateSelectedNotes();
+      }
+      // Cmd+B or Ctrl+B to duplicate selected notes (FL Studio style)
+      else if ((event.logicalKey == LogicalKeyboardKey.keyB) &&
           (HardwareKeyboard.instance.isMetaPressed ||
            HardwareKeyboard.instance.isControlPressed)) {
         _duplicateSelectedNotes();

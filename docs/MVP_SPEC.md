@@ -365,13 +365,35 @@ Each major feature draws inspiration from the best existing implementation:
 
 **Piano Roll:**
 - Opens in bottom panel (30% of screen height)
-- Piano keys on left (C0 to C8)
+- Piano keys on left (C0 to C8) with octave labels (C0, C1, C2...)
 - Grid with bar/beat lines
 - MIDI notes as horizontal blocks (`■■■■`)
 - Velocity lane below (FL Studio-style)
-- Drag to draw notes, click to delete
-- Shift+Drag to select multiple notes
-- Cmd+D to duplicate selected notes
+
+**Piano Roll Gestures (5-Gesture Philosophy):**
+
+- Click empty space: Create note (auto-selected for immediate manipulation)
+- Drag note body: Move note (snaps to grid, Shift for free movement)
+- Drag note edge: Resize note (cursor feedback on hover)
+- Alt+click note: Delete note (eraser mode)
+- Cmd+drag note: Duplicate note(s) and drag to position
+
+**Piano Roll Selection:**
+
+- Click note: Select/deselect note
+- Shift+drag: Marquee select (overlap detection, not full containment)
+- Escape: Deselect all notes
+
+**Piano Roll Keyboard Shortcuts:**
+
+- Cmd+A: Select all notes
+- Cmd+C: Copy selected notes
+- Cmd+V: Paste at playhead position
+- Cmd+D or Cmd+B: Duplicate selection to right
+- Delete/Backspace: Delete selected notes
+- Cmd+Z: Undo
+- Cmd+Shift+Z: Redo
+- Q: Quantize selected notes
 
 **Velocity Lane:**
 - Below piano roll (FL Studio-style)

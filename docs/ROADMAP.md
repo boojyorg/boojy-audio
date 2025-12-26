@@ -88,6 +88,7 @@ Week 0    Week 10   Week 15   Week 22
 - M6.6: iOS/iPad Support (cross-platform, audio latency control)
 - M6.7: Piano Roll Improvements (FL Studio-style note preview)
 - M6.8: Track Height Resizing (mixer-controlled, synced with timeline)
+- M6.9: Piano Roll Gesture Improvements (5-gesture philosophy, multi-note duplicate, keyboard shortcuts)
 - M7: VST3 Plugin Support (scanning, loading, UI, state persistence, FX chain, preferences)
 
 **📋 Upcoming:**
