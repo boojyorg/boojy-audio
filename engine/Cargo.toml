@@ -29,6 +29,8 @@ serde_json = "1.0"
 
 # Audio export (M5)
 hound = "3.5"                    # WAV encoding/decoding
+id3 = "1.14"                     # ID3v2 tag writing for MP3 metadata
+# Note: MP3 encoding uses ffmpeg via command line (commonly available on macOS/Linux)
 
 # FFI bridge
 flutter_rust_bridge = "2"        # Flutter-Rust bridge

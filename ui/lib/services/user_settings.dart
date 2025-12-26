@@ -45,6 +45,16 @@ class UserSettings extends ChangeNotifier {
   static const String _keyLastCleanExit = 'last_clean_exit';
   static const String _keyRecentProjects = 'recent_projects';
 
+  // Export setting keys
+  static const String _keyExportFormat = 'export_format'; // 'mp3', 'wav', 'both'
+  static const String _keyExportMp3Bitrate = 'export_mp3_bitrate';
+  static const String _keyExportWavBitDepth = 'export_wav_bit_depth';
+  static const String _keyExportSampleRate = 'export_sample_rate';
+  static const String _keyExportNormalize = 'export_normalize';
+  static const String _keyExportDither = 'export_dither';
+  static const String _keyExportArtist = 'export_artist';
+  static const String _keyExportRememberArtist = 'export_remember_artist';
+
   // Limits
   static const int maxRecentProjects = 20;
 
@@ -52,11 +62,29 @@ class UserSettings extends ChangeNotifier {
   static const int defaultUndoLimit = 100;
   static const int defaultAutoSaveMinutes = 5;
 
+  // Export defaults
+  static const String defaultExportFormat = 'mp3';
+  static const int defaultMp3Bitrate = 320;
+  static const int defaultWavBitDepth = 16;
+  static const int defaultSampleRate = 44100;
+  static const bool defaultNormalize = false;
+  static const bool defaultDither = false;
+
   // Current values
   int _undoLimit = defaultUndoLimit;
   int _autoSaveMinutes = defaultAutoSaveMinutes;
   DateTime? _lastCleanExit;
   List<RecentProject> _recentProjects = [];
+
+  // Export settings
+  String _exportFormat = defaultExportFormat;
+  int _exportMp3Bitrate = defaultMp3Bitrate;
+  int _exportWavBitDepth = defaultWavBitDepth;
+  int _exportSampleRate = defaultSampleRate;
+  bool _exportNormalize = defaultNormalize;
+  bool _exportDither = defaultDither;
+  String? _exportArtist;
+  bool _rememberArtist = false;
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -89,6 +117,92 @@ class UserSettings extends ChangeNotifier {
   /// Recent projects list (most recent first)
   List<RecentProject> get recentProjects => List.unmodifiable(_recentProjects);
 
+  // ========================================================================
+  // Export Settings
+  // ========================================================================
+
+  /// Export format: 'mp3', 'wav', or 'both'
+  String get exportFormat => _exportFormat;
+  set exportFormat(String value) {
+    if (_exportFormat != value) {
+      _exportFormat = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// MP3 bitrate: 128, 192, or 320 kbps
+  int get exportMp3Bitrate => _exportMp3Bitrate;
+  set exportMp3Bitrate(int value) {
+    if (_exportMp3Bitrate != value && [128, 192, 320].contains(value)) {
+      _exportMp3Bitrate = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// WAV bit depth: 16, 24, or 32
+  int get exportWavBitDepth => _exportWavBitDepth;
+  set exportWavBitDepth(int value) {
+    if (_exportWavBitDepth != value && [16, 24, 32].contains(value)) {
+      _exportWavBitDepth = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Sample rate: 44100 or 48000
+  int get exportSampleRate => _exportSampleRate;
+  set exportSampleRate(int value) {
+    if (_exportSampleRate != value && [44100, 48000].contains(value)) {
+      _exportSampleRate = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Whether to normalize audio on export
+  bool get exportNormalize => _exportNormalize;
+  set exportNormalize(bool value) {
+    if (_exportNormalize != value) {
+      _exportNormalize = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Whether to apply dithering on export
+  bool get exportDither => _exportDither;
+  set exportDither(bool value) {
+    if (_exportDither != value) {
+      _exportDither = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Remembered artist name for metadata
+  String? get exportArtist => _rememberArtist ? _exportArtist : null;
+  set exportArtist(String? value) {
+    if (_exportArtist != value) {
+      _exportArtist = value;
+      if (_rememberArtist) {
+        _saveExportSettings();
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Whether to remember artist name across sessions
+  bool get rememberArtist => _rememberArtist;
+  set rememberArtist(bool value) {
+    if (_rememberArtist != value) {
+      _rememberArtist = value;
+      _saveExportSettings();
+      notifyListeners();
+    }
+  }
+
   /// Load settings from SharedPreferences
   Future<void> load() async {
     if (_isLoaded) return;
@@ -118,8 +232,18 @@ class UserSettings extends ChangeNotifier {
         }
       }
 
+      // Load export settings
+      _exportFormat = _prefs?.getString(_keyExportFormat) ?? defaultExportFormat;
+      _exportMp3Bitrate = _prefs?.getInt(_keyExportMp3Bitrate) ?? defaultMp3Bitrate;
+      _exportWavBitDepth = _prefs?.getInt(_keyExportWavBitDepth) ?? defaultWavBitDepth;
+      _exportSampleRate = _prefs?.getInt(_keyExportSampleRate) ?? defaultSampleRate;
+      _exportNormalize = _prefs?.getBool(_keyExportNormalize) ?? defaultNormalize;
+      _exportDither = _prefs?.getBool(_keyExportDither) ?? defaultDither;
+      _exportArtist = _prefs?.getString(_keyExportArtist);
+      _rememberArtist = _prefs?.getBool(_keyExportRememberArtist) ?? false;
+
       _isLoaded = true;
-      debugPrint('[UserSettings] Loaded: undoLimit=$_undoLimit, autoSave=${_autoSaveMinutes}min, recentProjects=${_recentProjects.length}');
+      debugPrint('[UserSettings] Loaded: undoLimit=$_undoLimit, autoSave=${_autoSaveMinutes}min, recentProjects=${_recentProjects.length}, exportFormat=$_exportFormat');
       notifyListeners();
     } catch (e) {
       debugPrint('[UserSettings] Failed to load: $e');
@@ -148,6 +272,28 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setString(_keyRecentProjects, jsonEncode(jsonList));
     } catch (e) {
       debugPrint('[UserSettings] Failed to save recent projects: $e');
+    }
+  }
+
+  /// Save export settings to SharedPreferences
+  Future<void> _saveExportSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setString(_keyExportFormat, _exportFormat);
+      await _prefs!.setInt(_keyExportMp3Bitrate, _exportMp3Bitrate);
+      await _prefs!.setInt(_keyExportWavBitDepth, _exportWavBitDepth);
+      await _prefs!.setInt(_keyExportSampleRate, _exportSampleRate);
+      await _prefs!.setBool(_keyExportNormalize, _exportNormalize);
+      await _prefs!.setBool(_keyExportDither, _exportDither);
+      await _prefs!.setBool(_keyExportRememberArtist, _rememberArtist);
+      if (_rememberArtist && _exportArtist != null) {
+        await _prefs!.setString(_keyExportArtist, _exportArtist!);
+      } else {
+        await _prefs!.remove(_keyExportArtist);
+      }
+    } catch (e) {
+      debugPrint('[UserSettings] Failed to save export settings: $e');
     }
   }
 

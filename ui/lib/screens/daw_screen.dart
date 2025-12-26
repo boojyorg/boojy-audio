@@ -28,6 +28,7 @@ import '../services/auto_save_service.dart';
 import '../services/vst3_editor_service.dart';
 import '../services/plugin_preferences_service.dart';
 import '../widgets/settings_dialog.dart';
+import '../widgets/export_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
 
@@ -1946,63 +1947,12 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   void _exportAudio() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Export Audio'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Choose export format:'),
-            SizedBox(height: 16),
-            Text('• WAV - Lossless (Recommended)'),
-            Text('• MP3 - 128 kbps (Coming Soon)'),
-            Text('• Stems - Individual tracks (Coming Soon)'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              Navigator.pop(context);
+    if (_audioEngine == null) return;
 
-              // Get export path
-              try {
-                final result = await Process.run('osascript', [
-                  '-e',
-                  'POSIX path of (choose file name with prompt "Export as" default name "${_projectManager?.currentName ?? 'Untitled'}.wav")'
-                ]);
-
-                if (result.exitCode == 0) {
-                  final path = result.stdout.toString().trim();
-                  if (path.isNotEmpty) {
-                    try {
-                      final exportResult = _audioEngine!.exportToWav(path, true);
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(content: Text(exportResult)),
-                      );
-                    } catch (e) {
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(content: Text('Export not yet implemented: $e')),
-                      );
-                    }
-                  }
-                }
-              } catch (e) {
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text('Failed to export: $e')),
-                );
-              }
-            },
-            child: const Text('Export WAV'),
-          ),
-        ],
-      ),
+    ExportDialog.show(
+      context,
+      audioEngine: _audioEngine!,
+      defaultName: _projectManager?.currentName ?? 'Untitled',
     );
   }
 

@@ -1934,6 +1934,197 @@ impl AudioGraph {
         output
     }
 
+    /// Render a single track offline to a buffer of stereo f32 samples
+    /// Returns interleaved stereo audio (L, R, L, R, ...)
+    /// This renders the track in isolation without master bus processing
+    pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
+        let sample_rate = TARGET_SAMPLE_RATE;
+        let total_frames = (duration_seconds * sample_rate as f64) as usize;
+        let mut output = Vec::with_capacity(total_frames * 2);
+
+        eprintln!(
+            "🎚️ [AudioGraph] Starting track {} offline render: {:.2}s ({} frames)",
+            track_id, duration_seconds, total_frames
+        );
+
+        // Get track snapshot
+        struct TrackSnapshot {
+            audio_clips: Vec<TimelineClip>,
+            midi_clips: Vec<TimelineMidiClip>,
+            volume_gain: f32,
+            pan_left: f32,
+            pan_right: f32,
+            fx_chain: Vec<u64>,
+        }
+
+        let track_snapshot = {
+            let tm = self.track_manager.lock().expect("mutex poisoned");
+            let mut snapshot = None;
+
+            for track_arc in tm.get_all_tracks() {
+                if let Ok(track) = track_arc.lock() {
+                    if track.id == track_id {
+                        snapshot = Some(TrackSnapshot {
+                            audio_clips: track.audio_clips.clone(),
+                            midi_clips: track.midi_clips.clone(),
+                            volume_gain: track.get_gain(),
+                            pan_left: track.get_pan_gains().0,
+                            pan_right: track.get_pan_gains().1,
+                            fx_chain: track.fx_chain.clone(),
+                        });
+                        break;
+                    }
+                }
+            }
+
+            snapshot
+        };
+
+        let Some(track_snap) = track_snapshot else {
+            eprintln!("❌ [AudioGraph] Track {} not found for stem export", track_id);
+            return output;
+        };
+
+        // Process each frame
+        for frame_idx in 0..total_frames {
+            let playhead_seconds = frame_idx as f64 / sample_rate as f64;
+
+            let mut track_left = 0.0f32;
+            let mut track_right = 0.0f32;
+
+            // Mix all audio clips on this track
+            for timeline_clip in &track_snap.audio_clips {
+                let clip_duration = timeline_clip
+                    .duration
+                    .unwrap_or(timeline_clip.clip.duration_seconds);
+                let clip_end = timeline_clip.start_time + clip_duration;
+
+                if playhead_seconds >= timeline_clip.start_time && playhead_seconds < clip_end {
+                    let time_in_clip =
+                        playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
+                    let frame_in_clip = (time_in_clip * sample_rate as f64) as usize;
+
+                    if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                        track_left += l;
+                    }
+                    if timeline_clip.clip.channels > 1 {
+                        if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
+                            track_right += r;
+                        }
+                    } else {
+                        // Mono clip - duplicate to right
+                        if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                            track_right += l;
+                        }
+                    }
+                }
+            }
+
+            // Process MIDI clips through track synthesizer
+            for timeline_midi_clip in &track_snap.midi_clips {
+                let clip_start_samples = (timeline_midi_clip.start_time * sample_rate as f64) as u64;
+                let clip_end_samples =
+                    clip_start_samples + timeline_midi_clip.clip.duration_samples;
+
+                if frame_idx as u64 >= clip_start_samples && (frame_idx as u64) <= clip_end_samples
+                {
+                    let frame_in_clip = frame_idx as u64 - clip_start_samples;
+
+                    for event in &timeline_midi_clip.clip.events {
+                        if event.timestamp_samples == frame_in_clip {
+                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                match event.event_type {
+                                    crate::midi::MidiEventType::NoteOn { note, velocity } => {
+                                        synth_manager.note_on(track_id, note, velocity);
+                                    }
+                                    crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
+                                        synth_manager.note_off(track_id, note);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Add synthesizer output
+            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                let synth_sample = synth_manager.process_sample(track_id);
+                track_left += synth_sample;
+                track_right += synth_sample;
+            }
+
+            // Apply track volume
+            track_left *= track_snap.volume_gain;
+            track_right *= track_snap.volume_gain;
+
+            // Apply track pan
+            track_left *= track_snap.pan_left;
+            track_right *= track_snap.pan_right;
+
+            // Process FX chain on this track
+            let mut fx_left = track_left;
+            let mut fx_right = track_right;
+
+            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                for effect_id in &track_snap.fx_chain {
+                    if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                        if let Ok(mut effect) = effect_arc.lock() {
+                            let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
+                            fx_left = out_l;
+                            fx_right = out_r;
+                        }
+                    }
+                }
+            }
+
+            // Write to output buffer (interleaved stereo)
+            output.push(fx_left);
+            output.push(fx_right);
+
+            // Progress logging every 25%
+            if frame_idx % (total_frames / 4).max(1) == 0 && frame_idx > 0 {
+                let progress = (frame_idx as f64 / total_frames as f64 * 100.0) as i32;
+                eprintln!("   Track {} - {}% complete...", track_id, progress);
+            }
+        }
+
+        eprintln!(
+            "✅ [AudioGraph] Track {} offline render complete: {} samples",
+            track_id,
+            output.len()
+        );
+        output
+    }
+
+    /// Get track info for stem export (id, name, type)
+    pub fn get_tracks_for_stem_export(&self) -> Vec<(u64, String, String)> {
+        let mut tracks = Vec::new();
+
+        if let Ok(tm) = self.track_manager.lock() {
+            for track_arc in tm.get_all_tracks() {
+                if let Ok(track) = track_arc.lock() {
+                    // Skip master track
+                    if track.track_type == crate::track::TrackType::Master {
+                        continue;
+                    }
+
+                    let type_str = match track.track_type {
+                        crate::track::TrackType::Audio => "audio",
+                        crate::track::TrackType::Midi => "midi",
+                        crate::track::TrackType::Return => "return",
+                        crate::track::TrackType::Group => "group",
+                        crate::track::TrackType::Master => "master",
+                    };
+
+                    tracks.push((track.id, track.name.clone(), type_str.to_string()));
+                }
+            }
+        }
+
+        tracks
+    }
+
     /// Calculate the total duration of the project based on clips
     pub fn calculate_project_duration(&self) -> f64 {
         let mut max_end_time = 0.0f64;

@@ -1,7 +1,7 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 25, 2025
-**Current Status:** M7 Complete (VST3 Plugin Support)
+**Last Updated:** December 26, 2025
+**Current Status:** M7 Complete, Export Feature Complete
 
 ---
 
@@ -78,6 +78,7 @@ Week 0    Week 10   Week 15   Week 22
 - M4: Mixing
 - M5: Save & Export
 - M5.5: UI Redesign & Polish (3-panel layout, light grey theme)
+- M5.8: Advanced Export (MP3/WAV, stems, metadata, LUFS, progress tracking)
 - M6: MIDI & Instruments (piano roll, synthesizer, drag-and-drop)
 - M6.1: MIDI Playback Fixes (clip playback, track cleanup, stuck notes)
 - M6.2: Toolbar Reorganization (grouped controls, enhanced File menu)
@@ -87,8 +88,6 @@ Week 0    Week 10   Week 15   Week 22
 - M6.6: iOS/iPad Support (cross-platform, audio latency control)
 - M6.7: Piano Roll Improvements (FL Studio-style note preview)
 - M6.8: Track Height Resizing (mixer-controlled, synced with timeline)
-
-**✅ Complete:**
 - M7: VST3 Plugin Support (scanning, loading, UI, state persistence, FX chain, preferences)
 
 **📋 Upcoming:**
@@ -574,6 +573,19 @@ Items identified for future cleanup (not blocking current development):
 - Complete M8-M9
 - Private beta testing
 - Public beta launch
+
+**Recent Accomplishments (M5.8 - Export Feature):**
+
+- Comprehensive export dialog with format/quality options
+- MP3 export via ffmpeg (128/192/320 kbps)
+- WAV export with bit depth options (16/24/32-bit)
+- Sample rate conversion (48kHz → 44.1kHz)
+- TPDF dithering for bit depth reduction
+- Stem export (per-track rendering)
+- ID3 metadata embedding for MP3 files
+- LUFS normalization with platform presets
+- Real-time progress tracking with cancel support
+- Export settings persistence via SharedPreferences
 
 **Recent Accomplishments (M7):**
 

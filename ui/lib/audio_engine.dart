@@ -96,6 +96,20 @@ class AudioEngine {
   late final _LoadProjectFfi _loadProject;
   late final _ExportToWavFfi _exportToWav;
 
+  // M8 functions - Enhanced Export
+  late final _IsFfmpegAvailableFfi _isFfmpegAvailable;
+  late final _ExportAudioFfi _exportAudio;
+  late final _ExportWavWithOptionsFfi _exportWavWithOptions;
+  late final _ExportMp3WithOptionsFfi _exportMp3WithOptions;
+  late final _WriteMp3MetadataFfi _writeMp3Metadata;
+  late final _GetTracksForStemsFfi _getTracksForStems;
+  late final _ExportStemsFfi _exportStems;
+
+  // M8 Export Progress functions
+  late final _GetExportProgressFfi _getExportProgress;
+  late final _CancelExportFfi _cancelExport;
+  late final _ResetExportProgressFfi _resetExportProgress;
+
   // M7 functions - VST3 Plugin Hosting
   late final _ScanVst3PluginsStandardFfi _scanVst3PluginsStandard;
   late final _AddVst3EffectToTrackFfi _addVst3EffectToTrack;
@@ -626,6 +640,68 @@ class AudioEngine {
               'export_to_wav_ffi')
           .asFunction();
       print('  ✅ export_to_wav_ffi bound');
+
+      // Bind M8 functions - Enhanced Export
+      _isFfmpegAvailable = _lib
+          .lookup<ffi.NativeFunction<_IsFfmpegAvailableFfiNative>>(
+              'is_ffmpeg_available_ffi')
+          .asFunction();
+      print('  ✅ is_ffmpeg_available_ffi bound');
+
+      _exportAudio = _lib
+          .lookup<ffi.NativeFunction<_ExportAudioFfiNative>>(
+              'export_audio_ffi')
+          .asFunction();
+      print('  ✅ export_audio_ffi bound');
+
+      _exportWavWithOptions = _lib
+          .lookup<ffi.NativeFunction<_ExportWavWithOptionsFfiNative>>(
+              'export_wav_with_options_ffi')
+          .asFunction();
+      print('  ✅ export_wav_with_options_ffi bound');
+
+      _exportMp3WithOptions = _lib
+          .lookup<ffi.NativeFunction<_ExportMp3WithOptionsFfiNative>>(
+              'export_mp3_with_options_ffi')
+          .asFunction();
+      print('  ✅ export_mp3_with_options_ffi bound');
+
+      _writeMp3Metadata = _lib
+          .lookup<ffi.NativeFunction<_WriteMp3MetadataFfiNative>>(
+              'write_mp3_metadata_ffi')
+          .asFunction();
+      print('  ✅ write_mp3_metadata_ffi bound');
+
+      _getTracksForStems = _lib
+          .lookup<ffi.NativeFunction<_GetTracksForStemsFfiNative>>(
+              'get_tracks_for_stems_ffi')
+          .asFunction();
+      print('  ✅ get_tracks_for_stems_ffi bound');
+
+      _exportStems = _lib
+          .lookup<ffi.NativeFunction<_ExportStemsFfiNative>>(
+              'export_stems_ffi')
+          .asFunction();
+      print('  ✅ export_stems_ffi bound');
+
+      // Bind M8 Export Progress functions
+      _getExportProgress = _lib
+          .lookup<ffi.NativeFunction<_GetExportProgressFfiNative>>(
+              'get_export_progress_ffi')
+          .asFunction();
+      print('  ✅ get_export_progress_ffi bound');
+
+      _cancelExport = _lib
+          .lookup<ffi.NativeFunction<_CancelExportFfiNative>>(
+              'cancel_export_ffi')
+          .asFunction();
+      print('  ✅ cancel_export_ffi bound');
+
+      _resetExportProgress = _lib
+          .lookup<ffi.NativeFunction<_ResetExportProgressFfiNative>>(
+              'reset_export_progress_ffi')
+          .asFunction();
+      print('  ✅ reset_export_progress_ffi bound');
 
       // Bind M6 functions - Per-track Synthesizer
       _setTrackInstrument = _lib
@@ -2085,7 +2161,7 @@ class AudioEngine {
     }
   }
 
-  /// Export project to WAV file
+  /// Export project to WAV file (legacy method - uses 32-bit float, 48kHz)
   String exportToWav(String outputPath, bool normalize) {
     print('🎵 [AudioEngine] Exporting to WAV: $outputPath (normalize: $normalize)');
     try {
@@ -2099,6 +2175,244 @@ class AudioEngine {
     } catch (e) {
       print('❌ [AudioEngine] Export failed: $e');
       rethrow;
+    }
+  }
+
+  // ========================================================================
+  // M8 API - Enhanced Export
+  // ========================================================================
+
+  /// Check if ffmpeg is available for MP3 encoding
+  bool isFfmpegAvailable() {
+    return _isFfmpegAvailable() == 1;
+  }
+
+  /// Export audio with generic JSON options
+  /// Returns JSON string with ExportResult on success
+  String exportAudio(String outputPath, String optionsJson) {
+    print('🎵 [AudioEngine] Exporting audio: $outputPath');
+    try {
+      final pathPtr = outputPath.toNativeUtf8();
+      final optionsPtr = optionsJson.toNativeUtf8();
+      final resultPtr = _exportAudio(pathPtr.cast(), optionsPtr.cast());
+      malloc.free(pathPtr);
+      malloc.free(optionsPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] Export complete');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Export failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Export WAV with configurable options
+  /// bitDepth: 16, 24, or 32 (float)
+  /// sampleRate: 44100 or 48000
+  /// Returns JSON string with ExportResult on success
+  String exportWavWithOptions({
+    required String outputPath,
+    int bitDepth = 16,
+    int sampleRate = 44100,
+    bool normalize = false,
+    bool dither = false,
+    bool mono = false,
+  }) {
+    print('🎵 [AudioEngine] Exporting WAV: $outputPath ($bitDepth-bit, ${sampleRate}Hz)');
+    try {
+      final pathPtr = outputPath.toNativeUtf8();
+      final resultPtr = _exportWavWithOptions(
+        pathPtr.cast(),
+        bitDepth,
+        sampleRate,
+        normalize,
+        dither,
+        mono,
+      );
+      malloc.free(pathPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] WAV export complete');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] WAV export failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Export MP3 with configurable options
+  /// bitrate: 128, 192, or 320 kbps
+  /// sampleRate: 44100 or 48000
+  /// Returns JSON string with ExportResult on success
+  String exportMp3WithOptions({
+    required String outputPath,
+    int bitrate = 320,
+    int sampleRate = 44100,
+    bool normalize = false,
+    bool mono = false,
+  }) {
+    print('🎵 [AudioEngine] Exporting MP3: $outputPath ($bitrate kbps, ${sampleRate}Hz)');
+    try {
+      final pathPtr = outputPath.toNativeUtf8();
+      final resultPtr = _exportMp3WithOptions(
+        pathPtr.cast(),
+        bitrate,
+        sampleRate,
+        normalize,
+        mono,
+      );
+      malloc.free(pathPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] MP3 export complete');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] MP3 export failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Write ID3 metadata to an MP3 file
+  /// metadataJson: JSON string with title, artist, album, year, genre, etc.
+  String writeMp3Metadata(String filePath, String metadataJson) {
+    print('🏷️ [AudioEngine] Writing metadata to: $filePath');
+    try {
+      final pathPtr = filePath.toNativeUtf8();
+      final metadataPtr = metadataJson.toNativeUtf8();
+      final resultPtr = _writeMp3Metadata(pathPtr.cast(), metadataPtr.cast());
+      malloc.free(pathPtr);
+      malloc.free(metadataPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] Metadata written');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Metadata write failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Get tracks available for stem export
+  /// Returns JSON array of {id, name, type} objects
+  String getTracksForStems() {
+    print('🎚️ [AudioEngine] Getting tracks for stem export');
+    try {
+      final resultPtr = _getTracksForStems();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] Got tracks for stems');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Get tracks for stems failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Export stems (individual tracks) to a directory
+  /// outputDir: Directory to export stems to
+  /// baseName: Base filename for stems (e.g., "My Song")
+  /// trackIdsJson: JSON array of track IDs to export, or empty string for all tracks
+  /// optionsJson: JSON string of ExportOptions
+  /// Returns JSON string with StemExportResult on success
+  String exportStems({
+    required String outputDir,
+    required String baseName,
+    String trackIdsJson = '',
+    required String optionsJson,
+  }) {
+    print('🎚️ [AudioEngine] Exporting stems to: $outputDir');
+    try {
+      final dirPtr = outputDir.toNativeUtf8();
+      final namePtr = baseName.toNativeUtf8();
+      final trackIdsPtr = trackIdsJson.toNativeUtf8();
+      final optionsPtr = optionsJson.toNativeUtf8();
+
+      final resultPtr = _exportStems(
+        dirPtr.cast(),
+        namePtr.cast(),
+        trackIdsPtr.cast(),
+        optionsPtr.cast(),
+      );
+
+      malloc.free(dirPtr);
+      malloc.free(namePtr);
+      malloc.free(trackIdsPtr);
+      malloc.free(optionsPtr);
+
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      if (result.startsWith('Error:')) {
+        throw Exception(result);
+      }
+
+      print('✅ [AudioEngine] Stem export complete');
+      return result;
+    } catch (e) {
+      print('❌ [AudioEngine] Stem export failed: $e');
+      rethrow;
+    }
+  }
+
+  // ========================================================================
+  // M8 API - Export Progress
+  // ========================================================================
+
+  /// Get current export progress as JSON
+  /// Returns: {"progress": 0-100, "is_running": bool, "is_cancelled": bool, "status": string, "error": string|null}
+  String getExportProgress() {
+    try {
+      final resultPtr = _getExportProgress();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return '{"progress": 0, "is_running": false, "is_cancelled": false, "status": "", "error": "Failed to get progress: $e"}';
+    }
+  }
+
+  /// Cancel the current export operation
+  void cancelExport() {
+    try {
+      _cancelExport();
+      print('⏹️ [AudioEngine] Export cancellation requested');
+    } catch (e) {
+      print('❌ [AudioEngine] Cancel export failed: $e');
+    }
+  }
+
+  /// Reset export progress state (call before starting a new export)
+  void resetExportProgress() {
+    try {
+      _resetExportProgress();
+    } catch (e) {
+      print('❌ [AudioEngine] Reset export progress failed: $e');
     }
   }
 
@@ -2655,6 +2969,44 @@ typedef _LoadProjectFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
 
 typedef _ExportToWavFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Bool);
 typedef _ExportToWavFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, bool);
+
+// M8 types - Enhanced Export
+typedef _IsFfmpegAvailableFfiNative = ffi.Int32 Function();
+typedef _IsFfmpegAvailableFfi = int Function();
+
+typedef _ExportAudioFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+typedef _ExportAudioFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+
+typedef _ExportWavWithOptionsFfiNative = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, ffi.Int32, ffi.Uint32, ffi.Bool, ffi.Bool, ffi.Bool);
+typedef _ExportWavWithOptionsFfi = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, int, int, bool, bool, bool);
+
+typedef _ExportMp3WithOptionsFfiNative = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, ffi.Int32, ffi.Uint32, ffi.Bool, ffi.Bool);
+typedef _ExportMp3WithOptionsFfi = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, int, int, bool, bool);
+
+typedef _WriteMp3MetadataFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+typedef _WriteMp3MetadataFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+
+typedef _GetTracksForStemsFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetTracksForStemsFfi = ffi.Pointer<Utf8> Function();
+
+typedef _ExportStemsFfiNative = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+typedef _ExportStemsFfi = ffi.Pointer<Utf8> Function(
+    ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+
+// M8 Export Progress types
+typedef _GetExportProgressFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetExportProgressFfi = ffi.Pointer<Utf8> Function();
+
+typedef _CancelExportFfiNative = ffi.Void Function();
+typedef _CancelExportFfi = void Function();
+
+typedef _ResetExportProgressFfiNative = ffi.Void Function();
+typedef _ResetExportProgressFfi = void Function();
 
 // M6 types - Per-track Synthesizer
 typedef _SetTrackInstrumentFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Pointer<ffi.Char>);

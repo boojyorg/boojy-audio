@@ -1,7 +1,7 @@
 # Boojy Audio - MVP Specification (v1.0)
 
-**Last Updated:** December 24, 2025
-**Status:** In Development (M7 In Progress - VST3 Scanning Complete)
+**Last Updated:** December 26, 2025
+**Status:** In Development (M7 Complete, Export Feature Complete)
 **Target Platform:** macOS 12+, Windows 10+, iOS 15+ (iPad support added)
 
 ---
@@ -496,28 +496,48 @@ MyProject.audio/
 
 ---
 
-### Export
+### Export (COMPLETE)
 
 **Export to WAV:**
-- Default: 16-bit, 44.1kHz (CD quality)
-- Alternative: 24-bit, 48kHz (high quality)
-- Checkbox in export dialog to choose
+- Bit depth options: 16-bit (CD), 24-bit (high quality), 32-bit float (studio)
+- Sample rate: 44.1kHz or 48kHz
+- Optional TPDF dithering for bit depth reduction
+- Mono mixdown option
 
 **Export to MP3:**
-- 320kbps CBR (constant bit rate)
-- Highest quality MP3
-- Optional checkbox in export dialog
+- Bitrate options: 128, 192, 320 kbps
+- Encoding via ffmpeg (commonly available)
+- Sample rate conversion if needed
+- ID3 metadata embedding (title, artist, album, year, genre)
 
 **Export Both:**
-- Checkbox: "Export WAV + MP3"
-- Creates two files: `MyProject.wav` and `MyProject.mp3`
+- Checkbox for each format independently
+- Creates separate files for each format
+
+**Stem Export:**
+- Export individual tracks as separate files
+- Select which tracks to include
+- Naming: `{ProjectName} - {TrackName}.{ext}`
+- Supports both WAV and MP3 formats
+
+**Normalization:**
+- Peak normalization
+- LUFS normalization (ITU-R BS.1770-4)
+- Platform presets: Spotify (-14 LUFS), YouTube (-14 LUFS), Apple Music (-16 LUFS)
 
 **Export Dialog:**
-- File → Export...
-- Choose name and location
-- Checkboxes: WAV, MP3, or both
-- Progress bar during export
-- Success toast: "Export complete"
+- File → Export... (Cmd+E)
+- Format section: MP3/WAV checkboxes with quality dropdowns
+- Stem export section: Track selection
+- Metadata section: ID3 tags for MP3
+- Advanced section: Normalize, dither, mono options
+- Settings persist across sessions
+
+**Progress Tracking:**
+- Real-time progress bar with percentage
+- Status text updates during export
+- Cancel button to abort export
+- Error display if export fails
 
 **Offline Rendering:**
 - Exports faster than real-time

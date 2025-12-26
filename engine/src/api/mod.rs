@@ -52,7 +52,10 @@ pub use midi_input::{
     select_midi_input_device, set_synth_oscillator_type, set_synth_volume, start_midi_input,
     start_midi_recording, stop_midi_input, stop_midi_recording,
 };
-pub use project::{export_to_wav, load_project, save_project};
+pub use project::{
+    export_audio, export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
+    get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
+};
 pub use recording::{
     get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_recorded_duration,
     get_recording_state, get_recording_waveform, get_sample_rate, set_audio_input_device,
