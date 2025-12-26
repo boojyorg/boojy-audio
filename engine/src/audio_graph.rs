@@ -306,13 +306,12 @@ impl AudioGraph {
         removed_count
     }
 
-    /// Get the current playhead position in seconds (tempo-scaled for visual sync)
+    /// Get the current playhead position in seconds
     pub fn get_playhead_position(&self) -> f64 {
         let samples = self.playhead_samples.load(Ordering::SeqCst);
-        let tempo = self.recorder.get_tempo();
-        let tempo_ratio = tempo / 120.0;
-        // Scale position to match MIDI playback timing
-        (samples as f64 * tempo_ratio) / TARGET_SAMPLE_RATE as f64
+        // Simple conversion: samples to seconds (no tempo scaling)
+        // The playhead tracks real time - tempo affects note/beat positions, not time itself
+        samples as f64 / TARGET_SAMPLE_RATE as f64
     }
 
     /// Get the current playhead position in samples
@@ -325,12 +324,10 @@ impl AudioGraph {
         self.playhead_samples.store(samples, Ordering::SeqCst);
     }
 
-    /// Seek to a specific position in seconds (reverse tempo-scaling for correct audio position)
+    /// Seek to a specific position in seconds
     pub fn seek(&self, position_seconds: f64) {
-        let tempo = self.recorder.get_tempo();
-        let tempo_ratio = tempo / 120.0;
-        // Reverse the scaling: visual position -> actual sample position
-        let samples = (position_seconds / tempo_ratio * TARGET_SAMPLE_RATE as f64) as u64;
+        // Simple conversion: seconds to samples (no tempo scaling)
+        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
         self.playhead_samples.store(samples, Ordering::SeqCst);
     }
 

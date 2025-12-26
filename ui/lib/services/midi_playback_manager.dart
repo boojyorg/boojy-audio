@@ -208,6 +208,77 @@ class MidiPlaybackManager extends ChangeNotifier {
     }
   }
 
+  /// Reschedule all MIDI clips with new tempo
+  ///
+  /// Called when tempo changes to update all clip timings.
+  /// The notes are stored in beats, so we need to recalculate
+  /// their positions in seconds based on the new tempo.
+  void rescheduleAllClips(double newTempo) {
+    debugPrint('🎹 [MidiPlaybackManager] Rescheduling ${_midiClips.length} clips for tempo $newTempo BPM');
+
+    final beatsPerSecond = newTempo / 60.0;
+
+    for (final clip in _midiClips) {
+      // Get the Rust clip ID
+      final rustClipId = _dartToRustClipIds[clip.clipId];
+      if (rustClipId == null) continue;
+
+      // Clear existing notes
+      _audioEngine.clearMidiClip(rustClipId);
+
+      // Reschedule notes with new tempo
+      final loopLengthSeconds = clip.loopLength / beatsPerSecond;
+      final numLoops = clip.duration >= clip.loopLength
+          ? (clip.duration / clip.loopLength).ceil()
+          : 1;
+
+      for (int loop = 0; loop < numLoops; loop++) {
+        final loopOffsetBeats = loop * clip.loopLength;
+        final loopOffsetSeconds = loop * loopLengthSeconds;
+
+        for (final note in clip.notes) {
+          if (note.startTime >= clip.loopLength) continue;
+
+          final noteStartBeats = loopOffsetBeats + note.startTime;
+          final noteEndBeats = loopOffsetBeats + note.startTime + note.duration;
+
+          if (noteStartBeats >= clip.duration) continue;
+
+          final noteStartSeconds = note.startTimeInSeconds(newTempo) + loopOffsetSeconds;
+          var durationSeconds = note.durationInSeconds(newTempo);
+
+          if (noteEndBeats > clip.duration) {
+            final truncatedDurationBeats = clip.duration - noteStartBeats;
+            durationSeconds = truncatedDurationBeats / beatsPerSecond;
+          }
+
+          final noteEndInLoop = note.startTime + note.duration;
+          if (noteEndInLoop > clip.loopLength) {
+            final truncatedDurationBeats = clip.loopLength - note.startTime;
+            final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
+            durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
+          }
+
+          if (durationSeconds > 0) {
+            _audioEngine.addMidiNoteToClip(
+              rustClipId,
+              note.note,
+              note.velocity,
+              noteStartSeconds,
+              durationSeconds,
+            );
+          }
+        }
+      }
+
+      // Update clip start time in engine (convert beats to seconds)
+      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
+      _audioEngine.setClipStartTime(clip.trackId, rustClipId, clipStartTimeSeconds);
+    }
+
+    debugPrint('🎹 [MidiPlaybackManager] Rescheduled all clips');
+  }
+
   /// Play MIDI clip immediately (for testing/preview)
   void playClipImmediately(MidiClipData clip, double tempo) {
     for (final note in clip.notes) {

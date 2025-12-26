@@ -433,6 +433,8 @@ class _DAWScreenState extends State<DAWScreen> {
   void _onTempoChanged(double bpm) {
     _recordingController.setTempo(bpm);
     _midiClipController.setTempo(bpm);
+    // Reschedule all MIDI clips with new tempo
+    _midiPlaybackManager?.rescheduleAllClips(bpm);
   }
 
   // M3: Virtual piano methods
