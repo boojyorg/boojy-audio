@@ -85,6 +85,25 @@ if(APPLE)
     set_target_properties(vst3_host PROPERTIES
         MACOSX_DEPLOYMENT_TARGET "10.13"
     )
+elseif(WIN32)
+    # Windows-specific settings
+    target_compile_definitions(vst3_host PRIVATE
+        _WIN32
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
+
+    # Link Windows COM libraries needed for VST3
+    target_link_libraries(vst3_host
+        ole32
+        uuid
+    )
+elseif(UNIX)
+    # Linux-specific settings
+    target_link_libraries(vst3_host
+        pthread
+        dl
+    )
 endif()
 
 # Compiler flags

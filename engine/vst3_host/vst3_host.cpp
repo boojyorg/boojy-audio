@@ -406,11 +406,40 @@ int vst3_scan_directory(const char* directory, VST3ScanCallback callback, void* 
 int vst3_scan_standard_locations(VST3ScanCallback callback, void* user_data) {
     int total = 0;
 
+    std::vector<std::string> locations;
+
+#ifdef _WIN32
+    // Standard VST3 locations on Windows
+    locations.push_back("C:\\Program Files\\Common Files\\VST3");
+    locations.push_back("C:\\Program Files (x86)\\Common Files\\VST3");
+
+    // User VST3 directory
+    char* appdata = getenv("APPDATA");
+    if (appdata) {
+        locations.push_back(std::string(appdata) + "\\VST3");
+    }
+
+    // Also check LOCALAPPDATA for some plugins
+    char* localappdata = getenv("LOCALAPPDATA");
+    if (localappdata) {
+        locations.push_back(std::string(localappdata) + "\\Programs\\Common\\VST3");
+    }
+#elif __APPLE__
     // Standard VST3 locations on macOS
-    std::vector<std::string> locations = {
-        "/Library/Audio/Plug-Ins/VST3",
-        std::string(getenv("HOME")) + "/Library/Audio/Plug-Ins/VST3"
-    };
+    locations.push_back("/Library/Audio/Plug-Ins/VST3");
+    const char* home = getenv("HOME");
+    if (home) {
+        locations.push_back(std::string(home) + "/Library/Audio/Plug-Ins/VST3");
+    }
+#elif __linux__
+    // Standard VST3 locations on Linux
+    const char* home = getenv("HOME");
+    if (home) {
+        locations.push_back(std::string(home) + "/.vst3");
+    }
+    locations.push_back("/usr/lib/vst3");
+    locations.push_back("/usr/local/lib/vst3");
+#endif
 
     for (const auto& location : locations) {
         total += vst3_scan_directory(location.c_str(), callback, user_data);

@@ -41,18 +41,34 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Cocoa");
     }
 
-    // Link C++ standard library
+    // Link C++ standard library and platform-specific libraries
     if target_os == "macos" {
         println!("cargo:rustc-link-lib=c++");
     } else if target_os == "linux" {
         println!("cargo:rustc-link-lib=stdc++");
+    } else if target_os == "windows" {
+        // Windows: Link COM libraries needed for VST3
+        println!("cargo:rustc-link-lib=ole32");
+        println!("cargo:rustc-link-lib=uuid");
+        // MSVC automatically links the C++ runtime
     }
 
     // Re-run if the libraries change
-    println!("cargo:rerun-if-changed=lib/libvst3_host.a");
-    println!("cargo:rerun-if-changed=lib/libsdk_hosting.a");
-    println!("cargo:rerun-if-changed=lib/libsdk.a");
-    println!("cargo:rerun-if-changed=lib/libsdk_common.a");
-    println!("cargo:rerun-if-changed=lib/libbase.a");
-    println!("cargo:rerun-if-changed=lib/libpluginterfaces.a");
+    if target_os == "windows" {
+        // Windows uses .lib files
+        println!("cargo:rerun-if-changed=lib/vst3_host.lib");
+        println!("cargo:rerun-if-changed=lib/sdk_hosting.lib");
+        println!("cargo:rerun-if-changed=lib/sdk.lib");
+        println!("cargo:rerun-if-changed=lib/sdk_common.lib");
+        println!("cargo:rerun-if-changed=lib/base.lib");
+        println!("cargo:rerun-if-changed=lib/pluginterfaces.lib");
+    } else {
+        // macOS/Linux use .a files
+        println!("cargo:rerun-if-changed=lib/libvst3_host.a");
+        println!("cargo:rerun-if-changed=lib/libsdk_hosting.a");
+        println!("cargo:rerun-if-changed=lib/libsdk.a");
+        println!("cargo:rerun-if-changed=lib/libsdk_common.a");
+        println!("cargo:rerun-if-changed=lib/libbase.a");
+        println!("cargo:rerun-if-changed=lib/libpluginterfaces.a");
+    }
 }

@@ -75,6 +75,7 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
   }
 
   Widget _buildUnsupportedPlatform() {
+    final isWindows = Platform.isWindows;
     return Container(
       width: widget.width,
       height: widget.height,
@@ -83,14 +84,26 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
+            Icon(
+              isWindows ? Icons.desktop_windows : Icons.error_outline,
+              color: isWindows ? Colors.orange : Colors.red,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
-              'VST3 editors not supported on ${Platform.operatingSystem}',
+              widget.pluginName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isWindows
+                  ? 'Plugin UI not yet available on Windows.\nUse the parameter sliders below.'
+                  : 'VST3 editors not supported on ${Platform.operatingSystem}',
+              textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70),
             ),
           ],
