@@ -1576,6 +1576,21 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // M5: Project file methods
+
+  /// Get the default projects folder path: ~/Documents/Boojy/Audio/Projects
+  Future<String> _getDefaultProjectsFolder() async {
+    final home = Platform.environment['HOME'] ?? '/Users/${Platform.environment['USER']}';
+    final projectsPath = '$home/Documents/Boojy/Audio/Projects';
+
+    // Create the folder if it doesn't exist
+    final dir = Directory(projectsPath);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+
+    return projectsPath;
+  }
+
   void _newProject() {
     // Show confirmation dialog if current project has unsaved changes
     showDialog(
@@ -1627,10 +1642,13 @@ class _DAWScreenState extends State<DAWScreen> {
 
   Future<void> _openProject() async {
     try {
-      // Use macOS native file picker
+      // Get default projects folder
+      final defaultFolder = await _getDefaultProjectsFolder();
+
+      // Use macOS native file picker with default location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)")'
+        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)" default location POSIX file "$defaultFolder")'
       ]);
 
       if (result.exitCode == 0) {
@@ -1825,10 +1843,13 @@ class _DAWScreenState extends State<DAWScreen> {
     _projectManager?.setProjectName(projectName);
 
     try {
+      // Get default projects folder
+      final defaultFolder = await _getDefaultProjectsFolder();
+
       // Use macOS native file picker for save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Choose location to save project")'
+        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")'
       ]);
 
       if (result.exitCode == 0) {
@@ -2023,10 +2044,13 @@ class _DAWScreenState extends State<DAWScreen> {
     if (copyName == null || copyName.isEmpty) return;
 
     try {
+      // Get default projects folder
+      final defaultFolder = await _getDefaultProjectsFolder();
+
       // Use macOS native file picker for save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Choose location for copy")'
+        'POSIX path of (choose folder with prompt "Choose location for copy" default location POSIX file "$defaultFolder")'
       ]);
 
       if (result.exitCode == 0) {
