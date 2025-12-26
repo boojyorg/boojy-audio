@@ -85,11 +85,11 @@ class _PianoRollState extends State<PianoRoll> {
   Offset? _rightClickStartPosition; // Track right-click start for context menu
   MidiNoteData? _rightClickNote; // Note under right-click for context menu on release
 
-  // Duplicate mode state (Alt+drag to duplicate notes)
+  // Duplicate mode state (Cmd/Ctrl+drag to duplicate notes)
   bool _isDuplicating = false;
   MidiNoteData? _duplicateSourceNote; // Original note being duplicated
 
-  // Stamp copy state for Alt+drag (creates repeated copies when extended)
+  // Stamp copy state for Cmd/Ctrl+drag (creates repeated copies when extended)
   int _stampCopyCount = 0;
   List<MidiNoteData> _stampCopyPreviews = [];
 
@@ -133,6 +133,9 @@ class _PianoRollState extends State<PianoRoll> {
   // Insert marker position (in beats, separate from playhead)
   double? _insertMarkerBeats;
 
+  // Focus node for keyboard events
+  final FocusNode _focusNode = FocusNode();
+
   // Global undo/redo manager
   final UndoRedoManager _undoRedoManager = UndoRedoManager();
 
@@ -144,6 +147,9 @@ class _PianoRollState extends State<PianoRoll> {
     // Listen for undo/redo changes to update our state
     _undoRedoManager.addListener(_onUndoRedoChanged);
 
+    // Listen for hardware keyboard events (for modifier key cursor updates)
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
+
     // Scroll to default view (middle of piano)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToDefaultView();
@@ -152,10 +158,29 @@ class _PianoRollState extends State<PianoRoll> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     _undoRedoManager.removeListener(_onUndoRedoChanged);
+    _focusNode.dispose();
     _horizontalScroll.dispose();
     _verticalScroll.dispose();
     super.dispose();
+  }
+
+  /// Handle hardware keyboard events for modifier key cursor updates
+  bool _onHardwareKey(KeyEvent event) {
+    // Update cursor when Alt or Cmd/Ctrl is pressed or released
+    if (event.logicalKey == LogicalKeyboardKey.alt ||
+        event.logicalKey == LogicalKeyboardKey.altLeft ||
+        event.logicalKey == LogicalKeyboardKey.altRight ||
+        event.logicalKey == LogicalKeyboardKey.meta ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight ||
+        event.logicalKey == LogicalKeyboardKey.control ||
+        event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight) {
+      _updateCursorForModifiers();
+    }
+    return false; // Don't consume the event, let other handlers process it
   }
 
   @override
@@ -438,8 +463,9 @@ class _PianoRollState extends State<PianoRoll> {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: _currentCursor,
-      onHover: _onHover,
+      // onHover is handled by the inner MouseRegion in the grid area
       child: Focus(
+        focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
           _handleKeyEvent(event);
@@ -546,13 +572,12 @@ class _PianoRollState extends State<PianoRoll> {
                                     _rightClickStartPosition = event.localPosition;
                                     _rightClickNote = _findNoteAtPosition(event.localPosition);
                                   } else if (event.buttons == kPrimaryMouseButton) {
-                                    // Left-click with Ctrl/Cmd: prepare for delete/eraser
-                                    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-                                        HardwareKeyboard.instance.isControlPressed;
-                                    if (isCtrlOrCmd) {
+                                    // Left-click with Alt: prepare for delete/eraser
+                                    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+                                    if (isAltPressed) {
                                       final note = _findNoteAtPosition(event.localPosition);
                                       if (note != null) {
-                                        // Ctrl/Cmd+click on note = instant delete
+                                        // Alt+click on note = instant delete
                                         _deleteNote(note);
                                       }
                                     }
@@ -560,10 +585,9 @@ class _PianoRollState extends State<PianoRoll> {
                                 },
                                 onPointerMove: (event) {
                                   if (event.buttons == kPrimaryMouseButton) {
-                                    // Ctrl/Cmd+drag = eraser mode
-                                    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-                                        HardwareKeyboard.instance.isControlPressed;
-                                    if (isCtrlOrCmd) {
+                                    // Alt+drag = eraser mode
+                                    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+                                    if (isAltPressed) {
                                       if (!_isErasing) {
                                         _startErasing(event.localPosition);
                                       } else {
@@ -590,20 +614,23 @@ class _PianoRollState extends State<PianoRoll> {
                                   // Stop sustained audition when mouse released
                                   _stopAudition();
                                 },
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.translucent,
-                                  onTapDown: _onTapDown,
-                                  onTapUp: (_) => _stopAudition(),
-                                  onTapCancel: _stopAudition,
-                                  // Right-click handled by Listener above (context menu on release, eraser on drag)
-                                  // Removed long-press deletion - it conflicts with hold-to-preview
-                                  // Touch users can use secondary tap or swipe gestures instead
-                                  onPanStart: _onPanStart,
-                                  onPanUpdate: _onPanUpdate,
-                                  onPanEnd: _onPanEnd,
-                                  child: Container(
-                                    color: Colors.transparent,
-                                    child: Stack(
+                                child: MouseRegion(
+                                  cursor: _currentCursor,
+                                  onHover: _onHover,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTapDown: _onTapDown,
+                                    onTapUp: (_) => _stopAudition(),
+                                    onTapCancel: _stopAudition,
+                                    // Right-click handled by Listener above (context menu on release, eraser on drag)
+                                    // Removed long-press deletion - it conflicts with hold-to-preview
+                                    // Touch users can use secondary tap or swipe gestures instead
+                                    onPanStart: _onPanStart,
+                                    onPanUpdate: _onPanUpdate,
+                                    onPanEnd: _onPanEnd,
+                                    child: Container(
+                                      color: Colors.transparent,
+                                      child: Stack(
                                       children: [
                                         CustomPaint(
                                           size: Size(canvasWidth, canvasHeight),
@@ -628,7 +655,7 @@ class _PianoRollState extends State<PianoRoll> {
                                             selectionEnd: _selectionEnd,
                                           ),
                                         ),
-                                        // Stamp copy previews (Alt+drag)
+                                        // Stamp copy previews (Cmd/Ctrl+drag)
                                         ..._buildStampCopyNotePreviews(),
                                         // Loop end marker (draggable)
                                         _buildLoopEndMarker(activeBeats, canvasHeight),
@@ -643,6 +670,7 @@ class _PianoRollState extends State<PianoRoll> {
                           ),
                         ),
                       ),
+                    ),
                     ],
                   ),
                 ),
@@ -1259,7 +1287,7 @@ class _PianoRollState extends State<PianoRoll> {
   // Check if position is near left or right edge of note (FL Studio style)
   // Returns 'left', 'right', or null
   String? _getEdgeAtPosition(Offset position, MidiNoteData note) {
-    const edgeThreshold = 6.0; // 6 pixels (FL Studio style, zoom-aware)
+    const edgeThreshold = 9.0; // 9 pixels for easier edge detection
 
     final noteStartX = _calculateBeatX(note.startTime);
     final noteEndX = _calculateBeatX(note.endTime);
@@ -1283,6 +1311,31 @@ class _PianoRollState extends State<PianoRoll> {
     return null; // Not near any edge
   }
 
+  /// Update cursor based on current modifier key state (called when Alt/Cmd/Ctrl pressed)
+  void _updateCursorForModifiers() {
+    // Don't update cursor during active drag operations
+    if (_currentMode == InteractionMode.move || _currentMode == InteractionMode.resize) {
+      return;
+    }
+
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+
+    setState(() {
+      if (isAltPressed) {
+        // Alt = delete mode
+        _currentCursor = SystemMouseCursors.forbidden;
+      } else if (isCtrlOrCmd) {
+        // Cmd/Ctrl = duplicate mode (only meaningful when over a note, but show anyway)
+        _currentCursor = SystemMouseCursors.copy;
+      } else {
+        // No modifier = default cursor
+        _currentCursor = SystemMouseCursors.basic;
+      }
+    });
+  }
+
   // Handle hover for cursor feedback (smart context-aware cursors)
   void _onHover(PointerHoverEvent event) {
     // Don't update cursor during active drag operations
@@ -1297,8 +1350,8 @@ class _PianoRollState extends State<PianoRoll> {
         HardwareKeyboard.instance.isControlPressed;
 
     if (hoveredNote != null) {
-      if (isCtrlOrCmd) {
-        // Ctrl/Cmd held - show delete cursor
+      if (isAltPressed) {
+        // Alt held - show delete cursor
         setState(() {
           _currentCursor = SystemMouseCursors.forbidden;
         });
@@ -1307,8 +1360,8 @@ class _PianoRollState extends State<PianoRoll> {
         setState(() {
           _currentCursor = SystemMouseCursors.verticalText;
         });
-      } else if (isAltPressed) {
-        // Alt held - show copy cursor for duplicate
+      } else if (isCtrlOrCmd) {
+        // Cmd/Ctrl held - show copy cursor for duplicate
         setState(() {
           _currentCursor = SystemMouseCursors.copy;
         });
@@ -1328,26 +1381,55 @@ class _PianoRollState extends State<PianoRoll> {
         }
       }
     } else {
-      // Empty space - default cursor for note creation
-      setState(() {
-        _currentCursor = SystemMouseCursors.basic;
-      });
+      // Empty space
+      if (isAltPressed) {
+        // Alt held - show delete cursor even on empty space (eraser mode)
+        setState(() {
+          _currentCursor = SystemMouseCursors.forbidden;
+        });
+      } else {
+        // Default cursor for note creation
+        setState(() {
+          _currentCursor = SystemMouseCursors.basic;
+        });
+      }
     }
   }
 
   void _onTapDown(TapDownDetails details) {
+    // Request focus to enable keyboard events (delete, undo, etc.)
+    _focusNode.requestFocus();
+
     final clickedNote = _findNoteAtPosition(details.localPosition);
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
-    // Ctrl/Cmd+click = delete (handled by Listener, but skip normal handling)
-    if (isCtrlOrCmd) {
+    // Alt+click = delete (handled by Listener, but skip normal handling)
+    if (isAltPressed) {
+      return;
+    }
+
+    // Cmd/Ctrl+click on note = duplicate in place
+    if (isCtrlOrCmd && clickedNote != null) {
+      _saveToHistory();
+      final duplicate = clickedNote.copyWith(
+        id: '${clickedNote.note}_${DateTime.now().microsecondsSinceEpoch}',
+        isSelected: false,
+      );
+      setState(() {
+        _currentClip = _currentClip?.addNote(duplicate);
+      });
+      _commitToHistory('Duplicate note');
+      _notifyClipUpdated();
+      _startAudition(clickedNote.note, clickedNote.velocity);
+      debugPrint('📋 Cmd+click duplicated ${clickedNote.noteName}');
       return;
     }
 
     if (clickedNote != null) {
-      // Check if slice mode is active (toggle button only, Alt is now for duplicate)
+      // Check if slice mode is active (toggle button only, Cmd/Ctrl is now for duplicate)
       if (_sliceModeEnabled) {
         // Slice the note at click position
         final beatPosition = _getBeatAtX(details.localPosition.dx);
@@ -1355,7 +1437,7 @@ class _PianoRollState extends State<PianoRoll> {
         return;
       }
 
-      // Shift+click on note = toggle selection
+      // Shift+click on note = toggle selection (add/remove from selection)
       if (isShiftPressed) {
         setState(() {
           _currentClip = _currentClip?.copyWith(
@@ -1370,6 +1452,22 @@ class _PianoRollState extends State<PianoRoll> {
         _notifyClipUpdated();
         return;
       }
+
+      // Regular click on note = select it (deselect others) or toggle if already selected
+      setState(() {
+        _currentClip = _currentClip?.copyWith(
+          notes: _currentClip!.notes.map((n) {
+            if (n.id == clickedNote.id) {
+              // Toggle selection: if already selected, deselect; otherwise select
+              return n.copyWith(isSelected: !n.isSelected);
+            } else {
+              // Deselect all other notes
+              return n.copyWith(isSelected: false);
+            }
+          }).toList(),
+        );
+      });
+      _notifyClipUpdated();
 
       // Start sustained audition (will stop on mouse up)
       _startAudition(clickedNote.note, clickedNote.velocity);
@@ -1387,9 +1485,14 @@ class _PianoRollState extends State<PianoRoll> {
         velocity: 100,
         startTime: beat,
         duration: _lastNoteDuration,
+        isSelected: true,  // Auto-select new note for immediate manipulation
       );
 
       setState(() {
+        // Deselect all existing notes, then add the new selected note
+        _currentClip = _currentClip?.copyWith(
+          notes: _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+        );
         _currentClip = _currentClip?.addNote(newNote);
 
         // Auto-extend loop length if note extends beyond current loop
@@ -1423,6 +1526,9 @@ class _PianoRollState extends State<PianoRoll> {
   }
 
   void _onPanStart(DragStartDetails details) {
+    // Request focus to enable keyboard events (delete, undo, etc.)
+    _focusNode.requestFocus();
+
     _dragStart = details.localPosition;
     final clickedNote = _findNoteAtPosition(details.localPosition);
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
@@ -1430,8 +1536,8 @@ class _PianoRollState extends State<PianoRoll> {
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
 
-    // Skip normal pan handling if Ctrl/Cmd is held (eraser mode handled by Listener)
-    if (isCtrlOrCmd) {
+    // Skip normal pan handling if Alt is held (eraser mode handled by Listener)
+    if (isAltPressed) {
       return;
     }
 
@@ -1443,8 +1549,8 @@ class _PianoRollState extends State<PianoRoll> {
         _selectionEnd = details.localPosition;
         _currentMode = InteractionMode.select;
       });
-    } else if (isAltPressed && clickedNote != null) {
-      // Alt+drag on note = duplicate mode
+    } else if (isCtrlOrCmd && clickedNote != null) {
+      // Cmd/Ctrl+drag on note = duplicate mode
       _saveToHistory();
       _isDuplicating = true;
       _duplicateSourceNote = clickedNote;
@@ -1469,7 +1575,7 @@ class _PianoRollState extends State<PianoRoll> {
       });
 
       _startAudition(clickedNote.note, clickedNote.velocity);
-      debugPrint('📋 Started Alt+drag duplicate of ${clickedNote.noteName}');
+      debugPrint('📋 Started Cmd+drag duplicate of ${clickedNote.noteName}');
     } else if (_justCreatedNoteId != null) {
       // User is dragging from where they just created a note - move it (FL Studio style)
       final createdNote = _currentClip?.notes.firstWhere(
@@ -1538,9 +1644,34 @@ class _PianoRollState extends State<PianoRoll> {
 
   void _onPanUpdate(DragUpdateDetails details) {
     if (_currentMode == InteractionMode.select && _isSelecting) {
-      // Update selection rectangle
+      // Update selection rectangle and select notes LIVE
       setState(() {
         _selectionEnd = details.localPosition;
+
+        // Live selection - update note selection as rectangle changes
+        if (_selectionStart != null && _selectionEnd != null) {
+          final startBeat = _getBeatAtX(_selectionStart!.dx.clamp(0, double.infinity));
+          final endBeat = _getBeatAtX(_selectionEnd!.dx.clamp(0, double.infinity));
+          final startNote = _getNoteAtY(_selectionStart!.dy.clamp(0, double.infinity));
+          final endNote = _getNoteAtY(_selectionEnd!.dy.clamp(0, double.infinity));
+
+          final minBeat = startBeat < endBeat ? startBeat : endBeat;
+          final maxBeat = startBeat < endBeat ? endBeat : startBeat;
+          final minNote = startNote < endNote ? startNote : endNote;
+          final maxNote = startNote < endNote ? endNote : startNote;
+
+          _currentClip = _currentClip?.copyWith(
+            notes: _currentClip!.notes.map((note) {
+              // Overlap detection: note is selected if it overlaps the selection box
+              // (not requiring full containment)
+              final isInRange = note.startTime < maxBeat &&   // Note starts before selection ends
+                                note.endTime > minBeat &&     // Note ends after selection starts
+                                note.note >= minNote &&
+                                note.note <= maxNote;
+              return note.copyWith(isSelected: isInRange);
+            }).toList(),
+          );
+        }
       });
     } else if (_isPainting && _paintNote != null) {
       // Paint mode - create additional notes as user drags right
@@ -1714,31 +1845,8 @@ class _PianoRollState extends State<PianoRoll> {
     }
 
     if (_currentMode == InteractionMode.select && _isSelecting) {
-      // Apply selection rectangle
-      if (_selectionStart != null && _selectionEnd != null) {
-        final startBeat = _getBeatAtX(_selectionStart!.dx.clamp(0, double.infinity));
-        final endBeat = _getBeatAtX(_selectionEnd!.dx.clamp(0, double.infinity));
-        final startNote = _getNoteAtY(_selectionStart!.dy.clamp(0, double.infinity));
-        final endNote = _getNoteAtY(_selectionEnd!.dy.clamp(0, double.infinity));
-
-        final minBeat = startBeat < endBeat ? startBeat : endBeat;
-        final maxBeat = startBeat < endBeat ? endBeat : startBeat;
-        final minNote = startNote < endNote ? startNote : endNote;
-        final maxNote = startNote < endNote ? endNote : startNote;
-
-        setState(() {
-          _currentClip = _currentClip?.copyWith(
-            notes: _currentClip!.notes.map((note) {
-              final isInRange = note.startTime >= minBeat &&
-                                note.endTime <= maxBeat &&
-                                note.note >= minNote &&
-                                note.note <= maxNote;
-              return note.copyWith(isSelected: isInRange);
-            }).toList(),
-          );
-        });
-      }
-
+      // Selection is already applied live in _onPanUpdate()
+      // Just clean up selection state here
       setState(() {
         _isSelecting = false;
         _selectionStart = null;
@@ -1770,7 +1878,7 @@ class _PianoRollState extends State<PianoRoll> {
         } else {
           // Single duplicate
           _commitToHistory('Duplicate note');
-          debugPrint('📋 Alt+drag duplicate completed');
+          debugPrint('📋 Cmd+drag duplicate completed');
         }
       } else {
         final selectedCount = _currentClip?.selectedNotes.length ?? 0;
@@ -1944,9 +2052,8 @@ class _PianoRollState extends State<PianoRoll> {
     // Find the earliest note in clipboard to use as reference point
     final earliestTime = _clipboard.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
 
-    // Paste at current view position (center of visible area)
-    // Or use a reasonable default position
-    final pasteTime = 0.0; // Paste at start for now - could be improved to use playhead
+    // Paste at insert marker position if set, otherwise at start
+    final pasteTime = _insertMarkerBeats ?? 0.0;
 
     // Calculate offset
     final timeOffset = pasteTime - earliestTime;
