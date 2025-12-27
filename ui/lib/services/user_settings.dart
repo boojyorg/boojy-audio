@@ -64,6 +64,9 @@ class UserSettings extends ChangeNotifier {
   // MIDI setting keys
   static const String _keyPreferredMidiInput = 'preferred_midi_input';
 
+  // Recording setting keys
+  static const String _keyCountInBars = 'count_in_bars';
+
   // Project setting keys
   static const String _keyContinueWhereLeftOff = 'continue_where_left_off';
   static const String _keyCopySamplesToProject = 'copy_samples_to_project';
@@ -107,6 +110,9 @@ class UserSettings extends ChangeNotifier {
 
   // MIDI settings
   String? _preferredMidiInput; // null = all devices
+
+  // Recording settings
+  int _countInBars = 2; // 0 = off, 1 = 1 bar, 2 = 2 bars
 
   // Project settings
   bool _continueWhereLeftOff = true;
@@ -288,6 +294,20 @@ class UserSettings extends ChangeNotifier {
   }
 
   // ========================================================================
+  // Recording Settings
+  // ========================================================================
+
+  /// Count-in bars before recording starts: 0 = off, 1 = 1 bar, 2 = 2 bars
+  int get countInBars => _countInBars;
+  set countInBars(int value) {
+    if (_countInBars != value && [0, 1, 2].contains(value)) {
+      _countInBars = value;
+      _saveRecordingSettings();
+      notifyListeners();
+    }
+  }
+
+  // ========================================================================
   // Project Settings
   // ========================================================================
 
@@ -363,6 +383,9 @@ class UserSettings extends ChangeNotifier {
 
       // Load MIDI settings
       _preferredMidiInput = _prefs?.getString(_keyPreferredMidiInput);
+
+      // Load recording settings
+      _countInBars = _prefs?.getInt(_keyCountInBars) ?? 2;
 
       // Load project settings
       _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;
@@ -457,6 +480,17 @@ class UserSettings extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[UserSettings] Failed to save MIDI settings: $e');
+    }
+  }
+
+  /// Save recording settings to SharedPreferences
+  Future<void> _saveRecordingSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setInt(_keyCountInBars, _countInBars);
+    } catch (e) {
+      debugPrint('[UserSettings] Failed to save recording settings: $e');
     }
   }
 

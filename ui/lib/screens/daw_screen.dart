@@ -282,7 +282,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Initialize recording settings
       try {
-        _audioEngine!.setCountInBars(2); // Default: 2 bars
+        _audioEngine!.setCountInBars(_userSettings.countInBars); // Use saved setting
         _audioEngine!.setTempo(120.0);   // Default: 120 BPM
         _audioEngine!.setMetronomeEnabled(true); // Default: enabled
 
@@ -453,6 +453,18 @@ class _DAWScreenState extends State<DAWScreen> {
     _recordingController.toggleMetronome();
     final newState = _recordingController.isMetronomeEnabled;
     _playbackController.setStatusMessage(newState ? 'Metronome enabled' : 'Metronome disabled');
+  }
+
+  void _setCountInBars(int bars) {
+    _userSettings.countInBars = bars;
+    _audioEngine?.setCountInBars(bars);
+
+    final message = bars == 0
+        ? 'Count-in disabled'
+        : bars == 1
+            ? 'Count-in: 1 bar'
+            : 'Count-in: 2 bars';
+    _playbackController.setStatusMessage(message);
   }
 
   void _onTempoChanged(double bpm) {
@@ -2887,6 +2899,8 @@ class _DAWScreenState extends State<DAWScreen> {
             onStop: _stopPlayback,
             onRecord: _toggleRecording,
             onCaptureMidi: _captureMidi,
+            onCountInChanged: _setCountInBars,
+            countInBars: _userSettings.countInBars,
             onMetronomeToggle: _toggleMetronome,
             onPianoToggle: _toggleVirtualPiano,
             playheadPosition: _playheadPosition,

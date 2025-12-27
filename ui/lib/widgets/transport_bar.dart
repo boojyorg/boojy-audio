@@ -7,6 +7,8 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
   final VoidCallback? onCaptureMidi;
+  final Function(int)? onCountInChanged; // 0 = off, 1 = 1 bar, 2 = 2 bars
+  final int countInBars; // Current count-in setting
   final VoidCallback? onMetronomeToggle;
   final VoidCallback? onPianoToggle;
   final double playheadPosition; // in seconds
@@ -66,6 +68,8 @@ class TransportBar extends StatefulWidget {
     this.onStop,
     this.onRecord,
     this.onCaptureMidi,
+    this.onCountInChanged,
+    this.countInBars = 2,
     this.onMetronomeToggle,
     this.onPianoToggle,
     required this.playheadPosition,
@@ -482,16 +486,13 @@ class _TransportBarState extends State<TransportBar> {
 
                 const SizedBox(width: 4),
 
-                // Record button
-                _TransportButton(
-                  icon: Icons.fiber_manual_record,
-                  color: widget.isRecording || widget.isCountingIn
-                      ? const Color(0xFFFF0000)
-                      : const Color(0xFFE91E63),
+                // Record button with right-click menu for count-in settings
+                _RecordButton(
+                  isRecording: widget.isRecording,
+                  isCountingIn: widget.isCountingIn,
+                  countInBars: widget.countInBars,
                   onPressed: widget.onRecord,
-                  tooltip: widget.isRecording
-                      ? 'Stop Recording (R)'
-                      : (widget.isCountingIn ? 'Counting In...' : 'Record (R)'),
+                  onCountInChanged: widget.onCountInChanged,
                   size: 40,
                 ),
 
@@ -1319,6 +1320,155 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Record button with right-click context menu for count-in settings
+class _RecordButton extends StatefulWidget {
+  final bool isRecording;
+  final bool isCountingIn;
+  final int countInBars;
+  final VoidCallback? onPressed;
+  final Function(int)? onCountInChanged;
+  final double size;
+
+  const _RecordButton({
+    required this.isRecording,
+    required this.isCountingIn,
+    required this.countInBars,
+    required this.onPressed,
+    required this.onCountInChanged,
+    this.size = 40,
+  });
+
+  @override
+  State<_RecordButton> createState() => _RecordButtonState();
+}
+
+class _RecordButtonState extends State<_RecordButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  void _showCountInMenu(BuildContext context, Offset position) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    showMenu<int>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem<int>(
+          value: 0,
+          child: Row(
+            children: [
+              Icon(Icons.close, size: 16),
+              SizedBox(width: 8),
+              Text('Count-in: Off'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: [
+              Icon(Icons.looks_one, size: 16),
+              SizedBox(width: 8),
+              Text('Count-in: 1 Bar'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 2,
+          child: Row(
+            children: [
+              Icon(Icons.looks_two, size: 16),
+              SizedBox(width: 8),
+              Text('Count-in: 2 Bars'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value != null) {
+        widget.onCountInChanged?.call(value);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = widget.onPressed != null;
+    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
+
+    final Color color = widget.isRecording || widget.isCountingIn
+        ? const Color(0xFFFF0000)
+        : const Color(0xFFE91E63);
+
+    String tooltip = widget.isRecording
+        ? 'Stop Recording (R)'
+        : (widget.isCountingIn ? 'Counting In...' : 'Record (R)');
+
+    // Add count-in info to tooltip
+    if (!widget.isRecording && !widget.isCountingIn) {
+      final countInText = widget.countInBars == 0
+          ? 'Off'
+          : widget.countInBars == 1
+              ? '1 Bar'
+              : '2 Bars';
+      tooltip += ' | Right-click: Count-in ($countInText)';
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            widget.onPressed?.call();
+          },
+          onTapCancel: () => setState(() => _isPressed = false),
+          onSecondaryTapDown: (details) {
+            // Right-click: show count-in menu
+            _showCountInMenu(context, details.globalPosition);
+          },
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                color: isEnabled
+                    ? color.withOpacity(_isHovered ? 0.9 : 0.7)
+                    : const Color(0xFF363636),
+                shape: BoxShape.circle,
+                boxShadow: _isHovered && isEnabled
+                    ? [
+                        BoxShadow(
+                          color: color.withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                Icons.fiber_manual_record,
+                color: isEnabled ? Colors.white : const Color(0xFF9E9E9E),
+                size: widget.size * 0.5,
+              ),
+            ),
+          ),
         ),
       ),
     );
