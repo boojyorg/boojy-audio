@@ -371,6 +371,7 @@ impl AudioGraph {
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                 if let Ok(mut effect) = effect_arc.lock() {
+                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                         // Send note-off for all 128 MIDI notes
                                         for note in 0..128i32 {
@@ -410,6 +411,7 @@ impl AudioGraph {
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                 if let Ok(mut effect) = effect_arc.lock() {
+                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                         // Send note-off for all 128 MIDI notes
                                         for note in 0..128i32 {
@@ -915,6 +917,7 @@ impl AudioGraph {
                                                         for effect_id in &track_snap.fx_chain {
                                                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                                                 if let Ok(mut effect) = effect_arc.lock() {
+                                                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                         let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
                                                                     }
@@ -932,6 +935,7 @@ impl AudioGraph {
                                                         for effect_id in &track_snap.fx_chain {
                                                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                                                 if let Ok(mut effect) = effect_arc.lock() {
+                                                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                         let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
                                                                     }
@@ -1231,7 +1235,7 @@ impl AudioGraph {
                             effect_type_str = "limiter".to_string();
                             // Limiter has no user-adjustable parameters
                         }
-                        #[cfg(not(target_os = "ios"))]
+                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                         ET::VST3(_vst3) => {
                             effect_type_str = "vst3".to_string();
                             // TODO M7: Save VST3 plugin path and state
@@ -1304,7 +1308,7 @@ impl AudioGraph {
             }).collect();
 
             // Collect VST3 plugin data with state
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             let vst3_plugins: Vec<Vst3PluginData> = track.fx_chain.iter().filter_map(|effect_id| {
                 if let Some(effect_arc) = effect_manager.get_effect(*effect_id) {
                     let effect = effect_arc.lock().expect("mutex poisoned");
@@ -1598,7 +1602,7 @@ impl AudioGraph {
             }
 
             // Restore VST3 plugins from vst3_plugins field
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             {
                 use base64::Engine as _;
                 use crate::vst3_host::VST3Effect;

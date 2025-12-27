@@ -783,7 +783,7 @@ pub enum EffectType {
     Delay(Delay),
     Limiter(Limiter),
     Chorus(Chorus),
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
     VST3(crate::vst3_host::VST3Effect),  // M7: VST3 plugin support (desktop only)
 }
 
@@ -796,7 +796,7 @@ impl EffectType {
             EffectType::Delay(fx) => fx.process_frame(left, right),
             EffectType::Limiter(fx) => fx.process_frame(left, right),
             EffectType::Chorus(fx) => fx.process_frame(left, right),
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(fx) => fx.process_frame(left, right),
         }
     }
@@ -809,7 +809,7 @@ impl EffectType {
             EffectType::Delay(fx) => fx.reset(),
             EffectType::Limiter(fx) => fx.reset(),
             EffectType::Chorus(fx) => fx.reset(),
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(fx) => fx.reset(),
         }
     }
@@ -822,7 +822,7 @@ impl EffectType {
             EffectType::Delay(fx) => fx.name(),
             EffectType::Limiter(fx) => fx.name(),
             EffectType::Chorus(fx) => fx.name(),
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(fx) => fx.name(),
         }
     }

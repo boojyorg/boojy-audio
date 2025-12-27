@@ -132,7 +132,7 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
                 "type:limiter,bypassed:{},threshold:{},release:{}",
                 bypass_str, lim.threshold_db, lim.release_ms
             ),
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(vst3) => {
                 // Return basic VST3 info
                 format!("type:vst3,bypassed:{},name:{}", bypass_str, vst3.name())
@@ -340,7 +340,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 }
                 _ => return Err(format!("Unknown Limiter parameter: {}", param_name)),
             },
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(vst3) => {
                 // VST3 parameters are accessed by index (e.g., "param_0", "param_1")
                 if let Some(index_str) = param_name.strip_prefix("param_") {

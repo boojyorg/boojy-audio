@@ -93,6 +93,7 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
                 if let Ok(mut effect) = effect_arc.lock() {
+                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 0 = note on
                         if let Err(e) = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0) {
@@ -149,6 +150,7 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
                 if let Ok(mut effect) = effect_arc.lock() {
+                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 1 = note off
                         if let Err(e) = vst3.process_midi_event(1, 0, note as i32, velocity as i32, 0) {

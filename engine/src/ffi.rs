@@ -1059,6 +1059,8 @@ pub extern "C" fn send_track_midi_note_off_ffi(track_id: u64, note: u8, velocity
 // M7: VST3 Plugin Hosting FFI
 // ============================================================================
 
+// VST3 FFI functions - only available when vst3 feature is enabled
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 /// Scan standard system locations for VST3 plugins
 /// Returns a newline-separated list of "name|path"
 #[no_mangle]
@@ -1079,6 +1081,7 @@ pub extern "C" fn scan_vst3_plugins_standard_ffi() -> *mut c_char {
 
 /// Add a VST3 effect to a track
 /// Returns the effect ID, or -1 on failure
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn add_vst3_effect_to_track_ffi(
     track_id: u64,
@@ -1106,6 +1109,7 @@ pub extern "C" fn add_vst3_effect_to_track_ffi(
 }
 
 /// Get the number of parameters for a VST3 effect
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn get_vst3_parameter_count_ffi(effect_id: i64) -> i32 {
     match api::get_vst3_parameter_count(effect_id as u64) {
@@ -1119,6 +1123,7 @@ pub extern "C" fn get_vst3_parameter_count_ffi(effect_id: i64) -> i32 {
 
 /// Get information about a VST3 parameter
 /// Returns a CSV string: "name,min,max,default"
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn get_vst3_parameter_info_ffi(
     effect_id: i64,
@@ -1134,6 +1139,7 @@ pub extern "C" fn get_vst3_parameter_info_ffi(
 }
 
 /// Get the current value of a VST3 parameter (0.0-1.0)
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn get_vst3_parameter_value_ffi(
     effect_id: i64,
@@ -1150,6 +1156,7 @@ pub extern "C" fn get_vst3_parameter_value_ffi(
 
 /// Set the value of a VST3 parameter (0.0-1.0)
 /// Returns 1 on success, 0 on failure
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn set_vst3_parameter_value_ffi(
     effect_id: i64,
@@ -1171,6 +1178,7 @@ pub extern "C" fn set_vst3_parameter_value_ffi(
 
 /// Check if a VST3 plugin has an editor GUI
 /// Returns true if the plugin has an editor
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_has_editor_ffi(effect_id: i64) -> bool {
     match api::vst3_has_editor(effect_id as u64) {
@@ -1184,6 +1192,7 @@ pub extern "C" fn vst3_has_editor_ffi(effect_id: i64) -> bool {
 
 /// Open a VST3 plugin editor (creates IPlugView)
 /// Returns empty string on success, error message on failure
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_open_editor_ffi(effect_id: i64) -> *mut c_char {
     println!("🎨 [FFI] Opening VST3 editor for effect {}", effect_id);
@@ -1205,6 +1214,7 @@ pub extern "C" fn vst3_open_editor_ffi(effect_id: i64) -> *mut c_char {
 }
 
 /// Close a VST3 plugin editor
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_close_editor_ffi(effect_id: i64) {
     println!("🎨 [FFI] Closing VST3 editor for effect {}", effect_id);
@@ -1217,6 +1227,7 @@ pub extern "C" fn vst3_close_editor_ffi(effect_id: i64) {
 
 /// Get VST3 editor size
 /// Returns "width,height" or error message
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_get_editor_size_ffi(effect_id: i64) -> *mut c_char {
     match api::vst3_get_editor_size(effect_id as u64) {
@@ -1231,6 +1242,7 @@ pub extern "C" fn vst3_get_editor_size_ffi(effect_id: i64) -> *mut c_char {
 /// Attach VST3 editor to a parent window
 /// parent_ptr: Pointer to NSView (on macOS)
 /// Returns empty string on success, error message on failure
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_attach_editor_ffi(
     effect_id: i64,
@@ -1264,6 +1276,7 @@ pub extern "C" fn vst3_attach_editor_ffi(
 /// Send a MIDI note event to a VST3 plugin
 /// event_type: 0 = note on, 1 = note off
 /// Returns empty string on success, error message on failure
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_send_midi_note_ffi(
     effect_id: i64,

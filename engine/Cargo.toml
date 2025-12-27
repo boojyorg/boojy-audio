@@ -8,7 +8,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [features]
 default = ["desktop"]
-desktop = ["vst3", "midi"]
+desktop = ["vst3", "midi"]  # VST3 now enabled for Windows
 mobile = []
 vst3 = []
 midi = []

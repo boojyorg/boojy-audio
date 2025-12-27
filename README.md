@@ -178,6 +178,30 @@ Boojy Audio combines professional workflows with beginner-friendly UX. Built wit
 - **Rust:** `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Flutter:** [Install Flutter](https://docs.flutter.dev/get-started/install)
 - **macOS:** Xcode Command Line Tools
+- **Windows:** Visual Studio 2026 with "Desktop development with C++" + CMake
+
+### Windows VST3 Setup
+
+For VST3 plugin support on Windows:
+
+1. **Install Build Tools:**
+   - CMake: `winget install Kitware.CMake`
+   - Visual Studio 2026 Community with "Desktop development with C++" workload
+
+2. **Build VST3 C++ Libraries:**
+   ```powershell
+   cd engine/vst3_host
+   mkdir build_win
+   cd build_win
+   cmake -G "Visual Studio 18 2026" -A x64 ..
+   cmake --build . --config Release
+   cd ../../..
+   copy engine/vst3_host/build_win/lib/Release/*.lib engine/lib/
+   ```
+
+3. **VST3 Plugin Paths:**
+   - Default: `C:\Program Files\Common Files\VST3\`
+   - Custom paths can be added via plugin browser in app
 
 ### Build & Run
 
@@ -192,7 +216,8 @@ cargo build --release
 
 # Run Flutter app
 cd ../ui
-flutter run -d macos
+flutter run -d macos    # macOS
+flutter run -d windows  # Windows
 ```
 
 ## Development Roadmap

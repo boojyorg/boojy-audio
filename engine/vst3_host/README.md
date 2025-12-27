@@ -14,11 +14,12 @@ This directory contains a C++ wrapper for the Steinberg VST3 SDK, providing a C 
 
 **✅ Status Update (M7):**
 - VST3 integration is COMPLETE and functional in the engine
-- `cargo build` works successfully
+- `cargo build` works successfully on macOS and Windows
 - All VST3 FFI functions implemented and available to Flutter
 - Plugin scanning, loading, parameter access, and audio processing all implemented
 - Plugin state persistence (save/load) fully implemented
 - Editor UI hosting (embedded and floating windows) working
+- **Windows support added:** Full VST3 support with platform-specific GUI helpers
 
 **🚧 Known Test Limitation:**
 - `cargo test` fails to link due to missing `Module::create` symbol in pre-built libraries
@@ -29,7 +30,7 @@ This directory contains a C++ wrapper for the Steinberg VST3 SDK, providing a C 
 
 ## Building
 
-### Standalone C++ Build
+### macOS Build
 
 ```bash
 cd vst3_host
@@ -40,14 +41,34 @@ cmake --build . --config Release --target vst3_host
 
 This creates `build/lib/Release/libvst3_host.a` (universal binary).
 
+### Windows Build
+
+```powershell
+cd vst3_host
+mkdir build_win
+cd build_win
+cmake -G "Visual Studio 18 2026" -A x64 ..
+cmake --build . --config Release
+```
+
+This creates `build_win/lib/Release/*.lib` (6 libraries).
+
+**Note:** Requires Visual Studio 2026 (or 2022) with "Desktop development with C++" workload.
+
 ### Rebuild All Libraries
 
-To regenerate all VST3 libraries (when fixing the module_mac.mm issue):
-
+**macOS:**
 ```bash
 cd vst3_host/build
 cmake --build . --config Release
 cp lib/Release/*.a ../../lib/
+```
+
+**Windows:**
+```powershell
+cd vst3_host/build_win
+cmake --build . --config Release
+copy lib\Release\*.lib ..\..\lib\
 ```
 
 ## Architecture

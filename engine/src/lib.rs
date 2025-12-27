@@ -14,8 +14,8 @@ mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
 mod export;     // M8: Audio export (WAV, MP3, stems)
 
-// VST3 plugin hosting - desktop only (not available on iOS)
-#[cfg(not(target_os = "ios"))]
+// VST3 plugin hosting - desktop only (not available on iOS) and requires vst3 feature
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 mod vst3_host;
 
 // Re-export API functions
@@ -35,7 +35,7 @@ pub use effects::*;
 pub use project::*;
 pub use export::*;
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub use vst3_host::*;
 // FFI exports are handled by #[no_mangle] in ffi.rs
 

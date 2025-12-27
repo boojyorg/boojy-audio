@@ -49,9 +49,21 @@ set(VST3_HOST_SOURCES
     ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/eventlist.h
 )
 
-# Add macOS-specific Objective-C++ file
+# Add platform-specific source files
 if(APPLE)
-    list(APPEND VST3_HOST_SOURCES vst3_host_mac.mm)
+    list(APPEND VST3_HOST_SOURCES
+        vst3_host_mac.mm
+        ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/module_mac.mm
+    )
+elseif(WIN32)
+    list(APPEND VST3_HOST_SOURCES
+        vst3_host_win.cpp
+        ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/module_win32.cpp
+    )
+elseif(UNIX)
+    list(APPEND VST3_HOST_SOURCES
+        ${VST3_SDK_DIR}/public.sdk/source/vst/hosting/module_linux.cpp
+    )
 endif()
 
 add_library(vst3_host STATIC ${VST3_HOST_SOURCES})

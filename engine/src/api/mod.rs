@@ -28,6 +28,8 @@ pub mod synthesizer;
 pub mod timing;
 pub mod tracks;
 pub mod transport;
+
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub mod vst3;
 
 // Re-export all public functions from submodules
@@ -75,6 +77,8 @@ pub use transport::{
     get_playhead_position, get_transport_state, transport_pause, transport_play, transport_seek,
     transport_stop,
 };
+
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub use vst3::{
     add_vst3_effect_to_track, get_vst3_parameter_count, get_vst3_parameter_info,
     get_vst3_parameter_value, get_vst3_state, scan_vst3_plugins, scan_vst3_plugins_standard,

@@ -110,7 +110,7 @@ pub fn init_audio_engine() -> Result<String, String> {
 /// Initialize the audio graph for playback
 pub fn init_audio_graph() -> Result<String, String> {
     // Initialize VST3 host first (required before loading any VST3 plugins)
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
     {
         use crate::vst3_host::VST3Host;
         VST3Host::init().map_err(|e| format!("VST3 host init failed: {}", e))?;
