@@ -114,7 +114,6 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
         _progressTimer?.cancel();
       }
     } catch (e) {
-      debugPrint('Failed to poll progress: $e');
     }
   }
 
@@ -484,7 +483,6 @@ class _ExportDialogState extends State<ExportDialog> {
         _loadingTracks = false;
       });
     } catch (e) {
-      debugPrint('Failed to load tracks: $e');
       setState(() => _loadingTracks = false);
     }
   }
@@ -606,7 +604,6 @@ class _ExportDialogState extends State<ExportDialog> {
                   try {
                     widget.audioEngine.writeMp3Metadata(mp3Path, _options.metadataJson);
                   } catch (e) {
-                    debugPrint('Warning: Failed to write metadata: $e');
                   }
                 }
               }

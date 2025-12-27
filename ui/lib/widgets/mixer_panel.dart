@@ -41,7 +41,6 @@ class TrackData {
         armed: parts[7] == 'true' || parts[7] == '1',
       );
     } catch (e) {
-      debugPrint('❌ Failed to parse track data: $e');
       return null;
     }
   }
@@ -129,7 +128,6 @@ class _MixerPanelState extends State<MixerPanel> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Failed to load tracks: $e');
     }
   }
 

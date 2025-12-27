@@ -291,7 +291,6 @@ class TimelineViewState extends State<TimelineView> {
         !filePath.endsWith('.aif') &&
         !filePath.endsWith('.aiff') &&
         !filePath.endsWith('.flac')) {
-      debugPrint('⚠️  Unsupported file type: $filePath');
       return;
     }
 
@@ -299,7 +298,6 @@ class TimelineViewState extends State<TimelineView> {
       // Load audio file
       final clipId = widget.audioEngine!.loadAudioFile(filePath);
       if (clipId < 0) {
-        debugPrint('❌ Failed to load file: $filePath');
         return;
       }
 
@@ -327,9 +325,7 @@ class TimelineViewState extends State<TimelineView> {
         _dragHoveredTrackId = null;
       });
 
-      debugPrint('✅ Dropped clip on track $trackId at ${startTime.toStringAsFixed(2)}s');
     } catch (e) {
-      debugPrint('❌ Error loading dropped file: $e');
     }
   }
 
@@ -477,7 +473,6 @@ class TimelineViewState extends State<TimelineView> {
         _selectedAudioClipIds.add(clip.clipId);
       }
     });
-    debugPrint('🎯 Selected all clips: ${_selectedMidiClipIds.length} MIDI, ${_selectedAudioClipIds.length} audio');
   }
 
   /// Get all selected MIDI clips data
@@ -495,13 +490,11 @@ class TimelineViewState extends State<TimelineView> {
   bool splitSelectedAudioClipAtPlayhead(double playheadSeconds) {
     final clip = selectedAudioClip;
     if (clip == null) {
-      debugPrint('[Timeline] No audio clip selected for split');
       return false;
     }
 
     // Check if playhead is within clip bounds
     if (playheadSeconds <= clip.startTime || playheadSeconds >= clip.endTime) {
-      debugPrint('[Timeline] Playhead ($playheadSeconds) not within audio clip bounds (${clip.startTime} - ${clip.endTime})');
       return false;
     }
 
@@ -537,7 +530,6 @@ class TimelineViewState extends State<TimelineView> {
     // TODO: Update engine with split clips when engine API supports it
     // For now, the visual split is applied but engine audio may need refresh
 
-    debugPrint('[Timeline] Split audio clip at ${playheadSeconds}s');
     return true;
   }
 
@@ -547,7 +539,6 @@ class TimelineViewState extends State<TimelineView> {
   bool quantizeSelectedAudioClip(double gridSizeSeconds) {
     final clip = selectedAudioClip;
     if (clip == null) {
-      debugPrint('[Timeline] No audio clip selected for quantize');
       return false;
     }
 
@@ -556,7 +547,6 @@ class TimelineViewState extends State<TimelineView> {
 
     // Only update if position changed
     if ((quantizedStart - clip.startTime).abs() < 0.001) {
-      debugPrint('[Timeline] Audio clip already quantized');
       return false;
     }
 
@@ -570,7 +560,6 @@ class TimelineViewState extends State<TimelineView> {
       }
     });
 
-    debugPrint('[Timeline] Quantized audio clip from ${clip.startTime}s to ${quantizedStart}s');
     return true;
   }
 
@@ -707,31 +696,24 @@ class TimelineViewState extends State<TimelineView> {
           break;
         case 'split':
           // TODO: Implement split for audio clips
-          debugPrint('Split audio clip: ${clip.fileName}');
           break;
         case 'cut':
           // TODO: Implement cut for audio clips
-          debugPrint('Cut audio clip: ${clip.fileName}');
           break;
         case 'copy':
           // TODO: Implement copy for audio clips
-          debugPrint('Copy audio clip: ${clip.fileName}');
           break;
         case 'paste':
           // TODO: Implement paste for audio clips
-          debugPrint('Paste audio clip');
           break;
         case 'mute':
           // TODO: Implement mute for audio clips
-          debugPrint('Mute audio clip: ${clip.fileName}');
           break;
         case 'color':
           // TODO: Implement color picker for audio clips
-          debugPrint('Color audio clip: ${clip.fileName}');
           break;
         case 'rename':
           // TODO: Implement rename for audio clips
-          debugPrint('Rename audio clip: ${clip.fileName}');
           break;
       }
     });
@@ -905,7 +887,6 @@ class TimelineViewState extends State<TimelineView> {
           break;
         case 'bounce':
           // TODO: Implement bounce to audio
-          debugPrint('Bounce MIDI clip: ${clip.name}');
           break;
         case 'color':
           _showColorPicker(clip);
@@ -928,7 +909,6 @@ class TimelineViewState extends State<TimelineView> {
       }
       _selectedAudioClipIds.remove(clip.clipId);
     });
-    debugPrint('🗑️ Deleted audio clip: ${clip.fileName}');
   }
 
   /// Duplicate an audio clip (place copy after original)
@@ -945,14 +925,12 @@ class TimelineViewState extends State<TimelineView> {
     setState(() {
       _clips.add(newClip);
     });
-    debugPrint('📋 Duplicated audio clip: ${clip.fileName}');
   }
 
   /// Duplicate a MIDI clip
   void _duplicateMidiClip(MidiClipData clip) {
     final newStartTime = clip.startTime + clip.duration;
     widget.onMidiClipCopied?.call(clip, newStartTime);
-    debugPrint('📋 Duplicated MIDI clip: ${clip.name}');
   }
 
   /// Quantize a MIDI clip
@@ -961,13 +939,11 @@ class TimelineViewState extends State<TimelineView> {
     final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
 
     if ((quantizedStart - clip.startTime).abs() < 0.001) {
-      debugPrint('[Timeline] MIDI clip already quantized');
       return;
     }
 
     final quantizedClip = clip.copyWith(startTime: quantizedStart);
     widget.onMidiClipUpdated?.call(quantizedClip);
-    debugPrint('📐 Quantized MIDI clip to $quantizedStart beats');
   }
 
   // ========================================================================
@@ -977,27 +953,23 @@ class TimelineViewState extends State<TimelineView> {
   /// Copy a MIDI clip to clipboard
   void _copyMidiClip(MidiClipData clip) {
     _clipboardMidiClip = clip;
-    debugPrint('📋 Copied MIDI clip: ${clip.name}');
   }
 
   /// Cut a MIDI clip (copy to clipboard, then delete)
   void _cutMidiClip(MidiClipData clip) {
     _clipboardMidiClip = clip;
     widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
-    debugPrint('✂️ Cut MIDI clip: ${clip.name}');
   }
 
   /// Paste a MIDI clip from clipboard to track
   void _pasteMidiClip(int trackId) {
     if (_clipboardMidiClip == null) {
-      debugPrint('⚠️ No MIDI clip in clipboard');
       return;
     }
 
     // Paste at insert marker if available, otherwise at start
     final pastePosition = _insertMarkerBeats ?? 0.0;
     widget.onMidiClipCopied?.call(_clipboardMidiClip!, pastePosition);
-    debugPrint('📌 Pasted MIDI clip at beat $pastePosition');
   }
 
   // ========================================================================
@@ -1008,14 +980,12 @@ class TimelineViewState extends State<TimelineView> {
   void _toggleMidiClipMute(MidiClipData clip) {
     final mutedClip = clip.copyWith(isMuted: !clip.isMuted);
     widget.onMidiClipUpdated?.call(mutedClip);
-    debugPrint('${clip.isMuted ? '🔊' : '🔇'} ${clip.isMuted ? 'Unmuted' : 'Muted'} MIDI clip: ${clip.name}');
   }
 
   /// Toggle loop state of a MIDI clip
   void _toggleMidiClipLoop(MidiClipData clip) {
     final loopedClip = clip.copyWith(isLooping: !clip.isLooping);
     widget.onMidiClipUpdated?.call(loopedClip);
-    debugPrint('${clip.isLooping ? '⏹️' : '🔁'} ${clip.isLooping ? 'Disabled' : 'Enabled'} loop for MIDI clip: ${clip.name}');
   }
 
   // ========================================================================
@@ -1048,7 +1018,6 @@ class TimelineViewState extends State<TimelineView> {
                 final coloredClip = clip.copyWith(color: color);
                 widget.onMidiClipUpdated?.call(coloredClip);
                 Navigator.of(context).pop();
-                debugPrint('🎨 Set MIDI clip color to ${color.toString()}');
               },
               child: Container(
                 width: 40,
@@ -1095,7 +1064,6 @@ class TimelineViewState extends State<TimelineView> {
               final renamedClip = clip.copyWith(name: value);
               widget.onMidiClipUpdated?.call(renamedClip);
               Navigator.of(context).pop();
-              debugPrint('✏️ Renamed MIDI clip to: $value');
             }
           },
         ),
@@ -1111,7 +1079,6 @@ class TimelineViewState extends State<TimelineView> {
                 final renamedClip = clip.copyWith(name: value);
                 widget.onMidiClipUpdated?.call(renamedClip);
                 Navigator.of(context).pop();
-                debugPrint('✏️ Renamed MIDI clip to: $value');
               }
             },
             child: const Text('Rename'),
@@ -1171,7 +1138,6 @@ class TimelineViewState extends State<TimelineView> {
           localPosition.dy <= trackBottom) {
         _erasedAudioClipIds.add(clip.clipId);
         _deleteAudioClip(clip);
-        debugPrint('🧹 Erased audio clip: ${clip.fileName}');
       }
     }
 
@@ -1196,7 +1162,6 @@ class TimelineViewState extends State<TimelineView> {
           localPosition.dy <= trackBottom) {
         _erasedMidiClipIds.add(midiClip.clipId);
         widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
-        debugPrint('🧹 Erased MIDI clip: ${midiClip.name}');
       }
     }
   }
@@ -1206,7 +1171,6 @@ class TimelineViewState extends State<TimelineView> {
     if (_isErasing) {
       final totalErased = _erasedAudioClipIds.length + _erasedMidiClipIds.length;
       if (totalErased > 0) {
-        debugPrint('🧹 Eraser mode ended: deleted $totalErased clips');
       }
     }
     setState(() {
@@ -1236,7 +1200,6 @@ class TimelineViewState extends State<TimelineView> {
     widget.onMidiClipSelected?.call(null, null);
 
     if (hadSelection) {
-      debugPrint('⎋ Deselected all clips');
     }
   }
 
@@ -1256,7 +1219,6 @@ class TimelineViewState extends State<TimelineView> {
       }
     });
 
-    debugPrint('⌘A Selected ${_selectedAudioClipIds.length} audio clips and ${_selectedMidiClipIds.length} MIDI clips');
   }
 
   // ========================================================================
@@ -1294,7 +1256,6 @@ class TimelineViewState extends State<TimelineView> {
 
     // Validate split point is within clip bounds
     if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) {
-      debugPrint('[Timeline] Split point outside clip bounds');
       return;
     }
 
@@ -1324,7 +1285,6 @@ class TimelineViewState extends State<TimelineView> {
     // Update engine for left clip
     widget.audioEngine?.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
 
-    debugPrint('✂️ Split audio clip at ${splitTimeAbsolute.toStringAsFixed(2)}s');
     _clearSplitPreview();
   }
 
@@ -1337,7 +1297,6 @@ class TimelineViewState extends State<TimelineView> {
 
     // Validate split point is within clip bounds
     if (splitPointBeats <= 0 || splitPointBeats >= clip.duration) {
-      debugPrint('[Timeline] Split point outside MIDI clip bounds');
       return;
     }
 
@@ -1389,21 +1348,18 @@ class TimelineViewState extends State<TimelineView> {
     widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
     widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
 
-    debugPrint('✂️ Split MIDI clip at ${(clip.startTime + splitPointBeats).toStringAsFixed(2)} beats');
     _clearSplitPreview();
   }
 
   /// Split MIDI clip at insert marker position
   void _splitMidiClipAtInsertMarker(MidiClipData clip) {
     if (_insertMarkerBeats == null) {
-      debugPrint('[Timeline] No insert marker set for split');
       return;
     }
 
     // Check if insert marker is within clip bounds
     final markerBeats = _insertMarkerBeats!;
     if (markerBeats <= clip.startTime || markerBeats >= clip.endTime) {
-      debugPrint('[Timeline] Insert marker not within clip bounds');
       return;
     }
 
@@ -1458,7 +1414,6 @@ class TimelineViewState extends State<TimelineView> {
     widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
     widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
 
-    debugPrint('✂️ Split MIDI clip at insert marker (${markerBeats.toStringAsFixed(2)} beats)');
   }
 
   /// Load tracks from audio engine
@@ -1489,7 +1444,6 @@ class TimelineViewState extends State<TimelineView> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Failed to load tracks for timeline: $e');
     }
   }
 
@@ -1807,11 +1761,9 @@ class TimelineViewState extends State<TimelineView> {
               },
               child: DragTarget<Vst3Plugin>(
                 onWillAcceptWithDetails: (details) {
-                  debugPrint('🎯 VST3 onWillAccept EMPTY SPACE: plugin=${details.data.name}, isInstrument=${details.data.isInstrument}');
                   return details.data.isInstrument; // Only accept VST3 instruments
                 },
                 onAcceptWithDetails: (details) {
-                  debugPrint('🎯 VST3 onAccept EMPTY SPACE: plugin=${details.data.name}');
                   widget.onVst3InstrumentDroppedOnEmpty?.call(details.data);
                 },
                 builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
@@ -1819,11 +1771,9 @@ class TimelineViewState extends State<TimelineView> {
 
                   return DragTarget<Instrument>(
                     onWillAcceptWithDetails: (details) {
-                      debugPrint('🎯 onWillAccept EMPTY SPACE: instrument=${details.data.name}');
                       return true; // Always accept instruments
                     },
                     onAcceptWithDetails: (details) {
-                      debugPrint('🎯 onAccept EMPTY SPACE: instrument=${details.data.name}');
                       widget.onInstrumentDroppedOnEmpty?.call(details.data);
                     },
                     builder: (context, candidateInstruments, rejectedInstruments) {
@@ -2010,11 +1960,9 @@ class TimelineViewState extends State<TimelineView> {
     // Wrap with VST3Plugin drag target first
     return DragTarget<Vst3Plugin>(
       onWillAcceptWithDetails: (details) {
-        debugPrint('🎯 VST3 onWillAccept: track=${track.id} (${track.type}), isMidiTrack=$isMidiTrack, plugin=${details.data.name}, isInstrument=${details.data.isInstrument}');
         return isMidiTrack && details.data.isInstrument;
       },
       onAcceptWithDetails: (details) {
-        debugPrint('🎯 VST3 onAccept: track=${track.id}, plugin=${details.data.name}');
         widget.onVst3InstrumentDropped?.call(track.id, details.data);
       },
       builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
@@ -2023,11 +1971,9 @@ class TimelineViewState extends State<TimelineView> {
         // Nest Instrument drag target inside
         return DragTarget<Instrument>(
           onWillAcceptWithDetails: (details) {
-            debugPrint('🎯 onWillAccept: track=${track.id} (${track.type}), isMidiTrack=$isMidiTrack, instrument=${details.data.name}');
             return isMidiTrack;
           },
           onAcceptWithDetails: (details) {
-            debugPrint('🎯 onAccept: track=${track.id}, instrument=${details.data.name}');
             widget.onInstrumentDropped?.call(track.id, details.data);
           },
           builder: (context, candidateInstruments, rejectedInstruments) {
@@ -2089,7 +2035,6 @@ class TimelineViewState extends State<TimelineView> {
                   final startBeats = _snapToGrid(beatPosition);
                   const durationBeats = 4.0; // 1 bar (spec v2.0)
                   widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
-                  debugPrint('🎵 Created 1-bar MIDI clip at beat $startBeats (double-click)');
                 }
               }
             : null,
@@ -2787,7 +2732,6 @@ class TimelineViewState extends State<TimelineView> {
                 final copyStartBeats = midiClip.startTime + (i * _stampCopySourceDuration);
                 widget.onMidiClipCopied?.call(midiClip, copyStartBeats);
               }
-              debugPrint('📋 Created $_stampCopyCount stamp copies');
             } else {
               // Single copy at new position
               widget.onMidiClipCopied?.call(midiClip, newStartBeats);

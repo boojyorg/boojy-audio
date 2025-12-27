@@ -40,7 +40,6 @@ class EffectData {
 
       return EffectData(id: id, type: type, parameters: params, bypassed: bypassed);
     } catch (e) {
-      debugPrint('❌ Failed to parse effect data: $e');
       return null;
     }
   }
@@ -111,7 +110,6 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
         _effects = effects;
       });
     } catch (e) {
-      debugPrint('❌ Failed to load effects: $e');
     }
   }
 

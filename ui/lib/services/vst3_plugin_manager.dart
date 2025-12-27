@@ -42,19 +42,15 @@ class Vst3PluginManager extends ChangeNotifier {
 
   /// Get all VST3 plugin instances for a specific track
   List<Vst3PluginInstance> getTrackPlugins(int trackId) {
-    debugPrint('🎛️ [VST3PluginManager] getTrackPlugins called for track $trackId');
     final effectIds = _trackEffects[trackId] ?? [];
-    debugPrint('🎛️ [VST3PluginManager] Found ${effectIds.length} effect IDs: $effectIds');
     final plugins = <Vst3PluginInstance>[];
 
     for (final effectId in effectIds) {
       final pluginInfo = _pluginCache[effectId];
-      debugPrint('🎛️ [VST3PluginManager] Processing effect $effectId, pluginInfo=$pluginInfo');
       if (pluginInfo != null) {
         try {
           // Fetch parameter count and info
           final paramCount = _audioEngine.getVst3ParameterCount(effectId);
-          debugPrint('🎛️ [VST3PluginManager] Effect $effectId (${pluginInfo['name']}): paramCount=$paramCount');
           final parameters = <int, Vst3ParameterInfo>{};
           final parameterValues = <int, double>{};
 
@@ -83,7 +79,6 @@ class Vst3PluginManager extends ChangeNotifier {
             parameterValues: parameterValues,
           ));
         } catch (e) {
-          debugPrint('❌ Error fetching VST3 plugin info for effect $effectId: $e');
         }
       }
     }
@@ -126,7 +121,6 @@ class Vst3PluginManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('❌ Failed to load VST3 cache: $e');
     }
   }
 
@@ -139,7 +133,6 @@ class Vst3PluginManager extends ChangeNotifier {
       await prefs.setInt('vst3_scan_timestamp', DateTime.now().millisecondsSinceEpoch);
       await prefs.setInt('vst3_cache_version', _cacheVersion);
     } catch (e) {
-      debugPrint('❌ Failed to save VST3 cache: $e');
     }
   }
 
@@ -177,7 +170,6 @@ class Vst3PluginManager extends ChangeNotifier {
     } catch (e) {
       _isScanning = false;
       notifyListeners();
-      debugPrint('❌ VST3 scan failed: $e');
       return 'VST3 scan failed: $e';
     }
   }
@@ -207,7 +199,6 @@ class Vst3PluginManager extends ChangeNotifier {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error adding VST3 plugin: $e');
       return (
         success: false,
         message: 'Error adding plugin: $e',
@@ -238,7 +229,6 @@ class Vst3PluginManager extends ChangeNotifier {
     }
 
     if (trackId == null) {
-      debugPrint('❌ Could not find track for effect $effectId');
       return (
         success: false,
         message: 'Could not find track for effect',
@@ -258,7 +248,6 @@ class Vst3PluginManager extends ChangeNotifier {
         message: 'Removed VST3 plugin',
       );
     } catch (e) {
-      debugPrint('❌ Error removing VST3 plugin: $e');
       return (
         success: false,
         message: 'Error removing plugin: $e',
@@ -271,7 +260,6 @@ class Vst3PluginManager extends ChangeNotifier {
     try {
       _audioEngine.setVst3ParameterValue(effectId, paramIndex, value);
     } catch (e) {
-      debugPrint('❌ Error setting VST3 parameter: $e');
     }
   }
 

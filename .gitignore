@@ -48,5 +48,10 @@ engine/vst3_host/build/
 engine/build_vst3/
 engine/vst3_host/build_vst3/
 engine/vst3_host/*.o
+engine/vst3_host/.cache/
 ui/macos/*.py
 ui/macos/libengine.dylib
+ui/macos/Frameworks/
+
+# Third-party SDKs (cloned separately)
+engine/vst3sdk/

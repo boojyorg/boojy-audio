@@ -47,7 +47,6 @@ class PlaybackController extends ChangeNotifier {
       _statusMessage = loadedClipId != null ? 'Playing...' : 'Playing (empty)';
       notifyListeners();
       _startPlayheadTimer();
-      debugPrint('✅ [PlaybackController] play() completed');
     } catch (e) {
       _statusMessage = 'Play error: $e';
       notifyListeners();
@@ -72,25 +71,19 @@ class PlaybackController extends ChangeNotifier {
 
   /// Stop playback and reset position
   void stop() {
-    debugPrint('🛑 [PlaybackController] stop() called');
     if (_audioEngine == null) {
-      debugPrint('⚠️  [PlaybackController] _audioEngine is null, returning');
       return;
     }
 
     try {
-      debugPrint('📞 [PlaybackController] Calling _audioEngine.transportStop()...');
-      final result = _audioEngine!.transportStop();
-      debugPrint('✅ [PlaybackController] transportStop() returned: $result');
+      _audioEngine!.transportStop();
 
       _isPlaying = false;
       _playheadPosition = 0.0;
       _statusMessage = 'Stopped';
       notifyListeners();
       _stopPlayheadTimer();
-      debugPrint('🏁 [PlaybackController] stop() completed');
     } catch (e) {
-      debugPrint('❌ [PlaybackController] Stop error: $e');
       _statusMessage = 'Stop error: $e';
       notifyListeners();
     }

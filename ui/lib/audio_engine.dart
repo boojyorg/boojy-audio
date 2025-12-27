@@ -186,24 +186,13 @@ class AudioEngine {
       }
 
       if (libPath == null) {
-        print('❌ [AudioEngine] Library file NOT found');
-        print('   Executable: $executablePath');
-        print('   Current directory: ${Directory.current.path}');
-        print('   Tried paths:');
-        for (final path in pathsToTry.take(5)) {
-          print('     - $path');
-        }
-        print('   Make sure to run: cd engine && cargo build --release');
         throw Exception('Library file not found. Run: cd engine && cargo build --release');
       }
 
-      print('🔍 [AudioEngine] Found library at: $libPath');
 
       try {
         _lib = ffi.DynamicLibrary.open(libPath);
-        print('✅ [AudioEngine] Library loaded successfully');
       } catch (e) {
-        print('❌ [AudioEngine] Failed to load library: $e');
         rethrow;
       }
     } else if (Platform.isWindows) {
@@ -214,347 +203,289 @@ class AudioEngine {
       // On iOS, the static library is linked into the app at build time
       // In Debug mode, Flutter uses Runner.debug.dylib for Hot Restart support
       // In Release mode, symbols are in the main executable
-      print('📱 [AudioEngine] Loading iOS embedded library');
 
       // Try loading the debug dylib first (for debug builds)
       try {
         _lib = ffi.DynamicLibrary.open('Runner.debug.dylib');
-        print('✅ [AudioEngine] iOS debug dylib loaded');
       } catch (e) {
         // Fall back to process() for release builds
-        print('🔄 [AudioEngine] Debug dylib not found, trying process()');
         _lib = ffi.DynamicLibrary.process();
-        print('✅ [AudioEngine] iOS library accessed via process()');
       }
     } else {
       throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
     }
 
     // Bind M0 functions
-    print('🔗 [AudioEngine] Binding FFI functions...');
     try {
       _initAudioEngine = _lib
           .lookup<ffi.NativeFunction<_InitAudioEngineFfiNative>>(
               'init_audio_engine_ffi')
           .asFunction();
-      print('  ✅ init_audio_engine_ffi bound');
 
       _playSineWave = _lib
           .lookup<ffi.NativeFunction<_PlaySineWaveFfiNative>>(
               'play_sine_wave_ffi')
           .asFunction();
-      print('  ✅ play_sine_wave_ffi bound');
 
       _freeRustString = _lib
           .lookup<ffi.NativeFunction<_FreeRustStringNative>>(
               'free_rust_string')
           .asFunction();
-      print('  ✅ free_rust_string bound');
       
       // Bind M1 functions
       _initAudioGraph = _lib
           .lookup<ffi.NativeFunction<_InitAudioGraphFfiNative>>(
               'init_audio_graph_ffi')
           .asFunction();
-      print('  ✅ init_audio_graph_ffi bound');
       
       _loadAudioFile = _lib
           .lookup<ffi.NativeFunction<_LoadAudioFileFfiNative>>(
               'load_audio_file_ffi')
           .asFunction();
-      print('  ✅ load_audio_file_ffi bound');
 
       _loadAudioFileToTrack = _lib
           .lookup<ffi.NativeFunction<_LoadAudioFileToTrackFfiNative>>(
               'load_audio_file_to_track_ffi')
           .asFunction();
-      print('  ✅ load_audio_file_to_track_ffi bound');
 
       _transportPlay = _lib
           .lookup<ffi.NativeFunction<_TransportPlayFfiNative>>(
               'transport_play_ffi')
           .asFunction();
-      print('  ✅ transport_play_ffi bound');
       
       _transportPause = _lib
           .lookup<ffi.NativeFunction<_TransportPauseFfiNative>>(
               'transport_pause_ffi')
           .asFunction();
-      print('  ✅ transport_pause_ffi bound');
       
       _transportStop = _lib
           .lookup<ffi.NativeFunction<_TransportStopFfiNative>>(
               'transport_stop_ffi')
           .asFunction();
-      print('  ✅ transport_stop_ffi bound');
       
       _transportSeek = _lib
           .lookup<ffi.NativeFunction<_TransportSeekFfiNative>>(
               'transport_seek_ffi')
           .asFunction();
-      print('  ✅ transport_seek_ffi bound');
       
       _getPlayheadPosition = _lib
           .lookup<ffi.NativeFunction<_GetPlayheadPositionFfiNative>>(
               'get_playhead_position_ffi')
           .asFunction();
-      print('  ✅ get_playhead_position_ffi bound');
       
       _getTransportState = _lib
           .lookup<ffi.NativeFunction<_GetTransportStateFfiNative>>(
               'get_transport_state_ffi')
           .asFunction();
-      print('  ✅ get_transport_state_ffi bound');
 
       // Latency Control bindings
       _setBufferSize = _lib
           .lookup<ffi.NativeFunction<_SetBufferSizeFfiNative>>(
               'set_buffer_size_ffi')
           .asFunction();
-      print('  ✅ set_buffer_size_ffi bound');
 
       _getBufferSizePreset = _lib
           .lookup<ffi.NativeFunction<_GetBufferSizePresetFfiNative>>(
               'get_buffer_size_preset_ffi')
           .asFunction();
-      print('  ✅ get_buffer_size_preset_ffi bound');
 
       _getActualBufferSize = _lib
           .lookup<ffi.NativeFunction<_GetActualBufferSizeFfiNative>>(
               'get_actual_buffer_size_ffi')
           .asFunction();
-      print('  ✅ get_actual_buffer_size_ffi bound');
 
       _getLatencyInfo = _lib
           .lookup<ffi.NativeFunction<_GetLatencyInfoFfiNative>>(
               'get_latency_info_ffi')
           .asFunction();
-      print('  ✅ get_latency_info_ffi bound');
 
       _getClipDuration = _lib
           .lookup<ffi.NativeFunction<_GetClipDurationFfiNative>>(
               'get_clip_duration_ffi')
           .asFunction();
-      print('  ✅ get_clip_duration_ffi bound');
 
       _setClipStartTime = _lib
           .lookup<ffi.NativeFunction<_SetClipStartTimeFfiNative>>(
               'set_clip_start_time_ffi')
           .asFunction();
-      print('  ✅ set_clip_start_time_ffi bound');
 
       _getWaveformPeaks = _lib
           .lookup<ffi.NativeFunction<_GetWaveformPeaksFfiNative>>(
               'get_waveform_peaks_ffi')
           .asFunction();
-      print('  ✅ get_waveform_peaks_ffi bound');
       
       _freeWaveformPeaks = _lib
           .lookup<ffi.NativeFunction<_FreeWaveformPeaksFfiNative>>(
               'free_waveform_peaks_ffi')
           .asFunction();
-      print('  ✅ free_waveform_peaks_ffi bound');
       
       // Bind M2 functions
       _startRecording = _lib
           .lookup<ffi.NativeFunction<_StartRecordingFfiNative>>(
               'start_recording_ffi')
           .asFunction();
-      print('  ✅ start_recording_ffi bound');
       
       _stopRecording = _lib
           .lookup<ffi.NativeFunction<_StopRecordingFfiNative>>(
               'stop_recording_ffi')
           .asFunction();
-      print('  ✅ stop_recording_ffi bound');
       
       _getRecordingState = _lib
           .lookup<ffi.NativeFunction<_GetRecordingStateFfiNative>>(
               'get_recording_state_ffi')
           .asFunction();
-      print('  ✅ get_recording_state_ffi bound');
       
       _getRecordedDuration = _lib
           .lookup<ffi.NativeFunction<_GetRecordedDurationFfiNative>>(
               'get_recorded_duration_ffi')
           .asFunction();
-      print('  ✅ get_recorded_duration_ffi bound');
 
       _getRecordingWaveform = _lib
           .lookup<ffi.NativeFunction<_GetRecordingWaveformFfiNative>>(
               'get_recording_waveform_ffi')
           .asFunction();
-      print('  ✅ get_recording_waveform_ffi bound');
 
       _setCountInBars = _lib
           .lookup<ffi.NativeFunction<_SetCountInBarsFfiNative>>(
               'set_count_in_bars_ffi')
           .asFunction();
-      print('  ✅ set_count_in_bars_ffi bound');
       
       _getCountInBars = _lib
           .lookup<ffi.NativeFunction<_GetCountInBarsFfiNative>>(
               'get_count_in_bars_ffi')
           .asFunction();
-      print('  ✅ get_count_in_bars_ffi bound');
       
       _setTempo = _lib
           .lookup<ffi.NativeFunction<_SetTempoFfiNative>>(
               'set_tempo_ffi')
           .asFunction();
-      print('  ✅ set_tempo_ffi bound');
       
       _getTempo = _lib
           .lookup<ffi.NativeFunction<_GetTempoFfiNative>>(
               'get_tempo_ffi')
           .asFunction();
-      print('  ✅ get_tempo_ffi bound');
       
       _setMetronomeEnabled = _lib
           .lookup<ffi.NativeFunction<_SetMetronomeEnabledFfiNative>>(
               'set_metronome_enabled_ffi')
           .asFunction();
-      print('  ✅ set_metronome_enabled_ffi bound');
       
       _isMetronomeEnabled = _lib
           .lookup<ffi.NativeFunction<_IsMetronomeEnabledFfiNative>>(
               'is_metronome_enabled_ffi')
           .asFunction();
-      print('  ✅ is_metronome_enabled_ffi bound');
 
       // Bind M3 functions
       _startMidiInput = _lib
           .lookup<ffi.NativeFunction<_StartMidiInputFfiNative>>(
               'start_midi_input_ffi')
           .asFunction();
-      print('  ✅ start_midi_input_ffi bound');
 
       _stopMidiInput = _lib
           .lookup<ffi.NativeFunction<_StopMidiInputFfiNative>>(
               'stop_midi_input_ffi')
           .asFunction();
-      print('  ✅ stop_midi_input_ffi bound');
 
       _setSynthOscillatorType = _lib
           .lookup<ffi.NativeFunction<_SetSynthOscillatorTypeFfiNative>>(
               'set_synth_oscillator_type_ffi')
           .asFunction();
-      print('  ✅ set_synth_oscillator_type_ffi bound');
 
       _setSynthVolume = _lib
           .lookup<ffi.NativeFunction<_SetSynthVolumeFfiNative>>(
               'set_synth_volume_ffi')
           .asFunction();
-      print('  ✅ set_synth_volume_ffi bound');
 
       _sendMidiNoteOn = _lib
           .lookup<ffi.NativeFunction<_SendMidiNoteOnFfiNative>>(
               'send_midi_note_on_ffi')
           .asFunction();
-      print('  ✅ send_midi_note_on_ffi bound');
 
       _sendMidiNoteOff = _lib
           .lookup<ffi.NativeFunction<_SendMidiNoteOffFfiNative>>(
               'send_midi_note_off_ffi')
           .asFunction();
-      print('  ✅ send_midi_note_off_ffi bound');
 
       _createMidiClip = _lib
           .lookup<ffi.NativeFunction<_CreateMidiClipFfiNative>>(
               'create_midi_clip_ffi')
           .asFunction();
-      print('  ✅ create_midi_clip_ffi bound');
 
       _addMidiNoteToClip = _lib
           .lookup<ffi.NativeFunction<_AddMidiNoteToClipFfiNative>>(
               'add_midi_note_to_clip_ffi')
           .asFunction();
-      print('  ✅ add_midi_note_to_clip_ffi bound');
 
       _addMidiClipToTrack = _lib
           .lookup<ffi.NativeFunction<_AddMidiClipToTrackFfiNative>>(
               'add_midi_clip_to_track_ffi')
           .asFunction();
-      print('  ✅ add_midi_clip_to_track_ffi bound');
 
       _removeMidiClip = _lib
           .lookup<ffi.NativeFunction<_RemoveMidiClipFfiNative>>(
               'remove_midi_clip_ffi')
           .asFunction();
-      print('  ✅ remove_midi_clip_ffi bound');
 
       _clearMidiClip = _lib
           .lookup<ffi.NativeFunction<_ClearMidiClipFfiNative>>(
               'clear_midi_clip_ffi')
           .asFunction();
-      print('  ✅ clear_midi_clip_ffi bound');
 
       // Bind M4 functions
       _createTrack = _lib
           .lookup<ffi.NativeFunction<_CreateTrackFfiNative>>(
               'create_track_ffi')
           .asFunction();
-      print('  ✅ create_track_ffi bound');
 
       _setTrackVolume = _lib
           .lookup<ffi.NativeFunction<_SetTrackVolumeFfiNative>>(
               'set_track_volume_ffi')
           .asFunction();
-      print('  ✅ set_track_volume_ffi bound');
 
       _setTrackPan = _lib
           .lookup<ffi.NativeFunction<_SetTrackPanFfiNative>>(
               'set_track_pan_ffi')
           .asFunction();
-      print('  ✅ set_track_pan_ffi bound');
 
       _setTrackMute = _lib
           .lookup<ffi.NativeFunction<_SetTrackMuteFfiNative>>(
               'set_track_mute_ffi')
           .asFunction();
-      print('  ✅ set_track_mute_ffi bound');
 
       _setTrackSolo = _lib
           .lookup<ffi.NativeFunction<_SetTrackSoloFfiNative>>(
               'set_track_solo_ffi')
           .asFunction();
-      print('  ✅ set_track_solo_ffi bound');
 
       _setTrackArmed = _lib
           .lookup<ffi.NativeFunction<_SetTrackArmedFfiNative>>(
               'set_track_armed_ffi')
           .asFunction();
-      print('  ✅ set_track_armed_ffi bound');
 
       _setTrackName = _lib
           .lookup<ffi.NativeFunction<_SetTrackNameFfiNative>>(
               'set_track_name_ffi')
           .asFunction();
-      print('  ✅ set_track_name_ffi bound');
 
       _getTrackCount = _lib
           .lookup<ffi.NativeFunction<_GetTrackCountFfiNative>>(
               'get_track_count_ffi')
           .asFunction();
-      print('  ✅ get_track_count_ffi bound');
 
       _getAllTrackIds = _lib
           .lookup<ffi.NativeFunction<_GetAllTrackIdsFfiNative>>(
               'get_all_track_ids_ffi')
           .asFunction();
-      print('  ✅ get_all_track_ids_ffi bound');
 
       _getTrackInfo = _lib
           .lookup<ffi.NativeFunction<_GetTrackInfoFfiNative>>(
               'get_track_info_ffi')
           .asFunction();
-      print('  ✅ get_track_info_ffi bound');
 
       _getTrackPeakLevels = _lib
           .lookup<ffi.NativeFunction<_GetTrackPeakLevelsFfiNative>>(
               'get_track_peak_levels_ffi')
           .asFunction();
-      print('  ✅ get_track_peak_levels_ffi bound');
 
       _deleteTrack = _lib
           .lookup<ffi.NativeFunction<_DeleteTrackFfiNative>>(
@@ -565,338 +496,282 @@ class AudioEngine {
           .lookup<ffi.NativeFunction<_DuplicateTrackFfiNative>>(
               'duplicate_track_ffi')
           .asFunction();
-      print('  ✅ delete_track_ffi bound');
 
       _clearAllTracks = _lib
           .lookup<ffi.NativeFunction<_ClearAllTracksFfiNative>>(
               'clear_all_tracks_ffi')
           .asFunction();
-      print('  ✅ clear_all_tracks_ffi bound');
 
       // Bind M4 effect functions
       _addEffectToTrack = _lib
           .lookup<ffi.NativeFunction<_AddEffectToTrackFfiNative>>(
               'add_effect_to_track_ffi')
           .asFunction();
-      print('  ✅ add_effect_to_track_ffi bound');
 
       _removeEffectFromTrack = _lib
           .lookup<ffi.NativeFunction<_RemoveEffectFromTrackFfiNative>>(
               'remove_effect_from_track_ffi')
           .asFunction();
-      print('  ✅ remove_effect_from_track_ffi bound');
 
       _getTrackEffects = _lib
           .lookup<ffi.NativeFunction<_GetTrackEffectsFfiNative>>(
               'get_track_effects_ffi')
           .asFunction();
-      print('  ✅ get_track_effects_ffi bound');
 
       _getEffectInfo = _lib
           .lookup<ffi.NativeFunction<_GetEffectInfoFfiNative>>(
               'get_effect_info_ffi')
           .asFunction();
-      print('  ✅ get_effect_info_ffi bound');
 
       _setEffectParameter = _lib
           .lookup<ffi.NativeFunction<_SetEffectParameterFfiNative>>(
               'set_effect_parameter_ffi')
           .asFunction();
-      print('  ✅ set_effect_parameter_ffi bound');
 
       _setEffectBypass = _lib
           .lookup<ffi.NativeFunction<_SetEffectBypassFfiNative>>(
               'set_effect_bypass_ffi')
           .asFunction();
-      print('  ✅ set_effect_bypass_ffi bound');
 
       _getEffectBypass = _lib
           .lookup<ffi.NativeFunction<_GetEffectBypassFfiNative>>(
               'get_effect_bypass_ffi')
           .asFunction();
-      print('  ✅ get_effect_bypass_ffi bound');
 
       _reorderTrackEffects = _lib
           .lookup<ffi.NativeFunction<_ReorderTrackEffectsFfiNative>>(
               'reorder_track_effects_ffi')
           .asFunction();
-      print('  ✅ reorder_track_effects_ffi bound');
 
       // Bind M5 functions - Save/Load
       _saveProject = _lib
           .lookup<ffi.NativeFunction<_SaveProjectFfiNative>>(
               'save_project_ffi')
           .asFunction();
-      print('  ✅ save_project_ffi bound');
 
       _loadProject = _lib
           .lookup<ffi.NativeFunction<_LoadProjectFfiNative>>(
               'load_project_ffi')
           .asFunction();
-      print('  ✅ load_project_ffi bound');
 
       _exportToWav = _lib
           .lookup<ffi.NativeFunction<_ExportToWavFfiNative>>(
               'export_to_wav_ffi')
           .asFunction();
-      print('  ✅ export_to_wav_ffi bound');
 
       // Bind M8 functions - Enhanced Export
       _isFfmpegAvailable = _lib
           .lookup<ffi.NativeFunction<_IsFfmpegAvailableFfiNative>>(
               'is_ffmpeg_available_ffi')
           .asFunction();
-      print('  ✅ is_ffmpeg_available_ffi bound');
 
       _exportAudio = _lib
           .lookup<ffi.NativeFunction<_ExportAudioFfiNative>>(
               'export_audio_ffi')
           .asFunction();
-      print('  ✅ export_audio_ffi bound');
 
       _exportWavWithOptions = _lib
           .lookup<ffi.NativeFunction<_ExportWavWithOptionsFfiNative>>(
               'export_wav_with_options_ffi')
           .asFunction();
-      print('  ✅ export_wav_with_options_ffi bound');
 
       _exportMp3WithOptions = _lib
           .lookup<ffi.NativeFunction<_ExportMp3WithOptionsFfiNative>>(
               'export_mp3_with_options_ffi')
           .asFunction();
-      print('  ✅ export_mp3_with_options_ffi bound');
 
       _writeMp3Metadata = _lib
           .lookup<ffi.NativeFunction<_WriteMp3MetadataFfiNative>>(
               'write_mp3_metadata_ffi')
           .asFunction();
-      print('  ✅ write_mp3_metadata_ffi bound');
 
       _getTracksForStems = _lib
           .lookup<ffi.NativeFunction<_GetTracksForStemsFfiNative>>(
               'get_tracks_for_stems_ffi')
           .asFunction();
-      print('  ✅ get_tracks_for_stems_ffi bound');
 
       _exportStems = _lib
           .lookup<ffi.NativeFunction<_ExportStemsFfiNative>>(
               'export_stems_ffi')
           .asFunction();
-      print('  ✅ export_stems_ffi bound');
 
       // Bind M8 Export Progress functions
       _getExportProgress = _lib
           .lookup<ffi.NativeFunction<_GetExportProgressFfiNative>>(
               'get_export_progress_ffi')
           .asFunction();
-      print('  ✅ get_export_progress_ffi bound');
 
       _cancelExport = _lib
           .lookup<ffi.NativeFunction<_CancelExportFfiNative>>(
               'cancel_export_ffi')
           .asFunction();
-      print('  ✅ cancel_export_ffi bound');
 
       _resetExportProgress = _lib
           .lookup<ffi.NativeFunction<_ResetExportProgressFfiNative>>(
               'reset_export_progress_ffi')
           .asFunction();
-      print('  ✅ reset_export_progress_ffi bound');
 
       // Bind M6 functions - Per-track Synthesizer
       _setTrackInstrument = _lib
           .lookup<ffi.NativeFunction<_SetTrackInstrumentFfiNative>>(
               'set_track_instrument_ffi')
           .asFunction();
-      print('  ✅ set_track_instrument_ffi bound');
 
       _setSynthParameter = _lib
           .lookup<ffi.NativeFunction<_SetSynthParameterFfiNative>>(
               'set_synth_parameter_ffi')
           .asFunction();
-      print('  ✅ set_synth_parameter_ffi bound');
 
       _getSynthParameters = _lib
           .lookup<ffi.NativeFunction<_GetSynthParametersFfiNative>>(
               'get_synth_parameters_ffi')
           .asFunction();
-      print('  ✅ get_synth_parameters_ffi bound');
 
       _sendTrackMidiNoteOn = _lib
           .lookup<ffi.NativeFunction<_SendTrackMidiNoteOnFfiNative>>(
               'send_track_midi_note_on_ffi')
           .asFunction();
-      print('  ✅ send_track_midi_note_on_ffi bound');
 
       _sendTrackMidiNoteOff = _lib
           .lookup<ffi.NativeFunction<_SendTrackMidiNoteOffFfiNative>>(
               'send_track_midi_note_off_ffi')
           .asFunction();
-      print('  ✅ send_track_midi_note_off_ffi bound');
 
       // Bind M7 functions - VST3 Plugin Hosting
       _scanVst3PluginsStandard = _lib
           .lookup<ffi.NativeFunction<_ScanVst3PluginsStandardFfiNative>>(
               'scan_vst3_plugins_standard_ffi')
           .asFunction();
-      print('  ✅ scan_vst3_plugins_standard_ffi bound');
 
       _addVst3EffectToTrack = _lib
           .lookup<ffi.NativeFunction<_AddVst3EffectToTrackFfiNative>>(
               'add_vst3_effect_to_track_ffi')
           .asFunction();
-      print('  ✅ add_vst3_effect_to_track_ffi bound');
 
       _getVst3ParameterCount = _lib
           .lookup<ffi.NativeFunction<_GetVst3ParameterCountFfiNative>>(
               'get_vst3_parameter_count_ffi')
           .asFunction();
-      print('  ✅ get_vst3_parameter_count_ffi bound');
 
       _getVst3ParameterInfo = _lib
           .lookup<ffi.NativeFunction<_GetVst3ParameterInfoFfiNative>>(
               'get_vst3_parameter_info_ffi')
           .asFunction();
-      print('  ✅ get_vst3_parameter_info_ffi bound');
 
       _getVst3ParameterValue = _lib
           .lookup<ffi.NativeFunction<_GetVst3ParameterValueFfiNative>>(
               'get_vst3_parameter_value_ffi')
           .asFunction();
-      print('  ✅ get_vst3_parameter_value_ffi bound');
 
       _setVst3ParameterValue = _lib
           .lookup<ffi.NativeFunction<_SetVst3ParameterValueFfiNative>>(
               'set_vst3_parameter_value_ffi')
           .asFunction();
-      print('  ✅ set_vst3_parameter_value_ffi bound');
 
       // M7 VST3 Editor functions
       _vst3HasEditor = _lib
           .lookup<ffi.NativeFunction<_Vst3HasEditorFfiNative>>(
               'vst3_has_editor_ffi')
           .asFunction();
-      print('  ✅ vst3_has_editor_ffi bound');
 
       _vst3OpenEditor = _lib
           .lookup<ffi.NativeFunction<_Vst3OpenEditorFfiNative>>(
               'vst3_open_editor_ffi')
           .asFunction();
-      print('  ✅ vst3_open_editor_ffi bound');
 
       _vst3CloseEditor = _lib
           .lookup<ffi.NativeFunction<_Vst3CloseEditorFfiNative>>(
               'vst3_close_editor_ffi')
           .asFunction();
-      print('  ✅ vst3_close_editor_ffi bound');
 
       _vst3GetEditorSize = _lib
           .lookup<ffi.NativeFunction<_Vst3GetEditorSizeFfiNative>>(
               'vst3_get_editor_size_ffi')
           .asFunction();
-      print('  ✅ vst3_get_editor_size_ffi bound');
 
       _vst3AttachEditor = _lib
           .lookup<ffi.NativeFunction<_Vst3AttachEditorFfiNative>>(
               'vst3_attach_editor_ffi')
           .asFunction();
-      print('  ✅ vst3_attach_editor_ffi bound');
 
       _vst3SendMidiNote = _lib
           .lookup<ffi.NativeFunction<_Vst3SendMidiNoteFfiNative>>(
               'vst3_send_midi_note_ffi')
           .asFunction();
-      print('  ✅ vst3_send_midi_note_ffi bound');
 
       // Bind MIDI Recording functions
       _getMidiInputDevices = _lib
           .lookup<ffi.NativeFunction<_GetMidiInputDevicesFfiNative>>(
               'get_midi_input_devices_ffi')
           .asFunction();
-      print('  ✅ get_midi_input_devices_ffi bound');
 
       _selectMidiInputDevice = _lib
           .lookup<ffi.NativeFunction<_SelectMidiInputDeviceFfiNative>>(
               'select_midi_input_device_ffi')
           .asFunction();
-      print('  ✅ select_midi_input_device_ffi bound');
 
       _refreshMidiDevices = _lib
           .lookup<ffi.NativeFunction<_RefreshMidiDevicesFfiNative>>(
               'refresh_midi_devices_ffi')
           .asFunction();
-      print('  ✅ refresh_midi_devices_ffi bound');
 
       _startMidiRecording = _lib
           .lookup<ffi.NativeFunction<_StartMidiRecordingFfiNative>>(
               'start_midi_recording_ffi')
           .asFunction();
-      print('  ✅ start_midi_recording_ffi bound');
 
       _stopMidiRecording = _lib
           .lookup<ffi.NativeFunction<_StopMidiRecordingFfiNative>>(
               'stop_midi_recording_ffi')
           .asFunction();
-      print('  ✅ stop_midi_recording_ffi bound');
 
       _getMidiRecordingState = _lib
           .lookup<ffi.NativeFunction<_GetMidiRecordingStateFfiNative>>(
               'get_midi_recording_state_ffi')
           .asFunction();
-      print('  ✅ get_midi_recording_state_ffi bound');
 
       _quantizeMidiClip = _lib
           .lookup<ffi.NativeFunction<_QuantizeMidiClipFfiNative>>(
               'quantize_midi_clip_ffi')
           .asFunction();
-      print('  ✅ quantize_midi_clip_ffi bound');
 
       _getMidiClipInfo = _lib
           .lookup<ffi.NativeFunction<_GetMidiClipInfoFfiNative>>(
               'get_midi_clip_info_ffi')
           .asFunction();
-      print('  ✅ get_midi_clip_info_ffi bound');
 
       _getAllMidiClipsInfo = _lib
           .lookup<ffi.NativeFunction<_GetAllMidiClipsInfoFfiNative>>(
               'get_all_midi_clips_info_ffi')
           .asFunction();
-      print('  ✅ get_all_midi_clips_info_ffi bound');
 
       _getMidiClipNotes = _lib
           .lookup<ffi.NativeFunction<_GetMidiClipNotesFfiNative>>(
               'get_midi_clip_notes_ffi')
           .asFunction();
-      print('  ✅ get_midi_clip_notes_ffi bound');
 
       // Bind Audio Device functions
       _getAudioInputDevices = _lib
           .lookup<ffi.NativeFunction<_GetAudioInputDevicesFfiNative>>(
               'get_audio_input_devices_ffi')
           .asFunction();
-      print('  ✅ get_audio_input_devices_ffi bound');
 
       _getAudioOutputDevices = _lib
           .lookup<ffi.NativeFunction<_GetAudioOutputDevicesFfiNative>>(
               'get_audio_output_devices_ffi')
           .asFunction();
-      print('  ✅ get_audio_output_devices_ffi bound');
 
       _setAudioInputDevice = _lib
           .lookup<ffi.NativeFunction<_SetAudioInputDeviceFfiNative>>(
               'set_audio_input_device_ffi')
           .asFunction();
-      print('  ✅ set_audio_input_device_ffi bound');
 
       _getSampleRate = _lib
           .lookup<ffi.NativeFunction<_GetSampleRateFfiNative>>(
               'get_sample_rate_ffi')
           .asFunction();
-      print('  ✅ get_sample_rate_ffi bound');
 
-      print('✅ [AudioEngine] All functions bound successfully');
     } catch (e) {
-      print('❌ [AudioEngine] Failed to bind functions: $e');
       rethrow;
     }
   }
@@ -907,30 +782,24 @@ class AudioEngine {
 
   /// Initialize the audio engine
   String initAudioEngine() {
-    print('🎵 [AudioEngine] Calling initAudioEngine...');
     try {
       final resultPtr = _initAudioEngine();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Init result: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Init failed: $e');
       rethrow;
     }
   }
 
   /// Play a sine wave at the specified frequency
   String playSineWave(double frequency, int durationMs) {
-    print('🔊 [AudioEngine] Playing sine wave: $frequency Hz for $durationMs ms');
     try {
       final resultPtr = _playSineWave(frequency, durationMs);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Play result: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Play failed: $e');
       rethrow;
     }
   }
@@ -941,15 +810,12 @@ class AudioEngine {
 
   /// Initialize the audio graph
   String initAudioGraph() {
-    print('🎵 [AudioEngine] Initializing audio graph...');
     try {
       final resultPtr = _initAudioGraph();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Audio graph initialized: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Audio graph init failed: $e');
       rethrow;
     }
   }
@@ -957,102 +823,82 @@ class AudioEngine {
   /// Load an audio file and return clip ID (-1 on error)
   /// Legacy method - adds clip to first available audio track
   int loadAudioFile(String path) {
-    print('📂 [AudioEngine] Loading audio file: $path');
     try {
       final pathPtr = path.toNativeUtf8();
       final clipId = _loadAudioFile(pathPtr.cast());
       malloc.free(pathPtr);
 
       if (clipId < 0) {
-        print('❌ [AudioEngine] Failed to load audio file');
         return -1;
       }
 
-      print('✅ [AudioEngine] Audio file loaded, clip ID: $clipId');
       return clipId;
     } catch (e) {
-      print('❌ [AudioEngine] Load audio file failed: $e');
       rethrow;
     }
   }
 
   /// Load an audio file to a specific track and return clip ID (-1 on error)
   int loadAudioFileToTrack(String path, int trackId, {double startTime = 0.0}) {
-    print('📂 [AudioEngine] Loading audio file to track $trackId: $path');
     try {
       final pathPtr = path.toNativeUtf8();
       final clipId = _loadAudioFileToTrack(pathPtr.cast(), trackId, startTime);
       malloc.free(pathPtr);
 
       if (clipId < 0) {
-        print('❌ [AudioEngine] Failed to load audio file to track $trackId');
         return -1;
       }
 
-      print('✅ [AudioEngine] Audio file loaded to track $trackId, clip ID: $clipId');
       return clipId;
     } catch (e) {
-      print('❌ [AudioEngine] Load audio file to track failed: $e');
       rethrow;
     }
   }
 
   /// Start playback
   String transportPlay() {
-    print('▶️  [AudioEngine] Starting playback...');
     try {
       final resultPtr = _transportPlay();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Play failed: $e');
       rethrow;
     }
   }
 
   /// Pause playback
   String transportPause() {
-    print('⏸️  [AudioEngine] Pausing playback...');
     try {
       final resultPtr = _transportPause();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Pause failed: $e');
       rethrow;
     }
   }
 
   /// Stop playback
   String transportStop() {
-    print('⏹️  [AudioEngine] Stopping playback...');
     try {
       final resultPtr = _transportStop();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Stop failed: $e');
       rethrow;
     }
   }
 
   /// Seek to position in seconds
   String transportSeek(double positionSeconds) {
-    print('⏩ [AudioEngine] Seeking to $positionSeconds seconds...');
     try {
       final resultPtr = _transportSeek(positionSeconds);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Seek failed: $e');
       rethrow;
     }
   }
@@ -1062,7 +908,6 @@ class AudioEngine {
     try {
       return _getPlayheadPosition();
     } catch (e) {
-      print('❌ [AudioEngine] Get playhead position failed: $e');
       return 0.0;
     }
   }
@@ -1072,7 +917,6 @@ class AudioEngine {
     try {
       return _getTransportState();
     } catch (e) {
-      print('❌ [AudioEngine] Get transport state failed: $e');
       return 0;
     }
   }
@@ -1099,7 +943,6 @@ class AudioEngine {
       _freeRustString(result);
       return str;
     } catch (e) {
-      print('❌ [AudioEngine] Set buffer size failed: $e');
       return 'Error: $e';
     }
   }
@@ -1109,7 +952,6 @@ class AudioEngine {
     try {
       return _getBufferSizePreset();
     } catch (e) {
-      print('❌ [AudioEngine] Get buffer size preset failed: $e');
       return 2; // Default to Balanced
     }
   }
@@ -1119,7 +961,6 @@ class AudioEngine {
     try {
       return _getActualBufferSize();
     } catch (e) {
-      print('❌ [AudioEngine] Get actual buffer size failed: $e');
       return 256;
     }
   }
@@ -1142,7 +983,6 @@ class AudioEngine {
         'roundtripMs': roundtripPtr.value,
       };
     } catch (e) {
-      print('❌ [AudioEngine] Get latency info failed: $e');
       return {
         'bufferSize': 256,
         'inputLatencyMs': 5.3,
@@ -1162,7 +1002,6 @@ class AudioEngine {
     try {
       return _getClipDuration(clipId);
     } catch (e) {
-      print('❌ [AudioEngine] Get clip duration failed: $e');
       return 0.0;
     }
   }
@@ -1176,14 +1015,12 @@ class AudioEngine {
       _freeRustString(result);
       return str;
     } catch (e) {
-      print('❌ [AudioEngine] Set clip start time failed: $e');
       return 'Error: $e';
     }
   }
 
   /// Get waveform peaks for visualization
   List<double> getWaveformPeaks(int clipId, int resolution) {
-    print('📊 [AudioEngine] Getting waveform peaks (resolution: $resolution)...');
     try {
       final lengthPtr = malloc<ffi.Size>();
       final peaksPtr = _getWaveformPeaks(clipId, resolution, lengthPtr);
@@ -1191,7 +1028,6 @@ class AudioEngine {
       malloc.free(lengthPtr);
       
       if (peaksPtr == ffi.nullptr || length == 0) {
-        print('❌ [AudioEngine] No waveform peaks returned');
         return [];
       }
       
@@ -1204,10 +1040,8 @@ class AudioEngine {
       // Free the peaks array
       _freeWaveformPeaks(peaksPtr, length);
       
-      print('✅ [AudioEngine] Got $length waveform peaks');
       return peaks;
     } catch (e) {
-      print('❌ [AudioEngine] Get waveform peaks failed: $e');
       return [];
     }
   }
@@ -1218,28 +1052,22 @@ class AudioEngine {
 
   /// Start recording audio
   String startRecording() {
-    print('⏺️  [AudioEngine] Starting recording...');
     try {
       final resultPtr = _startRecording();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Start recording failed: $e');
       rethrow;
     }
   }
 
   /// Stop recording and return clip ID (-1 if no recording)
   int stopRecording() {
-    print('⏹️  [AudioEngine] Stopping recording...');
     try {
       final clipId = _stopRecording();
-      print('✅ [AudioEngine] Recording stopped, clip ID: $clipId');
       return clipId;
     } catch (e) {
-      print('❌ [AudioEngine] Stop recording failed: $e');
       return -1;
     }
   }
@@ -1249,7 +1077,6 @@ class AudioEngine {
     try {
       return _getRecordingState();
     } catch (e) {
-      print('❌ [AudioEngine] Get recording state failed: $e');
       return 0;
     }
   }
@@ -1259,7 +1086,6 @@ class AudioEngine {
     try {
       return _getRecordedDuration();
     } catch (e) {
-      print('❌ [AudioEngine] Get recorded duration failed: $e');
       return 0.0;
     }
   }
@@ -1286,15 +1112,12 @@ class AudioEngine {
 
   /// Set count-in duration in bars
   String setCountInBars(int bars) {
-    print('🎵 [AudioEngine] Setting count-in to $bars bars...');
     try {
       final resultPtr = _setCountInBars(bars);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set count-in failed: $e');
       rethrow;
     }
   }
@@ -1304,22 +1127,18 @@ class AudioEngine {
     try {
       return _getCountInBars();
     } catch (e) {
-      print('❌ [AudioEngine] Get count-in bars failed: $e');
       return 2;
     }
   }
 
   /// Set tempo in BPM
   String setTempo(double bpm) {
-    print('🎵 [AudioEngine] Setting tempo to $bpm BPM...');
     try {
       final resultPtr = _setTempo(bpm);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set tempo failed: $e');
       rethrow;
     }
   }
@@ -1329,22 +1148,18 @@ class AudioEngine {
     try {
       return _getTempo();
     } catch (e) {
-      print('❌ [AudioEngine] Get tempo failed: $e');
       return 120.0;
     }
   }
 
   /// Enable or disable metronome
   String setMetronomeEnabled(bool enabled) {
-    print('🎵 [AudioEngine] ${enabled ? "Enabling" : "Disabling"} metronome...');
     try {
       final resultPtr = _setMetronomeEnabled(enabled ? 1 : 0);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set metronome enabled failed: $e');
       rethrow;
     }
   }
@@ -1354,7 +1169,6 @@ class AudioEngine {
     try {
       return _isMetronomeEnabled() != 0;
     } catch (e) {
-      print('❌ [AudioEngine] Is metronome enabled failed: $e');
       return true;
     }
   }
@@ -1365,60 +1179,48 @@ class AudioEngine {
 
   /// Start MIDI input (initializes MIDI system and synthesizer)
   String startMidiInput() {
-    print('🎹 [AudioEngine] Starting MIDI input...');
     try {
       final resultPtr = _startMidiInput();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Start MIDI input failed: $e');
       rethrow;
     }
   }
 
   /// Stop MIDI input
   String stopMidiInput() {
-    print('🎹 [AudioEngine] Stopping MIDI input...');
     try {
       final resultPtr = _stopMidiInput();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Stop MIDI input failed: $e');
       rethrow;
     }
   }
 
   /// Set synthesizer oscillator type (0=Sine, 1=Saw, 2=Square)
   String setSynthOscillatorType(int oscType) {
-    print('🎹 [AudioEngine] Setting synth oscillator type to $oscType...');
     try {
       final resultPtr = _setSynthOscillatorType(oscType);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set synth oscillator type failed: $e');
       rethrow;
     }
   }
 
   /// Set synthesizer volume (0.0 to 1.0)
   String setSynthVolume(double volume) {
-    print('🎹 [AudioEngine] Setting synth volume to $volume...');
     try {
       final resultPtr = _setSynthVolume(volume);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set synth volume failed: $e');
       rethrow;
     }
   }
@@ -1431,7 +1233,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Send MIDI note on failed: $e');
       rethrow;
     }
   }
@@ -1444,7 +1245,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Send MIDI note off failed: $e');
       rethrow;
     }
   }
@@ -1455,7 +1255,6 @@ class AudioEngine {
     try {
       return _createMidiClip();
     } catch (e) {
-      print('❌ [AudioEngine] Create MIDI clip failed: $e');
       return -1;
     }
   }
@@ -1469,7 +1268,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Add MIDI note to clip failed: $e');
       return 'Error: $e';
     }
   }
@@ -1480,7 +1278,6 @@ class AudioEngine {
     try {
       return _addMidiClipToTrack(trackId, clipId, startTimeSeconds);
     } catch (e) {
-      print('❌ [AudioEngine] Add MIDI clip to track failed: $e');
       return -1;
     }
   }
@@ -1491,7 +1288,6 @@ class AudioEngine {
     try {
       return _removeMidiClip(trackId, clipId);
     } catch (e) {
-      print('❌ [AudioEngine] Remove MIDI clip failed: $e');
       return -1;
     }
   }
@@ -1505,7 +1301,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Clear MIDI clip failed: $e');
       return 'Error: $e';
     }
   }
@@ -1517,14 +1312,12 @@ class AudioEngine {
   /// Get available MIDI input devices
   /// Returns list of devices with id, name, and isDefault
   List<Map<String, dynamic>> getMidiInputDevices() {
-    print('🎹 [AudioEngine] Getting MIDI input devices...');
     try {
       final resultPtr = _getMidiInputDevices();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
 
       if (result.isEmpty || result.startsWith('Error:')) {
-        print('ℹ️ [AudioEngine] No MIDI devices found or error: $result');
         return [];
       }
 
@@ -1542,10 +1335,8 @@ class AudioEngine {
         }
       }
 
-      print('✅ [AudioEngine] Found ${devices.length} MIDI devices');
       return devices;
     } catch (e) {
-      print('❌ [AudioEngine] Get MIDI input devices failed: $e');
       return [];
     }
   }
@@ -1553,15 +1344,12 @@ class AudioEngine {
   /// Select a MIDI input device by index
   /// Returns success message or error
   String selectMidiInputDevice(int deviceIndex) {
-    print('🎹 [AudioEngine] Selecting MIDI device at index $deviceIndex...');
     try {
       final resultPtr = _selectMidiInputDevice(deviceIndex);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Select MIDI device failed: $e');
       return 'Error: $e';
     }
   }
@@ -1569,15 +1357,12 @@ class AudioEngine {
   /// Refresh MIDI devices (rescan)
   /// Returns success message or error
   String refreshMidiDevices() {
-    print('🎹 [AudioEngine] Refreshing MIDI devices...');
     try {
       final resultPtr = _refreshMidiDevices();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Refresh MIDI devices failed: $e');
       return 'Error: $e';
     }
   }
@@ -1589,14 +1374,12 @@ class AudioEngine {
   /// Get available audio input devices
   /// Returns list of devices with id, name, and isDefault
   List<Map<String, dynamic>> getAudioInputDevices() {
-    print('🔊 [AudioEngine] Getting audio input devices...');
     try {
       final resultPtr = _getAudioInputDevices();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
 
       if (result.isEmpty || result.startsWith('Error:')) {
-        print('ℹ️ [AudioEngine] No audio input devices found or error: $result');
         return [];
       }
 
@@ -1614,10 +1397,8 @@ class AudioEngine {
         }
       }
 
-      print('✅ [AudioEngine] Found ${devices.length} audio input devices');
       return devices;
     } catch (e) {
-      print('❌ [AudioEngine] Get audio input devices failed: $e');
       return [];
     }
   }
@@ -1625,14 +1406,12 @@ class AudioEngine {
   /// Get available audio output devices
   /// Returns list of devices with id, name, and isDefault
   List<Map<String, dynamic>> getAudioOutputDevices() {
-    print('🔊 [AudioEngine] Getting audio output devices...');
     try {
       final resultPtr = _getAudioOutputDevices();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
 
       if (result.isEmpty || result.startsWith('Error:')) {
-        print('ℹ️ [AudioEngine] No audio output devices found or error: $result');
         return [];
       }
 
@@ -1650,10 +1429,8 @@ class AudioEngine {
         }
       }
 
-      print('✅ [AudioEngine] Found ${devices.length} audio output devices');
       return devices;
     } catch (e) {
-      print('❌ [AudioEngine] Get audio output devices failed: $e');
       return [];
     }
   }
@@ -1661,15 +1438,12 @@ class AudioEngine {
   /// Set audio input device by index
   /// Returns success message or error
   String setAudioInputDevice(int deviceIndex) {
-    print('🔊 [AudioEngine] Setting audio input device to index $deviceIndex...');
     try {
       final resultPtr = _setAudioInputDevice(deviceIndex);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set audio input device failed: $e');
       return 'Error: $e';
     }
   }
@@ -1679,7 +1453,6 @@ class AudioEngine {
     try {
       return _getSampleRate();
     } catch (e) {
-      print('❌ [AudioEngine] Get sample rate failed: $e');
       return 48000; // Default fallback
     }
   }
@@ -1687,15 +1460,12 @@ class AudioEngine {
   /// Start MIDI recording
   /// Returns success message or error
   String startMidiRecording() {
-    print('⏺️ [AudioEngine] Starting MIDI recording...');
     try {
       final resultPtr = _startMidiRecording();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Start MIDI recording failed: $e');
       return 'Error: $e';
     }
   }
@@ -1703,13 +1473,10 @@ class AudioEngine {
   /// Stop MIDI recording and return clip ID
   /// Returns clip ID or -1 if no recording
   int stopMidiRecording() {
-    print('⏹️ [AudioEngine] Stopping MIDI recording...');
     try {
       final clipId = _stopMidiRecording();
-      print('✅ [AudioEngine] MIDI recording stopped, clip ID: $clipId');
       return clipId;
     } catch (e) {
-      print('❌ [AudioEngine] Stop MIDI recording failed: $e');
       return -1;
     }
   }
@@ -1719,7 +1486,6 @@ class AudioEngine {
     try {
       return _getMidiRecordingState();
     } catch (e) {
-      print('❌ [AudioEngine] Get MIDI recording state failed: $e');
       return 0;
     }
   }
@@ -1727,15 +1493,12 @@ class AudioEngine {
   /// Quantize a MIDI clip to grid
   /// gridDivision: 4=1/4 note, 8=1/8, 16=1/16, 32=1/32
   String quantizeMidiClip(int clipId, int gridDivision) {
-    print('🎵 [AudioEngine] Quantizing clip $clipId to 1/$gridDivision grid...');
     try {
       final resultPtr = _quantizeMidiClip(clipId, gridDivision);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Quantize MIDI clip failed: $e');
       return 'Error: $e';
     }
   }
@@ -1750,7 +1513,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get MIDI clip info failed: $e');
       return 'Error: $e';
     }
   }
@@ -1765,7 +1527,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get all MIDI clips info failed: $e');
       return 'Error: $e';
     }
   }
@@ -1779,7 +1540,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get MIDI clip notes failed: $e');
       return 'Error: $e';
     }
   }
@@ -1792,7 +1552,6 @@ class AudioEngine {
   /// trackType: "audio", "midi", "return", "group", or "master"
   /// Returns track ID or -1 on error
   int createTrack(String trackType, String name) {
-    print('🎚️  [AudioEngine] Creating $trackType track: $name');
     try {
       final typePtr = trackType.toNativeUtf8();
       final namePtr = name.toNativeUtf8();
@@ -1801,14 +1560,11 @@ class AudioEngine {
       malloc.free(namePtr);
 
       if (trackId < 0) {
-        print('❌ [AudioEngine] Failed to create track');
         return -1;
       }
 
-      print('✅ [AudioEngine] Track created with ID: $trackId');
       return trackId;
     } catch (e) {
-      print('❌ [AudioEngine] Create track failed: $e');
       return -1;
     }
   }
@@ -1821,7 +1577,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track volume failed: $e');
       rethrow;
     }
   }
@@ -1834,7 +1589,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track pan failed: $e');
       rethrow;
     }
   }
@@ -1847,7 +1601,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track mute failed: $e');
       rethrow;
     }
   }
@@ -1860,7 +1613,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track solo failed: $e');
       rethrow;
     }
   }
@@ -1873,7 +1625,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track armed failed: $e');
       rethrow;
     }
   }
@@ -1888,7 +1639,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set track name failed: $e');
       rethrow;
     }
   }
@@ -1898,7 +1648,6 @@ class AudioEngine {
     try {
       return _getTrackCount();
     } catch (e) {
-      print('❌ [AudioEngine] Get track count failed: $e');
       return 0;
     }
   }
@@ -1916,7 +1665,6 @@ class AudioEngine {
 
       return result.split(',').map((id) => int.parse(id)).toList();
     } catch (e) {
-      print('❌ [AudioEngine] Get all track IDs failed: $e');
       return [];
     }
   }
@@ -1929,7 +1677,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get track info failed: $e');
       return '';
     }
   }
@@ -1949,15 +1696,12 @@ class AudioEngine {
 
   /// Delete a track (cannot delete master track)
   String deleteTrack(int trackId) {
-    print('🗑️ [AudioEngine] Deleting track $trackId...');
     try {
       final resultPtr = _deleteTrack(trackId);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Delete track failed: $e');
       rethrow;
     }
   }
@@ -1965,33 +1709,26 @@ class AudioEngine {
   /// Duplicate a track (cannot duplicate master track)
   /// Returns the new track ID, or -1 on error
   int duplicateTrack(int trackId) {
-    print('📋 [AudioEngine] Duplicating track $trackId...');
     try {
       final newTrackId = _duplicateTrack(trackId);
       if (newTrackId >= 0) {
-        print('✅ [AudioEngine] Track $trackId duplicated → new track $newTrackId');
         return newTrackId;
       } else {
-        print('❌ [AudioEngine] Failed to duplicate track $trackId');
         return -1;
       }
     } catch (e) {
-      print('❌ [AudioEngine] Duplicate track failed: $e');
       return -1;
     }
   }
 
   /// Clear all tracks except master - used for New Project / Close Project
   String clearAllTracks() {
-    print('🧹 [AudioEngine] Clearing all tracks...');
     try {
       final resultPtr = _clearAllTracks();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Clear all tracks failed: $e');
       rethrow;
     }
   }
@@ -2004,36 +1741,29 @@ class AudioEngine {
   /// effectType: "eq", "compressor", "reverb", "delay", "chorus", "limiter"
   /// Returns effect ID or -1 on error
   int addEffectToTrack(int trackId, String effectType) {
-    print('🎛️  [AudioEngine] Adding $effectType to track $trackId');
     try {
       final typePtr = effectType.toNativeUtf8();
       final effectId = _addEffectToTrack(trackId, typePtr.cast());
       malloc.free(typePtr);
 
       if (effectId < 0) {
-        print('❌ [AudioEngine] Failed to add effect');
         return -1;
       }
 
-      print('✅ [AudioEngine] Effect added with ID: $effectId');
       return effectId;
     } catch (e) {
-      print('❌ [AudioEngine] Add effect failed: $e');
       return -1;
     }
   }
 
   /// Remove an effect from a track's FX chain
   String removeEffectFromTrack(int trackId, int effectId) {
-    print('🗑️  [AudioEngine] Removing effect $effectId from track $trackId');
     try {
       final resultPtr = _removeEffectFromTrack(trackId, effectId);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Remove effect failed: $e');
       rethrow;
     }
   }
@@ -2046,7 +1776,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get track effects failed: $e');
       return '';
     }
   }
@@ -2060,7 +1789,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get effect info failed: $e');
       return '';
     }
   }
@@ -2075,7 +1803,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set effect parameter failed: $e');
       rethrow;
     }
   }
@@ -2087,7 +1814,6 @@ class AudioEngine {
       final result = _setEffectBypass(effectId, bypassed ? 1 : 0);
       return result == 1;
     } catch (e) {
-      print('❌ [AudioEngine] Set effect bypass failed: $e');
       return false;
     }
   }
@@ -2099,7 +1825,6 @@ class AudioEngine {
       final result = _getEffectBypass(effectId);
       return result == 1;
     } catch (e) {
-      print('❌ [AudioEngine] Get effect bypass failed: $e');
       return false;
     }
   }
@@ -2116,7 +1841,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Reorder track effects failed: $e');
       return 'Error: $e';
     }
   }
@@ -2127,7 +1851,6 @@ class AudioEngine {
 
   /// Save project to .audio folder
   String saveProject(String projectName, String projectPath) {
-    print('💾 [AudioEngine] Saving project: $projectName to $projectPath');
     try {
       final namePtr = projectName.toNativeUtf8();
       final pathPtr = projectPath.toNativeUtf8();
@@ -2136,44 +1859,36 @@ class AudioEngine {
       malloc.free(pathPtr);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Save complete: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Save project failed: $e');
       rethrow;
     }
   }
 
   /// Load project from .audio folder
   String loadProject(String projectPath) {
-    print('📂 [AudioEngine] Loading project from: $projectPath');
     try {
       final pathPtr = projectPath.toNativeUtf8();
       final resultPtr = _loadProject(pathPtr.cast());
       malloc.free(pathPtr);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Load complete: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Load project failed: $e');
       rethrow;
     }
   }
 
   /// Export project to WAV file (legacy method - uses 32-bit float, 48kHz)
   String exportToWav(String outputPath, bool normalize) {
-    print('🎵 [AudioEngine] Exporting to WAV: $outputPath (normalize: $normalize)');
     try {
       final pathPtr = outputPath.toNativeUtf8();
       final resultPtr = _exportToWav(pathPtr.cast(), normalize);
       malloc.free(pathPtr);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Export complete: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Export failed: $e');
       rethrow;
     }
   }
@@ -2190,7 +1905,6 @@ class AudioEngine {
   /// Export audio with generic JSON options
   /// Returns JSON string with ExportResult on success
   String exportAudio(String outputPath, String optionsJson) {
-    print('🎵 [AudioEngine] Exporting audio: $outputPath');
     try {
       final pathPtr = outputPath.toNativeUtf8();
       final optionsPtr = optionsJson.toNativeUtf8();
@@ -2204,10 +1918,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] Export complete');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Export failed: $e');
       rethrow;
     }
   }
@@ -2224,7 +1936,6 @@ class AudioEngine {
     bool dither = false,
     bool mono = false,
   }) {
-    print('🎵 [AudioEngine] Exporting WAV: $outputPath ($bitDepth-bit, ${sampleRate}Hz)');
     try {
       final pathPtr = outputPath.toNativeUtf8();
       final resultPtr = _exportWavWithOptions(
@@ -2243,10 +1954,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] WAV export complete');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] WAV export failed: $e');
       rethrow;
     }
   }
@@ -2262,7 +1971,6 @@ class AudioEngine {
     bool normalize = false,
     bool mono = false,
   }) {
-    print('🎵 [AudioEngine] Exporting MP3: $outputPath ($bitrate kbps, ${sampleRate}Hz)');
     try {
       final pathPtr = outputPath.toNativeUtf8();
       final resultPtr = _exportMp3WithOptions(
@@ -2280,10 +1988,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] MP3 export complete');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] MP3 export failed: $e');
       rethrow;
     }
   }
@@ -2291,7 +1997,6 @@ class AudioEngine {
   /// Write ID3 metadata to an MP3 file
   /// metadataJson: JSON string with title, artist, album, year, genre, etc.
   String writeMp3Metadata(String filePath, String metadataJson) {
-    print('🏷️ [AudioEngine] Writing metadata to: $filePath');
     try {
       final pathPtr = filePath.toNativeUtf8();
       final metadataPtr = metadataJson.toNativeUtf8();
@@ -2305,10 +2010,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] Metadata written');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Metadata write failed: $e');
       rethrow;
     }
   }
@@ -2316,7 +2019,6 @@ class AudioEngine {
   /// Get tracks available for stem export
   /// Returns JSON array of {id, name, type} objects
   String getTracksForStems() {
-    print('🎚️ [AudioEngine] Getting tracks for stem export');
     try {
       final resultPtr = _getTracksForStems();
       final result = resultPtr.toDartString();
@@ -2326,10 +2028,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] Got tracks for stems');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get tracks for stems failed: $e');
       rethrow;
     }
   }
@@ -2346,7 +2046,6 @@ class AudioEngine {
     String trackIdsJson = '',
     required String optionsJson,
   }) {
-    print('🎚️ [AudioEngine] Exporting stems to: $outputDir');
     try {
       final dirPtr = outputDir.toNativeUtf8();
       final namePtr = baseName.toNativeUtf8();
@@ -2372,10 +2071,8 @@ class AudioEngine {
         throw Exception(result);
       }
 
-      print('✅ [AudioEngine] Stem export complete');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Stem export failed: $e');
       rethrow;
     }
   }
@@ -2401,9 +2098,7 @@ class AudioEngine {
   void cancelExport() {
     try {
       _cancelExport();
-      print('⏹️ [AudioEngine] Export cancellation requested');
     } catch (e) {
-      print('❌ [AudioEngine] Cancel export failed: $e');
     }
   }
 
@@ -2412,7 +2107,6 @@ class AudioEngine {
     try {
       _resetExportProgress();
     } catch (e) {
-      print('❌ [AudioEngine] Reset export progress failed: $e');
     }
   }
 
@@ -2423,21 +2117,17 @@ class AudioEngine {
   /// Set the instrument for a track
   /// Returns the instrument ID or -1 on error
   int setTrackInstrument(int trackId, String instrumentType) {
-    print('🎹 [AudioEngine] Setting instrument for track $trackId: $instrumentType');
     try {
       final typePtr = instrumentType.toNativeUtf8();
       final instrumentId = _setTrackInstrument(trackId, typePtr.cast());
       malloc.free(typePtr);
 
       if (instrumentId < 0) {
-        print('❌ [AudioEngine] Failed to set instrument');
         return -1;
       }
 
-      print('✅ [AudioEngine] Instrument set, ID: $instrumentId');
       return instrumentId;
     } catch (e) {
-      print('❌ [AudioEngine] Set track instrument failed: $e');
       rethrow;
     }
   }
@@ -2457,7 +2147,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Set synth parameter failed: $e');
       rethrow;
     }
   }
@@ -2465,15 +2154,12 @@ class AudioEngine {
   /// Get all synthesizer parameters for a track
   /// Returns a comma-separated string of key:value pairs
   String getSynthParameters(int trackId) {
-    print('🎹 [AudioEngine] Getting synth parameters for track $trackId');
     try {
       final resultPtr = _getSynthParameters(trackId);
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
-      print('✅ [AudioEngine] Got parameters: $result');
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Get synth parameters failed: $e');
       rethrow;
     }
   }
@@ -2489,7 +2175,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Send track MIDI note on failed: $e');
       rethrow;
     }
   }
@@ -2505,7 +2190,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] Send track MIDI note off failed: $e');
       rethrow;
     }
   }
@@ -2517,14 +2201,12 @@ class AudioEngine {
   /// Scan standard VST3 plugin locations
   /// Returns list of plugin info: name, path, vendor, type
   List<Map<String, String>> scanVst3PluginsStandard() {
-    print('🔍 [AudioEngine] Scanning VST3 plugins...');
     try {
       final resultPtr = _scanVst3PluginsStandard();
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
 
       if (result.isEmpty) {
-        print('ℹ️ [AudioEngine] No VST3 plugins found');
         return [];
       }
 
@@ -2553,10 +2235,8 @@ class AudioEngine {
         }
       }
 
-      print('✅ [AudioEngine] Found ${plugins.length} VST3 plugins');
       return plugins;
     } catch (e) {
-      print('❌ [AudioEngine] VST3 scan failed: $e');
       return [];
     }
   }
@@ -2564,21 +2244,17 @@ class AudioEngine {
   /// Add a VST3 plugin to a track's FX chain
   /// Returns the effect ID (>= 0) or -1 on error
   int addVst3EffectToTrack(int trackId, String pluginPath) {
-    print('🔌 [AudioEngine] Adding VST3 plugin to track $trackId: $pluginPath');
     try {
       final pathPtr = pluginPath.toNativeUtf8();
       final effectId = _addVst3EffectToTrack(trackId, pathPtr.cast());
       malloc.free(pathPtr);
 
       if (effectId < 0) {
-        print('❌ [AudioEngine] Failed to add VST3 plugin');
         return -1;
       }
 
-      print('✅ [AudioEngine] VST3 plugin added with effect ID: $effectId');
       return effectId;
     } catch (e) {
-      print('❌ [AudioEngine] Add VST3 plugin failed: $e');
       return -1;
     }
   }
@@ -2588,12 +2264,10 @@ class AudioEngine {
     try {
       final count = _getVst3ParameterCount(effectId);
       if (count < 0) {
-        print('❌ [AudioEngine] Failed to get VST3 parameter count');
         return 0;
       }
       return count;
     } catch (e) {
-      print('❌ [AudioEngine] Get VST3 parameter count failed: $e');
       return 0;
     }
   }
@@ -2623,7 +2297,6 @@ class AudioEngine {
 
       return null;
     } catch (e) {
-      print('❌ [AudioEngine] Get VST3 parameter info failed: $e');
       return null;
     }
   }
@@ -2634,7 +2307,6 @@ class AudioEngine {
       final value = _getVst3ParameterValue(effectId, paramIndex);
       return value;
     } catch (e) {
-      print('❌ [AudioEngine] Get VST3 parameter value failed: $e');
       return 0.0;
     }
   }
@@ -2647,7 +2319,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result.contains('Set VST3');
     } catch (e) {
-      print('❌ [AudioEngine] Set VST3 parameter value failed: $e');
       return false;
     }
   }
@@ -2659,7 +2330,6 @@ class AudioEngine {
     try {
       return _vst3HasEditor(effectId);
     } catch (e) {
-      print('❌ [AudioEngine] VST3 has editor check failed: $e');
       return false;
     }
   }
@@ -2673,7 +2343,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] VST3 open editor failed: $e');
       return 'Failed to open editor: $e';
     }
   }
@@ -2683,7 +2352,6 @@ class AudioEngine {
     try {
       _vst3CloseEditor(effectId);
     } catch (e) {
-      print('❌ [AudioEngine] VST3 close editor failed: $e');
     }
   }
 
@@ -2710,7 +2378,6 @@ class AudioEngine {
 
       return null;
     } catch (e) {
-      print('❌ [AudioEngine] VST3 get editor size failed: $e');
       return null;
     }
   }
@@ -2725,7 +2392,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] VST3 attach editor failed: $e');
       return 'Failed to attach editor: $e';
     }
   }
@@ -2743,7 +2409,6 @@ class AudioEngine {
       _freeRustString(resultPtr);
       return result;
     } catch (e) {
-      print('❌ [AudioEngine] VST3 send MIDI note failed: $e');
       return 'Failed to send MIDI note: $e';
     }
   }

@@ -181,7 +181,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Load user settings
     _userSettings.load().then((_) {
-      debugPrint('[DAW] User settings loaded');
     });
 
     // CRITICAL: Schedule audio engine initialization with a delay to prevent UI freeze
@@ -287,18 +286,14 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.setMetronomeEnabled(true); // Default: enabled
 
       } catch (e) {
-        debugPrint('❌ Failed to initialize recording settings: $e');
       }
 
-      debugPrint('🔧 [DAW] About to set initialized state, mounted=$mounted');
       if (mounted) {
         setState(() {
           _isAudioGraphInitialized = true;
         });
-        debugPrint('✅ [DAW] Audio graph initialized state set to true');
         _playbackController.setStatusMessage('Ready to record or load audio files');
       } else {
-        debugPrint('❌ [DAW] Widget not mounted, cannot set state!');
       }
 
       // Initialize undo/redo manager with engine
@@ -350,7 +345,6 @@ class _DAWScreenState extends State<DAWScreen> {
           _statusMessage = 'Failed to initialize: $e';
         });
       }
-      debugPrint('❌ Audio engine init failed: $e');
     }
   }
 
@@ -435,7 +429,6 @@ class _DAWScreenState extends State<DAWScreen> {
             recordedItems.add('MIDI ($noteCount notes)');
           }
         } catch (e) {
-          debugPrint('❌ Failed to parse MIDI clip info: $e');
           recordedItems.add('MIDI clip');
         }
       } else {
@@ -622,7 +615,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
     final trackId = command.createdTrackId;
     if (trackId == null || trackId < 0) {
-      debugPrint('❌ Failed to create new MIDI track');
       return;
     }
 
@@ -647,7 +639,6 @@ class _DAWScreenState extends State<DAWScreen> {
       // Load the VST3 plugin as a track instrument
       final effectId = _audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
       if (effectId < 0) {
-        debugPrint('❌ Failed to load VST3 instrument: ${plugin.name}');
         return;
       }
 
@@ -661,20 +652,16 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
-      debugPrint('🎹 Sending test note to VST3 instrument $effectId');
       final noteOnResult = _audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
       if (noteOnResult.isNotEmpty) {
-        debugPrint('⚠️ Note on error: $noteOnResult');
       }
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
         if (noteOffResult.isNotEmpty) {
-          debugPrint('⚠️ Note off error: $noteOffResult');
         }
       });
     } catch (e) {
-      debugPrint('❌ Error loading VST3 instrument: $e');
     }
   }
 
@@ -692,7 +679,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
       final trackId = command.createdTrackId;
       if (trackId == null || trackId < 0) {
-        debugPrint('❌ Failed to create new MIDI track');
         return;
       }
 
@@ -702,7 +688,6 @@ class _DAWScreenState extends State<DAWScreen> {
       // Load the VST3 plugin as a track instrument
       final effectId = _audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
       if (effectId < 0) {
-        debugPrint('❌ Failed to load VST3 instrument: ${plugin.name}');
         return;
       }
 
@@ -716,16 +701,13 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
-      debugPrint('🎹 Sending test note to VST3 instrument $effectId');
       final noteOnResult = _audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
       if (noteOnResult.isNotEmpty) {
-        debugPrint('⚠️ Note on error: $noteOnResult');
       }
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
         if (noteOffResult.isNotEmpty) {
-          debugPrint('⚠️ Note off error: $noteOffResult');
         }
       });
 
@@ -735,7 +717,6 @@ class _DAWScreenState extends State<DAWScreen> {
       // Immediately refresh track widgets so the new track appears instantly
       _refreshTrackWidgets();
     } catch (e) {
-      debugPrint('❌ Error creating MIDI track with VST3 instrument: $e');
     }
   }
 
@@ -757,14 +738,12 @@ class _DAWScreenState extends State<DAWScreen> {
 
       final trackId = command.createdTrackId;
       if (trackId == null || trackId < 0) {
-        debugPrint('❌ Failed to create new audio track');
         return;
       }
 
       // 3. Load audio file to the newly created track
       final clipId = _audioEngine!.loadAudioFileToTrack(finalPath, trackId);
       if (clipId < 0) {
-        debugPrint('❌ Failed to load audio file: $finalPath');
         return;
       }
 
@@ -784,11 +763,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // 6. Refresh track widgets
       _refreshTrackWidgets();
-
-      final fileName = finalPath.split('/').last;
-      debugPrint('✅ Created audio track $trackId with clip $clipId: $fileName');
     } catch (e) {
-      debugPrint('❌ Error creating audio track with file: $e');
+      // Silently fail
     }
   }
 
@@ -807,7 +783,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
       final trackId = command.createdTrackId;
       if (trackId == null || trackId < 0) {
-        debugPrint('❌ Failed to create new $trackType track');
         return;
       }
 
@@ -823,9 +798,7 @@ class _DAWScreenState extends State<DAWScreen> {
       // Refresh track widgets
       _refreshTrackWidgets();
 
-      debugPrint('✅ Created $trackType track $trackId with ${durationBeats / 4} bar clip at beat $startBeats');
     } catch (e) {
-      debugPrint('❌ Error creating track with clip: $e');
     }
   }
 
@@ -836,7 +809,6 @@ class _DAWScreenState extends State<DAWScreen> {
     // Select the track
     _onTrackSelected(trackId);
 
-    debugPrint('✅ Created MIDI clip on track $trackId: ${durationBeats / 4} bars at beat $startBeats');
   }
 
   /// Create a MIDI clip with custom start position and duration
@@ -1122,7 +1094,6 @@ class _DAWScreenState extends State<DAWScreen> {
       final destinationFile = File(destinationPath);
       if (await destinationFile.exists()) {
         // File already exists, use it
-        debugPrint('[SampleCopy] File already exists in Samples folder: $fileName');
         return destinationPath;
       }
 
@@ -1130,10 +1101,8 @@ class _DAWScreenState extends State<DAWScreen> {
       final sourceFile = File(originalPath);
       await sourceFile.copy(destinationPath);
 
-      debugPrint('[SampleCopy] Copied $fileName to project Samples folder');
       return destinationPath;
     } catch (e) {
-      debugPrint('[SampleCopy] Failed to copy sample: $e');
       // Fall back to original path if copy fails
       return originalPath;
     }
@@ -1149,7 +1118,6 @@ class _DAWScreenState extends State<DAWScreen> {
 
       final clipId = _audioEngine!.loadAudioFileToTrack(finalPath, trackId);
       if (clipId < 0) {
-        debugPrint('❌ Failed to load audio file: $finalPath');
         return;
       }
 
@@ -1164,11 +1132,8 @@ class _DAWScreenState extends State<DAWScreen> {
         duration: duration,
         waveformPeaks: peaks,
       ));
-
-      final fileName = finalPath.split('/').last;
-      debugPrint('✅ Added clip $clipId to track $trackId: $fileName');
     } catch (e) {
-      debugPrint('❌ Error adding audio clip to track: $e');
+      // Silently fail
     }
   }
 
@@ -1182,12 +1147,9 @@ class _DAWScreenState extends State<DAWScreen> {
         setState(() {
           _statusMessage = 'Added $effectType to track';
         });
-        debugPrint('✅ Added effect $effectType to track $trackId');
       } else {
-        debugPrint('❌ Failed to add effect $effectType');
       }
     } catch (e) {
-      debugPrint('❌ Error adding effect to track: $e');
     }
   }
 
@@ -1869,7 +1831,6 @@ class _DAWScreenState extends State<DAWScreen> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint('Open project failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to open project: $e')),
@@ -1925,7 +1886,6 @@ class _DAWScreenState extends State<DAWScreen> {
       );
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint('Open recent project failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to open project: $e')),
@@ -2024,7 +1984,6 @@ class _DAWScreenState extends State<DAWScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Save As failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save project: $e')),
@@ -2182,7 +2141,6 @@ class _DAWScreenState extends State<DAWScreen> {
       // Clear the recovery marker regardless of choice
       await _autoSaveService.clearRecoveryMarker();
     } catch (e) {
-      debugPrint('[DAW] Crash recovery check failed: $e');
     }
   }
 
@@ -2250,7 +2208,6 @@ class _DAWScreenState extends State<DAWScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Quick export MP3 failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Export failed: $e')),
@@ -2315,7 +2272,6 @@ class _DAWScreenState extends State<DAWScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Quick export WAV failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Export failed: $e')),
@@ -2422,7 +2378,6 @@ class _DAWScreenState extends State<DAWScreen> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint('Make Copy failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to create copy: $e')),
@@ -2463,7 +2418,6 @@ class _DAWScreenState extends State<DAWScreen> {
         _projectManager?.setProjectName(updatedMetadata.name);
       }
 
-      debugPrint('[DAW] Project settings updated: $updatedMetadata');
     }
   }
 

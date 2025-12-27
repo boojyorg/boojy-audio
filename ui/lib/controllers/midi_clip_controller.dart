@@ -88,7 +88,6 @@ class MidiClipController extends ChangeNotifier {
   bool splitSelectedClipAtPlayhead(double playheadPositionSeconds) {
     final clip = _midiPlaybackManager?.currentEditingClip;
     if (clip == null) {
-      debugPrint('[MidiClipController] No clip selected for split');
       return false;
     }
 
@@ -97,7 +96,6 @@ class MidiClipController extends ChangeNotifier {
 
     // Check if playhead is within the clip bounds
     if (playheadBeats <= clip.startTime || playheadBeats >= clip.endTime) {
-      debugPrint('[MidiClipController] Playhead ($playheadBeats) not within clip bounds (${clip.startTime} - ${clip.endTime})');
       return false;
     }
 
@@ -172,7 +170,6 @@ class MidiClipController extends ChangeNotifier {
     // Select the right clip (more intuitive for continued editing after split)
     _midiPlaybackManager?.selectClip(rightClipId, rightClip);
 
-    debugPrint('[MidiClipController] Split clip "${clip.name}" at beat $playheadBeats');
     notifyListeners();
     return true;
   }
@@ -183,7 +180,6 @@ class MidiClipController extends ChangeNotifier {
   bool quantizeSelectedClip(double gridSizeBeats) {
     final clip = _midiPlaybackManager?.currentEditingClip;
     if (clip == null) {
-      debugPrint('[MidiClipController] No clip selected for quantize');
       return false;
     }
 
@@ -192,7 +188,6 @@ class MidiClipController extends ChangeNotifier {
 
     // Only update if position changed
     if ((quantizedStart - clip.startTime).abs() < 0.001) {
-      debugPrint('[MidiClipController] Clip already quantized');
       return false;
     }
 
@@ -206,7 +201,6 @@ class MidiClipController extends ChangeNotifier {
       _midiPlaybackManager!.updateClip(quantizedClip, _tempo, 0);
     }
 
-    debugPrint('[MidiClipController] Quantized clip "${clip.name}" from ${clip.startTime} to $quantizedStart beats');
     notifyListeners();
     return true;
   }

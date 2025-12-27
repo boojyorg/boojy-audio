@@ -292,11 +292,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       trackName: widget.selectedTrackName,
       onVst3PopOut: (effectId) {
         // TODO: Handle VST3 pop-out to floating window
-        debugPrint('🎛️ [EditorPanel] VST3 pop-out requested for effect $effectId');
       },
       onVst3BringBack: (effectId) {
         // TODO: Handle VST3 bring back from floating window
-        debugPrint('🎛️ [EditorPanel] VST3 bring-back requested for effect $effectId');
       },
     );
   }
@@ -350,7 +348,6 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       final parameters = <int, Vst3ParameterInfo>{};
       final parameterValues = <int, double>{};
 
-      debugPrint('🎛️ [EditorPanel] VST3 instrument effectId=$effectId, paramCount=$paramCount');
 
       for (int i = 0; i < paramCount; i++) {
         final info = widget.audioEngine?.getVst3ParameterInfo(effectId, i);

@@ -47,7 +47,6 @@ class AutoSaveService extends ChangeNotifier {
     final minutes = settings.autoSaveMinutes;
 
     if (minutes <= 0) {
-      debugPrint('[AutoSave] Disabled (interval=0)');
       stop();
       return;
     }
@@ -64,7 +63,6 @@ class AutoSaveService extends ChangeNotifier {
       (_) => _performAutoSave(),
     );
 
-    debugPrint('[AutoSave] Started with ${minutes}min interval');
     notifyListeners();
   }
 
@@ -72,7 +70,6 @@ class AutoSaveService extends ChangeNotifier {
   void stop() {
     _timer?.cancel();
     _timer = null;
-    debugPrint('[AutoSave] Stopped');
     notifyListeners();
   }
 
@@ -85,12 +82,10 @@ class AutoSaveService extends ChangeNotifier {
   /// Perform an auto-save
   Future<void> _performAutoSave() async {
     if (_projectManager == null || _getUILayout == null) {
-      debugPrint('[AutoSave] Not initialized');
       return;
     }
 
     if (_isAutoSaving) {
-      debugPrint('[AutoSave] Already in progress, skipping');
       return;
     }
 
@@ -102,16 +97,13 @@ class AutoSaveService extends ChangeNotifier {
       if (_projectManager!.hasProject) {
         final uiLayout = _getUILayout!();
         await _projectManager!.saveProject(uiLayout);
-        debugPrint('[AutoSave] Saved to project: ${_projectManager!.currentPath}');
       }
 
       // Always create a backup for crash recovery
       await _createBackup();
 
       _lastAutoSave = DateTime.now();
-      debugPrint('[AutoSave] Complete at $_lastAutoSave');
     } catch (e) {
-      debugPrint('[AutoSave] Failed: $e');
     } finally {
       _isAutoSaving = false;
       notifyListeners();
@@ -129,9 +121,7 @@ class AutoSaveService extends ChangeNotifier {
       }
 
       _backupDirectory = backupDir.path;
-      debugPrint('[AutoSave] Backup directory: $_backupDirectory');
     } catch (e) {
-      debugPrint('[AutoSave] Failed to init backup directory: $e');
     }
   }
 
@@ -148,7 +138,6 @@ class AutoSaveService extends ChangeNotifier {
       // Save backup
       final uiLayout = _getUILayout?.call();
       await _projectManager!.saveProjectToPath(backupPath, uiLayout);
-      debugPrint('[AutoSave] Backup created: $backupPath');
 
       // Create/update crash recovery marker
       await _updateCrashRecoveryMarker(backupPath);
@@ -156,7 +145,6 @@ class AutoSaveService extends ChangeNotifier {
       // Rotate old backups
       await _rotateBackups();
     } catch (e) {
-      debugPrint('[AutoSave] Backup failed: $e');
     }
   }
 
@@ -168,7 +156,6 @@ class AutoSaveService extends ChangeNotifier {
       final markerFile = File('$_backupDirectory/crash_recovery.marker');
       await markerFile.writeAsString(latestBackupPath);
     } catch (e) {
-      debugPrint('[AutoSave] Failed to update recovery marker: $e');
     }
   }
 
@@ -193,11 +180,9 @@ class AutoSaveService extends ChangeNotifier {
       if (backups.length > maxBackups) {
         for (var i = maxBackups; i < backups.length; i++) {
           await backups[i].delete(recursive: true);
-          debugPrint('[AutoSave] Deleted old backup: ${backups[i].path}');
         }
       }
     } catch (e) {
-      debugPrint('[AutoSave] Backup rotation failed: $e');
     }
   }
 
@@ -215,11 +200,9 @@ class AutoSaveService extends ChangeNotifier {
       final backupDir = Directory(backupPath.trim());
 
       if (await backupDir.exists()) {
-        debugPrint('[AutoSave] Found recovery backup: $backupPath');
         return backupPath.trim();
       }
     } catch (e) {
-      debugPrint('[AutoSave] Recovery check failed: $e');
     }
 
     return null;
@@ -233,10 +216,8 @@ class AutoSaveService extends ChangeNotifier {
       final markerFile = File('$_backupDirectory/crash_recovery.marker');
       if (await markerFile.exists()) {
         await markerFile.delete();
-        debugPrint('[AutoSave] Cleared recovery marker');
       }
     } catch (e) {
-      debugPrint('[AutoSave] Failed to clear recovery marker: $e');
     }
   }
 
@@ -255,9 +236,7 @@ class AutoSaveService extends ChangeNotifier {
       //   await backupDir.delete(recursive: true);
       // }
 
-      debugPrint('[AutoSave] Cleanup complete');
     } catch (e) {
-      debugPrint('[AutoSave] Cleanup failed: $e');
     }
   }
 
@@ -289,7 +268,6 @@ class AutoSaveService extends ChangeNotifier {
       backups.sort((a, b) => b.modified.compareTo(a.modified));
       return backups;
     } catch (e) {
-      debugPrint('[AutoSave] Failed to list backups: $e');
       return [];
     }
   }

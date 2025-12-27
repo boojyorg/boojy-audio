@@ -135,7 +135,6 @@ class ProjectManager extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('Failed to load project: $e');
       return (
         result: ProjectResult(
           success: false,
@@ -181,7 +180,6 @@ class ProjectManager extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('Save project failed: $e');
       return ProjectResult(
         success: false,
         message: 'Failed to save project: $e',
@@ -237,7 +235,6 @@ class ProjectManager extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('Make Copy failed: $e');
       return ProjectResult(
         success: false,
         message: 'Failed to create copy: $e',
@@ -282,7 +279,6 @@ class ProjectManager extends ChangeNotifier {
       final uiLayoutFile = File('$projectPath/ui_layout.json');
       uiLayoutFile.writeAsStringSync(jsonString);
     } catch (e) {
-      debugPrint('Failed to save UI layout: $e');
     }
   }
 
@@ -298,7 +294,6 @@ class ProjectManager extends ChangeNotifier {
       final Map<String, dynamic> data = jsonDecode(jsonString);
       return UILayoutData.fromJson(data);
     } catch (e) {
-      debugPrint('Failed to load UI layout: $e');
       return null;
     }
   }

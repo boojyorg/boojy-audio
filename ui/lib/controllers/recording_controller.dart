@@ -65,7 +65,6 @@ class RecordingController extends ChangeNotifier {
       _tempo = 120.0;
       _isMetronomeEnabled = true;
     } catch (e) {
-      debugPrint('❌ Failed to initialize recording settings: $e');
     }
 
     // Load MIDI devices
@@ -100,7 +99,6 @@ class RecordingController extends ChangeNotifier {
 
       _startRecordingStateTimer();
     } catch (e) {
-      debugPrint('❌ Recording error: $e');
     }
   }
 
@@ -180,7 +178,6 @@ class RecordingController extends ChangeNotifier {
       _isMetronomeEnabled = newState;
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Metronome toggle error: $e');
     }
   }
 
@@ -195,7 +192,6 @@ class RecordingController extends ChangeNotifier {
       _tempo = clampedBpm;
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Tempo change error: $e');
     }
   }
 
@@ -212,7 +208,6 @@ class RecordingController extends ChangeNotifier {
         notifyListeners();
         return true;
       } catch (e) {
-        debugPrint('❌ Virtual piano enable error: $e');
         _isVirtualPianoEnabled = false;
         notifyListeners();
         return false;
@@ -246,7 +241,6 @@ class RecordingController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Failed to load MIDI devices: $e');
     }
   }
 
@@ -259,7 +253,6 @@ class RecordingController extends ChangeNotifier {
       _selectedMidiDeviceIndex = deviceIndex;
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Failed to select MIDI device: $e');
     }
   }
 
@@ -271,7 +264,6 @@ class RecordingController extends ChangeNotifier {
       _audioEngine!.refreshMidiDevices();
       loadMidiDevices();
     } catch (e) {
-      debugPrint('❌ Failed to refresh MIDI devices: $e');
     }
   }
 

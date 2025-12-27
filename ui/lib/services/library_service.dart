@@ -88,7 +88,6 @@ class LibraryService extends ChangeNotifier {
         await Directory('$_userContentPath/Projects').create(recursive: true);
       }
     } catch (e) {
-      debugPrint('Error creating default folder: $e');
       // Don't throw - just log the error and continue
     }
   }
@@ -195,7 +194,6 @@ class LibraryService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('Error scanning folder $path: $e');
     }
 
     // Sort: folders first, then files alphabetically

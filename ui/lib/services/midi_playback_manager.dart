@@ -125,7 +125,6 @@ class MidiPlaybackManager extends ChangeNotifier {
       // New clip - create in Rust
       rustClipId = _audioEngine.createMidiClip();
       if (rustClipId < 0) {
-        debugPrint('❌ Failed to create Rust MIDI clip');
         return;
       }
       _dartToRustClipIds[clip.clipId] = rustClipId;
@@ -203,7 +202,6 @@ class MidiPlaybackManager extends ChangeNotifier {
       );
 
       if (result != 0) {
-        debugPrint('❌ Failed to add MIDI clip to track timeline (result: $result)');
       }
     }
   }
@@ -214,7 +212,6 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// The notes are stored in beats, so we need to recalculate
   /// their positions in seconds based on the new tempo.
   void rescheduleAllClips(double newTempo) {
-    debugPrint('🎹 [MidiPlaybackManager] Rescheduling ${_midiClips.length} clips for tempo $newTempo BPM');
 
     final beatsPerSecond = newTempo / 60.0;
 
@@ -276,7 +273,6 @@ class MidiPlaybackManager extends ChangeNotifier {
       _audioEngine.setClipStartTime(clip.trackId, rustClipId, clipStartTimeSeconds);
     }
 
-    debugPrint('🎹 [MidiPlaybackManager] Rescheduled all clips');
   }
 
   /// Play MIDI clip immediately (for testing/preview)
@@ -375,7 +371,6 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// This queries the engine for all MIDI clips and reconstructs
   /// the Flutter MidiClipData objects for UI display.
   void restoreClipsFromEngine(double tempo) {
-    debugPrint('🎹 [MidiPlaybackManager] Restoring MIDI clips from engine...');
 
     // Clear existing clips first
     _midiClips.clear();
@@ -384,7 +379,6 @@ class MidiPlaybackManager extends ChangeNotifier {
     // Get all clips info from engine
     final clipsInfoStr = _audioEngine.getAllMidiClipsInfo();
     if (clipsInfoStr.isEmpty || clipsInfoStr.startsWith('Error:')) {
-      debugPrint('🎹 [MidiPlaybackManager] No MIDI clips found or error: $clipsInfoStr');
       notifyListeners();
       return;
     }
@@ -455,10 +449,8 @@ class MidiPlaybackManager extends ChangeNotifier {
       _midiClips.add(clipData);
       _dartToRustClipIds[dartClipId] = rustClipId;
 
-      debugPrint('🎹 [MidiPlaybackManager] Restored clip $rustClipId on track $trackId with ${notes.length} notes');
     }
 
-    debugPrint('🎹 [MidiPlaybackManager] Restored ${_midiClips.length} MIDI clips');
     notifyListeners();
   }
 }

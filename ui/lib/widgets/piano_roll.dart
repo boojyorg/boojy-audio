@@ -313,7 +313,6 @@ class _PianoRollState extends State<PianoRoll> {
 
     _commitToHistory('Slice note');
     _notifyClipUpdated();
-    debugPrint('✂️ Sliced note ${note.noteName} at beat $splitBeat');
   }
 
   /// Save current state snapshot before making changes
@@ -832,7 +831,6 @@ class _PianoRollState extends State<PianoRoll> {
           },
           onHorizontalDragEnd: (details) {
             _isDraggingLoopEnd = false;
-            debugPrint('🔄 Loop length set to ${_currentClip?.loopLength} beats');
           },
           child: Container(
             width: handleWidth,
@@ -1388,7 +1386,6 @@ class _PianoRollState extends State<PianoRoll> {
       _commitToHistory('Duplicate note');
       _notifyClipUpdated();
       _startAudition(clickedNote.note, clickedNote.velocity);
-      debugPrint('📋 Cmd+click duplicated ${clickedNote.noteName}');
       return;
     }
 
@@ -1470,7 +1467,6 @@ class _PianoRollState extends State<PianoRoll> {
       _notifyClipUpdated();
       // Start sustained audition (will stop on mouse up)
       _startAudition(note, 100);
-      debugPrint('🎵 Created note at beat $beat');
     }
   }
 
@@ -1485,7 +1481,6 @@ class _PianoRollState extends State<PianoRoll> {
       // Round up to next bar boundary (4 beats)
       final newLoopLength = ((noteEndTime / 4).ceil() * 4).toDouble();
       _currentClip = _currentClip!.copyWith(loopLength: newLoopLength);
-      debugPrint('🔄 Auto-extended loop to $newLoopLength beats');
     }
   }
 
@@ -1564,7 +1559,6 @@ class _PianoRollState extends State<PianoRoll> {
       });
 
       _startAudition(clickedNote.note, clickedNote.velocity);
-      debugPrint('📋 Started Cmd+drag duplicate of ${duplicatedNotes.length} note(s)');
     } else if (_justCreatedNoteId != null) {
       // User is dragging from where they just created a note - move it (FL Studio style)
       final createdNote = _currentClip?.notes.firstWhere(
@@ -1589,7 +1583,6 @@ class _PianoRollState extends State<PianoRoll> {
           _currentCursor = SystemMouseCursors.grabbing;
         });
 
-        debugPrint('🎵 Started moving just-created note');
       }
 
       // Clear just-created tracking
@@ -1681,7 +1674,6 @@ class _PianoRollState extends State<PianoRoll> {
           _lastPaintedBeat = nextNoteBeat;
         });
 
-        debugPrint('🎨 Painted note at beat $nextNoteBeat');
       }
     } else if (_currentMode == InteractionMode.move && _dragStart != null) {
       // Move selected notes - use delta from original drag start position
@@ -1825,7 +1817,6 @@ class _PianoRollState extends State<PianoRoll> {
       if (_isDuplicating) {
         final duplicateCount = _currentClip?.selectedNotes.length ?? 1;
         _commitToHistory(duplicateCount == 1 ? 'Duplicate note' : 'Duplicate $duplicateCount notes');
-        debugPrint('📋 Cmd+drag duplicate completed ($duplicateCount notes)');
       } else {
         final selectedCount = _currentClip?.selectedNotes.length ?? 0;
         if (selectedCount > 0) {
@@ -1839,7 +1830,6 @@ class _PianoRollState extends State<PianoRoll> {
       final resizedNote = _currentClip?.notes.firstWhere((n) => n.id == _resizingNoteId);
       if (resizedNote != null) {
         _lastNoteDuration = resizedNote.duration;
-        debugPrint('📝 Remembered note duration: $_lastNoteDuration beats');
         _commitToHistory('Resize note');
       }
     }
@@ -1934,7 +1924,6 @@ class _PianoRollState extends State<PianoRoll> {
 
     final hasSelection = _currentClip!.notes.any((n) => n.isSelected);
     if (!hasSelection) {
-      debugPrint('⚠️ No notes selected to deselect');
       return;
     }
 
@@ -1944,27 +1933,23 @@ class _PianoRollState extends State<PianoRoll> {
       );
     });
 
-    debugPrint('⎋ Deselected all notes');
   }
 
   /// Copy selected notes to clipboard
   void _copySelectedNotes() {
     final selectedNotes = _currentClip?.selectedNotes ?? [];
     if (selectedNotes.isEmpty) {
-      debugPrint('⚠️ No notes selected to copy');
       return;
     }
 
     // Store copies of selected notes (deselected)
     _clipboard = selectedNotes.map((note) => note.copyWith(isSelected: false)).toList();
-    debugPrint('📋 Copied ${_clipboard.length} notes to clipboard');
   }
 
   /// Cut selected notes (copy to clipboard, then delete)
   void _cutSelectedNotes() {
     final selectedNotes = _currentClip?.selectedNotes ?? [];
     if (selectedNotes.isEmpty) {
-      debugPrint('⚠️ No notes selected to cut');
       return;
     }
 
@@ -1981,18 +1966,15 @@ class _PianoRollState extends State<PianoRoll> {
     });
     _notifyClipUpdated();
     _commitToHistory(selectedNotes.length == 1 ? 'Cut note' : 'Cut ${selectedNotes.length} notes');
-    debugPrint('✂️ Cut ${_clipboard.length} notes to clipboard');
   }
 
   /// Paste notes from clipboard
   void _pasteNotes() {
     if (_clipboard.isEmpty) {
-      debugPrint('⚠️ Clipboard is empty');
       return;
     }
 
     if (_currentClip == null) {
-      debugPrint('⚠️ No clip to paste into');
       return;
     }
 
@@ -2028,14 +2010,12 @@ class _PianoRollState extends State<PianoRoll> {
 
     _notifyClipUpdated();
     _commitToHistory(newNotes.length == 1 ? 'Paste note' : 'Paste ${newNotes.length} notes');
-    debugPrint('📌 Pasted ${newNotes.length} notes');
   }
 
   /// Duplicate selected notes (place copies after originals)
   void _duplicateSelectedNotes() {
     final selectedNotes = _currentClip?.selectedNotes ?? [];
     if (selectedNotes.isEmpty) {
-      debugPrint('⚠️ No notes selected to duplicate');
       return;
     }
 
@@ -2072,13 +2052,11 @@ class _PianoRollState extends State<PianoRoll> {
 
     _notifyClipUpdated();
     _commitToHistory(duplicates.length == 1 ? 'Duplicate note' : 'Duplicate ${duplicates.length} notes');
-    debugPrint('📋 Duplicated ${duplicates.length} notes');
   }
 
   /// Select all notes in the current clip
   void _selectAllNotes() {
     if (_currentClip == null || _currentClip!.notes.isEmpty) {
-      debugPrint('⚠️ No notes to select');
       return;
     }
 
@@ -2088,7 +2066,6 @@ class _PianoRollState extends State<PianoRoll> {
       );
     });
 
-    debugPrint('🎯 Selected all ${_currentClip!.notes.length} notes');
   }
 
   void _deleteSelectedNotes() {
@@ -2252,7 +2229,6 @@ class _PianoRollState extends State<PianoRoll> {
     });
     _notifyClipUpdated();
     _commitToHistory('Delete note: ${note.noteName}');
-    debugPrint('🗑️ Deleted note: ${note.noteName}');
   }
 
   /// Duplicate a note (place copy slightly after original)
@@ -2269,14 +2245,12 @@ class _PianoRollState extends State<PianoRoll> {
     });
     _notifyClipUpdated();
     _commitToHistory('Duplicate note: ${note.noteName}');
-    debugPrint('📋 Duplicated note: ${note.noteName}');
   }
 
   /// Quantize selected notes to grid
   void _quantizeSelectedNotes() {
     final selectedNotes = _currentClip?.notes.where((n) => n.isSelected).toList() ?? [];
     if (selectedNotes.isEmpty) {
-      debugPrint('No notes selected for quantize');
       return;
     }
 
@@ -2294,7 +2268,6 @@ class _PianoRollState extends State<PianoRoll> {
     });
     _notifyClipUpdated();
     _commitToHistory('Quantize ${selectedNotes.length} notes');
-    debugPrint('📐 Quantized ${selectedNotes.length} notes to grid');
   }
 
   /// Start eraser mode (right-click drag)
@@ -2317,7 +2290,6 @@ class _PianoRollState extends State<PianoRoll> {
         );
       });
       _notifyClipUpdated();
-      debugPrint('🧹 Erased note: ${note.noteName}');
     }
   }
 

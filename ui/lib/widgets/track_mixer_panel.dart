@@ -45,7 +45,6 @@ class TrackData {
         solo: parts[6] == 'true' || parts[6] == '1',
       );
     } catch (e) {
-      debugPrint('❌ Failed to parse track data: $e');
       return null;
     }
   }
@@ -272,7 +271,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Failed to load tracks: $e');
     }
   }
 
@@ -373,14 +371,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     await UndoRedoManager().execute(command);
 
     if (command.duplicatedTrackId != null && command.duplicatedTrackId! >= 0) {
-      debugPrint('✅ Track ${track.id} duplicated → new track ${command.duplicatedTrackId}');
 
       // Notify parent about duplication so it can copy instrument mapping
       widget.onTrackDuplicated?.call(track.id, command.duplicatedTrackId!);
 
       _loadTracksAsync();
     } else {
-      debugPrint('❌ Failed to duplicate track ${track.id}');
     }
   }
 

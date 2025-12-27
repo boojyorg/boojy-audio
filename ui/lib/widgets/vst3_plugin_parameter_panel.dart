@@ -72,7 +72,6 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
     // Check preference
     if (PluginPreferencesService.prefersFloating(plugin.pluginName)) {
-      debugPrint('🔄 Auto-opening ${plugin.pluginName} in floating mode (user preference)');
       // Delay slightly to ensure widget is fully built
       Future.microtask(() => _openPluginGUI(plugin));
     }
@@ -593,46 +592,36 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   void _toggleEmbeddedGUI(Vst3PluginInstance plugin) async {
     // Prevent rapid toggling which can cause race conditions
     if (_isTogglingGUI) {
-      debugPrint('⚠️ _toggleEmbeddedGUI: Already toggling, ignoring request');
       return;
     }
     _isTogglingGUI = true;
 
-    debugPrint('🔘 _toggleEmbeddedGUI called for ${plugin.pluginName}, current state: $_showEmbeddedGUIForEffect');
 
     try {
       if (_showEmbeddedGUIForEffect == plugin.effectId) {
         // Hide embedded GUI - detach editor first
-        debugPrint('📺 Hiding embedded GUI for ${plugin.pluginName} - calling detachEditor...');
         await VST3EditorService.detachEditor(effectId: plugin.effectId);
-        debugPrint('📺 detachEditor completed for ${plugin.pluginName}');
         setState(() {
           _showEmbeddedGUIForEffect = null;
         });
-        debugPrint('📺 setState completed - GUI hidden');
 
         // Give Flutter time to fully dispose the old platform view
         // This prevents crashes when the new view is created before cleanup completes
         await Future.delayed(const Duration(milliseconds: 100));
-        debugPrint('📺 Cleanup delay completed');
       } else {
         // Show embedded GUI - the platform view will be created by setState
         // and Swift will notify when ready for attachment
-        debugPrint('📺 Showing embedded GUI for ${plugin.pluginName}');
 
         // Save preference for embedded mode
-        debugPrint('📺 Saving display mode preference...');
         await PluginPreferencesService.setDisplayMode(
           plugin.pluginName,
           PluginDisplayMode.embedded,
         );
-        debugPrint('📺 Display mode saved, calling setState...');
 
         setState(() {
           _showEmbeddedGUIForEffect = plugin.effectId;
           _expandedPluginId = plugin.effectId;
         });
-        debugPrint('📺 setState completed - GUI should be showing');
         // Note: Attachment happens via the platform view lifecycle:
         // 1. VST3EditorWidget creates AppKitView
         // 2. Swift's VST3EditorView.viewDidMoveToWindow() fires
@@ -646,7 +635,6 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
   // M7 Phase 3: Open native VST3 plugin GUI
   void _openPluginGUI(Vst3PluginInstance plugin) async {
-    debugPrint('📺 Opening native GUI for ${plugin.pluginName} (effect ${plugin.effectId})');
 
     // Save preference for floating mode
     await PluginPreferencesService.setDisplayMode(
@@ -666,9 +654,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     );
 
     if (success) {
-      debugPrint('✅ Successfully opened GUI for ${plugin.pluginName}');
     } else {
-      debugPrint('❌ Failed to open GUI for ${plugin.pluginName}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

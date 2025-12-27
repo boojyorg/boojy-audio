@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Display mode for VST3 plugin UI
@@ -75,15 +74,11 @@ class PluginPreferencesService {
           );
         }
 
-        debugPrint(
-            '[PluginPreferences] Loaded ${_preferences.length} plugin preferences');
       } else {
-        debugPrint('[PluginPreferences] No preferences file found, using defaults');
       }
 
       _initialized = true;
     } catch (e) {
-      debugPrint('[PluginPreferences] Error loading preferences: $e');
       _preferences = {};
       _initialized = true;
     }
@@ -104,9 +99,7 @@ class PluginPreferencesService {
         const JsonEncoder.withIndent('  ').convert(json),
       );
 
-      debugPrint('[PluginPreferences] Saved ${_preferences.length} plugin preferences');
     } catch (e) {
-      debugPrint('[PluginPreferences] Error saving preferences: $e');
     }
   }
 
@@ -129,7 +122,6 @@ class PluginPreferencesService {
     final existing = _preferences[pluginName] ?? const PluginPreference();
     _preferences[pluginName] = existing.copyWith(displayMode: mode);
 
-    debugPrint('[PluginPreferences] Set $pluginName display mode to ${mode.name}');
     await save();
   }
 
@@ -142,7 +134,6 @@ class PluginPreferencesService {
     final existing = _preferences[pluginName] ?? const PluginPreference();
     _preferences[pluginName] = existing.copyWith(windowX: x, windowY: y);
 
-    debugPrint('[PluginPreferences] Saved $pluginName window position: ($x, $y)');
     await save();
   }
 

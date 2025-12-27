@@ -156,7 +156,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Get background color for right box - consistent grey like master track
-  Color _getTintedBackground(Color? trackColor) {
+  Color _getTintedBackground() {
     return const Color(0xFF2D2D2D);
   }
 
@@ -210,7 +210,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       // Right section: Controls area (tinted with track color)
                       Expanded(
                         child: Container(
-                          color: _getTintedBackground(widget.trackColor),
+                          color: _getTintedBackground(),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           child: Column(
                             children: [

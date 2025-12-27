@@ -71,7 +71,6 @@ class _FxChainViewState extends State<FxChainView> {
 
       setState(() => _effects = effects);
     } catch (e) {
-      debugPrint('❌ Failed to load effects: $e');
       setState(() => _effects = []);
     }
   }

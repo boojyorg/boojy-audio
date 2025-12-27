@@ -119,7 +119,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       setState(() {
         _hasFocus = _focusNode.hasFocus;
       });
-      print('🎹 [VirtualPiano] Focus changed: $_hasFocus');
     });
 
     // Setup slide animation
@@ -144,14 +143,12 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       // Post-frame request
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
-        print('🎹 [VirtualPiano] Focus requested in initState');
       });
 
       // Delayed request after animation
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) {
           _focusNode.requestFocus();
-          print('🎹 [VirtualPiano] Focus requested after animation');
         }
       });
     }
@@ -164,7 +161,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     // Request focus when enabled
     if (widget.isEnabled && !oldWidget.isEnabled) {
       _focusNode.requestFocus();
-      print('🎹 [VirtualPiano] Focus requested in didUpdateWidget');
 
       // Also request after a delay to ensure it sticks
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -217,7 +213,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       try {
         widget.audioEngine?.sendTrackMidiNoteOn(widget.selectedTrackId!, midiNote, 100);
       } catch (e) {
-        print('Error playing note on track ${widget.selectedTrackId}: $e');
       }
     }
     // If no track selected, piano is silent (do nothing)
@@ -233,7 +228,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       try {
         widget.audioEngine?.sendTrackMidiNoteOff(widget.selectedTrackId!, midiNote, 0);
       } catch (e) {
-        print('Error stopping note on track ${widget.selectedTrackId}: $e');
       }
     }
   }
@@ -249,7 +243,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
         onTap: () {
           // Request focus when piano is tapped
           _focusNode.requestFocus();
-          print('🎹 [VirtualPiano] Focus requested');
         },
         child: Focus(
           focusNode: _focusNode,
@@ -257,7 +250,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           onKeyEvent: (node, event) {
             // Only handle keys that are mapped to piano notes
             if (_keyboardMapping.containsKey(event.logicalKey)) {
-              print('🎹 [VirtualPiano] Handling piano key: ${event.logicalKey}');
               _onKeyEvent(event);
               return KeyEventResult.handled;
             }

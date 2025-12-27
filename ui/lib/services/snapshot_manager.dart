@@ -55,9 +55,7 @@ class SnapshotManager extends ChangeNotifier {
       _snapshots.sort((a, b) => b.created.compareTo(a.created));
 
       notifyListeners();
-      debugPrint('[SnapshotManager] Loaded ${_snapshots.length} snapshots');
     } catch (e) {
-      debugPrint('[SnapshotManager] Failed to load snapshots: $e');
       _snapshots = [];
       notifyListeners();
     }
@@ -81,9 +79,7 @@ class SnapshotManager extends ChangeNotifier {
       final jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
       await metadataFile.writeAsString(jsonString);
 
-      debugPrint('[SnapshotManager] Saved metadata for ${_snapshots.length} snapshots');
     } catch (e) {
-      debugPrint('[SnapshotManager] Failed to save metadata: $e');
       rethrow;
     }
   }
@@ -117,11 +113,9 @@ class SnapshotManager extends ChangeNotifier {
       await _saveMetadata();
 
       notifyListeners();
-      debugPrint('[SnapshotManager] Created snapshot: ${snapshot.name}');
 
       return snapshot;
     } catch (e) {
-      debugPrint('[SnapshotManager] Failed to create snapshot: $e');
       return null;
     }
   }
@@ -139,17 +133,14 @@ class SnapshotManager extends ChangeNotifier {
       final snapshotFile = File(snapshotFilePath);
 
       if (!await snapshotFile.exists()) {
-        debugPrint('[SnapshotManager] Snapshot file not found: ${snapshot.fileName}');
         return false;
       }
 
       // Copy snapshot file to current project file
       await snapshotFile.copy(currentProjectFilePath);
 
-      debugPrint('[SnapshotManager] Loaded snapshot: ${snapshot.name}');
       return true;
     } catch (e) {
-      debugPrint('[SnapshotManager] Failed to load snapshot: $e');
       return false;
     }
   }
@@ -172,11 +163,9 @@ class SnapshotManager extends ChangeNotifier {
       await _saveMetadata();
 
       notifyListeners();
-      debugPrint('[SnapshotManager] Deleted snapshot: ${snapshot.name}');
 
       return true;
     } catch (e) {
-      debugPrint('[SnapshotManager] Failed to delete snapshot: $e');
       return false;
     }
   }

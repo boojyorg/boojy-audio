@@ -31,12 +31,10 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
   void initState() {
     super.initState();
     _instanceId = ++_instanceCounter;
-    debugPrint('🔧 VST3EditorWidget: initState for effect ${widget.effectId}, instance $_instanceId');
   }
 
   @override
   void dispose() {
-    debugPrint('🔧 VST3EditorWidget: dispose for effect ${widget.effectId}, instance $_instanceId');
     super.dispose();
   }
 
@@ -55,7 +53,6 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
     // Without this, Flutter may reuse the cached platform view which causes
     // the freeze on second toggle because viewDidMoveToWindow doesn't fire.
     final uniqueKey = ValueKey('vst3_editor_${widget.effectId}_$_instanceId');
-    debugPrint('🔧 VST3EditorWidget: Building with key $uniqueKey');
 
     return SizedBox(
       width: widget.width,
@@ -68,7 +65,6 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
         },
         creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: (id) {
-          debugPrint('✅ VST3EditorWidget: Platform view created for effect ${widget.effectId}, instance $_instanceId, platformViewId $id');
         },
       ),
     );

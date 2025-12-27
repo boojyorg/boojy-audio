@@ -100,7 +100,6 @@ class MidiCaptureBuffer extends ChangeNotifier {
     _buffer.clear();
     _captureStartTime = null;
     notifyListeners();
-    debugPrint('[MidiCaptureBuffer] Buffer cleared');
   }
 
   /// Calculate beats from capture start based on current BPM

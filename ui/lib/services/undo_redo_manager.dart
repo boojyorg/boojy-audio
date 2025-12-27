@@ -67,7 +67,6 @@ class UndoRedoManager extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ [UndoRedoManager] Execute failed: $e');
     }
   }
 
@@ -94,7 +93,6 @@ class UndoRedoManager extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('❌ [UndoRedoManager] Undo failed: $e');
       return false;
     }
   }
@@ -115,7 +113,6 @@ class UndoRedoManager extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('❌ [UndoRedoManager] Redo failed: $e');
       return false;
     }
   }
