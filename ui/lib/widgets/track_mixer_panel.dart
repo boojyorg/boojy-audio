@@ -200,11 +200,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         final prevLeft = _displayLevels[track.id]?.$1 ?? 0.0;
         final prevRight = _displayLevels[track.id]?.$2 ?? 0.0;
 
-        // Instant attack (new peak higher), smooth decay (new peak lower)
-        final displayLeft = rawLeft >= prevLeft
+        // Instant attack (new peak strictly higher), smooth decay otherwise
+        // Using > instead of >= ensures decay happens when values are equal
+        // (which occurs when audio engine returns stale/unchanged values)
+        final displayLeft = rawLeft > prevLeft
             ? rawLeft // Instant attack
             : (prevLeft - decayPerFrame).clamp(0.0, 1.0); // Smooth decay
-        final displayRight = rawRight >= prevRight
+        final displayRight = rawRight > prevRight
             ? rawRight
             : (prevRight - decayPerFrame).clamp(0.0, 1.0);
 
