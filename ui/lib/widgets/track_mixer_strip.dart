@@ -155,10 +155,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Get background color for right box - matches MIDI notes/audio clips
+  /// Get background color for right box - consistent grey like master track
   Color _getTintedBackground(Color? trackColor) {
-    if (trackColor == null) return const Color(0xFF2D2D2D);
-    return TrackColors.getLighterShade(trackColor, 0.3);
+    return const Color(0xFF2D2D2D);
   }
 
   @override
