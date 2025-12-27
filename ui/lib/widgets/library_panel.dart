@@ -29,9 +29,51 @@ class LibraryPanel extends StatefulWidget {
 }
 
 class _LibraryPanelState extends State<LibraryPanel> {
+  // Top-level category IDs for accordion behavior
+  static const _topLevelCategories = {'favorites', 'sounds', 'samples', 'instruments', 'effects', 'plugins', 'folders'};
+
   final Set<String> _expandedCategories = {};
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  /// Expand a category with accordion behavior
+  /// - For top-level: close other top-level categories but KEEP their children
+  ///   (children won't render since parent is collapsed, but will restore when parent reopens)
+  /// - For subcategories: close sibling subcategories
+  void _expandWithAccordion(String categoryId) {
+    // Check if this is a top-level category
+    if (_topLevelCategories.contains(categoryId)) {
+      // Only remove other top-level categories, NOT their children
+      // Children stay in set but won't render (parent collapsed)
+      // When parent reopens, children are still there → restored position (Ableton-style)
+      _expandedCategories.removeWhere((id) {
+        return _topLevelCategories.contains(id) && id != categoryId;
+      });
+      _expandedCategories.add(categoryId);
+    } else {
+      // This is a subcategory - find its parent and close siblings
+      final parentId = _getParentId(categoryId);
+      if (parentId != null) {
+        // Remove siblings (same parent prefix, different id)
+        _expandedCategories.removeWhere((id) {
+          return id != categoryId &&
+                 id.startsWith('${parentId}_') &&
+                 !categoryId.startsWith('${id}_'); // Don't remove ancestors
+        });
+      }
+      _expandedCategories.add(categoryId);
+    }
+  }
+
+  /// Get parent category ID from a subcategory ID
+  /// e.g., "sounds_leads" -> "sounds", "plugins_instruments" -> "plugins"
+  String? _getParentId(String categoryId) {
+    final lastUnderscore = categoryId.lastIndexOf('_');
+    if (lastUnderscore > 0) {
+      return categoryId.substring(0, lastUnderscore);
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -306,7 +348,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 if (isExpanded) {
                   _expandedCategories.remove(id);
                 } else {
-                  _expandedCategories.add(id);
+                  _expandWithAccordion(id);
                 }
               });
             },
@@ -360,7 +402,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 if (isExpanded) {
                   _expandedCategories.remove(category.id);
                 } else {
-                  _expandedCategories.add(category.id);
+                  _expandWithAccordion(category.id);
                 }
               });
             },
@@ -391,7 +433,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                             if (isSubExpanded) {
                               _expandedCategories.remove(subId);
                             } else {
-                              _expandedCategories.add(subId);
+                              _expandWithAccordion(subId);
                             }
                           });
                         },
@@ -444,7 +486,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 if (isExpanded) {
                   _expandedCategories.remove('plugins');
                 } else {
-                  _expandedCategories.add('plugins');
+                  _expandWithAccordion('plugins');
                 }
               });
             },
@@ -510,7 +552,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               if (isExpanded) {
                 _expandedCategories.remove(id);
               } else {
-                _expandedCategories.add(id);
+                _expandWithAccordion(id);
               }
             });
           },
@@ -563,7 +605,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 if (isExpanded) {
                   _expandedCategories.remove('folders');
                 } else {
-                  _expandedCategories.add('folders');
+                  _expandWithAccordion('folders');
                 }
               });
             },
@@ -615,7 +657,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 if (isExpanded) {
                   _expandedCategories.remove(folderId);
                 } else {
-                  _expandedCategories.add(folderId);
+                  _expandWithAccordion(folderId);
                   // Scan folder when expanded
                   widget.libraryService.scanFolder(path);
                 }
@@ -761,7 +803,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               if (isExpanded) {
                 _expandedCategories.remove(folderId);
               } else {
-                _expandedCategories.add(folderId);
+                _expandWithAccordion(folderId);
               }
             });
           },
