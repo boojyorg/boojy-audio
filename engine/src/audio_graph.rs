@@ -768,15 +768,15 @@ impl AudioGraph {
                     clips_lock.clone()
                 };
 
-                // Get MIDI clips (lock briefly)
-                let midi_clips_snapshot = {
+                // Get MIDI clips (lock briefly) - kept for potential future use
+                let _midi_clips_snapshot = {
                     let midi_clips_lock = midi_clips.lock().expect("mutex poisoned");
                     midi_clips_lock.clone()
                 };
 
                 // Get current tempo for MIDI playback scaling
                 let current_tempo = *recorder_refs.tempo.lock().expect("mutex poisoned");
-                let tempo_ratio = current_tempo / 120.0;
+                let _tempo_ratio = current_tempo / 120.0;
 
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
 
@@ -1171,6 +1171,7 @@ impl AudioGraph {
         use crate::project::*;
         use crate::effects::EffectType as ET;
         use std::collections::HashMap;
+        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
         use base64::Engine as _;
 
         // Get all tracks
@@ -1315,10 +1316,7 @@ impl AudioGraph {
                     if let ET::VST3(vst3) = &*effect {
                         // Get plugin state
                         let state_data = vst3.get_state().unwrap_or_default();
-                        let state_base64 = base64::Engine::encode(
-                            &base64::engine::general_purpose::STANDARD,
-                            &state_data
-                        );
+                        let state_base64 = base64::engine::general_purpose::STANDARD.encode(&state_data);
 
                         Some(Vst3PluginData {
                             effect_id: *effect_id,

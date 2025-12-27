@@ -1,3 +1,6 @@
+// Allow private modules to shadow public glob re-exports
+#![allow(hidden_glob_reexports)]
+
 // Audio engine modules
 mod api;
 mod ffi;

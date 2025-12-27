@@ -392,7 +392,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
                   top: 0,
                   child: _buildBlackKey(note, whiteKeyWidth * 0.6),
                 );
-              }).toList(),
+              }),
             ],
           );
         },

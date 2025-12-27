@@ -1449,13 +1449,13 @@ class _RecordButtonState extends State<_RecordButton> {
               height: widget.size,
               decoration: BoxDecoration(
                 color: isEnabled
-                    ? color.withOpacity(_isHovered ? 0.9 : 0.7)
+                    ? color.withValues(alpha: _isHovered ? 0.9 : 0.7)
                     : const Color(0xFF363636),
                 shape: BoxShape.circle,
                 boxShadow: _isHovered && isEnabled
                     ? [
                         BoxShadow(
-                          color: color.withOpacity(0.3),
+                          color: color.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),

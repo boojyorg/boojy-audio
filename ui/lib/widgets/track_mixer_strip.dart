@@ -662,67 +662,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildFxButton() {
-    final hasPlugins = widget.vst3PluginCount > 0;
-    return GestureDetector(
-      onLongPress: hasPlugins ? widget.onEditPluginsPressed : null,
-      onTap: widget.onFxButtonPressed,
-      child: Tooltip(
-        message: hasPlugins
-            ? 'Click to browse plugins, long-press to edit'
-            : 'Click to add plugins',
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          decoration: BoxDecoration(
-            color: hasPlugins
-                ? Colors.black.withValues(alpha: 0.25)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (hasPlugins) ...[
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4CAF50),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'FX ×${widget.vst3PluginCount}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ] else ...[
-                Icon(
-                  Icons.add,
-                  size: 10,
-                  color: Colors.black.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  'FX',
-                  style: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    fontSize: 8,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildControlButtons() {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm = widget.trackType.toLowerCase() == 'audio' || widget.trackType.toLowerCase() == 'midi';

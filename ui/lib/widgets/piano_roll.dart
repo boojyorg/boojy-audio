@@ -87,7 +87,6 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Duplicate mode state (Cmd/Ctrl+drag to duplicate notes)
   bool _isDuplicating = false;
-  MidiNoteData? _duplicateSourceNote; // Original note being duplicated
 
 
   // Velocity lane state
@@ -1518,7 +1517,6 @@ class _PianoRollState extends State<PianoRoll> {
       // Cmd/Ctrl+drag on note = duplicate mode (supports multiple selected notes)
       _saveToHistory();
       _isDuplicating = true;
-      _duplicateSourceNote = clickedNote;
 
       // Determine which notes to duplicate: all selected notes, or just the clicked note if none selected
       final selectedNotes = _currentClip?.selectedNotes ?? [];
@@ -1855,7 +1853,6 @@ class _PianoRollState extends State<PianoRoll> {
       _dragStartNotes = {}; // Clear stored original positions
       _movingNoteId = null; // Clear moving note tracking
       _isDuplicating = false; // Clear duplicate mode
-      _duplicateSourceNote = null;
       _resizingNoteId = null;
       _resizingEdge = null;
       _currentMode = InteractionMode.draw;
