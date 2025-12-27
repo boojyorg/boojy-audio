@@ -364,6 +364,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
   void _stopPlayback() {
     _playbackController.stop();
+    // Reset mixer meters when playback stops
+    _mixerKey.currentState?.resetMeters();
   }
 
   // M2: Recording methods - delegate to RecordingController

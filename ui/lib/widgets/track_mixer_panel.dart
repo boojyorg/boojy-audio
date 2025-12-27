@@ -220,6 +220,15 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     _loadTracksAsync();
   }
 
+  /// Reset all meters to zero (call when playback stops)
+  void resetMeters() {
+    if (!mounted) return;
+    setState(() {
+      _displayLevels = {};
+      _peakLevels = {};
+    });
+  }
+
   /// Load tracks asynchronously to avoid blocking UI thread
   Future<void> _loadTracksAsync() async {
     if (widget.audioEngine == null) return;
