@@ -6,6 +6,7 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onPause;
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
+  final VoidCallback? onCaptureMidi;
   final VoidCallback? onMetronomeToggle;
   final VoidCallback? onPianoToggle;
   final double playheadPosition; // in seconds
@@ -64,6 +65,7 @@ class TransportBar extends StatefulWidget {
     this.onPause,
     this.onStop,
     this.onRecord,
+    this.onCaptureMidi,
     this.onMetronomeToggle,
     this.onPianoToggle,
     required this.playheadPosition,
@@ -490,6 +492,17 @@ class _TransportBarState extends State<TransportBar> {
                   tooltip: widget.isRecording
                       ? 'Stop Recording (R)'
                       : (widget.isCountingIn ? 'Counting In...' : 'Record (R)'),
+                  size: 40,
+                ),
+
+                const SizedBox(width: 4),
+
+                // Capture MIDI button
+                _TransportButton(
+                  icon: Icons.history,
+                  color: const Color(0xFF7FD4A0),
+                  onPressed: widget.onCaptureMidi,
+                  tooltip: 'Capture MIDI (Cmd+Shift+R)',
                   size: 40,
                 ),
               ],

@@ -37,7 +37,10 @@ import '../widgets/export_dialog.dart';
 import '../models/project_metadata.dart';
 import '../models/snapshot.dart';
 import '../models/project_view_state.dart';
+import '../models/midi_event.dart';
 import '../services/snapshot_manager.dart';
+import '../services/midi_capture_buffer.dart';
+import '../widgets/capture_midi_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
 
@@ -80,6 +83,9 @@ class _DAWScreenState extends State<DAWScreen> {
   // User settings and auto-save
   final UserSettings _userSettings = UserSettings();
   final AutoSaveService _autoSaveService = AutoSaveService();
+
+  // MIDI capture buffer for retroactive recording
+  final MidiCaptureBuffer _midiCaptureBuffer = MidiCaptureBuffer(maxDurationSeconds: 30);
 
   // State (clip-specific state remains local)
   int? _loadedClipId;
@@ -452,6 +458,7 @@ class _DAWScreenState extends State<DAWScreen> {
   void _onTempoChanged(double bpm) {
     _recordingController.setTempo(bpm);
     _midiClipController.setTempo(bpm);
+    _midiCaptureBuffer.updateBpm(bpm);
     // Reschedule all MIDI clips with new tempo
     _midiPlaybackManager?.rescheduleAllClips(bpm);
   }
@@ -831,6 +838,82 @@ class _DAWScreenState extends State<DAWScreen> {
     );
 
     _midiPlaybackManager?.addRecordedClip(clip);
+  }
+
+  /// Capture MIDI from the buffer and create a clip
+  void _captureMidi() async {
+    if (_audioEngine == null) return;
+
+    // Check if we have a selected track
+    if (_selectedTrackId == null) {
+      _playbackController.setStatusMessage('Please select a MIDI track first');
+      return;
+    }
+
+    // Show capture dialog
+    final capturedEvents = await CaptureMidiDialog.show(context, _midiCaptureBuffer);
+
+    if (capturedEvents == null || capturedEvents.isEmpty) {
+      return;
+    }
+
+    // Convert captured events to MIDI notes
+    final notes = <MidiNoteData>[];
+    final Map<int, MidiEvent> activeNotes = {};
+
+    for (final event in capturedEvents) {
+      if (event.isNoteOn) {
+        // Store note-on event
+        activeNotes[event.note] = event;
+      } else {
+        // Find matching note-on and create MidiNoteData
+        final noteOn = activeNotes.remove(event.note);
+        if (noteOn != null) {
+          final duration = event.beatsFromStart - noteOn.beatsFromStart;
+          notes.add(MidiNoteData(
+            note: event.note,
+            velocity: noteOn.velocity,
+            startTime: noteOn.beatsFromStart,
+            duration: duration.clamp(0.1, double.infinity), // Min duration of 0.1 beats
+          ));
+        }
+      }
+    }
+
+    // Handle any notes that didn't get a note-off (sustained notes)
+    for (final noteOn in activeNotes.values) {
+      notes.add(MidiNoteData(
+        note: noteOn.note,
+        velocity: noteOn.velocity,
+        startTime: noteOn.beatsFromStart,
+        duration: 1.0, // Default 1 beat duration for sustained notes
+      ));
+    }
+
+    if (notes.isEmpty) {
+      _playbackController.setStatusMessage('No complete MIDI notes captured');
+      return;
+    }
+
+    // Calculate clip duration based on last note
+    final lastNote = notes.reduce((a, b) =>
+      (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b
+    );
+    final clipDuration = (lastNote.startTime + lastNote.duration).ceilToDouble();
+
+    // Create the clip
+    final clip = MidiClipData(
+      clipId: DateTime.now().millisecondsSinceEpoch,
+      trackId: _selectedTrackId!,
+      startTime: _playheadPosition / 60.0 * _tempo, // Current playhead position in beats
+      duration: clipDuration,
+      loopLength: clipDuration,
+      name: 'Captured MIDI',
+      notes: notes,
+    );
+
+    _midiPlaybackManager?.addRecordedClip(clip);
+    _playbackController.setStatusMessage('Captured ${notes.length} MIDI notes');
   }
 
   // Library double-click handlers
@@ -2803,6 +2886,7 @@ class _DAWScreenState extends State<DAWScreen> {
             onPause: _pause,
             onStop: _stopPlayback,
             onRecord: _toggleRecording,
+            onCaptureMidi: _captureMidi,
             onMetronomeToggle: _toggleMetronome,
             onPianoToggle: _toggleVirtualPiano,
             playheadPosition: _playheadPosition,

@@ -49,7 +49,7 @@ dependencies:
   path_provider: ^2.1.1
 
   # UUID generation for snapshots
-  uuid: ^4.5.1
+  uuid: ^4.5.2
 
   # Path manipulation
   path: ^1.9.0
