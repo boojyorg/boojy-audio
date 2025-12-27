@@ -5,7 +5,7 @@ import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../utils/track_colors.dart';
 import 'pan_knob.dart';
-import 'horizontal_level_meter.dart';
+import 'capsule_fader.dart';
 
 /// Unified track strip combining track info and mixer controls
 /// Displayed on the right side of timeline, aligned with each track row
@@ -155,6 +155,14 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
+  /// Get tinted background color for right box
+  /// Blends track color with dark grey base at 12% opacity
+  Color _getTintedBackground(Color? trackColor) {
+    const base = Color(0xFF2D2D2D);
+    if (trackColor == null) return base;
+    return Color.lerp(base, trackColor, 0.12)!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return DragTarget<Vst3Plugin>(
@@ -202,31 +210,17 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         child: _buildTrackNameSection(),
                       ),
 
-                      // Right section: Controls area (dark grey)
+                      // Right section: Controls area (tinted with track color)
                       Expanded(
                         child: Container(
-                          color: const Color(0xFF2D2D2D),
+                          color: _getTintedBackground(widget.trackColor),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           child: Column(
                             children: [
-                              // Top row: M, S, R buttons + Pan knob
+                              // Top row: dB → M S R → Pan (new order per spec)
                               Row(
                                 children: [
-                                  // M, S, R buttons
-                                  _buildControlButtons(),
-
-                                  const SizedBox(width: 6),
-
-                                  // Pan knob (same size as M/S/R buttons)
-                                  PanKnob(
-                                    pan: widget.pan,
-                                    onChanged: widget.onPanChanged,
-                                    size: 22,
-                                  ),
-
-                                  const Spacer(),
-
-                                  // dB value display
+                                  // dB value display (moved to left)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
@@ -242,18 +236,37 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                       ),
                                     ),
                                   ),
+
+                                  const SizedBox(width: 8),
+
+                                  // M, S, R buttons
+                                  _buildControlButtons(),
+
+                                  const SizedBox(width: 8),
+
+                                  // Pan knob (right next to MSR, same size as buttons)
+                                  PanKnob(
+                                    pan: widget.pan,
+                                    onChanged: widget.onPanChanged,
+                                    size: 22,
+                                  ),
                                 ],
                               ),
 
                               const SizedBox(height: 4),
 
-                              // Bottom row: Horizontal level meter (taller now)
-                              Expanded(
-                                child: HorizontalLevelMeter(
+                              // Bottom row: Capsule fader with integrated level meters
+                              SizedBox(
+                                height: 32,
+                                child: CapsuleFader(
                                   leftLevel: widget.peakLevelLeft,
                                   rightLevel: widget.peakLevelRight,
                                   volumeDb: widget.volumeDb,
                                   onVolumeChanged: widget.onVolumeChanged,
+                                  onDoubleTap: () {
+                                    // Reset to 0 dB on double-tap
+                                    widget.onVolumeChanged?.call(0.0);
+                                  },
                                 ),
                               ),
                             ],
@@ -496,67 +509,100 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   Widget _buildTrackNameSection() {
     final isMidiTrack = widget.trackType.toLowerCase() == 'midi';
+    final trackNumber = widget.trackId; // 1-indexed track number
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Track name row - editable on double-click
+        // Track number + emoji + type row (consistent sizing)
         Row(
           children: [
+            // Track number
             Text(
-              _getTrackEmoji(),
-              style: const TextStyle(fontSize: 16),
+              '$trackNumber',
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(width: 6),
-            Expanded(
-              child: _isEditing
-                  ? TextField(
-                      controller: _nameController,
-                      focusNode: _focusNode,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black),
-                        ),
-                      ),
-                      onSubmitted: (_) => _submitName(),
-                    )
-                  : GestureDetector(
-                      onDoubleTap: _startEditing,
-                      child: Text(
-                        widget.trackName,
-                        style: const TextStyle(
-                          color: Colors.black, // Black text on colored background
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+            // Track emoji
+            Text(
+              _getTrackEmoji(),
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(width: 4),
+            // Track type
+            Text(
+              widget.trackType.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
 
-        // Instrument selector for MIDI tracks
-        if (isMidiTrack) ...[
+        // Track name / Instrument name row - only show if different from type
+        if (_getDisplayName().isNotEmpty || _isEditing) ...[
+          const SizedBox(height: 2),
+          _isEditing
+              ? TextField(
+                  controller: _nameController,
+                  focusNode: _focusNode,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.black),
+                    ),
+                  ),
+                  onSubmitted: (_) => _submitName(),
+                )
+              : GestureDetector(
+                  onDoubleTap: _startEditing,
+                  child: Text(
+                    _getDisplayName(),
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+        ],
+
+        // Instrument selector for MIDI tracks (only if no instrument assigned)
+        if (isMidiTrack && widget.instrumentData == null) ...[
           const SizedBox(height: 4),
           _buildInstrumentSelector(),
         ],
-
-        // M10: VST3 FX button (all tracks)
-        const SizedBox(height: 4),
-        _buildFxButton(),
       ],
     );
+  }
+
+  /// Get display name - show instrument name if available, otherwise track name
+  /// Returns empty string if track name matches type (to avoid "MIDI" appearing twice)
+  String _getDisplayName() {
+    if (widget.instrumentData != null) {
+      return widget.instrumentData!.type;
+    }
+    // Don't show track name if it matches the type (avoids "MIDI" appearing twice)
+    if (widget.trackName.toLowerCase() == widget.trackType.toLowerCase()) {
+      return '';
+    }
+    return widget.trackName;
   }
 
   Widget _buildInstrumentSelector() {
@@ -572,33 +618,29 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               }
             : null,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          padding: EdgeInsets.symmetric(
+            horizontal: hasInstrument ? 8 : 6,
+            vertical: hasInstrument ? 4 : 3,
+          ),
           decoration: BoxDecoration(
             color: hasInstrument
-                ? Colors.black.withValues(alpha: 0.25)
+                ? const Color(0xFF00BCD4).withValues(alpha: 0.15)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
+            border: hasInstrument
+                ? Border.all(color: const Color(0xFF00BCD4).withValues(alpha: 0.5))
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (hasInstrument) ...[
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF00BCD4),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
                 Text(
-                  widget.instrumentData!.type.toUpperCase(),
+                  widget.instrumentData!.type,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ] else ...[
@@ -866,17 +908,9 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Column(
                       children: [
-                        // Top row: Pan knob + dB display
+                        // Top row: dB display + Pan knob (next to each other)
                         Row(
                           children: [
-                            PanKnob(
-                              pan: widget.pan,
-                              onChanged: widget.onPanChanged,
-                              size: 22,
-                            ),
-
-                            const Spacer(),
-
                             // dB value display
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -893,18 +927,32 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                                 ),
                               ),
                             ),
+
+                            const SizedBox(width: 8),
+
+                            // Pan knob (right next to dB, same size as track buttons)
+                            PanKnob(
+                              pan: widget.pan,
+                              onChanged: widget.onPanChanged,
+                              size: 22,
+                            ),
                           ],
                         ),
 
                         const SizedBox(height: 4),
 
-                        // Bottom row: Horizontal level meter (taller)
-                        Expanded(
-                          child: HorizontalLevelMeter(
+                        // Bottom row: Capsule fader with integrated level meters
+                        SizedBox(
+                          height: 32,
+                          child: CapsuleFader(
                             leftLevel: widget.peakLevelLeft,
                             rightLevel: widget.peakLevelRight,
                             volumeDb: widget.volumeDb,
                             onVolumeChanged: widget.onVolumeChanged,
+                            onDoubleTap: () {
+                              // Reset to 0 dB on double-tap
+                              widget.onVolumeChanged?.call(0.0);
+                            },
                           ),
                         ),
                       ],

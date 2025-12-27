@@ -125,6 +125,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   Timer? _refreshTimer;
   Timer? _levelTimer;
   Map<int, (double, double)> _peakLevels = {}; // (left, right) stereo peaks
+  Map<int, (double, double)> _displayLevels = {}; // Smoothed levels with decay
+  DateTime _lastLevelUpdate = DateTime.now();
   bool _isAudioFileDragging = false;
 
   @override
@@ -159,9 +161,18 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     super.dispose();
   }
 
-  /// Update peak levels for all tracks
+  /// Update peak levels for all tracks with smooth decay
+  /// Attack: instant, Decay: ~300-400ms for snappy feel
   void _updatePeakLevels() {
     if (widget.audioEngine == null || !mounted) return;
+
+    final now = DateTime.now();
+    final deltaMs = now.difference(_lastLevelUpdate).inMilliseconds;
+    _lastLevelUpdate = now;
+
+    // Decay rate: ~20dB per second → ~0.33 normalized per second
+    // At 50ms poll rate: decay ~0.017 per frame
+    final decayPerFrame = (deltaMs / 1000.0) * 0.33;
 
     final newLevels = <int, (double, double)>{};
 
@@ -174,9 +185,22 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           final leftDb = double.tryParse(parts[0]) ?? -96.0;
           final rightDb = double.tryParse(parts[1]) ?? -96.0;
           // Convert dB to 0.0-1.0 range: -60dB = 0.0, 0dB = 1.0
-          final normalizedLeft = ((leftDb + 60.0) / 60.0).clamp(0.0, 1.0);
-          final normalizedRight = ((rightDb + 60.0) / 60.0).clamp(0.0, 1.0);
-          newLevels[track.id] = (normalizedLeft, normalizedRight);
+          final rawLeft = ((leftDb + 60.0) / 60.0).clamp(0.0, 1.0);
+          final rawRight = ((rightDb + 60.0) / 60.0).clamp(0.0, 1.0);
+
+          // Get previous display levels
+          final prevLeft = _displayLevels[track.id]?.$1 ?? 0.0;
+          final prevRight = _displayLevels[track.id]?.$2 ?? 0.0;
+
+          // Instant attack (new peak higher), smooth decay (new peak lower)
+          final displayLeft = rawLeft >= prevLeft
+              ? rawLeft // Instant attack
+              : (prevLeft - decayPerFrame).clamp(0.0, 1.0); // Smooth decay
+          final displayRight = rawRight >= prevRight
+              ? rawRight
+              : (prevRight - decayPerFrame).clamp(0.0, 1.0);
+
+          newLevels[track.id] = (displayLeft, displayRight);
         }
       } catch (e) {
         // Silently fail for level polling
@@ -185,6 +209,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
     if (mounted && newLevels.isNotEmpty) {
       setState(() {
+        _displayLevels = newLevels;
         _peakLevels = newLevels;
       });
     }
