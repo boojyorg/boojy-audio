@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import '../models/project_view_state.dart';
 
 /// Result of a project operation
 class ProjectResult {
@@ -24,6 +25,7 @@ class UILayoutData {
   final bool libraryCollapsed;
   final bool mixerCollapsed;
   final bool bottomCollapsed;
+  final ProjectViewState? viewState;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -32,6 +34,7 @@ class UILayoutData {
     this.libraryCollapsed = false,
     this.mixerCollapsed = false,
     this.bottomCollapsed = true,
+    this.viewState,
   });
 
   Map<String, dynamic> toJson() => {
@@ -46,11 +49,13 @@ class UILayoutData {
       'mixer': mixerCollapsed,
       'bottom': bottomCollapsed,
     },
+    if (viewState != null) 'view_state': viewState!.toJson(),
   };
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
     final panelSizes = json['panel_sizes'] as Map<String, dynamic>? ?? {};
     final panelCollapsed = json['panel_collapsed'] as Map<String, dynamic>? ?? {};
+    final viewStateJson = json['view_state'] as Map<String, dynamic>?;
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
@@ -59,6 +64,7 @@ class UILayoutData {
       libraryCollapsed: panelCollapsed['library'] as bool? ?? false,
       mixerCollapsed: panelCollapsed['mixer'] as bool? ?? false,
       bottomCollapsed: panelCollapsed['bottom'] as bool? ?? true,
+      viewState: viewStateJson != null ? ProjectViewState.fromJson(viewStateJson) : null,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import '../audio_engine.dart';
 import '../widgets/transport_bar.dart';
@@ -28,7 +29,15 @@ import '../services/auto_save_service.dart';
 import '../services/vst3_editor_service.dart';
 import '../services/plugin_preferences_service.dart';
 import '../widgets/settings_dialog.dart';
+import '../widgets/app_settings_dialog.dart';
+import '../widgets/project_settings_dialog.dart';
+import '../widgets/create_snapshot_dialog.dart';
+import '../widgets/snapshots_list_dialog.dart';
 import '../widgets/export_dialog.dart';
+import '../models/project_metadata.dart';
+import '../models/snapshot.dart';
+import '../models/project_view_state.dart';
+import '../services/snapshot_manager.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
 
@@ -62,6 +71,9 @@ class _DAWScreenState extends State<DAWScreen> {
   // M5: Project manager (lazy initialized when audio engine is ready)
   ProjectManager? _projectManager;
 
+  // Snapshot manager (lazy initialized when project is loaded)
+  SnapshotManager? _snapshotManager;
+
   // M8: MIDI playback manager (lazy initialized when audio engine is ready)
   MidiPlaybackManager? _midiPlaybackManager;
 
@@ -75,6 +87,12 @@ class _DAWScreenState extends State<DAWScreen> {
   List<double> _waveformPeaks = [];
   bool _isAudioGraphInitialized = false;
   bool _isLoading = false;
+
+  // Project metadata
+  ProjectMetadata _projectMetadata = const ProjectMetadata(
+    name: 'Untitled Project',
+    bpm: 120.0,
+  );
 
   // Playback state now managed by _playbackController
   // Convenience getters/setters for backwards compatibility
@@ -705,7 +723,10 @@ class _DAWScreenState extends State<DAWScreen> {
     if (_audioEngine == null) return;
 
     try {
-      // 1. Create new audio track
+      // 1. Copy sample to project folder if setting is enabled
+      final finalPath = await _prepareSamplePath(filePath);
+
+      // 2. Create new audio track
       final command = CreateTrackCommand(
         trackType: 'audio',
         trackName: 'Audio',
@@ -719,22 +740,22 @@ class _DAWScreenState extends State<DAWScreen> {
         return;
       }
 
-      // 2. Load audio file to the newly created track
-      final clipId = _audioEngine!.loadAudioFileToTrack(filePath, trackId);
+      // 3. Load audio file to the newly created track
+      final clipId = _audioEngine!.loadAudioFileToTrack(finalPath, trackId);
       if (clipId < 0) {
-        debugPrint('❌ Failed to load audio file: $filePath');
+        debugPrint('❌ Failed to load audio file: $finalPath');
         return;
       }
 
-      // 3. Get clip info
+      // 4. Get clip info
       final duration = _audioEngine!.getClipDuration(clipId);
       final peaks = _audioEngine!.getWaveformPeaks(clipId, 2000);
 
-      // 4. Add to timeline view's clip list
+      // 5. Add to timeline view's clip list
       _timelineKey.currentState?.addClip(ClipData(
         clipId: clipId,
         trackId: trackId,
-        filePath: filePath,
+        filePath: finalPath, // Use the copied path
         startTime: 0.0,
         duration: duration,
         waveformPeaks: peaks,
@@ -743,7 +764,7 @@ class _DAWScreenState extends State<DAWScreen> {
       // 6. Refresh track widgets
       _refreshTrackWidgets();
 
-      final fileName = filePath.split('/').last;
+      final fileName = finalPath.split('/').last;
       debugPrint('✅ Created audio track $trackId with clip $clipId: $fileName');
     } catch (e) {
       debugPrint('❌ Error creating audio track with file: $e');
@@ -978,14 +999,60 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  /// Copy audio file to project's Samples folder if setting is enabled
+  ///
+  /// Returns the path to use (either copied path or original path)
+  Future<String> _prepareSamplePath(String originalPath) async {
+    // If setting is disabled or no project is open, use original path
+    if (!_userSettings.copySamplesToProject || _projectManager?.currentPath == null) {
+      return originalPath;
+    }
+
+    try {
+      final projectPath = _projectManager!.currentPath!;
+      final samplesDir = Directory('$projectPath/Samples');
+
+      // Create Samples folder if it doesn't exist
+      if (!await samplesDir.exists()) {
+        await samplesDir.create(recursive: true);
+      }
+
+      // Get the file name from the original path
+      final fileName = originalPath.split(Platform.pathSeparator).last;
+      final destinationPath = '$projectPath/Samples/$fileName';
+
+      // Check if file already exists in Samples folder
+      final destinationFile = File(destinationPath);
+      if (await destinationFile.exists()) {
+        // File already exists, use it
+        debugPrint('[SampleCopy] File already exists in Samples folder: $fileName');
+        return destinationPath;
+      }
+
+      // Copy the file to Samples folder
+      final sourceFile = File(originalPath);
+      await sourceFile.copy(destinationPath);
+
+      debugPrint('[SampleCopy] Copied $fileName to project Samples folder');
+      return destinationPath;
+    } catch (e) {
+      debugPrint('[SampleCopy] Failed to copy sample: $e');
+      // Fall back to original path if copy fails
+      return originalPath;
+    }
+  }
+
   // Helper: Add audio clip to existing track
-  void _addAudioClipToTrack(int trackId, String filePath) {
+  void _addAudioClipToTrack(int trackId, String filePath) async {
     if (_audioEngine == null) return;
 
     try {
-      final clipId = _audioEngine!.loadAudioFileToTrack(filePath, trackId);
+      // Copy sample to project folder if setting is enabled
+      final finalPath = await _prepareSamplePath(filePath);
+
+      final clipId = _audioEngine!.loadAudioFileToTrack(finalPath, trackId);
       if (clipId < 0) {
-        debugPrint('❌ Failed to load audio file: $filePath');
+        debugPrint('❌ Failed to load audio file: $finalPath');
         return;
       }
 
@@ -995,13 +1062,13 @@ class _DAWScreenState extends State<DAWScreen> {
       _timelineKey.currentState?.addClip(ClipData(
         clipId: clipId,
         trackId: trackId,
-        filePath: filePath,
+        filePath: finalPath, // Use the copied path
         startTime: 0.0,
         duration: duration,
         waveformPeaks: peaks,
       ));
 
-      final fileName = filePath.split('/').last;
+      final fileName = finalPath.split('/').last;
       debugPrint('✅ Added clip $clipId to track $trackId: $fileName');
     } catch (e) {
       debugPrint('❌ Error adding audio clip to track: $e');
@@ -1904,17 +1971,72 @@ class _DAWScreenState extends State<DAWScreen> {
       _uiLayout.isMixerVisible = !layout.mixerCollapsed;
       // Don't auto-open bottom panel on load
     });
+
+    // Restore view state if "continue where I left off" is enabled
+    if (_userSettings.continueWhereLeftOff && layout.viewState != null) {
+      _restoreViewState(layout.viewState!);
+    }
+  }
+
+  /// Restore view state (zoom, scroll, panels, playhead)
+  void _restoreViewState(ProjectViewState viewState) {
+    // Need to wait for next frame so timeline widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final timelineState = _timelineKey.currentState;
+
+      if (timelineState != null) {
+        // Restore zoom and scroll
+        timelineState.setPixelsPerBeat(viewState.zoom);
+        timelineState.setScrollOffset(viewState.horizontalScroll);
+      }
+
+      // Restore panel visibility
+      setState(() {
+        _uiLayout.isLibraryPanelCollapsed = !viewState.libraryVisible;
+        _uiLayout.isMixerVisible = viewState.mixerVisible;
+        _uiLayout.isEditorPanelVisible = viewState.editorVisible;
+        _uiLayout.isVirtualPianoEnabled = viewState.virtualPianoVisible;
+      });
+
+      // Restore selected track
+      if (viewState.selectedTrackId != null) {
+        _selectedTrackId = viewState.selectedTrackId;
+      }
+
+      // Restore playhead position
+      _playheadPosition = viewState.playheadPosition;
+    });
   }
 
   /// Get current UI layout for saving
   UILayoutData _getCurrentUILayout() {
+    // Only save view state if "continue where I left off" is enabled
+    ProjectViewState? viewState;
+    if (_userSettings.continueWhereLeftOff) {
+      // Access timeline view state through GlobalKey
+      final timelineState = _timelineKey.currentState;
+
+      viewState = ProjectViewState(
+        horizontalScroll: timelineState?.scrollOffset ?? 0.0,
+        verticalScroll: 0.0, // Not tracked in timeline view
+        zoom: timelineState?.pixelsPerBeat ?? 25.0,
+        libraryVisible: !_uiLayout.isLibraryPanelCollapsed,
+        mixerVisible: _uiLayout.isMixerVisible,
+        editorVisible: _uiLayout.isEditorPanelVisible,
+        virtualPianoVisible: _uiLayout.isVirtualPianoEnabled,
+        selectedTrackId: _selectedTrackId,
+        playheadPosition: _playheadPosition,
+      );
+    }
+
     return UILayoutData(
       libraryWidth: _uiLayout.libraryPanelWidth,
       mixerWidth: _uiLayout.mixerPanelWidth,
       bottomHeight: _uiLayout.editorPanelHeight,
       libraryCollapsed: _uiLayout.isLibraryPanelCollapsed,
       mixerCollapsed: !_uiLayout.isMixerVisible,
-      bottomCollapsed: !(_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible),
+      bottomCollapsed: !(_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoEnabled),
+      viewState: viewState,
     );
   }
 
@@ -1975,6 +2097,134 @@ class _DAWScreenState extends State<DAWScreen> {
       audioEngine: _audioEngine!,
       defaultName: _projectManager?.currentName ?? 'Untitled',
     );
+  }
+
+  /// Quick export MP3 using last saved settings
+  Future<void> _quickExportMp3() async {
+    if (_audioEngine == null) return;
+
+    try {
+      final baseName = _projectManager?.currentName ?? 'Untitled';
+
+      // Use file_picker to choose save location
+      final result = await Process.run('osascript', [
+        '-e',
+        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")'
+      ]);
+
+      if (result.exitCode != 0) return; // User cancelled
+
+      String? filePath = result.stdout.toString().trim();
+      if (filePath.isEmpty) return;
+
+      // Ensure .mp3 extension
+      if (!filePath.endsWith('.mp3')) {
+        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.mp3';
+      }
+
+      // Export with saved settings
+      final bitrate = _userSettings.exportMp3Bitrate;
+      final sampleRate = _userSettings.exportSampleRate;
+      final normalize = _userSettings.exportNormalize;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Exporting MP3...')),
+        );
+      }
+
+      final resultJson = _audioEngine!.exportMp3WithOptions(
+        outputPath: filePath,
+        bitrate: bitrate,
+        sampleRate: sampleRate,
+        normalize: normalize,
+      );
+
+      if (mounted) {
+        final result = jsonDecode(resultJson);
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('MP3 export complete')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Export failed: ${result['error']}')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Quick export MP3 failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
+  /// Quick export WAV using last saved settings
+  Future<void> _quickExportWav() async {
+    if (_audioEngine == null) return;
+
+    try {
+      final baseName = _projectManager?.currentName ?? 'Untitled';
+
+      // Use file_picker to choose save location
+      final result = await Process.run('osascript', [
+        '-e',
+        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")'
+      ]);
+
+      if (result.exitCode != 0) return; // User cancelled
+
+      String? filePath = result.stdout.toString().trim();
+      if (filePath.isEmpty) return;
+
+      // Ensure .wav extension
+      if (!filePath.endsWith('.wav')) {
+        filePath = '${filePath.replaceAll(RegExp(r'\.[^.]+$'), '')}.wav';
+      }
+
+      // Export with saved settings
+      final bitDepth = _userSettings.exportWavBitDepth;
+      final sampleRate = _userSettings.exportSampleRate;
+      final normalize = _userSettings.exportNormalize;
+      final dither = _userSettings.exportDither;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Exporting WAV...')),
+        );
+      }
+
+      final resultJson = _audioEngine!.exportWavWithOptions(
+        outputPath: filePath,
+        bitDepth: bitDepth,
+        sampleRate: sampleRate,
+        normalize: normalize,
+        dither: dither,
+      );
+
+      if (mounted) {
+        final result = jsonDecode(resultJson);
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('WAV export complete')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Export failed: ${result['error']}')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Quick export WAV failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
   }
 
   void _exportMidi() {
@@ -2084,153 +2334,159 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _projectSettings() {
-    // Get current audio devices
-    final inputDevices = _audioEngine?.getAudioInputDevices() ?? [];
-    final outputDevices = _audioEngine?.getAudioOutputDevices() ?? [];
-    final sampleRate = _audioEngine?.getSampleRate() ?? 48000;
+  void _appSettings() async {
+    // Open app-wide settings dialog (accessed via logo "O" click)
+    await AppSettingsDialog.show(context, _userSettings);
+  }
 
-    // Find default devices
-    String? selectedInputDevice;
-    String? selectedOutputDevice;
-    for (final device in inputDevices) {
-      if (device['isDefault'] == true) {
-        selectedInputDevice = device['name'] as String?;
-        break;
+  void _projectSettings() async {
+    // Open project-specific settings dialog (accessed via File menu)
+    final updatedMetadata = await ProjectSettingsDialog.show(
+      context,
+      _projectMetadata,
+    );
+
+    if (updatedMetadata != null && mounted) {
+      // Check what changed before updating
+      final bpmChanged = updatedMetadata.bpm != _projectMetadata.bpm;
+      final nameChanged = updatedMetadata.name != _projectMetadata.name;
+
+      setState(() {
+        _projectMetadata = updatedMetadata;
+      });
+
+      // Update audio engine with new BPM
+      if (bpmChanged) {
+        _audioEngine?.setTempo(updatedMetadata.bpm);
+        _recordingController.setTempo(updatedMetadata.bpm);
+      }
+
+      // Update project name if changed
+      if (nameChanged) {
+        _projectManager?.setProjectName(updatedMetadata.name);
+      }
+
+      debugPrint('[DAW] Project settings updated: $updatedMetadata');
+    }
+  }
+
+  // ========================================================================
+  // Snapshot Methods (Phase 4)
+  // ========================================================================
+
+  void _createSnapshot() async {
+    if (_projectManager?.currentPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please save the project first')),
+      );
+      return;
+    }
+
+    // Initialize snapshot manager if needed
+    final projectPath = _projectManager!.currentPath!;
+    final projectFolder = File(projectPath).parent.path;
+    _snapshotManager ??= SnapshotManager(projectFolder);
+
+    // Get existing snapshot names
+    final existingNames = _snapshotManager!.snapshots.map((s) => s.name).toList();
+
+    // Show create snapshot dialog
+    final result = await CreateSnapshotDialog.show(
+      context,
+      existingNames: existingNames,
+    );
+
+    if (result != null && mounted) {
+      // Create the snapshot
+      final snapshot = await _snapshotManager!.createSnapshot(
+        name: result.name,
+        note: result.note,
+        currentProjectFilePath: projectPath,
+      );
+
+      if (snapshot != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Snapshot "${snapshot.name}" created')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create snapshot')),
+        );
       }
     }
-    for (final device in outputDevices) {
-      if (device['isDefault'] == true) {
-        selectedOutputDevice = device['name'] as String?;
-        break;
-      }
+  }
+
+  void _viewSnapshots() async {
+    if (_projectManager?.currentPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please save the project first')),
+      );
+      return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Audio Settings'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Audio Output Device
-                const Text(
-                  'Audio Output Device',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedOutputDevice,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    hint: const Text('Select output device'),
-                    items: outputDevices.map((device) {
-                      final name = device['name'] as String;
-                      final isDefault = device['isDefault'] as bool;
-                      return DropdownMenuItem<String>(
-                        value: name,
-                        child: Text(isDefault ? '$name (Default)' : name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedOutputDevice = value;
-                      });
-                      // Note: Output device switching requires stream recreation
-                      // which is not yet implemented
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
+    // Initialize snapshot manager if needed
+    final projectPath = _projectManager!.currentPath!;
+    final projectFolder = File(projectPath).parent.path;
+    _snapshotManager ??= SnapshotManager(projectFolder);
 
-                // Audio Input Device
-                const Text(
-                  'Audio Input Device',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedInputDevice,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    hint: const Text('Select input device'),
-                    items: inputDevices.map((device) {
-                      final name = device['name'] as String;
-                      final isDefault = device['isDefault'] as bool;
-                      return DropdownMenuItem<String>(
-                        value: name,
-                        child: Text(isDefault ? '$name (Default)' : name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setDialogState(() {
-                        selectedInputDevice = value;
-                      });
-                      // Find index and set device
-                      final index = inputDevices.indexWhere((d) => d['name'] == value);
-                      if (index >= 0) {
-                        _audioEngine?.setAudioInputDevice(index);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
+    // Refresh snapshots
+    await _snapshotManager!.refresh();
 
-                // Sample Rate (read-only)
-                const Text(
-                  'Sample Rate',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    children: [
-                      Text('$sampleRate Hz'),
-                      const Spacer(),
-                      Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade500),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Sample rate is fixed at 48kHz for optimal compatibility.',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      ),
+    if (!mounted) return;
+
+    // Show snapshots list dialog
+    await SnapshotsListDialog.show(
+      context,
+      snapshots: _snapshotManager!.snapshots,
+      onLoad: (snapshot) => _loadSnapshot(snapshot),
+      onDelete: (snapshot) => _deleteSnapshot(snapshot),
     );
   }
+
+  Future<void> _loadSnapshot(Snapshot snapshot) async {
+    if (_projectManager?.currentPath == null || _snapshotManager == null) return;
+
+    final projectPath = _projectManager!.currentPath!;
+
+    // Load the snapshot
+    final success = await _snapshotManager!.loadSnapshot(
+      snapshot: snapshot,
+      currentProjectFilePath: projectPath,
+    );
+
+    if (success && mounted) {
+      // Reload the project
+      await _openRecentProject(projectPath);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Loaded snapshot "${snapshot.name}"')),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load snapshot')),
+      );
+    }
+  }
+
+  Future<void> _deleteSnapshot(Snapshot snapshot) async {
+    if (_snapshotManager == null) return;
+
+    final success = await _snapshotManager!.deleteSnapshot(snapshot);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted snapshot "${snapshot.name}"')),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete snapshot')),
+      );
+    }
+  }
+
+  // ========================================================================
+  // End Snapshot Methods
+  // ========================================================================
 
   void _closeProject() {
     // Show confirmation dialog if current project has unsaved changes
@@ -2569,9 +2825,14 @@ class _DAWScreenState extends State<DAWScreen> {
             onSaveProject: _saveProject,
             onSaveProjectAs: _saveProjectAs,
             onMakeCopy: _makeCopy,
+            onCreateSnapshot: _createSnapshot,
+            onViewSnapshots: _viewSnapshots,
             onExportAudio: _exportAudio,
+            onQuickExportMp3: _quickExportMp3,
+            onQuickExportWav: _quickExportWav,
             onExportMidi: _exportMidi,
-            onProjectSettings: _projectSettings,
+            onAppSettings: _appSettings, // App-wide settings (logo click)
+            onProjectSettings: _projectSettings, // Project-specific settings (File menu)
             onCloseProject: _closeProject,
             // View menu parameters
             onToggleLibrary: _toggleLibraryPanel,

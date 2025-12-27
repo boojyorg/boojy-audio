@@ -197,6 +197,23 @@ class TimelineViewState extends State<TimelineView> {
   // Clipboard state for copy/paste operations
   MidiClipData? _clipboardMidiClip;
 
+  // Public getters for view state persistence
+  double get scrollOffset => _scrollController.offset;
+  double get pixelsPerBeat => _pixelsPerBeat;
+
+  // Public setters for view state restoration
+  void setScrollOffset(double offset) {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(offset);
+    }
+  }
+
+  void setPixelsPerBeat(double zoom) {
+    setState(() {
+      _pixelsPerBeat = zoom;
+    });
+  }
+
   @override
   void initState() {
     super.initState();

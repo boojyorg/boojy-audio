@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Transport control bar for play/pause/stop/record controls
-class TransportBar extends StatelessWidget {
+class TransportBar extends StatefulWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onPause;
   final VoidCallback? onStop;
@@ -31,9 +31,14 @@ class TransportBar extends StatelessWidget {
   final VoidCallback? onSaveProjectAs;
   final VoidCallback? onMakeCopy;
   final VoidCallback? onExportAudio;
+  final VoidCallback? onQuickExportMp3;
+  final VoidCallback? onQuickExportWav;
   final VoidCallback? onExportMidi;
-  final VoidCallback? onProjectSettings;
+  final VoidCallback? onAppSettings; // App-wide settings (logo click)
+  final VoidCallback? onProjectSettings; // Project-specific settings (File menu)
   final VoidCallback? onCloseProject;
+  final VoidCallback? onCreateSnapshot;
+  final VoidCallback? onViewSnapshots;
 
   // View menu callbacks
   final VoidCallback? onToggleLibrary;
@@ -80,9 +85,14 @@ class TransportBar extends StatelessWidget {
     this.onSaveProjectAs,
     this.onMakeCopy,
     this.onExportAudio,
+    this.onQuickExportMp3,
+    this.onQuickExportWav,
     this.onExportMidi,
+    this.onAppSettings,
     this.onProjectSettings,
     this.onCloseProject,
+    this.onCreateSnapshot,
+    this.onViewSnapshots,
     this.onToggleLibrary,
     this.onToggleMixer,
     this.onToggleEditor,
@@ -95,6 +105,13 @@ class TransportBar extends StatelessWidget {
     this.onHelpPressed,
     this.isLoading = false,
   });
+
+  @override
+  State<TransportBar> createState() => _TransportBarState();
+}
+
+class _TransportBarState extends State<TransportBar> {
+  bool _logoHovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -115,11 +132,28 @@ class TransportBar extends StatelessWidget {
           SizedBox(width: isCompact ? 8 : 16),
 
           // Audio logo image - hide on very compact screens
+          // Clickable logo "O" opens settings (Boojy Suite pattern)
           if (!isCompact)
-            Image.asset(
-              'assets/images/boojy_audio_text.png',
-              height: 32,
-              filterQuality: FilterQuality.high,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _logoHovered = true),
+              onExit: (_) => setState(() => _logoHovered = false),
+              child: Tooltip(
+                message: 'Settings',
+                child: GestureDetector(
+                  onTap: () => widget.onAppSettings?.call(),
+                  child: AnimatedScale(
+                    scale: _logoHovered ? 1.1 : 1.0,
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeInOut,
+                    child: Image.asset(
+                      'assets/images/boojy_audio_text.png',
+                      height: 32,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ),
+              ),
             ),
 
           if (!isCompact) const SizedBox(width: 12),
@@ -131,31 +165,43 @@ class TransportBar extends StatelessWidget {
             onSelected: (String value) {
               switch (value) {
                 case 'new':
-                  onNewProject?.call();
+                  widget.onNewProject?.call();
                   break;
                 case 'open':
-                  onOpenProject?.call();
+                  widget.onOpenProject?.call();
                   break;
                 case 'save':
-                  onSaveProject?.call();
+                  widget.onSaveProject?.call();
                   break;
                 case 'save_as':
-                  onSaveProjectAs?.call();
+                  widget.onSaveProjectAs?.call();
                   break;
                 case 'make_copy':
-                  onMakeCopy?.call();
+                  widget.onMakeCopy?.call();
+                  break;
+                case 'create_snapshot':
+                  widget.onCreateSnapshot?.call();
+                  break;
+                case 'view_snapshots':
+                  widget.onViewSnapshots?.call();
+                  break;
+                case 'quick_export_mp3':
+                  widget.onQuickExportMp3?.call();
+                  break;
+                case 'quick_export_wav':
+                  widget.onQuickExportWav?.call();
                   break;
                 case 'export_audio':
-                  onExportAudio?.call();
+                  widget.onExportAudio?.call();
                   break;
                 case 'export_midi':
-                  onExportMidi?.call();
+                  widget.onExportMidi?.call();
                   break;
                 case 'settings':
-                  onProjectSettings?.call();
+                  widget.onProjectSettings?.call();
                   break;
                 case 'close':
-                  onCloseProject?.call();
+                  widget.onCloseProject?.call();
                   break;
               }
             },
@@ -213,20 +259,62 @@ class TransportBar extends StatelessWidget {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem<String>(
-                value: 'export_audio',
+                value: 'create_snapshot',
                 child: Row(
                   children: [
-                    Icon(Icons.audio_file, size: 18),
+                    Icon(Icons.bookmark_add, size: 18),
                     SizedBox(width: 8),
-                    Text('Export Audio...'),
+                    Text('New Snapshot...'),
                   ],
                 ),
               ),
               const PopupMenuItem<String>(
-                value: 'export_midi',
+                value: 'view_snapshots',
+                child: Row(
+                  children: [
+                    Icon(Icons.bookmarks, size: 18),
+                    SizedBox(width: 8),
+                    Text('Snapshots...'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'quick_export_mp3',
                 child: Row(
                   children: [
                     Icon(Icons.music_note, size: 18),
+                    SizedBox(width: 8),
+                    Text('Quick Export MP3'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'quick_export_wav',
+                child: Row(
+                  children: [
+                    Icon(Icons.audio_file, size: 18),
+                    SizedBox(width: 8),
+                    Text('Quick Export WAV'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export_audio',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 18),
+                    SizedBox(width: 8),
+                    Text('Export Settings...'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'export_midi',
+                child: Row(
+                  children: [
+                    Icon(Icons.piano, size: 18),
                     SizedBox(width: 8),
                     Text('Export MIDI...'),
                   ],
@@ -265,19 +353,19 @@ class TransportBar extends StatelessWidget {
             onSelected: (String value) {
               switch (value) {
                 case 'library':
-                  onToggleLibrary?.call();
+                  widget.onToggleLibrary?.call();
                   break;
                 case 'mixer':
-                  onToggleMixer?.call();
+                  widget.onToggleMixer?.call();
                   break;
                 case 'editor':
-                  onToggleEditor?.call();
+                  widget.onToggleEditor?.call();
                   break;
                 case 'piano':
-                  onTogglePiano?.call();
+                  widget.onTogglePiano?.call();
                   break;
                 case 'reset':
-                  onResetPanelLayout?.call();
+                  widget.onResetPanelLayout?.call();
                   break;
               }
             },
@@ -287,7 +375,7 @@ class TransportBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      libraryVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                      widget.libraryVisible ? Icons.check_box : Icons.check_box_outline_blank,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -302,7 +390,7 @@ class TransportBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      mixerVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                      widget.mixerVisible ? Icons.check_box : Icons.check_box_outline_blank,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -317,7 +405,7 @@ class TransportBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      editorVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                      widget.editorVisible ? Icons.check_box : Icons.check_box_outline_blank,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -332,7 +420,7 @@ class TransportBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      pianoVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                      widget.pianoVisible ? Icons.check_box : Icons.check_box_outline_blank,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
@@ -372,10 +460,10 @@ class TransportBar extends StatelessWidget {
               children: [
                 // Play/Pause button
                 _TransportButton(
-                  icon: isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: isPlaying ? const Color(0xFFFFC107) : const Color(0xFF4CAF50),
-                  onPressed: canPlay ? (isPlaying ? onPause : onPlay) : null,
-                  tooltip: isPlaying ? 'Pause (Space)' : 'Play (Space)',
+                  icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: widget.isPlaying ? const Color(0xFFFFC107) : const Color(0xFF4CAF50),
+                  onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
+                  tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
                   size: 40,
                 ),
 
@@ -385,7 +473,7 @@ class TransportBar extends StatelessWidget {
                 _TransportButton(
                   icon: Icons.stop,
                   color: const Color(0xFFF44336),
-                  onPressed: canPlay ? onStop : null,
+                  onPressed: widget.canPlay ? widget.onStop : null,
                   tooltip: 'Stop',
                   size: 40,
                 ),
@@ -395,13 +483,13 @@ class TransportBar extends StatelessWidget {
                 // Record button
                 _TransportButton(
                   icon: Icons.fiber_manual_record,
-                  color: isRecording || isCountingIn
+                  color: widget.isRecording || widget.isCountingIn
                       ? const Color(0xFFFF0000)
                       : const Color(0xFFE91E63),
-                  onPressed: onRecord,
-                  tooltip: isRecording
+                  onPressed: widget.onRecord,
+                  tooltip: widget.isRecording
                       ? 'Stop Recording (R)'
-                      : (isCountingIn ? 'Counting In...' : 'Record (R)'),
+                      : (widget.isCountingIn ? 'Counting In...' : 'Record (R)'),
                   size: 40,
                 ),
               ],
@@ -409,11 +497,11 @@ class TransportBar extends StatelessWidget {
           ),
 
           // Recording indicator with duration
-          if (isRecording || isCountingIn)
+          if (widget.isRecording || widget.isCountingIn)
             _RecordingIndicator(
-              isRecording: isRecording,
-              isCountingIn: isCountingIn,
-              playheadPosition: playheadPosition,
+              isRecording: widget.isRecording,
+              isCountingIn: widget.isCountingIn,
+              playheadPosition: widget.playheadPosition,
             ),
 
           SizedBox(width: isCompact ? 8 : 24),
@@ -422,16 +510,16 @@ class TransportBar extends StatelessWidget {
 
           // Metronome toggle
           _MetronomeButton(
-            enabled: metronomeEnabled,
-            onPressed: onMetronomeToggle,
+            enabled: widget.metronomeEnabled,
+            onPressed: widget.onMetronomeToggle,
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
 
           // Virtual piano toggle
           _PianoButton(
-            enabled: virtualPianoEnabled,
-            onPressed: onPianoToggle,
+            enabled: widget.virtualPianoEnabled,
+            onPressed: widget.onPianoToggle,
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
@@ -439,18 +527,18 @@ class TransportBar extends StatelessWidget {
           // MIDI device selector - hide on compact screens
           if (!isCompact)
             _MidiDeviceSelector(
-              devices: midiDevices,
-              selectedIndex: selectedMidiDeviceIndex,
-              onDeviceSelected: onMidiDeviceSelected,
-              onRefresh: onRefreshMidiDevices,
+              devices: widget.midiDevices,
+              selectedIndex: widget.selectedMidiDeviceIndex,
+              onDeviceSelected: widget.onMidiDeviceSelected,
+              onRefresh: widget.onRefreshMidiDevices,
             ),
 
           if (!isCompact) const SizedBox(width: 8),
 
           // Tempo control with drag and tap
           _TempoControl(
-            tempo: tempo,
-            onTempoChanged: onTempoChanged,
+            tempo: widget.tempo,
+            onTempoChanged: widget.onTempoChanged,
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
@@ -473,7 +561,7 @@ class TransportBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _formatTime(playheadPosition),
+                  _formatTime(widget.playheadPosition),
                   style: const TextStyle(
                     color: Color(0xFFE0E0E0),
                     fontSize: 14,
@@ -497,7 +585,7 @@ class TransportBar extends StatelessWidget {
                 border: Border.all(color: const Color(0xFF363636)),
               ),
               child: Text(
-                _formatPosition(playheadPosition, tempo),
+                _formatPosition(widget.playheadPosition, widget.tempo),
                 style: const TextStyle(
                   color: Color(0xFFE0E0E0),
                   fontSize: 14,
@@ -517,7 +605,7 @@ class TransportBar extends StatelessWidget {
               color: Color(0xFF9E9E9E),
               size: 20,
             ),
-            onPressed: onHelpPressed,
+            onPressed: widget.onHelpPressed,
             tooltip: 'Keyboard Shortcuts (?)',
           ),
 

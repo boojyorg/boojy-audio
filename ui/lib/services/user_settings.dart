@@ -55,6 +55,19 @@ class UserSettings extends ChangeNotifier {
   static const String _keyExportArtist = 'export_artist';
   static const String _keyExportRememberArtist = 'export_remember_artist';
 
+  // Audio device setting keys
+  static const String _keyPreferredOutputDevice = 'preferred_output_device';
+  static const String _keyPreferredInputDevice = 'preferred_input_device';
+  static const String _keySampleRate = 'sample_rate';
+  static const String _keyBufferSize = 'buffer_size';
+
+  // MIDI setting keys
+  static const String _keyPreferredMidiInput = 'preferred_midi_input';
+
+  // Project setting keys
+  static const String _keyContinueWhereLeftOff = 'continue_where_left_off';
+  static const String _keyCopySamplesToProject = 'copy_samples_to_project';
+
   // Limits
   static const int maxRecentProjects = 20;
 
@@ -85,6 +98,19 @@ class UserSettings extends ChangeNotifier {
   bool _exportDither = defaultDither;
   String? _exportArtist;
   bool _rememberArtist = false;
+
+  // Audio device settings
+  String? _preferredOutputDevice;
+  String? _preferredInputDevice;
+  int _sampleRate = 48000; // 44100 or 48000
+  int _bufferSize = 256; // 128/256/512/1024
+
+  // MIDI settings
+  String? _preferredMidiInput; // null = all devices
+
+  // Project settings
+  bool _continueWhereLeftOff = true;
+  bool _copySamplesToProject = true;
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -203,6 +229,93 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  // ========================================================================
+  // Audio Device Settings
+  // ========================================================================
+
+  /// Preferred audio output device
+  String? get preferredOutputDevice => _preferredOutputDevice;
+  set preferredOutputDevice(String? value) {
+    if (_preferredOutputDevice != value) {
+      _preferredOutputDevice = value;
+      _saveAudioSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Preferred audio input device
+  String? get preferredInputDevice => _preferredInputDevice;
+  set preferredInputDevice(String? value) {
+    if (_preferredInputDevice != value) {
+      _preferredInputDevice = value;
+      _saveAudioSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Sample rate: 44100 or 48000
+  int get sampleRate => _sampleRate;
+  set sampleRate(int value) {
+    if (_sampleRate != value && [44100, 48000].contains(value)) {
+      _sampleRate = value;
+      _saveAudioSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Buffer size: 128, 256, 512, or 1024 samples
+  int get bufferSize => _bufferSize;
+  set bufferSize(int value) {
+    if (_bufferSize != value && [128, 256, 512, 1024].contains(value)) {
+      _bufferSize = value;
+      _saveAudioSettings();
+      notifyListeners();
+    }
+  }
+
+  // ========================================================================
+  // MIDI Settings
+  // ========================================================================
+
+  /// Preferred MIDI input device (null = all devices)
+  String? get preferredMidiInput => _preferredMidiInput;
+  set preferredMidiInput(String? value) {
+    if (_preferredMidiInput != value) {
+      _preferredMidiInput = value;
+      _saveMidiSettings();
+      notifyListeners();
+    }
+  }
+
+  // ========================================================================
+  // Project Settings
+  // ========================================================================
+
+  /// Continue where I left off (restore zoom, scroll, panels)
+  bool get continueWhereLeftOff => _continueWhereLeftOff;
+  set continueWhereLeftOff(bool value) {
+    if (_continueWhereLeftOff != value) {
+      _continueWhereLeftOff = value;
+      _saveProjectSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Copy imported samples to project folder
+  bool get copySamplesToProject => _copySamplesToProject;
+  set copySamplesToProject(bool value) {
+    if (_copySamplesToProject != value) {
+      _copySamplesToProject = value;
+      _saveProjectSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Convenience method to set auto-save minutes
+  void setAutoSaveMinutes(int value) {
+    autoSaveMinutes = value;
+  }
+
   /// Load settings from SharedPreferences
   Future<void> load() async {
     if (_isLoaded) return;
@@ -241,6 +354,19 @@ class UserSettings extends ChangeNotifier {
       _exportDither = _prefs?.getBool(_keyExportDither) ?? defaultDither;
       _exportArtist = _prefs?.getString(_keyExportArtist);
       _rememberArtist = _prefs?.getBool(_keyExportRememberArtist) ?? false;
+
+      // Load audio device settings
+      _preferredOutputDevice = _prefs?.getString(_keyPreferredOutputDevice);
+      _preferredInputDevice = _prefs?.getString(_keyPreferredInputDevice);
+      _sampleRate = _prefs?.getInt(_keySampleRate) ?? 48000;
+      _bufferSize = _prefs?.getInt(_keyBufferSize) ?? 256;
+
+      // Load MIDI settings
+      _preferredMidiInput = _prefs?.getString(_keyPreferredMidiInput);
+
+      // Load project settings
+      _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;
+      _copySamplesToProject = _prefs?.getBool(_keyCopySamplesToProject) ?? true;
 
       _isLoaded = true;
       debugPrint('[UserSettings] Loaded: undoLimit=$_undoLimit, autoSave=${_autoSaveMinutes}min, recentProjects=${_recentProjects.length}, exportFormat=$_exportFormat');
@@ -294,6 +420,55 @@ class UserSettings extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[UserSettings] Failed to save export settings: $e');
+    }
+  }
+
+  /// Save audio device settings to SharedPreferences
+  Future<void> _saveAudioSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      if (_preferredOutputDevice != null) {
+        await _prefs!.setString(_keyPreferredOutputDevice, _preferredOutputDevice!);
+      } else {
+        await _prefs!.remove(_keyPreferredOutputDevice);
+      }
+      if (_preferredInputDevice != null) {
+        await _prefs!.setString(_keyPreferredInputDevice, _preferredInputDevice!);
+      } else {
+        await _prefs!.remove(_keyPreferredInputDevice);
+      }
+      await _prefs!.setInt(_keySampleRate, _sampleRate);
+      await _prefs!.setInt(_keyBufferSize, _bufferSize);
+    } catch (e) {
+      debugPrint('[UserSettings] Failed to save audio settings: $e');
+    }
+  }
+
+  /// Save MIDI settings to SharedPreferences
+  Future<void> _saveMidiSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      if (_preferredMidiInput != null) {
+        await _prefs!.setString(_keyPreferredMidiInput, _preferredMidiInput!);
+      } else {
+        await _prefs!.remove(_keyPreferredMidiInput);
+      }
+    } catch (e) {
+      debugPrint('[UserSettings] Failed to save MIDI settings: $e');
+    }
+  }
+
+  /// Save project settings to SharedPreferences
+  Future<void> _saveProjectSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setBool(_keyContinueWhereLeftOff, _continueWhereLeftOff);
+      await _prefs!.setBool(_keyCopySamplesToProject, _copySamplesToProject);
+    } catch (e) {
+      debugPrint('[UserSettings] Failed to save project settings: $e');
     }
   }
 
