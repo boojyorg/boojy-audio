@@ -155,12 +155,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Get tinted background color for right box
-  /// Blends track color with dark grey base at 12% opacity
+  /// Get background color for right box - matches MIDI notes/audio clips
   Color _getTintedBackground(Color? trackColor) {
-    const base = Color(0xFF2D2D2D);
-    if (trackColor == null) return base;
-    return Color.lerp(base, trackColor, 0.12)!;
+    if (trackColor == null) return const Color(0xFF2D2D2D);
+    return TrackColors.getLighterShade(trackColor, 0.3);
   }
 
   @override
