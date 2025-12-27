@@ -128,6 +128,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   Map<int, (double, double)> _displayLevels = {}; // Smoothed levels with decay
   DateTime _lastLevelUpdate = DateTime.now();
   bool _isAudioFileDragging = false;
+  bool _forceDecayToZero = false; // When true, decay all meters to zero
 
   @override
   void initState() {
@@ -178,32 +179,46 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
     for (final track in _tracks) {
       try {
-        final levelStr = widget.audioEngine!.getTrackPeakLevels(track.id);
-        // Format: "peak_left_db,peak_right_db"
-        final parts = levelStr.split(',');
-        if (parts.length >= 2) {
-          final leftDb = double.tryParse(parts[0]) ?? -96.0;
-          final rightDb = double.tryParse(parts[1]) ?? -96.0;
-          // Convert dB to 0.0-1.0 range: -60dB = 0.0, 0dB = 1.0
-          final rawLeft = ((leftDb + 60.0) / 60.0).clamp(0.0, 1.0);
-          final rawRight = ((rightDb + 60.0) / 60.0).clamp(0.0, 1.0);
+        // When forcing decay to zero (after stop), use 0.0 as target
+        double rawLeft = 0.0;
+        double rawRight = 0.0;
 
-          // Get previous display levels
-          final prevLeft = _displayLevels[track.id]?.$1 ?? 0.0;
-          final prevRight = _displayLevels[track.id]?.$2 ?? 0.0;
-
-          // Instant attack (new peak higher), smooth decay (new peak lower)
-          final displayLeft = rawLeft >= prevLeft
-              ? rawLeft // Instant attack
-              : (prevLeft - decayPerFrame).clamp(0.0, 1.0); // Smooth decay
-          final displayRight = rawRight >= prevRight
-              ? rawRight
-              : (prevRight - decayPerFrame).clamp(0.0, 1.0);
-
-          newLevels[track.id] = (displayLeft, displayRight);
+        if (!_forceDecayToZero) {
+          final levelStr = widget.audioEngine!.getTrackPeakLevels(track.id);
+          // Format: "peak_left_db,peak_right_db"
+          final parts = levelStr.split(',');
+          if (parts.length >= 2) {
+            final leftDb = double.tryParse(parts[0]) ?? -96.0;
+            final rightDb = double.tryParse(parts[1]) ?? -96.0;
+            // Convert dB to 0.0-1.0 range: -60dB = 0.0, 0dB = 1.0
+            rawLeft = ((leftDb + 60.0) / 60.0).clamp(0.0, 1.0);
+            rawRight = ((rightDb + 60.0) / 60.0).clamp(0.0, 1.0);
+          }
         }
+
+        // Get previous display levels
+        final prevLeft = _displayLevels[track.id]?.$1 ?? 0.0;
+        final prevRight = _displayLevels[track.id]?.$2 ?? 0.0;
+
+        // Instant attack (new peak higher), smooth decay (new peak lower)
+        final displayLeft = rawLeft >= prevLeft
+            ? rawLeft // Instant attack
+            : (prevLeft - decayPerFrame).clamp(0.0, 1.0); // Smooth decay
+        final displayRight = rawRight >= prevRight
+            ? rawRight
+            : (prevRight - decayPerFrame).clamp(0.0, 1.0);
+
+        newLevels[track.id] = (displayLeft, displayRight);
       } catch (e) {
         // Silently fail for level polling
+      }
+    }
+
+    // Clear force decay flag once all meters have decayed to zero
+    if (_forceDecayToZero) {
+      final allZero = newLevels.values.every((l) => l.$1 < 0.01 && l.$2 < 0.01);
+      if (allZero) {
+        _forceDecayToZero = false;
       }
     }
 
@@ -220,13 +235,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     _loadTracksAsync();
   }
 
-  /// Reset all meters to zero (call when playback stops)
+  /// Decay all meters smoothly to zero (call when playback stops)
   void resetMeters() {
     if (!mounted) return;
-    setState(() {
-      _displayLevels = {};
-      _peakLevels = {};
-    });
+    // Set flag to force decay - the timer will smoothly decay all meters to zero
+    _forceDecayToZero = true;
   }
 
   /// Load tracks asynchronously to avoid blocking UI thread
