@@ -27,6 +27,11 @@ class EditorPanel extends StatefulWidget {
   final Function(int effectId, int paramIndex, double value)? onVst3ParameterChanged;
   final Function(int effectId)? onVst3PluginRemoved;
 
+  // Collapsed bar mode
+  final bool isCollapsed;
+  final VoidCallback? onExpandPanel;
+  final Function(int tabIndex)? onTabAndExpand; // Select tab AND expand
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -42,6 +47,9 @@ class EditorPanel extends StatefulWidget {
     this.currentTrackPlugins,
     this.onVst3ParameterChanged,
     this.onVst3PluginRemoved,
+    this.isCollapsed = false,
+    this.onExpandPanel,
+    this.onTabAndExpand,
   });
 
   @override
@@ -100,6 +108,11 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    // Show collapsed bar when collapsed
+    if (widget.isCollapsed) {
+      return _buildCollapsedBar();
+    }
+
     return Container(
       height: 250,
       decoration: const BoxDecoration(
@@ -129,9 +142,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                 const SizedBox(width: 4),
                 _buildTabButton(2, Icons.music_note, 'Instrument'),
                 const Spacer(),
-                // Close button
+                // Collapse button (down arrow)
                 Tooltip(
-                  message: 'Close Panel',
+                  message: 'Collapse Panel',
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -142,7 +155,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                         height: 28,
                         alignment: Alignment.center,
                         child: const Icon(
-                          Icons.close,
+                          Icons.keyboard_arrow_down,
                           size: 18,
                           color: Color(0xFF9E9E9E),
                         ),
@@ -176,6 +189,83 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               selectedTrackId: widget.selectedTrackId,
             ),
         ],
+      ),
+    );
+  }
+
+  /// Build collapsed bar with tab buttons and expand arrow
+  Widget _buildCollapsedBar() {
+    return Container(
+      height: 40,
+      decoration: const BoxDecoration(
+        color: Color(0xFF2A2A2A),
+        border: Border(
+          top: BorderSide(color: Color(0xFF444444)),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          // Tab buttons (clickable, expand panel and switch to that tab)
+          _buildCollapsedTabButton(0, Icons.piano_outlined, 'Piano Roll'),
+          const SizedBox(width: 4),
+          _buildCollapsedTabButton(1, Icons.equalizer, 'FX Chain'),
+          const SizedBox(width: 4),
+          _buildCollapsedTabButton(2, Icons.music_note, 'Instrument'),
+          const Spacer(),
+          // Expand arrow (up arrow)
+          Tooltip(
+            message: 'Expand Editor',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onExpandPanel,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.keyboard_arrow_up,
+                    color: Color(0xFF9E9E9E),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  /// Build collapsed tab button - clicking expands panel and switches to tab
+  Widget _buildCollapsedTabButton(int index, IconData icon, String label) {
+    final isSelected = _selectedTabIndex == index;
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            _tabController.index = index;
+            widget.onTabAndExpand?.call(index);
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF00BCD4).withOpacity(0.3) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: isSelected ? const Color(0xFF00BCD4) : const Color(0xFF9E9E9E),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -15,6 +15,7 @@ class TrackHeader extends StatelessWidget {
   final VoidCallback? onDuplicatePressed;
   final VoidCallback? onDeletePressed;
   final VoidCallback? onRenamePressed;
+  final VoidCallback? onDoubleClick; // Double-click to open editor
 
   const TrackHeader({
     super.key,
@@ -30,11 +31,13 @@ class TrackHeader extends StatelessWidget {
     this.onDuplicatePressed,
     this.onDeletePressed,
     this.onRenamePressed,
+    this.onDoubleClick,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onDoubleTap: onDoubleClick,
       onSecondaryTapDown: (TapDownDetails details) {
         _showContextMenu(context, details.globalPosition);
       },

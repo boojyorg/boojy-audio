@@ -29,6 +29,7 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm
   final VoidCallback? onTap; // Unified track selection callback
+  final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
   final VoidCallback? onDuplicatePressed;
   final Function(String)? onNameChanged; // Inline rename callback
@@ -71,6 +72,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onTap,
+    this.onDoubleTap,
     this.onDeletePressed,
     this.onDuplicatePressed,
     this.onNameChanged,
@@ -171,6 +173,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
         return GestureDetector(
           onTap: widget.onTap, // Track selection on left-click
+          onDoubleTap: widget.onDoubleTap, // Double-click to open editor
           onSecondaryTapDown: (TapDownDetails details) {
             _showContextMenu(context, details.globalPosition);
           },

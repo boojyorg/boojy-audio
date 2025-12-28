@@ -179,8 +179,15 @@ class _DAWScreenState extends State<DAWScreen> {
     _midiClipController.addListener(_onControllerChanged);
     _uiLayout.addListener(_onControllerChanged);
 
-    // Load user settings
+    // Load user settings and apply saved panel states
     _userSettings.load().then((_) {
+      if (mounted) {
+        setState(() {
+          _uiLayout.isLibraryPanelCollapsed = _userSettings.libraryCollapsed;
+          _uiLayout.isMixerVisible = _userSettings.mixerVisible;
+          _uiLayout.isEditorPanelVisible = _userSettings.editorVisible;
+        });
+      }
     });
 
     // CRITICAL: Schedule audio engine initialization with a delay to prevent UI freeze
@@ -519,6 +526,7 @@ class _DAWScreenState extends State<DAWScreen> {
   void _toggleMixer() {
     setState(() {
       _uiLayout.isMixerVisible = !_uiLayout.isMixerVisible;
+      _userSettings.mixerVisible = _uiLayout.isMixerVisible;
     });
   }
 
@@ -1412,12 +1420,14 @@ class _DAWScreenState extends State<DAWScreen> {
   void _toggleLibraryPanel() {
     setState(() {
       _uiLayout.isLibraryPanelCollapsed = !_uiLayout.isLibraryPanelCollapsed;
+      _userSettings.libraryCollapsed = _uiLayout.isLibraryPanelCollapsed;
     });
   }
 
   void _toggleEditor() {
     setState(() {
       _uiLayout.isEditorPanelVisible = !_uiLayout.isEditorPanelVisible;
+      _userSettings.editorVisible = _uiLayout.isEditorPanelVisible;
     });
   }
 
@@ -1432,6 +1442,11 @@ class _DAWScreenState extends State<DAWScreen> {
       _uiLayout.isLibraryPanelCollapsed = false;
       _uiLayout.isMixerVisible = true;
       _uiLayout.isEditorPanelVisible = true;
+
+      // Save reset states
+      _userSettings.libraryCollapsed = false;
+      _userSettings.mixerVisible = true;
+      _userSettings.editorVisible = true;
 
       _statusMessage = 'Panel layout reset';
     });
@@ -2978,7 +2993,7 @@ class _DAWScreenState extends State<DAWScreen> {
                         ),
                       ),
 
-                      // Right: Track mixer panel (always visible)
+                      // Right: Track mixer panel (expanded or collapsed bar)
                       if (_uiLayout.isMixerVisible) ...[
                         // Divider: Timeline/Mixer
                         ResizableDivider(
@@ -3022,16 +3037,27 @@ class _DAWScreenState extends State<DAWScreen> {
                             onTogglePanel: _toggleMixer,
                             getTrackColor: _getTrackColor,
                             onTrackColorChanged: _setTrackColor,
+                            onTrackDoubleClick: (trackId) {
+                              // Select track and open editor
+                              _onTrackSelected(trackId);
+                              if (!_uiLayout.isEditorPanelVisible) {
+                                _toggleEditor();
+                              }
+                            },
                           ),
                         ),
+                      ] else ...[
+                        // Collapsed mixer bar - thin bar with arrow to expand
+                        _buildCollapsedMixerBar(),
                       ],
                     ],
                   ),
                 ),
 
                 // Editor panel: Piano Roll / FX Chain / Instrument / Virtual Piano
+                // Always show editor - either expanded or collapsed bar
                 if (_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible) ...[
-                  // Divider: Timeline/Editor Panel
+                  // Expanded editor panel with resizable divider
                   ResizableDivider(
                     orientation: DividerOrientation.horizontal,
                     isCollapsed: false,
@@ -3075,7 +3101,23 @@ class _DAWScreenState extends State<DAWScreen> {
                           : null,
                       onVst3ParameterChanged: _onVst3ParameterChanged, // M10
                       onVst3PluginRemoved: _removeVst3Plugin, // M10
+                      isCollapsed: false,
                     ),
+                  ),
+                ] else ...[
+                  // Collapsed editor bar - always visible
+                  EditorPanel(
+                    audioEngine: _audioEngine,
+                    virtualPianoEnabled: false,
+                    selectedTrackId: _selectedTrackId,
+                    currentInstrumentData: _selectedTrackId != null
+                        ? _trackInstruments[_selectedTrackId]
+                        : null,
+                    isCollapsed: true,
+                    onExpandPanel: _toggleEditor,
+                    onTabAndExpand: (tabIndex) {
+                      _toggleEditor(); // Expand the panel
+                    },
                   ),
                 ],
               ],
@@ -3093,6 +3135,45 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Removed _buildTimelineView - now built inline in build method
+
+  /// Build collapsed mixer bar when mixer is hidden
+  Widget _buildCollapsedMixerBar() {
+    return Container(
+      width: 30,
+      decoration: const BoxDecoration(
+        color: Color(0xFF363636),
+        border: Border(
+          left: BorderSide(color: Color(0xFF444444)),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 4),
+          // Mixer icon to expand
+          Tooltip(
+            message: 'Show Mixer',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _toggleMixer,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.tune,
+                    color: Color(0xFFE0E0E0),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildLatencyDisplay() {
     if (_audioEngine == null || !_isAudioGraphInitialized) {

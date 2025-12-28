@@ -133,7 +133,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       child: Column(
         children: [
           IconButton(
-            icon: const Icon(Icons.menu),
+            icon: const Icon(Icons.library_music),
             color: const Color(0xFF9E9E9E),
             onPressed: widget.onToggle,
             tooltip: 'Show Library (B)',

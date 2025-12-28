@@ -89,6 +89,9 @@ class TrackMixerPanel extends StatefulWidget {
   final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
   final Function(int trackId, Color color)? onTrackColorChanged;
 
+  // Double-click track to open editor
+  final Function(int trackId)? onTrackDoubleClick;
+
   const TrackMixerPanel({
     super.key,
     required this.audioEngine,
@@ -113,6 +116,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.onTogglePanel,
     this.getTrackColor,
     this.onTrackColorChanged,
+    this.onTrackDoubleClick,
   });
 
   @override
@@ -516,7 +520,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   Widget _buildHeader() {
     return Container(
       height: 30, // Match timeline ruler height
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: Color(0xFF363636),
         border: Border(
@@ -525,31 +529,41 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       ),
       child: Row(
         children: [
-          // Clickable header to toggle panel
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: widget.onTogglePanel,
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.tune,
+          // Toggle arrow button - points right to collapse (hide mixer)
+          Tooltip(
+            message: 'Hide Mixer',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onTogglePanel,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.chevron_right,
                     color: Color(0xFFE0E0E0),
-                    size: 16,
+                    size: 18,
                   ),
-                  SizedBox(width: 8),
-                  Text(
-                    'TRACK MIXER',
-                    style: TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
+                ),
               ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.tune,
+            color: Color(0xFFE0E0E0),
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'TRACK MIXER',
+            style: TextStyle(
+              color: Color(0xFFE0E0E0),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
@@ -661,6 +675,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     },
                     onTap: () {
                       widget.onTrackSelected?.call(track.id);
+                    },
+                    onDoubleTap: () {
+                      widget.onTrackDoubleClick?.call(track.id);
                     },
                     onVolumeChanged: (volumeDb) {
                       setState(() {

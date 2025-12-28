@@ -71,6 +71,11 @@ class UserSettings extends ChangeNotifier {
   static const String _keyContinueWhereLeftOff = 'continue_where_left_off';
   static const String _keyCopySamplesToProject = 'copy_samples_to_project';
 
+  // Panel visibility keys
+  static const String _keyLibraryCollapsed = 'panel_library_collapsed';
+  static const String _keyMixerVisible = 'panel_mixer_visible';
+  static const String _keyEditorVisible = 'panel_editor_visible';
+
   // Limits
   static const int maxRecentProjects = 20;
 
@@ -117,6 +122,11 @@ class UserSettings extends ChangeNotifier {
   // Project settings
   bool _continueWhereLeftOff = true;
   bool _copySamplesToProject = true;
+
+  // Panel visibility settings
+  bool _libraryCollapsed = false;
+  bool _mixerVisible = true;
+  bool _editorVisible = true;
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -331,6 +341,40 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  // ========================================================================
+  // Panel Visibility Settings
+  // ========================================================================
+
+  /// Whether the library panel is collapsed
+  bool get libraryCollapsed => _libraryCollapsed;
+  set libraryCollapsed(bool value) {
+    if (_libraryCollapsed != value) {
+      _libraryCollapsed = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Whether the mixer panel is visible
+  bool get mixerVisible => _mixerVisible;
+  set mixerVisible(bool value) {
+    if (_mixerVisible != value) {
+      _mixerVisible = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Whether the editor panel is visible
+  bool get editorVisible => _editorVisible;
+  set editorVisible(bool value) {
+    if (_editorVisible != value) {
+      _editorVisible = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
   /// Convenience method to set auto-save minutes
   void setAutoSaveMinutes(int value) {
     autoSaveMinutes = value;
@@ -389,6 +433,11 @@ class UserSettings extends ChangeNotifier {
       // Load project settings
       _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;
       _copySamplesToProject = _prefs?.getBool(_keyCopySamplesToProject) ?? true;
+
+      // Load panel visibility settings
+      _libraryCollapsed = _prefs?.getBool(_keyLibraryCollapsed) ?? false;
+      _mixerVisible = _prefs?.getBool(_keyMixerVisible) ?? true;
+      _editorVisible = _prefs?.getBool(_keyEditorVisible) ?? true;
 
       _isLoaded = true;
       notifyListeners();
@@ -492,6 +541,18 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setBool(_keyContinueWhereLeftOff, _continueWhereLeftOff);
       await _prefs!.setBool(_keyCopySamplesToProject, _copySamplesToProject);
+    } catch (e) {
+    }
+  }
+
+  /// Save panel visibility settings to SharedPreferences
+  Future<void> _savePanelSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setBool(_keyLibraryCollapsed, _libraryCollapsed);
+      await _prefs!.setBool(_keyMixerVisible, _mixerVisible);
+      await _prefs!.setBool(_keyEditorVisible, _editorVisible);
     } catch (e) {
     }
   }
