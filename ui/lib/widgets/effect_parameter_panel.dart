@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../theme/theme_extension.dart';
 
 /// Effect data model
 class EffectData {
@@ -133,10 +134,10 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget build(BuildContext context) {
     return Container(
       width: 350,
-      decoration: const BoxDecoration(
-        color: Color(0xFF2B2B2B),
+      decoration: BoxDecoration(
+        color: context.colors.standard,
         border: Border(
-          left: BorderSide(color: Color(0xFF404040)),
+          left: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Column(
@@ -161,24 +162,24 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+      decoration: BoxDecoration(
+        color: context.colors.darkest,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF404040)),
+          bottom: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.tune,
-            color: Color(0xFFA0A0A0),
+            color: context.colors.textSecondary,
             size: 20,
           ),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'EFFECTS',
             style: TextStyle(
-              color: Color(0xFFA0A0A0),
+              color: context.colors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -187,7 +188,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.close),
-            color: const Color(0xFFA0A0A0),
+            color: context.colors.textSecondary,
             iconSize: 20,
             onPressed: widget.onClose,
             tooltip: 'Close effects',
@@ -205,13 +206,13 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           Icon(
             Icons.graphic_eq,
             size: 48,
-            color: Colors.grey[700],
+            color: context.colors.textMuted,
           ),
           const SizedBox(height: 16),
           Text(
             'No effects',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: context.colors.textMuted,
               fontSize: 16,
             ),
           ),
@@ -219,7 +220,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           Text(
             'Add an effect to get started',
             style: TextStyle(
-              color: Colors.grey[700],
+              color: context.colors.textMuted,
               fontSize: 13,
             ),
           ),
@@ -242,18 +243,18 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: Column(
         children: [
           // Effect header
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF2B2B2B),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: context.colors.standard,
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
               ),
@@ -262,14 +263,14 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
               children: [
                 Icon(
                   _getEffectIcon(effect.type),
-                  color: const Color(0xFF4CAF50),
+                  color: context.colors.success,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   _getEffectName(effect.type),
-                  style: const TextStyle(
-                    color: Color(0xFFA0A0A0),
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -277,7 +278,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
-                  color: const Color(0xFF808080),
+                  color: context.colors.textMuted,
                   iconSize: 18,
                   onPressed: () => _removeEffect(effect.id),
                   tooltip: 'Remove effect',
@@ -411,15 +412,15 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFF808080),
+                style: TextStyle(
+                  color: context.colors.textMuted,
                   fontSize: 12,
                 ),
               ),
               Text(
                 '${value.toStringAsFixed(1)}$unit',
-                style: const TextStyle(
-                  color: Color(0xFFA0A0A0),
+                style: TextStyle(
+                  color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -435,9 +436,9 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
               overlayShape: const RoundSliderOverlayShape(
                 overlayRadius: 12,
               ),
-              activeTrackColor: const Color(0xFF4CAF50),
-              inactiveTrackColor: const Color(0xFF404040),
-              thumbColor: const Color(0xFFA0A0A0),
+              activeTrackColor: context.colors.success,
+              inactiveTrackColor: context.colors.surface,
+              thumbColor: context.colors.textSecondary,
             ),
             child: Slider(
               value: value.clamp(min, max),
@@ -458,10 +459,10 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildAddEffectMenu() {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+      decoration: BoxDecoration(
+        color: context.colors.darkest,
         border: Border(
-          top: BorderSide(color: Color(0xFF404040)),
+          top: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Column(
@@ -472,8 +473,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
             icon: const Icon(Icons.equalizer, size: 16),
             label: const Text('EQ'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF404040),
-              foregroundColor: const Color(0xFFA0A0A0),
+              backgroundColor: context.colors.surface,
+              foregroundColor: context.colors.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -482,8 +483,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
             icon: const Icon(Icons.compress, size: 16),
             label: const Text('Compressor'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF404040),
-              foregroundColor: const Color(0xFFA0A0A0),
+              backgroundColor: context.colors.surface,
+              foregroundColor: context.colors.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -495,8 +496,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                   icon: const Icon(Icons.blur_on, size: 16),
                   label: const Text('Reverb'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF404040),
-                    foregroundColor: const Color(0xFFA0A0A0),
+                    backgroundColor: context.colors.surface,
+                    foregroundColor: context.colors.textSecondary,
                   ),
                 ),
               ),
@@ -507,8 +508,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                   icon: const Icon(Icons.av_timer, size: 16),
                   label: const Text('Delay'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF404040),
-                    foregroundColor: const Color(0xFFA0A0A0),
+                    backgroundColor: context.colors.surface,
+                    foregroundColor: context.colors.textSecondary,
                   ),
                 ),
               ),
@@ -520,8 +521,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
             icon: const Icon(Icons.graphic_eq, size: 16),
             label: const Text('Chorus'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF404040),
-              foregroundColor: const Color(0xFFA0A0A0),
+              backgroundColor: context.colors.surface,
+              foregroundColor: context.colors.textSecondary,
             ),
           ),
         ],

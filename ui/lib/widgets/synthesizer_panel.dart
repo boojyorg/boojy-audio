@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
+import '../theme/theme_extension.dart';
 import 'instrument_browser.dart';
 
 /// Synthesizer instrument panel widget
@@ -58,10 +59,10 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF2B2B2B),
+      decoration: BoxDecoration(
+        color: context.colors.standard,
         border: Border(
-          left: BorderSide(color: Color(0xFF404040)),
+          left: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Column(
@@ -93,10 +94,10 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+      decoration: BoxDecoration(
+        color: context.colors.darkest,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF404040)),
+          bottom: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Row(
@@ -115,18 +116,18 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50),
+                  color: context.colors.success,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.graphic_eq, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
+                    Icon(Icons.graphic_eq, color: context.colors.textPrimary, size: 20),
+                    const SizedBox(width: 8),
                     Text(
                       'Synthesizer',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: context.colors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -139,17 +140,17 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               opacity: 0.5,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(
                     Icons.piano,
-                    color: Color(0xFFA0A0A0),
+                    color: context.colors.textSecondary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'SYNTHESIZER',
                     style: TextStyle(
-                      color: Color(0xFFA0A0A0),
+                      color: context.colors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -162,17 +163,17 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               cursor: SystemMouseCursors.grab,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(
                     Icons.piano,
-                    color: Color(0xFFA0A0A0),
+                    color: context.colors.textSecondary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'SYNTHESIZER',
                     style: TextStyle(
-                      color: Color(0xFFA0A0A0),
+                      color: context.colors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -185,7 +186,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.close),
-            color: const Color(0xFFA0A0A0),
+            color: context.colors.textSecondary,
             iconSize: 20,
             onPressed: widget.onClose,
             tooltip: 'Close synthesizer',
@@ -202,9 +203,9 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,16 +213,16 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header with waveform preview
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.graphic_eq,
-                color: Color(0xFF4CAF50),
+                color: context.colors.success,
                 size: 18,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'OSCILLATOR',
                 style: TextStyle(
-                  color: Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -251,12 +252,12 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: CustomPaint(
-        painter: WaveformPainter(waveType: waveType),
+        painter: WaveformPainter(waveType: waveType, color: context.colors.success),
         size: const Size(double.infinity, 60),
       ),
     );
@@ -269,26 +270,26 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section header
           Row(
-            children: const [
+            children: [
               Icon(
                 Icons.filter_alt,
-                color: Color(0xFF4CAF50),
+                color: context.colors.success,
                 size: 18,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'FILTER (LOWPASS)',
                 style: TextStyle(
-                  color: Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -329,26 +330,26 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section header
           Row(
-            children: const [
+            children: [
               Icon(
                 Icons.show_chart,
-                color: Color(0xFF4CAF50),
+                color: context.colors.success,
                 size: 18,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'ENVELOPE (ADSR)',
                 style: TextStyle(
-                  color: Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -414,9 +415,9 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return Container(
       height: 80,
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
+        color: context.colors.darkest,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: CustomPaint(
         painter: ADSRPainter(
@@ -424,6 +425,8 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           decay: decay,
           sustain: sustain,
           release: release,
+          lineColor: context.colors.success,
+          labelColor: context.colors.textMuted,
         ),
         size: const Size(double.infinity, 80),
       ),
@@ -441,8 +444,8 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF808080),
+          style: TextStyle(
+            color: context.colors.textMuted,
             fontSize: 12,
           ),
         ),
@@ -450,17 +453,17 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF2B2B2B),
+            color: context.colors.standard,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF404040)),
+            border: Border.all(color: context.colors.surface),
           ),
           child: DropdownButton<String>(
             value: value,
             isExpanded: true,
             underline: const SizedBox(),
-            dropdownColor: const Color(0xFF2B2B2B),
-            style: const TextStyle(
-              color: Color(0xFFA0A0A0),
+            dropdownColor: context.colors.standard,
+            style: TextStyle(
+              color: context.colors.textSecondary,
               fontSize: 13,
             ),
             items: options.map((String option) {
@@ -498,15 +501,15 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF808080),
+              style: TextStyle(
+                color: context.colors.textMuted,
                 fontSize: 12,
               ),
             ),
             Text(
               displayValue,
-              style: const TextStyle(
-                color: Color(0xFFA0A0A0),
+              style: TextStyle(
+                color: context.colors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -522,9 +525,9 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
             overlayShape: const RoundSliderOverlayShape(
               overlayRadius: 14,
             ),
-            activeTrackColor: const Color(0xFF4CAF50),
-            inactiveTrackColor: const Color(0xFF404040),
-            thumbColor: const Color(0xFFA0A0A0),
+            activeTrackColor: context.colors.success,
+            inactiveTrackColor: context.colors.surface,
+            thumbColor: context.colors.textSecondary,
           ),
           child: Slider(
             value: value.clamp(min, max),
@@ -541,13 +544,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
 /// Custom painter for waveform visualization
 class WaveformPainter extends CustomPainter {
   final String waveType;
+  final Color color;
 
-  WaveformPainter({required this.waveType});
+  WaveformPainter({required this.waveType, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF4CAF50)
+      ..color = color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -604,18 +608,22 @@ class ADSRPainter extends CustomPainter {
   final double decay;
   final double sustain;
   final double release;
+  final Color lineColor;
+  final Color labelColor;
 
   ADSRPainter({
     required this.attack,
     required this.decay,
     required this.sustain,
     required this.release,
+    required this.lineColor,
+    required this.labelColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF4CAF50)
+      ..color = lineColor
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -657,8 +665,8 @@ class ADSRPainter extends CustomPainter {
     void drawLabel(String text, double x, double y) {
       textPainter.text = TextSpan(
         text: text,
-        style: const TextStyle(
-          color: Color(0xFF808080),
+        style: TextStyle(
+          color: labelColor,
           fontSize: 10,
         ),
       );

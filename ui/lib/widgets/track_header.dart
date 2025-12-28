@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../theme/theme_extension.dart';
 
 /// Track header widget - displays on left side of timeline for each track
 class TrackHeader extends StatelessWidget {
@@ -44,11 +45,11 @@ class TrackHeader extends StatelessWidget {
       child: Container(
         width: 120,
         height: 100, // Height of track row in timeline
-        decoration: const BoxDecoration(
-          color: Color(0xFF707070),
+        decoration: BoxDecoration(
+          color: context.colors.textMuted,
           border: Border(
-            right: BorderSide(color: Color(0xFF909090)),
-            bottom: BorderSide(color: Color(0xFF909090)),
+            right: BorderSide(color: context.colors.buttonInactive),
+            bottom: BorderSide(color: context.colors.buttonInactive),
           ),
         ),
         child: Column(
@@ -67,8 +68,8 @@ class TrackHeader extends StatelessWidget {
                 Expanded(
                   child: Text(
                     trackName,
-                    style: const TextStyle(
-                      color: Color(0xFF202020),
+                    style: TextStyle(
+                      color: context.colors.darkest,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -93,11 +94,11 @@ class TrackHeader extends StatelessWidget {
                       onPressed: onSoloToggle,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isSoloed
-                            ? const Color(0xFFFFC107)
-                            : const Color(0xFF909090),
+                            ? context.colors.soloActive
+                            : context.colors.buttonInactive,
                         foregroundColor: isSoloed
                             ? Colors.black
-                            : const Color(0xFF808080),
+                            : context.colors.textMuted,
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(0, 24),
                         textStyle: const TextStyle(
@@ -119,11 +120,11 @@ class TrackHeader extends StatelessWidget {
                       onPressed: onMuteToggle,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isMuted
-                            ? const Color(0xFFFF5722)
-                            : const Color(0xFF909090),
+                            ? context.colors.muteActive
+                            : context.colors.buttonInactive,
                         foregroundColor: isMuted
                             ? Colors.white
-                            : const Color(0xFF808080),
+                            : context.colors.textMuted,
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(0, 24),
                         textStyle: const TextStyle(
@@ -145,7 +146,7 @@ class TrackHeader extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: _buildLevelMeter(),
+              child: _buildLevelMeter(context),
             ),
           ),
 
@@ -171,33 +172,33 @@ class TrackHeader extends StatelessWidget {
         position.dy,
       ),
       items: [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'rename',
           child: Row(
             children: [
-              Icon(Icons.edit, size: 16, color: Color(0xFF202020)),
-              SizedBox(width: 8),
-              Text('Rename', style: TextStyle(color: Color(0xFF202020))),
+              Icon(Icons.edit, size: 16, color: context.colors.darkest),
+              const SizedBox(width: 8),
+              Text('Rename', style: TextStyle(color: context.colors.darkest)),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'duplicate',
           child: Row(
             children: [
-              Icon(Icons.content_copy, size: 16, color: Color(0xFF202020)),
-              SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: Color(0xFF202020))),
+              Icon(Icons.content_copy, size: 16, color: context.colors.darkest),
+              const SizedBox(width: 8),
+              Text('Duplicate', style: TextStyle(color: context.colors.darkest)),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 16, color: Color(0xFFFF5722)),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Color(0xFFFF5722))),
+              Icon(Icons.delete, size: 16, color: context.colors.error),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: context.colors.error)),
             ],
           ),
         ),
@@ -213,15 +214,15 @@ class TrackHeader extends StatelessWidget {
     });
   }
 
-  Widget _buildLevelMeter() {
+  Widget _buildLevelMeter(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Meter label
-        const Text(
+        Text(
           'LEVEL',
           style: TextStyle(
-            color: Color(0xFF505050),
+            color: context.colors.hover,
             fontSize: 8,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -240,21 +241,21 @@ class TrackHeader extends StatelessWidget {
               // Color gradient: green → yellow → red
               Color barColor;
               if (index < 6) {
-                barColor = const Color(0xFF4CAF50); // Green
+                barColor = context.colors.meterGreen;
               } else if (index < 8) {
-                barColor = const Color(0xFFFFC107); // Yellow
+                barColor = context.colors.meterYellow;
               } else {
-                barColor = const Color(0xFFFF5722); // Red
+                barColor = context.colors.meterRed;
               }
 
               return Expanded(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 1),
                   decoration: BoxDecoration(
-                    color: isLit ? barColor : const Color(0xFF707070),
+                    color: isLit ? barColor : context.colors.textMuted,
                     borderRadius: BorderRadius.circular(2),
                     border: Border.all(
-                      color: const Color(0xFF909090),
+                      color: context.colors.buttonInactive,
                       width: 0.5,
                     ),
                   ),
@@ -301,8 +302,8 @@ class MasterTrackHeader extends StatelessWidget {
       width: 120,
       height: 80, // Slightly shorter than regular tracks
       decoration: BoxDecoration(
-        color: const Color(0xFF505050),
-        border: Border.all(color: const Color(0xFF4CAF50), width: 2),
+        color: context.colors.hover,
+        border: Border.all(color: context.colors.success, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -315,10 +316,10 @@ class MasterTrackHeader extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'MASTER',
             style: TextStyle(
-              color: Color(0xFF4CAF50),
+              color: context.colors.success,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.5,
@@ -339,21 +340,21 @@ class MasterTrackHeader extends StatelessWidget {
 
                   Color barColor;
                   if (index < 6) {
-                    barColor = const Color(0xFF4CAF50);
+                    barColor = context.colors.meterGreen;
                   } else if (index < 8) {
-                    barColor = const Color(0xFFFFC107);
+                    barColor = context.colors.meterYellow;
                   } else {
-                    barColor = const Color(0xFFFF5722);
+                    barColor = context.colors.meterRed;
                   }
 
                   return Expanded(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 1),
                       decoration: BoxDecoration(
-                        color: isLit ? barColor : const Color(0xFF707070),
+                        color: isLit ? barColor : context.colors.textMuted,
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(
-                          color: const Color(0xFF909090),
+                          color: context.colors.buttonInactive,
                           width: 0.5,
                         ),
                       ),

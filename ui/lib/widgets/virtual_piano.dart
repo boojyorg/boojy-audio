@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
+import '../theme/theme_extension.dart';
 
 /// Virtual piano keyboard widget for testing MIDI without physical hardware
 class VirtualPiano extends StatefulWidget {
@@ -259,22 +260,22 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           child: Container(
             height: 200,
             decoration: BoxDecoration(
-              color: const Color(0xFF2B2B2B),
+              color: context.colors.standard,
               border: Border(
                 top: BorderSide(
-                  color: _hasFocus ? const Color(0xFF4CAF50) : Colors.grey[800]!,
+                  color: _hasFocus ? context.colors.success : context.colors.elevated,
                   width: _hasFocus ? 3 : 1,
                 ),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: context.colors.darkest.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
                 if (_hasFocus)
                   BoxShadow(
-                    color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                    color: context.colors.success.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -301,23 +302,23 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: context.colors.darkest,
         border: Border(
-          bottom: BorderSide(color: Colors.grey[800]!),
+          bottom: BorderSide(color: context.colors.elevated),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.piano,
-            color: Color(0xFF4CAF50),
+            color: context.colors.success,
             size: 20,
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Virtual Piano Keyboard',
             style: TextStyle(
-              color: Colors.white,
+              color: context.colors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -327,7 +328,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           // Close button
           IconButton(
             icon: const Icon(Icons.keyboard_arrow_down),
-            color: Colors.grey[400],
+            color: context.colors.textSecondary,
             iconSize: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -405,16 +406,16 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: isPressed ? const Color(0xFF4CAF50) : Colors.white,
+            color: isPressed ? context.colors.success : context.colors.textPrimary,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isPressed ? const Color(0xFF4CAF50) : const Color(0xFF404040),
+              color: isPressed ? context.colors.success : context.colors.surface,
               width: 2,
             ),
             boxShadow: isPressed
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+                      color: context.colors.success.withValues(alpha: 0.5),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -430,7 +431,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
                 child: Text(
                   noteName,
                   style: TextStyle(
-                    color: isPressed ? Colors.white : Colors.black54,
+                    color: isPressed ? context.colors.textPrimary : context.colors.darkest.withValues(alpha: 0.6),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -445,7 +446,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
                 child: Text(
                   label,
                   style: TextStyle(
-                    color: isPressed ? Colors.white : Colors.black87,
+                    color: isPressed ? context.colors.textPrimary : context.colors.darkest,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -472,23 +473,23 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
         width: width,
         height: 100, // Shorter than white keys
         decoration: BoxDecoration(
-          color: isPressed ? const Color(0xFF9C27B0) : const Color(0xFF1E1E1E),
+          color: isPressed ? context.colors.accent : context.colors.darkest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isPressed ? const Color(0xFF9C27B0) : const Color(0xFF404040),
+            color: isPressed ? context.colors.accent : context.colors.surface,
             width: 2,
           ),
           boxShadow: isPressed
               ? [
                   BoxShadow(
-                    color: const Color(0xFF9C27B0).withValues(alpha: 0.5),
+                    color: context.colors.accent.withValues(alpha: 0.5),
                     blurRadius: 8,
                     spreadRadius: 2,
                   ),
                 ]
               : [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: context.colors.darkest.withValues(alpha: 0.5),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -501,7 +502,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
             Text(
               flatName,
               style: TextStyle(
-                color: isPressed ? Colors.white : const Color(0xFF808080),
+                color: isPressed ? context.colors.textPrimary : context.colors.textMuted,
                 fontSize: 8,
                 fontWeight: FontWeight.w500,
               ),
@@ -511,7 +512,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
             Text(
               noteName,
               style: TextStyle(
-                color: isPressed ? Colors.white : const Color(0xFFA0A0A0),
+                color: isPressed ? context.colors.textPrimary : context.colors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -521,7 +522,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
             Text(
               label,
               style: TextStyle(
-                color: isPressed ? Colors.white : Colors.white70,
+                color: isPressed ? context.colors.textPrimary : context.colors.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),

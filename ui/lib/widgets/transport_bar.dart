@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/theme_extension.dart';
 
 /// Transport control bar for play/pause/stop/record controls
 class TransportBar extends StatefulWidget {
@@ -127,10 +128,10 @@ class _TransportBarState extends State<TransportBar> {
 
     return Container(
       height: 60,
-      decoration: const BoxDecoration(
-        color: Color(0xFF242424), // Main grey panel
+      decoration: BoxDecoration(
+        color: context.colors.standard,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF363636)), // Secondary grey border
+          bottom: BorderSide(color: context.colors.elevated),
         ),
       ),
       child: Row(
@@ -166,7 +167,7 @@ class _TransportBarState extends State<TransportBar> {
 
           // File menu button
           PopupMenuButton<String>(
-            icon: const Icon(Icons.folder, color: Color(0xFF9E9E9E), size: 20),
+            icon: Icon(Icons.folder, color: context.colors.textSecondary, size: 20),
             tooltip: 'File',
             onSelected: (String value) {
               switch (value) {
@@ -354,7 +355,7 @@ class _TransportBarState extends State<TransportBar> {
 
           // View menu button
           PopupMenuButton<String>(
-            icon: const Icon(Icons.visibility, color: Color(0xFF9E9E9E), size: 20),
+            icon: Icon(Icons.visibility, color: context.colors.textSecondary, size: 20),
             tooltip: 'View',
             onSelected: (String value) {
               switch (value) {
@@ -387,7 +388,7 @@ class _TransportBarState extends State<TransportBar> {
                     const SizedBox(width: 8),
                     const Text('Library Panel'),
                     const Spacer(),
-                    const Text('L', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('L', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -402,7 +403,7 @@ class _TransportBarState extends State<TransportBar> {
                     const SizedBox(width: 8),
                     const Text('Mixer Panel'),
                     const Spacer(),
-                    const Text('M', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('M', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -417,7 +418,7 @@ class _TransportBarState extends State<TransportBar> {
                     const SizedBox(width: 8),
                     const Text('Editor Panel'),
                     const Spacer(),
-                    const Text('E', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('E', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -432,7 +433,7 @@ class _TransportBarState extends State<TransportBar> {
                     const SizedBox(width: 8),
                     const Text('Virtual Piano'),
                     const Spacer(),
-                    const Text('P', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text('P', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -451,14 +452,14 @@ class _TransportBarState extends State<TransportBar> {
           ),
 
           SizedBox(width: isCompact ? 8 : 24),
-          const VerticalDivider(color: Color(0xFF363636), width: 1),
+          VerticalDivider(color: context.colors.elevated, width: 1),
           SizedBox(width: isCompact ? 8 : 16),
 
           // Transport buttons group - all same size (40px)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              color: context.colors.darkest,
               borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
@@ -467,7 +468,7 @@ class _TransportBarState extends State<TransportBar> {
                 // Play/Pause button
                 _TransportButton(
                   icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: widget.isPlaying ? const Color(0xFFFFC107) : const Color(0xFF4CAF50),
+                  color: widget.isPlaying ? context.colors.warning : context.colors.success,
                   onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
                   tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
                   size: 40,
@@ -478,7 +479,7 @@ class _TransportBarState extends State<TransportBar> {
                 // Stop button
                 _TransportButton(
                   icon: Icons.stop,
-                  color: const Color(0xFFF44336),
+                  color: context.colors.error,
                   onPressed: widget.canPlay ? widget.onStop : null,
                   tooltip: 'Stop',
                   size: 40,
@@ -501,7 +502,7 @@ class _TransportBarState extends State<TransportBar> {
                 // Capture MIDI button
                 _TransportButton(
                   icon: Icons.history,
-                  color: const Color(0xFF7FD4A0),
+                  color: context.colors.accent,
                   onPressed: widget.onCaptureMidi,
                   tooltip: 'Capture MIDI (Cmd+Shift+R)',
                   size: 40,
@@ -519,7 +520,7 @@ class _TransportBarState extends State<TransportBar> {
             ),
 
           SizedBox(width: isCompact ? 8 : 24),
-          const VerticalDivider(color: Color(0xFF363636), width: 1),
+          VerticalDivider(color: context.colors.elevated, width: 1),
           SizedBox(width: isCompact ? 8 : 16),
 
           // Metronome toggle
@@ -561,26 +562,26 @@ class _TransportBarState extends State<TransportBar> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF363636),
+              color: context.colors.elevated,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF363636)),
+              border: Border.all(color: context.colors.elevated),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.access_time,
                   size: 14,
-                  color: Color(0xFF9E9E9E),
+                  color: context.colors.textSecondary,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _formatTime(widget.playheadPosition),
-                  style: const TextStyle(
-                    color: Color(0xFFE0E0E0),
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -594,17 +595,17 @@ class _TransportBarState extends State<TransportBar> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF363636),
+                color: context.colors.elevated,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF363636)),
+                border: Border.all(color: context.colors.elevated),
               ),
               child: Text(
                 _formatPosition(widget.playheadPosition, widget.tempo),
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: context.colors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
@@ -614,9 +615,9 @@ class _TransportBarState extends State<TransportBar> {
 
           // Help button
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.help_outline,
-              color: Color(0xFF9E9E9E),
+              color: context.colors.textSecondary,
               size: 20,
             ),
             onPressed: widget.onHelpPressed,
@@ -706,12 +707,12 @@ class _TransportButtonState extends State<_TransportButton> {
               decoration: BoxDecoration(
                 color: isEnabled
                     ? widget.color.withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : const Color(0xFF363636),
+                    : context.colors.elevated,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isEnabled
                       ? widget.color
-                      : const Color(0xFF363636),
+                      : context.colors.elevated,
                   width: 2,
                 ),
                 boxShadow: _isHovered && isEnabled
@@ -729,7 +730,7 @@ class _TransportButtonState extends State<_TransportButton> {
                 size: widget.size * 0.5,
                 color: isEnabled
                     ? widget.color
-                    : const Color(0xFF616161),
+                    : context.colors.textMuted,
               ),
             ),
           ),
@@ -783,19 +784,19 @@ class _MetronomeButtonState extends State<_MetronomeButton> {
               height: 40,
               decoration: BoxDecoration(
                 color: widget.enabled
-                    ? const Color(0xFF00BCD4).withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : Color(0xFF363636).withValues(alpha: _isHovered ? 1.0 : 0.8),
+                    ? context.colors.accent.withValues(alpha: _isHovered ? 0.3 : 0.2)
+                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: widget.enabled
-                      ? const Color(0xFF00BCD4)
-                      : const Color(0xFF363636),
+                      ? context.colors.accent
+                      : context.colors.elevated,
                   width: 2,
                 ),
                 boxShadow: _isHovered && widget.enabled
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF00BCD4).withValues(alpha: 0.3),
+                          color: context.colors.accent.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -806,8 +807,8 @@ class _MetronomeButtonState extends State<_MetronomeButton> {
                 Icons.graphic_eq,
                 size: 20,
                 color: widget.enabled
-                    ? const Color(0xFF00BCD4)
-                    : const Color(0xFF616161),
+                    ? context.colors.accent
+                    : context.colors.textMuted,
               ),
             ),
           ),
@@ -861,19 +862,19 @@ class _PianoButtonState extends State<_PianoButton> {
               height: 40,
               decoration: BoxDecoration(
                 color: widget.enabled
-                    ? const Color(0xFF4CAF50).withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : Color(0xFF363636).withValues(alpha: _isHovered ? 1.0 : 0.8),
+                    ? context.colors.success.withValues(alpha: _isHovered ? 0.3 : 0.2)
+                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: widget.enabled
-                      ? const Color(0xFF4CAF50)
-                      : const Color(0xFF363636),
+                      ? context.colors.success
+                      : context.colors.elevated,
                   width: 2,
                 ),
                 boxShadow: _isHovered && widget.enabled
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                          color: context.colors.success.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -884,8 +885,8 @@ class _PianoButtonState extends State<_PianoButton> {
                 Icons.piano,
                 size: 20,
                 color: widget.enabled
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFF616161),
+                    ? context.colors.success
+                    : context.colors.textMuted,
               ),
             ),
           ),
@@ -956,15 +957,15 @@ class _TempoControlState extends State<_TempoControl> {
             decoration: BoxDecoration(
               color: _tapTimes.isNotEmpty &&
                      DateTime.now().difference(_tapTimes.last).inMilliseconds < 500
-                  ? const Color(0xFF00BCD4).withValues(alpha: 0.3)
-                  : const Color(0xFF363636),
+                  ? context.colors.accent.withValues(alpha: 0.3)
+                  : context.colors.elevated,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF363636)),
+              border: Border.all(color: context.colors.elevated),
             ),
-            child: const Text(
+            child: Text(
               'Tap',
               style: TextStyle(
-                color: Color(0xFFE0E0E0),
+                color: context.colors.textPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -1004,28 +1005,28 @@ class _TempoControlState extends State<_TempoControl> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: _isDragging
-                    ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
-                    : const Color(0xFF363636),
+                    ? context.colors.accent.withValues(alpha: 0.2)
+                    : context.colors.elevated,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: _isDragging
-                      ? const Color(0xFF00BCD4)
-                      : const Color(0xFF363636),
+                      ? context.colors.accent
+                      : context.colors.elevated,
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.speed,
                     size: 14,
-                    color: Color(0xFF9E9E9E),
+                    color: context.colors.textSecondary,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '$tempoText BPM',
-                    style: const TextStyle(
-                      color: Color(0xFFE0E0E0),
+                    style: TextStyle(
+                      color: context.colors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1094,11 +1095,11 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
 
           if (widget.devices.isEmpty) {
             items.add(
-              const PopupMenuItem<int>(
+              PopupMenuItem<int>(
                 enabled: false,
                 child: Text(
                   'No MIDI devices found',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: context.colors.textMuted),
                 ),
               ),
             );
@@ -1117,14 +1118,14 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                       Icon(
                         isSelected ? Icons.check : Icons.piano,
                         size: 18,
-                        color: isSelected ? const Color(0xFF00BCD4) : null,
+                        color: isSelected ? context.colors.accent : null,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           name,
                           style: TextStyle(
-                            color: isSelected ? const Color(0xFF00BCD4) : null,
+                            color: isSelected ? context.colors.accent : null,
                             fontWeight: isSelected ? FontWeight.w600 : null,
                           ),
                         ),
@@ -1133,12 +1134,12 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF363636),
+                            color: context.colors.elevated,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Default',
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                            style: TextStyle(fontSize: 10, color: context.colors.textMuted),
                           ),
                         ),
                     ],
@@ -1168,13 +1169,13 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: _isHovered
-                ? const Color(0xFF363636)
-                : const Color(0xFF2A2A2A),
+                ? context.colors.elevated
+                : context.colors.standard,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: widget.selectedIndex >= 0
-                  ? const Color(0xFF00BCD4).withValues(alpha: 0.5)
-                  : const Color(0xFF363636),
+                  ? context.colors.accent.withValues(alpha: 0.5)
+                  : context.colors.elevated,
             ),
           ),
           child: Row(
@@ -1184,16 +1185,16 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                 Icons.piano,
                 size: 14,
                 color: widget.selectedIndex >= 0
-                    ? const Color(0xFF00BCD4)
-                    : const Color(0xFF9E9E9E),
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
                 _selectedDeviceName,
                 style: TextStyle(
                   color: widget.selectedIndex >= 0
-                      ? const Color(0xFFE0E0E0)
-                      : const Color(0xFF9E9E9E),
+                      ? context.colors.textPrimary
+                      : context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1203,8 +1204,8 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                 Icons.arrow_drop_down,
                 size: 16,
                 color: widget.selectedIndex >= 0
-                    ? const Color(0xFF00BCD4)
-                    : const Color(0xFF9E9E9E),
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
               ),
             ],
           ),
@@ -1268,12 +1269,12 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF2B2B2B),
+          color: context.colors.standard,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: widget.isRecording
-                ? const Color(0xFFFF0000)
-                : const Color(0xFFFF9800),
+                ? context.colors.recordActive
+                : context.colors.warning,
             width: 1,
           ),
         ),
@@ -1301,8 +1302,8 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
               widget.isCountingIn ? 'COUNT-IN' : 'REC',
               style: TextStyle(
                 color: widget.isRecording
-                    ? const Color(0xFFFF0000)
-                    : const Color(0xFFFF9800),
+                    ? context.colors.recordActive
+                    : context.colors.warning,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
@@ -1312,8 +1313,8 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
               const SizedBox(width: 8),
               Text(
                 _formatDuration(widget.playheadPosition),
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: context.colors.textPrimary,
                   fontSize: 11,
                   fontFamily: 'monospace',
                 ),
@@ -1406,8 +1407,8 @@ class _RecordButtonState extends State<_RecordButton> {
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
 
     final Color color = widget.isRecording || widget.isCountingIn
-        ? const Color(0xFFFF0000)
-        : const Color(0xFFE91E63);
+        ? context.colors.recordActive
+        : context.colors.error;
 
     String tooltip = widget.isRecording
         ? 'Stop Recording (R)'
@@ -1450,7 +1451,7 @@ class _RecordButtonState extends State<_RecordButton> {
               decoration: BoxDecoration(
                 color: isEnabled
                     ? color.withValues(alpha: _isHovered ? 0.9 : 0.7)
-                    : const Color(0xFF363636),
+                    : context.colors.elevated,
                 shape: BoxShape.circle,
                 boxShadow: _isHovered && isEnabled
                     ? [
@@ -1464,7 +1465,7 @@ class _RecordButtonState extends State<_RecordButton> {
               ),
               child: Icon(
                 Icons.fiber_manual_record,
-                color: isEnabled ? Colors.white : const Color(0xFF9E9E9E),
+                color: isEnabled ? context.colors.textPrimary : context.colors.textSecondary,
                 size: widget.size * 0.5,
               ),
             ),

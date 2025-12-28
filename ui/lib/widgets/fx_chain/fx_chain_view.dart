@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../effect_parameter_panel.dart';
 import '../../audio_engine.dart';
+import '../../theme/theme_extension.dart';
 import 'effect_card.dart';
 
 /// Horizontal FX chain view for the bottom panel.
@@ -118,7 +119,7 @@ class _FxChainViewState extends State<FxChainView> {
     }
 
     return Container(
-      color: const Color(0xFF1E1E1E),
+      color: context.colors.darkest,
       child: Column(
         children: [
           // Header
@@ -135,7 +136,7 @@ class _FxChainViewState extends State<FxChainView> {
 
   Widget _buildNoTrackSelected() {
     return Container(
-      color: const Color(0xFF1E1E1E),
+      color: context.colors.darkest,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -143,13 +144,13 @@ class _FxChainViewState extends State<FxChainView> {
             Icon(
               Icons.touch_app,
               size: 48,
-              color: Colors.grey[700],
+              color: context.colors.textMuted,
             ),
             const SizedBox(height: 16),
             Text(
               'Select a track to view effects',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: context.colors.textMuted,
                 fontSize: 14,
               ),
             ),
@@ -162,10 +163,10 @@ class _FxChainViewState extends State<FxChainView> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF252525),
+      decoration: BoxDecoration(
+        color: context.colors.standard,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF404040)),
+          bottom: BorderSide(color: context.colors.surface),
         ),
       ),
       child: Row(
@@ -174,13 +175,13 @@ class _FxChainViewState extends State<FxChainView> {
           Icon(
             Icons.tune,
             size: 16,
-            color: Colors.grey[500],
+            color: context.colors.textMuted,
           ),
           const SizedBox(width: 8),
           Text(
             widget.trackName ?? 'Track ${widget.selectedTrackId}',
-            style: const TextStyle(
-              color: Color(0xFFA0A0A0),
+            style: TextStyle(
+              color: context.colors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.bold,
             ),
@@ -189,7 +190,7 @@ class _FxChainViewState extends State<FxChainView> {
           Text(
             '— Effects',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: context.colors.textMuted,
               fontSize: 13,
             ),
           ),
@@ -207,22 +208,22 @@ class _FxChainViewState extends State<FxChainView> {
       onSelected: _addEffect,
       tooltip: 'Add effect',
       offset: const Offset(0, 30),
-      color: const Color(0xFF2B2B2B),
+      color: context.colors.standard,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF404040),
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.add, size: 16, color: Color(0xFFA0A0A0)),
-            SizedBox(width: 4),
+          children: [
+            Icon(Icons.add, size: 16, color: context.colors.textSecondary),
+            const SizedBox(width: 4),
             Text(
               'Add Effect',
               style: TextStyle(
-                color: Color(0xFFA0A0A0),
+                color: context.colors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -230,25 +231,25 @@ class _FxChainViewState extends State<FxChainView> {
         ),
       ),
       itemBuilder: (context) => [
-        _buildMenuItem('eq', Icons.equalizer, 'EQ'),
-        _buildMenuItem('compressor', Icons.compress, 'Compressor'),
-        _buildMenuItem('reverb', Icons.blur_on, 'Reverb'),
-        _buildMenuItem('delay', Icons.av_timer, 'Delay'),
-        _buildMenuItem('chorus', Icons.graphic_eq, 'Chorus'),
+        _buildMenuItem(context, 'eq', Icons.equalizer, 'EQ'),
+        _buildMenuItem(context, 'compressor', Icons.compress, 'Compressor'),
+        _buildMenuItem(context, 'reverb', Icons.blur_on, 'Reverb'),
+        _buildMenuItem(context, 'delay', Icons.av_timer, 'Delay'),
+        _buildMenuItem(context, 'chorus', Icons.graphic_eq, 'Chorus'),
       ],
     );
   }
 
-  PopupMenuItem<String> _buildMenuItem(String value, IconData icon, String label) {
+  PopupMenuItem<String> _buildMenuItem(BuildContext context, String value, IconData icon, String label) {
     return PopupMenuItem<String>(
       value: value,
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF4CAF50)),
+          Icon(icon, size: 16, color: context.colors.success),
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 13),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -263,13 +264,13 @@ class _FxChainViewState extends State<FxChainView> {
           Icon(
             Icons.graphic_eq,
             size: 48,
-            color: Colors.grey[700],
+            color: context.colors.textMuted,
           ),
           const SizedBox(height: 16),
           Text(
             'No effects',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: context.colors.textMuted,
               fontSize: 14,
             ),
           ),
@@ -277,7 +278,7 @@ class _FxChainViewState extends State<FxChainView> {
           Text(
             'Click "Add Effect" to get started',
             style: TextStyle(
-              color: Colors.grey[700],
+              color: context.colors.textMuted,
               fontSize: 12,
             ),
           ),
@@ -317,7 +318,7 @@ class _FxChainViewState extends State<FxChainView> {
           Icon(
             Icons.arrow_forward,
             size: 16,
-            color: Colors.grey[600],
+            color: context.colors.textMuted,
           ),
           const SizedBox(width: 8),
 
@@ -364,7 +365,7 @@ class _FxChainViewState extends State<FxChainView> {
                         Icon(
                           Icons.arrow_forward,
                           size: 16,
-                          color: Colors.grey[600],
+                          color: context.colors.textMuted,
                         ),
                         const SizedBox(width: 4),
                       ],
@@ -380,7 +381,7 @@ class _FxChainViewState extends State<FxChainView> {
           Icon(
             Icons.arrow_forward,
             size: 16,
-            color: Colors.grey[600],
+            color: context.colors.textMuted,
           ),
           const SizedBox(width: 8),
 
@@ -395,14 +396,14 @@ class _FxChainViewState extends State<FxChainView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF2B2B2B),
+        color: context.colors.standard,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF404040)),
+        border: Border.all(color: context.colors.surface),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF808080),
+        style: TextStyle(
+          color: context.colors.textMuted,
           fontSize: 10,
           fontWeight: FontWeight.bold,
           letterSpacing: 1,

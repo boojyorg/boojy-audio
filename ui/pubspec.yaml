@@ -54,6 +54,9 @@ dependencies:
   # Path manipulation
   path: ^1.9.0
 
+  # State management
+  provider: ^6.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

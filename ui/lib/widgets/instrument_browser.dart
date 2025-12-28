@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/theme_extension.dart';
 
 /// Simple instrument data model
 class Instrument {
@@ -140,7 +141,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
     }).toList();
 
     return Dialog(
-      backgroundColor: const Color(0xFF656565),
+      backgroundColor: context.colors.surface,
       child: Container(
         width: 500,
         height: 600,
@@ -151,16 +152,16 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             // Header
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.library_music,
-                  color: Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   size: 24,
                 ),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'Instrument Browser',
                   style: TextStyle(
-                    color: Color(0xFFA0A0A0),
+                    color: context.colors.textSecondary,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -168,7 +169,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  color: const Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -186,16 +187,16 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
               },
               decoration: InputDecoration(
                 hintText: 'Search instruments...',
-                hintStyle: const TextStyle(color: Color(0xFF808080)),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF808080)),
+                hintStyle: TextStyle(color: context.colors.textMuted),
+                prefixIcon: Icon(Icons.search, color: context.colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF505050),
+                fillColor: context.colors.hover,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
               ),
-              style: const TextStyle(color: Color(0xFFA0A0A0)),
+              style: TextStyle(color: context.colors.textSecondary),
             ),
 
             const SizedBox(height: 16),
@@ -218,7 +219,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF505050),
+                  color: context.colors.hover,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: filteredInstruments.isEmpty
@@ -226,7 +227,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                         child: Text(
                           'No instruments found',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: context.colors.textMuted,
                             fontSize: 14,
                           ),
                         ),
@@ -247,7 +248,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             Text(
               'Double-click an instrument to select it',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: context.colors.textMuted,
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
@@ -271,13 +272,13 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             _selectedCategory = selected ? category : null;
           });
         },
-        backgroundColor: const Color(0xFF606060),
-        selectedColor: const Color(0xFF4CAF50),
+        backgroundColor: context.colors.hover,
+        selectedColor: context.colors.success,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xFFA0A0A0),
+          color: isSelected ? context.colors.textPrimary : context.colors.textSecondary,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
-        checkmarkColor: Colors.white,
+        checkmarkColor: context.colors.textPrimary,
       ),
     );
   }
@@ -292,7 +293,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
           width: 200,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF4CAF50),
+            color: context.colors.success,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -300,15 +301,15 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             children: [
               Icon(
                 instrument.icon,
-                color: Colors.white,
+                color: context.colors.textPrimary,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   instrument.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -323,10 +324,10 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
         opacity: 0.5,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: Color(0xFF606060),
+                color: context.colors.hover,
                 width: 1,
               ),
             ),
@@ -338,12 +339,12 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                  color: context.colors.success.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   instrument.icon,
-                  color: const Color(0xFF4CAF50),
+                  color: context.colors.success,
                   size: 24,
                 ),
               ),
@@ -354,8 +355,8 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                   children: [
                     Text(
                       instrument.name,
-                      style: const TextStyle(
-                        color: Color(0xFFA0A0A0),
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -363,17 +364,17 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                     const SizedBox(height: 4),
                     Text(
                       instrument.category,
-                      style: const TextStyle(
-                        color: Color(0xFF808080),
+                      style: TextStyle(
+                        color: context.colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: Color(0xFF808080),
+                color: context.colors.textMuted,
                 size: 20,
               ),
             ],
@@ -390,10 +391,10 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
         },
         child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Color(0xFF606060),
+              color: context.colors.hover,
               width: 1,
             ),
           ),
@@ -405,12 +406,12 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                color: context.colors.success.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 instrument.icon,
-                color: const Color(0xFF4CAF50),
+                color: context.colors.success,
                 size: 24,
               ),
             ),
@@ -424,8 +425,8 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                 children: [
                   Text(
                     instrument.name,
-                    style: const TextStyle(
-                      color: Color(0xFFA0A0A0),
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -433,8 +434,8 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                   const SizedBox(height: 4),
                   Text(
                     instrument.category,
-                    style: const TextStyle(
-                      color: Color(0xFF808080),
+                    style: TextStyle(
+                      color: context.colors.textMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -443,9 +444,9 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             ),
 
             // Arrow icon
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: Color(0xFF808080),
+              color: context.colors.textMuted,
               size: 20,
             ),
           ],

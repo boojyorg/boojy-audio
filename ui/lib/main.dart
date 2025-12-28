@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'screens/daw_screen.dart';
-import 'utils/app_colors.dart';
+import 'theme/theme_provider.dart';
 
 void main() {
-  runApp(const BoojyAudioApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const BoojyAudioApp(),
+    ),
+  );
 }
 
 class BoojyAudioApp extends StatelessWidget {
@@ -11,20 +17,23 @@ class BoojyAudioApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final colors = themeProvider.colors;
+
     return MaterialApp(
       title: 'Boojy Audio',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.background,
-          brightness: Brightness.dark,
+          seedColor: colors.standard,
+          brightness: themeProvider.isDark ? Brightness.dark : Brightness.light,
         ).copyWith(
-          primary: AppColors.primary,
-          surface: AppColors.background,
+          primary: colors.accent,
+          surface: colors.standard,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.background,
-        popupMenuTheme: const PopupMenuThemeData(
-          color: AppColors.divider,
+        scaffoldBackgroundColor: colors.standard,
+        popupMenuTheme: PopupMenuThemeData(
+          color: colors.elevated,
         ),
       ),
       home: const DAWScreen(),

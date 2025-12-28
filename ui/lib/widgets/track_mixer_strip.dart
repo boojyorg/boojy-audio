@@ -3,6 +3,7 @@ import '../audio_engine.dart';
 import 'instrument_browser.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
+import '../theme/theme_extension.dart';
 import '../utils/track_colors.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
@@ -159,7 +160,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Get background color for right box - consistent grey like master track
   Color _getTintedBackground() {
-    return const Color(0xFF2D2D2D);
+    return context.colors.elevated;
   }
 
   @override
@@ -191,12 +192,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     // Ableton-style selection: brighter background and thicker border when selected
                     // M10: Highlight when VST3 plugin is being dragged over
                     color: isHovered
-                        ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
-                        : (widget.isSelected ? const Color(0xFF363636) : const Color(0xFF242424)),
+                        ? context.colors.accent.withValues(alpha: 0.2)
+                        : (widget.isSelected ? context.colors.elevated : context.colors.standard),
                     border: Border.all(
                       color: isHovered
-                          ? const Color(0xFF00BCD4)
-                          : (widget.isSelected ? (widget.trackColor ?? const Color(0xFF00BCD4)) : const Color(0xFF363636)),
+                          ? context.colors.accent
+                          : (widget.isSelected ? (widget.trackColor ?? context.colors.accent) : context.colors.elevated),
                       width: isHovered ? 2 : (widget.isSelected ? 3 : 1),
                     ),
                   ),
@@ -205,7 +206,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       // Left section: Colored track name area (Ableton style)
                       Container(
                         width: 120,
-                        color: widget.trackColor ?? const Color(0xFF363636),
+                        color: widget.trackColor ?? context.colors.elevated,
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         child: _buildTrackNameSection(),
                       ),
@@ -224,13 +225,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1A1A1A),
+                                      color: context.colors.darkest,
                                       borderRadius: BorderRadius.circular(3),
                                     ),
                                     child: Text(
                                       '${widget.volumeDb.toStringAsFixed(1)} dB',
-                                      style: const TextStyle(
-                                        color: Color(0xFF9E9E9E),
+                                      style: TextStyle(
+                                        color: context.colors.textSecondary,
                                         fontSize: 10,
                                         fontFamily: 'monospace',
                                       ),
@@ -329,13 +330,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         position.dy,
       ),
       items: [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'rename',
           child: Row(
             children: [
-              Icon(Icons.edit, size: 16, color: Color(0xFFE0E0E0)),
-              SizedBox(width: 8),
-              Text('Rename', style: TextStyle(color: Color(0xFFE0E0E0))),
+              Icon(Icons.edit, size: 16, color: context.colors.textPrimary),
+              const SizedBox(width: 8),
+              Text('Rename', style: TextStyle(color: context.colors.textPrimary)),
             ],
           ),
         ),
@@ -347,33 +348,33 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: widget.trackColor ?? const Color(0xFF90A4AE),
+                  color: widget.trackColor ?? context.colors.textSecondary,
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: const Color(0xFF505050)),
+                  border: Border.all(color: context.colors.hover),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('Change Color', style: TextStyle(color: Color(0xFFE0E0E0))),
+              Text('Change Color', style: TextStyle(color: context.colors.textPrimary)),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'duplicate',
           child: Row(
             children: [
-              Icon(Icons.content_copy, size: 16, color: Color(0xFFE0E0E0)),
-              SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: Color(0xFFE0E0E0))),
+              Icon(Icons.content_copy, size: 16, color: context.colors.textPrimary),
+              const SizedBox(width: 8),
+              Text('Duplicate', style: TextStyle(color: context.colors.textPrimary)),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 16, color: Color(0xFFFF5722)),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Color(0xFFFF5722))),
+              Icon(Icons.delete, size: 16, color: context.colors.error),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: context.colors.error)),
             ],
           ),
         ),
@@ -396,18 +397,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   void _showColorPicker(BuildContext context, Offset position) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: const Color(0xFF2A2A2A),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: dialogContext.colors.standard,
         child: Container(
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Track Color',
                 style: TextStyle(
-                  color: Color(0xFFE0E0E0),
+                  color: dialogContext.colors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -428,7 +429,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         child: GestureDetector(
                           onTap: () {
                             widget.onColorChanged?.call(color);
-                            Navigator.of(context).pop();
+                            Navigator.of(dialogContext).pop();
                           },
                           child: Container(
                             width: 32,
@@ -438,8 +439,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF505050),
+                                    ? dialogContext.colors.textPrimary
+                                    : dialogContext.colors.hover,
                                 width: isSelected ? 2 : 1,
                               ),
                               boxShadow: isSelected
@@ -469,7 +470,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         child: GestureDetector(
                           onTap: () {
                             widget.onColorChanged?.call(color);
-                            Navigator.of(context).pop();
+                            Navigator.of(dialogContext).pop();
                           },
                           child: Container(
                             width: 32,
@@ -479,8 +480,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF505050),
+                                    ? dialogContext.colors.textPrimary
+                                    : dialogContext.colors.hover,
                                 width: isSelected ? 2 : 1,
                               ),
                               boxShadow: isSelected
@@ -624,11 +625,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           ),
           decoration: BoxDecoration(
             color: hasInstrument
-                ? const Color(0xFF00BCD4).withValues(alpha: 0.15)
+                ? context.colors.accent.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: hasInstrument
-                ? Border.all(color: const Color(0xFF00BCD4).withValues(alpha: 0.5))
+                ? Border.all(color: context.colors.accent.withValues(alpha: 0.5))
                 : null,
           ),
           child: Row(
@@ -637,8 +638,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               if (hasInstrument) ...[
                 Text(
                   widget.instrumentData!.type,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 9,
                     fontWeight: FontWeight.w500,
                   ),
@@ -647,13 +648,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 Icon(
                   Icons.add,
                   size: 10,
-                  color: Colors.black.withValues(alpha: 0.4),
+                  color: context.colors.darkest.withValues(alpha: 0.4),
                 ),
                 const SizedBox(width: 2),
                 Text(
                   'Instrument',
                   style: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: context.colors.darkest.withValues(alpha: 0.4),
                     fontSize: 8,
                   ),
                 ),
@@ -672,16 +673,16 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return Row(
       children: [
         // Mute button
-        _buildControlButton('M', widget.isMuted, const Color(0xFFFF5722), widget.onMuteToggle),
+        _buildControlButton('M', widget.isMuted, context.colors.error, widget.onMuteToggle),
         const SizedBox(width: 4),
         // Solo button
-        _buildControlButton('S', widget.isSoloed, const Color(0xFFFFC107), widget.onSoloToggle),
+        _buildControlButton('S', widget.isSoloed, context.colors.warning, widget.onSoloToggle),
         const SizedBox(width: 4),
         // Record arm button (only for audio/midi tracks)
         _buildControlButton(
           'R',
           widget.isArmed,
-          const Color(0xFFFF0000), // Bright red when armed
+          context.colors.recordActive, // Bright red when armed
           canArm ? widget.onArmToggle : null,
         ),
       ],
@@ -695,10 +696,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? activeColor : const Color(0xFF3a3a3a), // Dark grey when inactive
+          backgroundColor: isActive ? activeColor : context.colors.surface, // Dark grey when inactive
           foregroundColor: isActive
-              ? (label == 'S' ? Colors.black : Colors.white)
-              : const Color(0xFF9E9E9E), // Grey text when inactive
+              ? (label == 'S' ? context.colors.darkest : context.colors.textPrimary)
+              : context.colors.textSecondary, // Grey text when inactive
           padding: EdgeInsets.zero,
           minimumSize: const Size(22, 22),
           textStyle: const TextStyle(
@@ -776,13 +777,13 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
             width: 380,
             height: widget.trackHeight,
             margin: const EdgeInsets.only(bottom: 4),
-            decoration: const BoxDecoration(
-              color: Color(0xFF242424),
+            decoration: BoxDecoration(
+              color: context.colors.standard,
               border: Border(
-                left: BorderSide(color: Color(0xFF4CAF50), width: 4),
-                top: BorderSide(color: Color(0xFF4CAF50), width: 2),
-                right: BorderSide(color: Color(0xFF4CAF50), width: 2),
-                bottom: BorderSide(color: Color(0xFF4CAF50), width: 2),
+                left: BorderSide(color: context.colors.success, width: 4),
+                top: BorderSide(color: context.colors.success, width: 2),
+                right: BorderSide(color: context.colors.success, width: 2),
+                bottom: BorderSide(color: context.colors.success, width: 2),
               ),
             ),
             child: Row(
@@ -790,20 +791,20 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                 // Left section: Master label
                 Container(
                   width: 120,
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                  color: context.colors.success.withValues(alpha: 0.2),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Text('🎚️', style: TextStyle(fontSize: 16)),
-                          SizedBox(width: 6),
+                          const Text('🎚️', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: 6),
                           Text(
                             'MASTER',
                             style: TextStyle(
-                              color: Color(0xFFE0E0E0),
+                              color: context.colors.textPrimary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
@@ -816,19 +817,19 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF363636),
+                          color: context.colors.elevated,
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFF4CAF50)),
+                          border: Border.all(color: context.colors.success),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.security, size: 10, color: Color(0xFF4CAF50)),
-                            SizedBox(width: 4),
+                            Icon(Icons.security, size: 10, color: context.colors.success),
+                            const SizedBox(width: 4),
                             Text(
                               'LIMITER',
                               style: TextStyle(
-                                color: Color(0xFF4CAF50),
+                                color: context.colors.success,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -843,7 +844,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                 // Right section: Controls
                 Expanded(
                   child: Container(
-                    color: const Color(0xFF2D2D2D),
+                    color: context.colors.elevated,
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Column(
                       children: [
@@ -854,13 +855,13 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1A1A1A),
+                                color: context.colors.darkest,
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: Text(
                                 '${widget.volumeDb.toStringAsFixed(1)} dB',
-                                style: const TextStyle(
-                                  color: Color(0xFF9E9E9E),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
                                   fontSize: 10,
                                   fontFamily: 'monospace',
                                 ),

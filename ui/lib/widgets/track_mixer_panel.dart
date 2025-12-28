@@ -8,6 +8,7 @@ import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import 'platform_drop_target.dart';
+import '../theme/theme_extension.dart';
 
 /// Track data model
 class TrackData {
@@ -281,9 +282,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   void _createTrack(String type) async {
     if (widget.audioEngine == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Audio engine not ready'),
-          backgroundColor: Color(0xFFFF5722),
+        SnackBar(
+          content: const Text('Audio engine not ready'),
+          backgroundColor: context.colors.error,
         ),
       );
       return;
@@ -310,9 +311,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       // Show error to user when track creation fails
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to create track - please try again'),
-            backgroundColor: Color(0xFFFF5722),
+          SnackBar(
+            content: const Text('Failed to create track - please try again'),
+            backgroundColor: context.colors.error,
           ),
         );
       }
@@ -337,20 +338,20 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         PopupMenuItem<String>(
           value: 'audio',
           child: Row(
-            children: const [
-              Icon(Icons.audiotrack, size: 18, color: Color(0xFF202020)),
-              SizedBox(width: 12),
-              Text('Audio Track', style: TextStyle(fontSize: 14)),
+            children: [
+              Icon(Icons.audiotrack, size: 18, color: context.colors.darkest),
+              const SizedBox(width: 12),
+              const Text('Audio Track', style: TextStyle(fontSize: 14)),
             ],
           ),
         ),
         PopupMenuItem<String>(
           value: 'midi',
           child: Row(
-            children: const [
-              Icon(Icons.piano, size: 18, color: Color(0xFF202020)),
-              SizedBox(width: 12),
-              Text('MIDI Track', style: TextStyle(fontSize: 14)),
+            children: [
+              Icon(Icons.piano, size: 18, color: context.colors.darkest),
+              const SizedBox(width: 12),
+              const Text('MIDI Track', style: TextStyle(fontSize: 14)),
             ],
           ),
         ),
@@ -447,17 +448,17 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       child: Container(
         width: 380,
         decoration: BoxDecoration(
-          color: const Color(0xFF242424),
+          color: context.colors.standard,
           border: Border(
-            left: const BorderSide(color: Color(0xFF363636)),
+            left: BorderSide(color: context.colors.elevated),
             top: _isAudioFileDragging
-                ? const BorderSide(color: Color(0xFF4CAF50), width: 3)
+                ? BorderSide(color: context.colors.success, width: 3)
                 : BorderSide.none,
             bottom: _isAudioFileDragging
-                ? const BorderSide(color: Color(0xFF4CAF50), width: 3)
+                ? BorderSide(color: context.colors.success, width: 3)
                 : BorderSide.none,
             right: _isAudioFileDragging
-                ? const BorderSide(color: Color(0xFF4CAF50), width: 3)
+                ? BorderSide(color: context.colors.success, width: 3)
                 : BorderSide.none,
           ),
         ),
@@ -480,27 +481,27 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             if (_isAudioFileDragging)
               Positioned.fill(
                 child: Container(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                  color: context.colors.success.withValues(alpha: 0.1),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50),
+                        color: context.colors.success,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.add_circle_outline,
-                            color: Colors.white,
+                            color: context.colors.textPrimary,
                             size: 20,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'Drop to create Audio track',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: context.colors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -521,10 +522,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     return Container(
       height: 30, // Match timeline ruler height
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF363636),
+      decoration: BoxDecoration(
+        color: context.colors.elevated,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF363636)),
+          bottom: BorderSide(color: context.colors.elevated),
         ),
       ),
       child: Row(
@@ -541,9 +542,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   width: 24,
                   height: 24,
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.chevron_right,
-                    color: Color(0xFFE0E0E0),
+                    color: context.colors.textPrimary,
                     size: 18,
                   ),
                 ),
@@ -551,16 +552,16 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(
+          Icon(
             Icons.tune,
-            color: Color(0xFFE0E0E0),
+            color: context.colors.textPrimary,
             size: 16,
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'TRACK MIXER',
             style: TextStyle(
-              color: Color(0xFFE0E0E0),
+              color: context.colors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -571,8 +572,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             color: widget.isEngineReady
-                ? const Color(0xFFE0E0E0)
-                : const Color(0xFF505050),
+                ? context.colors.textPrimary
+                : context.colors.textMuted,
             iconSize: 18,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -594,13 +595,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           Icon(
             Icons.audio_file_outlined,
             size: 48,
-            color: Colors.grey[700],
+            color: context.colors.textMuted,
           ),
           const SizedBox(height: 16),
           Text(
             'No tracks yet',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: context.colors.textMuted,
               fontSize: 16,
             ),
           ),
@@ -608,7 +609,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           Text(
             'Create a track to get started',
             style: TextStyle(
-              color: Colors.grey[700],
+              color: context.colors.textMuted,
               fontSize: 13,
             ),
           ),

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../services/user_settings.dart';
 import '../services/auto_save_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/theme_extension.dart';
+import '../theme/theme_provider.dart';
 
 /// Settings dialog for configuring user preferences
 class SettingsDialog extends StatefulWidget {
@@ -23,6 +27,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   final _settings = UserSettings();
   late int _undoLimit;
   late int _autoSaveMinutes;
+  late BoojyTheme _selectedTheme;
   final _undoController = TextEditingController();
 
   @override
@@ -31,6 +36,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
     _undoLimit = _settings.undoLimit;
     _autoSaveMinutes = _settings.autoSaveMinutes;
     _undoController.text = _undoLimit.toString();
+    // Get current theme from provider
+    _selectedTheme = BoojyThemeExtension.fromKey(_settings.theme);
   }
 
   @override
@@ -49,6 +56,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
     // Apply settings
     _settings.undoLimit = _undoLimit;
     _settings.autoSaveMinutes = _autoSaveMinutes;
+    _settings.theme = _selectedTheme.key;
+
+    // Apply theme to provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    themeProvider.setTheme(_selectedTheme);
 
     // Restart auto-save with new settings
     AutoSaveService().restart();
@@ -63,9 +75,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: Container(
         width: 400,
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: context.colors.standard,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF404040)),
+          border: Border.all(color: context.colors.divider),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -80,30 +92,30 @@ class _SettingsDialogState extends State<SettingsDialog> {
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFF404040)),
+                  bottom: BorderSide(color: context.colors.divider),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.settings,
-                    color: Color(0xFF00BCD4),
+                    color: context.colors.accent,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Settings',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                    icon: Icon(Icons.close, color: context.colors.textSecondary),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close (Esc)',
                   ),
@@ -117,6 +129,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Appearance Section
+                  _buildSectionHeader('Appearance'),
+                  const SizedBox(height: 12),
+                  _buildThemeDropdown(),
+
+                  const SizedBox(height: 24),
+
                   // Undo History Section
                   _buildSectionHeader('Undo History'),
                   const SizedBox(height: 12),
@@ -135,9 +154,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
             // Footer
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Color(0xFF404040)),
+                  top: BorderSide(color: context.colors.divider),
                 ),
               ),
               child: Row(
@@ -145,16 +164,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(color: Color(0xFF9E9E9E)),
+                      style: TextStyle(color: context.colors.textSecondary),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: _saveSettings,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BCD4),
+                      backgroundColor: context.colors.accent,
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('Save Settings'),
@@ -171,8 +190,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFF00BCD4),
+      style: TextStyle(
+        color: context.colors.accent,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
@@ -183,10 +202,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
   Widget _buildUndoLimitField() {
     return Row(
       children: [
-        const Text(
+        Text(
           'Maximum undo steps:',
           style: TextStyle(
-            color: Color(0xFFE0E0E0),
+            color: context.colors.textPrimary,
             fontSize: 14,
           ),
         ),
@@ -197,8 +216,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
             controller: _undoController,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.colors.textPrimary,
               fontSize: 14,
             ),
             decoration: InputDecoration(
@@ -207,18 +226,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 vertical: 8,
               ),
               filled: true,
-              fillColor: const Color(0xFF363636),
+              fillColor: context.colors.elevated,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF505050)),
+                borderSide: BorderSide(color: context.colors.hover),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF505050)),
+                borderSide: BorderSide(color: context.colors.hover),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF00BCD4)),
+                borderSide: BorderSide(color: context.colors.accent),
               ),
             ),
             onChanged: (value) {
@@ -232,11 +251,56 @@ class _SettingsDialogState extends State<SettingsDialog> {
           ),
         ),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           '(10-500)',
           style: TextStyle(
-            color: Color(0xFF808080),
+            color: context.colors.textMuted,
             fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThemeDropdown() {
+    return Row(
+      children: [
+        Text(
+          'Theme:',
+          style: TextStyle(
+            color: context.colors.textPrimary,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: context.colors.elevated,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: context.colors.hover),
+          ),
+          child: DropdownButton<BoojyTheme>(
+            value: _selectedTheme,
+            dropdownColor: context.colors.elevated,
+            underline: const SizedBox(),
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 14,
+            ),
+            items: BoojyTheme.values.map((theme) {
+              return DropdownMenuItem<BoojyTheme>(
+                value: theme,
+                child: Text(theme.displayName),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _selectedTheme = value;
+                });
+              }
+            },
           ),
         ),
       ],
@@ -246,10 +310,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
   Widget _buildAutoSaveDropdown() {
     return Row(
       children: [
-        const Text(
+        Text(
           'Save every:',
           style: TextStyle(
-            color: Color(0xFFE0E0E0),
+            color: context.colors.textPrimary,
             fontSize: 14,
           ),
         ),
@@ -257,16 +321,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF363636),
+            color: context.colors.elevated,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF505050)),
+            border: Border.all(color: context.colors.hover),
           ),
           child: DropdownButton<int>(
             value: _autoSaveMinutes,
-            dropdownColor: const Color(0xFF363636),
+            dropdownColor: context.colors.elevated,
             underline: const SizedBox(),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.colors.textPrimary,
               fontSize: 14,
             ),
             items: UserSettings.autoSaveOptions.map((option) {
@@ -328,9 +392,9 @@ class RecoveryDialog extends StatelessWidget {
       child: Container(
         width: 400,
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: context.colors.standard,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF404040)),
+          border: Border.all(color: context.colors.divider),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -345,22 +409,22 @@ class RecoveryDialog extends StatelessWidget {
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF3A3A3A),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.restore,
-                    color: Color(0xFFFF9800),
+                    color: context.colors.warning,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Recover Unsaved Work?',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -375,10 +439,10 @@ class RecoveryDialog extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'It looks like the app closed unexpectedly. A backup of your work was found:',
                     style: TextStyle(
-                      color: Color(0xFFE0E0E0),
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                     ),
                   ),
@@ -386,22 +450,22 @@ class RecoveryDialog extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF363636),
+                      color: context.colors.elevated,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF505050)),
+                      border: Border.all(color: context.colors.hover),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.access_time,
-                          color: Color(0xFF9E9E9E),
+                          color: context.colors.textSecondary,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Saved at: $_formattedDate',
-                          style: const TextStyle(
-                            color: Color(0xFFE0E0E0),
+                          style: TextStyle(
+                            color: context.colors.textPrimary,
                             fontSize: 13,
                           ),
                         ),
@@ -409,10 +473,10 @@ class RecoveryDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Would you like to recover this backup?',
                     style: TextStyle(
-                      color: Color(0xFFE0E0E0),
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                     ),
                   ),
@@ -423,9 +487,9 @@ class RecoveryDialog extends StatelessWidget {
             // Footer
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Color(0xFF404040)),
+                  top: BorderSide(color: context.colors.divider),
                 ),
               ),
               child: Row(
@@ -433,16 +497,16 @@ class RecoveryDialog extends StatelessWidget {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text(
+                    child: Text(
                       'Start Fresh',
-                      style: TextStyle(color: Color(0xFF9E9E9E)),
+                      style: TextStyle(color: context.colors.textSecondary),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF9800),
+                      backgroundColor: context.colors.warning,
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('Recover Backup'),

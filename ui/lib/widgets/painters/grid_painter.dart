@@ -9,6 +9,14 @@ class GridPainter extends CustomPainter {
   final double totalBeats;
   final double activeBeats; // Active region boundary
 
+  // Theme-aware colors (passed from widget with BuildContext)
+  final Color blackKeyBackground;
+  final Color whiteKeyBackground;
+  final Color separatorLine;
+  final Color subdivisionGridLine;
+  final Color beatGridLine;
+  final Color barGridLine;
+
   GridPainter({
     required this.pixelsPerBeat,
     required this.pixelsPerNote,
@@ -16,6 +24,12 @@ class GridPainter extends CustomPainter {
     required this.maxMidiNote,
     required this.totalBeats,
     required this.activeBeats,
+    required this.blackKeyBackground,
+    required this.whiteKeyBackground,
+    required this.separatorLine,
+    required this.subdivisionGridLine,
+    required this.beatGridLine,
+    required this.barGridLine,
   });
 
   @override
@@ -25,9 +39,9 @@ class GridPainter extends CustomPainter {
       final y = (maxMidiNote - note) * pixelsPerNote;
       final isBlackKey = _isBlackKey(note);
 
-      // Draw background color (dark theme to match DAW UI)
+      // Draw background color (theme-aware)
       final bgPaint = Paint()
-        ..color = isBlackKey ? const Color(0xFF242424) : const Color(0xFF363636);
+        ..color = isBlackKey ? blackKeyBackground : whiteKeyBackground;
 
       canvas.drawRect(
         Rect.fromLTWH(0, y, size.width, pixelsPerNote),
@@ -36,24 +50,24 @@ class GridPainter extends CustomPainter {
 
       // Draw horizontal separator line
       final linePaint = Paint()
-        ..color = const Color(0xFF333333) // Subtle dark line
+        ..color = separatorLine
         ..strokeWidth = 0.5;
 
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
     }
 
     // STEP 2: Draw vertical grid lines ON TOP (so they're visible)
-    // Dark theme grid colors
+    // Theme-aware grid colors
     final subdivisionPaint = Paint()
-      ..color = const Color(0xFF404040) // Dark grey for 16th note lines
+      ..color = subdivisionGridLine
       ..strokeWidth = 1.0;
 
     final beatPaint = Paint()
-      ..color = const Color(0xFF505050) // Medium grey for beats
+      ..color = beatGridLine
       ..strokeWidth = 1.5;
 
     final barPaint = Paint()
-      ..color = const Color(0xFF606060) // Lighter grey for bars
+      ..color = barGridLine
       ..strokeWidth = 2.5;
 
     // Vertical lines (beats and bars)
@@ -81,6 +95,12 @@ class GridPainter extends CustomPainter {
         pixelsPerNote != oldDelegate.pixelsPerNote ||
         gridDivision != oldDelegate.gridDivision ||
         totalBeats != oldDelegate.totalBeats ||
-        activeBeats != oldDelegate.activeBeats;
+        activeBeats != oldDelegate.activeBeats ||
+        blackKeyBackground != oldDelegate.blackKeyBackground ||
+        whiteKeyBackground != oldDelegate.whiteKeyBackground ||
+        separatorLine != oldDelegate.separatorLine ||
+        subdivisionGridLine != oldDelegate.subdivisionGridLine ||
+        beatGridLine != oldDelegate.beatGridLine ||
+        barGridLine != oldDelegate.barGridLine;
   }
 }

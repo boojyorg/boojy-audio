@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/user_settings.dart';
+import '../theme/app_colors.dart';
+import '../theme/theme_extension.dart';
+import '../theme/theme_provider.dart';
 
 /// Unified app-wide settings dialog
 ///
@@ -24,10 +28,18 @@ class AppSettingsDialog extends StatefulWidget {
 }
 
 class _AppSettingsDialogState extends State<AppSettingsDialog> {
+  late BoojyTheme _selectedTheme;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTheme = BoojyThemeExtension.fromKey(widget.settings.theme);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: context.colors.darkest,
       child: Container(
         width: 600,
         height: 500,
@@ -39,16 +51,16 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Settings',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                  icon: Icon(Icons.close, color: context.colors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -62,6 +74,12 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // APPEARANCE section
+                    _buildSectionHeader('APPEARANCE'),
+                    const SizedBox(height: 12),
+                    _buildAppearanceSettings(),
+                    const SizedBox(height: 24),
+
                     // AUDIO section
                     _buildSectionHeader('AUDIO'),
                     const SizedBox(height: 12),
@@ -97,8 +115,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFF7FD4A0),
-                  foregroundColor: Colors.black,
+                  backgroundColor: context.colors.accent,
+                  foregroundColor: context.colors.darkest,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: const Text('Close'),
@@ -116,8 +134,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF7FD4A0),
+          style: TextStyle(
+            color: context.colors.accent,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
@@ -126,7 +144,60 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         const SizedBox(height: 8),
         Container(
           height: 1,
-          color: const Color(0xFF363636),
+          color: context.colors.elevated,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAppearanceSettings() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Theme',
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: context.colors.standard,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: context.colors.elevated),
+            ),
+            child: DropdownButton<BoojyTheme>(
+              value: _selectedTheme,
+              isExpanded: true,
+              underline: Container(),
+              dropdownColor: context.colors.standard,
+              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+              items: BoojyTheme.values.map((theme) {
+                return DropdownMenuItem<BoojyTheme>(
+                  value: theme,
+                  child: Text(theme.displayName),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedTheme = value;
+                  });
+                  // Save to settings
+                  widget.settings.theme = value.key;
+                  // Apply theme immediately
+                  final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+                  themeProvider.setTheme(value);
+                }
+              },
+            ),
+          ),
         ),
       ],
     );
@@ -176,11 +247,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'MIDI Input',
                 style: TextStyle(
-                  color: Color(0xFFE0E0E0),
+                  color: context.colors.textPrimary,
                   fontSize: 14,
                 ),
               ),
@@ -191,14 +262,14 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: context.colors.standard,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFF363636)),
+                  border: Border.all(color: context.colors.elevated),
                 ),
-                child: const Text(
+                child: Text(
                   'All Devices',
                   style: TextStyle(
-                    color: Color(0xFF9E9E9E),
+                    color: context.colors.textSecondary,
                     fontSize: 14,
                   ),
                 ),
@@ -207,10 +278,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'MIDI device selection is handled in the transport bar',
           style: TextStyle(
-            color: Color(0xFF616161),
+            color: context.colors.textMuted,
             fontSize: 12,
           ),
         ),
@@ -236,21 +307,21 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   }
                 });
               },
-              activeColor: const Color(0xFF7FD4A0),
+              activeColor: context.colors.accent,
             ),
-            const Text(
+            Text(
               'Auto-save',
               style: TextStyle(
-                color: Color(0xFFE0E0E0),
+                color: context.colors.textPrimary,
                 fontSize: 14,
               ),
             ),
             const SizedBox(width: 16),
             if (widget.settings.autoSaveMinutes > 0) ...[
-              const Text(
+              Text(
                 'Every',
                 style: TextStyle(
-                  color: Color(0xFF9E9E9E),
+                  color: context.colors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -259,16 +330,16 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 width: 80,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
+                  color: context.colors.standard,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFF363636)),
+                  border: Border.all(color: context.colors.elevated),
                 ),
                 child: DropdownButton<int>(
                   value: widget.settings.autoSaveMinutes,
                   isExpanded: true,
                   underline: Container(),
-                  dropdownColor: const Color(0xFF2A2A2A),
-                  style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
+                  dropdownColor: context.colors.standard,
+                  style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('1')),
                     DropdownMenuItem(value: 2, child: Text('2')),
@@ -286,10 +357,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'minutes',
                 style: TextStyle(
-                  color: Color(0xFF9E9E9E),
+                  color: context.colors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -344,8 +415,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFFE0E0E0),
+            style: TextStyle(
+              color: context.colors.textPrimary,
               fontSize: 14,
             ),
           ),
@@ -356,16 +427,16 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2A),
+              color: context.colors.standard,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF363636)),
+              border: Border.all(color: context.colors.elevated),
             ),
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
               underline: Container(),
-              dropdownColor: const Color(0xFF2A2A2A),
-              style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
+              dropdownColor: context.colors.standard,
+              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
               items: items.map((item) {
                 return DropdownMenuItem(
                   value: item,
@@ -392,7 +463,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Checkbox(
           value: value,
           onChanged: onChanged,
-          activeColor: const Color(0xFF7FD4A0),
+          activeColor: context.colors.accent,
         ),
         Expanded(
           child: Column(
@@ -401,8 +472,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               const SizedBox(height: 12),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
+                style: TextStyle(
+                  color: context.colors.textPrimary,
                   fontSize: 14,
                 ),
               ),
@@ -410,8 +481,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF616161),
+                  style: TextStyle(
+                    color: context.colors.textMuted,
                     fontSize: 12,
                   ),
                 ),

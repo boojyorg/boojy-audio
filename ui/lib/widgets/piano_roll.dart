@@ -5,6 +5,7 @@ import '../models/midi_note_data.dart';
 import '../audio_engine.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
+import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
 
 /// Interaction modes for piano roll
@@ -467,7 +468,7 @@ class _PianoRollState extends State<PianoRoll> {
           return KeyEventResult.handled;
         },
         child: Container(
-          color: const Color(0xFF242424), // Dark background
+          color: context.colors.standard, // Dark background
           child: Column(
             children: [
               _buildHeader(),
@@ -498,11 +499,11 @@ class _PianoRollState extends State<PianoRoll> {
               Container(
                 width: 60,
                 height: 30,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF363636),
+                decoration: BoxDecoration(
+                  color: context.colors.elevated,
                   border: Border(
-                    right: BorderSide(color: Color(0xFF363636), width: 1),
-                    bottom: BorderSide(color: Color(0xFF363636), width: 1),
+                    right: BorderSide(color: context.colors.elevated, width: 1),
+                    bottom: BorderSide(color: context.colors.elevated, width: 1),
                   ),
                 ),
               ),
@@ -533,10 +534,10 @@ class _PianoRollState extends State<PianoRoll> {
                       // Piano keys (no separate scroll - inside shared vertical scroll)
                       Container(
                         width: 60,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF363636),
+                        decoration: BoxDecoration(
+                          color: context.colors.elevated,
                           border: Border(
-                            right: BorderSide(color: Color(0xFF363636), width: 1),
+                            right: BorderSide(color: context.colors.elevated, width: 1),
                           ),
                         ),
                         child: Column(
@@ -636,6 +637,12 @@ class _PianoRollState extends State<PianoRoll> {
                                             maxMidiNote: _maxMidiNote,
                                             totalBeats: totalBeats,
                                             activeBeats: activeBeats,
+                                            blackKeyBackground: context.colors.standard,
+                                            whiteKeyBackground: context.colors.elevated,
+                                            separatorLine: context.colors.elevated,
+                                            subdivisionGridLine: context.colors.surface,
+                                            beatGridLine: context.colors.hover,
+                                            barGridLine: context.colors.textMuted,
                                           ),
                                         ),
                                         CustomPaint(
@@ -682,10 +689,10 @@ class _PianoRollState extends State<PianoRoll> {
   Widget _buildVelocityLane(double totalBeats, double canvasWidth) {
     return Container(
       height: _velocityLaneHeight,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+      decoration: BoxDecoration(
+        color: context.colors.darkest,
         border: Border(
-          top: BorderSide(color: Color(0xFF404040), width: 1),
+          top: BorderSide(color: context.colors.surface, width: 1),
         ),
       ),
       child: Row(
@@ -694,17 +701,17 @@ class _PianoRollState extends State<PianoRoll> {
           Container(
             width: 60,
             height: _velocityLaneHeight,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2A2A2A),
+            decoration: BoxDecoration(
+              color: context.colors.standard,
               border: Border(
-                right: BorderSide(color: Color(0xFF404040), width: 1),
+                right: BorderSide(color: context.colors.surface, width: 1),
               ),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'Vel',
                 style: TextStyle(
-                  color: Color(0xFF808080),
+                  color: context.colors.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -839,7 +846,7 @@ class _PianoRollState extends State<PianoRoll> {
               // Vertical line
               border: Border(
                 left: BorderSide(
-                  color: const Color(0xFFFF9800).withValues(alpha: 0.8), // Orange line
+                  color: context.colors.warning.withValues(alpha: 0.8), // Orange line
                   width: 2,
                 ),
               ),
@@ -849,20 +856,20 @@ class _PianoRollState extends State<PianoRoll> {
                 width: handleWidth,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF9800), // Orange handle
+                  color: context.colors.warning, // Orange handle
                   borderRadius: BorderRadius.circular(3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: context.colors.darkest.withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.drag_indicator,
                   size: 10,
-                  color: Colors.white,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ),
@@ -887,7 +894,7 @@ class _PianoRollState extends State<PianoRoll> {
           height: canvasHeight,
           child: CustomPaint(
             painter: _DashedLinePainter(
-              color: const Color(0xFF2196F3), // Blue color
+              color: context.colors.accent, // Accent color
               strokeWidth: 2,
               dashLength: 6,
               gapLength: 4,
@@ -902,24 +909,24 @@ class _PianoRollState extends State<PianoRoll> {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF363636), // Dark header
+      decoration: BoxDecoration(
+        color: context.colors.elevated, // Dark header
         border: Border(
-          bottom: BorderSide(color: Color(0xFF363636), width: 1),
+          bottom: BorderSide(color: context.colors.elevated, width: 1),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.piano_outlined,
-            color: Color(0xFFE0E0E0), // Light icon on dark background
+            color: context.colors.textPrimary, // Light icon on dark background
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
             'Piano Roll - ${widget.clipData?.name ?? "Unnamed Clip"}',
-            style: const TextStyle(
-              color: Color(0xFFE0E0E0), // Light text on dark background
+            style: TextStyle(
+              color: context.colors.textPrimary, // Light text on dark background
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -981,8 +988,8 @@ class _PianoRollState extends State<PianoRoll> {
           const SizedBox(width: 4),
           Text(
             '${_pixelsPerBeat.toInt()}px',
-            style: const TextStyle(
-              color: Color(0xFFE0E0E0), // Light text
+            style: TextStyle(
+              color: context.colors.textPrimary, // Light text
               fontSize: 11,
             ),
           ),
@@ -998,7 +1005,7 @@ class _PianoRollState extends State<PianoRoll> {
           // Close button
           IconButton(
             icon: const Icon(Icons.close),
-            color: const Color(0xFFE0E0E0), // Light icon
+            color: context.colors.textPrimary, // Light icon
             iconSize: 20,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1023,7 +1030,7 @@ class _PianoRollState extends State<PianoRoll> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF00BCD4) : const Color(0xFF333333), // Dark grey when inactive, cyan when active
+          color: isActive ? context.colors.accent : context.colors.dark, // Dark grey when inactive, accent when active
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -1032,14 +1039,14 @@ class _PianoRollState extends State<PianoRoll> {
             Icon(
               icon,
               size: 14,
-              color: isActive ? Colors.white : const Color(0xFFE0E0E0), // Light when inactive
+              color: isActive ? context.colors.textPrimary : context.colors.textPrimary, // Light when inactive
             ),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isActive ? Colors.white : const Color(0xFFE0E0E0), // Light when inactive
+                  color: isActive ? context.colors.textPrimary : context.colors.textPrimary, // Light when inactive
                   fontSize: 11,
                 ),
               ),
@@ -1055,34 +1062,34 @@ class _PianoRollState extends State<PianoRoll> {
     return PopupMenuButton<int>(
       tooltip: 'Quantize notes to grid',
       offset: const Offset(0, 40),
-      color: const Color(0xFF2A2A2A),
+      color: context.colors.standard,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF333333),
+          color: context.colors.dark,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Icon(
               Icons.align_horizontal_left,
               size: 14,
-              color: Color(0xFFE0E0E0),
+              color: context.colors.textPrimary,
             ),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text(
               'Quantize',
               style: TextStyle(
-                color: Color(0xFFE0E0E0),
+                color: context.colors.textPrimary,
                 fontSize: 11,
               ),
             ),
-            SizedBox(width: 2),
+            const SizedBox(width: 2),
             Icon(
               Icons.arrow_drop_down,
               size: 14,
-              color: Color(0xFFE0E0E0),
+              color: context.colors.textPrimary,
             ),
           ],
         ),
@@ -1090,22 +1097,22 @@ class _PianoRollState extends State<PianoRoll> {
       onSelected: (division) {
         _quantizeClip(division);
       },
-      itemBuilder: (context) => [
-        const PopupMenuItem<int>(
+      itemBuilder: (ctx) => [
+        PopupMenuItem<int>(
           value: 4,
-          child: Text('1/4 Note (Quarter)', style: TextStyle(color: Colors.white)),
+          child: Text('1/4 Note (Quarter)', style: TextStyle(color: context.colors.textPrimary)),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 8,
-          child: Text('1/8 Note (Eighth)', style: TextStyle(color: Colors.white)),
+          child: Text('1/8 Note (Eighth)', style: TextStyle(color: context.colors.textPrimary)),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 16,
-          child: Text('1/16 Note (Sixteenth)', style: TextStyle(color: Colors.white)),
+          child: Text('1/16 Note (Sixteenth)', style: TextStyle(color: context.colors.textPrimary)),
         ),
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 32,
-          child: Text('1/32 Note (Thirty-second)', style: TextStyle(color: Colors.white)),
+          child: Text('1/32 Note (Thirty-second)', style: TextStyle(color: context.colors.textPrimary)),
         ),
       ],
     );
@@ -1144,10 +1151,10 @@ class _PianoRollState extends State<PianoRoll> {
       height: _pixelsPerNote,
       decoration: BoxDecoration(
         // Dark theme piano keys - dark grey for black keys, medium grey for white keys
-        color: isBlackKey ? const Color(0xFF242424) : const Color(0xFF303030),
+        color: isBlackKey ? context.colors.standard : context.colors.elevated,
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFF404040), // Subtle border
+            color: context.colors.surface, // Subtle border
             width: 0.5,
           ),
         ),
@@ -1157,7 +1164,7 @@ class _PianoRollState extends State<PianoRoll> {
             ? Text(
                 noteName,
                 style: TextStyle(
-                  color: isBlackKey ? const Color(0xFF808080) : const Color(0xFFE0E0E0), // Light text on dark keys
+                  color: isBlackKey ? context.colors.textMuted : context.colors.textPrimary, // Light text on dark keys
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1214,10 +1221,10 @@ class _PianoRollState extends State<PianoRoll> {
         child: Container(
           height: 30,
           width: canvasWidth,
-          decoration: const BoxDecoration(
-            color: Color(0xFF363636), // Dark background
+          decoration: BoxDecoration(
+            color: context.colors.elevated, // Dark background
             border: Border(
-              bottom: BorderSide(color: Color(0xFF363636), width: 1),
+              bottom: BorderSide(color: context.colors.elevated, width: 1),
             ),
           ),
           child: CustomPaint(
@@ -2103,7 +2110,7 @@ class _PianoRollState extends State<PianoRoll> {
               const SizedBox(width: 8),
               Text('Delete $noteLabel'),
               const Spacer(),
-              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -2115,7 +2122,7 @@ class _PianoRollState extends State<PianoRoll> {
               const SizedBox(width: 8),
               Text('Duplicate $noteLabel'),
               const Spacer(),
-              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -2128,7 +2135,7 @@ class _PianoRollState extends State<PianoRoll> {
               const SizedBox(width: 8),
               Text('Cut $noteLabel'),
               const Spacer(),
-              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -2140,7 +2147,7 @@ class _PianoRollState extends State<PianoRoll> {
               const SizedBox(width: 8),
               Text('Copy $noteLabel'),
               const Spacer(),
-              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -2153,20 +2160,20 @@ class _PianoRollState extends State<PianoRoll> {
               const SizedBox(width: 8),
               const Text('Paste'),
               const Spacer(),
-              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'quantize',
           child: Row(
             children: [
-              Icon(Icons.grid_on, size: 18),
-              SizedBox(width: 8),
-              Text('Quantize'),
-              Spacer(),
-              Text('Q', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Icon(Icons.grid_on, size: 18),
+              const SizedBox(width: 8),
+              const Text('Quantize'),
+              const Spacer(),
+              Text('Q', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),

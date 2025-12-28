@@ -76,6 +76,9 @@ class UserSettings extends ChangeNotifier {
   static const String _keyMixerVisible = 'panel_mixer_visible';
   static const String _keyEditorVisible = 'panel_editor_visible';
 
+  // Appearance keys
+  static const String _keyTheme = 'theme';
+
   // Limits
   static const int maxRecentProjects = 20;
 
@@ -127,6 +130,9 @@ class UserSettings extends ChangeNotifier {
   bool _libraryCollapsed = false;
   bool _mixerVisible = true;
   bool _editorVisible = true;
+
+  // Appearance settings
+  String _theme = 'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -375,6 +381,20 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  // ========================================================================
+  // Appearance Settings
+  // ========================================================================
+
+  /// Current theme key: 'dark', 'highContrastDark', 'light', 'highContrastLight'
+  String get theme => _theme;
+  set theme(String value) {
+    if (_theme != value) {
+      _theme = value;
+      _saveAppearanceSettings();
+      notifyListeners();
+    }
+  }
+
   /// Convenience method to set auto-save minutes
   void setAutoSaveMinutes(int value) {
     autoSaveMinutes = value;
@@ -438,6 +458,9 @@ class UserSettings extends ChangeNotifier {
       _libraryCollapsed = _prefs?.getBool(_keyLibraryCollapsed) ?? false;
       _mixerVisible = _prefs?.getBool(_keyMixerVisible) ?? true;
       _editorVisible = _prefs?.getBool(_keyEditorVisible) ?? true;
+
+      // Load appearance settings
+      _theme = _prefs?.getString(_keyTheme) ?? 'dark';
 
       _isLoaded = true;
       notifyListeners();
@@ -553,6 +576,16 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setBool(_keyLibraryCollapsed, _libraryCollapsed);
       await _prefs!.setBool(_keyMixerVisible, _mixerVisible);
       await _prefs!.setBool(_keyEditorVisible, _editorVisible);
+    } catch (e) {
+    }
+  }
+
+  /// Save appearance settings to SharedPreferences
+  Future<void> _saveAppearanceSettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setString(_keyTheme, _theme);
     } catch (e) {
     }
   }

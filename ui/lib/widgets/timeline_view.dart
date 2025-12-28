@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:async';
 import 'package:cross_file/cross_file.dart';
 import '../audio_engine.dart';
+import '../theme/theme_extension.dart';
 import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
@@ -316,7 +317,7 @@ class TimelineViewState extends State<TimelineView> {
         startTime: startTime,
         duration: duration,
         waveformPeaks: peaks,
-        color: const Color(0xFF4CAF50),
+        color: context.colors.success,
       );
 
       setState(() {
@@ -586,7 +587,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Delete Clip'),
               const Spacer(),
-              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -598,7 +599,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Duplicate'),
               const Spacer(),
-              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -610,7 +611,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Split at Marker'),
               const Spacer(),
-              Text('⌘E', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘E', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -623,7 +624,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Cut'),
               const Spacer(),
-              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -635,7 +636,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Copy'),
               const Spacer(),
-              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -647,7 +648,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Paste'),
               const Spacer(),
-              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -738,7 +739,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Delete Clip'),
               const Spacer(),
-              Text('⌘⌫', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘⌫', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -750,7 +751,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Duplicate'),
               const Spacer(),
-              Text('⌘D', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘D', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -762,7 +763,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Split at Marker'),
               const Spacer(),
-              Text('⌘E', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘E', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -775,7 +776,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Cut'),
               const Spacer(),
-              Text('⌘X', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘X', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -787,7 +788,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Copy'),
               const Spacer(),
-              Text('⌘C', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘C', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -799,7 +800,7 @@ class TimelineViewState extends State<TimelineView> {
               const SizedBox(width: 8),
               const Text('Paste'),
               const Spacer(),
-              Text('⌘V', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),
@@ -1026,7 +1027,7 @@ class TimelineViewState extends State<TimelineView> {
                   color: color,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: clip.color == color ? Colors.white : Colors.transparent,
+                    color: clip.color == color ? this.context.colors.textPrimary : this.context.colors.dark,
                     width: 3,
                   ),
                 ),
@@ -1539,8 +1540,8 @@ class TimelineViewState extends State<TimelineView> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF242424),
-          border: Border.all(color: const Color(0xFF363636)),
+          color: context.colors.standard,
+          border: Border.all(color: context.colors.elevated),
         ),
         child: Stack(
         children: [
@@ -1644,11 +1645,11 @@ class TimelineViewState extends State<TimelineView> {
       // Show empty state only if no audio engine
       return Container(
         height: 200,
-        color: const Color(0xFF242424),
+        color: context.colors.standard,
         child: Center(
           child: Text(
             'Audio engine not initialized',
-            style: TextStyle(color: Colors.grey[700], fontSize: 14),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 14),
           ),
         ),
       );
@@ -1798,9 +1799,9 @@ class TimelineViewState extends State<TimelineView> {
                           Container(
                             decoration: isAnyHovering
                                 ? BoxDecoration(
-                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                                    color: context.colors.success.withValues(alpha: 0.1),
                                     border: Border.all(
-                                      color: const Color(0xFF4CAF50),
+                                      color: context.colors.success,
                                       width: 3,
                                       style: BorderStyle.solid,
                                     ),
@@ -1812,22 +1813,22 @@ class TimelineViewState extends State<TimelineView> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF4CAF50),
+                                        color: context.colors.success,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(
+                                          Icon(
                                             Icons.add_circle_outline,
-                                            color: Colors.white,
+                                            color: context.colors.textPrimary,
                                             size: 20,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             dropLabel,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: context.colors.textPrimary,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -1870,10 +1871,10 @@ class TimelineViewState extends State<TimelineView> {
       child: Container(
         height: 30,
         width: width,
-        decoration: const BoxDecoration(
-          color: Color(0xFF363636),
+        decoration: BoxDecoration(
+          color: context.colors.elevated,
           border: Border(
-            bottom: BorderSide(color: Color(0xFF363636)),
+            bottom: BorderSide(color: context.colors.elevated),
           ),
         ),
         child: CustomPaint(
@@ -1889,7 +1890,7 @@ class TimelineViewState extends State<TimelineView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF363636).withValues(alpha: 0.95),
+        color: context.colors.elevated.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -1905,13 +1906,13 @@ class TimelineViewState extends State<TimelineView> {
             iconSize: 14,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            color: const Color(0xFF9E9E9E),
+            color: context.colors.textSecondary,
             tooltip: 'Zoom out (Cmd -)',
           ),
           Text(
             '${_pixelsPerBeat.toInt()}',
-            style: const TextStyle(
-              color: Color(0xFF9E9E9E),
+            style: TextStyle(
+              color: context.colors.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
@@ -1926,7 +1927,7 @@ class TimelineViewState extends State<TimelineView> {
             iconSize: 14,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            color: const Color(0xFF9E9E9E),
+            color: context.colors.textSecondary,
             tooltip: 'Zoom in (Cmd +)',
           ),
         ],
@@ -2091,13 +2092,13 @@ class TimelineViewState extends State<TimelineView> {
         height: widget.trackHeights[track.id] ?? 100.0,
         decoration: BoxDecoration(
           color: isHovered
-              ? const Color(0xFF363636).withValues(alpha: 0.3)
+              ? context.colors.elevated.withValues(alpha: 0.3)
               : (isSelected
-                  ? const Color(0xFF363636).withValues(alpha: 0.3)
-                  : Colors.transparent),
-          border: const Border(
+                  ? context.colors.elevated.withValues(alpha: 0.3)
+                  : context.colors.dark),
+          border: Border(
             bottom: BorderSide(
-              color: Color(0xFF606060),
+              color: context.colors.hover,
               width: 1,
             ),
           ),
@@ -2149,10 +2150,10 @@ class TimelineViewState extends State<TimelineView> {
 
     return Container(
       height: widget.masterTrackHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Color(0xFF606060),
+            color: context.colors.hover,
             width: 1,
           ),
         ),
@@ -2165,12 +2166,12 @@ class TimelineViewState extends State<TimelineView> {
             height: headerHeight,
             color: TrackColors.masterColor,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: const Row(
+            child: Row(
               children: [
                 Text(
                   '🎚️ Master',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.colors.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -2337,7 +2338,7 @@ class TimelineViewState extends State<TimelineView> {
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: isSelected
-                        ? (isMultiSelected ? const Color(0xFF64B5F6) : Colors.white) // Blue for multi, white for single
+                        ? (isMultiSelected ? context.colors.accent : context.colors.textPrimary) // Accent for multi, primary for single
                         : isDragging
                             ? trackColor
                             : trackColor.withValues(alpha: 0.7),
@@ -2359,17 +2360,17 @@ class TimelineViewState extends State<TimelineView> {
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.audiotrack,
                             size: 12,
-                            color: Colors.white,
+                            color: context.colors.textPrimary,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               clip.fileName,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.colors.textPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -2517,7 +2518,7 @@ class TimelineViewState extends State<TimelineView> {
                   child: Container(
                     width: 2,
                     height: totalHeight,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: context.colors.textPrimary.withValues(alpha: 0.8),
                   ),
                 ),
             ],
@@ -2784,7 +2785,7 @@ class TimelineViewState extends State<TimelineView> {
                     color: isDragging
                         ? trackColor
                         : isSelected
-                            ? (isMultiSelected ? const Color(0xFF64B5F6) : Colors.white) // Blue for multi, white for single
+                            ? (isMultiSelected ? context.colors.accent : context.colors.textPrimary) // Accent for multi, primary for single
                             : trackColor.withValues(alpha: 0.7),
                     width: isDragging || isSelected ? 2 : 1,
                   ),
@@ -2804,17 +2805,17 @@ class TimelineViewState extends State<TimelineView> {
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.piano,
                             size: 10,
-                            color: Colors.white,
+                            color: context.colors.textPrimary,
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               midiClip.name,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.colors.textPrimary,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -2977,7 +2978,7 @@ class TimelineViewState extends State<TimelineView> {
                   child: Container(
                     width: 2,
                     height: totalHeight,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: context.colors.textPrimary.withValues(alpha: 0.8),
                   ),
                 ),
             ],
@@ -3023,9 +3024,9 @@ class TimelineViewState extends State<TimelineView> {
         width: clipWidth,
         height: 72,
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+          color: context.colors.success.withValues(alpha: 0.3),
           border: Border.all(
-            color: const Color(0xFF4CAF50),
+            color: context.colors.success,
             width: 2,
             strokeAlign: BorderSide.strokeAlignOutside,
           ),
@@ -3034,7 +3035,7 @@ class TimelineViewState extends State<TimelineView> {
         child: Center(
           child: Icon(
             Icons.audiotrack,
-            color: const Color(0xFF4CAF50).withValues(alpha: 0.6),
+            color: context.colors.success.withValues(alpha: 0.6),
             size: 32,
           ),
         ),
@@ -3073,14 +3074,14 @@ class TimelineViewState extends State<TimelineView> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF44336),
+                    color: context.colors.error,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white, width: 2),
+                    border: Border.all(color: context.colors.textPrimary, width: 2),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.play_arrow,
                     size: 12,
-                    color: Colors.white,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 // Playhead line
@@ -3088,7 +3089,7 @@ class TimelineViewState extends State<TimelineView> {
                   child: Center(
                     child: Container(
                       width: 2,
-                      color: const Color(0xFFF44336),
+                      color: context.colors.error,
                     ),
                   ),
                 ),
@@ -3116,7 +3117,7 @@ class TimelineViewState extends State<TimelineView> {
           width: 2,
           child: CustomPaint(
             painter: _DashedLinePainter(
-              color: const Color(0xFF2196F3), // Blue color
+              color: context.colors.accent, // Accent color for insert marker
               strokeWidth: 2,
               dashLength: 6,
               gapLength: 4,
@@ -3166,9 +3167,9 @@ class TimelineViewState extends State<TimelineView> {
         width: math.max(width, 20.0),
         height: 60,
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+          color: context.colors.success.withValues(alpha: 0.3),
           border: Border.all(
-            color: const Color(0xFF4CAF50),
+            color: context.colors.success,
             width: 2,
           ),
           borderRadius: BorderRadius.circular(4),
@@ -3176,8 +3177,8 @@ class TimelineViewState extends State<TimelineView> {
         child: Center(
           child: Text(
             barsLabel,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.colors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -3198,28 +3199,28 @@ class TimelineViewState extends State<TimelineView> {
         Offset.zero & overlay.size,
       ),
       items: [
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18, color: Color(0xFF9E9E9E)),
-              SizedBox(width: 8),
-              Text('MIDI Track'),
+              Icon(Icons.piano, size: 18, color: this.context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('MIDI Track'),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'audio',
           child: Row(
             children: [
-              Icon(Icons.audiotrack, size: 18, color: Color(0xFF9E9E9E)),
-              SizedBox(width: 8),
-              Text('Audio Track'),
+              Icon(Icons.audiotrack, size: 18, color: this.context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Audio Track'),
             ],
           ),
         ),
       ],
-      color: const Color(0xFF363636),
+      color: this.context.colors.elevated,
     ).then((value) {
       if (value != null) {
         widget.onCreateTrackWithClip?.call(value, startBeats, durationBeats);
@@ -3284,8 +3285,8 @@ class TimelineViewState extends State<TimelineView> {
         child: Center(
           child: Text(
             barsLabel,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.colors.textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import '../audio_engine.dart';
+import '../theme/theme_extension.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/track_mixer_panel.dart';
@@ -1203,11 +1204,12 @@ class _DAWScreenState extends State<DAWScreen> {
     });
 
     // Show snackbar based on result
+    final colors = context.colors;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.success ? '✅ ${result.message}' : '❌ ${result.message}'),
         duration: Duration(seconds: result.success ? 2 : 3),
-        backgroundColor: result.success ? const Color(0xFF4CAF50) : const Color(0xFFFF5722),
+        backgroundColor: result.success ? colors.success : colors.error,
       ),
     );
   }
@@ -1330,9 +1332,9 @@ class _DAWScreenState extends State<DAWScreen> {
                                   style: Theme.of(context).textTheme.bodyLarge,
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Drag the sliders to adjust plugin parameters.',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
                                 ),
                               ],
                             ),
@@ -1391,9 +1393,9 @@ class _DAWScreenState extends State<DAWScreen> {
                     'Parameter ${i + 1}',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                   ),
-                  const Text(
+                  Text(
                     '0.50',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                    style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
                   ),
                 ],
               ),
@@ -1590,11 +1592,11 @@ class _DAWScreenState extends State<DAWScreen> {
           children: [
             Text('Selected clip: ${selectedClip.name}'),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'This feature will render the MIDI clip through its instrument '
               'to create an audio file.\n\n'
               'Coming soon in a future update.',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: context.colors.textSecondary),
             ),
           ],
         ),
@@ -2596,7 +2598,7 @@ class _DAWScreenState extends State<DAWScreen> {
                 const SnackBar(content: Text('Project closed')),
               );
             },
-            child: const Text('Close', style: TextStyle(color: Colors.red)),
+            child: Text('Close', style: TextStyle(color: context.colors.error)),
           ),
         ],
       ),
@@ -2860,7 +2862,7 @@ class _DAWScreenState extends State<DAWScreen> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-        backgroundColor: const Color(0xFF242424), // Dark grey background
+        backgroundColor: context.colors.standard,
         body: Column(
         children: [
           // Transport bar (with logo and file/mixer buttons)
@@ -3138,12 +3140,13 @@ class _DAWScreenState extends State<DAWScreen> {
 
   /// Build collapsed mixer bar when mixer is hidden
   Widget _buildCollapsedMixerBar() {
+    final colors = context.colors;
     return Container(
       width: 30,
-      decoration: const BoxDecoration(
-        color: Color(0xFF363636),
+      decoration: BoxDecoration(
+        color: colors.elevated,
         border: Border(
-          left: BorderSide(color: Color(0xFF444444)),
+          left: BorderSide(color: colors.divider),
         ),
       ),
       child: Column(
@@ -3153,7 +3156,7 @@ class _DAWScreenState extends State<DAWScreen> {
           Tooltip(
             message: 'Show Mixer',
             child: Material(
-              color: Colors.transparent,
+              color: colors.standard,
               child: InkWell(
                 onTap: _toggleMixer,
                 borderRadius: BorderRadius.circular(4),
@@ -3161,9 +3164,9 @@ class _DAWScreenState extends State<DAWScreen> {
                   width: 24,
                   height: 24,
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.tune,
-                    color: Color(0xFFE0E0E0),
+                    color: colors.textPrimary,
                     size: 18,
                   ),
                 ),
@@ -3176,11 +3179,12 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   Widget _buildLatencyDisplay() {
+    final colors = context.colors;
     if (_audioEngine == null || !_isAudioGraphInitialized) {
-      return const Text(
+      return Text(
         '--ms',
         style: TextStyle(
-          color: Color(0xFF808080),
+          color: colors.textMuted,
           fontSize: 10,
           fontFamily: 'monospace',
         ),
@@ -3190,16 +3194,16 @@ class _DAWScreenState extends State<DAWScreen> {
     final latencyInfo = _audioEngine!.getLatencyInfo();
     final roundtripMs = latencyInfo['roundtripMs'] ?? 0.0;
 
-    // Color based on latency quality
+    // Color based on latency quality (semantic colors stay consistent)
     Color latencyColor;
     if (roundtripMs < 10) {
-      latencyColor = const Color(0xFF4CAF50); // Green - excellent
+      latencyColor = colors.success; // Green - excellent
     } else if (roundtripMs < 20) {
-      latencyColor = const Color(0xFF8BC34A); // Light green - good
+      latencyColor = colors.success.withValues(alpha: 0.7); // Light green - good
     } else if (roundtripMs < 30) {
-      latencyColor = const Color(0xFFFFC107); // Yellow - acceptable
+      latencyColor = colors.warning; // Yellow - acceptable
     } else {
-      latencyColor = const Color(0xFFFF9800); // Orange - high
+      latencyColor = colors.warning.withValues(alpha: 0.8); // Orange - high
     }
 
     return GestureDetector(
@@ -3219,22 +3223,23 @@ class _DAWScreenState extends State<DAWScreen> {
     if (_audioEngine == null) return;
 
     final currentPreset = _audioEngine!.getBufferSizePreset();
+    final colors = context.colors;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text(
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: colors.dark,
+        title: Text(
           'Audio Latency Settings',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Buffer Size',
-              style: TextStyle(color: Color(0xFF909090), fontSize: 12),
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 8),
             ...AudioEngine.bufferSizePresets.entries.map((entry) {
@@ -3242,7 +3247,7 @@ class _DAWScreenState extends State<DAWScreen> {
               return InkWell(
                 onTap: () {
                   _audioEngine!.setBufferSize(entry.key);
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
                   setState(() {}); // Refresh display
                 },
                 child: Container(
@@ -3250,19 +3255,19 @@ class _DAWScreenState extends State<DAWScreen> {
                   margin: const EdgeInsets.only(bottom: 4),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
-                        : Colors.transparent,
+                        ? colors.accent.withValues(alpha: 0.2)
+                        : colors.dark,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF00BCD4)
-                          : const Color(0xFF404040),
+                          ? colors.accent
+                          : colors.surface,
                     ),
                   ),
                   child: Row(
                     children: [
                       if (isSelected)
-                        const Icon(Icons.check, size: 16, color: Color(0xFF00BCD4))
+                        Icon(Icons.check, size: 16, color: colors.accent)
                       else
                         const SizedBox(width: 16),
                       const SizedBox(width: 8),
@@ -3270,7 +3275,7 @@ class _DAWScreenState extends State<DAWScreen> {
                         child: Text(
                           entry.value,
                           style: TextStyle(
-                            color: isSelected ? const Color(0xFF00BCD4) : Colors.white70,
+                            color: isSelected ? colors.accent : colors.textPrimary,
                             fontSize: 13,
                           ),
                         ),
@@ -3281,16 +3286,16 @@ class _DAWScreenState extends State<DAWScreen> {
               );
             }),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Lower latency = more responsive but higher CPU usage.\n'
               'If you hear audio glitches, try a higher buffer size.',
-              style: TextStyle(color: Color(0xFF707070), fontSize: 11),
+              style: TextStyle(color: colors.textMuted, fontSize: 11),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Close'),
           ),
         ],
@@ -3299,13 +3304,14 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   Widget _buildStatusBar() {
+    final colors = context.colors;
     return Container(
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF141414), // Darker background
+      decoration: BoxDecoration(
+        color: colors.darkest,
         border: Border(
-          top: BorderSide(color: Color(0xFF2A2A2A)),
+          top: BorderSide(color: colors.standard),
         ),
       ),
       child: Row(
@@ -3315,8 +3321,8 @@ class _DAWScreenState extends State<DAWScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: _isAudioGraphInitialized
-                  ? const Color(0xFF00BCD4).withValues(alpha: 0.15)
-                  : const Color(0xFF616161).withValues(alpha: 0.15),
+                  ? colors.accent.withValues(alpha: 0.15)
+                  : colors.textMuted.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -3326,16 +3332,16 @@ class _DAWScreenState extends State<DAWScreen> {
                   _isAudioGraphInitialized ? Icons.check_circle : Icons.hourglass_empty,
                   size: 12,
                   color: _isAudioGraphInitialized
-                      ? const Color(0xFF00BCD4)
-                      : const Color(0xFF616161),
+                      ? colors.accent
+                      : colors.textMuted,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   _isAudioGraphInitialized ? 'Ready' : 'Initializing...',
                   style: TextStyle(
                     color: _isAudioGraphInitialized
-                        ? const Color(0xFF00BCD4)
-                        : const Color(0xFF616161),
+                        ? colors.accent
+                        : colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
@@ -3346,12 +3352,12 @@ class _DAWScreenState extends State<DAWScreen> {
           const Spacer(),
           // Duration (if clip selected)
           if (_clipDuration != null) ...[
-            const Icon(Icons.timelapse, size: 11, color: Color(0xFF707070)),
+            Icon(Icons.timelapse, size: 11, color: colors.textMuted),
             const SizedBox(width: 4),
             Text(
               '${_clipDuration!.toStringAsFixed(2)}s',
-              style: const TextStyle(
-                color: Color(0xFF808080),
+              style: TextStyle(
+                color: colors.textMuted,
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),
@@ -3359,29 +3365,29 @@ class _DAWScreenState extends State<DAWScreen> {
             const SizedBox(width: 16),
           ],
           // Sample rate with icon
-          const Icon(Icons.graphic_eq, size: 11, color: Color(0xFF707070)),
+          Icon(Icons.graphic_eq, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             '48kHz',
             style: TextStyle(
-              color: Color(0xFF808080),
+              color: colors.textMuted,
               fontSize: 10,
               fontFamily: 'monospace',
             ),
           ),
           const SizedBox(width: 16),
           // Latency display with icon
-          const Icon(Icons.speed, size: 11, color: Color(0xFF707070)),
+          Icon(Icons.speed, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
           _buildLatencyDisplay(),
           const SizedBox(width: 16),
           // CPU with icon
-          const Icon(Icons.memory, size: 11, color: Color(0xFF707070)),
+          Icon(Icons.memory, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             '0%',
             style: TextStyle(
-              color: Color(0xFF808080),
+              color: colors.textMuted,
               fontSize: 10,
               fontFamily: 'monospace',
             ),
