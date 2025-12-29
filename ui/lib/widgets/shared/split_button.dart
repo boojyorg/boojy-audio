@@ -85,7 +85,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
     return Container(
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -99,14 +99,14 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
               onTap: widget.onLabelTap,
               onLongPress: widget.onLabelLongPress,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: _isHoveringLabel
                       ? colors.textPrimary.withValues(alpha: 0.1)
                       : Colors.transparent,
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    bottomLeft: Radius.circular(4),
+                    topLeft: Radius.circular(2),
+                    bottomLeft: Radius.circular(2),
                   ),
                 ),
                 child: Row(
@@ -115,7 +115,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
                     if (widget.icon != null) ...[
                       Icon(
                         widget.icon,
-                        size: 14,
+                        size: 12,
                         color: textColor,
                       ),
                       const SizedBox(width: 4),
@@ -124,7 +124,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
                       widget.label,
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 11,
+                        fontSize: 9,
                       ),
                     ),
                   ],
@@ -137,7 +137,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
           if (widget.showDropdown && widget.dropdownItems.isNotEmpty)
             Container(
               width: 1,
-              height: 16,
+              height: 14,
               color: colors.textPrimary.withValues(alpha: 0.2),
             ),
 
@@ -157,13 +157,13 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
                         ? colors.textPrimary.withValues(alpha: 0.1)
                         : Colors.transparent,
                     borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(4),
-                      bottomRight: Radius.circular(4),
+                      topRight: Radius.circular(2),
+                      bottomRight: Radius.circular(2),
                     ),
                   ),
                   child: Icon(
                     Icons.arrow_drop_down,
-                    size: 16,
+                    size: 14,
                     color: textColor,
                   ),
                 ),

@@ -104,11 +104,15 @@ class NotePainter extends CustomPainter {
       const Radius.circular(4), // Slightly rounded corners
     );
 
-    // Note fill - cyan theme
+    // Calculate velocity-based opacity: min 30%, max 100%
+    // Higher velocity = more opaque, lower velocity = more transparent
+    final velocityOpacity = 0.30 + (note.velocity / 127.0) * 0.70;
+
+    // Note fill - cyan theme with velocity-based opacity
     final fillPaint = Paint()
       ..color = isPreview
-          ? const Color(0xFF00BCD4).withValues(alpha: 0.5) // Cyan preview
-          : const Color(0xFF00BCD4); // Solid cyan for notes
+          ? const Color(0xFF00BCD4).withValues(alpha: 0.5) // Cyan preview (fixed opacity)
+          : const Color(0xFF00BCD4).withValues(alpha: velocityOpacity); // Velocity-based opacity
 
     canvas.drawRRect(rect, fillPaint);
 

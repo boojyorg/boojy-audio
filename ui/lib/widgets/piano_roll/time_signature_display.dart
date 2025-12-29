@@ -4,41 +4,37 @@ import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 
-/// A clickable time display showing bar.beat.tick format.
-/// Each segment (bar, beat, tick) is individually clickable to edit.
-/// Used for loop start and loop length in the Piano Roll toolbar.
-class LoopTimeDisplay extends StatefulWidget {
-  /// Value in beats (quarter notes)
-  final double beats;
-
-  /// Label shown above the display (e.g., "Start", "Length")
-  final String label;
-
-  /// Called when value changes
-  final Function(double)? onChanged;
-
-  /// Beats per bar (default 4 for 4/4 time)
+/// A clickable time signature display showing numerator/denominator format.
+/// Each segment is individually clickable to edit.
+/// Format: [4] / [4]
+class TimeSignatureDisplay extends StatefulWidget {
+  /// Beats per bar (numerator, e.g., 4 in 4/4)
   final int beatsPerBar;
 
-  /// Ticks per beat (standard MIDI resolution)
-  final int ticksPerBeat;
+  /// Beat unit (denominator, e.g., 4 in 4/4)
+  final int beatUnit;
 
-  const LoopTimeDisplay({
+  /// Called when beats per bar changes
+  final Function(int)? onBeatsPerBarChanged;
+
+  /// Called when beat unit changes
+  final Function(int)? onBeatUnitChanged;
+
+  const TimeSignatureDisplay({
     super.key,
-    required this.beats,
-    required this.label,
-    this.onChanged,
-    this.beatsPerBar = 4,
-    this.ticksPerBeat = 960,
+    required this.beatsPerBar,
+    required this.beatUnit,
+    this.onBeatsPerBarChanged,
+    this.onBeatUnitChanged,
   });
 
   @override
-  State<LoopTimeDisplay> createState() => _LoopTimeDisplayState();
+  State<TimeSignatureDisplay> createState() => _TimeSignatureDisplayState();
 }
 
-class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
+class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
   bool _isEditing = false;
-  int _editingSegment = -1; // 0=bar, 1=beat, 2=tick
+  int _editingSegment = -1; // 0=numerator, 1=denominator
   late TextEditingController _editController;
   late FocusNode _editFocusNode;
 
@@ -64,40 +60,14 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     }
   }
 
-  /// Convert beats to bar.beat.tick tuple (all 1-indexed)
-  (int bar, int beat, int tick) _beatsToBarBeatTick(double beats) {
-    final totalTicks = (beats * widget.ticksPerBeat).round();
-    final ticksPerBar = widget.beatsPerBar * widget.ticksPerBeat;
-
-    final bar = (totalTicks ~/ ticksPerBar) + 1; // 1-indexed
-    final remainingTicks = totalTicks % ticksPerBar;
-    final beat = (remainingTicks ~/ widget.ticksPerBeat) + 1; // 1-indexed
-    final tick = (remainingTicks % widget.ticksPerBeat) + 1; // 1-indexed (1-960)
-
-    return (bar, beat, tick);
-  }
-
-  /// Convert bar.beat.tick tuple back to beats (all 1-indexed input)
-  double _barBeatTickToBeats(int bar, int beat, int tick) {
-    final ticksPerBar = widget.beatsPerBar * widget.ticksPerBeat;
-    final totalTicks = ((bar - 1) * ticksPerBar) +
-        ((beat - 1) * widget.ticksPerBeat) +
-        (tick - 1); // tick is 1-indexed
-    return totalTicks / widget.ticksPerBeat;
-  }
-
   void _startEditing(int segment) {
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
     String initialValue;
     switch (segment) {
       case 0:
-        initialValue = bar.toString();
+        initialValue = widget.beatsPerBar.toString();
         break;
       case 1:
-        initialValue = beat.toString();
-        break;
-      case 2:
-        initialValue = tick.toString();
+        initialValue = widget.beatUnit.toString();
         break;
       default:
         return;
@@ -122,27 +92,19 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     if (!_isEditing) return;
 
     final newValue = int.tryParse(_editController.text);
-    if (newValue != null && widget.onChanged != null) {
-      final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
-
-      int newBar = bar;
-      int newBeat = beat;
-      int newTick = tick;
-
+    if (newValue != null) {
       switch (_editingSegment) {
         case 0:
-          newBar = newValue.clamp(1, 999);
+          // Numerator: 1-99
+          final clamped = newValue.clamp(1, 99);
+          widget.onBeatsPerBarChanged?.call(clamped);
           break;
         case 1:
-          newBeat = newValue.clamp(1, widget.beatsPerBar);
-          break;
-        case 2:
-          newTick = newValue.clamp(1, widget.ticksPerBeat); // 1-indexed
+          // Denominator: 1-16
+          final clamped = newValue.clamp(1, 16);
+          widget.onBeatUnitChanged?.call(clamped);
           break;
       }
-
-      final newBeats = _barBeatTickToBeats(newBar, newBeat, newTick);
-      widget.onChanged!(newBeats);
     }
 
     setState(() {
@@ -164,7 +126,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       } else if (event.logicalKey == LogicalKeyboardKey.tab) {
         // Move to next segment
         _commitEdit();
-        final nextSegment = (_editingSegment + 1) % 3;
+        final nextSegment = (_editingSegment + 1) % 2;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _startEditing(nextSegment);
         });
@@ -174,43 +136,32 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
   /// Increment/decrement segment with scroll
   void _handleScroll(int segment, double delta) {
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
-    int newBar = bar;
-    int newBeat = beat;
-    int newTick = tick;
-
     final direction = delta > 0 ? -1 : 1; // Scroll up = increase
 
     switch (segment) {
       case 0:
-        newBar = (bar + direction).clamp(1, 999);
+        // Numerator: 1-99
+        final newValue = (widget.beatsPerBar + direction).clamp(1, 99);
+        widget.onBeatsPerBarChanged?.call(newValue);
         break;
       case 1:
-        newBeat = (beat + direction).clamp(1, widget.beatsPerBar);
-        break;
-      case 2:
-        newTick = (tick + direction * 10).clamp(1, widget.ticksPerBeat); // 1-indexed
+        // Denominator: 1-16
+        final newValue = (widget.beatUnit + direction).clamp(1, 16);
+        widget.onBeatUnitChanged?.call(newValue);
         break;
     }
-
-    final newBeats = _barBeatTickToBeats(newBar, newBeat, newTick);
-    widget.onChanged?.call(newBeats);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
 
-    // Single row with 3 clickable/editable segments
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSegment(0, bar.toString(), colors),
-        _buildDot(colors),
-        _buildSegment(1, beat.toString(), colors),
-        _buildDot(colors),
-        _buildSegment(2, tick.toString(), colors),
+        _buildSegment(0, widget.beatsPerBar.toString(), colors),
+        _buildSlash(colors),
+        _buildSegment(1, widget.beatUnit.toString(), colors),
       ],
     );
   }
@@ -220,7 +171,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
     if (isEditing) {
       return SizedBox(
-        width: segment == 2 ? 30 : 20,
+        width: 20,
         child: KeyboardListener(
           focusNode: FocusNode(),
           onKeyEvent: _handleKey,
@@ -239,7 +190,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
             ),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(segment == 2 ? 3 : 3),
+              LengthLimitingTextInputFormatter(2),
             ],
             onSubmitted: (_) => _commitEdit(),
           ),
@@ -273,9 +224,9 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     );
   }
 
-  Widget _buildDot(BoojyColors colors) {
+  Widget _buildSlash(BoojyColors colors) {
     return Text(
-      '.',
+      '/',
       style: TextStyle(
         color: colors.textMuted,
         fontSize: 10,

@@ -76,6 +76,12 @@ class UserSettings extends ChangeNotifier {
   static const String _keyMixerVisible = 'panel_mixer_visible';
   static const String _keyEditorVisible = 'panel_editor_visible';
 
+  // Panel size keys
+  static const String _keyLibraryWidth = 'panel_library_width';
+  static const String _keyMixerWidth = 'panel_mixer_width';
+  static const String _keyEditorHeight = 'panel_editor_height';
+  static const String _keyPianoRollSidebarWidth = 'panel_piano_roll_sidebar_width';
+
   // Appearance keys
   static const String _keyTheme = 'theme';
 
@@ -130,6 +136,12 @@ class UserSettings extends ChangeNotifier {
   bool _libraryCollapsed = false;
   bool _mixerVisible = true;
   bool _editorVisible = true;
+
+  // Panel size settings
+  double _libraryWidth = 200.0;
+  double _mixerWidth = 380.0;
+  double _editorHeight = 250.0;
+  double _pianoRollSidebarWidth = 250.0;
 
   // Appearance settings
   String _theme = 'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
@@ -382,6 +394,51 @@ class UserSettings extends ChangeNotifier {
   }
 
   // ========================================================================
+  // Panel Size Settings
+  // ========================================================================
+
+  /// Library panel width
+  double get libraryWidth => _libraryWidth;
+  set libraryWidth(double value) {
+    if (_libraryWidth != value) {
+      _libraryWidth = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Mixer panel width
+  double get mixerWidth => _mixerWidth;
+  set mixerWidth(double value) {
+    if (_mixerWidth != value) {
+      _mixerWidth = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Editor panel height
+  double get editorHeight => _editorHeight;
+  set editorHeight(double value) {
+    if (_editorHeight != value) {
+      _editorHeight = value;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Piano roll sidebar width (220-350px, default 250px)
+  double get pianoRollSidebarWidth => _pianoRollSidebarWidth;
+  set pianoRollSidebarWidth(double value) {
+    final clamped = value.clamp(220.0, 350.0);
+    if (_pianoRollSidebarWidth != clamped) {
+      _pianoRollSidebarWidth = clamped;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  // ========================================================================
   // Appearance Settings
   // ========================================================================
 
@@ -458,6 +515,12 @@ class UserSettings extends ChangeNotifier {
       _libraryCollapsed = _prefs?.getBool(_keyLibraryCollapsed) ?? false;
       _mixerVisible = _prefs?.getBool(_keyMixerVisible) ?? true;
       _editorVisible = _prefs?.getBool(_keyEditorVisible) ?? true;
+
+      // Load panel size settings
+      _libraryWidth = _prefs?.getDouble(_keyLibraryWidth) ?? 200.0;
+      _mixerWidth = _prefs?.getDouble(_keyMixerWidth) ?? 380.0;
+      _editorHeight = _prefs?.getDouble(_keyEditorHeight) ?? 250.0;
+      _pianoRollSidebarWidth = _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
 
       // Load appearance settings
       _theme = _prefs?.getString(_keyTheme) ?? 'dark';
@@ -568,14 +631,20 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Save panel visibility settings to SharedPreferences
+  /// Save panel visibility and size settings to SharedPreferences
   Future<void> _savePanelSettings() async {
     if (_prefs == null) return;
 
     try {
+      // Visibility
       await _prefs!.setBool(_keyLibraryCollapsed, _libraryCollapsed);
       await _prefs!.setBool(_keyMixerVisible, _mixerVisible);
       await _prefs!.setBool(_keyEditorVisible, _editorVisible);
+      // Sizes
+      await _prefs!.setDouble(_keyLibraryWidth, _libraryWidth);
+      await _prefs!.setDouble(_keyMixerWidth, _mixerWidth);
+      await _prefs!.setDouble(_keyEditorHeight, _editorHeight);
+      await _prefs!.setDouble(_keyPianoRollSidebarWidth, _pianoRollSidebarWidth);
     } catch (e) {
     }
   }
