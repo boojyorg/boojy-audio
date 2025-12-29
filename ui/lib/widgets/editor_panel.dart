@@ -23,6 +23,9 @@ class EditorPanel extends StatefulWidget {
   final Function(MidiClipData)? onMidiClipUpdated;
   final Function(InstrumentData)? onInstrumentParameterChanged;
 
+  /// Ghost notes from other MIDI tracks to display in Piano Roll
+  final List<MidiNoteData> ghostNotes;
+
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
   final Function(int effectId, int paramIndex, double value)? onVst3ParameterChanged;
@@ -45,6 +48,7 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingClip,
     this.onMidiClipUpdated,
     this.onInstrumentParameterChanged,
+    this.ghostNotes = const [],
     this.currentTrackPlugins,
     this.onVst3ParameterChanged,
     this.onVst3PluginRemoved,
@@ -368,6 +372,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       audioEngine: widget.audioEngine,
       clipData: clipData,
       onClipUpdated: widget.onMidiClipUpdated,
+      ghostNotes: widget.ghostNotes,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

@@ -6,6 +6,7 @@ class GridPainter extends CustomPainter {
   final double pixelsPerNote;
   final double gridDivision;
   final int maxMidiNote;
+  final int minMidiNote;
   final double totalBeats;
   final double activeBeats; // Active region boundary
 
@@ -17,11 +18,18 @@ class GridPainter extends CustomPainter {
   final Color beatGridLine;
   final Color barGridLine;
 
+  // Scale highlighting
+  final bool scaleHighlightEnabled;
+  final int scaleRootMidi; // 0-11 (C=0, C#=1, etc.)
+  final List<int> scaleIntervals; // e.g., [0, 2, 4, 5, 7, 9, 11] for major
+  final Color outOfScaleOverlay;
+
   GridPainter({
     required this.pixelsPerBeat,
     required this.pixelsPerNote,
     required this.gridDivision,
     required this.maxMidiNote,
+    this.minMidiNote = 0,
     required this.totalBeats,
     required this.activeBeats,
     required this.blackKeyBackground,
@@ -30,12 +38,16 @@ class GridPainter extends CustomPainter {
     required this.subdivisionGridLine,
     required this.beatGridLine,
     required this.barGridLine,
+    this.scaleHighlightEnabled = false,
+    this.scaleRootMidi = 0,
+    this.scaleIntervals = const [0, 2, 4, 5, 7, 9, 11], // Major scale default
+    this.outOfScaleOverlay = const Color(0x40000000), // Semi-transparent black
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // STEP 1: Draw backgrounds FIRST (so vertical lines can be drawn on top)
-    for (int note = 0; note <= maxMidiNote; note++) {
+    for (int note = minMidiNote; note <= maxMidiNote; note++) {
       final y = (maxMidiNote - note) * pixelsPerNote;
       final isBlackKey = _isBlackKey(note);
 
@@ -47,6 +59,15 @@ class GridPainter extends CustomPainter {
         Rect.fromLTWH(0, y, size.width, pixelsPerNote),
         bgPaint,
       );
+
+      // Draw scale highlight overlay (dim out-of-scale notes)
+      if (scaleHighlightEnabled && !_isInScale(note)) {
+        final overlayPaint = Paint()..color = outOfScaleOverlay;
+        canvas.drawRect(
+          Rect.fromLTWH(0, y, size.width, pixelsPerNote),
+          overlayPaint,
+        );
+      }
 
       // Draw horizontal separator line
       final linePaint = Paint()
@@ -89,6 +110,14 @@ class GridPainter extends CustomPainter {
     return [1, 3, 6, 8, 10].contains(noteInOctave);
   }
 
+  /// Check if a MIDI note is in the current scale
+  bool _isInScale(int midiNote) {
+    final noteInOctave = (midiNote - scaleRootMidi) % 12;
+    // Handle negative modulo
+    final normalized = noteInOctave < 0 ? noteInOctave + 12 : noteInOctave;
+    return scaleIntervals.contains(normalized);
+  }
+
   @override
   bool shouldRepaint(GridPainter oldDelegate) {
     return pixelsPerBeat != oldDelegate.pixelsPerBeat ||
@@ -101,6 +130,10 @@ class GridPainter extends CustomPainter {
         separatorLine != oldDelegate.separatorLine ||
         subdivisionGridLine != oldDelegate.subdivisionGridLine ||
         beatGridLine != oldDelegate.beatGridLine ||
-        barGridLine != oldDelegate.barGridLine;
+        barGridLine != oldDelegate.barGridLine ||
+        scaleHighlightEnabled != oldDelegate.scaleHighlightEnabled ||
+        scaleRootMidi != oldDelegate.scaleRootMidi ||
+        scaleIntervals != oldDelegate.scaleIntervals ||
+        minMidiNote != oldDelegate.minMidiNote;
   }
 }

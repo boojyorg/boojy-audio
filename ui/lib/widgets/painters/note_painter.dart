@@ -11,6 +11,12 @@ class NotePainter extends CustomPainter {
   final Offset? selectionStart;
   final Offset? selectionEnd;
 
+  /// Ghost notes from other MIDI tracks (rendered at 30% opacity)
+  final List<MidiNoteData> ghostNotes;
+
+  /// Whether to show ghost notes
+  final bool showGhostNotes;
+
   NotePainter({
     required this.notes,
     this.previewNote,
@@ -19,10 +25,19 @@ class NotePainter extends CustomPainter {
     required this.maxMidiNote,
     this.selectionStart,
     this.selectionEnd,
+    this.ghostNotes = const [],
+    this.showGhostNotes = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Draw ghost notes first (behind regular notes)
+    if (showGhostNotes) {
+      for (final note in ghostNotes) {
+        _drawGhostNote(canvas, note);
+      }
+    }
+
     // Draw all notes
     for (final note in notes) {
       _drawNote(canvas, note, isSelected: note.isSelected);
@@ -50,6 +65,31 @@ class NotePainter extends CustomPainter {
         ..strokeWidth = 2;
       canvas.drawRect(rect, borderPaint);
     }
+  }
+
+  /// Draw a ghost note (from another track) at 30% opacity
+  void _drawGhostNote(Canvas canvas, MidiNoteData note) {
+    final x = note.startTime * pixelsPerBeat;
+    final y = (maxMidiNote - note.note) * pixelsPerNote;
+    final width = note.duration * pixelsPerBeat;
+    final height = pixelsPerNote - 2;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y + 1, width, height),
+      const Radius.circular(4),
+    );
+
+    // Ghost note fill - grey at 30% opacity
+    final fillPaint = Paint()
+      ..color = const Color(0xFF808080).withValues(alpha: 0.3);
+    canvas.drawRRect(rect, fillPaint);
+
+    // Ghost note border - subtle
+    final borderPaint = Paint()
+      ..color = const Color(0xFF606060).withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRRect(rect, borderPaint);
   }
 
   void _drawNote(Canvas canvas, MidiNoteData note,
@@ -147,6 +187,8 @@ class NotePainter extends CustomPainter {
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         pixelsPerNote != oldDelegate.pixelsPerNote ||
         selectionStart != oldDelegate.selectionStart ||
-        selectionEnd != oldDelegate.selectionEnd;
+        selectionEnd != oldDelegate.selectionEnd ||
+        ghostNotes != oldDelegate.ghostNotes ||
+        showGhostNotes != oldDelegate.showGhostNotes;
   }
 }

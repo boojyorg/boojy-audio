@@ -1,12 +1,21 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import '../models/midi_note_data.dart';
+import '../models/midi_cc_data.dart';
+import '../models/scale_data.dart';
+import '../models/chord_data.dart';
 import '../audio_engine.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
 import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
+import 'piano_roll/piano_roll_toolbar.dart';
+import 'piano_roll/piano_roll_scale_controls.dart';
+import 'piano_roll/piano_roll_cc_lane.dart';
+import 'piano_roll/chord_palette.dart';
+import 'shared/mini_knob.dart';
 
 /// Interaction modes for piano roll
 enum InteractionMode { draw, select, move, resize }
@@ -18,12 +27,16 @@ class PianoRoll extends StatefulWidget {
   final VoidCallback? onClose;
   final Function(MidiClipData)? onClipUpdated;
 
+  /// Ghost notes from other MIDI tracks (displayed at 30% opacity)
+  final List<MidiNoteData> ghostNotes;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
     this.clipData,
     this.onClose,
     this.onClipUpdated,
+    this.ghostNotes = const [],
   });
 
   @override
@@ -67,6 +80,10 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Slice mode state
   bool _sliceModeEnabled = false;
+  bool _tempSliceModeHeld = false; // Temporary slice mode while S key held
+
+  /// True if slice mode is active (either permanent toggle or S key held)
+  bool get _isSliceModeActive => _sliceModeEnabled || _tempSliceModeHeld;
 
   // Paint mode state (drag to create multiple notes)
   bool _isPainting = false;
@@ -94,6 +111,12 @@ class _PianoRollState extends State<PianoRoll> {
   bool _velocityLaneExpanded = false;
   static const double _velocityLaneHeight = 80.0;
   String? _velocityDragNoteId; // Note being velocity-edited
+  double _velocityRandomizeAmount = 0.0; // 0-100% randomization
+
+  // CC automation lane state
+  bool _ccLaneExpanded = false;
+  static const double _ccLaneHeight = 80.0;
+  MidiCCLane _ccLane = MidiCCLane(ccType: MidiCCType.modWheel);
 
   // Multi-select state
   bool _isSelecting = false;
@@ -129,6 +152,33 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Insert marker position (in beats, separate from playhead)
   double? _insertMarkerBeats;
+
+  // Loop settings
+  bool _loopEnabled = false;
+  double _loopStartBeats = 0.0;
+
+  // Transform tool values
+  double _stretchAmount = 1.0;
+  double _humanizeAmount = 0.0;
+
+  // Scale settings
+  String _scaleRoot = 'C';
+  ScaleType _scaleType = ScaleType.major;
+  bool _scaleHighlightEnabled = false;
+  bool _scaleLockEnabled = false;
+  bool _foldViewEnabled = false;
+  bool _ghostNotesEnabled = false;
+
+  /// Get current scale for calculations
+  Scale get _currentScale => Scale(root: _scaleRoot, type: _scaleType);
+
+  // Chord palette state
+  bool _chordPaletteVisible = false;
+  ChordConfiguration _chordConfig = const ChordConfiguration(
+    root: ChordRoot.c,
+    type: ChordType.major,
+  );
+  bool _chordPreviewEnabled = true;
 
   // Focus node for keyboard events
   final FocusNode _focusNode = FocusNode();
@@ -267,6 +317,75 @@ class _PianoRollState extends State<PianoRoll> {
     });
   }
 
+  /// Preview/audition a chord (play all notes simultaneously)
+  void _previewChord(List<int> midiNotes) {
+    if (!_auditionEnabled) return;
+    final trackId = _currentClip?.trackId;
+    if (trackId == null || widget.audioEngine == null) return;
+
+    // Play all notes in the chord
+    for (final midiNote in midiNotes) {
+      widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, 100);
+    }
+    // Stop notes after a short delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      for (final midiNote in midiNotes) {
+        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 64);
+      }
+    });
+  }
+
+  /// Stamp a chord at the given position
+  /// The chord is placed relative to the clicked note position
+  void _stampChordAt(double beat, int baseNote) {
+    if (_currentClip == null) return;
+
+    // Get the chord's MIDI notes based on current configuration
+    // Transpose the chord so its lowest note is at the clicked position
+    final chordNotes = _chordConfig.midiNotes;
+    if (chordNotes.isEmpty) return;
+
+    // Calculate the offset to place the chord's lowest note at baseNote
+    final lowestChordNote = chordNotes.reduce((a, b) => a < b ? a : b);
+    final offset = baseNote - lowestChordNote;
+
+    // Create notes for the chord
+    final newNotes = <MidiNoteData>[];
+    for (final midiNote in chordNotes) {
+      final transposedNote = midiNote + offset;
+      // Clamp to valid MIDI range
+      if (transposedNote >= 0 && transposedNote <= 127) {
+        newNotes.add(MidiNoteData(
+          note: transposedNote,
+          velocity: 100,
+          startTime: beat,
+          duration: _lastNoteDuration,
+          isSelected: true,
+        ));
+      }
+    }
+
+    if (newNotes.isEmpty) return;
+
+    setState(() {
+      // Deselect all existing notes
+      _currentClip = _currentClip?.copyWith(
+        notes: _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+      );
+      // Add all chord notes
+      for (final note in newNotes) {
+        _currentClip = _currentClip?.addNote(note);
+        _autoExtendLoopIfNeeded(note);
+      }
+    });
+
+    _commitToHistory('Add chord');
+    _notifyClipUpdated();
+
+    // Preview the chord
+    _previewChord(newNotes.map((n) => n.note).toList());
+  }
+
   /// Toggle slice mode on/off
   void _toggleSliceMode() {
     setState(() {
@@ -373,7 +492,34 @@ class _PianoRollState extends State<PianoRoll> {
   }
 
   int _getNoteAtY(double y) {
-    return _maxMidiNote - (y / _pixelsPerNote).floor();
+    final rawNote = _maxMidiNote - (y / _pixelsPerNote).floor();
+    // Apply scale lock if enabled
+    if (_scaleLockEnabled) {
+      return _snapNoteToScale(rawNote);
+    }
+    return rawNote;
+  }
+
+  /// Snap a MIDI note to the nearest note in the current scale
+  int _snapNoteToScale(int midiNote) {
+    if (_currentScale.containsNote(midiNote)) return midiNote;
+
+    // Find nearest note in scale
+    int below = midiNote;
+    int above = midiNote;
+
+    while (!_currentScale.containsNote(below) && below >= 0) {
+      below--;
+    }
+    while (!_currentScale.containsNote(above) && above <= 127) {
+      above++;
+    }
+
+    // Return the closest one
+    if (below < 0) return above;
+    if (above > 127) return below;
+
+    return (midiNote - below <= above - midiNote) ? below : above;
   }
 
   double _getBeatAtX(double x) {
@@ -401,29 +547,6 @@ class _PianoRollState extends State<PianoRoll> {
     setState(() {
       _snapEnabled = !_snapEnabled;
     });
-  }
-
-  void _changeGridDivision() {
-    setState(() {
-      // Cycle through: 1/4, 1/8, 1/16, 1/32
-      if (_gridDivision == 0.25) {
-        _gridDivision = 0.125;
-      } else if (_gridDivision == 0.125) {
-        _gridDivision = 0.0625;
-      } else if (_gridDivision == 0.0625) {
-        _gridDivision = 0.03125;
-      } else {
-        _gridDivision = 0.25;
-      }
-    });
-  }
-
-  String _getGridDivisionLabel() {
-    if (_gridDivision == 0.25) return '1/16';
-    if (_gridDivision == 0.125) return '1/32';
-    if (_gridDivision == 0.0625) return '1/64';
-    if (_gridDivision == 0.03125) return '1/128';
-    return '1/16';
   }
 
   /// Get the loop length (active region in piano roll)
@@ -467,14 +590,71 @@ class _PianoRollState extends State<PianoRoll> {
           _handleKeyEvent(event);
           return KeyEventResult.handled;
         },
-        child: Container(
-          color: context.colors.standard, // Dark background
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildPianoRollContent(),
-            ],
-          ),
+        child: Stack(
+          children: [
+            Container(
+              color: context.colors.standard, // Dark background
+              child: Column(
+                children: [
+                  PianoRollToolbar(
+                    clipName: widget.clipData?.name ?? 'Unnamed Clip',
+                    snapEnabled: _snapEnabled,
+                    gridDivision: _gridDivision,
+                    onSnapToggle: _toggleSnap,
+                    onGridDivisionChanged: (division) {
+                      setState(() => _gridDivision = division);
+                    },
+                    sliceModeEnabled: _isSliceModeActive,
+                    onSliceToggle: _toggleSliceMode,
+                    onQuantize: _quantizeClip,
+                    auditionEnabled: _auditionEnabled,
+                    onAuditionToggle: _toggleAudition,
+                    velocityLaneExpanded: _velocityLaneExpanded,
+                    onVelocityLaneToggle: _toggleVelocityLane,
+                    pixelsPerBeat: _pixelsPerBeat,
+                    onZoomIn: _zoomIn,
+                    onZoomOut: _zoomOut,
+                    loopEnabled: _loopEnabled,
+                    loopStartBeats: _loopStartBeats,
+                    loopLengthBeats: _getLoopLength(),
+                    onLoopToggle: () => setState(() => _loopEnabled = !_loopEnabled),
+                    stretchAmount: _stretchAmount,
+                    humanizeAmount: _humanizeAmount,
+                    onStretchChanged: (v) => setState(() => _stretchAmount = v),
+                    onHumanizeChanged: (v) => setState(() => _humanizeAmount = v),
+                    onStretchApply: _applyStretch,
+                    onHumanizeApply: _applyHumanize,
+                    onLegato: _applyLegato,
+                    onReverse: _reverseNotes,
+                    ccLaneExpanded: _ccLaneExpanded,
+                    onCCLaneToggle: () => setState(() => _ccLaneExpanded = !_ccLaneExpanded),
+                    onClose: widget.onClose,
+                  ),
+                  _buildPianoRollContent(),
+                ],
+              ),
+            ),
+            // Chord palette overlay
+            if (_chordPaletteVisible)
+              Positioned(
+                right: 16,
+                top: 100,
+                child: ChordPalette(
+                  configuration: _chordConfig,
+                  previewEnabled: _chordPreviewEnabled,
+                  onConfigurationChanged: (config) {
+                    setState(() => _chordConfig = config);
+                  },
+                  onPreview: _previewChord,
+                  onPreviewToggle: (enabled) {
+                    setState(() => _chordPreviewEnabled = enabled);
+                  },
+                  onClose: () {
+                    setState(() => _chordPaletteVisible = false);
+                  },
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -492,20 +672,26 @@ class _PianoRollState extends State<PianoRoll> {
     return Expanded(
       child: Column(
         children: [
-          // Bar ruler row - FIXED at top (outside vertical scroll)
+          // Scale controls + Bar ruler row
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Spacer for piano keys width
-              Container(
-                width: 60,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: context.colors.elevated,
-                  border: Border(
-                    right: BorderSide(color: context.colors.elevated, width: 1),
-                    bottom: BorderSide(color: context.colors.elevated, width: 1),
-                  ),
-                ),
+              // Scale controls (left side area)
+              PianoRollScaleControls(
+                scaleRoot: _scaleRoot,
+                scaleType: _scaleType,
+                highlightEnabled: _scaleHighlightEnabled,
+                lockEnabled: _scaleLockEnabled,
+                foldEnabled: _foldViewEnabled,
+                ghostNotesEnabled: _ghostNotesEnabled,
+                auditionEnabled: _auditionEnabled,
+                onRootChanged: (root) => setState(() => _scaleRoot = root),
+                onTypeChanged: (type) => setState(() => _scaleType = type),
+                onHighlightToggle: () => setState(() => _scaleHighlightEnabled = !_scaleHighlightEnabled),
+                onLockToggle: () => setState(() => _scaleLockEnabled = !_scaleLockEnabled),
+                onFoldToggle: () => setState(() => _foldViewEnabled = !_foldViewEnabled),
+                onGhostNotesToggle: () => setState(() => _ghostNotesEnabled = !_ghostNotesEnabled),
+                onAuditionToggle: _toggleAudition,
               ),
               // Bar ruler with horizontal scroll
               Expanded(
@@ -635,6 +821,7 @@ class _PianoRollState extends State<PianoRoll> {
                                             pixelsPerNote: _pixelsPerNote,
                                             gridDivision: _gridDivision,
                                             maxMidiNote: _maxMidiNote,
+                                            minMidiNote: _minMidiNote,
                                             totalBeats: totalBeats,
                                             activeBeats: activeBeats,
                                             blackKeyBackground: context.colors.standard,
@@ -643,6 +830,9 @@ class _PianoRollState extends State<PianoRoll> {
                                             subdivisionGridLine: context.colors.surface,
                                             beatGridLine: context.colors.hover,
                                             barGridLine: context.colors.textMuted,
+                                            scaleHighlightEnabled: _scaleHighlightEnabled,
+                                            scaleRootMidi: ScaleRoot.midiNoteFromName(_scaleRoot),
+                                            scaleIntervals: _scaleType.intervals,
                                           ),
                                         ),
                                         CustomPaint(
@@ -655,6 +845,8 @@ class _PianoRollState extends State<PianoRoll> {
                                             maxMidiNote: _maxMidiNote,
                                             selectionStart: _selectionStart,
                                             selectionEnd: _selectionEnd,
+                                            ghostNotes: widget.ghostNotes,
+                                            showGhostNotes: _ghostNotesEnabled,
                                           ),
                                         ),
                                         // Loop end marker (draggable)
@@ -680,8 +872,58 @@ class _PianoRollState extends State<PianoRoll> {
           // Velocity editing lane (Ableton-style)
           if (_velocityLaneExpanded)
             _buildVelocityLane(totalBeats, canvasWidth),
+          // CC automation lane
+          if (_ccLaneExpanded)
+            _buildCCLane(totalBeats, canvasWidth),
         ],
       ),
+    );
+  }
+
+  /// Build the CC automation lane
+  Widget _buildCCLane(double totalBeats, double canvasWidth) {
+    return PianoRollCCLane(
+      lane: _ccLane,
+      pixelsPerBeat: _pixelsPerBeat,
+      totalBeats: totalBeats,
+      laneHeight: _ccLaneHeight,
+      horizontalScrollController: _horizontalScroll,
+      onCCTypeChanged: (type) {
+        setState(() {
+          _ccLane = _ccLane.copyWith(ccType: type, points: []);
+        });
+      },
+      onPointAdded: (point) {
+        _saveToHistory();
+        setState(() {
+          _ccLane = _ccLane.addPoint(point);
+        });
+        _commitToHistory('Add CC point');
+      },
+      onPointUpdated: (pointId, newPoint) {
+        setState(() {
+          _ccLane = _ccLane.updatePoint(pointId, newPoint);
+        });
+      },
+      onPointDeleted: (pointId) {
+        _saveToHistory();
+        setState(() {
+          _ccLane = _ccLane.removePoint(pointId);
+        });
+        _commitToHistory('Delete CC point');
+      },
+      onDrawValue: (time, value) {
+        // Add a point at this position (for drawing mode)
+        final newPoint = MidiCCPoint(time: time, value: value);
+        setState(() {
+          _ccLane = _ccLane.addPoint(newPoint);
+        });
+      },
+      onClose: () {
+        setState(() {
+          _ccLaneExpanded = false;
+        });
+      },
     );
   }
 
@@ -697,7 +939,7 @@ class _PianoRollState extends State<PianoRoll> {
       ),
       child: Row(
         children: [
-          // Label area (same width as piano keys)
+          // Label area with randomize control (same width as piano keys)
           Container(
             width: 60,
             height: _velocityLaneHeight,
@@ -707,15 +949,31 @@ class _PianoRollState extends State<PianoRoll> {
                 right: BorderSide(color: context.colors.surface, width: 1),
               ),
             ),
-            child: Center(
-              child: Text(
-                'Vel',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Vel',
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                // Randomize knob with apply
+                MiniKnob(
+                  value: _velocityRandomizeAmount,
+                  min: 0.0,
+                  max: 1.0,
+                  size: 28,
+                  label: 'Rnd',
+                  valueFormatter: (v) => '${(v * 100).round()}%',
+                  arcColor: context.colors.accent,
+                  onChanged: (v) => setState(() => _velocityRandomizeAmount = v),
+                  onChangeEnd: _applyVelocityRandomize,
+                ),
+              ],
             ),
           ),
           // Velocity bars area (scrolls with note grid)
@@ -905,219 +1163,6 @@ class _PianoRollState extends State<PianoRoll> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: context.colors.elevated, // Dark header
-        border: Border(
-          bottom: BorderSide(color: context.colors.elevated, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.piano_outlined,
-            color: context.colors.textPrimary, // Light icon on dark background
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Piano Roll - ${widget.clipData?.name ?? "Unnamed Clip"}',
-            style: TextStyle(
-              color: context.colors.textPrimary, // Light text on dark background
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-
-          // Snap toggle
-          _buildHeaderButton(
-            icon: Icons.grid_on,
-            label: 'Snap: ${_snapEnabled ? _getGridDivisionLabel() : "OFF"}',
-            isActive: _snapEnabled,
-            onTap: _toggleSnap,
-            onLongPress: _changeGridDivision,
-          ),
-
-          const SizedBox(width: 8),
-
-          // Slice mode toggle
-          _buildHeaderButton(
-            icon: Icons.content_cut,
-            label: 'Slice',
-            isActive: _sliceModeEnabled,
-            onTap: _toggleSliceMode,
-          ),
-
-          const SizedBox(width: 8),
-
-          // Quantize dropdown
-          _buildQuantizeButton(),
-
-          const SizedBox(width: 8),
-
-          // Audition toggle (hear notes when creating/selecting)
-          _buildHeaderButton(
-            icon: _auditionEnabled ? Icons.volume_up : Icons.volume_off,
-            label: 'Audition',
-            isActive: _auditionEnabled,
-            onTap: _toggleAudition,
-          ),
-
-          const SizedBox(width: 8),
-
-          // Velocity lane toggle
-          _buildHeaderButton(
-            icon: Icons.equalizer,
-            label: 'Velocity',
-            isActive: _velocityLaneExpanded,
-            onTap: _toggleVelocityLane,
-          ),
-
-          const SizedBox(width: 8),
-
-          // Zoom controls
-          _buildHeaderButton(
-            icon: Icons.remove,
-            label: 'Zoom Out',
-            onTap: _zoomOut,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '${_pixelsPerBeat.toInt()}px',
-            style: TextStyle(
-              color: context.colors.textPrimary, // Light text
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(width: 4),
-          _buildHeaderButton(
-            icon: Icons.add,
-            label: 'Zoom In',
-            onTap: _zoomIn,
-          ),
-
-          const SizedBox(width: 16),
-
-          // Close button
-          IconButton(
-            icon: const Icon(Icons.close),
-            color: context.colors.textPrimary, // Light icon
-            iconSize: 20,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: widget.onClose,
-            tooltip: 'Close Piano Roll',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderButton({
-    required IconData icon,
-    required String label,
-    bool isActive = false,
-    VoidCallback? onTap,
-    VoidCallback? onLongPress,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive ? context.colors.accent : context.colors.dark, // Dark grey when inactive, accent when active
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isActive ? context.colors.textPrimary : context.colors.textPrimary, // Light when inactive
-            ),
-            if (label.isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? context.colors.textPrimary : context.colors.textPrimary, // Light when inactive
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build quantize dropdown button
-  Widget _buildQuantizeButton() {
-    return PopupMenuButton<int>(
-      tooltip: 'Quantize notes to grid',
-      offset: const Offset(0, 40),
-      color: context.colors.standard,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: context.colors.dark,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.align_horizontal_left,
-              size: 14,
-              color: context.colors.textPrimary,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Quantize',
-              style: TextStyle(
-                color: context.colors.textPrimary,
-                fontSize: 11,
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 14,
-              color: context.colors.textPrimary,
-            ),
-          ],
-        ),
-      ),
-      onSelected: (division) {
-        _quantizeClip(division);
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem<int>(
-          value: 4,
-          child: Text('1/4 Note (Quarter)', style: TextStyle(color: context.colors.textPrimary)),
-        ),
-        PopupMenuItem<int>(
-          value: 8,
-          child: Text('1/8 Note (Eighth)', style: TextStyle(color: context.colors.textPrimary)),
-        ),
-        PopupMenuItem<int>(
-          value: 16,
-          child: Text('1/16 Note (Sixteenth)', style: TextStyle(color: context.colors.textPrimary)),
-        ),
-        PopupMenuItem<int>(
-          value: 32,
-          child: Text('1/32 Note (Thirty-second)', style: TextStyle(color: context.colors.textPrimary)),
-        ),
-      ],
-    );
-  }
-
   /// Quantize all notes in the clip to the specified grid division
   void _quantizeClip(int gridDivision) {
     if (_currentClip == null || widget.audioEngine == null) {
@@ -1140,6 +1185,187 @@ class _PianoRollState extends State<PianoRoll> {
     // Notify parent to refresh clip data from engine
     widget.onClipUpdated?.call(_currentClip!);
     setState(() {});
+  }
+
+  /// Apply stretch to selected notes (time scaling)
+  void _applyStretch() {
+    if (_currentClip == null) return;
+
+    final selectedNotes = _currentClip!.notes.where((n) => n.isSelected).toList();
+    if (selectedNotes.isEmpty) return;
+
+    _saveToHistory();
+
+    // Find selection start point as anchor
+    final selectionStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
+
+    setState(() {
+      _currentClip = _currentClip!.copyWith(
+        notes: _currentClip!.notes.map((note) {
+          if (!note.isSelected) return note;
+
+          // Scale timing relative to selection start
+          final relativeStart = note.startTime - selectionStart;
+          final newStart = selectionStart + (relativeStart * _stretchAmount);
+          final newDuration = note.duration * _stretchAmount;
+
+          return note.copyWith(
+            startTime: newStart,
+            duration: newDuration,
+          );
+        }).toList(),
+      );
+    });
+
+    _commitToHistory('Stretch notes');
+    _notifyClipUpdated();
+  }
+
+  /// Apply humanize to selected notes (random timing variation)
+  void _applyHumanize() {
+    if (_currentClip == null) return;
+
+    final selectedNotes = _currentClip!.notes.where((n) => n.isSelected).toList();
+    if (selectedNotes.isEmpty) return;
+
+    _saveToHistory();
+
+    // Max timing variation: ±50ms at 100% humanize
+    // Convert to beats (assuming 120 BPM, 1 beat = 500ms)
+    final maxVariationBeats = 0.1 * _humanizeAmount; // ±0.1 beats at 100%
+    final random = Random();
+
+    setState(() {
+      _currentClip = _currentClip!.copyWith(
+        notes: _currentClip!.notes.map((note) {
+          if (!note.isSelected) return note;
+
+          // Random offset between -maxVariation and +maxVariation
+          final offset = (random.nextDouble() * 2 - 1) * maxVariationBeats;
+          final newStart = (note.startTime + offset).clamp(0.0, double.infinity);
+
+          return note.copyWith(startTime: newStart);
+        }).toList(),
+      );
+    });
+
+    _commitToHistory('Humanize notes');
+    _notifyClipUpdated();
+  }
+
+  /// Randomize velocity of selected notes (or all notes if none selected)
+  void _applyVelocityRandomize() {
+    if (_currentClip == null || _velocityRandomizeAmount <= 0) return;
+
+    final notes = _currentClip!.notes;
+    final selectedNotes = notes.where((n) => n.isSelected).toList();
+    final targetNotes = selectedNotes.isNotEmpty ? selectedNotes : notes;
+
+    if (targetNotes.isEmpty) return;
+
+    _saveToHistory();
+
+    // Max variation: ±50 velocity units at 100%
+    final maxVariation = (_velocityRandomizeAmount * 50).round();
+    final random = Random();
+
+    setState(() {
+      _currentClip = _currentClip!.copyWith(
+        notes: _currentClip!.notes.map((note) {
+          final isTarget = selectedNotes.isNotEmpty
+              ? note.isSelected
+              : true;
+          if (!isTarget) return note;
+
+          // Random variation per note
+          final variation = random.nextInt(maxVariation * 2 + 1) - maxVariation;
+          final newVelocity = (note.velocity + variation).clamp(1, 127);
+
+          return note.copyWith(velocity: newVelocity);
+        }).toList(),
+      );
+    });
+
+    _commitToHistory('Randomize velocity');
+    _notifyClipUpdated();
+  }
+
+  /// Apply legato - extend each note to touch the next note at same pitch
+  void _applyLegato() {
+    if (_currentClip == null) return;
+
+    final selectedNotes = _currentClip!.notes.where((n) => n.isSelected).toList();
+    if (selectedNotes.isEmpty) return;
+
+    _saveToHistory();
+
+    // Group selected notes by pitch
+    final notesByPitch = <int, List<MidiNoteData>>{};
+    for (final note in selectedNotes) {
+      notesByPitch.putIfAbsent(note.note, () => []).add(note);
+    }
+
+    // Sort each pitch group by start time
+    for (final notes in notesByPitch.values) {
+      notes.sort((a, b) => a.startTime.compareTo(b.startTime));
+    }
+
+    setState(() {
+      _currentClip = _currentClip!.copyWith(
+        notes: _currentClip!.notes.map((note) {
+          if (!note.isSelected) return note;
+
+          final pitchNotes = notesByPitch[note.note]!;
+          final index = pitchNotes.indexWhere((n) => n.id == note.id);
+
+          // If there's a next note at same pitch, extend to it
+          if (index < pitchNotes.length - 1) {
+            final nextNote = pitchNotes[index + 1];
+            final newDuration = nextNote.startTime - note.startTime;
+            return note.copyWith(duration: newDuration);
+          }
+
+          return note;
+        }).toList(),
+      );
+    });
+
+    _commitToHistory('Apply legato');
+    _notifyClipUpdated();
+  }
+
+  /// Reverse selected notes in time (mirror around center point)
+  void _reverseNotes() {
+    if (_currentClip == null) return;
+
+    final selectedNotes = _currentClip!.notes.where((n) => n.isSelected).toList();
+    if (selectedNotes.isEmpty) return;
+
+    _saveToHistory();
+
+    // Find selection bounds
+    final selectionStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
+    final selectionEnd = selectedNotes.map((n) => n.endTime).reduce((a, b) => a > b ? a : b);
+    final selectionCenter = (selectionStart + selectionEnd) / 2;
+
+    setState(() {
+      _currentClip = _currentClip!.copyWith(
+        notes: _currentClip!.notes.map((note) {
+          if (!note.isSelected) return note;
+
+          // Mirror note position around center
+          final noteCenter = note.startTime + note.duration / 2;
+          final distanceFromCenter = noteCenter - selectionCenter;
+          final newNoteCenter = selectionCenter - distanceFromCenter;
+          final newStart = newNoteCenter - note.duration / 2;
+
+          return note.copyWith(startTime: newStart.clamp(0.0, double.infinity));
+        }).toList(),
+      );
+    });
+
+    _commitToHistory('Reverse notes');
+    _notifyClipUpdated();
   }
 
   Widget _buildPianoKey(int midiNote) {
@@ -1324,8 +1550,8 @@ class _PianoRollState extends State<PianoRoll> {
         setState(() {
           _currentCursor = SystemMouseCursors.forbidden;
         });
-      } else if (_sliceModeEnabled) {
-        // Slice mode (toggle button only) - show vertical split cursor
+      } else if (_isSliceModeActive) {
+        // Slice mode (toggle button or S key held) - show vertical split cursor
         setState(() {
           _currentCursor = SystemMouseCursors.verticalText;
         });
@@ -1397,8 +1623,8 @@ class _PianoRollState extends State<PianoRoll> {
     }
 
     if (clickedNote != null) {
-      // Check if slice mode is active (toggle button only, Cmd/Ctrl is now for duplicate)
-      if (_sliceModeEnabled) {
+      // Check if slice mode is active (toggle button or S key held)
+      if (_isSliceModeActive) {
         // Slice the note at click position
         final beatPosition = _getBeatAtX(details.localPosition.dx);
         _sliceNoteAt(clickedNote, beatPosition);
@@ -1443,13 +1669,20 @@ class _PianoRollState extends State<PianoRoll> {
       // Clear just-created tracking since we clicked on existing note
       _justCreatedNoteId = null;
     } else {
-      // Single-click on empty space creates a note (FL Studio style)
+      // Single-click on empty space
       _saveToHistory();
       final beat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
-      final note = _getNoteAtY(details.localPosition.dy);
+      final clickedNote = _getNoteAtY(details.localPosition.dy);
 
+      // Check if chord palette is visible - stamp chord instead of single note
+      if (_chordPaletteVisible) {
+        _stampChordAt(beat, clickedNote);
+        return;
+      }
+
+      // Create single note (FL Studio style)
       final newNote = MidiNoteData(
-        note: note,
+        note: clickedNote,
         velocity: 100,
         startTime: beat,
         duration: _lastNoteDuration,
@@ -1473,7 +1706,7 @@ class _PianoRollState extends State<PianoRoll> {
       _commitToHistory('Add note');
       _notifyClipUpdated();
       // Start sustained audition (will stop on mouse up)
-      _startAudition(note, 100);
+      _startAudition(clickedNote, 100);
     }
   }
 
@@ -1594,7 +1827,7 @@ class _PianoRollState extends State<PianoRoll> {
 
       // Clear just-created tracking
       _justCreatedNoteId = null;
-    } else if (clickedNote != null && !_sliceModeEnabled) {
+    } else if (clickedNote != null && !_isSliceModeActive) {
       // Check if we're near the edge for resizing (FL Studio style)
       final edge = _getEdgeAtPosition(details.localPosition, clickedNote);
 
@@ -1709,7 +1942,12 @@ class _PianoRollState extends State<PianoRoll> {
               if (originalNote != null) {
                 final rawStartTime = originalNote.startTime + deltaBeat;
                 final newStartTime = (isShiftPressed ? rawStartTime : _snapToGrid(rawStartTime)).clamp(0.0, 64.0);
-                final newNote = (originalNote.note + deltaNote).clamp(0, 127);
+                var newNote = (originalNote.note + deltaNote).clamp(0, 127);
+
+                // Apply scale lock if enabled
+                if (_scaleLockEnabled) {
+                  newNote = _snapNoteToScale(newNote);
+                }
 
                 // Capture the new pitch for audition
                 if (newPitchForAudition == null) {
@@ -1921,6 +2159,27 @@ class _PianoRollState extends State<PianoRoll> {
       // Escape to deselect all notes
       else if (event.logicalKey == LogicalKeyboardKey.escape) {
         _deselectAllNotes();
+      }
+      // S key to temporarily enable slice mode while held
+      else if (event.logicalKey == LogicalKeyboardKey.keyS &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        if (!_tempSliceModeHeld) {
+          setState(() => _tempSliceModeHeld = true);
+        }
+      }
+      // K key to toggle chord palette
+      else if (event.logicalKey == LogicalKeyboardKey.keyK &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        setState(() => _chordPaletteVisible = !_chordPaletteVisible);
+      }
+    } else if (event is KeyUpEvent) {
+      // Release S key to disable temporary slice mode
+      if (event.logicalKey == LogicalKeyboardKey.keyS) {
+        if (_tempSliceModeHeld) {
+          setState(() => _tempSliceModeHeld = false);
+        }
       }
     }
   }
