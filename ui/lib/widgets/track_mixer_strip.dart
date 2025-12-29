@@ -321,6 +321,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       return;
     }
 
+    final colors = context.colors;
+    final trackColor = widget.trackColor;
+
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -334,9 +337,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: 'rename',
           child: Row(
             children: [
-              Icon(Icons.edit, size: 16, color: context.colors.textPrimary),
+              Icon(Icons.edit, size: 16, color: colors.textPrimary),
               const SizedBox(width: 8),
-              Text('Rename', style: TextStyle(color: context.colors.textPrimary)),
+              Text('Rename', style: TextStyle(color: colors.textPrimary)),
             ],
           ),
         ),
@@ -348,13 +351,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 width: 16,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: widget.trackColor ?? context.colors.textSecondary,
+                  color: trackColor ?? colors.textSecondary,
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: context.colors.hover),
+                  border: Border.all(color: colors.hover),
                 ),
               ),
               const SizedBox(width: 8),
-              Text('Change Color', style: TextStyle(color: context.colors.textPrimary)),
+              Text('Change Color', style: TextStyle(color: colors.textPrimary)),
             ],
           ),
         ),
@@ -362,9 +365,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: 'duplicate',
           child: Row(
             children: [
-              Icon(Icons.content_copy, size: 16, color: context.colors.textPrimary),
+              Icon(Icons.content_copy, size: 16, color: colors.textPrimary),
               const SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: context.colors.textPrimary)),
+              Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
             ],
           ),
         ),
@@ -372,9 +375,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: 'delete',
           child: Row(
             children: [
-              Icon(Icons.delete, size: 16, color: context.colors.error),
+              Icon(Icons.delete, size: 16, color: colors.error),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: context.colors.error)),
+              Text('Delete', style: TextStyle(color: colors.error)),
             ],
           ),
         ),

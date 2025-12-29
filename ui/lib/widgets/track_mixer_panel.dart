@@ -325,6 +325,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final RenderBox? overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
 
+    final colors = context.colors;
+
     // Show popup menu
     showMenu<String>(
       context: context,
@@ -339,7 +341,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           value: 'audio',
           child: Row(
             children: [
-              Icon(Icons.audiotrack, size: 18, color: context.colors.darkest),
+              Icon(Icons.audiotrack, size: 18, color: colors.darkest),
               const SizedBox(width: 12),
               const Text('Audio Track', style: TextStyle(fontSize: 14)),
             ],
@@ -349,7 +351,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           value: 'midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18, color: context.colors.darkest),
+              Icon(Icons.piano, size: 18, color: colors.darkest),
               const SizedBox(width: 12),
               const Text('MIDI Track', style: TextStyle(fontSize: 14)),
             ],
@@ -358,6 +360,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       ],
       elevation: 8,
     ).then((value) {
+      if (!mounted) return;
       if (value != null) {
         _createTrack(value);
       }
