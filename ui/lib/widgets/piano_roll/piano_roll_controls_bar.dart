@@ -83,7 +83,7 @@ class PianoRollControlsBar extends StatefulWidget {
     // Clip section
     this.loopEnabled = false,
     this.loopStartBeats = 0.0,
-    this.loopLengthBeats = 16.0,
+    this.loopLengthBeats = 4.0,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onLoopToggle,

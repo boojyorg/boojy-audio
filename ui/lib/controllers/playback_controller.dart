@@ -16,6 +16,11 @@ class PlaybackController extends ChangeNotifier {
   // Clip info for auto-stop
   double? _clipDuration;
 
+  // Loop cycling state
+  bool _isLoopCycling = false;
+  double _loopStartBeats = 0.0;
+  double _loopEndBeats = 4.0;
+
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 
@@ -42,6 +47,7 @@ class PlaybackController extends ChangeNotifier {
     if (_audioEngine == null) return;
 
     try {
+      _isLoopCycling = false; // Disable loop cycling for normal play
       _audioEngine!.transportPlay();
       _isPlaying = true;
       _statusMessage = loadedClipId != null ? 'Playing...' : 'Playing (empty)';
@@ -49,6 +55,35 @@ class PlaybackController extends ChangeNotifier {
       _startPlayheadTimer();
     } catch (e) {
       _statusMessage = 'Play error: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Start playback with loop cycling (Piano Roll context)
+  /// Plays from loopStart to loopEnd, then jumps back to loopStart forever
+  void playLoop({
+    int? loadedClipId,
+    required double loopStartBeats,
+    required double loopEndBeats,
+  }) {
+    if (_audioEngine == null) return;
+
+    try {
+      // Store loop bounds
+      _isLoopCycling = true;
+      _loopStartBeats = loopStartBeats;
+      _loopEndBeats = loopEndBeats;
+
+      // Seek to loop start and play
+      _audioEngine!.transportSeek(loopStartBeats);
+      _audioEngine!.transportPlay();
+      _isPlaying = true;
+      _playheadPosition = loopStartBeats;
+      _statusMessage = 'Playing loop...';
+      notifyListeners();
+      _startPlayheadTimer();
+    } catch (e) {
+      _statusMessage = 'Play loop error: $e';
       notifyListeners();
     }
   }
@@ -116,10 +151,17 @@ class PlaybackController extends ChangeNotifier {
       if (_audioEngine != null) {
         final pos = _audioEngine!.getPlayheadPosition();
         _playheadPosition = pos;
+
+        // Loop cycling: jump back to start when reaching end
+        if (_isLoopCycling && pos >= _loopEndBeats) {
+          _audioEngine!.transportSeek(_loopStartBeats);
+          _playheadPosition = _loopStartBeats;
+        }
+
         notifyListeners();
 
-        // Auto-stop at end of clip
-        if (_clipDuration != null && pos >= _clipDuration!) {
+        // Auto-stop at end of clip (only when not loop cycling)
+        if (!_isLoopCycling && _clipDuration != null && pos >= _clipDuration!) {
           stop();
           onAutoStop?.call();
         }

@@ -6,10 +6,18 @@ class BarRulerPainter extends CustomPainter {
   final double totalBeats;
   final double playheadPosition; // in beats
 
+  // Loop region parameters
+  final bool loopEnabled;
+  final double loopStart; // Loop start in beats
+  final double loopEnd; // Loop end in beats
+
   BarRulerPainter({
     required this.pixelsPerBeat,
     required this.totalBeats,
     required this.playheadPosition,
+    this.loopEnabled = false,
+    this.loopStart = 0.0,
+    this.loopEnd = 4.0,
   });
 
   @override
@@ -58,6 +66,44 @@ class BarRulerPainter extends CustomPainter {
       }
     }
 
+    // Draw loop region highlight in ruler
+    if (loopEnabled) {
+      final loopStartX = loopStart * pixelsPerBeat;
+      final loopEndX = loopEnd * pixelsPerBeat;
+
+      // Loop region background highlight (subtle orange tint)
+      final loopRegionPaint = Paint()
+        ..color = const Color(0x30FF9800); // 20% orange
+
+      canvas.drawRect(
+        Rect.fromLTWH(loopStartX, 0, loopEndX - loopStartX, size.height),
+        loopRegionPaint,
+      );
+
+      // Start marker bracket
+      final startMarkerPaint = Paint()
+        ..color = const Color(0xFFFF9800) // Orange
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+
+      // Draw [ shape for start marker
+      final startPath = Path()
+        ..moveTo(loopStartX + 6, 2)
+        ..lineTo(loopStartX + 2, 2)
+        ..lineTo(loopStartX + 2, size.height - 2)
+        ..lineTo(loopStartX + 6, size.height - 2);
+      canvas.drawPath(startPath, startMarkerPaint);
+
+      // End marker bracket
+      // Draw ] shape for end marker
+      final endPath = Path()
+        ..moveTo(loopEndX - 6, 2)
+        ..lineTo(loopEndX - 2, 2)
+        ..lineTo(loopEndX - 2, size.height - 2)
+        ..lineTo(loopEndX - 6, size.height - 2);
+      canvas.drawPath(endPath, startMarkerPaint);
+    }
+
     // Draw playhead triangle (orange)
     if (playheadPosition >= 0 && playheadPosition <= totalBeats) {
       final playheadX = playheadPosition * pixelsPerBeat;
@@ -88,6 +134,9 @@ class BarRulerPainter extends CustomPainter {
   bool shouldRepaint(BarRulerPainter oldDelegate) {
     return playheadPosition != oldDelegate.playheadPosition ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
-        totalBeats != oldDelegate.totalBeats;
+        totalBeats != oldDelegate.totalBeats ||
+        loopEnabled != oldDelegate.loopEnabled ||
+        loopStart != oldDelegate.loopStart ||
+        loopEnd != oldDelegate.loopEnd;
   }
 }

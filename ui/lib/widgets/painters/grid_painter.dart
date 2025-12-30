@@ -10,6 +10,11 @@ class GridPainter extends CustomPainter {
   final double totalBeats;
   final double activeBeats; // Active region boundary
 
+  // Loop region parameters
+  final bool loopEnabled;
+  final double loopStart; // Loop start in beats
+  final double loopEnd; // Loop end in beats
+
   // Time signature
   final int beatsPerBar; // e.g., 4 for 4/4, 3 for 3/4, 6 for 6/8
 
@@ -35,6 +40,9 @@ class GridPainter extends CustomPainter {
     this.minMidiNote = 0,
     required this.totalBeats,
     required this.activeBeats,
+    this.loopEnabled = false,
+    this.loopStart = 0.0,
+    this.loopEnd = 4.0,
     this.beatsPerBar = 4, // Default to 4/4 time
     required this.blackKeyBackground,
     required this.whiteKeyBackground,
@@ -105,8 +113,29 @@ class GridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Note: Grey shaded overlay removed per user preference
-    // Orange loop end marker is drawn by _buildLoopEndMarker widget
+    // STEP 3: Draw loop region dimming overlay (20% darker outside loop)
+    if (loopEnabled) {
+      final dimPaint = Paint()..color = const Color(0x33000000); // 20% black overlay
+
+      final loopStartX = loopStart * pixelsPerBeat;
+      final loopEndX = loopEnd * pixelsPerBeat;
+
+      // Dim area before loop start
+      if (loopStartX > 0) {
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, loopStartX, size.height),
+          dimPaint,
+        );
+      }
+
+      // Dim area after loop end
+      if (loopEndX < size.width) {
+        canvas.drawRect(
+          Rect.fromLTWH(loopEndX, 0, size.width - loopEndX, size.height),
+          dimPaint,
+        );
+      }
+    }
   }
 
   bool _isBlackKey(int midiNote) {
@@ -129,6 +158,9 @@ class GridPainter extends CustomPainter {
         gridDivision != oldDelegate.gridDivision ||
         totalBeats != oldDelegate.totalBeats ||
         activeBeats != oldDelegate.activeBeats ||
+        loopEnabled != oldDelegate.loopEnabled ||
+        loopStart != oldDelegate.loopStart ||
+        loopEnd != oldDelegate.loopEnd ||
         beatsPerBar != oldDelegate.beatsPerBar ||
         blackKeyBackground != oldDelegate.blackKeyBackground ||
         whiteKeyBackground != oldDelegate.whiteKeyBackground ||

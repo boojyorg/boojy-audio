@@ -29,6 +29,13 @@ enum ToolMode {
   slice,     // Split notes at click position
 }
 
+/// Loop marker being dragged in ruler
+enum _LoopMarkerDrag {
+  start,  // Dragging start marker
+  end,    // Dragging end marker
+  middle, // Dragging the entire loop region
+}
+
 /// Piano Roll MIDI editor widget
 class PianoRoll extends StatefulWidget {
   final AudioEngine? audioEngine;
@@ -177,8 +184,12 @@ class _PianoRollState extends State<PianoRoll> {
   double? _insertMarkerBeats;
 
   // Loop settings
-  bool _loopEnabled = false;
+  bool _loopEnabled = true; // Loop ON by default
   double _loopStartBeats = 0.0;
+
+  // Loop marker drag state
+  _LoopMarkerDrag? _loopMarkerDrag;
+  double _loopDragStartBeat = 0.0; // Beat position when drag started
 
   // Transform tool values
   double _stretchAmount = 1.0;
@@ -622,7 +633,7 @@ class _PianoRollState extends State<PianoRoll> {
   /// Get the loop length (active region in piano roll)
   /// This is the boundary shown as the loop end marker
   double _getLoopLength() {
-    return _currentClip?.loopLength ?? 16.0; // Default 4 bars
+    return _currentClip?.loopLength ?? 4.0; // Default 1 bar
   }
 
   /// Calculate total visible beats (extends beyond loop for scrolling)
@@ -901,6 +912,9 @@ class _PianoRollState extends State<PianoRoll> {
                                                     minMidiNote: _minMidiNote,
                                                     totalBeats: totalBeats,
                                                     activeBeats: activeBeats,
+                                                    loopEnabled: _loopEnabled,
+                                                    loopStart: _loopStartBeats,
+                                                    loopEnd: _loopStartBeats + _getLoopLength(),
                                                     beatsPerBar: _beatsPerBar,
                                                     blackKeyBackground: context.colors.standard,
                                                     whiteKeyBackground: context.colors.elevated,
@@ -1751,8 +1765,8 @@ class _PianoRollState extends State<PianoRoll> {
     final colors = context.colors;
 
     return Container(
-      width: 60, // Match piano keys width
-      height: 24, // Match bar ruler height
+      width: 80, // Match piano keys width
+      height: 30, // Match bar ruler height
       decoration: BoxDecoration(
         color: colors.standard,
         border: Border(
@@ -1791,6 +1805,7 @@ class _PianoRollState extends State<PianoRoll> {
   /// Drag vertically: down = zoom in, up = zoom out (anchored to cursor)
   /// Drag horizontally: pan timeline (move left = scroll left, move right = scroll right)
   /// Click: place insert marker (spec v2.0)
+  /// When loop enabled: drag loop markers to adjust loop region
   Widget _buildBarRuler(double totalBeats, double canvasWidth) {
     return GestureDetector(
       onTapUp: (details) {
@@ -1803,16 +1818,94 @@ class _PianoRollState extends State<PianoRoll> {
         });
       },
       onPanStart: (details) {
+        final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beatAtCursor = xInContent / _pixelsPerBeat;
+
+        // Check if clicking on loop markers (when loop is enabled)
+        if (_loopEnabled) {
+          final loopEnd = _loopStartBeats + _getLoopLength();
+          final hitRadius = 10.0 / _pixelsPerBeat; // 10px hit radius in beats
+
+          // Check start marker
+          if ((beatAtCursor - _loopStartBeats).abs() < hitRadius) {
+            _loopMarkerDrag = _LoopMarkerDrag.start;
+            _loopDragStartBeat = _loopStartBeats;
+            return;
+          }
+
+          // Check end marker
+          if ((beatAtCursor - loopEnd).abs() < hitRadius) {
+            _loopMarkerDrag = _LoopMarkerDrag.end;
+            _loopDragStartBeat = loopEnd;
+            return;
+          }
+
+          // Check middle region
+          if (beatAtCursor > _loopStartBeats && beatAtCursor < loopEnd) {
+            _loopMarkerDrag = _LoopMarkerDrag.middle;
+            _loopDragStartBeat = beatAtCursor;
+            return;
+          }
+        }
+
+        // Normal pan/zoom behavior
+        _loopMarkerDrag = null;
         _zoomDragStartY = details.globalPosition.dy;
         _zoomStartPixelsPerBeat = _pixelsPerBeat;
         _zoomAnchorLocalX = details.localPosition.dx;
-
-        // Calculate the beat position under the cursor (anchor point for zoom)
-        final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
-        final xInContent = details.localPosition.dx + scrollOffset;
-        _zoomAnchorBeat = xInContent / _pixelsPerBeat;
+        _zoomAnchorBeat = beatAtCursor;
       },
       onPanUpdate: (details) {
+        // Handle loop marker dragging
+        if (_loopMarkerDrag != null && _loopEnabled) {
+          final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
+          final xInContent = details.localPosition.dx + scrollOffset;
+          final beatAtCursor = xInContent / _pixelsPerBeat;
+          final snappedBeat = _snapToGrid(beatAtCursor);
+
+          switch (_loopMarkerDrag!) {
+            case _LoopMarkerDrag.start:
+              // Move start marker, keep end fixed
+              final loopEnd = _loopStartBeats + _getLoopLength();
+              final newStart = snappedBeat.clamp(0.0, loopEnd - _gridDivision);
+              final newLength = loopEnd - newStart;
+              setState(() {
+                _loopStartBeats = newStart;
+                _updateLoopLength(newLength);
+              });
+              break;
+
+            case _LoopMarkerDrag.end:
+              // Move end marker, keep start fixed
+              final newEnd = snappedBeat.clamp(_loopStartBeats + _gridDivision, double.infinity);
+              final newLength = newEnd - _loopStartBeats;
+              setState(() {
+                _updateLoopLength(newLength);
+              });
+              // Auto-extend canvas if needed
+              _autoExtendCanvasIfNeeded(newEnd);
+              break;
+
+            case _LoopMarkerDrag.middle:
+              // Move entire loop region
+              final delta = snappedBeat - _snapToGrid(_loopDragStartBeat);
+              final newStart = (_loopStartBeats + delta).clamp(0.0, double.infinity);
+              // Only move if not trying to go negative
+              if (newStart >= 0) {
+                setState(() {
+                  _loopStartBeats = newStart;
+                });
+                _loopDragStartBeat = snappedBeat;
+                // Auto-extend canvas if needed
+                _autoExtendCanvasIfNeeded(newStart + _getLoopLength());
+              }
+              break;
+          }
+          return;
+        }
+
+        // Normal pan/zoom behavior
         // Calculate drag delta (positive = dragged down = zoom in)
         final deltaY = details.globalPosition.dy - _zoomDragStartY;
 
@@ -1851,6 +1944,10 @@ class _PianoRollState extends State<PianoRoll> {
           }
         });
       },
+      onPanEnd: (details) {
+        // Reset loop marker drag state
+        _loopMarkerDrag = null;
+      },
       child: MouseRegion(
         cursor: SystemMouseCursors.grab, // Visual hint for pan/zoom
         child: Container(
@@ -1868,6 +1965,9 @@ class _PianoRollState extends State<PianoRoll> {
               pixelsPerBeat: _pixelsPerBeat,
               totalBeats: totalBeats,
               playheadPosition: 0.0, // TODO: Sync with actual playhead
+              loopEnabled: _loopEnabled,
+              loopStart: _loopStartBeats,
+              loopEnd: _loopStartBeats + _getLoopLength(),
             ),
           ),
         ),
@@ -2245,6 +2345,24 @@ class _PianoRollState extends State<PianoRoll> {
       // Round up to next bar boundary (4 beats)
       final newLoopLength = ((noteEndTime / 4).ceil() * 4).toDouble();
       _currentClip = _currentClip!.copyWith(loopLength: newLoopLength);
+    }
+  }
+
+  /// Update the loop length in the current clip
+  void _updateLoopLength(double newLength) {
+    if (_currentClip == null) return;
+    final clampedLength = newLength.clamp(_gridDivision, 256.0);
+    _currentClip = _currentClip!.copyWith(loopLength: clampedLength);
+  }
+
+  /// Auto-extend the canvas/clip if loop end exceeds current bounds
+  void _autoExtendCanvasIfNeeded(double loopEndBeats) {
+    if (_currentClip == null) return;
+    // If the loop end goes beyond current clip duration, extend it
+    if (loopEndBeats > _currentClip!.duration) {
+      // Round up to next bar boundary
+      final newDuration = ((loopEndBeats / _beatsPerBar).ceil() * _beatsPerBar).toDouble();
+      _currentClip = _currentClip!.copyWith(duration: newDuration);
     }
   }
 

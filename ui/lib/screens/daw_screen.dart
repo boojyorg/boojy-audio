@@ -375,6 +375,38 @@ class _DAWScreenState extends State<DAWScreen> {
     _mixerKey.currentState?.resetMeters();
   }
 
+  /// Context-aware play/pause toggle (Space bar)
+  /// - When Piano Roll is visible: plays just the loop region (cycling)
+  /// - When Timeline only: plays full arrangement
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _pause();
+    } else {
+      // Context-aware: check if Piano Roll is the focus
+      if (_uiLayout.isEditorPanelVisible && _loadedClipId != null) {
+        // Piano Roll context: play loop region (cycling)
+        _playLoopRegion();
+      } else {
+        // Timeline context: normal arrangement playback
+        _play();
+      }
+    }
+  }
+
+  /// Play just the loop region in the Piano Roll, cycling forever
+  void _playLoopRegion() {
+    // Get loop bounds from UI layout state
+    final loopStart = _uiLayout.loopStartBeats;
+    final loopEnd = _uiLayout.loopEndBeats;
+
+    // Play with loop cycling enabled
+    _playbackController.playLoop(
+      loadedClipId: _loadedClipId,
+      loopStartBeats: loopStart,
+      loopEndBeats: loopEnd,
+    );
+  }
+
   // M2: Recording methods - delegate to RecordingController
   void _toggleRecording() {
     if (_isRecording || _isCountingIn) {
@@ -599,10 +631,10 @@ class _DAWScreenState extends State<DAWScreen> {
     _onInstrumentSelected(trackId, instrument.id);
   }
 
-  /// Create a default 4-bar empty MIDI clip for a new track
+  /// Create a default 1-bar empty MIDI clip for a new track
   void _createDefaultMidiClip(int trackId) {
-    // 4 bars = 16 beats (MIDI clips store duration in beats, not seconds)
-    const durationBeats = 16.0;
+    // 1 bar = 4 beats (MIDI clips store duration in beats, not seconds)
+    const durationBeats = 4.0;
 
     final defaultClip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
@@ -2874,6 +2906,8 @@ class _DAWScreenState extends State<DAWScreen> {
       ],
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
+          // Space bar to play/pause (context-aware: Piano Roll = loop, Timeline = arrangement)
+          const SingleActivator(LogicalKeyboardKey.space): _togglePlayPause,
           // ? key (Shift + /) to show keyboard shortcuts
           const SingleActivator(LogicalKeyboardKey.slash, shift: true): _showKeyboardShortcuts,
           // Cmd+E to split clip at insert marker (or playhead if no marker)

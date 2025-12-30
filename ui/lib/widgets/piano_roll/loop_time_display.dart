@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 
-/// A clickable time display showing bar.beat.tick format.
-/// Each segment (bar, beat, tick) is individually clickable to edit.
+/// A clickable time display showing bar.beat.subdivision format.
+/// Each segment (bar, beat, sub) is individually clickable to edit.
 /// Used for loop start and loop length in the Piano Roll toolbar.
+///
+/// Format: bar.beat.sub where sub is 1-4 (sixteenth notes within a beat)
 class LoopTimeDisplay extends StatefulWidget {
   /// Value in beats (quarter notes)
   final double beats;
@@ -20,8 +22,8 @@ class LoopTimeDisplay extends StatefulWidget {
   /// Beats per bar (default 4 for 4/4 time)
   final int beatsPerBar;
 
-  /// Ticks per beat (standard MIDI resolution)
-  final int ticksPerBeat;
+  /// Subdivisions per beat (default 4 for sixteenth notes)
+  final int subsPerBeat;
 
   const LoopTimeDisplay({
     super.key,
@@ -29,7 +31,7 @@ class LoopTimeDisplay extends StatefulWidget {
     required this.label,
     this.onChanged,
     this.beatsPerBar = 4,
-    this.ticksPerBeat = 960,
+    this.subsPerBeat = 4, // 4 sixteenths per beat
   });
 
   @override
@@ -38,7 +40,7 @@ class LoopTimeDisplay extends StatefulWidget {
 
 class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
   bool _isEditing = false;
-  int _editingSegment = -1; // 0=bar, 1=beat, 2=tick
+  int _editingSegment = -1; // 0=bar, 1=beat, 2=sub
   late TextEditingController _editController;
   late FocusNode _editFocusNode;
 
@@ -64,30 +66,31 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     }
   }
 
-  /// Convert beats to bar.beat.tick tuple (all 1-indexed)
-  (int bar, int beat, int tick) _beatsToBarBeatTick(double beats) {
-    final totalTicks = (beats * widget.ticksPerBeat).round();
-    final ticksPerBar = widget.beatsPerBar * widget.ticksPerBeat;
+  /// Convert beats to bar.beat.sub tuple (all 1-indexed)
+  /// sub = sixteenth note subdivision within the beat (1-4)
+  (int bar, int beat, int sub) _beatsToBarBeatSub(double beats) {
+    final totalSubs = (beats * widget.subsPerBeat).round();
+    final subsPerBar = widget.beatsPerBar * widget.subsPerBeat;
 
-    final bar = (totalTicks ~/ ticksPerBar) + 1; // 1-indexed
-    final remainingTicks = totalTicks % ticksPerBar;
-    final beat = (remainingTicks ~/ widget.ticksPerBeat) + 1; // 1-indexed
-    final tick = (remainingTicks % widget.ticksPerBeat) + 1; // 1-indexed (1-960)
+    final bar = (totalSubs ~/ subsPerBar) + 1; // 1-indexed
+    final remainingSubs = totalSubs % subsPerBar;
+    final beat = (remainingSubs ~/ widget.subsPerBeat) + 1; // 1-indexed
+    final sub = (remainingSubs % widget.subsPerBeat) + 1; // 1-indexed (1-4)
 
-    return (bar, beat, tick);
+    return (bar, beat, sub);
   }
 
-  /// Convert bar.beat.tick tuple back to beats (all 1-indexed input)
-  double _barBeatTickToBeats(int bar, int beat, int tick) {
-    final ticksPerBar = widget.beatsPerBar * widget.ticksPerBeat;
-    final totalTicks = ((bar - 1) * ticksPerBar) +
-        ((beat - 1) * widget.ticksPerBeat) +
-        (tick - 1); // tick is 1-indexed
-    return totalTicks / widget.ticksPerBeat;
+  /// Convert bar.beat.sub tuple back to beats (all 1-indexed input)
+  double _barBeatSubToBeats(int bar, int beat, int sub) {
+    final subsPerBar = widget.beatsPerBar * widget.subsPerBeat;
+    final totalSubs = ((bar - 1) * subsPerBar) +
+        ((beat - 1) * widget.subsPerBeat) +
+        (sub - 1); // sub is 1-indexed
+    return totalSubs / widget.subsPerBeat;
   }
 
   void _startEditing(int segment) {
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
+    final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
     String initialValue;
     switch (segment) {
       case 0:
@@ -97,7 +100,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
         initialValue = beat.toString();
         break;
       case 2:
-        initialValue = tick.toString();
+        initialValue = sub.toString();
         break;
       default:
         return;
@@ -123,11 +126,11 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
     final newValue = int.tryParse(_editController.text);
     if (newValue != null && widget.onChanged != null) {
-      final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
+      final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
 
       int newBar = bar;
       int newBeat = beat;
-      int newTick = tick;
+      int newSub = sub;
 
       switch (_editingSegment) {
         case 0:
@@ -137,11 +140,11 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
           newBeat = newValue.clamp(1, widget.beatsPerBar);
           break;
         case 2:
-          newTick = newValue.clamp(1, widget.ticksPerBeat); // 1-indexed
+          newSub = newValue.clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
           break;
       }
 
-      final newBeats = _barBeatTickToBeats(newBar, newBeat, newTick);
+      final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);
       widget.onChanged!(newBeats);
     }
 
@@ -174,10 +177,10 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
   /// Increment/decrement segment with scroll
   void _handleScroll(int segment, double delta) {
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
+    final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
     int newBar = bar;
     int newBeat = beat;
-    int newTick = tick;
+    int newSub = sub;
 
     final direction = delta > 0 ? -1 : 1; // Scroll up = increase
 
@@ -189,18 +192,18 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
         newBeat = (beat + direction).clamp(1, widget.beatsPerBar);
         break;
       case 2:
-        newTick = (tick + direction * 10).clamp(1, widget.ticksPerBeat); // 1-indexed
+        newSub = (sub + direction).clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
         break;
     }
 
-    final newBeats = _barBeatTickToBeats(newBar, newBeat, newTick);
+    final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);
     widget.onChanged?.call(newBeats);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final (bar, beat, tick) = _beatsToBarBeatTick(widget.beats);
+    final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
 
     // Single row with 3 clickable/editable segments
     return Row(
@@ -210,7 +213,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
         _buildDot(colors),
         _buildSegment(1, beat.toString(), colors),
         _buildDot(colors),
-        _buildSegment(2, tick.toString(), colors),
+        _buildSegment(2, sub.toString(), colors),
       ],
     );
   }
@@ -220,7 +223,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
     if (isEditing) {
       return SizedBox(
-        width: segment == 2 ? 30 : 20,
+        width: 20, // All segments are single digit now
         child: KeyboardListener(
           focusNode: FocusNode(),
           onKeyEvent: _handleKey,
@@ -239,7 +242,7 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
             ),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(segment == 2 ? 3 : 3),
+              LengthLimitingTextInputFormatter(segment == 0 ? 3 : 1), // bar can be 3 digits, beat/sub are 1 digit
             ],
             onSubmitted: (_) => _commitEdit(),
           ),

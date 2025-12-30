@@ -70,7 +70,7 @@ class UILayoutState extends ChangeNotifier {
   SnapValue _arrangementSnap = SnapValue.bar;
 
   // Loop region state
-  bool _isLoopEnabled = false;
+  bool _isLoopEnabled = true; // Loop ON by default
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
 

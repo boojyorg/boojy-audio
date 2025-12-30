@@ -224,7 +224,7 @@ class MidiClipController extends ChangeNotifier {
   MidiClipData createDefaultClip({
     required int trackId,
     double? startTimeBeats,
-    double durationBeats = 16.0, // 4 bars
+    double durationBeats = 4.0, // 1 bar
     String name = 'New MIDI Clip',
   }) {
     final clipId = DateTime.now().millisecondsSinceEpoch;
