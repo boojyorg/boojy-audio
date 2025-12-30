@@ -1,15 +1,21 @@
 # Boojy Audio — Implementation Plan
 
-**Version:** 1.0  
-**Target:** v1 MVP (macOS + iPad)  
-**Timeline:** 3–6 months (adjust based on availability)  
+**Version:** 1.0
+**Target:** v1 MVP (macOS + iPad)
+**Timeline:** 3–6 months (adjust based on availability)
 **Tech Stack:** Flutter (UI) + Rust (audio engine) + Firebase Firestore (cloud)
+
+**Related Documentation:**
+
+- [FEATURES.md](FEATURES.md) — Complete feature specification for all versions
+- [ROADMAP.md](ROADMAP.md) — Vision, timeline, and strategic overview
+- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications and component details
 
 ---
 
 ## Overview
 
-This document breaks the MVP into **7 actionable milestones** (M1–M7), each representing ~2–4 weeks of work. Each milestone is demoable and builds toward the full v1 feature set defined in `MVP_SPEC.md`.
+This document breaks the MVP into **7 actionable milestones** (M1–M7), each representing ~2–4 weeks of work. Each milestone is demoable and builds toward the full v1 feature set defined in [FEATURES.md](FEATURES.md).
 
 **Development Philosophy:**
 - Build **vertical slices** (end-to-end features) rather than horizontal layers

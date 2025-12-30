@@ -4,6 +4,11 @@
 
 This document specifies all features and their target versions for Boojy Audio.
 
+**Related Documentation:**
+- [ROADMAP.md](ROADMAP.md) — Vision, timeline, and development progress
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks
+- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications and component details
+
 ---
 
 ## Version Summary

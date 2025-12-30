@@ -543,7 +543,7 @@ Boojy Audio is open-source (GPL v3). Contributions welcome!
 
 **Launch Updates:**
 - GitHub Discussions for announcements
-- Twitter/X (@solaraudio)
+- Twitter/X (@boojyaudio)
 - Reddit posts for major milestones
 
 ---
@@ -611,4 +611,12 @@ Items identified for future cleanup (not blocking current development):
 
 ---
 
-**Let's build the future of music production! 🎵**
+**Let's build the future of music production!**
+
+---
+
+## Related Documentation
+
+- [FEATURES.md](FEATURES.md) — Complete feature specification for all versions
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks and milestone tracking
+- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications, colors, and component details

@@ -3,6 +3,12 @@
 **Last Updated:** October 27, 2025
 **Current Version:** M5.5.1 (UI Redesign + Resizable Panels Complete)
 
+**Related Documentation:**
+
+- [FEATURES.md](FEATURES.md) — Complete feature specification for all versions
+- [ROADMAP.md](ROADMAP.md) — Vision, timeline, and development progress
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks
+
 ---
 
 ## Current UI State
