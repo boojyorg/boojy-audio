@@ -84,6 +84,12 @@ class TimelineView extends StatefulWidget {
   // Track color callback (for auto-detected colors with override support)
   final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
 
+  // Loop region state
+  final bool isLoopEnabled;
+  final double loopStartBeats;
+  final double loopEndBeats;
+  final Function(double startBeats, double endBeats)? onLoopRegionChanged;
+
   const TimelineView({
     super.key,
     required this.playheadPosition,
@@ -112,6 +118,10 @@ class TimelineView extends StatefulWidget {
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
     this.getTrackColor,
+    this.isLoopEnabled = false,
+    this.loopStartBeats = 0.0,
+    this.loopEndBeats = 4.0,
+    this.onLoopRegionChanged,
   });
 
   @override
@@ -894,6 +904,191 @@ class TimelineViewState extends State<TimelineView> {
           break;
         case 'rename':
           _showRenameDialog(clip);
+          break;
+      }
+    });
+  }
+
+  /// Show context menu for the time ruler
+  void _showRulerContextMenu(Offset globalPosition, Offset localPosition) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    // Calculate beat position from click
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final xInContent = localPosition.dx + scrollOffset;
+    final clickedBeat = xInContent / _pixelsPerBeat;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'set_loop_start',
+          child: Row(
+            children: [
+              Icon(Icons.first_page, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Set Loop Start Here'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'set_loop_end',
+          child: Row(
+            children: [
+              Icon(Icons.last_page, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Set Loop End Here'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'set_loop_1_bar',
+          child: Row(
+            children: [
+              Icon(Icons.crop_square, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Set 1 Bar Loop Here'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'set_loop_4_bars',
+          child: Row(
+            children: [
+              Icon(Icons.view_module, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Set 4 Bar Loop Here'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'add_marker',
+          enabled: false, // Placeholder for future feature
+          child: Row(
+            children: [
+              Icon(Icons.bookmark_add, size: 18, color: context.colors.textMuted),
+              const SizedBox(width: 8),
+              Text('Add Marker', style: TextStyle(color: context.colors.textMuted)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      // Snap to bar boundary
+      final snappedBeat = (clickedBeat / 4.0).floor() * 4.0;
+
+      switch (value) {
+        case 'set_loop_start':
+          widget.onLoopRegionChanged?.call(snappedBeat, widget.loopEndBeats);
+          break;
+        case 'set_loop_end':
+          widget.onLoopRegionChanged?.call(widget.loopStartBeats, snappedBeat + 4.0);
+          break;
+        case 'set_loop_1_bar':
+          widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 4.0);
+          break;
+        case 'set_loop_4_bars':
+          widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 16.0);
+          break;
+        case 'add_marker':
+          // TODO: Implement markers in future version
+          break;
+      }
+    });
+  }
+
+  /// Show context menu for empty track area
+  void _showEmptyAreaContextMenu(Offset globalPosition, Offset localPosition, TimelineTrackData track, bool isMidiTrack) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    // Calculate beat position from click
+    final beatPosition = _calculateBeatPosition(localPosition);
+    final snappedBeat = _snapToGrid(beatPosition);
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (isMidiTrack)
+          PopupMenuItem<String>(
+            value: 'create_clip',
+            child: Row(
+              children: [
+                Icon(Icons.add_box, size: 18, color: context.colors.textSecondary),
+                const SizedBox(width: 8),
+                const Text('Create MIDI Clip Here'),
+                const Spacer(),
+                Text('Double-click', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+              ],
+            ),
+          ),
+        PopupMenuItem<String>(
+          value: 'paste',
+          enabled: _clipboardMidiClip != null,
+          child: Row(
+            children: [
+              Icon(Icons.paste, size: 18, color: _clipboardMidiClip != null ? context.colors.textSecondary : context.colors.textMuted),
+              const SizedBox(width: 8),
+              Text('Paste', style: TextStyle(color: _clipboardMidiClip != null ? null : context.colors.textMuted)),
+              const Spacer(),
+              Text('⌘V', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'set_marker',
+          child: Row(
+            children: [
+              Icon(Icons.location_on, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Set Insert Marker Here'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'select_all',
+          child: Row(
+            children: [
+              Icon(Icons.select_all, size: 18, color: context.colors.textSecondary),
+              const SizedBox(width: 8),
+              const Text('Select All Clips'),
+              const Spacer(),
+              Text('⌘A', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == null) return;
+
+      switch (value) {
+        case 'create_clip':
+          // Create a 1-bar MIDI clip at the clicked position
+          widget.onCreateClipOnTrack?.call(track.id, snappedBeat, 4.0);
+          break;
+        case 'paste':
+          if (_clipboardMidiClip != null) {
+            _pasteMidiClip(track.id);
+          }
+          break;
+        case 'set_marker':
+          setInsertMarker(snappedBeat);
+          break;
+        case 'select_all':
+          selectAllClips();
           break;
       }
     });
@@ -1860,26 +2055,155 @@ class TimelineViewState extends State<TimelineView> {
   }
 
   Widget _buildTimeRuler(double width, double duration) {
-    return GestureDetector(
-      onTapUp: (details) {
-        // Click ruler to place insert marker (spec v2.0)
-        final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-        final xInContent = details.localPosition.dx + scrollOffset;
-        final beats = xInContent / _pixelsPerBeat;
-        setInsertMarker(beats.clamp(0.0, double.infinity));
-      },
-      child: Container(
-        height: 30,
-        width: width,
-        decoration: BoxDecoration(
-          color: context.colors.elevated,
-          border: Border(
-            bottom: BorderSide(color: context.colors.elevated),
+    return Stack(
+      children: [
+        // Base ruler with CustomPaint
+        GestureDetector(
+          onTapUp: (details) {
+            // Click ruler to place insert marker (spec v2.0)
+            final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+            final xInContent = details.localPosition.dx + scrollOffset;
+            final beats = xInContent / _pixelsPerBeat;
+            setInsertMarker(beats.clamp(0.0, double.infinity));
+          },
+          onSecondaryTapUp: (details) {
+            // Right-click ruler for context menu
+            _showRulerContextMenu(details.globalPosition, details.localPosition);
+          },
+          child: Container(
+            height: 30,
+            width: width,
+            decoration: BoxDecoration(
+              color: context.colors.elevated,
+              border: Border(
+                bottom: BorderSide(color: context.colors.elevated),
+              ),
+            ),
+            child: CustomPaint(
+              painter: _TimeRulerPainter(
+                pixelsPerBeat: _pixelsPerBeat,
+                isLoopEnabled: widget.isLoopEnabled,
+                loopStartBeats: widget.loopStartBeats,
+                loopEndBeats: widget.loopEndBeats,
+              ),
+            ),
           ),
         ),
-        child: CustomPaint(
-          painter: _TimeRulerPainter(
-            pixelsPerBeat: _pixelsPerBeat,
+        // Loop region drag handles and bar (only visible when loop is enabled)
+        if (widget.isLoopEnabled) ...[
+          // Loop bar (draggable region between handles) - added first so handles are on top
+          _buildLoopBar(),
+          // Loop start handle
+          _buildLoopHandle(
+            beats: widget.loopStartBeats,
+            isStart: true,
+            onDrag: (newBeats) {
+              // Clamp to not go past loop end
+              final clampedBeats = newBeats.clamp(0.0, widget.loopEndBeats - 1.0);
+              widget.onLoopRegionChanged?.call(clampedBeats, widget.loopEndBeats);
+            },
+          ),
+          // Loop end handle
+          _buildLoopHandle(
+            beats: widget.loopEndBeats,
+            isStart: false,
+            onDrag: (newBeats) {
+              // Clamp to not go before loop start
+              final clampedBeats = newBeats.clamp(widget.loopStartBeats + 1.0, double.infinity);
+              widget.onLoopRegionChanged?.call(widget.loopStartBeats, clampedBeats);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Build a draggable handle for loop region start or end
+  Widget _buildLoopHandle({
+    required double beats,
+    required bool isStart,
+    required Function(double) onDrag,
+  }) {
+    final handleX = beats * _pixelsPerBeat;
+    const handleWidth = 12.0;
+    const loopColor = Color(0xFFF97316);
+
+    return Positioned(
+      left: isStart ? handleX - handleWidth / 2 : handleX - handleWidth / 2,
+      top: 0,
+      child: GestureDetector(
+        onHorizontalDragUpdate: (details) {
+          // Calculate new beat position from drag
+          final newX = handleX + details.delta.dx;
+          final newBeats = newX / _pixelsPerBeat;
+          onDrag(newBeats);
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: Container(
+            width: handleWidth,
+            height: 30,
+            decoration: BoxDecoration(
+              color: loopColor.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: loopColor, width: 1),
+            ),
+            child: Center(
+              child: Icon(
+                isStart ? Icons.chevron_left : Icons.chevron_right,
+                size: 10,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build a draggable bar for moving the entire loop region
+  Widget _buildLoopBar() {
+    final loopStartX = widget.loopStartBeats * _pixelsPerBeat;
+    final loopEndX = widget.loopEndBeats * _pixelsPerBeat;
+    final loopWidth = loopEndX - loopStartX;
+    final loopDuration = widget.loopEndBeats - widget.loopStartBeats;
+    const loopColor = Color(0xFFF97316);
+    const handleWidth = 12.0;
+
+    // Only show bar if there's enough width (handles take 12px each)
+    if (loopWidth <= handleWidth * 2) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      left: loopStartX + handleWidth / 2,
+      top: 0,
+      child: GestureDetector(
+        onHorizontalDragUpdate: (details) {
+          // Calculate new start position from drag delta
+          final deltaBeats = details.delta.dx / _pixelsPerBeat;
+          final newStart = (widget.loopStartBeats + deltaBeats).clamp(0.0, double.infinity);
+          final newEnd = newStart + loopDuration;
+          widget.onLoopRegionChanged?.call(newStart, newEnd);
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Container(
+            width: loopWidth - handleWidth,
+            height: 30,
+            decoration: BoxDecoration(
+              color: loopColor.withValues(alpha: 0.3),
+              border: Border(
+                top: BorderSide(color: loopColor, width: 3),
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.drag_indicator,
+                size: 14,
+                color: loopColor.withValues(alpha: 0.8),
+              ),
+            ),
           ),
         ),
       ),
@@ -2086,6 +2410,14 @@ class TimelineViewState extends State<TimelineView> {
               _isDraggingNewClip = false;
               _newClipTrackId = null;
             });
+          }
+        },
+        onSecondaryTapUp: (details) {
+          // Right-click on empty area: show context menu
+          final beatPosition = _calculateBeatPosition(details.localPosition);
+          final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
+          if (!isOnClip) {
+            _showEmptyAreaContextMenu(details.globalPosition, details.localPosition, track, isMidiTrack);
           }
         },
         child: Container(
@@ -3045,6 +3377,8 @@ class TimelineViewState extends State<TimelineView> {
 
   Widget _buildPlayhead() {
     final playheadX = widget.playheadPosition * _pixelsPerSecond;
+    // Playhead color: blue per spec (#3B82F6)
+    const playheadColor = Color(0xFF3B82F6);
 
     return Positioned(
       left: playheadX - 10, // Center the 20px wide handle on the playhead position
@@ -3074,7 +3408,7 @@ class TimelineViewState extends State<TimelineView> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: context.colors.error,
+                    color: playheadColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: context.colors.textPrimary, width: 2),
                   ),
@@ -3089,7 +3423,7 @@ class TimelineViewState extends State<TimelineView> {
                   child: Center(
                     child: Container(
                       width: 2,
-                      color: context.colors.error,
+                      color: playheadColor,
                     ),
                   ),
                 ),
@@ -3301,9 +3635,18 @@ class TimelineViewState extends State<TimelineView> {
 /// Painter for the time ruler (bar numbers with beat subdivisions)
 class _TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
+  final bool isLoopEnabled;
+  final double loopStartBeats;
+  final double loopEndBeats;
+
+  // Loop region color (orange per spec #F97316)
+  static const Color loopRegionColor = Color(0xFFF97316);
 
   _TimeRulerPainter({
     required this.pixelsPerBeat,
+    this.isLoopEnabled = false,
+    this.loopStartBeats = 0.0,
+    this.loopEndBeats = 4.0,
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
@@ -3316,6 +3659,59 @@ class _TimeRulerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Draw loop region first (behind everything else)
+    if (isLoopEnabled && loopEndBeats > loopStartBeats) {
+      final loopStartX = loopStartBeats * pixelsPerBeat;
+      final loopEndX = loopEndBeats * pixelsPerBeat;
+
+      // Draw loop region background
+      final loopPaint = Paint()
+        ..color = loopRegionColor.withValues(alpha: 0.2);
+      canvas.drawRect(
+        Rect.fromLTRB(loopStartX, 0, loopEndX, size.height),
+        loopPaint,
+      );
+
+      // Draw loop region top bar (thicker, more visible)
+      final loopBarPaint = Paint()
+        ..color = loopRegionColor
+        ..strokeWidth = 3;
+      canvas.drawLine(
+        Offset(loopStartX, 2),
+        Offset(loopEndX, 2),
+        loopBarPaint,
+      );
+
+      // Draw loop start bracket
+      final bracketPaint = Paint()
+        ..color = loopRegionColor
+        ..strokeWidth = 2;
+      canvas.drawLine(
+        Offset(loopStartX, 0),
+        Offset(loopStartX, size.height),
+        bracketPaint,
+      );
+      // Left bracket top corner
+      canvas.drawLine(
+        Offset(loopStartX, 2),
+        Offset(loopStartX + 8, 2),
+        bracketPaint,
+      );
+
+      // Draw loop end bracket
+      canvas.drawLine(
+        Offset(loopEndX, 0),
+        Offset(loopEndX, size.height),
+        bracketPaint,
+      );
+      // Right bracket top corner
+      canvas.drawLine(
+        Offset(loopEndX - 8, 2),
+        Offset(loopEndX, 2),
+        bracketPaint,
+      );
+    }
+
     // Beat-based measurements (tempo-independent)
     final gridDivision = _getGridDivision();
 
@@ -3404,7 +3800,10 @@ class _TimeRulerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TimeRulerPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat;
+    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
+        oldDelegate.isLoopEnabled != isLoopEnabled ||
+        oldDelegate.loopStartBeats != loopStartBeats ||
+        oldDelegate.loopEndBeats != loopEndBeats;
   }
 }
 

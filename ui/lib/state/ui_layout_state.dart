@@ -4,6 +4,48 @@ import '../services/project_manager.dart';
 
 export '../services/project_manager.dart' show UILayoutData;
 
+/// Snap values for arrangement timeline grid snapping
+enum SnapValue {
+  off,
+  bar,
+  beat,
+  half,      // 1/2 beat (1/8th note)
+  quarter,   // 1/4 beat (1/16th note)
+}
+
+extension SnapValueExtension on SnapValue {
+  String get displayName {
+    switch (this) {
+      case SnapValue.off:
+        return 'Off';
+      case SnapValue.bar:
+        return 'Bar';
+      case SnapValue.beat:
+        return 'Beat';
+      case SnapValue.half:
+        return '1/2';
+      case SnapValue.quarter:
+        return '1/4';
+    }
+  }
+
+  /// Get snap resolution in beats (returns 0 for off)
+  double get beatsResolution {
+    switch (this) {
+      case SnapValue.off:
+        return 0.0;
+      case SnapValue.bar:
+        return 4.0; // 4 beats per bar (4/4 time)
+      case SnapValue.beat:
+        return 1.0;
+      case SnapValue.half:
+        return 0.5;
+      case SnapValue.quarter:
+        return 0.25;
+    }
+  }
+}
+
 /// Holds UI layout state for panel sizes and visibility.
 /// Used by DAWScreen to manage resizable panels.
 class UILayoutState extends ChangeNotifier {
@@ -23,6 +65,14 @@ class UILayoutState extends ChangeNotifier {
   bool _isEditorPanelVisible = true;
   bool _isVirtualPianoVisible = false;
   bool _isVirtualPianoEnabled = false;
+
+  // Arrangement snap setting (independent from Piano Roll snap)
+  SnapValue _arrangementSnap = SnapValue.bar;
+
+  // Loop region state
+  bool _isLoopEnabled = false;
+  double _loopStartBeats = 0.0;
+  double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
 
   // Fixed minimums (usability floor)
   static const double libraryMinWidth = 150.0;
@@ -255,6 +305,58 @@ class UILayoutState extends ChangeNotifier {
     _isVirtualPianoEnabled = false;
     notifyListeners();
   }
+
+  // ============================================
+  // ARRANGEMENT SNAP
+  // ============================================
+
+  SnapValue get arrangementSnap => _arrangementSnap;
+  set arrangementSnap(SnapValue value) {
+    _arrangementSnap = value;
+    notifyListeners();
+  }
+
+  void setArrangementSnap(SnapValue value) {
+    arrangementSnap = value;
+  }
+
+  // ============================================
+  // LOOP REGION
+  // ============================================
+
+  bool get isLoopEnabled => _isLoopEnabled;
+  set isLoopEnabled(bool value) {
+    _isLoopEnabled = value;
+    notifyListeners();
+  }
+
+  double get loopStartBeats => _loopStartBeats;
+  set loopStartBeats(double value) {
+    _loopStartBeats = value;
+    notifyListeners();
+  }
+
+  double get loopEndBeats => _loopEndBeats;
+  set loopEndBeats(double value) {
+    _loopEndBeats = value;
+    notifyListeners();
+  }
+
+  /// Toggle loop on/off
+  void toggleLoop() {
+    _isLoopEnabled = !_isLoopEnabled;
+    notifyListeners();
+  }
+
+  /// Set loop region (start and end in beats)
+  void setLoopRegion(double startBeats, double endBeats) {
+    _loopStartBeats = startBeats;
+    _loopEndBeats = endBeats;
+    notifyListeners();
+  }
+
+  /// Get loop duration in beats
+  double get loopDurationBeats => _loopEndBeats - _loopStartBeats;
 
   /// Reset all panel sizes and visibility to defaults
   void resetLayout() {

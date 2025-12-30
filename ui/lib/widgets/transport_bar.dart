@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extension.dart';
+import '../state/ui_layout_state.dart';
 
 /// Transport control bar for play/pause/stop/record controls
 class TransportBar extends StatefulWidget {
@@ -60,6 +61,14 @@ class TransportBar extends StatefulWidget {
   // Help callback
   final VoidCallback? onHelpPressed;
 
+  // Snap control
+  final SnapValue arrangementSnap;
+  final Function(SnapValue)? onSnapChanged;
+
+  // Loop control
+  final bool isLoopEnabled;
+  final VoidCallback? onLoopToggle;
+
   final bool isLoading;
 
   const TransportBar({
@@ -110,6 +119,10 @@ class TransportBar extends StatefulWidget {
     this.editorVisible = true,
     this.pianoVisible = false,
     this.onHelpPressed,
+    this.arrangementSnap = SnapValue.bar,
+    this.onSnapChanged,
+    this.isLoopEnabled = false,
+    this.onLoopToggle,
     this.isLoading = false,
   });
 
@@ -465,10 +478,10 @@ class _TransportBarState extends State<TransportBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Play/Pause button
+                // Play/Pause button - Green per spec (#22C55E)
                 _TransportButton(
                   icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: widget.isPlaying ? context.colors.warning : context.colors.success,
+                  color: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
                   onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
                   tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
                   size: 40,
@@ -476,10 +489,10 @@ class _TransportBarState extends State<TransportBar> {
 
                 const SizedBox(width: 4),
 
-                // Stop button
+                // Stop button - Orange per spec (#F97316)
                 _TransportButton(
                   icon: Icons.stop,
-                  color: context.colors.error,
+                  color: const Color(0xFFF97316),
                   onPressed: widget.canPlay ? widget.onStop : null,
                   tooltip: 'Stop',
                   size: 40,
@@ -519,7 +532,23 @@ class _TransportBarState extends State<TransportBar> {
               playheadPosition: widget.playheadPosition,
             ),
 
-          SizedBox(width: isCompact ? 8 : 24),
+          SizedBox(width: isCompact ? 8 : 16),
+
+          // Loop toggle button
+          _LoopButton(
+            enabled: widget.isLoopEnabled,
+            onPressed: widget.onLoopToggle,
+          ),
+
+          SizedBox(width: isCompact ? 4 : 8),
+
+          // Snap dropdown
+          _SnapDropdown(
+            value: widget.arrangementSnap,
+            onChanged: widget.onSnapChanged,
+          ),
+
+          SizedBox(width: isCompact ? 8 : 16),
           VerticalDivider(color: context.colors.elevated, width: 1),
           SizedBox(width: isCompact ? 8 : 16),
 
@@ -1076,6 +1105,9 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
 
   @override
   Widget build(BuildContext context) {
+    // Capture colors outside the popup menu builder to avoid provider context issues
+    final colors = context.colors;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -1090,7 +1122,7 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
           }
         },
         offset: const Offset(0, 40),
-        itemBuilder: (BuildContext context) {
+        itemBuilder: (BuildContext menuContext) {
           final items = <PopupMenuEntry<int>>[];
 
           if (widget.devices.isEmpty) {
@@ -1099,7 +1131,7 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                 enabled: false,
                 child: Text(
                   'No MIDI devices found',
-                  style: TextStyle(color: context.colors.textMuted),
+                  style: TextStyle(color: colors.textMuted),
                 ),
               ),
             );
@@ -1118,14 +1150,14 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                       Icon(
                         isSelected ? Icons.check : Icons.piano,
                         size: 18,
-                        color: isSelected ? context.colors.accent : null,
+                        color: isSelected ? colors.accent : null,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           name,
                           style: TextStyle(
-                            color: isSelected ? context.colors.accent : null,
+                            color: isSelected ? colors.accent : null,
                             fontWeight: isSelected ? FontWeight.w600 : null,
                           ),
                         ),
@@ -1134,12 +1166,12 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: context.colors.elevated,
+                            color: colors.elevated,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Default',
-                            style: TextStyle(fontSize: 10, color: context.colors.textMuted),
+                            style: TextStyle(fontSize: 10, color: colors.textMuted),
                           ),
                         ),
                     ],
@@ -1169,13 +1201,13 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: _isHovered
-                ? context.colors.elevated
-                : context.colors.standard,
+                ? colors.elevated
+                : colors.standard,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: widget.selectedIndex >= 0
-                  ? context.colors.accent.withValues(alpha: 0.5)
-                  : context.colors.elevated,
+                  ? colors.accent.withValues(alpha: 0.5)
+                  : colors.elevated,
             ),
           ),
           child: Row(
@@ -1185,16 +1217,16 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                 Icons.piano,
                 size: 14,
                 color: widget.selectedIndex >= 0
-                    ? context.colors.accent
-                    : context.colors.textSecondary,
+                    ? colors.accent
+                    : colors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
                 _selectedDeviceName,
                 style: TextStyle(
                   color: widget.selectedIndex >= 0
-                      ? context.colors.textPrimary
-                      : context.colors.textSecondary,
+                      ? colors.textPrimary
+                      : colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1204,8 +1236,8 @@ class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
                 Icons.arrow_drop_down,
                 size: 16,
                 color: widget.selectedIndex >= 0
-                    ? context.colors.accent
-                    : context.colors.textSecondary,
+                    ? colors.accent
+                    : colors.textSecondary,
               ),
             ],
           ),
@@ -1406,9 +1438,11 @@ class _RecordButtonState extends State<_RecordButton> {
     final isEnabled = widget.onPressed != null;
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
 
+    // Record button color: Red per spec (#EF4444)
+    const recordColor = Color(0xFFEF4444);
     final Color color = widget.isRecording || widget.isCountingIn
-        ? context.colors.recordActive
-        : context.colors.error;
+        ? recordColor
+        : recordColor;
 
     String tooltip = widget.isRecording
         ? 'Stop Recording (R)'
@@ -1469,6 +1503,185 @@ class _RecordButtonState extends State<_RecordButton> {
                 size: widget.size * 0.5,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Loop toggle button with hover animation
+class _LoopButton extends StatefulWidget {
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  const _LoopButton({
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  @override
+  State<_LoopButton> createState() => _LoopButtonState();
+}
+
+class _LoopButtonState extends State<_LoopButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
+    // Loop uses orange color when active (matching spec #F97316)
+    final loopColor = const Color(0xFFF97316);
+
+    return Tooltip(
+      message: widget.enabled ? 'Loop On (L)' : 'Loop Off (L)',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            widget.onPressed?.call();
+          },
+          onTapCancel: () => setState(() => _isPressed = false),
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: widget.enabled
+                    ? loopColor.withValues(alpha: _isHovered ? 0.3 : 0.2)
+                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: widget.enabled ? loopColor : context.colors.elevated,
+                  width: 2,
+                ),
+                boxShadow: _isHovered && widget.enabled
+                    ? [
+                        BoxShadow(
+                          color: loopColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                Icons.loop,
+                size: 20,
+                color: widget.enabled ? loopColor : context.colors.textMuted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Snap value dropdown selector
+class _SnapDropdown extends StatefulWidget {
+  final SnapValue value;
+  final Function(SnapValue)? onChanged;
+
+  const _SnapDropdown({
+    required this.value,
+    this.onChanged,
+  });
+
+  @override
+  State<_SnapDropdown> createState() => _SnapDropdownState();
+}
+
+class _SnapDropdownState extends State<_SnapDropdown> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: PopupMenuButton<SnapValue>(
+        tooltip: 'Snap to Grid',
+        onSelected: (SnapValue value) {
+          widget.onChanged?.call(value);
+        },
+        offset: const Offset(0, 40),
+        itemBuilder: (BuildContext context) {
+          return SnapValue.values.map((snapValue) {
+            final isSelected = snapValue == widget.value;
+            return PopupMenuItem<SnapValue>(
+              value: snapValue,
+              child: Row(
+                children: [
+                  Icon(
+                    isSelected ? Icons.check : Icons.grid_on,
+                    size: 18,
+                    color: isSelected ? context.colors.accent : null,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    snapValue.displayName,
+                    style: TextStyle(
+                      color: isSelected ? context.colors.accent : null,
+                      fontWeight: isSelected ? FontWeight.w600 : null,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? context.colors.elevated
+                : context.colors.standard,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: widget.value != SnapValue.off
+                  ? context.colors.accent.withValues(alpha: 0.5)
+                  : context.colors.elevated,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.grid_on,
+                size: 14,
+                color: widget.value != SnapValue.off
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Snap ${widget.value.displayName}',
+                style: TextStyle(
+                  color: widget.value != SnapValue.off
+                      ? context.colors.textPrimary
+                      : context.colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 16,
+                color: widget.value != SnapValue.off
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
+              ),
+            ],
           ),
         ),
       ),

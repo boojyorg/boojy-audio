@@ -2888,6 +2888,10 @@ class _DAWScreenState extends State<DAWScreen> {
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true): _consolidateSelectedClips,
           // Cmd+B to bounce MIDI to audio
           const SingleActivator(LogicalKeyboardKey.keyB, meta: true): _bounceMidiToAudio,
+          // L to toggle loop
+          const SingleActivator(LogicalKeyboardKey.keyL): _uiLayout.toggleLoop,
+          // M to toggle metronome
+          const SingleActivator(LogicalKeyboardKey.keyM): _toggleMetronome,
         },
         child: Focus(
           autofocus: true,
@@ -2946,6 +2950,12 @@ class _DAWScreenState extends State<DAWScreen> {
             editorVisible: _uiLayout.isEditorPanelVisible,
             pianoVisible: _uiLayout.isVirtualPianoEnabled,
             onHelpPressed: _showKeyboardShortcuts,
+            // Snap control
+            arrangementSnap: _uiLayout.arrangementSnap,
+            onSnapChanged: (value) => _uiLayout.setArrangementSnap(value),
+            // Loop control
+            isLoopEnabled: _uiLayout.isLoopEnabled,
+            onLoopToggle: _uiLayout.toggleLoop,
             isLoading: _isLoading,
           ),
 
@@ -3034,6 +3044,13 @@ class _DAWScreenState extends State<DAWScreen> {
                             setState(() {
                               _playheadPosition = position;
                             });
+                          },
+                          // Loop region state
+                          isLoopEnabled: _uiLayout.isLoopEnabled,
+                          loopStartBeats: _uiLayout.loopStartBeats,
+                          loopEndBeats: _uiLayout.loopEndBeats,
+                          onLoopRegionChanged: (start, end) {
+                            _uiLayout.setLoopRegion(start, end);
                           },
                         ),
                       ),

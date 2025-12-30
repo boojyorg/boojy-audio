@@ -39,6 +39,12 @@ class PianoRoll extends StatefulWidget {
   /// Ghost notes from other MIDI tracks (displayed at 30% opacity)
   final List<MidiNoteData> ghostNotes;
 
+  /// Current tool mode (managed by parent EditorPanel)
+  final ToolMode toolMode;
+
+  /// Callback when tool mode changes (e.g., via keyboard shortcut)
+  final Function(ToolMode)? onToolModeChanged;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -46,6 +52,8 @@ class PianoRoll extends StatefulWidget {
     this.onClose,
     this.onClipUpdated,
     this.ghostNotes = const [],
+    this.toolMode = ToolMode.draw,
+    this.onToolModeChanged,
   });
 
   @override
@@ -87,21 +95,14 @@ class _PianoRollState extends State<PianoRoll> {
   // Cursor state
   MouseCursor _currentCursor = SystemMouseCursors.basic; // Default cursor for empty space
 
-  // Tool mode state (toolbar buttons)
-  ToolMode _currentToolMode = ToolMode.draw;
-
   // Temporary mode override via modifier keys
   ToolMode? _tempModeOverride;
 
-  /// Get effective tool mode (temp override or selected mode)
-  ToolMode get _effectiveToolMode => _tempModeOverride ?? _currentToolMode;
+  /// Get effective tool mode (temp override or widget prop)
+  ToolMode get _effectiveToolMode => _tempModeOverride ?? widget.toolMode;
 
-  // Temporary slice mode while S key held
-  bool _tempSliceModeHeld = false;
-
-  /// True if slice mode is active (either via ToolMode.slice or S key held)
-  bool get _isSliceModeActive =>
-      _effectiveToolMode == ToolMode.slice || _tempSliceModeHeld;
+  /// True if slice mode is active
+  bool get _isSliceModeActive => _effectiveToolMode == ToolMode.slice;
 
   // Paint mode state (drag to create multiple notes)
   bool _isPainting = false;
@@ -664,9 +665,6 @@ class _PianoRollState extends State<PianoRoll> {
               setState(() => _sidebarWidth = newWidth);
               UserSettings().pianoRollSidebarWidth = newWidth;
             },
-            // Tools section
-            currentToolMode: _currentToolMode,
-            onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
             // Clip section
             loopEnabled: _loopEnabled,
             loopStartBeats: _loopStartBeats,
@@ -1739,7 +1737,8 @@ class _PianoRollState extends State<PianoRoll> {
     return null; // Not near any edge
   }
 
-  /// Update cursor based on current modifier key state (called when Alt/Cmd/Ctrl pressed)
+  /// Update cursor and temp mode override based on current modifier key state
+  /// Called when Alt/Cmd/Ctrl pressed/released for hold modifier support
   void _updateCursorForModifiers() {
     // Don't update cursor during active drag operations
     if (_currentMode == InteractionMode.move || _currentMode == InteractionMode.resize) {
@@ -1752,13 +1751,17 @@ class _PianoRollState extends State<PianoRoll> {
 
     setState(() {
       if (isAltPressed) {
-        // Alt = delete mode
+        // Alt held = temporary erase mode
+        _tempModeOverride = ToolMode.eraser;
         _currentCursor = SystemMouseCursors.forbidden;
       } else if (isCtrlOrCmd) {
-        // Cmd/Ctrl = duplicate mode (only meaningful when over a note, but show anyway)
+        // Cmd/Ctrl held = context-sensitive (duplicate on note, slice on empty)
+        // We set duplicate as the temp mode; slice handled in tap handler
+        _tempModeOverride = ToolMode.duplicate;
         _currentCursor = SystemMouseCursors.copy;
       } else {
-        // No modifier = default cursor
+        // No modifier = clear temp override
+        _tempModeOverride = null;
         _currentCursor = SystemMouseCursors.basic;
       }
     });
@@ -1776,26 +1779,41 @@ class _PianoRollState extends State<PianoRoll> {
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
+    final toolMode = _effectiveToolMode;
 
+    // Tool-mode-aware cursor logic
     if (hoveredNote != null) {
-      if (isAltPressed) {
-        // Alt held - show delete cursor
+      // On a note
+      if (isAltPressed || toolMode == ToolMode.eraser) {
+        // Eraser mode - show delete cursor
         setState(() {
           _currentCursor = SystemMouseCursors.forbidden;
         });
-      } else if (_isSliceModeActive) {
-        // Slice mode (toggle button or S key held) - show vertical split cursor
+      } else if (toolMode == ToolMode.slice) {
+        // Slice mode - show vertical split cursor
         setState(() {
           _currentCursor = SystemMouseCursors.verticalText;
         });
-      } else if (isCtrlOrCmd) {
-        // Cmd/Ctrl held - show copy cursor for duplicate
+      } else if (isCtrlOrCmd || toolMode == ToolMode.duplicate) {
+        // Duplicate mode - show copy cursor
         setState(() {
           _currentCursor = SystemMouseCursors.copy;
         });
-      } else {
+      } else if (toolMode == ToolMode.select) {
+        // Select mode - show pointer on notes
         final edge = _getEdgeAtPosition(position, hoveredNote);
-
+        if (edge != null) {
+          setState(() {
+            _currentCursor = SystemMouseCursors.resizeLeftRight;
+          });
+        } else {
+          setState(() {
+            _currentCursor = SystemMouseCursors.click;
+          });
+        }
+      } else {
+        // Draw mode (default)
+        final edge = _getEdgeAtPosition(position, hoveredNote);
         if (edge != null) {
           // Near edge - show resize cursor
           setState(() {
@@ -1810,15 +1828,30 @@ class _PianoRollState extends State<PianoRoll> {
       }
     } else {
       // Empty space
-      if (isAltPressed) {
-        // Alt held - show delete cursor even on empty space (eraser mode)
+      if (isAltPressed || toolMode == ToolMode.eraser) {
+        // Eraser mode on empty space
         setState(() {
           _currentCursor = SystemMouseCursors.forbidden;
         });
-      } else {
-        // Default cursor for note creation
+      } else if (toolMode == ToolMode.select) {
+        // Select mode on empty - basic cursor (will do box select on drag)
         setState(() {
           _currentCursor = SystemMouseCursors.basic;
+        });
+      } else if (toolMode == ToolMode.slice) {
+        // Slice mode on empty - show slice cursor
+        setState(() {
+          _currentCursor = SystemMouseCursors.verticalText;
+        });
+      } else if (toolMode == ToolMode.duplicate) {
+        // Duplicate on empty - nothing to duplicate
+        setState(() {
+          _currentCursor = SystemMouseCursors.basic;
+        });
+      } else {
+        // Draw mode (default) - crosshair for note creation
+        setState(() {
+          _currentCursor = SystemMouseCursors.precise;
         });
       }
     }
@@ -1833,37 +1866,115 @@ class _PianoRollState extends State<PianoRoll> {
         HardwareKeyboard.instance.isControlPressed;
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+    final toolMode = _effectiveToolMode;
 
-    // Alt+click = delete (handled by Listener, but skip normal handling)
-    if (isAltPressed) {
+    // ============================================
+    // TOOL MODE BEHAVIOR
+    // ============================================
+
+    // Alt+click OR Erase tool = delete note
+    if (isAltPressed || toolMode == ToolMode.eraser) {
+      if (clickedNote != null) {
+        _saveToHistory();
+        setState(() {
+          _currentClip = _currentClip?.copyWith(
+            notes: _currentClip!.notes.where((n) => n.id != clickedNote.id).toList(),
+          );
+        });
+        _commitToHistory('Delete note');
+        _notifyClipUpdated();
+      }
       return;
     }
 
-    // Cmd/Ctrl+click on note = duplicate in place
-    if (isCtrlOrCmd && clickedNote != null) {
-      _saveToHistory();
-      final duplicate = clickedNote.copyWith(
-        id: '${clickedNote.note}_${DateTime.now().microsecondsSinceEpoch}',
-        isSelected: false,
+    // Slice tool OR Cmd+click = slice
+    if (toolMode == ToolMode.slice) {
+      if (clickedNote != null) {
+        final beatPosition = _getBeatAtX(details.localPosition.dx);
+        _sliceNoteAt(clickedNote, beatPosition);
+      }
+      return;
+    }
+
+    // Duplicate tool OR Cmd+click on note = duplicate in place
+    if (toolMode == ToolMode.duplicate || (isCtrlOrCmd && clickedNote != null)) {
+      if (clickedNote != null) {
+        _saveToHistory();
+        final duplicate = clickedNote.copyWith(
+          id: '${clickedNote.note}_${DateTime.now().microsecondsSinceEpoch}',
+          isSelected: false,
+        );
+        setState(() {
+          _currentClip = _currentClip?.addNote(duplicate);
+        });
+        _commitToHistory('Duplicate note');
+        _notifyClipUpdated();
+        _startAudition(clickedNote.note, clickedNote.velocity);
+      }
+      return;
+    }
+
+    // Select tool = only select notes, don't create new ones
+    if (toolMode == ToolMode.select) {
+      if (clickedNote != null) {
+        // Shift+click = toggle selection (add/remove from selection)
+        if (isShiftPressed) {
+          setState(() {
+            _currentClip = _currentClip?.copyWith(
+              notes: _currentClip!.notes.map((n) {
+                if (n.id == clickedNote.id) {
+                  return n.copyWith(isSelected: !n.isSelected);
+                }
+                return n;
+              }).toList(),
+            );
+          });
+        } else {
+          // Regular click = select this note, deselect others
+          setState(() {
+            _currentClip = _currentClip?.copyWith(
+              notes: _currentClip!.notes.map((n) {
+                if (n.id == clickedNote.id) {
+                  return n.copyWith(isSelected: true);
+                } else {
+                  return n.copyWith(isSelected: false);
+                }
+              }).toList(),
+            );
+          });
+        }
+        _notifyClipUpdated();
+        _startAudition(clickedNote.note, clickedNote.velocity);
+      } else {
+        // Click on empty space = deselect all
+        setState(() {
+          _currentClip = _currentClip?.copyWith(
+            notes: _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+          );
+        });
+        _notifyClipUpdated();
+      }
+      return;
+    }
+
+    // ============================================
+    // DRAW TOOL (default behavior)
+    // ============================================
+
+    // Cmd+click on empty space = slice any note at that beat position
+    if (isCtrlOrCmd && clickedNote == null) {
+      final beat = _getBeatAtX(details.localPosition.dx);
+      final noteToSlice = _currentClip?.notes.firstWhere(
+        (n) => n.startTime < beat && (n.startTime + n.duration) > beat,
+        orElse: () => MidiNoteData(note: -1, velocity: 0, startTime: 0, duration: 0),
       );
-      setState(() {
-        _currentClip = _currentClip?.addNote(duplicate);
-      });
-      _commitToHistory('Duplicate note');
-      _notifyClipUpdated();
-      _startAudition(clickedNote.note, clickedNote.velocity);
+      if (noteToSlice != null && noteToSlice.note >= 0) {
+        _sliceNoteAt(noteToSlice, beat);
+      }
       return;
     }
 
     if (clickedNote != null) {
-      // Check if slice mode is active (toggle button or S key held)
-      if (_isSliceModeActive) {
-        // Slice the note at click position
-        final beatPosition = _getBeatAtX(details.localPosition.dx);
-        _sliceNoteAt(clickedNote, beatPosition);
-        return;
-      }
-
       // Shift+click on note = toggle selection (add/remove from selection)
       if (isShiftPressed) {
         setState(() {
@@ -1902,22 +2013,24 @@ class _PianoRollState extends State<PianoRoll> {
       // Clear just-created tracking since we clicked on existing note
       _justCreatedNoteId = null;
     } else {
-      // Single-click on empty space
+      // Single-click on empty space = create note (Draw tool)
+      final beat = _getBeatAtX(details.localPosition.dx);
+      final noteRow = _getNoteAtY(details.localPosition.dy);
+
       _saveToHistory();
-      final beat = _snapToGrid(_getBeatAtX(details.localPosition.dx));
-      final clickedNote = _getNoteAtY(details.localPosition.dy);
+      final snappedBeat = _snapToGrid(beat);
 
       // Check if chord palette is visible - stamp chord instead of single note
       if (_chordPaletteVisible) {
-        _stampChordAt(beat, clickedNote);
+        _stampChordAt(snappedBeat, noteRow);
         return;
       }
 
       // Create single note (FL Studio style)
       final newNote = MidiNoteData(
-        note: clickedNote,
+        note: noteRow,
         velocity: 100,
-        startTime: beat,
+        startTime: snappedBeat,
         duration: _lastNoteDuration,
         isSelected: true,  // Auto-select new note for immediate manipulation
       );
@@ -1939,7 +2052,7 @@ class _PianoRollState extends State<PianoRoll> {
       _commitToHistory('Add note');
       _notifyClipUpdated();
       // Start sustained audition (will stop on mouse up)
-      _startAudition(clickedNote, 100);
+      _startAudition(noteRow, 100);
     }
   }
 
@@ -1967,21 +2080,114 @@ class _PianoRollState extends State<PianoRoll> {
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
+    final toolMode = _effectiveToolMode;
 
-    // Skip normal pan handling if Alt is held (eraser mode handled by Listener)
-    if (isAltPressed) {
+    // Skip normal pan handling if Alt is held OR eraser tool is active
+    if (isAltPressed || toolMode == ToolMode.eraser) {
       return;
     }
 
-    if (isShiftPressed && clickedNote == null) {
-      // Shift+drag on empty = marquee select
+    // Box selection: Shift+drag on empty OR Select tool drag on empty
+    if ((isShiftPressed || toolMode == ToolMode.select) && clickedNote == null) {
+      // Marquee/box select
       setState(() {
         _isSelecting = true;
         _selectionStart = details.localPosition;
         _selectionEnd = details.localPosition;
         _currentMode = InteractionMode.select;
       });
-    } else if (isCtrlOrCmd && clickedNote != null) {
+      return;
+    }
+
+    // Select tool: drag on a note = move the note (not create new)
+    if (toolMode == ToolMode.select && clickedNote != null) {
+      // Move note(s) - similar to normal drag on note
+      _saveToHistory();
+      setState(() {
+        // Select the clicked note if not already selected
+        if (!clickedNote.isSelected) {
+          _currentClip = _currentClip?.copyWith(
+            notes: _currentClip!.notes.map((n) {
+              if (n.id == clickedNote.id) {
+                return n.copyWith(isSelected: true);
+              } else if (!isShiftPressed) {
+                return n.copyWith(isSelected: false);
+              }
+              return n;
+            }).toList(),
+          );
+        }
+        // Store original positions for all selected notes
+        _dragStartNotes = {};
+        for (final note in _currentClip!.selectedNotes) {
+          _dragStartNotes[note.id] = note;
+        }
+        _movingNoteId = clickedNote.id;
+        _currentMode = InteractionMode.move;
+        _currentCursor = SystemMouseCursors.grabbing;
+      });
+      _startAudition(clickedNote.note, clickedNote.velocity);
+      return;
+    }
+
+    // Duplicate tool: drag on note = duplicate and move
+    if (toolMode == ToolMode.duplicate && clickedNote != null) {
+      _saveToHistory();
+      _isDuplicating = true;
+
+      final selectedNotes = _currentClip?.selectedNotes ?? [];
+      final notesToDuplicate = selectedNotes.isNotEmpty && selectedNotes.any((n) => n.id == clickedNote.id)
+          ? selectedNotes
+          : [clickedNote];
+
+      final timestamp = DateTime.now().microsecondsSinceEpoch;
+      final duplicatedNotes = <MidiNoteData>[];
+      _dragStartNotes = {};
+
+      for (int i = 0; i < notesToDuplicate.length; i++) {
+        final sourceNote = notesToDuplicate[i];
+        final duplicatedNote = sourceNote.copyWith(
+          id: '${sourceNote.note}_${sourceNote.startTime}_${timestamp}_$i',
+          isSelected: false,
+        );
+        duplicatedNotes.add(duplicatedNote);
+        _dragStartNotes[duplicatedNote.id] = duplicatedNote;
+      }
+
+      final primaryDuplicate = duplicatedNotes.first;
+
+      setState(() {
+        final deselectedNotes = _currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList();
+        _currentClip = _currentClip?.copyWith(
+          notes: [...deselectedNotes, ...duplicatedNotes],
+        );
+        _currentClip = _currentClip?.copyWith(
+          notes: _currentClip!.notes.map((n) {
+            if (duplicatedNotes.any((dup) => dup.id == n.id)) {
+              return n.copyWith(isSelected: true);
+            }
+            return n;
+          }).toList(),
+        );
+        _movingNoteId = primaryDuplicate.id;
+        _currentMode = InteractionMode.move;
+        _currentCursor = SystemMouseCursors.copy;
+      });
+
+      _startAudition(clickedNote.note, clickedNote.velocity);
+      return;
+    }
+
+    // Slice tool: skip pan handling (slicing is done on tap)
+    if (toolMode == ToolMode.slice) {
+      return;
+    }
+
+    // ============================================
+    // DRAW TOOL (default) behavior below
+    // ============================================
+
+    if (isCtrlOrCmd && clickedNote != null) {
       // Cmd/Ctrl+drag on note = duplicate mode (supports multiple selected notes)
       _saveToHistory();
       _isDuplicating = true;
@@ -2389,17 +2595,49 @@ class _PianoRollState extends State<PianoRoll> {
            HardwareKeyboard.instance.isControlPressed)) {
         _selectAllNotes();
       }
-      // Escape to deselect all notes
+      // Escape to deselect all notes / cancel action
       else if (event.logicalKey == LogicalKeyboardKey.escape) {
         _deselectAllNotes();
       }
-      // S key to temporarily enable slice mode while held
-      else if (event.logicalKey == LogicalKeyboardKey.keyS &&
+      // Cut (Cmd+X or Ctrl+X)
+      else if ((event.logicalKey == LogicalKeyboardKey.keyX) &&
+          (HardwareKeyboard.instance.isMetaPressed ||
+           HardwareKeyboard.instance.isControlPressed)) {
+        _cutSelectedNotes();
+      }
+      // ============================================
+      // STICKY TOOL SHORTCUTS (ZXCVB)
+      // Press once to switch tool, stays active until switched again
+      // ============================================
+      // Z = Draw tool
+      else if (event.logicalKey == LogicalKeyboardKey.keyZ &&
           !HardwareKeyboard.instance.isMetaPressed &&
           !HardwareKeyboard.instance.isControlPressed) {
-        if (!_tempSliceModeHeld) {
-          setState(() => _tempSliceModeHeld = true);
-        }
+        widget.onToolModeChanged?.call(ToolMode.draw);
+      }
+      // X = Select tool
+      else if (event.logicalKey == LogicalKeyboardKey.keyX &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        widget.onToolModeChanged?.call(ToolMode.select);
+      }
+      // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
+      else if (event.logicalKey == LogicalKeyboardKey.keyC &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        widget.onToolModeChanged?.call(ToolMode.eraser);
+      }
+      // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
+      else if (event.logicalKey == LogicalKeyboardKey.keyV &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        widget.onToolModeChanged?.call(ToolMode.duplicate);
+      }
+      // B = Slice tool
+      else if (event.logicalKey == LogicalKeyboardKey.keyB &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        widget.onToolModeChanged?.call(ToolMode.slice);
       }
       // K key to toggle chord palette
       else if (event.logicalKey == LogicalKeyboardKey.keyK &&
@@ -2408,12 +2646,7 @@ class _PianoRollState extends State<PianoRoll> {
         setState(() => _chordPaletteVisible = !_chordPaletteVisible);
       }
     } else if (event is KeyUpEvent) {
-      // Release S key to disable temporary slice mode
-      if (event.logicalKey == LogicalKeyboardKey.keyS) {
-        if (_tempSliceModeHeld) {
-          setState(() => _tempSliceModeHeld = false);
-        }
-      }
+      // Hold modifiers are handled via _tempModeOverride in _updateCursorForModifiers
     }
   }
 

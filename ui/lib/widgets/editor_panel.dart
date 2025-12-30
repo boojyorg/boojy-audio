@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import 'virtual_piano.dart';
@@ -65,6 +66,12 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
   late TabController _tabController;
   int _selectedTabIndex = 0;
 
+  // Tool mode state for Piano Roll (managed here so tools can be in tab bar)
+  ToolMode _currentToolMode = ToolMode.draw;
+
+  // Temporary tool mode when holding modifier keys (Alt, Cmd)
+  ToolMode? _tempToolMode;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +81,8 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
         _selectedTabIndex = _tabController.index;
       });
     });
+    // Listen for modifier key changes
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
   }
 
   @override
@@ -107,8 +116,43 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Handle keyboard events for modifier key tracking (visual feedback for hold modifiers)
+  bool _onKeyEvent(KeyEvent event) {
+    // Check if Alt or Cmd/Ctrl modifiers changed
+    if (event.logicalKey == LogicalKeyboardKey.alt ||
+        event.logicalKey == LogicalKeyboardKey.altLeft ||
+        event.logicalKey == LogicalKeyboardKey.altRight ||
+        event.logicalKey == LogicalKeyboardKey.meta ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight ||
+        event.logicalKey == LogicalKeyboardKey.control ||
+        event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight) {
+      _updateTempToolMode();
+    }
+    return false; // Don't consume the event
+  }
+
+  /// Update temporary tool mode based on held modifiers
+  void _updateTempToolMode() {
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+
+    setState(() {
+      if (isAltPressed) {
+        _tempToolMode = ToolMode.eraser;
+      } else if (isCtrlOrCmd) {
+        _tempToolMode = ToolMode.duplicate; // or slice depending on context
+      } else {
+        _tempToolMode = null;
+      }
+    });
   }
 
   @override
@@ -140,13 +184,29 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
             child: Row(
               children: [
                 const SizedBox(width: 8),
-                // Tab buttons
+                // Tab buttons (left side)
                 _buildTabButton(0, Icons.piano_outlined, 'Piano Roll'),
                 const SizedBox(width: 4),
                 _buildTabButton(1, Icons.equalizer, 'Effects'),
                 const SizedBox(width: 4),
                 _buildTabButton(2, Icons.music_note, 'Instrument'),
-                const Spacer(),
+                // Centered tool buttons (always visible)
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
+                      const SizedBox(width: 4),
+                      _buildToolButton(ToolMode.select, Icons.open_with, 'Select (X)'),
+                      const SizedBox(width: 4),
+                      _buildToolButton(ToolMode.eraser, Icons.backspace_outlined, 'Erase (C) • Hold Alt'),
+                      const SizedBox(width: 4),
+                      _buildToolButton(ToolMode.duplicate, Icons.copy, 'Duplicate (V) • Cmd+Drag'),
+                      const SizedBox(width: 4),
+                      _buildToolButton(ToolMode.slice, Icons.content_cut, 'Slice (B) • Cmd+Click'),
+                    ],
+                  ),
+                ),
                 // Collapse button (down arrow)
                 Tooltip(
                   message: 'Collapse Panel',
@@ -217,7 +277,23 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
           _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
           const SizedBox(width: 4),
           _buildCollapsedTabButton(2, Icons.music_note, 'Instrument'),
-          const Spacer(),
+          // Centered tool buttons (always visible)
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
+                const SizedBox(width: 4),
+                _buildToolButton(ToolMode.select, Icons.open_with, 'Select (X)'),
+                const SizedBox(width: 4),
+                _buildToolButton(ToolMode.eraser, Icons.backspace_outlined, 'Erase (C) • Hold Alt'),
+                const SizedBox(width: 4),
+                _buildToolButton(ToolMode.duplicate, Icons.copy, 'Duplicate (V) • Cmd+Drag'),
+                const SizedBox(width: 4),
+                _buildToolButton(ToolMode.slice, Icons.content_cut, 'Slice (B) • Cmd+Click'),
+              ],
+            ),
+          ),
           // Expand arrow (up arrow)
           Tooltip(
             message: 'Expand Editor',
@@ -318,6 +394,53 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
     );
   }
 
+  /// Build a tool button for the Piano Roll toolbar
+  /// Shows full highlight for active sticky tool, dimmer highlight for temporary hold modifier
+  Widget _buildToolButton(ToolMode mode, IconData icon, String tooltip) {
+    final isActive = _currentToolMode == mode;
+    final isTempActive = _tempToolMode == mode && !isActive;
+
+    // Determine background color:
+    // - Full accent for sticky active tool
+    // - Dimmer accent (50% opacity) for temporary hold modifier
+    // - Dark for inactive
+    Color bgColor;
+    Color iconColor;
+    if (isActive) {
+      bgColor = context.colors.accent;
+      iconColor = context.colors.elevated;
+    } else if (isTempActive) {
+      bgColor = context.colors.accent.withValues(alpha: 0.5);
+      iconColor = context.colors.elevated;
+    } else {
+      bgColor = context.colors.dark;
+      iconColor = context.colors.textPrimary;
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: () => setState(() => _currentToolMode = mode),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: iconColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPianoRollTab() {
     // Use real clip data if available, otherwise create an empty clip for the selected track
     final clipData = widget.currentEditingClip ?? (widget.selectedTrackId != null
@@ -373,6 +496,8 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       clipData: clipData,
       onClipUpdated: widget.onMidiClipUpdated,
       ghostNotes: widget.ghostNotes,
+      toolMode: _currentToolMode,
+      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

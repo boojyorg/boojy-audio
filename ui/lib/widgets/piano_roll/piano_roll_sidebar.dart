@@ -3,12 +3,8 @@ import '../../models/scale_data.dart';
 import '../../theme/theme_extension.dart';
 import '../shared/mini_knob.dart';
 import '../shared/split_button.dart';
-import '../piano_roll.dart' show ToolMode;
 import 'loop_time_display.dart';
 import 'time_signature_display.dart';
-
-/// Callback for tool mode changes
-typedef OnToolModeChanged = void Function(ToolMode mode);
 
 /// CC type options for MIDI CC lane
 enum CCType {
@@ -67,10 +63,6 @@ class PianoRollSidebar extends StatelessWidget {
 
   /// Called when view mode changes
   final Function(SidebarView)? onViewChanged;
-
-  // Tool mode section
-  final ToolMode currentToolMode;
-  final OnToolModeChanged? onToolModeChanged;
 
   // Clip section
   final bool loopEnabled;
@@ -159,9 +151,6 @@ class PianoRollSidebar extends StatelessWidget {
     this.onCollapseToggle,
     this.currentView = SidebarView.pianoRoll,
     this.onViewChanged,
-    // Tool mode section
-    this.currentToolMode = ToolMode.draw,
-    this.onToolModeChanged,
     // Clip section
     this.loopEnabled = false,
     this.loopStartBeats = 0.0,
@@ -246,7 +235,7 @@ class PianoRollSidebar extends StatelessWidget {
             children: [
               // FIXED HEADER (not scrollable)
               _buildTrackInfo(context),
-              _buildSection(context, 'TOOLS', _buildToolsContent(context)),
+              // TOOLS section removed - now in Piano Roll toolbar
 
               // SCROLLABLE BODY
               Expanded(
@@ -321,23 +310,7 @@ class PianoRollSidebar extends StatelessWidget {
             ),
           ),
 
-          // Tool icons (vertical stack)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              children: [
-                _buildCollapsedToolButton(context, mode: ToolMode.draw, icon: Icons.edit, tooltip: 'Draw'),
-                const SizedBox(height: 4),
-                _buildCollapsedToolButton(context, mode: ToolMode.select, icon: Icons.open_with, tooltip: 'Select'),
-                const SizedBox(height: 4),
-                _buildCollapsedToolButton(context, mode: ToolMode.eraser, icon: Icons.backspace_outlined, tooltip: 'Eraser'),
-                const SizedBox(height: 4),
-                _buildCollapsedToolButton(context, mode: ToolMode.duplicate, icon: Icons.copy, tooltip: 'Duplicate'),
-                const SizedBox(height: 4),
-                _buildCollapsedToolButton(context, mode: ToolMode.slice, icon: Icons.content_cut, tooltip: 'Slice'),
-              ],
-            ),
-          ),
+          // Tool icons removed - now in Piano Roll toolbar
 
           const Spacer(),
 
@@ -360,40 +333,6 @@ class PianoRollSidebar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Build a tool button for collapsed state
-  Widget _buildCollapsedToolButton(
-    BuildContext context, {
-    required ToolMode mode,
-    required IconData icon,
-    required String tooltip,
-  }) {
-    final colors = context.colors;
-    final isActive = currentToolMode == mode;
-
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: () => onToolModeChanged?.call(mode),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: isActive ? colors.accent : colors.dark,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: isActive ? colors.elevated : colors.textPrimary,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -945,82 +884,6 @@ class PianoRollSidebar extends StatelessWidget {
           ),
         ]),
       ],
-    );
-  }
-
-  // ============ TOOLS Section ============
-  Widget _buildToolsContent(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: [
-        _buildToolButton(
-          context,
-          mode: ToolMode.draw,
-          icon: Icons.edit,
-          tooltip: 'Draw',
-        ),
-        const SizedBox(width: 8),
-        _buildToolButton(
-          context,
-          mode: ToolMode.select,
-          icon: Icons.open_with,
-          tooltip: 'Select',
-        ),
-        const SizedBox(width: 8),
-        _buildToolButton(
-          context,
-          mode: ToolMode.eraser,
-          icon: Icons.backspace_outlined,
-          tooltip: 'Eraser',
-        ),
-        const SizedBox(width: 8),
-        _buildToolButton(
-          context,
-          mode: ToolMode.duplicate,
-          icon: Icons.copy,
-          tooltip: 'Duplicate',
-        ),
-        const SizedBox(width: 8),
-        _buildToolButton(
-          context,
-          mode: ToolMode.slice,
-          icon: Icons.content_cut,
-          tooltip: 'Slice',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToolButton(
-    BuildContext context, {
-    required ToolMode mode,
-    required IconData icon,
-    required String tooltip,
-  }) {
-    final colors = context.colors;
-    final isActive = currentToolMode == mode;
-
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: () => onToolModeChanged?.call(mode),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: isActive ? colors.accent : colors.dark,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(
-              icon,
-              size: 14,
-              color: isActive ? colors.elevated : colors.textPrimary,
-            ),
-          ),
-        ),
-      ),
     );
   }
 
