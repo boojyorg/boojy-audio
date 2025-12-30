@@ -10,6 +10,9 @@ class GridPainter extends CustomPainter {
   final double totalBeats;
   final double activeBeats; // Active region boundary
 
+  // Time signature
+  final int beatsPerBar; // e.g., 4 for 4/4, 3 for 3/4, 6 for 6/8
+
   // Theme-aware colors (passed from widget with BuildContext)
   final Color blackKeyBackground;
   final Color whiteKeyBackground;
@@ -32,6 +35,7 @@ class GridPainter extends CustomPainter {
     this.minMidiNote = 0,
     required this.totalBeats,
     required this.activeBeats,
+    this.beatsPerBar = 4, // Default to 4/4 time
     required this.blackKeyBackground,
     required this.whiteKeyBackground,
     required this.separatorLine,
@@ -94,7 +98,7 @@ class GridPainter extends CustomPainter {
     // Vertical lines (beats and bars)
     for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
       final x = beat * pixelsPerBeat;
-      final isBar = (beat % 4.0) == 0.0; // 4/4 time
+      final isBar = (beat % beatsPerBar) == 0.0; // Uses time signature
       final isBeat = (beat % 1.0) == 0.0;
 
       final paint = isBar ? barPaint : (isBeat ? beatPaint : subdivisionPaint);
@@ -125,6 +129,7 @@ class GridPainter extends CustomPainter {
         gridDivision != oldDelegate.gridDivision ||
         totalBeats != oldDelegate.totalBeats ||
         activeBeats != oldDelegate.activeBeats ||
+        beatsPerBar != oldDelegate.beatsPerBar ||
         blackKeyBackground != oldDelegate.blackKeyBackground ||
         whiteKeyBackground != oldDelegate.whiteKeyBackground ||
         separatorLine != oldDelegate.separatorLine ||

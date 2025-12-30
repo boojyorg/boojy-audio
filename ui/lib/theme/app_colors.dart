@@ -133,14 +133,14 @@ class BoojyColors {
   /// Level meter red (high/clipping levels)
   Color get meterRed => const Color(0xFFFF5722);
 
-  /// Solo button active state
-  Color get soloActive => const Color(0xFFFFC107);
+  /// Solo button active state - Blue
+  Color get soloActive => const Color(0xFF3B82F6);
 
-  /// Mute button active state
-  Color get muteActive => const Color(0xFFFF5722);
+  /// Mute button active state - Yellow/Amber
+  Color get muteActive => const Color(0xFFFACC15);
 
-  /// Record button active state
-  Color get recordActive => const Color(0xFFFF5252);
+  /// Record button active state - Red
+  Color get recordActive => const Color(0xFFEF4444);
 
   /// Inactive button background
   Color get buttonInactive => const Color(0xFF909090);

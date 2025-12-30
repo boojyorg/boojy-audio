@@ -10,6 +10,9 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
 
+    // Set minimum window size (800x600) for responsive panel layout
+    self.minSize = NSSize(width: 800, height: 600)
+
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     // Register VST3 platform view factory (must happen before Flutter engine uses it)

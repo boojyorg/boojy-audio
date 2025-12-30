@@ -6,13 +6,13 @@ enum DividerOrientation {
   horizontal, // Up-down resize (horizontal line)
 }
 
-/// A draggable divider that allows resizing panels
+/// A subtle draggable divider that allows resizing panels
 ///
 /// Features:
-/// - Drag to resize
+/// - Drag to resize (8px hit area)
+/// - 1px grey line idle, 3px accent line on hover/drag
 /// - Double-click to collapse/expand
-/// - Hover highlight for discoverability
-/// - Custom cursor on hover
+/// - Custom cursor on hover for discoverability
 class ResizableDivider extends StatefulWidget {
   final DividerOrientation orientation;
   final Function(double delta) onDrag;
@@ -32,27 +32,24 @@ class ResizableDivider extends StatefulWidget {
 }
 
 class _ResizableDividerState extends State<ResizableDivider> {
+  // Hit area size (8px invisible grab zone)
+  static const double _hitAreaSize = 8.0;
+
+  // Colors
+  static const Color _idleColor = Color(0xFF505050); // Grey idle
+  static const Color _activeColor = Color(0xFF38BDF8); // Accent on hover/drag
+
+  // State for visual feedback
   bool _isHovered = false;
   bool _isDragging = false;
-
-  // Touch-friendly hit area (20px) while keeping visual line thin
-  static const double _hitAreaSize = 20.0;
 
   @override
   Widget build(BuildContext context) {
     final isVertical = widget.orientation == DividerOrientation.vertical;
-    final isActive = _isHovered || _isDragging;
 
-    // Visual line dimensions
-    final lineWidth = isVertical ? (isActive ? 3.0 : 1.0) : double.infinity;
-    final lineHeight = isVertical ? double.infinity : (isActive ? 3.0 : 1.0);
-
-    // Line color based on state
-    final lineColor = _isDragging
-        ? const Color(0xFF00BCD4) // Cyan when dragging
-        : _isHovered
-            ? const Color(0xFF00838F) // Dim cyan on hover
-            : const Color(0xFF363636); // Dark grey default
+    // Line width: 1px idle, 3px on hover/drag
+    final lineWidth = (_isHovered || _isDragging) ? 3.0 : 1.0;
+    final lineColor = (_isHovered || _isDragging) ? _activeColor : _idleColor;
 
     return GestureDetector(
       onPanStart: (_) => setState(() => _isDragging = true),
@@ -71,15 +68,15 @@ class _ResizableDividerState extends State<ResizableDivider> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: Container(
-          // Large invisible hit area for touch
+          // Invisible hit area for dragging
           width: isVertical ? _hitAreaSize : double.infinity,
           height: isVertical ? double.infinity : _hitAreaSize,
           color: Colors.transparent,
           child: Center(
-            // Thin visible line centered within hit area
+            // Visible line centered within hit area
             child: Container(
-              width: lineWidth,
-              height: lineHeight,
+              width: isVertical ? lineWidth : double.infinity,
+              height: isVertical ? double.infinity : lineWidth,
               color: lineColor,
             ),
           ),

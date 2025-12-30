@@ -184,9 +184,14 @@ class _DAWScreenState extends State<DAWScreen> {
     _userSettings.load().then((_) {
       if (mounted) {
         setState(() {
+          // Load visibility states
           _uiLayout.isLibraryPanelCollapsed = _userSettings.libraryCollapsed;
           _uiLayout.isMixerVisible = _userSettings.mixerVisible;
           _uiLayout.isEditorPanelVisible = _userSettings.editorVisible;
+          // Load panel sizes
+          _uiLayout.libraryPanelWidth = _userSettings.libraryWidth;
+          _uiLayout.mixerPanelWidth = _userSettings.mixerWidth;
+          _uiLayout.editorPanelHeight = _userSettings.editorHeight;
         });
       }
     });
@@ -2035,9 +2040,9 @@ class _DAWScreenState extends State<DAWScreen> {
   void _applyUILayout(UILayoutData layout) {
     setState(() {
       // Apply panel sizes with clamping
-      _uiLayout.libraryPanelWidth = layout.libraryWidth.clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryMaxWidth);
-      _uiLayout.mixerPanelWidth = layout.mixerWidth.clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerMaxWidth);
-      _uiLayout.editorPanelHeight = layout.bottomHeight.clamp(UILayoutState.editorMinHeight, UILayoutState.editorMaxHeight);
+      _uiLayout.libraryPanelWidth = layout.libraryWidth.clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryHardMax);
+      _uiLayout.mixerPanelWidth = layout.mixerWidth.clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerHardMax);
+      _uiLayout.editorPanelHeight = layout.bottomHeight.clamp(UILayoutState.editorMinHeight, UILayoutState.editorHardMax);
 
       // Apply collapsed states
       _uiLayout.isLibraryPanelCollapsed = layout.libraryCollapsed;
@@ -2607,6 +2612,31 @@ class _DAWScreenState extends State<DAWScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-collapse panels on small windows
+    final windowSize = MediaQuery.of(context).size;
+
+    // Auto-collapse library if window < 900px wide and library is expanded
+    if (windowSize.width < UILayoutState.autoCollapseLibraryWidth &&
+        !_uiLayout.isLibraryPanelCollapsed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _uiLayout.collapseLibrary();
+          _userSettings.libraryCollapsed = true;
+        }
+      });
+    }
+
+    // Auto-collapse mixer if window < 1000px wide and mixer is visible
+    if (windowSize.width < UILayoutState.autoCollapseMixerWidth &&
+        _uiLayout.isMixerVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _uiLayout.collapseMixer();
+          _userSettings.mixerVisible = false;
+        }
+      });
+    }
+
     return PlatformMenuBar(
       menus: [
         // Standard macOS app menu (Audio)
@@ -2864,7 +2894,7 @@ class _DAWScreenState extends State<DAWScreen> {
           child: Scaffold(
         backgroundColor: context.colors.standard,
         body: Column(
-        children: [
+          children: [
           // Transport bar (with logo and file/mixer buttons)
           TransportBar(
             onPlay: _play,
@@ -2945,14 +2975,27 @@ class _DAWScreenState extends State<DAWScreen> {
                         orientation: DividerOrientation.vertical,
                         isCollapsed: _uiLayout.isLibraryPanelCollapsed,
                         onDrag: (delta) {
+                          final windowWidth = MediaQuery.of(context).size.width;
+                          final maxWidth = UILayoutState.getLibraryMaxWidth(windowWidth);
                           setState(() {
-                            _uiLayout.libraryPanelWidth = (_uiLayout.libraryPanelWidth + delta)
-                                .clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryMaxWidth);
+                            final newWidth = _uiLayout.libraryPanelWidth + delta;
+                            // Snap collapse if dragged below threshold
+                            if (newWidth < UILayoutState.libraryCollapseThreshold) {
+                              _uiLayout.collapseLibrary();
+                              _userSettings.libraryCollapsed = true;
+                            } else {
+                              _uiLayout.libraryPanelWidth = newWidth.clamp(
+                                UILayoutState.libraryMinWidth,
+                                maxWidth,
+                              );
+                              _userSettings.libraryWidth = _uiLayout.libraryPanelWidth;
+                            }
                           });
                         },
                         onDoubleClick: () {
                           setState(() {
-                            _uiLayout.isLibraryPanelCollapsed = !_uiLayout.isLibraryPanelCollapsed;
+                            _uiLayout.toggleLibraryPanel();
+                            _userSettings.libraryCollapsed = _uiLayout.isLibraryPanelCollapsed;
                           });
                         },
                       ),
@@ -3002,14 +3045,27 @@ class _DAWScreenState extends State<DAWScreen> {
                           orientation: DividerOrientation.vertical,
                           isCollapsed: false,
                           onDrag: (delta) {
+                            final windowWidth = MediaQuery.of(context).size.width;
+                            final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
                             setState(() {
-                              _uiLayout.mixerPanelWidth = (_uiLayout.mixerPanelWidth - delta)
-                                  .clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerMaxWidth);
+                              final newWidth = _uiLayout.mixerPanelWidth - delta;
+                              // Snap collapse if dragged below threshold
+                              if (newWidth < UILayoutState.mixerCollapseThreshold) {
+                                _uiLayout.collapseMixer();
+                                _userSettings.mixerVisible = false;
+                              } else {
+                                _uiLayout.mixerPanelWidth = newWidth.clamp(
+                                  UILayoutState.mixerMinWidth,
+                                  maxWidth,
+                                );
+                                _userSettings.mixerWidth = _uiLayout.mixerPanelWidth;
+                              }
                             });
                           },
                           onDoubleClick: () {
                             setState(() {
-                              _uiLayout.isMixerVisible = false;
+                              _uiLayout.toggleMixer();
+                              _userSettings.mixerVisible = _uiLayout.isMixerVisible;
                             });
                           },
                         ),
@@ -3056,7 +3112,7 @@ class _DAWScreenState extends State<DAWScreen> {
                   ),
                 ),
 
-                // Editor panel: Piano Roll / FX Chain / Instrument / Virtual Piano
+                // Editor panel: Piano Roll / Effects / Instrument / Virtual Piano
                 // Always show editor - either expanded or collapsed bar
                 if (_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible) ...[
                   // Expanded editor panel with resizable divider
@@ -3064,16 +3120,31 @@ class _DAWScreenState extends State<DAWScreen> {
                     orientation: DividerOrientation.horizontal,
                     isCollapsed: false,
                     onDrag: (delta) {
+                      final windowHeight = MediaQuery.of(context).size.height;
+                      final maxHeight = UILayoutState.getEditorMaxHeight(windowHeight);
                       setState(() {
-                        _uiLayout.editorPanelHeight = (_uiLayout.editorPanelHeight - delta)
-                            .clamp(UILayoutState.editorMinHeight, UILayoutState.editorMaxHeight);
+                        final newHeight = _uiLayout.editorPanelHeight - delta;
+                        // Snap collapse if dragged below threshold
+                        if (newHeight < UILayoutState.editorCollapseThreshold) {
+                          _uiLayout.collapseEditor();
+                          _uiLayout.isVirtualPianoVisible = false;
+                          _uiLayout.isVirtualPianoEnabled = false;
+                          _userSettings.editorVisible = false;
+                        } else {
+                          _uiLayout.editorPanelHeight = newHeight.clamp(
+                            UILayoutState.editorMinHeight,
+                            maxHeight,
+                          );
+                          _userSettings.editorHeight = _uiLayout.editorPanelHeight;
+                        }
                       });
                     },
                     onDoubleClick: () {
                       setState(() {
-                        _uiLayout.isEditorPanelVisible = false;
+                        _uiLayout.collapseEditor();
                         _uiLayout.isVirtualPianoVisible = false;
                         _uiLayout.isVirtualPianoEnabled = false;
+                        _userSettings.editorVisible = false;
                       });
                     },
                   ),
@@ -3130,9 +3201,9 @@ class _DAWScreenState extends State<DAWScreen> {
           _buildStatusBar(),
         ],
       ),
-    ),
-        ),  // Close Focus
-      ),  // Close CallbackShortcuts
+          ),
+        ),
+      ),
     );
   }
 

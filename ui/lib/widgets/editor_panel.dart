@@ -10,7 +10,7 @@ import '../models/midi_note_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 
-/// Editor panel widget - tabbed interface for Piano Roll, FX Chain, Instrument, and Virtual Piano
+/// Editor panel widget - tabbed interface for Piano Roll, Effects, Instrument, and Virtual Piano
 class EditorPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool virtualPianoEnabled;
@@ -143,7 +143,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                 // Tab buttons
                 _buildTabButton(0, Icons.piano_outlined, 'Piano Roll'),
                 const SizedBox(width: 4),
-                _buildTabButton(1, Icons.equalizer, 'FX Chain'),
+                _buildTabButton(1, Icons.equalizer, 'Effects'),
                 const SizedBox(width: 4),
                 _buildTabButton(2, Icons.music_note, 'Instrument'),
                 const Spacer(),
@@ -214,7 +214,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
           // Tab buttons (clickable, expand panel and switch to that tab)
           _buildCollapsedTabButton(0, Icons.piano_outlined, 'Piano Roll'),
           const SizedBox(width: 4),
-          _buildCollapsedTabButton(1, Icons.equalizer, 'FX Chain'),
+          _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
           const SizedBox(width: 4),
           _buildCollapsedTabButton(2, Icons.music_note, 'Instrument'),
           const Spacer(),

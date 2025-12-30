@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
@@ -9,6 +10,7 @@ import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import 'platform_drop_target.dart';
 import '../theme/theme_extension.dart';
+import '../theme/theme_provider.dart';
 
 /// Track data model
 class TrackData {
@@ -320,53 +322,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
   }
 
-  void _showAddTrackMenu() {
-    // Find the button position
-    final RenderBox? overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-
-    final colors = context.colors;
-
-    // Show popup menu
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        overlay.size.width - 380, // Position near the + button (380 is panel width)
-        30, // Below the header
-        overlay.size.width,
-        0,
-      ),
-      items: [
-        PopupMenuItem<String>(
-          value: 'audio',
-          child: Row(
-            children: [
-              Icon(Icons.audiotrack, size: 18, color: colors.darkest),
-              const SizedBox(width: 12),
-              const Text('Audio Track', style: TextStyle(fontSize: 14)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'midi',
-          child: Row(
-            children: [
-              Icon(Icons.piano, size: 18, color: colors.darkest),
-              const SizedBox(width: 12),
-              const Text('MIDI Track', style: TextStyle(fontSize: 14)),
-            ],
-          ),
-        ),
-      ],
-      elevation: 8,
-    ).then((value) {
-      if (!mounted) return;
-      if (value != null) {
-        _createTrack(value);
-      }
-    });
-  }
-
   void _duplicateTrack(TrackData track) async {
     if (widget.audioEngine == null) return;
 
@@ -572,19 +527,57 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           ),
           const Spacer(),
           // Add track button (disabled until engine ready)
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            color: widget.isEngineReady
-                ? context.colors.textPrimary
-                : context.colors.textMuted,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: widget.isEngineReady ? _showAddTrackMenu : null,
-            tooltip: widget.isEngineReady
-                ? 'Add track'
-                : 'Waiting for audio engine...',
-          ),
+          if (widget.isEngineReady)
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.add_circle_outline,
+                color: context.colors.textPrimary,
+                size: 18,
+              ),
+              tooltip: 'Add track',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              onSelected: (value) {
+                if (mounted) {
+                  _createTrack(value);
+                }
+              },
+              itemBuilder: (menuContext) {
+                // Use menuContext for colors in popup menu callback
+                final colors = Provider.of<ThemeProvider>(menuContext, listen: false).colors;
+                return [
+                  PopupMenuItem<String>(
+                    value: 'audio',
+                    child: Row(
+                      children: [
+                        Icon(Icons.audiotrack, size: 18, color: colors.darkest),
+                        const SizedBox(width: 12),
+                        const Text('Audio Track', style: TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'midi',
+                    child: Row(
+                      children: [
+                        Icon(Icons.piano, size: 18, color: colors.darkest),
+                        const SizedBox(width: 12),
+                        const Text('MIDI Track', style: TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ];
+              },
+            )
+          else
+            Tooltip(
+              message: 'Waiting for audio engine...',
+              child: Icon(
+                Icons.add_circle_outline,
+                color: context.colors.textMuted,
+                size: 18,
+              ),
+            ),
         ],
       ),
     );
