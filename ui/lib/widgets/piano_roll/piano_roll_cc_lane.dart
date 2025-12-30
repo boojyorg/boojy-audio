@@ -107,7 +107,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
     final colors = context.colors;
 
     return Container(
-      width: 60,
+      width: 80,
       height: widget.laneHeight,
       decoration: BoxDecoration(
         color: colors.standard,
@@ -116,59 +116,47 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
         ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
+          const SizedBox(height: 8),
+          // MIDI CC label at top
+          Text(
+            'MIDI CC',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
           // CC type dropdown
           GestureDetector(
             onTap: _showCCTypeMenu,
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
-                width: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: colors.dark,
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        _getShortCCName(widget.lane.ccType),
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 9,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      _getShortCCName(widget.lane.ccType),
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 9,
                       ),
                     ),
+                    const SizedBox(width: 2),
                     Icon(
                       Icons.arrow_drop_down,
                       size: 12,
                       color: colors.textMuted,
                     ),
                   ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Close button
-          GestureDetector(
-            onTap: widget.onClose,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Container(
-                width: 52,
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                decoration: BoxDecoration(
-                  color: colors.dark,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Icon(
-                  Icons.close,
-                  size: 12,
-                  color: colors.textMuted,
                 ),
               ),
             ),

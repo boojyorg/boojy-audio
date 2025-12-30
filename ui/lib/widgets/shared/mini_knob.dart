@@ -144,7 +144,10 @@ class _MiniKnobPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 2;
+    // Stroke width scales with size - fatter arc
+    final strokeWidth = (size.width * 0.1).clamp(3.0, 5.0);
+    // Smaller radius to make room for bigger text
+    final radius = size.width / 2 - strokeWidth / 2 - 2;
 
     // Arc angles: 7 o'clock to 5 o'clock (270° sweep)
     const startAngle = 135 * math.pi / 180; // 7 o'clock
@@ -154,7 +157,7 @@ class _MiniKnobPainter extends CustomPainter {
     final baseArcPaint = Paint()
       ..color = baseColor.withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
@@ -170,7 +173,7 @@ class _MiniKnobPainter extends CustomPainter {
       final valueArcPaint = Paint()
         ..color = isDragging ? arcColor : arcColor.withValues(alpha: 0.8)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
       final valueSweep = sweepAngle * value;
@@ -194,7 +197,8 @@ class _MiniKnobPainter extends CustomPainter {
       ..color = arcColor
       ..style = PaintingStyle.fill;
 
-    canvas.drawCircle(indicatorOffset, 3, dotPaint);
+    final dotRadius = (strokeWidth * 0.7).clamp(2.0, 4.0);
+    canvas.drawCircle(indicatorOffset, dotRadius, dotPaint);
 
     // 4. Draw value text if formatter provided and size is large enough
     if (valueFormatter != null && size.width >= 24) {
@@ -204,7 +208,7 @@ class _MiniKnobPainter extends CustomPainter {
           text: label,
           style: TextStyle(
             color: const Color(0xFFE0E0E0),
-            fontSize: size.width * 0.28,
+            fontSize: size.width * 0.28, // Bigger text
             fontWeight: FontWeight.w500,
           ),
         ),

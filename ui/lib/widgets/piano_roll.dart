@@ -9,10 +9,10 @@ import '../models/chord_data.dart';
 import '../audio_engine.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
-import '../services/user_settings.dart';
 import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
 import 'piano_roll/piano_roll_sidebar.dart';
+import 'piano_roll/piano_roll_controls_bar.dart';
 import 'piano_roll/piano_roll_cc_lane.dart';
 import 'piano_roll/chord_palette.dart';
 import 'shared/mini_knob.dart';
@@ -67,7 +67,9 @@ class _PianoRollState extends State<PianoRoll> {
 
   // Scroll controllers
   final ScrollController _horizontalScroll = ScrollController();
+  final ScrollController _rulerScroll = ScrollController(); // Separate controller for ruler
   final ScrollController _verticalScroll = ScrollController();
+  bool _isSyncingScroll = false; // Prevent infinite sync loops
 
   // Grid settings
   double _gridDivision = 0.25; // 1/16th note (quarter / 4)
@@ -156,6 +158,8 @@ class _PianoRollState extends State<PianoRoll> {
   // Zoom drag state (Ableton-style ruler zoom)
   double _zoomDragStartY = 0;
   double _zoomStartPixelsPerBeat = 0;
+  double _zoomAnchorBeat = 0; // Beat position to keep under cursor during zoom
+  double _zoomAnchorLocalX = 0; // Local X position of cursor at drag start
 
   // Remember last note duration (default = 1 beat = quarter note)
   double _lastNoteDuration = 1.0;
@@ -193,8 +197,8 @@ class _PianoRollState extends State<PianoRoll> {
   int _beatsPerBar = 4;
   int _beatUnit = 4;
 
-  // Sidebar width (persisted via UserSettings)
-  double _sidebarWidth = PianoRollSidebar.defaultWidth;
+  // View width for dynamic zoom limits (captured from LayoutBuilder)
+  double _viewWidth = 800.0;
 
   /// Get current scale for calculations
   Scale get _currentScale => Scale(root: _scaleRoot, type: _scaleType);
@@ -218,14 +222,15 @@ class _PianoRollState extends State<PianoRoll> {
     super.initState();
     _currentClip = widget.clipData;
 
-    // Load sidebar width from persisted settings
-    _sidebarWidth = UserSettings().pianoRollSidebarWidth;
-
     // Listen for undo/redo changes to update our state
     _undoRedoManager.addListener(_onUndoRedoChanged);
 
     // Listen for hardware keyboard events (for modifier key cursor updates)
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
+
+    // Sync horizontal scroll between ruler and grid
+    _horizontalScroll.addListener(_syncRulerFromGrid);
+    _rulerScroll.addListener(_syncGridFromRuler);
 
     // Scroll to default view (middle of piano)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -233,12 +238,31 @@ class _PianoRollState extends State<PianoRoll> {
     });
   }
 
+  void _syncRulerFromGrid() {
+    if (_isSyncingScroll) return;
+    if (!_rulerScroll.hasClients || !_horizontalScroll.hasClients) return;
+    _isSyncingScroll = true;
+    _rulerScroll.jumpTo(_horizontalScroll.offset.clamp(0.0, _rulerScroll.position.maxScrollExtent));
+    _isSyncingScroll = false;
+  }
+
+  void _syncGridFromRuler() {
+    if (_isSyncingScroll) return;
+    if (!_rulerScroll.hasClients || !_horizontalScroll.hasClients) return;
+    _isSyncingScroll = true;
+    _horizontalScroll.jumpTo(_rulerScroll.offset.clamp(0.0, _horizontalScroll.position.maxScrollExtent));
+    _isSyncingScroll = false;
+  }
+
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     _undoRedoManager.removeListener(_onUndoRedoChanged);
+    _horizontalScroll.removeListener(_syncRulerFromGrid);
+    _rulerScroll.removeListener(_syncGridFromRuler);
     _focusNode.dispose();
     _horizontalScroll.dispose();
+    _rulerScroll.dispose();
     _verticalScroll.dispose();
     super.dispose();
   }
@@ -554,15 +578,38 @@ class _PianoRollState extends State<PianoRoll> {
     return (beat / _gridDivision).floor() * _gridDivision;
   }
 
+  /// Calculate max pixelsPerBeat (zoom in limit)
+  /// 1 sixteenth note (0.25 beats) should fill the view width
+  double _calculateMaxPixelsPerBeat() {
+    // 1 sixteenth = 0.25 beats should fill viewWidth
+    // pixelsPerBeat = viewWidth / 0.25
+    return _viewWidth / 0.25;
+  }
+
+  /// Calculate min pixelsPerBeat (zoom out limit)
+  /// Clip length + 4 bars should fit in view
+  double _calculateMinPixelsPerBeat() {
+    final clipLength = _getLoopLength();
+    final totalBeatsToShow = clipLength + 16.0; // clip + 4 bars (16 beats)
+    // pixelsPerBeat = viewWidth / totalBeatsToShow
+    return _viewWidth / totalBeatsToShow;
+  }
+
   void _zoomIn() {
     setState(() {
-      _pixelsPerBeat = (_pixelsPerBeat * 1.2).clamp(20.0, 500.0);
+      // 50% zoom in per click (1.5x multiplier)
+      final maxZoom = _calculateMaxPixelsPerBeat();
+      final minZoom = _calculateMinPixelsPerBeat();
+      _pixelsPerBeat = (_pixelsPerBeat * 1.5).clamp(minZoom, maxZoom);
     });
   }
 
   void _zoomOut() {
     setState(() {
-      _pixelsPerBeat = (_pixelsPerBeat / 1.2).clamp(20.0, 500.0);
+      // 50% zoom out per click (divide by 1.5)
+      final maxZoom = _calculateMaxPixelsPerBeat();
+      final minZoom = _calculateMinPixelsPerBeat();
+      _pixelsPerBeat = (_pixelsPerBeat / 1.5).clamp(minZoom, maxZoom);
     });
   }
 
@@ -655,16 +702,10 @@ class _PianoRollState extends State<PianoRoll> {
     final canvasHeight = (_maxMidiNote - _minMidiNote + 1) * _pixelsPerNote;
 
     return Expanded(
-      child: Row(
+      child: Column(
         children: [
-          // Left sidebar with all controls
-          PianoRollSidebar(
-            // Resizable width
-            width: _sidebarWidth,
-            onWidthChanged: (newWidth) {
-              setState(() => _sidebarWidth = newWidth);
-              UserSettings().pianoRollSidebarWidth = newWidth;
-            },
+          // Horizontal controls bar (replaces left sidebar)
+          PianoRollControlsBar(
             // Clip section
             loopEnabled: _loopEnabled,
             loopStartBeats: _loopStartBeats,
@@ -692,6 +733,11 @@ class _PianoRollState extends State<PianoRoll> {
             swingAmount: _swingAmount,
             onSwingChanged: (v) => setState(() => _swingAmount = v),
             onSwingApply: _applySwing,
+            // View section
+            foldEnabled: _foldViewEnabled,
+            ghostNotesEnabled: _ghostNotesEnabled,
+            onFoldToggle: () => setState(() => _foldViewEnabled = !_foldViewEnabled),
+            onGhostNotesToggle: () => setState(() => _ghostNotesEnabled = !_ghostNotesEnabled),
             // Scale section
             scaleRoot: _scaleRoot,
             scaleType: _scaleType,
@@ -703,12 +749,7 @@ class _PianoRollState extends State<PianoRoll> {
             onHighlightToggle: () => setState(() => _scaleHighlightEnabled = !_scaleHighlightEnabled),
             onLockToggle: () => setState(() => _scaleLockEnabled = !_scaleLockEnabled),
             onChordsToggle: () => setState(() => _chordPaletteVisible = !_chordPaletteVisible),
-            // View section
-            foldEnabled: _foldViewEnabled,
-            ghostNotesEnabled: _ghostNotesEnabled,
-            onFoldToggle: () => setState(() => _foldViewEnabled = !_foldViewEnabled),
-            onGhostNotesToggle: () => setState(() => _ghostNotesEnabled = !_ghostNotesEnabled),
-            // Notes section
+            // Transform section
             stretchAmount: _stretchAmount,
             humanizeAmount: _humanizeAmount,
             onLegato: _applyLegato,
@@ -717,17 +758,11 @@ class _PianoRollState extends State<PianoRoll> {
             onHumanizeChanged: (v) => setState(() => _humanizeAmount = v),
             onHumanizeApply: _applyHumanize,
             onReverse: _reverseNotes,
-            // Velocity section
+            // Lane visibility toggles (Randomize/CC type are in lane headers)
             velocityLaneVisible: _velocityLaneExpanded,
             onVelocityLaneToggle: _toggleVelocityLane,
-            velocityRandomize: _velocityRandomizeAmount,
-            onVelocityRandomizeChanged: (v) => setState(() => _velocityRandomizeAmount = v),
-            onVelocityRandomizeApply: _applyVelocityRandomize,
-            // MIDI CC section
             ccLaneVisible: _ccLaneExpanded,
             onCCLaneToggle: () => setState(() => _ccLaneExpanded = !_ccLaneExpanded),
-            ccType: _ccTypeFromLane(_ccLane.ccType),
-            onCCTypeChanged: _handleCCTypeChanged,
           ),
           // Main content area
           Expanded(
@@ -738,15 +773,12 @@ class _PianoRollState extends State<PianoRoll> {
                   children: [
                     // Audition button (aligned with piano keys width)
                     _buildAuditionCorner(context),
-                    // Bar ruler (scrollable)
+                    // Bar ruler (scrollable) - uses _rulerScroll synced with _horizontalScroll
                     Expanded(
-                      child: Scrollbar(
-                        controller: _horizontalScroll,
-                        child: SingleChildScrollView(
-                          controller: _horizontalScroll,
-                          scrollDirection: Axis.horizontal,
-                          child: _buildBarRuler(totalBeats, canvasWidth),
-                        ),
+                      child: SingleChildScrollView(
+                        controller: _rulerScroll,
+                        scrollDirection: Axis.horizontal,
+                        child: _buildBarRuler(totalBeats, canvasWidth),
                       ),
                     ),
                     // Zoom controls at end of timeline
@@ -766,7 +798,7 @@ class _PianoRollState extends State<PianoRoll> {
                           children: [
                             // Piano keys (no separate scroll - inside shared vertical scroll)
                             Container(
-                              width: 60,
+                              width: 80,
                               decoration: BoxDecoration(
                                 color: context.colors.elevated,
                                 border: Border(
@@ -783,18 +815,26 @@ class _PianoRollState extends State<PianoRoll> {
                                 ),
                               ),
                             ),
-                            // Grid with horizontal scroll (no separate vertical scroll)
+                            // Grid with horizontal scroll (no scrollbar, no separate vertical scroll)
                             Expanded(
-                              child: Scrollbar(
-                                controller: _horizontalScroll,
-                                child: SingleChildScrollView(
-                                  controller: _horizontalScroll,
-                                  scrollDirection: Axis.horizontal,
-                                  child: SizedBox(
-                                    width: canvasWidth,
-                                    height: canvasHeight,
-                                    // Listener captures right-click for context menu and Ctrl/Cmd for eraser/delete
-                                    child: Listener(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  // Capture view width for dynamic zoom limits
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (_viewWidth != constraints.maxWidth && constraints.maxWidth > 0) {
+                                      setState(() {
+                                        _viewWidth = constraints.maxWidth;
+                                      });
+                                    }
+                                  });
+                                  return SingleChildScrollView(
+                                    controller: _horizontalScroll,
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: canvasWidth,
+                                      height: canvasHeight,
+                                      // Listener captures right-click for context menu and Ctrl/Cmd for eraser/delete
+                                      child: Listener(
                                       onPointerDown: (event) {
                                         if (event.buttons == kSecondaryMouseButton) {
                                           _rightClickStartPosition = event.localPosition;
@@ -896,7 +936,8 @@ class _PianoRollState extends State<PianoRoll> {
                                       ),
                                     ),
                                   ),
-                                ),
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -905,7 +946,7 @@ class _PianoRollState extends State<PianoRoll> {
                     ),
                   ),
                 ),
-                // Velocity editing lane (Ableton-style)
+              // Velocity editing lane (Ableton-style)
                 if (_velocityLaneExpanded)
                   _buildVelocityLane(totalBeats, canvasWidth),
                 // CC automation lane
@@ -980,7 +1021,7 @@ class _PianoRollState extends State<PianoRoll> {
         children: [
           // Label area with randomize control (same width as piano keys)
           Container(
-            width: 60,
+            width: 80,
             height: _velocityLaneHeight,
             decoration: BoxDecoration(
               color: context.colors.standard,
@@ -989,29 +1030,20 @@ class _PianoRollState extends State<PianoRoll> {
               ),
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                const SizedBox(height: 8),
                 Text(
-                  'Vel',
+                  'Velocity',
                   style: TextStyle(
                     color: context.colors.textMuted,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 4),
-                // Randomize knob with apply
-                MiniKnob(
-                  value: _velocityRandomizeAmount,
-                  min: 0.0,
-                  max: 1.0,
-                  size: 28,
-                  label: 'Rnd',
-                  valueFormatter: (v) => '${(v * 100).round()}%',
-                  arcColor: context.colors.accent,
-                  onChanged: (v) => setState(() => _velocityRandomizeAmount = v),
-                  onChangeEnd: _applyVelocityRandomize,
-                ),
+                const SizedBox(height: 8),
+                // Randomize button with dropdown - opens knob popup
+                _buildVelocityRandomizeButton(context),
               ],
             ),
           ),
@@ -1329,6 +1361,118 @@ class _PianoRollState extends State<PianoRoll> {
     _notifyClipUpdated();
   }
 
+  /// Build the Randomize button with dropdown for velocity lane header
+  Widget _buildVelocityRandomizeButton(BuildContext context) {
+    final colors = context.colors;
+    final displayValue = '${(_velocityRandomizeAmount * 100).round()}%';
+
+    return GestureDetector(
+      onTap: () => _showVelocityRandomizePopup(context),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: colors.dark,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Rand $displayValue',
+                style: TextStyle(color: colors.textPrimary, fontSize: 9),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show popup with knob for randomize amount
+  void _showVelocityRandomizePopup(BuildContext context) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
+
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Tap outside to close
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => overlayEntry.remove(),
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          // Popup
+          Positioned(
+            left: buttonPosition.dx,
+            top: buttonPosition.dy + button.size.height + 4,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: this.context.colors.elevated,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: this.context.colors.surface),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Randomize',
+                      style: TextStyle(
+                        color: this.context.colors.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    StatefulBuilder(
+                      builder: (context, setPopupState) => MiniKnob(
+                        value: _velocityRandomizeAmount,
+                        min: 0.0,
+                        max: 1.0,
+                        size: 48,
+                        valueFormatter: (v) => '${(v * 100).round()}%',
+                        arcColor: this.context.colors.accent,
+                        onChanged: (v) {
+                          setState(() => _velocityRandomizeAmount = v);
+                          setPopupState(() {});
+                        },
+                        onChangeEnd: () {
+                          _applyVelocityRandomize();
+                          overlayEntry.remove();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+  }
+
   /// Randomize velocity of selected notes (or all notes if none selected)
   void _applyVelocityRandomize() {
     if (_currentClip == null || _velocityRandomizeAmount <= 0) return;
@@ -1643,38 +1787,72 @@ class _PianoRollState extends State<PianoRoll> {
     );
   }
 
-  /// Build bar number ruler with Ableton-style drag-to-zoom
-  /// Click and drag vertically: up = zoom in, down = zoom out
+  /// Build bar number ruler with Ableton-style drag interaction
+  /// Drag vertically: down = zoom in, up = zoom out (anchored to cursor)
+  /// Drag horizontally: pan timeline (move left = scroll left, move right = scroll right)
   /// Click: place insert marker (spec v2.0)
   Widget _buildBarRuler(double totalBeats, double canvasWidth) {
     return GestureDetector(
       onTapUp: (details) {
         // Click ruler to place insert marker (spec v2.0)
-        final scrollOffset = _horizontalScroll.hasClients ? _horizontalScroll.offset : 0.0;
+        final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
         final xInContent = details.localPosition.dx + scrollOffset;
         final beats = xInContent / _pixelsPerBeat;
         setState(() {
           _insertMarkerBeats = beats.clamp(0.0, double.infinity);
         });
       },
-      onVerticalDragStart: (details) {
+      onPanStart: (details) {
         _zoomDragStartY = details.globalPosition.dy;
         _zoomStartPixelsPerBeat = _pixelsPerBeat;
+        _zoomAnchorLocalX = details.localPosition.dx;
+
+        // Calculate the beat position under the cursor (anchor point for zoom)
+        final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        _zoomAnchorBeat = xInContent / _pixelsPerBeat;
       },
-      onVerticalDragUpdate: (details) {
-        // Calculate drag delta (negative = dragged up = zoom in)
+      onPanUpdate: (details) {
+        // Calculate drag delta (positive = dragged down = zoom in)
         final deltaY = details.globalPosition.dy - _zoomDragStartY;
 
         // Sensitivity: ~100 pixels of drag = 2x zoom change
-        // Negative deltaY (drag up) = positive zoom multiplier
-        final zoomFactor = 1.0 - (deltaY / 100.0);
+        // Positive deltaY (drag down) = zoom in, Negative (drag up) = zoom out
+        final zoomFactor = 1.0 + (deltaY / 100.0);
+        final minZoom = _calculateMinPixelsPerBeat();
+        final maxZoom = _calculateMaxPixelsPerBeat();
+        final newPixelsPerBeat = (_zoomStartPixelsPerBeat * zoomFactor).clamp(minZoom, maxZoom);
+
+        // Calculate new scroll position to keep anchor beat under cursor
+        // anchorBeat * newPixelsPerBeat = newXInContent
+        // newScrollOffset = newXInContent - localX
+        final newXInContent = _zoomAnchorBeat * newPixelsPerBeat;
+
+        // Also apply horizontal panning: drag left = scroll left (same direction)
+        // details.delta.dx is positive when dragging right, negative when dragging left
+        // We want scroll to move in the same direction as mouse (drag left = view moves left)
+        final panOffset = -details.delta.dx; // Invert so drag left = scroll left
+
+        final targetScrollOffset = (newXInContent - _zoomAnchorLocalX) + panOffset;
+
+        // Update anchor position to account for pan (so zoom stays anchored correctly)
+        _zoomAnchorLocalX += details.delta.dx;
 
         setState(() {
-          _pixelsPerBeat = (_zoomStartPixelsPerBeat * zoomFactor).clamp(20.0, 500.0);
+          _pixelsPerBeat = newPixelsPerBeat;
+        });
+
+        // Defer scroll adjustment to after the layout rebuild
+        // This avoids issues with maxScrollExtent being outdated
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_horizontalScroll.hasClients) {
+            final maxScroll = _horizontalScroll.position.maxScrollExtent;
+            _horizontalScroll.jumpTo(targetScrollOffset.clamp(0.0, maxScroll));
+          }
         });
       },
       child: MouseRegion(
-        cursor: SystemMouseCursors.resizeUpDown, // Visual hint for zoom
+        cursor: SystemMouseCursors.grab, // Visual hint for pan/zoom
         child: Container(
           height: 30,
           width: canvasWidth,
