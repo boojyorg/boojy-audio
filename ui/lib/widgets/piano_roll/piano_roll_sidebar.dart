@@ -614,19 +614,21 @@ class PianoRollSidebar extends StatelessWidget {
         const SizedBox(height: 6),
         // Row 2: Start + Length with labels inline - responsive row
         _buildResponsiveRow([
-          // Start time
+          // Start time (1-indexed position)
           _buildBoxedTimeDisplay(
             context,
             label: 'Start',
             beats: loopStartBeats,
             onChanged: onLoopStartChanged,
+            isPosition: true,
           ),
-          // Length
+          // Length (0-indexed for beat/sub)
           _buildBoxedTimeDisplay(
             context,
             label: 'Length',
             beats: loopLengthBeats,
             onChanged: onLoopLengthChanged,
+            isPosition: false,
           ),
         ]),
       ],
@@ -639,6 +641,7 @@ class PianoRollSidebar extends StatelessWidget {
     required String label,
     required double beats,
     Function(double)? onChanged,
+    bool isPosition = false,
   }) {
     final colors = context.colors;
 
@@ -665,6 +668,7 @@ class PianoRollSidebar extends StatelessWidget {
             label: '',
             onChanged: onChanged,
             beatsPerBar: beatsPerBar,
+            isPosition: isPosition,
           ),
         ),
       ],

@@ -8,7 +8,9 @@ import '../../theme/theme_extension.dart';
 /// Each segment (bar, beat, sub) is individually clickable to edit.
 /// Used for loop start and loop length in the Piano Roll toolbar.
 ///
-/// Format: bar.beat.sub where sub is 1-4 (sixteenth notes within a beat)
+/// Two modes:
+/// - Position (isPosition=true): 1-indexed, e.g., 1.1.1 = bar 1, beat 1, sub 1
+/// - Length (isPosition=false): 0-indexed for beats/subs, e.g., 1.0.0 = 1 bar
 class LoopTimeDisplay extends StatefulWidget {
   /// Value in beats (quarter notes)
   final double beats;
@@ -25,6 +27,10 @@ class LoopTimeDisplay extends StatefulWidget {
   /// Subdivisions per beat (default 4 for sixteenth notes)
   final int subsPerBeat;
 
+  /// If true, display as 1-indexed position (1.1.1 = start of bar 1)
+  /// If false, display as length (1.0.0 = 1 bar long)
+  final bool isPosition;
+
   const LoopTimeDisplay({
     super.key,
     required this.beats,
@@ -32,6 +38,7 @@ class LoopTimeDisplay extends StatefulWidget {
     this.onChanged,
     this.beatsPerBar = 4,
     this.subsPerBeat = 4, // 4 sixteenths per beat
+    this.isPosition = false, // Default to length display
   });
 
   @override
@@ -66,26 +73,45 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     }
   }
 
-  /// Convert beats to bar.beat.sub tuple (all 1-indexed)
-  /// sub = sixteenth note subdivision within the beat (1-4)
+  /// Convert beats to bar.beat.sub tuple
+  /// For POSITION (isPosition=true): 1-indexed, 0 beats = 1.1.1
+  /// For LENGTH (isPosition=false): 0-indexed for beat/sub, 4 beats = 1.0.0
   (int bar, int beat, int sub) _beatsToBarBeatSub(double beats) {
     final totalSubs = (beats * widget.subsPerBeat).round();
     final subsPerBar = widget.beatsPerBar * widget.subsPerBeat;
 
-    final bar = (totalSubs ~/ subsPerBar) + 1; // 1-indexed
+    final barValue = totalSubs ~/ subsPerBar;
     final remainingSubs = totalSubs % subsPerBar;
-    final beat = (remainingSubs ~/ widget.subsPerBeat) + 1; // 1-indexed
-    final sub = (remainingSubs % widget.subsPerBeat) + 1; // 1-indexed (1-4)
+    final beatValue = remainingSubs ~/ widget.subsPerBeat;
+    final subValue = remainingSubs % widget.subsPerBeat;
 
-    return (bar, beat, sub);
+    if (widget.isPosition) {
+      // Position: 1-indexed (0 beats = bar 1, beat 1, sub 1)
+      return (barValue + 1, beatValue + 1, subValue + 1);
+    } else {
+      // Length: 0-indexed for beat/sub (4 beats = 1 bar, 0 extra beats, 0 subs)
+      return (barValue, beatValue, subValue);
+    }
   }
 
-  /// Convert bar.beat.sub tuple back to beats (all 1-indexed input)
+  /// Convert bar.beat.sub tuple back to beats
   double _barBeatSubToBeats(int bar, int beat, int sub) {
     final subsPerBar = widget.beatsPerBar * widget.subsPerBeat;
-    final totalSubs = ((bar - 1) * subsPerBar) +
-        ((beat - 1) * widget.subsPerBeat) +
-        (sub - 1); // sub is 1-indexed
+
+    int adjustedBar = bar;
+    int adjustedBeat = beat;
+    int adjustedSub = sub;
+
+    if (widget.isPosition) {
+      // Position: convert from 1-indexed to 0-indexed
+      adjustedBar = bar - 1;
+      adjustedBeat = beat - 1;
+      adjustedSub = sub - 1;
+    }
+
+    final totalSubs = (adjustedBar * subsPerBar) +
+        (adjustedBeat * widget.subsPerBeat) +
+        adjustedSub;
     return totalSubs / widget.subsPerBeat;
   }
 
@@ -132,16 +158,32 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       int newBeat = beat;
       int newSub = sub;
 
-      switch (_editingSegment) {
-        case 0:
-          newBar = newValue.clamp(1, 999);
-          break;
-        case 1:
-          newBeat = newValue.clamp(1, widget.beatsPerBar);
-          break;
-        case 2:
-          newSub = newValue.clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
-          break;
+      if (widget.isPosition) {
+        // Position: 1-indexed (min 1)
+        switch (_editingSegment) {
+          case 0:
+            newBar = newValue.clamp(1, 999);
+            break;
+          case 1:
+            newBeat = newValue.clamp(1, widget.beatsPerBar); // 1-4 for 4/4
+            break;
+          case 2:
+            newSub = newValue.clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
+            break;
+        }
+      } else {
+        // Length: 0-indexed for beat/sub
+        switch (_editingSegment) {
+          case 0:
+            newBar = newValue.clamp(0, 999);
+            break;
+          case 1:
+            newBeat = newValue.clamp(0, widget.beatsPerBar - 1); // 0-3 for 4/4
+            break;
+          case 2:
+            newSub = newValue.clamp(0, widget.subsPerBeat - 1); // 0-3 for sixteenths
+            break;
+        }
       }
 
       final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);
@@ -184,16 +226,32 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
 
     final direction = delta > 0 ? -1 : 1; // Scroll up = increase
 
-    switch (segment) {
-      case 0:
-        newBar = (bar + direction).clamp(1, 999);
-        break;
-      case 1:
-        newBeat = (beat + direction).clamp(1, widget.beatsPerBar);
-        break;
-      case 2:
-        newSub = (sub + direction).clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
-        break;
+    if (widget.isPosition) {
+      // Position: 1-indexed (min 1)
+      switch (segment) {
+        case 0:
+          newBar = (bar + direction).clamp(1, 999);
+          break;
+        case 1:
+          newBeat = (beat + direction).clamp(1, widget.beatsPerBar); // 1-4 for 4/4
+          break;
+        case 2:
+          newSub = (sub + direction).clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
+          break;
+      }
+    } else {
+      // Length: 0-indexed for beat/sub
+      switch (segment) {
+        case 0:
+          newBar = (bar + direction).clamp(0, 999);
+          break;
+        case 1:
+          newBeat = (beat + direction).clamp(0, widget.beatsPerBar - 1); // 0-3 for 4/4
+          break;
+        case 2:
+          newSub = (sub + direction).clamp(0, widget.subsPerBeat - 1); // 0-3 for sixteenths
+          break;
+      }
     }
 
     final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);

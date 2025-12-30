@@ -280,6 +280,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             label: '',
             onChanged: widget.onLoopStartChanged,
             beatsPerBar: widget.beatsPerBar,
+            isPosition: true, // 1-indexed position (1.1.1 = start)
           ),
         ),
         const SizedBox(width: 8),
@@ -298,6 +299,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             label: '',
             onChanged: widget.onLoopLengthChanged,
             beatsPerBar: widget.beatsPerBar,
+            isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),
         ),
         const SizedBox(width: 8),
