@@ -1,4 +1,4 @@
-/// Data models for VST3 plugin support (M7)
+// Data models for VST3 plugin support (M7)
 
 /// Represents a scanned VST3 plugin
 class Vst3Plugin {

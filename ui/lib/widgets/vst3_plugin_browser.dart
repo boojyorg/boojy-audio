@@ -8,8 +8,8 @@ Future<Vst3Plugin?> showVst3PluginBrowser(
   required List<Map<String, String>> availablePlugins,
   required bool isScanning,
   VoidCallback? onRescanRequested,
-}) async {
-  return await showDialog<Vst3Plugin>(
+}) {
+  return showDialog<Vst3Plugin>(
     context: context,
     builder: (context) => Vst3PluginBrowserDialog(
       availablePlugins: availablePlugins,

@@ -1,5 +1,5 @@
-/// Scale definitions for the Piano Roll.
-/// Each scale is defined by its interval pattern (semitones from root).
+// Scale definitions for the Piano Roll.
+// Each scale is defined by its interval pattern (semitones from root).
 
 /// Available scale types with their semitone intervals
 enum ScaleType {

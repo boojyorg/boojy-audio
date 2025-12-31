@@ -103,8 +103,8 @@ const List<Instrument> availableInstruments = [
 ];
 
 /// Shows instrument browser dialog and returns selected instrument
-Future<Instrument?> showInstrumentBrowser(BuildContext context) async {
-  return await showDialog<Instrument>(
+Future<Instrument?> showInstrumentBrowser(BuildContext context) {
+  return showDialog<Instrument>(
     context: context,
     builder: (context) => const InstrumentBrowserDialog(),
   );
