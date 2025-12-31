@@ -279,6 +279,7 @@ class ProjectManager extends ChangeNotifier {
       final uiLayoutFile = File('$projectPath/ui_layout.json');
       uiLayoutFile.writeAsStringSync(jsonString);
     } catch (e) {
+      debugPrint('ProjectManager: Error saving UI layout: $e');
     }
   }
 

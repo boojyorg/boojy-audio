@@ -214,6 +214,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       try {
         widget.audioEngine?.sendTrackMidiNoteOn(widget.selectedTrackId!, midiNote, 100);
       } catch (e) {
+        // FFI call - ignore MIDI send errors silently
       }
     }
     // If no track selected, piano is silent (do nothing)
@@ -229,6 +230,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
       try {
         widget.audioEngine?.sendTrackMidiNoteOff(widget.selectedTrackId!, midiNote, 0);
       } catch (e) {
+        // FFI call - ignore MIDI send errors silently
       }
     }
   }

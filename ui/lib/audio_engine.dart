@@ -2099,6 +2099,7 @@ class AudioEngine {
     try {
       _cancelExport();
     } catch (e) {
+      // FFI cleanup - ignore errors silently
     }
   }
 
@@ -2107,6 +2108,7 @@ class AudioEngine {
     try {
       _resetExportProgress();
     } catch (e) {
+      // FFI cleanup - ignore errors silently
     }
   }
 
@@ -2352,6 +2354,7 @@ class AudioEngine {
     try {
       _vst3CloseEditor(effectId);
     } catch (e) {
+      // FFI cleanup - ignore errors silently
     }
   }
 

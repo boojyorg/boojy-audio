@@ -589,7 +589,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   bool _isTogglingGUI = false;
 
   // Toggle embedded GUI visibility
-  void _toggleEmbeddedGUI(Vst3PluginInstance plugin) async {
+  Future<void> _toggleEmbeddedGUI(Vst3PluginInstance plugin) async {
     // Prevent rapid toggling which can cause race conditions
     if (_isTogglingGUI) {
       return;
@@ -634,7 +634,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   }
 
   // M7 Phase 3: Open native VST3 plugin GUI
-  void _openPluginGUI(Vst3PluginInstance plugin) async {
+  Future<void> _openPluginGUI(Vst3PluginInstance plugin) async {
 
     // Save preference for floating mode
     await PluginPreferencesService.setDisplayMode(

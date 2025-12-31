@@ -114,6 +114,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
         _progressTimer?.cancel();
       }
     } catch (e) {
+      debugPrint('ExportDialog: Error polling export progress: $e');
     }
   }
 
@@ -604,6 +605,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   try {
                     widget.audioEngine.writeMp3Metadata(mp3Path, _options.metadataJson);
                   } catch (e) {
+                    debugPrint('ExportDialog: Error writing MP3 metadata: $e');
                   }
                 }
               }

@@ -129,6 +129,7 @@ class _MixerPanelState extends State<MixerPanel> {
         });
       }
     } catch (e) {
+      debugPrint('MixerPanel: Error loading tracks: $e');
     }
   }
 

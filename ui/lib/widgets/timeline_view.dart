@@ -337,6 +337,7 @@ class TimelineViewState extends State<TimelineView> {
       });
 
     } catch (e) {
+      debugPrint('TimelineView: Error loading audio file: $e');
     }
   }
 
@@ -1640,6 +1641,7 @@ class TimelineViewState extends State<TimelineView> {
         });
       }
     } catch (e) {
+      debugPrint('TimelineView: Error loading tracks: $e');
     }
   }
 

@@ -99,6 +99,7 @@ class VST3EditorService {
       // vst3CloseEditor returns void
       _audioEngine!.vst3CloseEditor(effectId);
     } catch (e) {
+      // FFI cleanup - ignore errors silently
     }
   }
 

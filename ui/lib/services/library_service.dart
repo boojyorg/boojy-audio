@@ -194,6 +194,7 @@ class LibraryService extends ChangeNotifier {
         }
       }
     } catch (e) {
+      debugPrint('LibraryService: Error loading folder contents: $e');
     }
 
     // Sort: folders first, then files alphabetically

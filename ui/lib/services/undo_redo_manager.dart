@@ -67,6 +67,7 @@ class UndoRedoManager extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
+      debugPrint('UndoRedoManager: Error executing command: $e');
     }
   }
 

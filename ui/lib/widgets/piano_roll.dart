@@ -531,12 +531,12 @@ class _PianoRollState extends State<PianoRoll> {
   }
 
   /// Undo last action - delegates to global manager
-  void _undo() async {
+  Future<void> _undo() async {
     await _undoRedoManager.undo();
   }
 
   /// Redo last undone action - delegates to global manager
-  void _redo() async {
+  Future<void> _redo() async {
     await _undoRedoManager.redo();
   }
 

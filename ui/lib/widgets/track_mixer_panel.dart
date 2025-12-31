@@ -278,10 +278,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
       }
     } catch (e) {
+      debugPrint('TrackMixerPanel: Error loading tracks: $e');
     }
   }
 
-  void _createTrack(String type) async {
+  Future<void> _createTrack(String type) async {
     if (widget.audioEngine == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -322,7 +323,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
   }
 
-  void _duplicateTrack(TrackData track) async {
+  Future<void> _duplicateTrack(TrackData track) async {
     if (widget.audioEngine == null) return;
 
     // Use UndoRedoManager for undoable track duplication
@@ -340,6 +341,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
       _loadTracksAsync();
     } else {
+      debugPrint('TrackMixerPanel: Failed to duplicate track ${track.name}');
     }
   }
 

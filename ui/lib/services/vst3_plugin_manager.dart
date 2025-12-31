@@ -79,6 +79,7 @@ class Vst3PluginManager extends ChangeNotifier {
             parameterValues: parameterValues,
           ));
         } catch (e) {
+          debugPrint('VST3PluginManager: Error getting plugin info for effect $effectId: $e');
         }
       }
     }
@@ -121,6 +122,7 @@ class Vst3PluginManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
+      debugPrint('VST3PluginManager: Error loading cached plugins: $e');
     }
   }
 
@@ -133,6 +135,7 @@ class Vst3PluginManager extends ChangeNotifier {
       await prefs.setInt('vst3_scan_timestamp', DateTime.now().millisecondsSinceEpoch);
       await prefs.setInt('vst3_cache_version', _cacheVersion);
     } catch (e) {
+      debugPrint('VST3PluginManager: Error saving plugin cache: $e');
     }
   }
 
@@ -260,6 +263,7 @@ class Vst3PluginManager extends ChangeNotifier {
     try {
       _audioEngine.setVst3ParameterValue(effectId, paramIndex, value);
     } catch (e) {
+      // FFI call - ignore errors silently for parameter updates
     }
   }
 

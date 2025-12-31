@@ -111,6 +111,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
         _effects = effects;
       });
     } catch (e) {
+      debugPrint('EffectParameterPanel: Error loading effects: $e');
     }
   }
 

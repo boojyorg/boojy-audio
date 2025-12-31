@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Display mode for VST3 plugin UI
@@ -100,6 +101,7 @@ class PluginPreferencesService {
       );
 
     } catch (e) {
+      debugPrint('PluginPreferencesService: Error saving preferences: $e');
     }
   }
 

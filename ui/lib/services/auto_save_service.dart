@@ -104,6 +104,7 @@ class AutoSaveService extends ChangeNotifier {
 
       _lastAutoSave = DateTime.now();
     } catch (e) {
+      debugPrint('AutoSaveService: Auto-save failed: $e');
     } finally {
       _isAutoSaving = false;
       notifyListeners();
@@ -122,6 +123,7 @@ class AutoSaveService extends ChangeNotifier {
 
       _backupDirectory = backupDir.path;
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to init backup directory: $e');
     }
   }
 
@@ -145,6 +147,7 @@ class AutoSaveService extends ChangeNotifier {
       // Rotate old backups
       await _rotateBackups();
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to create backup: $e');
     }
   }
 
@@ -156,6 +159,7 @@ class AutoSaveService extends ChangeNotifier {
       final markerFile = File('$_backupDirectory/crash_recovery.marker');
       await markerFile.writeAsString(latestBackupPath);
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to update recovery marker: $e');
     }
   }
 
@@ -183,6 +187,7 @@ class AutoSaveService extends ChangeNotifier {
         }
       }
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to rotate backups: $e');
     }
   }
 
@@ -203,6 +208,7 @@ class AutoSaveService extends ChangeNotifier {
         return backupPath.trim();
       }
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to check for recovery: $e');
     }
 
     return null;
@@ -218,6 +224,7 @@ class AutoSaveService extends ChangeNotifier {
         await markerFile.delete();
       }
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to clear recovery marker: $e');
     }
   }
 
@@ -237,6 +244,7 @@ class AutoSaveService extends ChangeNotifier {
       // }
 
     } catch (e) {
+      debugPrint('AutoSaveService: Failed to cleanup backups: $e');
     }
   }
 
