@@ -1146,7 +1146,7 @@ class _PianoRollState extends State<PianoRoll> {
   MidiNoteData? _findNoteAtVelocityPosition(Offset position) {
     final beat = _getBeatAtX(position.dx);
 
-    for (final note in _currentClip?.notes ?? []) {
+    for (final note in _currentClip?.notes ?? <MidiNoteData>[]) {
       if (beat >= note.startTime && beat < note.endTime) {
         return note;
       }
@@ -1995,7 +1995,7 @@ class _PianoRollState extends State<PianoRoll> {
     final beat = _getBeatAtX(position.dx);
     final note = _getNoteAtY(position.dy);
 
-    for (final midiNote in _currentClip?.notes ?? []) {
+    for (final midiNote in _currentClip?.notes ?? <MidiNoteData>[]) {
       if (midiNote.contains(beat, note)) {
         return midiNote;
       }
@@ -2562,7 +2562,7 @@ class _PianoRollState extends State<PianoRoll> {
 
         // Store original positions of all notes for proper delta calculation
         _dragStartNotes = {
-          for (final n in _currentClip?.notes ?? []) n.id: n
+          for (final n in _currentClip?.notes ?? <MidiNoteData>[]) n.id: n
         };
 
         // Mark this note as the one being moved (for _onPanUpdate)
@@ -2596,7 +2596,7 @@ class _PianoRollState extends State<PianoRoll> {
 
         // Store original positions of all notes for proper delta calculation
         _dragStartNotes = {
-          for (final n in _currentClip?.notes ?? []) n.id: n
+          for (final n in _currentClip?.notes ?? <MidiNoteData>[]) n.id: n
         };
 
         // Mark this note as the one being moved (no selection highlight)

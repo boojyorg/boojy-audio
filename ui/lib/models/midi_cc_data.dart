@@ -170,11 +170,12 @@ class MidiCCLane {
     return MidiCCLane(
       id: json['id'] as String?,
       ccType: ccType,
-      points: (json['points'] as List<dynamic>?)?.map((p) {
+      points: (json['points'] as List<dynamic>?)?.map((dynamic p) {
+        final point = p as Map<String, dynamic>;
         return MidiCCPoint(
-          id: p['id'] as String?,
-          time: (p['time'] as num).toDouble(),
-          value: (p['value'] as num).toInt(),
+          id: point['id'] as String?,
+          time: (point['time'] as num).toDouble(),
+          value: (point['value'] as num).toInt(),
         );
       }).toList(),
       isExpanded: json['isExpanded'] as bool? ?? true,

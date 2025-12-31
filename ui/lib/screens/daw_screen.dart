@@ -2256,7 +2256,7 @@ class _DAWScreenState extends State<DAWScreen> {
       );
 
       if (mounted) {
-        final result = jsonDecode(resultJson);
+        final result = jsonDecode(resultJson) as Map<String, dynamic>;
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('MP3 export complete')),
@@ -2320,7 +2320,7 @@ class _DAWScreenState extends State<DAWScreen> {
       );
 
       if (mounted) {
-        final result = jsonDecode(resultJson);
+        final result = jsonDecode(resultJson) as Map<String, dynamic>;
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('WAV export complete')),

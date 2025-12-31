@@ -45,9 +45,10 @@ class VST3EditorService {
   /// Handle window moved notification from Swift
   /// Save the window position to preferences
   static Future<void> _handleWindowMoved(dynamic args) async {
-    final pluginName = args['pluginName'] as String?;
-    final x = args['x'] as double?;
-    final y = args['y'] as double?;
+    final argsMap = args as Map<dynamic, dynamic>;
+    final pluginName = argsMap['pluginName'] as String?;
+    final x = argsMap['x'] as double?;
+    final y = argsMap['y'] as double?;
 
     if (pluginName == null || x == null || y == null) {
       return;
@@ -64,7 +65,8 @@ class VST3EditorService {
   /// We must NOT await attachEditor here, as it sends a message back to Swift,
   /// which would deadlock the platform channel. Instead, we schedule it async.
   static Future<void> _handleViewReady(dynamic args) async {
-    final effectId = args['effectId'] as int?;
+    final argsMap = args as Map<dynamic, dynamic>;
+    final effectId = argsMap['effectId'] as int?;
 
     if (effectId == null) {
       return;
@@ -84,7 +86,8 @@ class VST3EditorService {
 
   /// Handle view closed notification from Swift
   static Future<void> _handleViewClosed(dynamic args) async {
-    final effectId = args['effectId'] as int?;
+    final argsMap = args as Map<dynamic, dynamic>;
+    final effectId = argsMap['effectId'] as int?;
 
     if (effectId == null) {
       return;

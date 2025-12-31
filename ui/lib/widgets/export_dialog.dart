@@ -571,7 +571,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 optionsJson: stemOptionsJson,
               );
 
-              final stemResult = jsonDecode(stemResultJson);
+              final stemResult = jsonDecode(stemResultJson) as Map<String, dynamic>;
               results.add(ExportResult(
                 path: folderPath,
                 fileSize: stemResult['total_size'] as int,
