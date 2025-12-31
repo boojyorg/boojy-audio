@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'instrument_browser.dart';
+import 'shared/panel_header.dart';
+import 'shared/search_field.dart';
 import '../models/library_item.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/library_service.dart';
@@ -147,113 +149,33 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   Widget _buildHeader() {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.elevated,
-        border: Border(
-          bottom: BorderSide(color: colors.elevated),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.library_music,
-            color: colors.textPrimary,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'LIBRARY',
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const Spacer(),
-          if (widget.onToggle != null)
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              color: colors.textSecondary,
-              iconSize: 18,
-              onPressed: widget.onToggle,
-              tooltip: 'Hide Library (B)',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-        ],
-      ),
+    return PanelHeader(
+      title: 'Library',
+      icon: Icons.library_music,
+      actions: widget.onToggle != null
+          ? [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: context.colors.textSecondary,
+                iconSize: 18,
+                onPressed: widget.onToggle,
+                tooltip: 'Hide Library (B)',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ]
+          : null,
     );
   }
 
   Widget _buildSearchBar() {
-    final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.standard,
-        border: Border(
-          bottom: BorderSide(color: colors.elevated),
-        ),
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
-        style: TextStyle(
-          color: colors.textPrimary,
-          fontSize: 12,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Search...',
-          hintStyle: TextStyle(
-            color: colors.textMuted,
-            fontSize: 12,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: colors.textMuted,
-            size: 16,
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 28,
-            minHeight: 28,
-          ),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? GestureDetector(
-                  onTap: () {
-                    _searchController.clear();
-                    setState(() {
-                      _searchQuery = '';
-                    });
-                  },
-                  child: Icon(
-                    Icons.close,
-                    color: colors.textMuted,
-                    size: 14,
-                  ),
-                )
-              : null,
-          suffixIconConstraints: const BoxConstraints(
-            minWidth: 28,
-            minHeight: 28,
-          ),
-          filled: true,
-          fillColor: colors.darkest,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide.none,
-          ),
-          isDense: true,
-        ),
-      ),
+    return SearchFieldPanel(
+      controller: _searchController,
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value;
+        });
+      },
     );
   }
 

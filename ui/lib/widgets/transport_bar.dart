@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extension.dart';
 import '../state/ui_layout_state.dart';
+import 'shared/circular_toggle_button.dart';
 
 /// Transport control bar for play/pause/stop/record controls
 class TransportBar extends StatefulWidget {
@@ -535,9 +536,12 @@ class _TransportBarState extends State<TransportBar> {
           SizedBox(width: isCompact ? 8 : 16),
 
           // Loop toggle button
-          _LoopButton(
+          CircularToggleButton(
             enabled: widget.isLoopEnabled,
             onPressed: widget.onLoopToggle,
+            icon: Icons.loop,
+            tooltip: widget.isLoopEnabled ? 'Loop On (L)' : 'Loop Off (L)',
+            enabledColor: const Color(0xFFF97316), // Orange for loop
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
@@ -553,17 +557,24 @@ class _TransportBarState extends State<TransportBar> {
           SizedBox(width: isCompact ? 8 : 16),
 
           // Metronome toggle
-          _MetronomeButton(
+          CircularToggleButton(
             enabled: widget.metronomeEnabled,
             onPressed: widget.onMetronomeToggle,
+            icon: Icons.graphic_eq,
+            tooltip: widget.metronomeEnabled ? 'Metronome On' : 'Metronome Off',
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
 
           // Virtual piano toggle
-          _PianoButton(
+          CircularToggleButton(
             enabled: widget.virtualPianoEnabled,
             onPressed: widget.onPianoToggle,
+            icon: Icons.piano,
+            tooltip: widget.virtualPianoEnabled
+                ? 'Virtual Piano On (z,x,c,w,e,r...)'
+                : 'Virtual Piano Off',
+            enabledColor: context.colors.success,
           ),
 
           SizedBox(width: isCompact ? 4 : 8),
@@ -759,162 +770,6 @@ class _TransportButtonState extends State<_TransportButton> {
                 size: widget.size * 0.5,
                 color: isEnabled
                     ? widget.color
-                    : context.colors.textMuted,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Metronome toggle button widget with hover animation
-class _MetronomeButton extends StatefulWidget {
-  final bool enabled;
-  final VoidCallback? onPressed;
-
-  const _MetronomeButton({
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  @override
-  State<_MetronomeButton> createState() => _MetronomeButtonState();
-}
-
-class _MetronomeButtonState extends State<_MetronomeButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
-
-    return Tooltip(
-      message: widget.enabled ? 'Metronome On' : 'Metronome Off',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onPressed?.call();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: widget.enabled
-                    ? context.colors.accent.withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: widget.enabled
-                      ? context.colors.accent
-                      : context.colors.elevated,
-                  width: 2,
-                ),
-                boxShadow: _isHovered && widget.enabled
-                    ? [
-                        BoxShadow(
-                          color: context.colors.accent.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.graphic_eq,
-                size: 20,
-                color: widget.enabled
-                    ? context.colors.accent
-                    : context.colors.textMuted,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Virtual piano toggle button widget with hover animation
-class _PianoButton extends StatefulWidget {
-  final bool enabled;
-  final VoidCallback? onPressed;
-
-  const _PianoButton({
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  @override
-  State<_PianoButton> createState() => _PianoButtonState();
-}
-
-class _PianoButtonState extends State<_PianoButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
-
-    return Tooltip(
-      message: widget.enabled ? 'Virtual Piano On (z,x,c,w,e,r...)' : 'Virtual Piano Off',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onPressed?.call();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: widget.enabled
-                    ? context.colors.success.withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: widget.enabled
-                      ? context.colors.success
-                      : context.colors.elevated,
-                  width: 2,
-                ),
-                boxShadow: _isHovered && widget.enabled
-                    ? [
-                        BoxShadow(
-                          color: context.colors.success.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.piano,
-                size: 20,
-                color: widget.enabled
-                    ? context.colors.success
                     : context.colors.textMuted,
               ),
             ),
@@ -1501,82 +1356,6 @@ class _RecordButtonState extends State<_RecordButton> {
                 Icons.fiber_manual_record,
                 color: isEnabled ? context.colors.textPrimary : context.colors.textSecondary,
                 size: widget.size * 0.5,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Loop toggle button with hover animation
-class _LoopButton extends StatefulWidget {
-  final bool enabled;
-  final VoidCallback? onPressed;
-
-  const _LoopButton({
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  @override
-  State<_LoopButton> createState() => _LoopButtonState();
-}
-
-class _LoopButtonState extends State<_LoopButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
-    // Loop uses orange color when active (matching spec #F97316)
-    const loopColor = Color(0xFFF97316);
-
-    return Tooltip(
-      message: widget.enabled ? 'Loop On (L)' : 'Loop Off (L)',
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onPressed?.call();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: widget.enabled
-                    ? loopColor.withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: widget.enabled ? loopColor : context.colors.elevated,
-                  width: 2,
-                ),
-                boxShadow: _isHovered && widget.enabled
-                    ? [
-                        BoxShadow(
-                          color: loopColor.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.loop,
-                size: 20,
-                color: widget.enabled ? loopColor : context.colors.textMuted,
               ),
             ),
           ),
