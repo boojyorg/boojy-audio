@@ -36,7 +36,7 @@ class BarRulerPainter extends CustomPainter {
       // Bar number
       final barNumber = bar + 1; // 1-indexed
       textPainter.text = TextSpan(
-        text: "$barNumber",
+        text: '$barNumber',
         style: const TextStyle(
           color: Color(0xFFE0E0E0), // Light text on dark background
           fontSize: 13,

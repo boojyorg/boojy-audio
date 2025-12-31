@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 /// Represents a project snapshot (version control)
 /// Snapshots are saved copies of the project at a specific point in time
+@immutable
 class Snapshot {
   final String id;
   final String name;

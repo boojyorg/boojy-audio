@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 /// Common MIDI CC types with their numbers and names
@@ -25,6 +26,7 @@ enum MidiCCType {
 }
 
 /// A single automation point in a CC lane
+@immutable
 class MidiCCPoint {
   final String id;
   final double time; // Position in beats
@@ -79,9 +81,8 @@ class MidiCCLane {
 
   /// Get sorted points by time
   List<MidiCCPoint> get sortedPoints {
-    final sorted = List<MidiCCPoint>.from(points);
-    sorted.sort((a, b) => a.time.compareTo(b.time));
-    return sorted;
+    return List<MidiCCPoint>.from(points)
+      ..sort((a, b) => a.time.compareTo(b.time));
   }
 
   /// Get value at a specific time (linear interpolation between points)

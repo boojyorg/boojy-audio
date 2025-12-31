@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
+
 /// Represents a MIDI event with timestamp
 ///
 /// Used for MIDI capture buffer to enable retroactive recording
+@immutable
 class MidiEvent {
   final int note;
   final int velocity;

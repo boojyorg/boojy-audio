@@ -13,6 +13,7 @@ enum LibraryItemType {
 }
 
 /// Base class for all library items
+@immutable
 class LibraryItem {
   final String id;
   final String name;
@@ -172,16 +173,11 @@ class LibraryCategory {
 
   /// Get all items (including from subcategories) matching search
   List<LibraryItem> getMatchingItems(String query) {
-    final result = <LibraryItem>[];
-
-    // Add matching direct items
-    result.addAll(items.where((item) => item.matchesSearch(query)));
-
-    // Add matching items from subcategories
-    for (final sub in subcategories) {
-      result.addAll(sub.getMatchingItems(query));
-    }
-
-    return result;
+    return [
+      // Add matching direct items
+      ...items.where((item) => item.matchesSearch(query)),
+      // Add matching items from subcategories
+      for (final sub in subcategories) ...sub.getMatchingItems(query),
+    ];
   }
 }

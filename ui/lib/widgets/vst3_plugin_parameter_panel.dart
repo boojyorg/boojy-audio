@@ -526,7 +526,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
               ],
               decoration: InputDecoration(
                 hintText: 'Enter value',

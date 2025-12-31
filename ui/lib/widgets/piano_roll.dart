@@ -1308,7 +1308,7 @@ class _PianoRollState extends State<PianoRoll> {
 
           // Check if note is on an off-beat (odd 8th note positions)
           final eighthNotePosition = (note.startTime / 0.5).round();
-          final isOffBeat = eighthNotePosition % 2 == 1;
+          final isOffBeat = eighthNotePosition.isOdd;
 
           if (isOffBeat) {
             // Delay this note by swing amount
@@ -1521,9 +1521,7 @@ class _PianoRollState extends State<PianoRoll> {
     setState(() {
       _currentClip = _currentClip!.copyWith(
         notes: _currentClip!.notes.map((note) {
-          final isTarget = selectedNotes.isNotEmpty
-              ? note.isSelected
-              : true;
+          final isTarget = selectedNotes.isEmpty || note.isSelected;
           if (!isTarget) return note;
 
           // Random variation per note
@@ -3035,7 +3033,7 @@ class _PianoRollState extends State<PianoRoll> {
     // Create new notes with offset and new IDs
     final newNotes = _clipboard.map((note) {
       return note.copyWith(
-        id: DateTime.now().microsecondsSinceEpoch.toString() + '_${note.note}',
+        id: '${DateTime.now().microsecondsSinceEpoch}_${note.note}',
         startTime: note.startTime + timeOffset,
         isSelected: true, // Select pasted notes
       );

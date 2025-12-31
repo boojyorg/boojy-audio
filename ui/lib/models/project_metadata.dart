@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 /// Project-specific metadata and settings
 /// These settings are stored in the .boojy project file
+@immutable
 class ProjectMetadata {
   final String name;
   final double bpm;

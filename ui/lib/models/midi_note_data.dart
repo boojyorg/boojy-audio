@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Represents a MIDI note in the piano roll
+@immutable
 class MidiNoteData {
   /// MIDI note number (0-127, where 60 = Middle C)
   final int note;

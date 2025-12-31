@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 /// Represents the view state of a project (zoom, scroll, panel visibility)
 /// Used to restore the user's view when reopening a project
+@immutable
 class ProjectViewState {
   // Arrangement view scroll and zoom
   final double horizontalScroll;
