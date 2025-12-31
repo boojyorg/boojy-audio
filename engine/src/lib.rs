@@ -1,5 +1,20 @@
-// Allow private modules to shadow public glob re-exports
-#![allow(hidden_glob_reexports)]
+// Rust linting configuration
+#![warn(
+    rust_2018_idioms,
+    unused_lifetimes,
+    unused_qualifications,
+    clippy::all,
+    clippy::pedantic
+)]
+#![allow(
+    hidden_glob_reexports,
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines,
+    clippy::similar_names
+)]
 
 // Audio engine modules
 mod api;

@@ -668,6 +668,17 @@ class _PianoRollState extends State<PianoRoll> {
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
+          // Don't intercept keys when a TextField has focus (e.g., loop time inputs)
+          final primaryFocus = FocusManager.instance.primaryFocus;
+          if (primaryFocus != null && primaryFocus != _focusNode) {
+            final focusContext = primaryFocus.context;
+            if (focusContext != null) {
+              final widget = focusContext.widget;
+              if (widget is EditableText) {
+                return KeyEventResult.ignored;
+              }
+            }
+          }
           _handleKeyEvent(event);
           return KeyEventResult.handled;
         },
