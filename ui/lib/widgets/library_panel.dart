@@ -335,7 +335,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }) {
     final isExpanded = _expandedCategories.contains(id);
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: context.colors.elevated),
@@ -390,7 +390,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   Widget _buildNestedCategorySection(LibraryCategory category) {
     final isExpanded = _expandedCategories.contains(category.id);
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: context.colors.elevated),
@@ -413,7 +413,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             },
           ),
           if (isExpanded)
-            Container(
+            ColoredBox(
               color: context.colors.dark,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -474,7 +474,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         .where((p) => p['is_effect'] == '1')
         .toList();
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: context.colors.elevated),
@@ -497,7 +497,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             },
           ),
           if (isExpanded)
-            Container(
+            ColoredBox(
               color: context.colors.dark,
               child: Column(
                 children: [
@@ -592,7 +592,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final isExpanded = _expandedCategories.contains('folders');
     final folderPaths = widget.libraryService.userFolderPaths;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: context.colors.elevated),

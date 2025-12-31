@@ -456,7 +456,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
     if (clipData == null) {
       // No track selected - show empty state
-      return Container(
+      return ColoredBox(
         color: context.colors.dark,
         child: Center(
           child: Column(
@@ -522,7 +522,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
   Widget _buildInstrumentTab() {
     if (widget.selectedTrackId == null || widget.currentInstrumentData == null) {
-      return Container(
+      return ColoredBox(
         color: context.colors.dark,
         child: Center(
           child: Column(

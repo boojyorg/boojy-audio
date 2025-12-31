@@ -673,8 +673,8 @@ class _TransportBarState extends State<TransportBar> {
     final totalBeats = seconds * beatsPerSecond;
 
     // Assuming 4/4 time signature
-    final beatsPerBar = 4;
-    final subdivisionsPerBeat = 4; // 16th notes
+    const beatsPerBar = 4;
+    const subdivisionsPerBeat = 4; // 16th notes
 
     final bar = (totalBeats / beatsPerBar).floor() + 1; // 1-indexed
     final beat = (totalBeats % beatsPerBar).floor() + 1; // 1-indexed
@@ -1532,7 +1532,7 @@ class _LoopButtonState extends State<_LoopButton> {
   Widget build(BuildContext context) {
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
     // Loop uses orange color when active (matching spec #F97316)
-    final loopColor = const Color(0xFFF97316);
+    const loopColor = Color(0xFFF97316);
 
     return Tooltip(
       message: widget.enabled ? 'Loop On (L)' : 'Loop Off (L)',

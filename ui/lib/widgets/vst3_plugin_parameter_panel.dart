@@ -80,7 +80,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.plugins.isEmpty) {
-      return Container(
+      return ColoredBox(
         color: const Color(0xFF707070),
         child: Center(
           child: Column(
@@ -117,7 +117,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     // Check if any plugin is showing embedded GUI
     final showingEmbeddedGUI = _showEmbeddedGUIForEffect != null;
 
-    return Container(
+    return ColoredBox(
       color: const Color(0xFF707070),
       child: Column(
         children: [
@@ -329,7 +329,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
       }
     }
 
-    return Container(
+    return ColoredBox(
       color: const Color(0xFF505050),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

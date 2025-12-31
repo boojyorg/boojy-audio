@@ -68,7 +68,7 @@ class MidiPlaybackManager extends ChangeNotifier {
         final newClipId = DateTime.now().millisecondsSinceEpoch;
 
         // Default to 4 bars (16 beats) if no duration/loopLength specified
-        final defaultBeats = 16.0;
+        const defaultBeats = 16.0;
         _currentEditingClip = updatedClip.copyWith(
           clipId: newClipId,
           startTime: playheadPosition, // playheadPosition should be in beats

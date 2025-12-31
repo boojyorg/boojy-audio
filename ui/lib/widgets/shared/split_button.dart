@@ -82,7 +82,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
     final bgColor = widget.isActive ? colors.accent : colors.dark;
     final textColor = colors.textPrimary;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(2),

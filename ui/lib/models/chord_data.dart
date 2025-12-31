@@ -70,7 +70,7 @@ class ChordConfiguration {
     final intervals = type.intervals;
 
     // Apply inversion by moving lower notes up an octave
-    List<int> notes = intervals.map((i) => baseNote + i).toList();
+    final List<int> notes = intervals.map((i) => baseNote + i).toList();
 
     // Apply inversion
     for (int i = 0; i < inversion && i < notes.length; i++) {

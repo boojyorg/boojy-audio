@@ -175,7 +175,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
   }
 
   Widget _buildSnapshotsList() {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFF363636)),
         borderRadius: BorderRadius.circular(4),

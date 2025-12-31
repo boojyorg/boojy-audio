@@ -118,7 +118,7 @@ class _FxChainViewState extends State<FxChainView> {
       return _buildNoTrackSelected();
     }
 
-    return Container(
+    return ColoredBox(
       color: context.colors.darkest,
       child: Column(
         children: [
@@ -135,7 +135,7 @@ class _FxChainViewState extends State<FxChainView> {
   }
 
   Widget _buildNoTrackSelected() {
-    return Container(
+    return ColoredBox(
       color: context.colors.darkest,
       child: Center(
         child: Column(

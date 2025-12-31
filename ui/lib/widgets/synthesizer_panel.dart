@@ -58,7 +58,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colors.standard,
         border: Border(
@@ -598,7 +598,7 @@ class WaveformPainter extends CustomPainter {
 
   double sin(double x) {
     // Simple sine approximation
-    return (x - (x * x * x) / 6 + (x * x * x * x * x) / 120);
+    return x - (x * x * x) / 6 + (x * x * x * x * x) / 120;
   }
 }
 
@@ -637,7 +637,7 @@ class ADSRPainter extends CustomPainter {
     final releaseWidth = (release / totalTime) * size.width;
 
     final bottom = size.height - 10;
-    final top = 10.0;
+    const top = 10.0;
     final sustainY = bottom - (sustain * (bottom - top));
 
     // Start at bottom left

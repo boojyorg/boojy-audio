@@ -133,7 +133,7 @@ class _CapsuleFaderPainter extends CustomPainter {
     canvas.clipRRect(capsuleRect);
 
     // Calculate meter dimensions
-    final meterPadding = 4.0;
+    const meterPadding = 4.0;
     final meterLeft = capsuleRadius + meterPadding;
     final meterRight = size.width - capsuleRadius - meterPadding;
     final meterWidth = meterRight - meterLeft;

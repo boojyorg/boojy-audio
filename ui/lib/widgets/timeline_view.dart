@@ -1655,7 +1655,7 @@ class TimelineViewState extends State<TimelineView> {
     // Minimum 16 bars (64 beats), or extend based on clip duration
     const minBars = 16;
     const beatsPerBar = 4;
-    final minBeats = minBars * beatsPerBar;
+    const minBeats = minBars * beatsPerBar;
 
     // Calculate beats needed for clip duration (if any)
     final clipDurationBeats = widget.clipDuration != null
@@ -1735,7 +1735,7 @@ class TimelineViewState extends State<TimelineView> {
         }
         return KeyEventResult.ignored;
       },
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.colors.standard,
           border: Border.all(color: context.colors.elevated),
@@ -1993,6 +1993,7 @@ class TimelineViewState extends State<TimelineView> {
                       return Stack(
                         children: [
                           // Drop target feedback
+                          // ignore: use_decorated_box
                           Container(
                             decoration: isAnyHovering
                                 ? BoxDecoration(
@@ -2195,8 +2196,7 @@ class TimelineViewState extends State<TimelineView> {
             height: 30,
             decoration: BoxDecoration(
               color: loopColor.withValues(alpha: 0.3),
-              // ignore: prefer_const_constructors - loopColor is runtime
-              border: Border(
+              border: const Border(
                 top: BorderSide(color: loopColor, width: 3),
               ),
             ),
@@ -2322,7 +2322,7 @@ class TimelineViewState extends State<TimelineView> {
           },
           onDragUpdated: (details) {
             // Update preview position
-            final fileName = 'Preview'; // We don't have filename yet
+            const fileName = 'Preview'; // We don't have filename yet
             final startTime = _calculateTimelinePosition(details.localPosition);
 
             setState(() {
@@ -3492,7 +3492,7 @@ class TimelineViewState extends State<TimelineView> {
     final width = durationBeats * _pixelsPerBeat;
 
     // Calculate bars for label
-    final bars = (durationBeats / 4.0);
+    final bars = durationBeats / 4.0;
     final barsLabel = bars >= 1.0
         ? '${bars.toStringAsFixed(bars == bars.roundToDouble() ? 0 : 1)} bar${bars != 1.0 ? 's' : ''}'
         : '${durationBeats.toStringAsFixed(1)} beats';
@@ -3600,7 +3600,7 @@ class TimelineViewState extends State<TimelineView> {
     final width = durationBeats * _pixelsPerBeat;
 
     // Calculate bars for label
-    final bars = (durationBeats / 4.0);
+    final bars = durationBeats / 4.0;
     final barsLabel = bars >= 1.0
         ? '${bars.toStringAsFixed(bars == bars.roundToDouble() ? 0 : 1)} bar${bars != 1.0 ? 's' : ''}'
         : '${durationBeats.toStringAsFixed(1)} beats';

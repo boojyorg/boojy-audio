@@ -125,7 +125,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
 
             // Plugins list
             Expanded(
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: context.colors.hover,
                   borderRadius: BorderRadius.circular(8),

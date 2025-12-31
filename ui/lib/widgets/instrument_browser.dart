@@ -217,7 +217,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
 
             // Instruments list
             Expanded(
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: context.colors.hover,
                   borderRadius: BorderRadius.circular(8),

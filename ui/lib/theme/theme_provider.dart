@@ -45,7 +45,7 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Cycle to the next theme
   void cycleTheme() {
-    final values = BoojyTheme.values;
+    const values = BoojyTheme.values;
     final currentIndex = values.indexOf(_currentTheme);
     final nextIndex = (currentIndex + 1) % values.length;
     setTheme(values[nextIndex]);

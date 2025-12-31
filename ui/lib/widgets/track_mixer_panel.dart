@@ -440,7 +440,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             // Drop indicator overlay
             if (_isAudioFileDragging)
               Positioned.fill(
-                child: Container(
+                child: ColoredBox(
                   color: context.colors.success.withValues(alpha: 0.1),
                   child: Center(
                     child: Container(

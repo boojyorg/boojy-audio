@@ -97,7 +97,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
 
     return CompositedTransformTarget(
       link: _layerLink,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.dark,
           borderRadius: BorderRadius.circular(2),

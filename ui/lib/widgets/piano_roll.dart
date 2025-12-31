@@ -912,7 +912,7 @@ class _PianoRollState extends State<PianoRoll> {
                                           onPanStart: _onPanStart,
                                           onPanUpdate: _onPanUpdate,
                                           onPanEnd: _onPanEnd,
-                                          child: Container(
+                                          child: ColoredBox(
                                             color: Colors.transparent,
                                             child: Stack(
                                               children: [
