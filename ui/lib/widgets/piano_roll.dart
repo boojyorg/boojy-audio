@@ -15,6 +15,9 @@ import 'piano_roll/operations/note_operations.dart';
 import 'piano_roll/operations/clipboard_operations.dart';
 import 'piano_roll/operations/selection_operations.dart';
 import 'piano_roll/gestures/note_gesture_handler.dart';
+import 'piano_roll/audition_mixin.dart';
+import 'piano_roll/velocity_lane_mixin.dart';
+import 'piano_roll/zoom_mixin.dart';
 import 'shared/mini_knob.dart';
 import 'context_menus/note_context_menu.dart';
 
@@ -66,7 +69,10 @@ class _PianoRollState extends State<PianoRoll>
          NoteOperationsMixin,
          ClipboardOperationsMixin,
          SelectionOperationsMixin,
-         NoteGestureHandlerMixin {
+         NoteGestureHandlerMixin,
+         AuditionMixin,
+         VelocityLaneMixin,
+         ZoomMixin {
   // ============================================
   // ALL STATE VARIABLES NOW COME FROM PianoRollStateMixin
   // Operations come from NoteOperationsMixin, ClipboardOperationsMixin, SelectionOperationsMixin
@@ -171,72 +177,9 @@ class _PianoRollState extends State<PianoRoll>
     verticalScroll.jumpTo(scrollOffset);
   }
 
-  /// Start sustained audition - note plays until _stopAudition is called (FL Studio style)
-  void _startAudition(int midiNote, int velocity) {
-    if (!auditionEnabled) return;
-
-    // Stop any currently held note first
-    _stopAudition();
-
-    final trackId = currentClip?.trackId;
-    if (trackId != null && widget.audioEngine != null) {
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, velocity);
-      currentlyHeldNote = midiNote;
-    }
-  }
-
-  /// Stop the currently held audition note
-  void _stopAudition() {
-    if (currentlyHeldNote != null) {
-      final trackId = currentClip?.trackId;
-      if (trackId != null && widget.audioEngine != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
-      }
-      currentlyHeldNote = null;
-    }
-  }
-
-  /// Change the audition pitch while holding (for dragging notes up/down)
-  void _changeAuditionPitch(int newMidiNote, int velocity) {
-    if (!auditionEnabled) return;
-    if (newMidiNote == currentlyHeldNote) return; // Same note, no change needed
-
-    final trackId = currentClip?.trackId;
-    if (trackId != null && widget.audioEngine != null) {
-      // Stop old note
-      if (currentlyHeldNote != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
-      }
-      // Start new note
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
-      currentlyHeldNote = newMidiNote;
-    }
-  }
-
-  /// Toggle note audition on/off
-  void _toggleAudition() {
-    setState(() {
-      auditionEnabled = !auditionEnabled;
-    });
-  }
-
-  /// Preview/audition a chord (play all notes simultaneously)
-  void _previewChord(List<int> midiNotes) {
-    if (!auditionEnabled) return;
-    final trackId = currentClip?.trackId;
-    if (trackId == null || widget.audioEngine == null) return;
-
-    // Play all notes in the chord
-    for (final midiNote in midiNotes) {
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, 100);
-    }
-    // Stop notes after a short delay
-    Future.delayed(const Duration(milliseconds: 500), () {
-      for (final midiNote in midiNotes) {
-        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 64);
-      }
-    });
-  }
+  // Audition methods now provided by AuditionMixin:
+  // - startAudition(), stopAudition(), changeAuditionPitch()
+  // - toggleAudition(), previewChord()
 
   /// Stamp a chord at the given position
   /// The chord is placed relative to the clicked note position
@@ -286,15 +229,10 @@ class _PianoRollState extends State<PianoRoll>
     notifyClipUpdated();
 
     // Preview the chord
-    _previewChord(newNotes.map((n) => n.note).toList());
+    previewChord(newNotes.map((n) => n.note).toList());
   }
 
-  /// Toggle velocity lane on/off
-  void _toggleVelocityLane() {
-    setState(() {
-      velocityLaneExpanded = !velocityLaneExpanded;
-    });
-  }
+  // Velocity lane toggle now provided by VelocityLaneMixin: toggleVelocityLane()
 
   double _calculateNoteY(int midiNote) {
     // Higher notes = lower Y coordinate (inverted)
@@ -318,46 +256,9 @@ class _PianoRollState extends State<PianoRoll>
     return x / pixelsPerBeat;
   }
 
-  /// Calculate max pixelsPerBeat (zoom in limit)
-  /// 1 sixteenth note (0.25 beats) should fill the view width
-  double _calculateMaxPixelsPerBeat() {
-    // 1 sixteenth = 0.25 beats should fill viewWidth
-    // pixelsPerBeat = viewWidth / 0.25
-    return viewWidth / 0.25;
-  }
-
-  /// Calculate min pixelsPerBeat (zoom out limit)
-  /// Clip length + 4 bars should fit in view
-  double _calculateMinPixelsPerBeat() {
-    final clipLength = getLoopLength();
-    final totalBeatsToShow = clipLength + 16.0; // clip + 4 bars (16 beats)
-    // pixelsPerBeat = viewWidth / totalBeatsToShow
-    return viewWidth / totalBeatsToShow;
-  }
-
-  void _zoomIn() {
-    setState(() {
-      // 50% zoom in per click (1.5x multiplier)
-      final maxZoom = _calculateMaxPixelsPerBeat();
-      final minZoom = _calculateMinPixelsPerBeat();
-      pixelsPerBeat = (pixelsPerBeat * 1.5).clamp(minZoom, maxZoom);
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      // 50% zoom out per click (divide by 1.5)
-      final maxZoom = _calculateMaxPixelsPerBeat();
-      final minZoom = _calculateMinPixelsPerBeat();
-      pixelsPerBeat = (pixelsPerBeat / 1.5).clamp(minZoom, maxZoom);
-    });
-  }
-
-  void _toggleSnap() {
-    setState(() {
-      snapEnabled = !snapEnabled;
-    });
-  }
+  // Zoom methods now provided by ZoomMixin:
+  // - calculateMaxPixelsPerBeat(), calculateMinPixelsPerBeat()
+  // - zoomIn(), zoomOut(), toggleSnap()
 
   @override
   Widget build(BuildContext context) {
@@ -403,7 +304,7 @@ class _PianoRollState extends State<PianoRoll>
                   onConfigurationChanged: (config) {
                     setState(() => chordConfig = config);
                   },
-                  onPreview: _previewChord,
+                  onPreview: previewChord,
                   onPreviewToggle: (enabled) {
                     setState(() => chordPreviewEnabled = enabled);
                   },
@@ -453,7 +354,7 @@ class _PianoRollState extends State<PianoRoll>
             // Grid section
             snapEnabled: snapEnabled,
             gridDivision: gridDivision,
-            onSnapToggle: _toggleSnap,
+            onSnapToggle: toggleSnap,
             onGridDivisionChanged: (division) => setState(() => gridDivision = division),
             onQuantize: _quantizeClip,
             swingAmount: swingAmount,
@@ -486,7 +387,7 @@ class _PianoRollState extends State<PianoRoll>
             onReverse: reverseNotes,
             // Lane visibility toggles (Randomize/CC type are in lane headers)
             velocityLaneVisible: velocityLaneExpanded,
-            onVelocityLaneToggle: _toggleVelocityLane,
+            onVelocityLaneToggle: toggleVelocityLane,
             ccLaneVisible: ccLaneExpanded,
             onCCLaneToggle: () => setState(() => ccLaneExpanded = !ccLaneExpanded),
           ),
@@ -600,7 +501,7 @@ class _PianoRollState extends State<PianoRoll>
                                         if (isErasing) {
                                           _stopErasing();
                                         }
-                                        _stopAudition();
+                                        stopAudition();
                                       },
                                       child: MouseRegion(
                                         cursor: currentCursor,
@@ -608,8 +509,8 @@ class _PianoRollState extends State<PianoRoll>
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.translucent,
                                           onTapDown: _onTapDown,
-                                          onTapUp: (_) => _stopAudition(),
-                                          onTapCancel: _stopAudition,
+                                          onTapUp: (_) => stopAudition(),
+                                          onTapCancel: stopAudition,
                                           onPanStart: _onPanStart,
                                           onPanUpdate: _onPanUpdate,
                                           onPanEnd: _onPanEnd,
@@ -783,9 +684,9 @@ class _PianoRollState extends State<PianoRoll>
               scrollDirection: Axis.horizontal,
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onPanStart: _onVelocityPanStart,
-                onPanUpdate: _onVelocityPanUpdate,
-                onPanEnd: _onVelocityPanEnd,
+                onPanStart: onVelocityPanStart,
+                onPanUpdate: onVelocityPanUpdate,
+                onPanEnd: onVelocityPanEnd,
                 child: CustomPaint(
                   size: Size(canvasWidth, PianoRollStateMixin.velocityLaneHeight),
                   painter: VelocityLanePainter(
@@ -803,56 +704,9 @@ class _PianoRollState extends State<PianoRoll>
     );
   }
 
-  /// Handle velocity lane pan start
-  void _onVelocityPanStart(DragStartDetails details) {
-    final note = _findNoteAtVelocityPosition(details.localPosition);
-    if (note != null) {
-      saveToHistory();
-      velocityDragNoteId = note.id;
-    }
-  }
-
-  /// Handle velocity lane pan update
-  void _onVelocityPanUpdate(DragUpdateDetails details) {
-    if (velocityDragNoteId == null) return;
-
-    // Calculate new velocity based on Y position (inverted - top = high velocity)
-    final newVelocity = ((1 - (details.localPosition.dy / PianoRollStateMixin.velocityLaneHeight)) * 127)
-        .round()
-        .clamp(1, 127);
-
-    setState(() {
-      currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes.map((n) {
-          if (n.id == velocityDragNoteId) {
-            return n.copyWith(velocity: newVelocity);
-          }
-          return n;
-        }).toList(),
-      );
-    });
-    notifyClipUpdated();
-  }
-
-  /// Handle velocity lane pan end
-  void _onVelocityPanEnd(DragEndDetails details) {
-    if (velocityDragNoteId != null) {
-      commitToHistory('Change velocity');
-      velocityDragNoteId = null;
-    }
-  }
-
-  /// Find note at velocity lane position
-  MidiNoteData? _findNoteAtVelocityPosition(Offset position) {
-    final beat = _getBeatAtX(position.dx);
-
-    for (final note in currentClip?.notes ?? <MidiNoteData>[]) {
-      if (beat >= note.startTime && beat < note.endTime) {
-        return note;
-      }
-    }
-    return null;
-  }
+  // Velocity pan handlers now provided by VelocityLaneMixin:
+  // - onVelocityPanStart(), onVelocityPanUpdate(), onVelocityPanEnd()
+  // Note finding: findNoteAtVelocityPosition() is in NoteGestureHandlerMixin
 
   /// Build the draggable loop end marker
   Widget _buildLoopEndMarker(double loopLength, double canvasHeight) {
@@ -1157,7 +1011,7 @@ class _PianoRollState extends State<PianoRoll>
           _buildZoomButton(
             context,
             icon: Icons.remove,
-            onTap: _zoomOut,
+            onTap: zoomOut,
             tooltip: 'Zoom out',
           ),
           const SizedBox(width: 4),
@@ -1165,7 +1019,7 @@ class _PianoRollState extends State<PianoRoll>
           _buildZoomButton(
             context,
             icon: Icons.add,
-            onTap: _zoomIn,
+            onTap: zoomIn,
             tooltip: 'Zoom in',
           ),
         ],
@@ -1222,7 +1076,7 @@ class _PianoRollState extends State<PianoRoll>
       child: Tooltip(
         message: auditionEnabled ? 'Disable audition' : 'Enable audition',
         child: GestureDetector(
-          onTap: _toggleAudition,
+          onTap: toggleAudition,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: Center(
@@ -1357,8 +1211,8 @@ class _PianoRollState extends State<PianoRoll>
         // Sensitivity: ~100 pixels of drag = 2x zoom change
         // Positive deltaY (drag down) = zoom in, Negative (drag up) = zoom out
         final zoomFactor = 1.0 + (deltaY / 100.0);
-        final minZoom = _calculateMinPixelsPerBeat();
-        final maxZoom = _calculateMaxPixelsPerBeat();
+        final minZoom = calculateMinPixelsPerBeat();
+        final maxZoom = calculateMaxPixelsPerBeat();
         final newPixelsPerBeat = (zoomStartPixelsPerBeat * zoomFactor).clamp(minZoom, maxZoom);
 
         // Calculate new scroll position to keep anchor beat under cursor
@@ -1632,7 +1486,7 @@ class _PianoRollState extends State<PianoRoll>
         });
         commitToHistory('Duplicate note');
         notifyClipUpdated();
-        _startAudition(clickedNote.note, clickedNote.velocity);
+        startAudition(clickedNote.note, clickedNote.velocity);
       }
       return;
     }
@@ -1667,7 +1521,7 @@ class _PianoRollState extends State<PianoRoll>
           });
         }
         notifyClipUpdated();
-        _startAudition(clickedNote.note, clickedNote.velocity);
+        startAudition(clickedNote.note, clickedNote.velocity);
       } else {
         // Click on empty space = deselect all
         setState(() {
@@ -1731,7 +1585,7 @@ class _PianoRollState extends State<PianoRoll>
       notifyClipUpdated();
 
       // Start sustained audition (will stop on mouse up)
-      _startAudition(clickedNote.note, clickedNote.velocity);
+      startAudition(clickedNote.note, clickedNote.velocity);
 
       // Clear just-created tracking since we clicked on existing note
       justCreatedNoteId = null;
@@ -1775,7 +1629,7 @@ class _PianoRollState extends State<PianoRoll>
       commitToHistory('Add note');
       notifyClipUpdated();
       // Start sustained audition (will stop on mouse up)
-      _startAudition(noteRow, 100);
+      startAudition(noteRow, 100);
     }
   }
 
@@ -1835,7 +1689,7 @@ class _PianoRollState extends State<PianoRoll>
         currentMode = InteractionMode.move;
         currentCursor = SystemMouseCursors.grabbing;
       });
-      _startAudition(clickedNote.note, clickedNote.velocity);
+      startAudition(clickedNote.note, clickedNote.velocity);
       return;
     }
 
@@ -1883,7 +1737,7 @@ class _PianoRollState extends State<PianoRoll>
         currentCursor = SystemMouseCursors.copy;
       });
 
-      _startAudition(clickedNote.note, clickedNote.velocity);
+      startAudition(clickedNote.note, clickedNote.velocity);
       return;
     }
 
@@ -1946,7 +1800,7 @@ class _PianoRollState extends State<PianoRoll>
         currentCursor = SystemMouseCursors.copy;
       });
 
-      _startAudition(clickedNote.note, clickedNote.velocity);
+      startAudition(clickedNote.note, clickedNote.velocity);
     } else if (justCreatedNoteId != null) {
       // User is dragging from where they just created a note - move it (FL Studio style)
       final createdNote = currentClip?.notes.firstWhere(
@@ -2006,7 +1860,7 @@ class _PianoRollState extends State<PianoRoll>
         });
 
         // Start sustained audition when starting to drag (FL Studio style)
-        _startAudition(clickedNote.note, clickedNote.velocity);
+        startAudition(clickedNote.note, clickedNote.velocity);
       }
     }
     // Note: No longer need to handle drawing here - single-click in _onTapDown creates notes
@@ -2124,7 +1978,7 @@ class _PianoRollState extends State<PianoRoll>
 
       // Change audition pitch when dragging note up/down
       if (newPitchForAudition != null) {
-        _changeAuditionPitch(newPitchForAudition!, velocityForAudition ?? 100);
+        changeAuditionPitch(newPitchForAudition!, velocityForAudition ?? 100);
       }
 
       notifyClipUpdated();
@@ -2228,7 +2082,7 @@ class _PianoRollState extends State<PianoRoll>
     }
 
     // Stop audition when mouse released
-    _stopAudition();
+    stopAudition();
 
     // Reset state
     setState(() {
