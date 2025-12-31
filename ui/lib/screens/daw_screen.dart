@@ -297,8 +297,8 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.setCountInBars(_userSettings.countInBars); // Use saved setting
         _audioEngine!.setTempo(120.0);   // Default: 120 BPM
         _audioEngine!.setMetronomeEnabled(true); // Default: enabled
-
       } catch (e) {
+        debugPrint('DawScreen: Failed to initialize recording settings: $e');
       }
 
       if (mounted) {
@@ -306,7 +306,6 @@ class _DAWScreenState extends State<DAWScreen> {
           _isAudioGraphInitialized = true;
         });
         _playbackController.setStatusMessage('Ready to record or load audio files');
-      } else {
       }
 
       // Initialize undo/redo manager with engine
@@ -705,9 +704,11 @@ class _DAWScreenState extends State<DAWScreen> {
       Future.delayed(const Duration(milliseconds: 100), () {
         final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
         if (noteOffResult.isNotEmpty) {
+          debugPrint('DawScreen: Note off result: $noteOffResult');
         }
       });
     } catch (e) {
+      debugPrint('DawScreen: Failed to preview VST3 instrument: $e');
     }
   }
 
@@ -763,6 +764,7 @@ class _DAWScreenState extends State<DAWScreen> {
       // Immediately refresh track widgets so the new track appears instantly
       _refreshTrackWidgets();
     } catch (e) {
+      debugPrint('DawScreen: Failed to create VST3 instrument track: $e');
     }
   }
 
@@ -845,6 +847,7 @@ class _DAWScreenState extends State<DAWScreen> {
       _refreshTrackWidgets();
 
     } catch (e) {
+      debugPrint('DawScreen: Failed to create audio track: $e');
     }
   }
 
@@ -873,7 +876,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   /// Capture MIDI from the buffer and create a clip
-  void _captureMidi() async {
+  Future<void> _captureMidi() async {
     if (_audioEngine == null) return;
 
     // Check if we have a selected track
@@ -1155,7 +1158,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Helper: Add audio clip to existing track
-  void _addAudioClipToTrack(int trackId, String filePath) async {
+  Future<void> _addAudioClipToTrack(int trackId, String filePath) async {
     if (_audioEngine == null) return;
 
     try {
@@ -1194,8 +1197,10 @@ class _DAWScreenState extends State<DAWScreen> {
           _statusMessage = 'Added $effectType to track';
         });
       } else {
+        debugPrint('DawScreen: Failed to add effect (returned $effectId)');
       }
     } catch (e) {
+      debugPrint('DawScreen: Exception adding effect to track: $e');
     }
   }
 
@@ -2195,6 +2200,7 @@ class _DAWScreenState extends State<DAWScreen> {
       // Clear the recovery marker regardless of choice
       await _autoSaveService.clearRecoveryMarker();
     } catch (e) {
+      debugPrint('DawScreen: Failed to check for crash recovery: $e');
     }
   }
 
@@ -2440,12 +2446,12 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _appSettings() async {
+  Future<void> _appSettings() async {
     // Open app-wide settings dialog (accessed via logo "O" click)
     await AppSettingsDialog.show(context, _userSettings);
   }
 
-  void _projectSettings() async {
+  Future<void> _projectSettings() async {
     // Open project-specific settings dialog (accessed via File menu)
     final updatedMetadata = await ProjectSettingsDialog.show(
       context,
@@ -2479,7 +2485,7 @@ class _DAWScreenState extends State<DAWScreen> {
   // Snapshot Methods (Phase 4)
   // ========================================================================
 
-  void _createSnapshot() async {
+  Future<void> _createSnapshot() async {
     if (_projectManager?.currentPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please save the project first')),
@@ -2521,7 +2527,7 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  void _viewSnapshots() async {
+  Future<void> _viewSnapshots() async {
     if (_projectManager?.currentPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please save the project first')),
@@ -2563,9 +2569,11 @@ class _DAWScreenState extends State<DAWScreen> {
       // Reload the project
       await _openRecentProject(projectPath);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Loaded snapshot "${snapshot.name}"')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Loaded snapshot "${snapshot.name}"')),
+        );
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load snapshot')),

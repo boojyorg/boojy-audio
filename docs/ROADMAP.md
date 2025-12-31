@@ -1,7 +1,27 @@
 # Boojy Audio - Development Roadmap
 
-**Last Updated:** December 26, 2025
-**Current Status:** M7 Complete, Export Feature Complete
+**Last Updated:** December 30, 2025
+**Current Status:** M7 Complete, working on M8 (Stock Instruments)
+
+**Related Documentation:**
+
+- [FEATURES.md](FEATURES.md) — Complete feature specification with progress checkboxes
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks
+- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications and component details
+
+---
+
+## Version Progress
+
+| Version | Status | Target | Progress |
+|---------|--------|--------|----------|
+| **v1.0** | In Progress | Jan 2026 | ████████░░ ~55% |
+| **v1.1** | Planned | Q1 2026 | ░░░░░░░░░░ 0% |
+| **v1.2** | Planned | Q2 2026 | ░░░░░░░░░░ 0% |
+| **v1.3** | Planned | Q3 2026 | ░░░░░░░░░░ 0% |
+| **v2.0** | Planned | 2027 | ░░░░░░░░░░ 0% |
+
+> See [FEATURES.md](FEATURES.md) for detailed feature checklists per version.
 
 ---
 
@@ -331,138 +351,17 @@ Build 5 high-quality instruments:
 
 ---
 
-## Feature Priority
+## Version Summary
 
-### v1.0 (Launch)
+> For detailed feature checklists with progress tracking, see [FEATURES.md](FEATURES.md).
 
-**Must-Have (Complete):**
-
-- ✅ Audio recording/playback
-- ✅ Multiple tracks with mixing
-- ✅ Built-in effects (EQ, Compressor, Reverb, Delay, Limiter)
-- ✅ Save/load/export
-- ✅ MIDI editing with piano roll
-- ✅ MIDI playback during transport
-- ✅ Synthesizer instrument
-
-**Must-Have (In Progress):**
-
-- 📋 VST3/AU plugin support
-- 📋 Additional stock instruments:
-  - **Boojy Synth** — Simplified Serum-style wavetable synth
-  - **Boojy Sampler** — Simple/Advanced toggle, one instrument for all sampling needs
-  - **Boojy Drums** — Pad grid + step sequencer hybrid
-  - **Preset Player** — For bundled sounds (piano, strings, etc.)
-- 📋 Windows release (alongside macOS)
-- 📋 Inline automation lanes (Studio One/Bitwig approach)
-- 📋 Mastering Assistant with LUFS metering and platform targets
-- 📋 Reference track comparison with auto-volume matching
-- 📋 Genre templates (Lo-Fi, Hip-Hop, Pop, Electronic, etc.)
-- 📋 Track templates/presets (save and reuse track configurations)
-- 📋 Freeze/flatten with non-destructive undo
-- 📋 Markers and arrangement markers
-- 📋 Stem separation
-- 📋 Tempo and time signature automation
-
-**Won't-Have (v1.0):**
-
-- Cloud saving → Future (TBD)
-- Session View / DJ Mode → v2.0+
-- Library Mode → v2.0+
-- Send effects → v1.2+
-- MIDI learn → v1.2+
-- Collaboration → Future (TBD)
-- iPad/iPhone → Basic support added in M6.6, full optimization in v1.1
-- Linux → Future (TBD)
-
----
-
-### v1.1 (January 2026)
-
-**Focus:** iPad + More Instruments
-
-- iPad version (shared SwiftUI code)
-- Touch-optimized UI
-- Apple Pencil support
-- 10-15 additional instruments
-- Better onboarding
-
----
-
-### v1.2 (Timeline TBD)
-
-**Focus:** Live Performance & Advanced Features
-
-- MIDI learn (controller mapping)
-- Send effects (reverb/delay buses)
-- Loop recording
-- Collaboration features
-- Linux support
-- Cloud saving
-
----
-
-### v2.0+ — Live Mode & Advanced Features
-
-**Focus:** Pro Features, Live Performance & Specialized Workflows
-
-#### Live Mode
-
-Three sub-modes for performance and DJing:
-
-| Sub-mode | What It Is |
-|----------|------------|
-| Session | Ableton-style clip grid. Launch loops, build arrangements live |
-| DJ | Two decks, crossfader, beatmatching |
-| Hybrid | Both — clip grid + deck. Launch stems while mixing full tracks |
-
-**Session View:**
-- Clip grid with per-track columns
-- Scene launching (trigger full rows)
-- Stop clips per track or globally
-- Volume control per track
-
-**DJ Mode:**
-- Two decks with waveform display
-- BPM and key detection
-- Cue points and loops
-- Crossfader with curve control
-- Sync and manual beatmatching
-
-#### Library Mode (Media Player)
-
-- Browse and play audio files like iTunes/Spotify
-- Filter by BPM, key, genre
-- Integration with Boojy projects
-- Right-click to load to DJ deck or import to project
-- Audio analysis (BPM, key, energy)
-
-#### Optional Content Downloads
-
-Sound packs and instruments available as optional downloads:
-
-- **Sound Packs:** Starter Kit, Electronic Producer, Lo-Fi Collection, Orchestral, Hip-Hop & Trap
-- **Instruments:** Boojy Keys (pianos), Boojy Strings (orchestral)
-- **Workflows:** Podcast Mode, Film Scoring
-
-#### Additional v2+ Features
-
-- **iPad + Mobile support** (early 2026)
-- **Video sync for film/TV scoring**
-  - Import video file (MP4, MOV) to timeline
-  - Video preview window synced to playhead
-  - Frame-accurate positioning (timecode support)
-  - Markers for scene changes
-- **Podcast mode** — Voice presets, noise reduction, chapter markers
-- **Real-time collaboration** with other Boojy users
-- **A/B snapshots within effects**
-- **Audio restoration/repair tools**
-- **Score/notation view** (integrated or separate Boojy Score app)
-- **Localization** (12-15 languages over time)
-- **Advanced automation** (curves, LFOs)
-- **Spectral editing**
-- **Surround sound** (5.1/7.1)
-- **MPE support** (ROLI, Linnstrument)
+| Version | Focus | Key Features |
+|---------|-------|--------------|
+| **v1.0** | Core DAW | Recording, editing, mixing, MIDI, VST3, stock instruments |
+| **v1.1** | Polish & iPad | Touch UI, Apple Pencil, accessibility, CLAP |
+| **v1.2** | Advanced | Pitch correction, stem separation, MIDI effects |
+| **v1.3** | Collaboration | Cloud sync, real-time collab, notation, video |
+| **v2.0** | Live Performance | DJ Mode, Session View, clip launcher |
 
 ---
 
@@ -612,11 +511,3 @@ Items identified for future cleanup (not blocking current development):
 ---
 
 **Let's build the future of music production!**
-
----
-
-## Related Documentation
-
-- [FEATURES.md](FEATURES.md) — Complete feature specification for all versions
-- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks and milestone tracking
-- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications, colors, and component details

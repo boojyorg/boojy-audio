@@ -65,6 +65,7 @@ class RecordingController extends ChangeNotifier {
       _tempo = 120.0;
       _isMetronomeEnabled = true;
     } catch (e) {
+      debugPrint('RecordingController: Failed to initialize recording settings: $e');
     }
 
     // Load MIDI devices
@@ -99,6 +100,7 @@ class RecordingController extends ChangeNotifier {
 
       _startRecordingStateTimer();
     } catch (e) {
+      debugPrint('RecordingController: Failed to start recording: $e');
     }
   }
 
@@ -178,6 +180,7 @@ class RecordingController extends ChangeNotifier {
       _isMetronomeEnabled = newState;
       notifyListeners();
     } catch (e) {
+      debugPrint('RecordingController: Failed to toggle metronome: $e');
     }
   }
 
@@ -192,6 +195,7 @@ class RecordingController extends ChangeNotifier {
       _tempo = clampedBpm;
       notifyListeners();
     } catch (e) {
+      debugPrint('RecordingController: Failed to set tempo: $e');
     }
   }
 
@@ -241,6 +245,7 @@ class RecordingController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
+      debugPrint('RecordingController: Failed to load MIDI devices: $e');
     }
   }
 
@@ -253,6 +258,7 @@ class RecordingController extends ChangeNotifier {
       _selectedMidiDeviceIndex = deviceIndex;
       notifyListeners();
     } catch (e) {
+      debugPrint('RecordingController: Failed to select MIDI device: $e');
     }
   }
 
@@ -264,6 +270,7 @@ class RecordingController extends ChangeNotifier {
       _audioEngine!.refreshMidiDevices();
       loadMidiDevices();
     } catch (e) {
+      debugPrint('RecordingController: Failed to refresh MIDI devices: $e');
     }
   }
 

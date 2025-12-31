@@ -67,15 +67,32 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 
 ---
 
-# Milestone Breakdown
+# Completed Milestones (M0-M7)
 
----
+All foundation milestones are complete. The app has: audio playback, recording, MIDI, mixing, effects, save/load, resizable UI, track duplication, and VST3 support.
+
+| Milestone | Focus | Completed | Key Deliverables |
+|-----------|-------|-----------|------------------|
+| **M0** | Project Setup | Oct 2025 | Flutter + Rust FFI bridge working |
+| **M1** | Audio Playback | Oct 2025 | WAV loading, waveforms, transport controls |
+| **M2** | Recording | Oct 2025 | Mic recording, metronome, count-in |
+| **M3** | MIDI Editing | Oct 2025 | Virtual piano, synthesizer, MIDI playback |
+| **M4** | Mixing & Effects | Oct 2025 | 6 built-in effects, mixer panel UI |
+| **M5** | Save & Export | Oct 2025 | Project save/load, file management |
+| **M5.5** | UI Polish | Oct 2025 | 3-panel layout, resizable dividers |
+| **M5.6** | Track Duplication | Oct 2025 | Full state copying (instruments, effects) |
+| **M6** | MIDI & Piano Roll | Nov 2025 | Piano roll editor, velocity lane |
+| **M6.5-M6.8** | MIDI Polish | Nov-Dec 2025 | Stereo meters, iOS support, FL-style preview |
+| **M7** | VST3 Plugins | Dec 2025 | Plugin scanning, UI hosting, state persistence |
+
+<details>
+<summary>📋 Click to expand detailed M0-M7 task lists</summary>
 
 ## M0: Project Setup & Scaffolding
 
 **Goal:** Get a "Hello World" running — Flutter UI talks to Rust audio engine via FFI.
 
-**Duration:** 1 week  
+**Duration:** 1 week
 **Deliverable:** App launches, plays a sine wave beep when you press a button.
 
 ### Tasks
@@ -113,14 +130,10 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 - [x] Test: Press button → hear 440 Hz beep for 1 second
 
 ### Success Criteria
-✅ App compiles on macOS  
-✅ Button in Flutter triggers Rust function  
-✅ Rust plays a sine wave through speakers  
+✅ App compiles on macOS
+✅ Button in Flutter triggers Rust function
+✅ Rust plays a sine wave through speakers
 ✅ No crashes, FFI bridge works
-
-### Risks & Mitigations
-- **FFI setup is complex** → Follow `flutter_rust_bridge` tutorial closely, ask in Discord/GitHub issues if stuck
-- **CPAL audio device errors** → Test on multiple devices, add error handling
 
 ---
 
@@ -128,7 +141,7 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 
 **Goal:** Load a WAV file, display waveform, play/pause/stop with transport controls.
 
-**Duration:** 3 weeks  
+**Duration:** 3 weeks
 **Deliverable:** Drag a WAV file into the app, see waveform, click play and hear it.
 
 ### Tasks
@@ -182,17 +195,12 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 - [x] Test: Drag WAV from Finder → clip appears and plays
 
 ### Success Criteria
-✅ Load a WAV file via drag-drop  
-✅ See waveform rendered on timeline  
-✅ Click play → audio plays from start  
-✅ Playhead moves in real-time  
-✅ Pause/stop/seek work correctly  
+✅ Load a WAV file via drag-drop
+✅ See waveform rendered on timeline
+✅ Click play → audio plays from start
+✅ Playhead moves in real-time
+✅ Pause/stop/seek work correctly
 ✅ No audio glitches or dropouts
-
-### Risks & Mitigations
-- **Waveform rendering is slow** → Downsample peaks in Rust, cache on first load
-- **Playhead updates janky** → Use timer in Flutter, don't poll too frequently
-- **Audio thread drops frames** → Profile with `cargo flamegraph`, optimize hot paths
 
 ---
 
@@ -200,7 +208,7 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 
 **Goal:** Record audio from microphone, add to timeline, with metronome and count-in.
 
-**Duration:** 3 weeks  
+**Duration:** 3 weeks
 **Deliverable:** Click record → hear metronome → speak into mic → see recorded clip on timeline.
 
 ### Tasks
@@ -269,11 +277,6 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 - **Per-Track Arming** → M4 (Multi-track system)
 - **Count-In Visual Timer (4...3...2...1...)** → M7 (Polish)
 - **Input Monitoring Volume Control** → M4 (Mixer panel)
-
-### Risks & Mitigations
-- **Input latency too high** → Use lowest buffer size possible (64-128 samples), test on different devices
-- **Metronome drifts out of sync** → Use sample-accurate timing, not wall-clock time
-- **Recording fails on some devices** → Add error handling, test with USB interfaces
 
 ---
 
@@ -383,11 +386,6 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 ⏸️ Piano roll editor UI - Deferred to v1.1
 ⏸️ Step sequencer - Deferred to v1.1
 ⏸️ Drum sampler - Deferred to v1.1
-
-### Risks & Mitigations
-- **MIDI timing is imprecise** → Use sample-accurate timestamps, not millisecond resolution
-- **Piano roll performance issues** → Render only visible notes, cache drawing
-- **Synth sounds bad** → Use proper anti-aliasing, add basic filter, tune envelope
 
 ---
 
@@ -528,11 +526,6 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 ⏸️ Send/return routing - **Deferred to v1.1**
 ⏸️ Peak meters UI - **Deferred to M7**
 
-### Risks & Mitigations
-- **DSP algorithms are complex** → Start with simple implementations, optimize later (or use existing crates like `biquad`, `rubato`)
-- **Real-time parameter updates cause clicks** → Smooth parameter changes over 10-20ms
-- **Mixer UI is cluttered** → Keep it minimal for v1, add advanced features later
-
 ---
 
 ## M5: Save & Export
@@ -638,11 +631,6 @@ Keyboard shortcuts, command palette, crash recovery, UI refinement, first beta r
 - **Tested by:** User on October 26, 2025
 
 **See:** `docs/M5/M5_IMPLEMENTATION_SUMMARY.md` for full details
-
-### Risks & Mitigations
-- **JSON gets huge for large projects** → Compress or use binary format later (v1.1)
-- **Export is slow** → Show progress bar, run in background thread
-- **File paths break on load** → Use relative paths, validate on load
 
 ---
 
@@ -878,7 +866,7 @@ When you duplicate a track, the following are copied:
    - Same clips ✅
    - Same mixer settings ✅
 
-**Just like Ableton Live!** 🎹🎛️
+**Just like Ableton Live!**
 
 ### Testing
 - ✅ Duplicate MIDI track with synthesizer → instrument copied
@@ -896,7 +884,7 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 
 **Goal:** Full MIDI editing support with piano roll, velocity lane, and virtual piano.
 
-**Duration:** 3 weeks  
+**Duration:** 3 weeks
 **Deliverable:** Users can record MIDI, edit notes in piano roll, adjust velocity, and play with virtual piano.
 
 ### Tasks
@@ -904,7 +892,7 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 #### Rust: MIDI Recording
 - [ ] Implement MIDI input listening (always listen, even when not recording)
 - [ ] Add `start_midi_recording()` FFI function
-- [ ] Add `stop_midi_recording()` FFI function  
+- [ ] Add `stop_midi_recording()` FFI function
 - [ ] Store MIDI events as Note On/Off with timestamps
 - [ ] Convert Note On/Off to note duration format (for piano roll)
 - [ ] Test: Play MIDI keyboard → notes recorded → playback works
@@ -967,26 +955,21 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 - [ ] Test end-to-end workflow: record → edit → play
 
 ### Success Criteria
-✅ MIDI keyboard input always works (even when not recording)  
-✅ Can record MIDI to armed track  
-✅ Piano roll shows notes with correct timing  
-✅ Can draw, move, resize, delete notes in piano roll  
-✅ Velocity lane adjusts note dynamics  
-✅ Virtual piano plays and records notes  
-✅ Quantize snaps notes to grid  
-✅ MIDI clips save/load correctly  
+✅ MIDI keyboard input always works (even when not recording)
+✅ Can record MIDI to armed track
+✅ Piano roll shows notes with correct timing
+✅ Can draw, move, resize, delete notes in piano roll
+✅ Velocity lane adjusts note dynamics
+✅ Virtual piano plays and records notes
+✅ Quantize snaps notes to grid
+✅ MIDI clips save/load correctly
 ✅ Computer keyboard plays notes (ASDF keys)
-
-### Risks & Mitigations
-- **MIDI input latency** → Use low-latency MIDI library, test on real MIDI keyboard
-- **Piano roll performance** → Limit visible notes, virtualize scrolling
-- **Note timing precision** → Use sample-accurate timestamps, not milliseconds
 
 ---
 
 **Goal:** Save snapshots to Firebase, browse version history, restore previous versions.
 
-**Duration:** 2 weeks  
+**Duration:** 2 weeks
 **Deliverable:** Click "Save to Cloud" → project uploads → see version list → restore old version.
 
 ### Tasks
@@ -1050,17 +1033,12 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 - [ ] Test: Share link → open in browser → download project
 
 ### Success Criteria
-✅ Sign up / log in with email + password  
-✅ Click "Save to Cloud" → project uploads to Firebase  
-✅ See list of previous snapshots  
-✅ Restore old version and verify state is correct  
-✅ Share project link (basic, read-only access)  
+✅ Sign up / log in with email + password
+✅ Click "Save to Cloud" → project uploads to Firebase
+✅ See list of previous snapshots
+✅ Restore old version and verify state is correct
+✅ Share project link (basic, read-only access)
 ✅ Uploads/downloads show progress indicators
-
-### Risks & Mitigations
-- **Upload is slow for large projects** → Compress aggressively, show progress
-- **Firebase costs too much at scale** → Start with free tier, add usage limits
-- **Security rules are misconfigured** → Test with multiple users, review Firestore rules carefully
 
 ---
 
@@ -1168,20 +1146,16 @@ Ready to start M6 (MIDI & Piano Roll) with complete track management features.
 - [ ] Test end-to-end: Add plugin → adjust → save → reload → verify
 
 ### Success Criteria
-✅ Scans common VST3 folders on macOS  
-✅ Finds and lists installed VST3 plugins  
-✅ Can load VST3 plugins (instruments + effects)  
-✅ Plugin UI opens in separate window (Ableton-style)  
-✅ Audio processes through plugins correctly  
-✅ Plugin parameters save/load with project  
-✅ Can use commercial plugins (Serum, FabFilter, etc.)  
+✅ Scans common VST3 folders on macOS
+✅ Finds and lists installed VST3 plugins
+✅ Can load VST3 plugins (instruments + effects)
+✅ Plugin UI opens in separate window (Ableton-style)
+✅ Audio processes through plugins correctly
+✅ Plugin parameters save/load with project
+✅ Can use commercial plugins (Serum, FabFilter, etc.)
 ✅ No crashes or audio glitches
 
-### Risks & Mitigations
-- **VST3 SDK complexity** → Use well-tested `vst3-sys` crate, start with simple plugins
-- **Plugin UI crashes** → Catch exceptions, show error gracefully
-- **Latency issues** → Implement proper latency compensation
-- **Plugin state serialization** → Use VST3's built-in state save/load
+</details>
 
 ---
 

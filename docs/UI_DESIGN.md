@@ -1,7 +1,7 @@
 # Boojy Audio - UI Design Notes
 
-**Last Updated:** October 27, 2025
-**Current Version:** M5.5.1 (UI Redesign + Resizable Panels Complete)
+**Last Updated:** December 30, 2025
+**Current Version:** M7 (VST3 Plugin Support Complete)
 
 **Related Documentation:**
 
@@ -379,14 +379,27 @@ User's original mockup image:
 
 ---
 
-## Next Steps
+## Next Steps (v1.0)
 
-When resuming UI work:
+Priority tasks for v1.0 release:
 
-1. **Start with keyboard shortcuts** for panel toggling (quick win)
-2. **Add track colors** (visual improvement, easy to implement)
-3. **Implement drag-and-drop** from library to timeline (major feature)
-4. **Add context menus** for right-click actions (pro user workflow)
-5. **Polish spacing and alignment** (final visual pass)
+### UI High Priority
 
-**Goal:** By end of next UI session, have fully interactive panels with colors and keyboard shortcuts.
+- [ ] Track colors (auto-assign from palette)
+- [ ] Loop region markers on timeline
+- [ ] Library search/filter bar
+- [ ] Drag-and-drop from library to timeline
+
+### UI Medium Priority
+
+- [ ] Tempo click-to-edit
+- [ ] Loop on/off toggle in transport
+- [ ] Undo/redo buttons in transport
+- [ ] Narrow mixer view mode
+
+### UI Low Priority (Polish)
+
+- [ ] Tooltips with keyboard shortcuts
+- [ ] Context menus (right-click actions)
+- [ ] First-launch onboarding tour
+- [ ] High contrast accessibility mode
