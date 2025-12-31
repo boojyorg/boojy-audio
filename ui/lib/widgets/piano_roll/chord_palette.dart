@@ -21,7 +21,7 @@ class ChordPalette extends StatefulWidget {
   final bool previewEnabled;
 
   /// Called when preview toggle is changed
-  final Function(bool)? onPreviewToggle;
+  final ValueChanged<bool>? onPreviewToggle;
 
   const ChordPalette({
     super.key,

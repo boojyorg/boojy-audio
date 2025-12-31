@@ -81,7 +81,7 @@ class _FxChainViewState extends State<FxChainView> {
 
     final effect = _effects.firstWhere((e) => e.id == effectId);
     final newBypassed = !effect.bypassed;
-    widget.audioEngine!.setEffectBypass(effectId, newBypassed);
+    widget.audioEngine!.setEffectBypass(effectId, bypassed: newBypassed);
     _loadEffects();
   }
 

@@ -61,7 +61,7 @@ class RecordingController extends ChangeNotifier {
     try {
       _audioEngine!.setCountInBars(2);
       _audioEngine!.setTempo(120.0);
-      _audioEngine!.setMetronomeEnabled(true);
+      _audioEngine!.setMetronomeEnabled(enabled: true);
       _tempo = 120.0;
       _isMetronomeEnabled = true;
     } catch (e) {
@@ -176,7 +176,7 @@ class RecordingController extends ChangeNotifier {
 
     try {
       final newState = !_isMetronomeEnabled;
-      _audioEngine!.setMetronomeEnabled(newState);
+      _audioEngine!.setMetronomeEnabled(enabled: newState);
       _isMetronomeEnabled = newState;
       notifyListeners();
     } catch (e) {
@@ -222,7 +222,7 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  void setVirtualPianoEnabled(bool enabled) {
+  void setVirtualPianoEnabled({required bool enabled}) {
     _isVirtualPianoEnabled = enabled;
     notifyListeners();
   }

@@ -2195,6 +2195,7 @@ class TimelineViewState extends State<TimelineView> {
             height: 30,
             decoration: BoxDecoration(
               color: loopColor.withValues(alpha: 0.3),
+              // ignore: prefer_const_constructors - loopColor is runtime
               border: Border(
                 top: BorderSide(color: loopColor, width: 3),
               ),

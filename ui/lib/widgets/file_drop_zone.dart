@@ -118,11 +118,11 @@ class _FileDropZoneState extends State<FileDropZone> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Supports: WAV, MP3, FLAC, AIF',
               style: TextStyle(
                 fontSize: 14,
-                color: const Color(0xFF606060),
+                color: Color(0xFF606060),
                 fontStyle: FontStyle.italic,
               ),
             ),

@@ -237,7 +237,7 @@ class LibraryService extends ChangeNotifier {
 
   /// Build Sounds category with presets
   LibraryCategory _buildSoundsCategory() {
-    return LibraryCategory(
+    return const LibraryCategory(
       id: 'sounds',
       name: 'Sounds',
       icon: Icons.queue_music,
@@ -247,9 +247,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Leads',
           icon: Icons.music_note,
           items: [
-            const PresetItem(id: 'preset_bright_lead', name: 'Bright Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
-            const PresetItem(id: 'preset_pluck_lead', name: 'Pluck Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
-            const PresetItem(id: 'preset_acid_lead', name: 'Acid Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
+            PresetItem(id: 'preset_bright_lead', name: 'Bright Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
+            PresetItem(id: 'preset_pluck_lead', name: 'Pluck Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
+            PresetItem(id: 'preset_acid_lead', name: 'Acid Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -257,9 +257,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Pads',
           icon: Icons.blur_on,
           items: [
-            const PresetItem(id: 'preset_warm_pad', name: 'Warm Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
-            const PresetItem(id: 'preset_ambient_pad', name: 'Ambient Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
-            const PresetItem(id: 'preset_string_pad', name: 'String Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
+            PresetItem(id: 'preset_warm_pad', name: 'Warm Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
+            PresetItem(id: 'preset_ambient_pad', name: 'Ambient Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
+            PresetItem(id: 'preset_string_pad', name: 'String Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -267,9 +267,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Bass',
           icon: Icons.speaker,
           items: [
-            const PresetItem(id: 'preset_sub_bass', name: 'Sub Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
-            const PresetItem(id: 'preset_wobble_bass', name: 'Wobble Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
-            const PresetItem(id: 'preset_reese_bass', name: 'Reese Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
+            PresetItem(id: 'preset_sub_bass', name: 'Sub Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
+            PresetItem(id: 'preset_wobble_bass', name: 'Wobble Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
+            PresetItem(id: 'preset_reese_bass', name: 'Reese Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -277,9 +277,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Keys',
           icon: Icons.piano,
           items: [
-            const PresetItem(id: 'preset_electric_piano', name: 'Electric Piano', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
-            const PresetItem(id: 'preset_organ', name: 'Organ', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
-            const PresetItem(id: 'preset_clav', name: 'Clav', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
+            PresetItem(id: 'preset_electric_piano', name: 'Electric Piano', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
+            PresetItem(id: 'preset_organ', name: 'Organ', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
+            PresetItem(id: 'preset_clav', name: 'Clav', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -287,9 +287,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Drums',
           icon: Icons.album,
           items: [
-            const PresetItem(id: 'preset_808_kit', name: '808 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
-            const PresetItem(id: 'preset_909_kit', name: '909 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
-            const PresetItem(id: 'preset_trap_kit', name: 'Trap Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
+            PresetItem(id: 'preset_808_kit', name: '808 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
+            PresetItem(id: 'preset_909_kit', name: '909 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
+            PresetItem(id: 'preset_trap_kit', name: 'Trap Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
           ],
         ),
       ],
@@ -298,7 +298,7 @@ class LibraryService extends ChangeNotifier {
 
   /// Build Samples category
   LibraryCategory _buildSamplesCategory() {
-    return LibraryCategory(
+    return const LibraryCategory(
       id: 'samples',
       name: 'Samples',
       icon: Icons.audio_file,
@@ -308,9 +308,9 @@ class LibraryService extends ChangeNotifier {
           name: 'Drums',
           icon: Icons.album,
           items: [
-            const SampleItem(id: 'sample_kick_808', name: 'Kick 808', filePath: '', category: 'Drums', isPlaceholder: true),
-            const SampleItem(id: 'sample_snare_trap', name: 'Snare Trap', filePath: '', category: 'Drums', isPlaceholder: true),
-            const SampleItem(id: 'sample_hihat_closed', name: 'Hi-Hat Closed', filePath: '', category: 'Drums', isPlaceholder: true),
+            SampleItem(id: 'sample_kick_808', name: 'Kick 808', filePath: '', category: 'Drums', isPlaceholder: true),
+            SampleItem(id: 'sample_snare_trap', name: 'Snare Trap', filePath: '', category: 'Drums', isPlaceholder: true),
+            SampleItem(id: 'sample_hihat_closed', name: 'Hi-Hat Closed', filePath: '', category: 'Drums', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -318,8 +318,8 @@ class LibraryService extends ChangeNotifier {
           name: 'Loops',
           icon: Icons.loop,
           items: [
-            const SampleItem(id: 'sample_drum_loop_1', name: 'Drum Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
-            const SampleItem(id: 'sample_bass_loop_1', name: 'Bass Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
+            SampleItem(id: 'sample_drum_loop_1', name: 'Drum Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
+            SampleItem(id: 'sample_bass_loop_1', name: 'Bass Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -327,8 +327,8 @@ class LibraryService extends ChangeNotifier {
           name: 'One-shots',
           icon: Icons.flash_on,
           items: [
-            const SampleItem(id: 'sample_clap_1', name: 'Clap 1', filePath: '', category: 'One-shots', isPlaceholder: true),
-            const SampleItem(id: 'sample_perc_1', name: 'Perc 1', filePath: '', category: 'One-shots', isPlaceholder: true),
+            SampleItem(id: 'sample_clap_1', name: 'Clap 1', filePath: '', category: 'One-shots', isPlaceholder: true),
+            SampleItem(id: 'sample_perc_1', name: 'Perc 1', filePath: '', category: 'One-shots', isPlaceholder: true),
           ],
         ),
         LibraryCategory(
@@ -336,9 +336,9 @@ class LibraryService extends ChangeNotifier {
           name: 'FX',
           icon: Icons.auto_fix_high,
           items: [
-            const SampleItem(id: 'sample_riser_1', name: 'Riser 1', filePath: '', category: 'FX', isPlaceholder: true),
-            const SampleItem(id: 'sample_impact_1', name: 'Impact 1', filePath: '', category: 'FX', isPlaceholder: true),
-            const SampleItem(id: 'sample_sweep_1', name: 'Sweep 1', filePath: '', category: 'FX', isPlaceholder: true),
+            SampleItem(id: 'sample_riser_1', name: 'Riser 1', filePath: '', category: 'FX', isPlaceholder: true),
+            SampleItem(id: 'sample_impact_1', name: 'Impact 1', filePath: '', category: 'FX', isPlaceholder: true),
+            SampleItem(id: 'sample_sweep_1', name: 'Sweep 1', filePath: '', category: 'FX', isPlaceholder: true),
           ],
         ),
       ],
@@ -368,11 +368,11 @@ class LibraryService extends ChangeNotifier {
 
   /// Build Effects category
   LibraryCategory _buildEffectsCategory() {
-    return LibraryCategory(
+    return const LibraryCategory(
       id: 'effects',
       name: 'Effects',
       icon: Icons.graphic_eq,
-      items: const [
+      items: [
         EffectItem(id: 'effect_eq', name: 'EQ', effectType: 'eq', icon: Icons.equalizer),
         EffectItem(id: 'effect_compressor', name: 'Compressor', effectType: 'compressor', icon: Icons.compress),
         EffectItem(id: 'effect_reverb', name: 'Reverb', effectType: 'reverb', icon: Icons.blur_on),

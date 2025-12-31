@@ -694,13 +694,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                       setState(() {
                         track.mute = !track.mute;
                       });
-                      widget.audioEngine?.setTrackMute(track.id, track.mute);
+                      widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
                     },
                     onSoloToggle: () {
                       setState(() {
                         track.solo = !track.solo;
                       });
-                      widget.audioEngine?.setTrackSolo(track.id, track.solo);
+                      widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
                     },
                     onDuplicatePressed: () => _duplicateTrack(track),
                     onDeletePressed: () => _confirmDeleteTrack(track),

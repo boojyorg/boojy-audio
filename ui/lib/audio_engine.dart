@@ -1,3 +1,6 @@
+// FFI function signatures require positional bool parameters
+// ignore_for_file: avoid_positional_boolean_parameters
+
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'package:ffi/ffi.dart';
@@ -1153,7 +1156,7 @@ class AudioEngine {
   }
 
   /// Enable or disable metronome
-  String setMetronomeEnabled(bool enabled) {
+  String setMetronomeEnabled({required bool enabled}) {
     try {
       final resultPtr = _setMetronomeEnabled(enabled ? 1 : 0);
       final result = resultPtr.toDartString();
@@ -1594,7 +1597,7 @@ class AudioEngine {
   }
 
   /// Mute or unmute a track
-  String setTrackMute(int trackId, bool mute) {
+  String setTrackMute(int trackId, {required bool mute}) {
     try {
       final resultPtr = _setTrackMute(trackId, mute);
       final result = resultPtr.toDartString();
@@ -1606,7 +1609,7 @@ class AudioEngine {
   }
 
   /// Solo or unsolo a track
-  String setTrackSolo(int trackId, bool solo) {
+  String setTrackSolo(int trackId, {required bool solo}) {
     try {
       final resultPtr = _setTrackSolo(trackId, solo);
       final result = resultPtr.toDartString();
@@ -1618,7 +1621,7 @@ class AudioEngine {
   }
 
   /// Arm or disarm a track for recording
-  String setTrackArmed(int trackId, bool armed) {
+  String setTrackArmed(int trackId, {required bool armed}) {
     try {
       final resultPtr = _setTrackArmed(trackId, armed);
       final result = resultPtr.toDartString();
@@ -1809,7 +1812,7 @@ class AudioEngine {
 
   /// Set effect bypass state
   /// Returns true on success, false on failure
-  bool setEffectBypass(int effectId, bool bypassed) {
+  bool setEffectBypass(int effectId, {required bool bypassed}) {
     try {
       final result = _setEffectBypass(effectId, bypassed ? 1 : 0);
       return result == 1;
@@ -1880,7 +1883,7 @@ class AudioEngine {
   }
 
   /// Export project to WAV file (legacy method - uses 32-bit float, 48kHz)
-  String exportToWav(String outputPath, bool normalize) {
+  String exportToWav(String outputPath, {required bool normalize}) {
     try {
       final pathPtr = outputPath.toNativeUtf8();
       final resultPtr = _exportToWav(pathPtr.cast(), normalize);

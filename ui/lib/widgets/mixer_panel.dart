@@ -661,7 +661,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 setState(() {
                   track.mute = !track.mute;
                 });
-                widget.audioEngine?.setTrackMute(track.id, track.mute);
+                widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: track.mute
@@ -685,7 +685,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 setState(() {
                   track.solo = !track.solo;
                 });
-                widget.audioEngine?.setTrackSolo(track.id, track.solo);
+                widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: track.solo
@@ -709,7 +709,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 setState(() {
                   track.armed = !track.armed;
                 });
-                widget.audioEngine?.setTrackArmed(track.id, track.armed);
+                widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: track.armed

@@ -455,7 +455,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     required String label,
     String? subtitle,
     required bool value,
-    required void Function(bool?) onChanged,
+    required ValueChanged<bool?> onChanged,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

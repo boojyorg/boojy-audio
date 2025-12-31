@@ -81,12 +81,12 @@ class SetMuteCommand extends Command {
 
   @override
   Future<void> execute(AudioEngine engine) async {
-    engine.setTrackMute(trackId, newMute);
+    engine.setTrackMute(trackId, mute: newMute);
   }
 
   @override
   Future<void> undo(AudioEngine engine) async {
-    engine.setTrackMute(trackId, oldMute);
+    engine.setTrackMute(trackId, mute: oldMute);
   }
 
   @override
@@ -110,12 +110,12 @@ class SetSoloCommand extends Command {
 
   @override
   Future<void> execute(AudioEngine engine) async {
-    engine.setTrackSolo(trackId, newSolo);
+    engine.setTrackSolo(trackId, solo: newSolo);
   }
 
   @override
   Future<void> undo(AudioEngine engine) async {
-    engine.setTrackSolo(trackId, oldSolo);
+    engine.setTrackSolo(trackId, solo: oldSolo);
   }
 
   @override

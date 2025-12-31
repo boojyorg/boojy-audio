@@ -102,7 +102,7 @@ class ProjectManager extends ChangeNotifier {
   Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(String path) async {
     if (!path.endsWith('.audio')) {
       return (
-        result: ProjectResult(
+        result: const ProjectResult(
           success: false,
           message: 'Please select a .audio folder',
         ),
@@ -245,7 +245,7 @@ class ProjectManager extends ChangeNotifier {
   /// Export project to WAV file
   Future<ProjectResult> exportToWav(String path) async {
     try {
-      final exportResult = _audioEngine.exportToWav(path, true);
+      final exportResult = _audioEngine.exportToWav(path, normalize: true);
       return ProjectResult(
         success: true,
         message: exportResult,

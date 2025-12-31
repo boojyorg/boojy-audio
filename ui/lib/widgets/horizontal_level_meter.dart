@@ -88,7 +88,7 @@ class _MeterPainter extends CustomPainter {
     final segmentWidth = (size.width - (segmentCount - 1) * segmentGap) / segmentCount;
 
     // Draw left channel (top)
-    _drawMeterRow(canvas, Offset(0, 2), segmentWidth, meterHeight - 2, leftLevel);
+    _drawMeterRow(canvas, const Offset(0, 2), segmentWidth, meterHeight - 2, leftLevel);
 
     // Draw right channel (bottom)
     _drawMeterRow(canvas, Offset(0, meterHeight + 6), segmentWidth, meterHeight - 2, rightLevel);

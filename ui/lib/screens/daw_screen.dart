@@ -296,7 +296,7 @@ class _DAWScreenState extends State<DAWScreen> {
       try {
         _audioEngine!.setCountInBars(_userSettings.countInBars); // Use saved setting
         _audioEngine!.setTempo(120.0);   // Default: 120 BPM
-        _audioEngine!.setMetronomeEnabled(true); // Default: enabled
+        _audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
       } catch (e) {
         debugPrint('DawScreen: Failed to initialize recording settings: $e');
       }
@@ -518,7 +518,7 @@ class _DAWScreenState extends State<DAWScreen> {
   void _toggleVirtualPiano() {
     final success = _recordingController.toggleVirtualPiano();
     if (success) {
-      _uiLayout.setVirtualPianoEnabled(_recordingController.isVirtualPianoEnabled);
+      _uiLayout.setVirtualPianoEnabled(enabled: _recordingController.isVirtualPianoEnabled);
       _playbackController.setStatusMessage(
         _recordingController.isVirtualPianoEnabled
             ? 'Virtual piano enabled - Press keys to play!'
@@ -1958,7 +1958,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
     if (recent.isEmpty) {
       return [
-        PlatformMenuItem(
+        const PlatformMenuItem(
           label: 'No Recent Projects',
           onSelected: null,
         ),
@@ -2791,19 +2791,19 @@ class _DAWScreenState extends State<DAWScreen> {
               shortcut: const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true),
               onSelected: _undoRedoManager.canRedo ? _performRedo : null,
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Cut',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyX, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.keyX, meta: true),
               onSelected: null, // Disabled - future feature
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Copy',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyC, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.keyC, meta: true),
               onSelected: null, // Disabled - future feature
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Paste',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyV, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.keyV, meta: true),
               onSelected: null, // Disabled - future feature
             ),
             PlatformMenuItem(
@@ -2854,9 +2854,9 @@ class _DAWScreenState extends State<DAWScreen> {
                   ? _bounceMidiToAudio
                   : null,
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Select All',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyA, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.keyA, meta: true),
               onSelected: null, // Disabled - future feature
             ),
           ],
@@ -2894,19 +2894,19 @@ class _DAWScreenState extends State<DAWScreen> {
               label: 'Settings...',
               onSelected: () => SettingsDialog.show(context),
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Zoom In',
-              shortcut: const SingleActivator(LogicalKeyboardKey.equal, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.equal, meta: true),
               onSelected: null, // Disabled - future feature
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Zoom Out',
-              shortcut: const SingleActivator(LogicalKeyboardKey.minus, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.minus, meta: true),
               onSelected: null, // Disabled - future feature
             ),
-            PlatformMenuItem(
+            const PlatformMenuItem(
               label: 'Zoom to Fit',
-              shortcut: const SingleActivator(LogicalKeyboardKey.digit0, meta: true),
+              shortcut: SingleActivator(LogicalKeyboardKey.digit0, meta: true),
               onSelected: null, // Disabled - future feature
             ),
           ],

@@ -275,7 +275,7 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setVirtualPianoEnabled(bool enabled) {
+  void setVirtualPianoEnabled({required bool enabled}) {
     _isVirtualPianoEnabled = enabled;
     _isVirtualPianoVisible = enabled;
     if (!enabled) {
@@ -284,17 +284,17 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setEditorPanelVisible(bool visible) {
+  void setEditorPanelVisible({required bool visible}) {
     _isEditorPanelVisible = visible;
     notifyListeners();
   }
 
-  void setLibraryPanelCollapsed(bool collapsed) {
+  void setLibraryPanelCollapsed({required bool collapsed}) {
     _isLibraryPanelCollapsed = collapsed;
     notifyListeners();
   }
 
-  void setMixerVisible(bool visible) {
+  void setMixerVisible({required bool visible}) {
     _isMixerVisible = visible;
     notifyListeners();
   }

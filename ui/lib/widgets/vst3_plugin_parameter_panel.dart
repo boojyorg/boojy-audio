@@ -438,17 +438,17 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           Expanded(
             flex: 3,
             child: SliderTheme(
-              data: SliderThemeData(
+              data: const SliderThemeData(
                 trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(
+                thumbShape: RoundSliderThumbShape(
                   enabledThumbRadius: 6,
                 ),
-                overlayShape: const RoundSliderOverlayShape(
+                overlayShape: RoundSliderOverlayShape(
                   overlayRadius: 12,
                 ),
-                activeTrackColor: const Color(0xFF4CAF50),
-                inactiveTrackColor: const Color(0xFF606060),
-                thumbColor: const Color(0xFF4CAF50),
+                activeTrackColor: Color(0xFF4CAF50),
+                inactiveTrackColor: Color(0xFF606060),
+                thumbColor: Color(0xFF4CAF50),
               ),
               child: Slider(
                 value: value.clamp(param.min, param.max),

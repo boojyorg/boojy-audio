@@ -82,8 +82,8 @@ class DeleteTrackCommand extends Command {
     if (newTrackId >= 0) {
       if (_volumeDb != null) engine.setTrackVolume(newTrackId, _volumeDb!);
       if (_pan != null) engine.setTrackPan(newTrackId, _pan!);
-      if (_mute != null) engine.setTrackMute(newTrackId, _mute!);
-      if (_solo != null) engine.setTrackSolo(newTrackId, _solo!);
+      if (_mute != null) engine.setTrackMute(newTrackId, mute: _mute!);
+      if (_solo != null) engine.setTrackSolo(newTrackId, solo: _solo!);
     }
   }
 
