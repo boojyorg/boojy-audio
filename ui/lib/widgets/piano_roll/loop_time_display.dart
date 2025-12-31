@@ -11,6 +11,11 @@ import '../../theme/theme_extension.dart';
 /// Two modes:
 /// - Position (isPosition=true): 1-indexed, e.g., 1.1.1 = bar 1, beat 1, sub 1
 /// - Length (isPosition=false): 0-indexed for beats/subs, e.g., 1.0.0 = 1 bar
+///
+/// Features:
+/// - First keystroke replaces current value, subsequent keystrokes append
+/// - Overflow carries to next segment (e.g., typing 5 in sub carries to beat)
+/// - Scroll wheel increments/decrements with overflow
 class LoopTimeDisplay extends StatefulWidget {
   /// Value in beats (quarter notes)
   final double beats;
@@ -31,6 +36,9 @@ class LoopTimeDisplay extends StatefulWidget {
   /// If false, display as length (1.0.0 = 1 bar long)
   final bool isPosition;
 
+  /// Maximum bar value (default 100000)
+  static const int maxBars = 100000;
+
   const LoopTimeDisplay({
     super.key,
     required this.beats,
@@ -48,6 +56,7 @@ class LoopTimeDisplay extends StatefulWidget {
 class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
   bool _isEditing = false;
   int _editingSegment = -1; // 0=bar, 1=beat, 2=sub
+  bool _isFirstKeystroke = true; // Track if first keystroke should replace
   late TextEditingController _editController;
   late FocusNode _editFocusNode;
 
@@ -94,8 +103,19 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     }
   }
 
-  /// Convert bar.beat.sub tuple back to beats
-  double _barBeatSubToBeats(int bar, int beat, int sub) {
+  /// Convert total subs to beats, with proper normalization
+  /// This handles overflow automatically by working in total subs
+  double _totalSubsToBeats(int totalSubs) {
+    // Clamp to valid range
+    // Position: min 0 internal = 1.1.1, Length: min 1 internal = 0.0.1
+    final minSubs = widget.isPosition ? 0 : 1;
+    final maxSubs = LoopTimeDisplay.maxBars * widget.beatsPerBar * widget.subsPerBeat;
+    totalSubs = totalSubs.clamp(minSubs, maxSubs);
+    return totalSubs / widget.subsPerBeat;
+  }
+
+  /// Convert bar.beat.sub to total subs (0-indexed internally)
+  int _barBeatSubToTotalSubs(int bar, int beat, int sub) {
     final subsPerBar = widget.beatsPerBar * widget.subsPerBeat;
 
     int adjustedBar = bar;
@@ -109,10 +129,9 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       adjustedSub = sub - 1;
     }
 
-    final totalSubs = (adjustedBar * subsPerBar) +
+    return (adjustedBar * subsPerBar) +
         (adjustedBeat * widget.subsPerBeat) +
         adjustedSub;
-    return totalSubs / widget.subsPerBeat;
   }
 
   void _startEditing(int segment) {
@@ -135,11 +154,13 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     setState(() {
       _isEditing = true;
       _editingSegment = segment;
-      _editController.text = initialValue;
+      _isFirstKeystroke = true;
+      _editController.text = initialValue; // Show current value
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editFocusNode.requestFocus();
+      // Select all text so first keystroke replaces it
       _editController.selection = TextSelection(
         baseOffset: 0,
         extentOffset: _editController.text.length,
@@ -150,112 +171,177 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
   void _commitEdit() {
     if (!_isEditing) return;
 
-    final newValue = int.tryParse(_editController.text);
-    if (newValue != null && widget.onChanged != null) {
-      final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
-
-      int newBar = bar;
-      int newBeat = beat;
-      int newSub = sub;
-
-      if (widget.isPosition) {
-        // Position: 1-indexed (min 1)
-        switch (_editingSegment) {
-          case 0:
-            newBar = newValue.clamp(1, 999);
-            break;
-          case 1:
-            newBeat = newValue.clamp(1, widget.beatsPerBar); // 1-4 for 4/4
-            break;
-          case 2:
-            newSub = newValue.clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
-            break;
-        }
-      } else {
-        // Length: 0-indexed for beat/sub
-        switch (_editingSegment) {
-          case 0:
-            newBar = newValue.clamp(0, 999);
-            break;
-          case 1:
-            newBeat = newValue.clamp(0, widget.beatsPerBar - 1); // 0-3 for 4/4
-            break;
-          case 2:
-            newSub = newValue.clamp(0, widget.subsPerBeat - 1); // 0-3 for sixteenths
-            break;
-        }
+    final text = _editController.text;
+    if (text.isNotEmpty && widget.onChanged != null) {
+      final newValue = int.tryParse(text);
+      if (newValue != null) {
+        _applyValueWithOverflow(newValue);
       }
-
-      final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);
-      widget.onChanged!(newBeats);
     }
 
     setState(() {
       _isEditing = false;
       _editingSegment = -1;
+      _isFirstKeystroke = true;
     });
   }
 
-  void _handleKey(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.enter ||
-          event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-        _commitEdit();
-      } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-        setState(() {
-          _isEditing = false;
-          _editingSegment = -1;
-        });
-      } else if (event.logicalKey == LogicalKeyboardKey.tab) {
-        // Move to next segment
-        _commitEdit();
-        final nextSegment = (_editingSegment + 1) % 3;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _startEditing(nextSegment);
-        });
-      }
-    }
-  }
-
-  /// Increment/decrement segment with scroll
-  void _handleScroll(int segment, double delta) {
+  /// Apply a new value to the current segment, handling overflow
+  void _applyValueWithOverflow(int newValue) {
     final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
-    int newBar = bar;
-    int newBeat = beat;
-    int newSub = sub;
 
-    final direction = delta > 0 ? -1 : 1; // Scroll up = increase
+    // Get current total subs
+    int totalSubs = _barBeatSubToTotalSubs(bar, beat, sub);
+
+    // Calculate segment sizes for overflow
+    final subsPerBeat = widget.subsPerBeat;
+    final subsPerBar = widget.beatsPerBar * subsPerBeat;
 
     if (widget.isPosition) {
-      // Position: 1-indexed (min 1)
-      switch (segment) {
-        case 0:
-          newBar = (bar + direction).clamp(1, 999);
+      // Position mode: 1-indexed
+      switch (_editingSegment) {
+        case 0: // Bar
+          // Just set the bar value (no overflow from bar)
+          final clampedBar = newValue.clamp(1, LoopTimeDisplay.maxBars);
+          totalSubs = ((clampedBar - 1) * subsPerBar) +
+              ((beat - 1) * subsPerBeat) +
+              (sub - 1);
           break;
-        case 1:
-          newBeat = (beat + direction).clamp(1, widget.beatsPerBar); // 1-4 for 4/4
+        case 1: // Beat
+          // Calculate overflow: newValue could be > beatsPerBar
+          final extraBars = (newValue - 1) ~/ widget.beatsPerBar;
+          final remainingBeat = ((newValue - 1) % widget.beatsPerBar) + 1;
+          final newBar = (bar + extraBars).clamp(1, LoopTimeDisplay.maxBars);
+          totalSubs = ((newBar - 1) * subsPerBar) +
+              ((remainingBeat - 1) * subsPerBeat) +
+              (sub - 1);
           break;
-        case 2:
-          newSub = (sub + direction).clamp(1, widget.subsPerBeat); // 1-4 for sixteenths
+        case 2: // Sub
+          // Calculate overflow: newValue could be > subsPerBeat
+          final extraBeats = (newValue - 1) ~/ subsPerBeat;
+          final remainingSub = ((newValue - 1) % subsPerBeat) + 1;
+          // First apply beat overflow
+          final tempBeat = beat + extraBeats;
+          final extraBars = (tempBeat - 1) ~/ widget.beatsPerBar;
+          final remainingBeat = ((tempBeat - 1) % widget.beatsPerBar) + 1;
+          final newBar = (bar + extraBars).clamp(1, LoopTimeDisplay.maxBars);
+          totalSubs = ((newBar - 1) * subsPerBar) +
+              ((remainingBeat - 1) * subsPerBeat) +
+              (remainingSub - 1);
           break;
       }
     } else {
-      // Length: 0-indexed for beat/sub
-      switch (segment) {
-        case 0:
-          newBar = (bar + direction).clamp(0, 999);
+      // Length mode: 0-indexed for beat/sub
+      switch (_editingSegment) {
+        case 0: // Bar
+          final clampedBar = newValue.clamp(0, LoopTimeDisplay.maxBars);
+          totalSubs = (clampedBar * subsPerBar) +
+              (beat * subsPerBeat) +
+              sub;
           break;
-        case 1:
-          newBeat = (beat + direction).clamp(0, widget.beatsPerBar - 1); // 0-3 for 4/4
+        case 1: // Beat
+          final extraBars = newValue ~/ widget.beatsPerBar;
+          final remainingBeat = newValue % widget.beatsPerBar;
+          final newBar = (bar + extraBars).clamp(0, LoopTimeDisplay.maxBars);
+          totalSubs = (newBar * subsPerBar) +
+              (remainingBeat * subsPerBeat) +
+              sub;
           break;
-        case 2:
-          newSub = (sub + direction).clamp(0, widget.subsPerBeat - 1); // 0-3 for sixteenths
+        case 2: // Sub
+          final extraBeats = newValue ~/ subsPerBeat;
+          final remainingSub = newValue % subsPerBeat;
+          final tempBeat = beat + extraBeats;
+          final extraBars = tempBeat ~/ widget.beatsPerBar;
+          final remainingBeat = tempBeat % widget.beatsPerBar;
+          final newBar = (bar + extraBars).clamp(0, LoopTimeDisplay.maxBars);
+          totalSubs = (newBar * subsPerBar) +
+              (remainingBeat * subsPerBeat) +
+              remainingSub;
           break;
       }
     }
 
-    final newBeats = _barBeatSubToBeats(newBar, newBeat, newSub);
+    final newBeats = _totalSubsToBeats(totalSubs);
+    widget.onChanged!(newBeats);
+  }
+
+  /// Increment/decrement segment with scroll, with overflow
+  void _handleScroll(int segment, double delta) {
+    final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
+    final direction = delta > 0 ? -1 : 1; // Scroll up = increase
+
+    // Get current total subs
+    int totalSubs = _barBeatSubToTotalSubs(bar, beat, sub);
+
+    // Calculate increment based on segment
+    final subsPerBeat = widget.subsPerBeat;
+    final subsPerBar = widget.beatsPerBar * subsPerBeat;
+
+    switch (segment) {
+      case 0: // Bar - increment by full bar
+        totalSubs += direction * subsPerBar;
+        break;
+      case 1: // Beat - increment by full beat
+        totalSubs += direction * subsPerBeat;
+        break;
+      case 2: // Sub - increment by 1 sub
+        totalSubs += direction;
+        break;
+    }
+
+    // Clamp to valid range
+    // Position: min 0 internal = 1.1.1, Length: min 1 internal = 0.0.1
+    final minSubs = widget.isPosition ? 0 : 1;
+    final maxSubs = LoopTimeDisplay.maxBars * subsPerBar - 1;
+    totalSubs = totalSubs.clamp(minSubs, maxSubs);
+
+    final newBeats = _totalSubsToBeats(totalSubs);
     widget.onChanged?.call(newBeats);
+  }
+
+  // Accumulated drag delta for smooth dragging
+  double _dragAccumulator = 0.0;
+
+  /// Handle vertical drag to increment/decrement values
+  void _handleDrag(int segment, double deltaY) {
+    // Accumulate drag delta - need ~3 pixels to trigger one increment
+    _dragAccumulator += deltaY;
+
+    const pixelsPerIncrement = 3.0;
+    if (_dragAccumulator.abs() >= pixelsPerIncrement) {
+      final increments = (_dragAccumulator / pixelsPerIncrement).truncate();
+      _dragAccumulator -= increments * pixelsPerIncrement;
+
+      // Dragging up (negative) = increase, dragging down (positive) = decrease
+      final direction = -increments;
+
+      final (bar, beat, sub) = _beatsToBarBeatSub(widget.beats);
+      int totalSubs = _barBeatSubToTotalSubs(bar, beat, sub);
+
+      final subsPerBeat = widget.subsPerBeat;
+      final subsPerBar = widget.beatsPerBar * subsPerBeat;
+
+      switch (segment) {
+        case 0: // Bar
+          totalSubs += direction * subsPerBar;
+          break;
+        case 1: // Beat
+          totalSubs += direction * subsPerBeat;
+          break;
+        case 2: // Sub
+          totalSubs += direction;
+          break;
+      }
+
+      // Clamp to valid range
+      // Position: min 0 internal = 1.1.1, Length: min 1 internal = 0.0.1
+      final minSubs = widget.isPosition ? 0 : 1;
+      final maxSubs = LoopTimeDisplay.maxBars * subsPerBar - 1;
+      totalSubs = totalSubs.clamp(minSubs, maxSubs);
+
+      final newBeats = _totalSubsToBeats(totalSubs);
+      widget.onChanged?.call(newBeats);
+    }
   }
 
   @override
@@ -279,31 +365,35 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
   Widget _buildSegment(int segment, String value, BoojyColors colors) {
     final isEditing = _isEditing && _editingSegment == segment;
 
+    // Calculate max digits for this segment
+    final maxDigits = segment == 0 ? 6 : 2; // bar up to 100000, beat/sub up to 16
+
     if (isEditing) {
       return SizedBox(
-        width: 20, // All segments are single digit now
-        child: KeyboardListener(
-          focusNode: FocusNode(),
-          onKeyEvent: _handleKey,
-          child: TextField(
-            controller: _editController,
-            focusNode: _editFocusNode,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 10,
-              fontFamily: 'monospace',
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-            ),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(segment == 0 ? 3 : 1), // bar can be 3 digits, beat/sub are 1 digit
-            ],
-            onSubmitted: (_) => _commitEdit(),
+        width: segment == 0 ? 40 : 24, // Wider for bar, enough for beat/sub
+        height: 18,
+        child: TextField(
+          controller: _editController,
+          focusNode: _editFocusNode,
+          autofocus: true,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 10,
+            fontFamily: 'monospace',
           ),
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            isDense: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(maxDigits),
+            _FirstKeystrokeReplacer(this),
+          ],
+          onSubmitted: (_) => _commitEdit(),
         ),
       );
     }
@@ -316,8 +406,13 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       },
       child: GestureDetector(
         onTap: () => _startEditing(segment),
+        onVerticalDragUpdate: (details) {
+          // Dragging up (negative dy) = increase value
+          // Scale: ~3 pixels per increment
+          _handleDrag(segment, details.delta.dy);
+        },
         child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: SystemMouseCursors.resizeUpDown,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Text(
@@ -343,5 +438,25 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
         fontFamily: 'monospace',
       ),
     );
+  }
+}
+
+/// Input formatter that replaces text on first keystroke, then appends
+class _FirstKeystrokeReplacer extends TextInputFormatter {
+  final _LoopTimeDisplayState state;
+
+  _FirstKeystrokeReplacer(this.state);
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // If this is the first keystroke, the text was selected, so Flutter
+    // already replaced it. Just mark that we're past the first keystroke.
+    if (state._isFirstKeystroke && newValue.text != oldValue.text) {
+      state._isFirstKeystroke = false;
+    }
+    return newValue;
   }
 }

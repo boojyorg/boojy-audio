@@ -673,9 +673,13 @@ class _PianoRollState extends State<PianoRoll> {
         },
         child: Stack(
           children: [
-            Container(
+            ColoredBox(
               color: context.colors.standard, // Dark background
-              child: _buildPianoRollContent(),
+              child: Column(
+                children: [
+                  _buildPianoRollContent(),
+                ],
+              ),
             ),
             // Chord palette overlay
             if (_chordPaletteVisible)
