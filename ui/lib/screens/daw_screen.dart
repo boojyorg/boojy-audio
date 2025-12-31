@@ -1419,7 +1419,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   List<Widget> _buildParameterSliders(int effectId) {
-    List<Widget> sliders = [];
+    final List<Widget> sliders = [];
 
     for (int i = 0; i < 8; i++) {
       sliders.add(

@@ -108,7 +108,7 @@ class Vst3PluginManager extends ChangeNotifier {
         final plugins = decoded.map((item) => Map<String, String>.from(item as Map)).toList();
 
         // Verify that plugins have type information
-        bool hasTypeInfo = plugins.every((plugin) =>
+        final bool hasTypeInfo = plugins.every((plugin) =>
           plugin.containsKey('is_instrument') && plugin.containsKey('is_effect')
         );
 

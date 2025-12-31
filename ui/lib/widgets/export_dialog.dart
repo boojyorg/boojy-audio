@@ -1045,7 +1045,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
-                      for (var track in _options.stemTracks) {
+                      for (final track in _options.stemTracks) {
                         track.selected = true;
                       }
                     });
@@ -1060,7 +1060,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
-                      for (var track in _options.stemTracks) {
+                      for (final track in _options.stemTracks) {
                         track.selected = false;
                       }
                     });

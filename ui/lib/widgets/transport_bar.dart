@@ -943,7 +943,7 @@ class _TempoControlState extends State<_TempoControl> {
   bool _isDragging = false;
   double _dragStartY = 0.0;
   double _dragStartTempo = 120.0;
-  List<DateTime> _tapTimes = [];
+  final List<DateTime> _tapTimes = [];
 
   void _onTapTempo() {
     final now = DateTime.now();

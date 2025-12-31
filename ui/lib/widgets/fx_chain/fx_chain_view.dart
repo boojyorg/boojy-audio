@@ -28,7 +28,7 @@ class FxChainView extends StatefulWidget {
 
 class _FxChainViewState extends State<FxChainView> {
   List<EffectData> _effects = [];
-  Set<int> _floatingVst3s = {}; // Effect IDs that are popped out
+  final Set<int> _floatingVst3s = {}; // Effect IDs that are popped out
 
   @override
   void initState() {

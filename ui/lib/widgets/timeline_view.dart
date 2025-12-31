@@ -135,7 +135,7 @@ class TimelineViewState extends State<TimelineView> {
   Timer? _refreshTimer;
 
   // Clip management
-  List<ClipData> _clips = [];
+  final List<ClipData> _clips = [];
   PreviewClip? _previewClip;
   int? _dragHoveredTrackId;
   bool _isAudioFileDraggingOverEmpty = false;
@@ -1624,7 +1624,7 @@ class TimelineViewState extends State<TimelineView> {
 
       final tracks = <TimelineTrackData>[];
 
-      for (int trackId in trackIds) {
+      for (final int trackId in trackIds) {
         final info = await Future.microtask(() {
           return widget.audioEngine!.getTrackInfo(trackId);
         });

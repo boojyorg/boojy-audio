@@ -11,7 +11,6 @@ import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
 import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
-import 'piano_roll/piano_roll_sidebar.dart';
 import 'piano_roll/piano_roll_controls_bar.dart';
 import 'piano_roll/piano_roll_cc_lane.dart';
 import 'piano_roll/chord_palette.dart';
@@ -70,7 +69,7 @@ class PianoRoll extends StatefulWidget {
 class _PianoRollState extends State<PianoRoll> {
   // Zoom levels
   double _pixelsPerBeat = 80.0; // Horizontal zoom
-  double _pixelsPerNote = 16.0; // Vertical zoom (height of each piano key)
+  final double _pixelsPerNote = 16.0; // Vertical zoom (height of each piano key)
 
   // Scroll controllers
   final ScrollController _horizontalScroll = ScrollController();
@@ -1535,49 +1534,6 @@ class _PianoRollState extends State<PianoRoll> {
 
     _commitToHistory('Randomize velocity');
     _notifyClipUpdated();
-  }
-
-  /// Convert MidiCCType to sidebar CCType enum
-  CCType _ccTypeFromLane(MidiCCType midiCCType) {
-    switch (midiCCType) {
-      case MidiCCType.pitchBend:
-        return CCType.pitchBend;
-      case MidiCCType.modWheel:
-        return CCType.modWheel;
-      case MidiCCType.expression:
-        return CCType.expression;
-      case MidiCCType.sustainPedal:
-        return CCType.sustain;
-      case MidiCCType.volume:
-        return CCType.volume;
-      default:
-        return CCType.modWheel;
-    }
-  }
-
-  /// Handle CC type change from sidebar dropdown
-  void _handleCCTypeChanged(CCType ccType) {
-    MidiCCType midiType;
-    switch (ccType) {
-      case CCType.pitchBend:
-        midiType = MidiCCType.pitchBend;
-        break;
-      case CCType.modWheel:
-        midiType = MidiCCType.modWheel;
-        break;
-      case CCType.expression:
-        midiType = MidiCCType.expression;
-        break;
-      case CCType.sustain:
-        midiType = MidiCCType.sustainPedal;
-        break;
-      case CCType.volume:
-        midiType = MidiCCType.volume;
-        break;
-    }
-    setState(() {
-      _ccLane = MidiCCLane(ccType: midiType, points: _ccLane.points);
-    });
   }
 
   /// Apply legato - extend each note to touch the next note at same pitch

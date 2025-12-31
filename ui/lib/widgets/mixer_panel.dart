@@ -111,7 +111,7 @@ class _MixerPanelState extends State<MixerPanel> {
 
       final tracks = <TrackData>[];
 
-      for (int trackId in trackIds) {
+      for (final int trackId in trackIds) {
         // Yield to event loop between each track query
         final info = await Future.microtask(() {
           return widget.audioEngine!.getTrackInfo(trackId);

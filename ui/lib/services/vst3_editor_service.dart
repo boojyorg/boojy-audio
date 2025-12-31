@@ -135,8 +135,8 @@ class VST3EditorService {
 
       // Step 2: Get editor size - use plugin's preferred size for the window
       final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
-      double editorWidth = (sizeResult?['width'] ?? 800).toDouble();
-      double editorHeight = (sizeResult?['height'] ?? 600).toDouble();
+      final double editorWidth = (sizeResult?['width'] ?? 800).toDouble();
+      final double editorHeight = (sizeResult?['height'] ?? 600).toDouble();
 
       // Step 3: Create the floating window at the CORRECT size
       // Include saved position if available
@@ -257,8 +257,8 @@ class VST3EditorService {
 
       // Step 3: Get editor size
       final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
-      int width = sizeResult?['width'] ?? 800;
-      int height = sizeResult?['height'] ?? 600;
+      final int width = sizeResult?['width'] ?? 800;
+      final int height = sizeResult?['height'] ?? 600;
 
       // Step 4: Attach editor to the NSView via FFI
       final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(viewPointer);
