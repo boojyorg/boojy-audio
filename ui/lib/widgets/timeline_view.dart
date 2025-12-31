@@ -12,6 +12,9 @@ import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../models/vst3_plugin_data.dart';
 import 'instrument_browser.dart';
+import 'painters/dashed_line_painter.dart';
+import 'painters/time_ruler_painter.dart';
+import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
 
 /// Track data model for timeline
@@ -267,7 +270,7 @@ class TimelineViewState extends State<TimelineView> {
   }
 
   /// Get grid snap resolution in beats based on zoom level
-  /// Matches _GridPainter._getGridDivision for consistent snapping
+  /// Matches TimelineGridPainter._getGridDivision for consistent snapping
   double _getGridSnapResolution() {
     if (_pixelsPerBeat < 10) return 4.0;     // Snap to bars (every 4 beats)
     if (_pixelsPerBeat < 20) return 1.0;     // Snap to beats
@@ -2083,7 +2086,7 @@ class TimelineViewState extends State<TimelineView> {
               ),
             ),
             child: CustomPaint(
-              painter: _TimeRulerPainter(
+              painter: TimeRulerPainter(
                 pixelsPerBeat: _pixelsPerBeat,
                 isLoopEnabled: widget.isLoopEnabled,
                 loopStartBeats: widget.loopStartBeats,
@@ -2265,7 +2268,7 @@ class TimelineViewState extends State<TimelineView> {
   Widget _buildGrid(double width, double duration) {
     return CustomPaint(
       size: Size(width, double.infinity),
-      painter: _GridPainter(
+      painter: TimelineGridPainter(
         pixelsPerBeat: _pixelsPerBeat,
       ),
     );
@@ -3453,7 +3456,7 @@ class TimelineViewState extends State<TimelineView> {
         child: SizedBox(
           width: 2,
           child: CustomPaint(
-            painter: _DashedLinePainter(
+            painter: DashedLinePainter(
               color: context.colors.accent, // Accent color for insert marker
               strokeWidth: 2,
               dashLength: 6,
@@ -3635,250 +3638,6 @@ class TimelineViewState extends State<TimelineView> {
 
 }
 
-/// Painter for the time ruler (bar numbers with beat subdivisions)
-class _TimeRulerPainter extends CustomPainter {
-  final double pixelsPerBeat;
-  final bool isLoopEnabled;
-  final double loopStartBeats;
-  final double loopEndBeats;
-
-  // Loop region color (orange per spec #F97316)
-  static const Color loopRegionColor = Color(0xFFF97316);
-
-  _TimeRulerPainter({
-    required this.pixelsPerBeat,
-    this.isLoopEnabled = false,
-    this.loopStartBeats = 0.0,
-    this.loopEndBeats = 4.0,
-  });
-
-  /// Get the smallest grid subdivision to show based on zoom level
-  double _getGridDivision() {
-    if (pixelsPerBeat < 10) return 4.0;     // Only bars
-    if (pixelsPerBeat < 20) return 1.0;     // Bars + beats
-    if (pixelsPerBeat < 40) return 0.5;     // + half beats
-    return 0.25;                             // + quarter beats
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Draw loop region first (behind everything else)
-    if (isLoopEnabled && loopEndBeats > loopStartBeats) {
-      final loopStartX = loopStartBeats * pixelsPerBeat;
-      final loopEndX = loopEndBeats * pixelsPerBeat;
-
-      // Draw loop region background
-      final loopPaint = Paint()
-        ..color = loopRegionColor.withValues(alpha: 0.2);
-      canvas.drawRect(
-        Rect.fromLTRB(loopStartX, 0, loopEndX, size.height),
-        loopPaint,
-      );
-
-      // Draw loop region top bar (thicker, more visible)
-      final loopBarPaint = Paint()
-        ..color = loopRegionColor
-        ..strokeWidth = 3;
-      canvas.drawLine(
-        Offset(loopStartX, 2),
-        Offset(loopEndX, 2),
-        loopBarPaint,
-      );
-
-      // Draw loop start bracket
-      final bracketPaint = Paint()
-        ..color = loopRegionColor
-        ..strokeWidth = 2;
-      canvas.drawLine(
-        Offset(loopStartX, 0),
-        Offset(loopStartX, size.height),
-        bracketPaint,
-      );
-      // Left bracket top corner
-      canvas.drawLine(
-        Offset(loopStartX, 2),
-        Offset(loopStartX + 8, 2),
-        bracketPaint,
-      );
-
-      // Draw loop end bracket
-      canvas.drawLine(
-        Offset(loopEndX, 0),
-        Offset(loopEndX, size.height),
-        bracketPaint,
-      );
-      // Right bracket top corner
-      canvas.drawLine(
-        Offset(loopEndX - 8, 2),
-        Offset(loopEndX, 2),
-        bracketPaint,
-      );
-    }
-
-    // Beat-based measurements (tempo-independent)
-    final gridDivision = _getGridDivision();
-
-    // Calculate total beats to draw
-    final totalBeats = (size.width / pixelsPerBeat).ceil() + 4;
-
-    final paint = Paint()
-      ..color = const Color(0xFF3a3a3a)
-      ..strokeWidth = 1;
-
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-
-    // Draw markers based on beat subdivisions
-    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
-      final x = beat * pixelsPerBeat;
-      if (x > size.width) break;
-
-      // Determine tick style based on beat position
-      final isBar = (beat % 4.0).abs() < 0.001;
-      final isBeat = (beat % 1.0).abs() < 0.001;
-
-      double tickHeight;
-      if (isBar) {
-        tickHeight = 15.0;
-        paint.strokeWidth = 1.5;
-      } else if (isBeat) {
-        tickHeight = 10.0;
-        paint.strokeWidth = 1.0;
-      } else {
-        tickHeight = 6.0;
-        paint.strokeWidth = 0.5;
-      }
-
-      canvas.drawLine(
-        Offset(x, size.height - tickHeight),
-        Offset(x, size.height),
-        paint,
-      );
-
-      // Draw bar numbers at bar lines
-      if (isBar) {
-        final barNumber = (beat / 4.0).round() + 1; // Bars are 1-indexed
-
-        textPainter.text = TextSpan(
-          text: '$barNumber',
-          style: const TextStyle(
-            color: Color(0xFF9E9E9E),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        );
-
-        textPainter.layout();
-        textPainter.paint(
-          canvas,
-          Offset(x - textPainter.width / 2, 2),
-        );
-      } else if (isBeat && pixelsPerBeat >= 30) {
-        // Show beat subdivisions (1.2, 1.3, 1.4) when zoomed in enough
-        final barNumber = (beat / 4.0).floor() + 1;
-        final beatInBar = ((beat % 4.0) + 1).round();
-
-        if (beatInBar > 1) {
-          textPainter.text = TextSpan(
-            text: '$barNumber.$beatInBar',
-            style: const TextStyle(
-              color: Color(0xFF707070),
-              fontSize: 9,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          );
-
-          textPainter.layout();
-          textPainter.paint(
-            canvas,
-            Offset(x - textPainter.width / 2, 4),
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_TimeRulerPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-        oldDelegate.isLoopEnabled != isLoopEnabled ||
-        oldDelegate.loopStartBeats != loopStartBeats ||
-        oldDelegate.loopEndBeats != loopEndBeats;
-  }
-}
-
-/// Painter for the grid lines (beat-based with zoom-dependent visibility)
-class _GridPainter extends CustomPainter {
-  final double pixelsPerBeat;
-
-  _GridPainter({
-    required this.pixelsPerBeat,
-  });
-
-  /// Get the smallest grid subdivision to show based on zoom level
-  double _getGridDivision() {
-    if (pixelsPerBeat < 10) return 4.0;     // Only bars (every 4 beats)
-    if (pixelsPerBeat < 20) return 1.0;     // Bars + beats
-    if (pixelsPerBeat < 40) return 0.5;     // + half beats
-    if (pixelsPerBeat < 80) return 0.25;    // + quarter beats
-    return 0.125;                            // + eighth beats
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Beat-based measurements (tempo-independent)
-    final gridDivision = _getGridDivision();
-
-    // Calculate total beats to draw (extend to fill width)
-    final totalBeats = (size.width / pixelsPerBeat).ceil() + 4;
-
-    final paint = Paint()..style = PaintingStyle.stroke;
-
-    // Draw grid lines based on beat subdivisions
-    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
-      final x = beat * pixelsPerBeat;
-      if (x > size.width) break;
-
-      // Determine line style based on beat position
-      final isBar = (beat % 4.0).abs() < 0.001;  // Every 4 beats = bar
-      final isBeat = (beat % 1.0).abs() < 0.001; // Whole beats
-      final isHalfBeat = (beat % 0.5).abs() < 0.001; // Half beats
-
-      if (isBar) {
-        // Bar lines - thickest and brightest
-        paint.color = const Color(0xFF505050);
-        paint.strokeWidth = 2.0;
-      } else if (isBeat) {
-        // Beat lines - medium
-        paint.color = const Color(0xFF404040);
-        paint.strokeWidth = 1.0;
-      } else if (isHalfBeat) {
-        // Half beat lines - thin
-        paint.color = const Color(0xFF363636);
-        paint.strokeWidth = 0.5;
-      } else {
-        // Subdivision lines - thinnest
-        paint.color = const Color(0xFF303030);
-        paint.strokeWidth = 0.5;
-      }
-
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GridPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat;
-  }
-}
-
 /// Painter for the waveform
 class _WaveformPainter extends CustomPainter {
   final List<double> peaks;
@@ -3956,47 +3715,6 @@ class _GridPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPatternPainter oldDelegate) => false;
-}
-
-/// Painter for dashed vertical line (insert marker)
-class _DashedLinePainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-  final double dashLength;
-  final double gapLength;
-
-  _DashedLinePainter({
-    required this.color,
-    this.strokeWidth = 2,
-    this.dashLength = 6,
-    this.gapLength = 4,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    double y = 0;
-    while (y < size.height) {
-      canvas.drawLine(
-        Offset(size.width / 2, y),
-        Offset(size.width / 2, math.min(y + dashLength, size.height)),
-        paint,
-      );
-      y += dashLength + gapLength;
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedLinePainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.dashLength != dashLength ||
-        oldDelegate.gapLength != gapLength;
-  }
 }
 
 /// Painter for mini MIDI clip preview with dynamic height based on note range
