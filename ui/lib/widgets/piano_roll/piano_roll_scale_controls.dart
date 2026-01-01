@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
 import '../../theme/theme_extension.dart';
+import '../shared/compact_dropdown.dart';
 
 /// Scale controls widget for the Piano Roll left side area.
 /// Provides scale root, type selection, and highlight/lock/fold toggles.
@@ -88,8 +89,7 @@ class PianoRollScaleControls extends StatelessWidget {
       child: Column(
         children: [
           // Scale root dropdown
-          _buildCompactDropdown<String>(
-            context,
+          CompactDropdown<String>(
             value: scaleRoot,
             items: ScaleRoot.noteNames,
             onChanged: onRootChanged,
@@ -97,8 +97,7 @@ class PianoRollScaleControls extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           // Scale type dropdown
-          _buildCompactDropdown<ScaleType>(
-            context,
+          CompactDropdown<ScaleType>(
             value: scaleType,
             items: ScaleType.values,
             itemLabel: (t) => t.displayName,
@@ -108,102 +107,6 @@ class PianoRollScaleControls extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildCompactDropdown<T>(
-    BuildContext context, {
-    required T value,
-    required List<T> items,
-    String Function(T)? itemLabel,
-    Function(T)? onChanged,
-    double width = 52,
-  }) {
-    final colors = context.colors;
-    final label = itemLabel != null ? itemLabel(value) : value.toString();
-
-    return GestureDetector(
-      onTap: () => _showDropdownMenu<T>(
-        context,
-        items: items,
-        currentValue: value,
-        itemLabel: itemLabel,
-        onSelected: onChanged,
-      ),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: width,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 9,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 12,
-                color: colors.textMuted,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showDropdownMenu<T>(
-    BuildContext context, {
-    required List<T> items,
-    required T currentValue,
-    String Function(T)? itemLabel,
-    Function(T)? onSelected,
-  }) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    showMenu<T>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy,
-        overlay.size.width - buttonPosition.dx - button.size.width,
-        0,
-      ),
-      items: items.map((item) {
-        final label = itemLabel != null ? itemLabel(item) : item.toString();
-        return PopupMenuItem<T>(
-          value: item,
-          height: 32,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 11,
-              fontWeight: item == currentValue ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        );
-      }).toList(),
-      elevation: 8,
-    ).then((value) {
-      if (value != null && onSelected != null) {
-        onSelected(value);
-      }
-    });
   }
 
   Widget _buildToggles(BuildContext context) {
