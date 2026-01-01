@@ -1243,7 +1243,23 @@ class _PianoRollState extends State<PianoRoll>
         isCreatingLoop = false;
       },
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+        cursor: _getLoopBarCursor(),
+        onHover: (event) {
+          // Track hover position for cursor updates
+          final scrollOffset = loopBarScroll.hasClients ? loopBarScroll.offset : 0.0;
+          final xInContent = event.localPosition.dx + scrollOffset;
+          final beat = xInContent / pixelsPerBeat;
+          if (loopBarHoverBeat != beat) {
+            setState(() {
+              loopBarHoverBeat = beat;
+            });
+          }
+        },
+        onExit: (event) {
+          setState(() {
+            loopBarHoverBeat = null;
+          });
+        },
         child: Container(
           height: 20,
           width: canvasWidth,
@@ -1266,6 +1282,34 @@ class _PianoRollState extends State<PianoRoll>
         ),
       ),
     );
+  }
+
+  /// Get cursor for loop bar based on current hover position.
+  MouseCursor _getLoopBarCursor() {
+    if (!loopEnabled || loopBarHoverBeat == null) {
+      return SystemMouseCursors.click;
+    }
+
+    final loopEnd = loopStartBeats + getLoopLength();
+    final hitRadius = 10.0 / pixelsPerBeat; // 10px in beats
+
+    // Check if hovering over start edge
+    if ((loopBarHoverBeat! - loopStartBeats).abs() < hitRadius) {
+      return SystemMouseCursors.resizeLeftRight;
+    }
+
+    // Check if hovering over end edge
+    if ((loopBarHoverBeat! - loopEnd).abs() < hitRadius) {
+      return SystemMouseCursors.resizeLeftRight;
+    }
+
+    // Check if hovering over middle region
+    if (loopBarHoverBeat! > loopStartBeats && loopBarHoverBeat! < loopEnd) {
+      return SystemMouseCursors.move;
+    }
+
+    // Outside loop region
+    return SystemMouseCursors.click;
   }
 
   /// Build bar number ruler with scroll/zoom interaction.

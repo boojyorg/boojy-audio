@@ -42,6 +42,9 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Whether currently creating a new loop by dragging.
   bool isCreatingLoop = false;
 
+  /// Current hover position in loop bar (in beats), for cursor updates.
+  double? loopBarHoverBeat;
+
   // ============================================
   // GRID AND SNAP SETTINGS
   // ============================================
