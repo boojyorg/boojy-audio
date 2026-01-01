@@ -106,12 +106,15 @@ mixin SelectionOperationsMixin on State<PianoRoll>, PianoRollStateMixin, NoteOpe
   }
 
   // ============================================
-  // COORDINATE HELPERS
+  // COORDINATE HELPERS (Fold-aware)
   // ============================================
 
-  /// Get MIDI note at Y coordinate.
+  /// Get MIDI note at Y coordinate (fold-aware).
+  /// Uses foldedPitches when fold mode is enabled.
+  @override
   int getNoteAtY(double y) {
-    final rawNote = PianoRollStateMixin.maxMidiNote - (y / pixelsPerNote).floor();
+    final rowIndex = (y / pixelsPerNote).floor();
+    final rawNote = rowIndexToMidiNote(rowIndex);
     if (scaleLockEnabled) {
       return snapNoteToScale(rawNote);
     }
@@ -123,9 +126,16 @@ mixin SelectionOperationsMixin on State<PianoRoll>, PianoRollStateMixin, NoteOpe
     return x / pixelsPerBeat;
   }
 
-  /// Calculate Y coordinate for a MIDI note.
+  /// Calculate Y coordinate for a MIDI note (fold-aware).
+  /// Uses foldedPitches when fold mode is enabled.
+  @override
   double calculateNoteY(int midiNote) {
-    return (PianoRollStateMixin.maxMidiNote - midiNote) * pixelsPerNote;
+    if (!foldViewEnabled) {
+      return (PianoRollStateMixin.maxMidiNote - midiNote) * pixelsPerNote;
+    }
+    final rowIndex = midiNoteToRowIndex(midiNote);
+    if (rowIndex < 0) return -pixelsPerNote; // Off-screen if not in fold
+    return rowIndex * pixelsPerNote;
   }
 
   /// Calculate X coordinate for a beat.

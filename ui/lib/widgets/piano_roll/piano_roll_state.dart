@@ -298,6 +298,69 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   Scale get currentScale => Scale(root: scaleRoot, type: scaleType);
 
   // ============================================
+  // FOLD VIEW HELPERS
+  // ============================================
+
+  /// Get list of MIDI pitches that have notes (sorted descending for display).
+  /// Returns all pitches (0-127) if fold is off or no notes exist.
+  List<int> get foldedPitches {
+    if (!foldViewEnabled || currentClip == null || currentClip!.notes.isEmpty) {
+      // Return full range when fold off or empty clip
+      return List.generate(
+        maxMidiNote - minMidiNote + 1,
+        (i) => maxMidiNote - i,
+      );
+    }
+
+    // Collect unique pitches from notes
+    final pitches = currentClip!.notes.map((n) => n.note).toSet().toList();
+    pitches.sort((a, b) => b.compareTo(a)); // Sort descending (high notes at top)
+    return pitches;
+  }
+
+  /// Get the number of visible rows (for canvas height calculation).
+  int get visibleRowCount => foldedPitches.length;
+
+  /// Convert a folded row index to MIDI pitch.
+  /// Row 0 is the highest pitch shown.
+  int rowIndexToMidiNote(int rowIndex) {
+    final pitches = foldedPitches;
+    if (rowIndex < 0 || rowIndex >= pitches.length) {
+      return maxMidiNote - rowIndex; // Fallback to standard mapping
+    }
+    return pitches[rowIndex];
+  }
+
+  /// Convert a MIDI pitch to folded row index.
+  /// Returns -1 if pitch is not visible in fold mode.
+  int midiNoteToRowIndex(int midiNote) {
+    final pitches = foldedPitches;
+    final index = pitches.indexOf(midiNote);
+    if (index >= 0) return index;
+    // If not found in fold mode, return closest row
+    if (!foldViewEnabled) {
+      return maxMidiNote - midiNote;
+    }
+    return -1; // Not visible in fold mode
+  }
+
+  /// Calculate Y coordinate for a MIDI note (fold-aware).
+  double calculateNoteY(int midiNote) {
+    if (!foldViewEnabled) {
+      return (maxMidiNote - midiNote) * pixelsPerNote;
+    }
+    final rowIndex = midiNoteToRowIndex(midiNote);
+    if (rowIndex < 0) return -pixelsPerNote; // Off-screen if not in fold
+    return rowIndex * pixelsPerNote;
+  }
+
+  /// Get MIDI note at Y coordinate (fold-aware).
+  int getNoteAtY(double y) {
+    final rowIndex = (y / pixelsPerNote).floor();
+    return rowIndexToMidiNote(rowIndex);
+  }
+
+  // ============================================
   // TIME SIGNATURE
   // ============================================
 

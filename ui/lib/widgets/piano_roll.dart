@@ -346,7 +346,8 @@ class _PianoRollState extends State<PianoRoll>
     final totalBeats = calculateTotalBeats();
 
     final canvasWidth = totalBeats * pixelsPerBeat;
-    final canvasHeight = (PianoRollStateMixin.maxMidiNote - PianoRollStateMixin.minMidiNote + 1) * pixelsPerNote;
+    // Use visibleRowCount for canvas height (fold-aware)
+    final canvasHeight = visibleRowCount * pixelsPerNote;
 
     return Expanded(
       child: Column(
@@ -488,6 +489,7 @@ class _PianoRollState extends State<PianoRoll>
                         child: Row(
                           children: [
                             // Piano keys (no separate scroll - inside shared vertical scroll)
+                            // Uses foldedPitches when fold mode is enabled
                             Container(
                               width: 80,
                               decoration: BoxDecoration(
@@ -497,13 +499,9 @@ class _PianoRollState extends State<PianoRoll>
                                 ),
                               ),
                               child: Column(
-                                children: List.generate(
-                                  PianoRollStateMixin.maxMidiNote - PianoRollStateMixin.minMidiNote + 1,
-                                  (index) {
-                                    final midiNote = PianoRollStateMixin.maxMidiNote - index;
-                                    return _buildPianoKey(midiNote);
-                                  },
-                                ),
+                                children: foldedPitches.map((midiNote) {
+                                  return _buildPianoKey(midiNote);
+                                }).toList(),
                               ),
                             ),
                             // Grid with horizontal scroll (no scrollbar, no separate vertical scroll)
@@ -606,6 +604,7 @@ class _PianoRollState extends State<PianoRoll>
                                                     scaleHighlightEnabled: scaleHighlightEnabled,
                                                     scaleRootMidi: ScaleRoot.midiNoteFromName(scaleRoot),
                                                     scaleIntervals: scaleType.intervals,
+                                                    foldedPitches: foldViewEnabled ? foldedPitches : null,
                                                   ),
                                                 ),
                                                 CustomPaint(
@@ -620,6 +619,7 @@ class _PianoRollState extends State<PianoRoll>
                                                     selectionEnd: selectionEnd,
                                                     ghostNotes: widget.ghostNotes,
                                                     showGhostNotes: ghostNotesEnabled,
+                                                    foldedPitches: foldViewEnabled ? foldedPitches : null,
                                                   ),
                                                 ),
                                                 _buildInsertMarker(canvasHeight),

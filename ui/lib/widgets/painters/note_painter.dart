@@ -17,6 +17,10 @@ class NotePainter extends CustomPainter {
   /// Whether to show ghost notes
   final bool showGhostNotes;
 
+  /// Fold mode - when provided, only these pitches are visible (in order)
+  /// Used for calculating Y coordinates in fold view
+  final List<int>? foldedPitches;
+
   NotePainter({
     required this.notes,
     this.previewNote,
@@ -27,7 +31,18 @@ class NotePainter extends CustomPainter {
     this.selectionEnd,
     this.ghostNotes = const [],
     this.showGhostNotes = false,
+    this.foldedPitches,
   });
+
+  /// Calculate Y coordinate for a MIDI note (fold-aware)
+  double _calculateNoteY(int midiNote) {
+    if (foldedPitches == null) {
+      return (maxMidiNote - midiNote) * pixelsPerNote;
+    }
+    final rowIndex = foldedPitches!.indexOf(midiNote);
+    if (rowIndex < 0) return -pixelsPerNote; // Off-screen if not in fold
+    return rowIndex * pixelsPerNote;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -70,7 +85,8 @@ class NotePainter extends CustomPainter {
   /// Draw a ghost note (from another track) at 30% opacity
   void _drawGhostNote(Canvas canvas, MidiNoteData note) {
     final x = note.startTime * pixelsPerBeat;
-    final y = (maxMidiNote - note.note) * pixelsPerNote;
+    final y = _calculateNoteY(note.note);
+    if (y < 0) return; // Skip notes not visible in fold mode
     final width = note.duration * pixelsPerBeat;
     final height = pixelsPerNote - 2;
 
@@ -95,7 +111,8 @@ class NotePainter extends CustomPainter {
   void _drawNote(Canvas canvas, MidiNoteData note,
       {bool isSelected = false, bool isPreview = false}) {
     final x = note.startTime * pixelsPerBeat;
-    final y = (maxMidiNote - note.note) * pixelsPerNote;
+    final y = _calculateNoteY(note.note);
+    if (y < 0) return; // Skip notes not visible in fold mode
     final width = note.duration * pixelsPerBeat;
     final height = pixelsPerNote - 2; // Small gap between notes
 
@@ -184,6 +201,17 @@ class NotePainter extends CustomPainter {
     }
   }
 
+  /// Compare two lists for equality (used for foldedPitches)
+  bool _listEquals(List<int>? a, List<int>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   @override
   bool shouldRepaint(NotePainter oldDelegate) {
     return notes != oldDelegate.notes ||
@@ -193,6 +221,7 @@ class NotePainter extends CustomPainter {
         selectionStart != oldDelegate.selectionStart ||
         selectionEnd != oldDelegate.selectionEnd ||
         ghostNotes != oldDelegate.ghostNotes ||
-        showGhostNotes != oldDelegate.showGhostNotes;
+        showGhostNotes != oldDelegate.showGhostNotes ||
+        !_listEquals(foldedPitches, oldDelegate.foldedPitches);
   }
 }

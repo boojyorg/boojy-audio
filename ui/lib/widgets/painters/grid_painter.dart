@@ -35,6 +35,9 @@ class GridPainter extends CustomPainter {
   final List<int> scaleIntervals; // e.g., [0, 2, 4, 5, 7, 9, 11] for major
   final Color outOfScaleOverlay;
 
+  // Fold mode - when provided, only these pitches are rendered (in order)
+  final List<int>? foldedPitches;
+
   GridPainter({
     required this.pixelsPerBeat,
     required this.pixelsPerNote,
@@ -58,13 +61,19 @@ class GridPainter extends CustomPainter {
     this.scaleRootMidi = 0,
     this.scaleIntervals = const [0, 2, 4, 5, 7, 9, 11], // Major scale default
     this.outOfScaleOverlay = const Color(0x40000000), // Semi-transparent black
+    this.foldedPitches,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // STEP 1: Draw backgrounds FIRST (so vertical lines can be drawn on top)
-    for (int note = minMidiNote; note <= maxMidiNote; note++) {
-      final y = (maxMidiNote - note) * pixelsPerNote;
+    // Use foldedPitches if provided (fold mode), otherwise iterate over full range
+    final pitchesToRender = foldedPitches ??
+        List.generate(maxMidiNote - minMidiNote + 1, (i) => maxMidiNote - i);
+
+    for (int rowIndex = 0; rowIndex < pitchesToRender.length; rowIndex++) {
+      final note = pitchesToRender[rowIndex];
+      final y = rowIndex * pixelsPerNote;
       final isBlackKey = _isBlackKey(note);
 
       // Draw background color (theme-aware)
@@ -168,6 +177,17 @@ class GridPainter extends CustomPainter {
     return (a - b).abs() < epsilon;
   }
 
+  /// Compare two lists for equality (used for foldedPitches)
+  bool _listEquals(List<int>? a, List<int>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   @override
   bool shouldRepaint(GridPainter oldDelegate) {
     return pixelsPerBeat != oldDelegate.pixelsPerBeat ||
@@ -188,6 +208,7 @@ class GridPainter extends CustomPainter {
         barGridLine != oldDelegate.barGridLine ||
         scaleHighlightEnabled != oldDelegate.scaleHighlightEnabled ||
         scaleRootMidi != oldDelegate.scaleRootMidi ||
+        !_listEquals(foldedPitches, oldDelegate.foldedPitches) ||
         scaleIntervals != oldDelegate.scaleIntervals ||
         minMidiNote != oldDelegate.minMidiNote;
   }
