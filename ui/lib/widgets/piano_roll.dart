@@ -93,9 +93,10 @@ class _PianoRollState extends State<PianoRoll>
     // Listen for hardware keyboard events (for modifier key cursor updates)
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
 
-    // Sync horizontal scroll between ruler and grid
+    // Sync horizontal scroll between ruler, loop bar, and grid
     horizontalScroll.addListener(_syncRulerFromGrid);
     rulerScroll.addListener(_syncGridFromRuler);
+    loopBarScroll.addListener(_syncGridFromLoopBar);
 
     // Scroll to default view (middle of piano)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -108,6 +109,9 @@ class _PianoRollState extends State<PianoRoll>
     if (!rulerScroll.hasClients || !horizontalScroll.hasClients) return;
     isSyncingScroll = true;
     rulerScroll.jumpTo(horizontalScroll.offset.clamp(0.0, rulerScroll.position.maxScrollExtent));
+    if (loopBarScroll.hasClients) {
+      loopBarScroll.jumpTo(horizontalScroll.offset.clamp(0.0, loopBarScroll.position.maxScrollExtent));
+    }
     isSyncingScroll = false;
   }
 
@@ -116,6 +120,20 @@ class _PianoRollState extends State<PianoRoll>
     if (!rulerScroll.hasClients || !horizontalScroll.hasClients) return;
     isSyncingScroll = true;
     horizontalScroll.jumpTo(rulerScroll.offset.clamp(0.0, horizontalScroll.position.maxScrollExtent));
+    if (loopBarScroll.hasClients) {
+      loopBarScroll.jumpTo(rulerScroll.offset.clamp(0.0, loopBarScroll.position.maxScrollExtent));
+    }
+    isSyncingScroll = false;
+  }
+
+  void _syncGridFromLoopBar() {
+    if (isSyncingScroll) return;
+    if (!loopBarScroll.hasClients || !horizontalScroll.hasClients) return;
+    isSyncingScroll = true;
+    horizontalScroll.jumpTo(loopBarScroll.offset.clamp(0.0, horizontalScroll.position.maxScrollExtent));
+    if (rulerScroll.hasClients) {
+      rulerScroll.jumpTo(loopBarScroll.offset.clamp(0.0, rulerScroll.position.maxScrollExtent));
+    }
     isSyncingScroll = false;
   }
 
@@ -125,9 +143,11 @@ class _PianoRollState extends State<PianoRoll>
     undoRedoManager.removeListener(_onUndoRedoChanged);
     horizontalScroll.removeListener(_syncRulerFromGrid);
     rulerScroll.removeListener(_syncGridFromRuler);
+    loopBarScroll.removeListener(_syncGridFromLoopBar);
     focusNode.dispose();
     horizontalScroll.dispose();
     rulerScroll.dispose();
+    loopBarScroll.dispose();
     verticalScroll.dispose();
     super.dispose();
   }
@@ -395,6 +415,31 @@ class _PianoRollState extends State<PianoRoll>
           Expanded(
             child: Column(
               children: [
+                // Loop bar row (dedicated row for loop region control)
+                Row(
+                  children: [
+                    // Empty corner aligned with piano keys
+                    SizedBox(
+                      width: 80,
+                      height: 20,
+                      child: Container(color: context.colors.dark),
+                    ),
+                    // Loop bar (scrollable) - synced with grid
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: loopBarScroll,
+                        scrollDirection: Axis.horizontal,
+                        child: _buildLoopBar(totalBeats, canvasWidth),
+                      ),
+                    ),
+                    // Empty corner aligned with zoom controls
+                    SizedBox(
+                      width: 48,
+                      height: 20,
+                      child: Container(color: context.colors.dark),
+                    ),
+                  ],
+                ),
                 // Bar ruler row with audition button on left and zoom on right
                 Row(
                   children: [
@@ -1100,24 +1145,12 @@ class _PianoRollState extends State<PianoRoll>
     );
   }
 
-  /// Build bar number ruler with Ableton-style drag interaction
-  /// Drag vertically: down = zoom in, up = zoom out (anchored to cursor)
-  /// Drag horizontally: pan timeline (move left = scroll left, move right = scroll right)
-  /// Click: place insert marker (spec v2.0)
-  /// When loop enabled: drag loop markers to adjust loop region
-  Widget _buildBarRuler(double totalBeats, double canvasWidth) {
+  /// Build dedicated loop bar row for loop region control.
+  /// Drag loop markers to resize, drag middle to move, drag empty area to create new loop.
+  Widget _buildLoopBar(double totalBeats, double canvasWidth) {
     return GestureDetector(
-      onTapUp: (details) {
-        // Click ruler to place insert marker (spec v2.0)
-        final scrollOffset = rulerScroll.hasClients ? rulerScroll.offset : 0.0;
-        final xInContent = details.localPosition.dx + scrollOffset;
-        final beats = xInContent / pixelsPerBeat;
-        setState(() {
-          insertMarkerBeats = beats.clamp(0.0, double.infinity);
-        });
-      },
       onPanStart: (details) {
-        final scrollOffset = rulerScroll.hasClients ? rulerScroll.offset : 0.0;
+        final scrollOffset = loopBarScroll.hasClients ? loopBarScroll.offset : 0.0;
         final xInContent = details.localPosition.dx + scrollOffset;
         final beatAtCursor = xInContent / pixelsPerBeat;
 
@@ -1130,6 +1163,7 @@ class _PianoRollState extends State<PianoRoll>
           if ((beatAtCursor - loopStartBeats).abs() < hitRadius) {
             _loopMarkerDrag = LoopMarkerDrag.start;
             loopDragStartBeat = loopStartBeats;
+            isCreatingLoop = false;
             return;
           }
 
@@ -1137,105 +1171,161 @@ class _PianoRollState extends State<PianoRoll>
           if ((beatAtCursor - loopEnd).abs() < hitRadius) {
             _loopMarkerDrag = LoopMarkerDrag.end;
             loopDragStartBeat = loopEnd;
+            isCreatingLoop = false;
             return;
           }
 
-          // Check middle region
+          // Check middle region - drag to move
           if (beatAtCursor > loopStartBeats && beatAtCursor < loopEnd) {
             _loopMarkerDrag = LoopMarkerDrag.middle;
             loopDragStartBeat = beatAtCursor;
+            isCreatingLoop = false;
             return;
           }
         }
 
-        // Normal pan/zoom behavior
+        // Clicking outside loop or loop disabled → create new loop
+        setState(() {
+          loopStartBeats = snapToGrid(beatAtCursor);
+          loopEnabled = true;
+          isCreatingLoop = true;
+        });
+        _loopMarkerDrag = LoopMarkerDrag.end;
+        loopDragStartBeat = loopStartBeats;
+      },
+      onPanUpdate: (details) {
+        final scrollOffset = loopBarScroll.hasClients ? loopBarScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beatAtCursor = xInContent / pixelsPerBeat;
+        final snappedBeat = snapToGrid(beatAtCursor);
+
+        if (_loopMarkerDrag == null) return;
+
+        switch (_loopMarkerDrag!) {
+          case LoopMarkerDrag.start:
+            // Move start marker, keep end fixed
+            final loopEnd = loopStartBeats + getLoopLength();
+            final newStart = snappedBeat.clamp(0.0, loopEnd - gridDivision);
+            final newLength = loopEnd - newStart;
+            setState(() {
+              loopStartBeats = newStart;
+              updateLoopLength(newLength);
+            });
+            break;
+
+          case LoopMarkerDrag.end:
+            // Move end marker, keep start fixed
+            final newEnd = snappedBeat.clamp(loopStartBeats + gridDivision, double.infinity);
+            final newLength = newEnd - loopStartBeats;
+            setState(() {
+              updateLoopLength(newLength);
+            });
+            // Auto-extend canvas if needed
+            autoExtendCanvasIfNeeded(newEnd);
+            break;
+
+          case LoopMarkerDrag.middle:
+            // Move entire loop region
+            final delta = snappedBeat - snapToGrid(loopDragStartBeat);
+            final newStart = (loopStartBeats + delta).clamp(0.0, double.infinity);
+            if (newStart >= 0) {
+              setState(() {
+                loopStartBeats = newStart;
+              });
+              loopDragStartBeat = snappedBeat;
+              autoExtendCanvasIfNeeded(newStart + getLoopLength());
+            }
+            break;
+        }
+      },
+      onPanEnd: (details) {
         _loopMarkerDrag = null;
+        isCreatingLoop = false;
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: 20,
+          width: canvasWidth,
+          decoration: BoxDecoration(
+            color: context.colors.dark,
+            border: Border(
+              bottom: BorderSide(color: context.colors.surface, width: 1),
+            ),
+          ),
+          child: CustomPaint(
+            size: Size(canvasWidth, 20),
+            painter: LoopBarPainter(
+              pixelsPerBeat: pixelsPerBeat,
+              totalBeats: totalBeats,
+              loopEnabled: loopEnabled,
+              loopStart: loopStartBeats,
+              loopEnd: loopStartBeats + getLoopLength(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build bar number ruler with scroll/zoom interaction.
+  /// Drag vertically: down = zoom in, up = zoom out (anchored to cursor)
+  /// Drag horizontally: pan timeline
+  /// Click: place insert marker
+  /// Double-click: reset zoom to default
+  Widget _buildBarRuler(double totalBeats, double canvasWidth) {
+    return GestureDetector(
+      onTapUp: (details) {
+        // Click ruler to place insert marker
+        final scrollOffset = rulerScroll.hasClients ? rulerScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beats = xInContent / pixelsPerBeat;
+        setState(() {
+          insertMarkerBeats = beats.clamp(0.0, double.infinity);
+        });
+      },
+      onDoubleTap: () {
+        // Double-click to reset zoom to default
+        setState(() {
+          pixelsPerBeat = 80.0;
+        });
+      },
+      onPanStart: (details) {
+        final scrollOffset = rulerScroll.hasClients ? rulerScroll.offset : 0.0;
+        final xInContent = details.localPosition.dx + scrollOffset;
+        final beatAtCursor = xInContent / pixelsPerBeat;
+
+        // Store initial state for pan/zoom
         zoomDragStartY = details.globalPosition.dy;
         zoomStartPixelsPerBeat = pixelsPerBeat;
         zoomAnchorLocalX = details.localPosition.dx;
         zoomAnchorBeat = beatAtCursor;
       },
       onPanUpdate: (details) {
-        // Handle loop marker dragging
-        if (_loopMarkerDrag != null && loopEnabled) {
-          final scrollOffset = rulerScroll.hasClients ? rulerScroll.offset : 0.0;
-          final xInContent = details.localPosition.dx + scrollOffset;
-          final beatAtCursor = xInContent / pixelsPerBeat;
-          final snappedBeat = snapToGrid(beatAtCursor);
-
-          switch (_loopMarkerDrag!) {
-            case LoopMarkerDrag.start:
-              // Move start marker, keep end fixed
-              final loopEnd = loopStartBeats + getLoopLength();
-              final newStart = snappedBeat.clamp(0.0, loopEnd - gridDivision);
-              final newLength = loopEnd - newStart;
-              setState(() {
-                loopStartBeats = newStart;
-                updateLoopLength(newLength);
-              });
-              break;
-
-            case LoopMarkerDrag.end:
-              // Move end marker, keep start fixed
-              final newEnd = snappedBeat.clamp(loopStartBeats + gridDivision, double.infinity);
-              final newLength = newEnd - loopStartBeats;
-              setState(() {
-                updateLoopLength(newLength);
-              });
-              // Auto-extend canvas if needed
-              autoExtendCanvasIfNeeded(newEnd);
-              break;
-
-            case LoopMarkerDrag.middle:
-              // Move entire loop region
-              final delta = snappedBeat - snapToGrid(loopDragStartBeat);
-              final newStart = (loopStartBeats + delta).clamp(0.0, double.infinity);
-              // Only move if not trying to go negative
-              if (newStart >= 0) {
-                setState(() {
-                  loopStartBeats = newStart;
-                });
-                loopDragStartBeat = snappedBeat;
-                // Auto-extend canvas if needed
-                autoExtendCanvasIfNeeded(newStart + getLoopLength());
-              }
-              break;
-          }
-          return;
-        }
-
-        // Normal pan/zoom behavior
         // Calculate drag delta (positive = dragged down = zoom in)
         final deltaY = details.globalPosition.dy - zoomDragStartY;
 
         // Sensitivity: ~100 pixels of drag = 2x zoom change
-        // Positive deltaY (drag down) = zoom in, Negative (drag up) = zoom out
         final zoomFactor = 1.0 + (deltaY / 100.0);
         final minZoom = calculateMinPixelsPerBeat();
         final maxZoom = calculateMaxPixelsPerBeat();
         final newPixelsPerBeat = (zoomStartPixelsPerBeat * zoomFactor).clamp(minZoom, maxZoom);
 
         // Calculate new scroll position to keep anchor beat under cursor
-        // anchorBeat * newPixelsPerBeat = newXInContent
-        // newScrollOffset = newXInContent - localX
         final newXInContent = zoomAnchorBeat * newPixelsPerBeat;
 
-        // Also apply horizontal panning: drag left = scroll left (same direction)
-        // details.delta.dx is positive when dragging right, negative when dragging left
-        // We want scroll to move in the same direction as mouse (drag left = view moves left)
-        final panOffset = -details.delta.dx; // Invert so drag left = scroll left
-
+        // Apply horizontal panning
+        final panOffset = -details.delta.dx;
         final targetScrollOffset = (newXInContent - zoomAnchorLocalX) + panOffset;
 
-        // Update anchor position to account for pan (so zoom stays anchored correctly)
+        // Update anchor position to account for pan
         zoomAnchorLocalX += details.delta.dx;
 
         setState(() {
           pixelsPerBeat = newPixelsPerBeat;
         });
 
-        // Defer scroll adjustment to after the layout rebuild
-        // This avoids issues with maxScrollExtent being outdated
+        // Defer scroll adjustment to after layout rebuild
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (horizontalScroll.hasClients) {
             final maxScroll = horizontalScroll.position.maxScrollExtent;
@@ -1243,17 +1333,13 @@ class _PianoRollState extends State<PianoRoll>
           }
         });
       },
-      onPanEnd: (details) {
-        // Reset loop marker drag state
-        _loopMarkerDrag = null;
-      },
       child: MouseRegion(
-        cursor: SystemMouseCursors.grab, // Visual hint for pan/zoom
+        cursor: SystemMouseCursors.grab,
         child: Container(
           height: 30,
           width: canvasWidth,
           decoration: BoxDecoration(
-            color: context.colors.elevated, // Dark background
+            color: context.colors.elevated,
             border: Border(
               bottom: BorderSide(color: context.colors.elevated, width: 1),
             ),
@@ -1263,10 +1349,7 @@ class _PianoRollState extends State<PianoRoll>
             painter: BarRulerPainter(
               pixelsPerBeat: pixelsPerBeat,
               totalBeats: totalBeats,
-              playheadPosition: 0.0, // TODO: Sync with actual playhead
-              loopEnabled: loopEnabled,
-              loopStart: loopStartBeats,
-              loopEnd: loopStartBeats + getLoopLength(),
+              playheadPosition: 0.0,
             ),
           ),
         ),

@@ -33,10 +33,14 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 
   final ScrollController horizontalScroll = ScrollController();
   final ScrollController rulerScroll = ScrollController();
+  final ScrollController loopBarScroll = ScrollController();
   final ScrollController verticalScroll = ScrollController();
 
   /// Prevent infinite sync loops between scroll controllers.
   bool isSyncingScroll = false;
+
+  /// Whether currently creating a new loop by dragging.
+  bool isCreatingLoop = false;
 
   // ============================================
   // GRID AND SNAP SETTINGS

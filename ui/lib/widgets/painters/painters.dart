@@ -2,6 +2,7 @@ export 'bar_ruler_painter.dart';
 export 'cc_lane_painter.dart';
 export 'dashed_line_painter.dart';
 export 'grid_painter.dart';
+export 'loop_bar_painter.dart';
 export 'note_painter.dart';
 export 'time_ruler_painter.dart';
 export 'timeline_grid_painter.dart';
