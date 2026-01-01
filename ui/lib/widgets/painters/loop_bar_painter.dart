@@ -48,12 +48,19 @@ class LoopBarPainter extends CustomPainter {
     final loopEndX = loopEnd * pixelsPerBeat;
     final loopWidth = loopEndX - loopStartX;
 
-    // Loop region - solid colored bar (full height, slight padding)
-    final loopPaint = Paint()..color = const Color(0xFFFF9800);
-    canvas.drawRect(
-      Rect.fromLTWH(loopStartX, 4, loopWidth, size.height - 8),
-      loopPaint,
-    );
+    // Loop region - full height bar with gradient (bright edges, darker center)
+    final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
+
+    // Fill with darker center color first
+    final centerPaint = Paint()..color = const Color(0xFFB36800); // Darker orange
+    canvas.drawRect(loopRect, centerPaint);
+
+    // Draw bright orange border
+    final borderPaint = Paint()
+      ..color = const Color(0xFFFF9800) // Standard orange
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRect(loopRect, borderPaint);
   }
 
   @override
