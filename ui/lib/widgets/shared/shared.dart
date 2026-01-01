@@ -7,6 +7,7 @@
 library;
 
 export 'circular_toggle_button.dart';
+export 'context_menu_item.dart';
 export 'knob_split_button.dart';
 export 'mini_knob.dart';
 export 'panel_header.dart';
