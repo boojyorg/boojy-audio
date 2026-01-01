@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
 import '../../theme/theme_extension.dart';
-import '../shared/split_button.dart';
 import '../shared/knob_split_button.dart';
 import 'loop_time_display.dart';
 import 'time_signature_display.dart';
@@ -34,9 +33,16 @@ class PianoRollControlsBar extends StatefulWidget {
   // Grid section
   final bool snapEnabled;
   final double gridDivision;
+  final bool adaptiveGridEnabled;
+  final bool snapTripletEnabled;
   final VoidCallback? onSnapToggle;
-  final Function(double)? onGridDivisionChanged;
-  final Function(int)? onQuantize;
+  final Function(double?)? onGridDivisionChanged; // null = adaptive
+  final VoidCallback? onSnapTripletToggle;
+  final VoidCallback? onQuantize;
+  final int quantizeDivision; // 0 = Grid, else 4/8/16/32
+  final bool quantizeTripletEnabled;
+  final Function(int)? onQuantizeDivisionChanged;
+  final VoidCallback? onQuantizeTripletToggle;
   final double swingAmount;
   final Function(double)? onSwingChanged;
   final VoidCallback? onSwingApply;
@@ -75,8 +81,8 @@ class PianoRollControlsBar extends StatefulWidget {
   final bool ccLaneVisible;
   final VoidCallback? onCCLaneToggle;
 
-  // Default quantize value
-  final int quantizeValue;
+  // Current effective grid division (for display when adaptive)
+  final double effectiveGridDivision;
 
   const PianoRollControlsBar({
     super.key,
@@ -94,12 +100,20 @@ class PianoRollControlsBar extends StatefulWidget {
     // Grid section
     this.snapEnabled = true,
     this.gridDivision = 0.25,
+    this.adaptiveGridEnabled = true,
+    this.snapTripletEnabled = false,
     this.onSnapToggle,
     this.onGridDivisionChanged,
+    this.onSnapTripletToggle,
     this.onQuantize,
+    this.quantizeDivision = 0,
+    this.quantizeTripletEnabled = false,
+    this.onQuantizeDivisionChanged,
+    this.onQuantizeTripletToggle,
     this.swingAmount = 0.0,
     this.onSwingChanged,
     this.onSwingApply,
+    this.effectiveGridDivision = 0.25,
     // View section
     this.foldEnabled = false,
     this.ghostNotesEnabled = false,
@@ -130,8 +144,6 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onVelocityLaneToggle,
     this.ccLaneVisible = false,
     this.onCCLaneToggle,
-    // Quantize
-    this.quantizeValue = 16,
   });
 
   @override
@@ -143,11 +155,40 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   final GlobalKey _wrapKey = GlobalKey();
   double _lastWidth = 0;
 
+  // Hover states for split button styling
+  bool _isHoveringSnapLabel = false;
+  bool _isHoveringSnapDropdown = false;
+  bool _isHoveringQuantizeLabel = false;
+  bool _isHoveringQuantizeDropdown = false;
+
+  // Keys and overlays for dropdown menus
+  final GlobalKey _snapButtonKey = GlobalKey();
+  final GlobalKey _quantizeButtonKey = GlobalKey();
+  OverlayEntry? _snapOverlay;
+  OverlayEntry? _quantizeOverlay;
+
   @override
   void initState() {
     super.initState();
     // Check layout after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfFitsOnOneLine());
+  }
+
+  @override
+  void dispose() {
+    _removeSnapOverlay();
+    _removeQuantizeOverlay();
+    super.dispose();
+  }
+
+  void _removeSnapOverlay() {
+    _snapOverlay?.remove();
+    _snapOverlay = null;
+  }
+
+  void _removeQuantizeOverlay() {
+    _quantizeOverlay?.remove();
+    _quantizeOverlay = null;
   }
 
   void _checkIfFitsOnOneLine() {
@@ -326,38 +367,30 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
   // ============ GRID GROUP ============
   Widget _buildGridGroup(BuildContext context) {
+    // Snap label: "Snap" when adaptive, "Snap (T)" with triplet, "Snap 1/16T" when fixed
+    String snapLabel;
+    if (widget.adaptiveGridEnabled) {
+      snapLabel = widget.snapTripletEnabled ? 'Snap (T)' : 'Snap';
+    } else {
+      snapLabel = 'Snap ${_getGridDivisionLabel(widget.gridDivision, triplet: widget.snapTripletEnabled)}';
+    }
+
+    // Quantize label: "Quantize" when grid, "Quantize (T)" with triplet, "Quantize 1/16T" when fixed
+    String quantizeLabel;
+    if (widget.quantizeDivision == 0) {
+      quantizeLabel = widget.quantizeTripletEnabled ? 'Quantize (T)' : 'Quantize';
+    } else {
+      quantizeLabel = 'Quantize ${_getQuantizeDivisionLabel(widget.quantizeDivision, triplet: widget.quantizeTripletEnabled)}';
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Snap split button
-        SplitButton<double>(
-          label: 'Snap ${_getGridDivisionLabel(widget.gridDivision)}',
-          isActive: widget.snapEnabled,
-          onLabelTap: widget.onSnapToggle,
-          dropdownItems: const [1.0, 0.5, 0.25, 0.125, 0.0625]
-              .map((v) => PopupMenuItem<double>(
-                    value: v,
-                    height: 32,
-                    child: Text(_getGridDivisionLabel(v)),
-                  ))
-              .toList(),
-          onItemSelected: widget.onGridDivisionChanged,
-        ),
+        // Snap split button with adaptive + triplet
+        _buildSnapDropdown(context, snapLabel),
         const SizedBox(width: 4),
-        // Quantize split button
-        SplitButton<int>(
-          label: 'Quantize ${_getQuantizeLabel(widget.quantizeValue)}',
-          isActive: false,
-          onLabelTap: () => widget.onQuantize?.call(widget.quantizeValue),
-          dropdownItems: const [4, 8, 16, 32]
-              .map((v) => PopupMenuItem<int>(
-                    value: v,
-                    height: 32,
-                    child: Text(_getQuantizeLabel(v)),
-                  ))
-              .toList(),
-          onItemSelected: (v) => widget.onQuantize?.call(v),
-        ),
+        // Quantize split button with grid + triplet
+        _buildQuantizeDropdown(context, quantizeLabel),
         const SizedBox(width: 4),
         // Fold toggle
         _buildToggleButton(
@@ -389,6 +422,234 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
       ],
     );
+  }
+
+  Widget _buildSnapDropdown(BuildContext context, String label) {
+    final colors = context.colors;
+    final bgColor = widget.snapEnabled ? colors.accent : colors.dark;
+    final textColor = widget.snapEnabled ? colors.elevated : colors.textPrimary;
+
+    return DecoratedBox(
+      key: _snapButtonKey,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Left side: Label (clickable for toggle)
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringSnapLabel = true),
+            onExit: (_) => setState(() => _isHoveringSnapLabel = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onSnapToggle,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isHoveringSnapLabel
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    bottomLeft: Radius.circular(2),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Divider line
+          Container(
+            width: 1,
+            height: 14,
+            color: colors.textPrimary.withValues(alpha: 0.2),
+          ),
+
+          // Right side: Dropdown arrow
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringSnapDropdown = true),
+            onExit: (_) => setState(() => _isHoveringSnapDropdown = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _showSnapMenu(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isHoveringSnapDropdown
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                ),
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  size: 14,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnapMenu(BuildContext context) {
+    if (_snapOverlay != null) {
+      _removeSnapOverlay();
+      return;
+    }
+
+    final RenderBox? button =
+        _snapButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (button == null) return;
+
+    final buttonPosition = button.localToGlobal(Offset.zero);
+    final buttonSize = button.size;
+
+    _snapOverlay = OverlayEntry(
+      builder: (context) => _SnapMenuOverlay(
+        position: Offset(buttonPosition.dx, buttonPosition.dy + buttonSize.height + 2),
+        adaptiveGridEnabled: widget.adaptiveGridEnabled,
+        gridDivision: widget.gridDivision,
+        snapTripletEnabled: widget.snapTripletEnabled,
+        onDivisionChanged: (div) {
+          widget.onGridDivisionChanged?.call(div);
+        },
+        onTripletToggle: () {
+          widget.onSnapTripletToggle?.call();
+        },
+        onClose: _removeSnapOverlay,
+      ),
+    );
+
+    Overlay.of(context).insert(_snapOverlay!);
+  }
+
+  Widget _buildQuantizeDropdown(BuildContext context, String label) {
+    final colors = context.colors;
+    final textColor = colors.textPrimary;
+
+    return DecoratedBox(
+      key: _quantizeButtonKey,
+      decoration: BoxDecoration(
+        color: colors.dark,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Left side: Label (clickable for quantize action)
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringQuantizeLabel = true),
+            onExit: (_) => setState(() => _isHoveringQuantizeLabel = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onQuantize,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isHoveringQuantizeLabel
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    bottomLeft: Radius.circular(2),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Divider line
+          Container(
+            width: 1,
+            height: 14,
+            color: colors.textPrimary.withValues(alpha: 0.2),
+          ),
+
+          // Right side: Dropdown arrow
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringQuantizeDropdown = true),
+            onExit: (_) => setState(() => _isHoveringQuantizeDropdown = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _showQuantizeMenu(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isHoveringQuantizeDropdown
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                ),
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  size: 14,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuantizeMenu(BuildContext context) {
+    if (_quantizeOverlay != null) {
+      _removeQuantizeOverlay();
+      return;
+    }
+
+    final RenderBox? button =
+        _quantizeButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (button == null) return;
+
+    final buttonPosition = button.localToGlobal(Offset.zero);
+    final buttonSize = button.size;
+
+    _quantizeOverlay = OverlayEntry(
+      builder: (context) => _QuantizeMenuOverlay(
+        position: Offset(buttonPosition.dx, buttonPosition.dy + buttonSize.height + 2),
+        quantizeDivision: widget.quantizeDivision,
+        quantizeTripletEnabled: widget.quantizeTripletEnabled,
+        onDivisionChanged: (div) {
+          widget.onQuantizeDivisionChanged?.call(div);
+        },
+        onTripletToggle: () {
+          widget.onQuantizeTripletToggle?.call();
+        },
+        onClose: _removeQuantizeOverlay,
+      ),
+    );
+
+    Overlay.of(context).insert(_quantizeOverlay!);
   }
 
   // ============ SCALE GROUP ============
@@ -712,17 +973,21 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
   // ============ FORMATTERS ============
 
-  String _getGridDivisionLabel(double division) {
-    if (division == 1.0) return '1/4';
-    if (division == 0.5) return '1/8';
-    if (division == 0.25) return '1/16';
-    if (division == 0.125) return '1/32';
-    if (division == 0.0625) return '1/64';
-    return '1/${(4 / division).round()}';
+  String _getGridDivisionLabel(double division, {bool triplet = false}) {
+    final suffix = triplet ? 'T' : '';
+    if (division >= 4.0) return '1 Bar$suffix';
+    if (division >= 2.0) return '1/2$suffix';
+    if (division >= 1.0) return '1/4$suffix';
+    if (division >= 0.5) return '1/8$suffix';
+    if (division >= 0.25) return '1/16$suffix';
+    if (division >= 0.125) return '1/32$suffix';
+    if (division >= 0.0625) return '1/64$suffix';
+    return '1/128$suffix';
   }
 
-  String _getQuantizeLabel(int division) {
-    return '1/$division';
+  String _getQuantizeDivisionLabel(int division, {bool triplet = false}) {
+    final suffix = triplet ? 'T' : '';
+    return '1/$division$suffix';
   }
 
   static String _stretchFormatter(double v) {
@@ -732,5 +997,321 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     }
     if (v == 1.0) return '×1';
     return '×${v.toStringAsFixed(v >= 1.5 ? 0 : 1)}';
+  }
+}
+
+/// Overlay menu for Snap settings - stays open until explicitly closed
+class _SnapMenuOverlay extends StatefulWidget {
+  final Offset position;
+  final bool adaptiveGridEnabled;
+  final double gridDivision;
+  final bool snapTripletEnabled;
+  final Function(double?) onDivisionChanged;
+  final VoidCallback onTripletToggle;
+  final VoidCallback onClose;
+
+  const _SnapMenuOverlay({
+    required this.position,
+    required this.adaptiveGridEnabled,
+    required this.gridDivision,
+    required this.snapTripletEnabled,
+    required this.onDivisionChanged,
+    required this.onTripletToggle,
+    required this.onClose,
+  });
+
+  @override
+  State<_SnapMenuOverlay> createState() => _SnapMenuOverlayState();
+}
+
+class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
+  late bool _adaptiveEnabled;
+  late double _division;
+  late bool _tripletEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _adaptiveEnabled = widget.adaptiveGridEnabled;
+    _division = widget.gridDivision;
+    _tripletEnabled = widget.snapTripletEnabled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const divisions = [1.0, 0.5, 0.25, 0.125];
+
+    return Stack(
+      children: [
+        // Tap outside to close
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        // Menu popup
+        Positioned(
+          left: widget.position.dx,
+          top: widget.position.dy,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 100),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFF404040)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Adaptive option
+                  _buildMenuItem(
+                    label: 'Adaptive',
+                    isSelected: _adaptiveEnabled,
+                    onTap: () {
+                      setState(() => _adaptiveEnabled = true);
+                      widget.onDivisionChanged(null);
+                    },
+                  ),
+                  const Divider(height: 1, color: Color(0xFF404040)),
+                  // Division options
+                  for (final div in divisions)
+                    _buildMenuItem(
+                      label: _getGridDivisionLabel(div),
+                      isSelected: !_adaptiveEnabled && _division == div,
+                      onTap: () {
+                        setState(() {
+                          _adaptiveEnabled = false;
+                          _division = div;
+                        });
+                        widget.onDivisionChanged(div);
+                      },
+                    ),
+                  const Divider(height: 1, color: Color(0xFF404040)),
+                  // Triplet checkbox
+                  _buildMenuItem(
+                    label: 'Triplet',
+                    isSelected: _tripletEnabled,
+                    isCheckbox: true,
+                    onTap: () {
+                      setState(() => _tripletEnabled = !_tripletEnabled);
+                      widget.onTripletToggle();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem({
+    required String label,
+    required bool isSelected,
+    bool isCheckbox = false,
+    required VoidCallback onTap,
+  }) {
+    const menuTextColor = Colors.white70;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 18,
+              child: Icon(
+                isCheckbox
+                    ? (isSelected ? Icons.check_box : Icons.check_box_outline_blank)
+                    : (isSelected ? Icons.check : null),
+                size: 14,
+                color: menuTextColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: menuTextColor, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _getGridDivisionLabel(double division) {
+    if (division >= 4.0) return '1 Bar';
+    if (division >= 2.0) return '1/2';
+    if (division >= 1.0) return '1/4';
+    if (division >= 0.5) return '1/8';
+    if (division >= 0.25) return '1/16';
+    if (division >= 0.125) return '1/32';
+    if (division >= 0.0625) return '1/64';
+    return '1/128';
+  }
+}
+
+/// Overlay menu for Quantize settings - stays open until explicitly closed
+class _QuantizeMenuOverlay extends StatefulWidget {
+  final Offset position;
+  final int quantizeDivision;
+  final bool quantizeTripletEnabled;
+  final Function(int) onDivisionChanged;
+  final VoidCallback onTripletToggle;
+  final VoidCallback onClose;
+
+  const _QuantizeMenuOverlay({
+    required this.position,
+    required this.quantizeDivision,
+    required this.quantizeTripletEnabled,
+    required this.onDivisionChanged,
+    required this.onTripletToggle,
+    required this.onClose,
+  });
+
+  @override
+  State<_QuantizeMenuOverlay> createState() => _QuantizeMenuOverlayState();
+}
+
+class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
+  late int _division;
+  late bool _tripletEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _division = widget.quantizeDivision;
+    _tripletEnabled = widget.quantizeTripletEnabled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const divisions = [4, 8, 16, 32];
+
+    return Stack(
+      children: [
+        // Tap outside to close
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        // Menu popup
+        Positioned(
+          left: widget.position.dx,
+          top: widget.position.dy,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 100),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFF404040)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Grid option
+                  _buildMenuItem(
+                    label: 'Grid',
+                    isSelected: _division == 0,
+                    onTap: () {
+                      setState(() => _division = 0);
+                      widget.onDivisionChanged(0);
+                    },
+                  ),
+                  const Divider(height: 1, color: Color(0xFF404040)),
+                  // Division options
+                  for (final div in divisions)
+                    _buildMenuItem(
+                      label: '1/$div',
+                      isSelected: _division == div,
+                      onTap: () {
+                        setState(() => _division = div);
+                        widget.onDivisionChanged(div);
+                      },
+                    ),
+                  // Only show triplet when NOT on Grid
+                  if (_division != 0) ...[
+                    const Divider(height: 1, color: Color(0xFF404040)),
+                    _buildMenuItem(
+                      label: 'Triplet',
+                      isSelected: _tripletEnabled,
+                      isCheckbox: true,
+                      onTap: () {
+                        setState(() => _tripletEnabled = !_tripletEnabled);
+                        widget.onTripletToggle();
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem({
+    required String label,
+    required bool isSelected,
+    bool isCheckbox = false,
+    required VoidCallback onTap,
+  }) {
+    const menuTextColor = Colors.white70;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 18,
+              child: Icon(
+                isCheckbox
+                    ? (isSelected ? Icons.check_box : Icons.check_box_outline_blank)
+                    : (isSelected ? Icons.check : null),
+                size: 14,
+                color: menuTextColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: menuTextColor, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

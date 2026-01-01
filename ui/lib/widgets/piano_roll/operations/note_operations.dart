@@ -4,6 +4,7 @@ import '../../../models/midi_note_data.dart';
 import '../../../services/commands/clip_commands.dart';
 import '../../piano_roll.dart';
 import '../piano_roll_state.dart';
+import '../utilities/piano_roll_coordinates.dart';
 
 /// Mixin containing note manipulation operations for PianoRoll.
 /// Includes adding, deleting, moving, resizing, and transforming notes.
@@ -183,12 +184,32 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   // ============================================
 
   /// Quantize selected notes to grid.
+  /// Uses quantizeDivision (0 = current snap grid, else explicit value).
   void quantizeSelectedNotes() {
-    final selectedNotes = currentClip?.notes.where((n) => n.isSelected).toList() ?? [];
+    final selectedNotes =
+        currentClip?.notes.where((n) => n.isSelected).toList() ?? [];
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
-    final gridSize = gridDivision;
+
+    // Calculate grid size based on quantize settings
+    double gridSize;
+    if (quantizeDivision == 0) {
+      // Use current snap grid (including snap triplet)
+      gridSize = adaptiveGridEnabled
+          ? PianoRollCoordinates.getAdaptiveGridDivision(pixelsPerBeat)
+          : gridDivision;
+      if (snapTripletEnabled) {
+        gridSize = gridSize * 2 / 3;
+      }
+    } else {
+      // Use explicit quantize value (4, 8, 16, 32 → beats)
+      gridSize = 4.0 / quantizeDivision; // e.g., 16 → 0.25 beats
+      if (quantizeTripletEnabled) {
+        gridSize = gridSize * 2 / 3;
+      }
+    }
+
     setState(() {
       currentClip = currentClip?.copyWith(
         notes: currentClip!.notes.map((n) {
@@ -456,9 +477,34 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   }
 
   /// Snap a beat position to grid.
+  /// Uses adaptive grid if enabled, and applies triplet modifier if active.
   double snapToGrid(double beat) {
     if (!snapEnabled) return beat;
-    return (beat / gridDivision).floor() * gridDivision;
+
+    // Get effective grid division
+    double division = adaptiveGridEnabled
+        ? PianoRollCoordinates.getAdaptiveGridDivision(pixelsPerBeat)
+        : gridDivision;
+
+    // Apply triplet modifier (2/3 of normal division)
+    if (snapTripletEnabled) {
+      division = division * 2 / 3;
+    }
+
+    return (beat / division).floor() * division;
+  }
+
+  /// Get the current effective grid division (for display and grid rendering).
+  double getEffectiveGridDivision() {
+    double division = adaptiveGridEnabled
+        ? PianoRollCoordinates.getAdaptiveGridDivision(pixelsPerBeat)
+        : gridDivision;
+
+    if (snapTripletEnabled) {
+      division = division * 2 / 3;
+    }
+
+    return division;
   }
 
   /// Snap a MIDI note to the current scale.

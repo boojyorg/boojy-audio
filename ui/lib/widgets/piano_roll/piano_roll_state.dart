@@ -50,10 +50,23 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   // ============================================
 
   /// Grid division (1/16th note = 0.25 beats).
+  /// Used when adaptive grid is disabled.
   double gridDivision = 0.25;
 
   /// Whether snap to grid is enabled.
   bool snapEnabled = true;
+
+  /// Whether adaptive grid is enabled (auto-adjusts based on zoom).
+  bool adaptiveGridEnabled = true;
+
+  /// Whether snap triplet mode is enabled.
+  bool snapTripletEnabled = false;
+
+  /// Whether quantize triplet mode is enabled.
+  bool quantizeTripletEnabled = false;
+
+  /// Quantize division (0 = use current grid, else 4/8/16/32).
+  int quantizeDivision = 0;
 
   // ============================================
   // CLIP STATE
@@ -203,15 +216,6 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 
   /// Loop start position in beats.
   double loopStartBeats = 0.0;
-
-  /// Whether loop end is being dragged.
-  bool isDraggingLoopEnd = false;
-
-  /// X position when loop drag started.
-  double loopDragStartX = 0;
-
-  /// Loop length at drag start.
-  double loopLengthAtDragStart = 0;
 
   /// Loop marker drag mode.
   LoopMarkerDrag? loopMarkerDrag;

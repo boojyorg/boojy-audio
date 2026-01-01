@@ -43,6 +43,58 @@ class PianoRollCoordinates {
     return (beat / gridDivision).floor() * gridDivision;
   }
 
+  /// Returns the adaptive grid division based on zoom level.
+  /// Target: 20-40px per grid cell.
+  static double getAdaptiveGridDivision(double pixelsPerBeat) {
+    // Grid divisions in beats (smallest to largest)
+    // 1/128, 1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1 beat, 2 beats, 4 beats (1 bar), 8 beats, 16 beats
+    const divisions = [
+      0.03125, // 1/128
+      0.0625, // 1/64
+      0.125, // 1/32
+      0.25, // 1/16
+      0.5, // 1/8
+      1.0, // 1/4
+      2.0, // 1/2
+      4.0, // 1 bar
+      8.0, // 2 bars
+      16.0, // 4 bars
+    ];
+
+    // Find first division where cell width is >= 20px
+    for (final div in divisions) {
+      final cellWidth = div * pixelsPerBeat;
+      if (cellWidth >= 20 && cellWidth <= 40) {
+        return div;
+      }
+    }
+
+    // If no exact match, find first that's >= 20px
+    for (final div in divisions) {
+      if (div * pixelsPerBeat >= 20) {
+        return div;
+      }
+    }
+
+    // Fallback to largest division
+    return divisions.last;
+  }
+
+  /// Convert grid division (beats) to display label.
+  static String gridDivisionToLabel(double division, {bool triplet = false}) {
+    final suffix = triplet ? 'T' : '';
+    if (division >= 16.0) return '4 Bar$suffix';
+    if (division >= 8.0) return '2 Bar$suffix';
+    if (division >= 4.0) return '1 Bar$suffix';
+    if (division >= 2.0) return '1/2$suffix';
+    if (division >= 1.0) return '1/4$suffix';
+    if (division >= 0.5) return '1/8$suffix';
+    if (division >= 0.25) return '1/16$suffix';
+    if (division >= 0.125) return '1/32$suffix';
+    if (division >= 0.0625) return '1/64$suffix';
+    return '1/128$suffix';
+  }
+
   /// Calculate max pixelsPerBeat (zoom in limit).
   /// 1 sixteenth note (0.25 beats) should fill the view width.
   static double calculateMaxPixelsPerBeat(double viewWidth) {

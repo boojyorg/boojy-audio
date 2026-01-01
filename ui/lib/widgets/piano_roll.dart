@@ -374,9 +374,28 @@ class _PianoRollState extends State<PianoRoll>
             // Grid section
             snapEnabled: snapEnabled,
             gridDivision: gridDivision,
+            adaptiveGridEnabled: adaptiveGridEnabled,
+            snapTripletEnabled: snapTripletEnabled,
+            effectiveGridDivision: getEffectiveGridDivision(),
             onSnapToggle: toggleSnap,
-            onGridDivisionChanged: (division) => setState(() => gridDivision = division),
-            onQuantize: _quantizeClip,
+            onGridDivisionChanged: (division) {
+              setState(() {
+                if (division == null) {
+                  // Adaptive mode
+                  adaptiveGridEnabled = true;
+                } else {
+                  // Fixed division
+                  adaptiveGridEnabled = false;
+                  gridDivision = division;
+                }
+              });
+            },
+            onSnapTripletToggle: () => setState(() => snapTripletEnabled = !snapTripletEnabled),
+            onQuantize: quantizeSelectedNotes,
+            quantizeDivision: quantizeDivision,
+            quantizeTripletEnabled: quantizeTripletEnabled,
+            onQuantizeDivisionChanged: (div) => setState(() => quantizeDivision = div),
+            onQuantizeTripletToggle: () => setState(() => quantizeTripletEnabled = !quantizeTripletEnabled),
             swingAmount: swingAmount,
             onSwingChanged: (v) => setState(() => swingAmount = v),
             onSwingApply: applySwing,
@@ -568,7 +587,7 @@ class _PianoRollState extends State<PianoRoll>
                                                   painter: GridPainter(
                                                     pixelsPerBeat: pixelsPerBeat,
                                                     pixelsPerNote: pixelsPerNote,
-                                                    gridDivision: gridDivision,
+                                                    gridDivision: getEffectiveGridDivision(),
                                                     maxMidiNote: PianoRollStateMixin.maxMidiNote,
                                                     minMidiNote: PianoRollStateMixin.minMidiNote,
                                                     totalBeats: totalBeats,
@@ -577,6 +596,7 @@ class _PianoRollState extends State<PianoRoll>
                                                     loopStart: loopStartBeats,
                                                     loopEnd: loopStartBeats + getLoopLength(),
                                                     beatsPerBar: beatsPerBar,
+                                                    tripletEnabled: snapTripletEnabled,
                                                     blackKeyBackground: context.colors.standard,
                                                     whiteKeyBackground: context.colors.elevated,
                                                     separatorLine: context.colors.elevated,
@@ -602,7 +622,6 @@ class _PianoRollState extends State<PianoRoll>
                                                     showGhostNotes: ghostNotesEnabled,
                                                   ),
                                                 ),
-                                                _buildLoopEndMarker(activeBeats, canvasHeight),
                                                 _buildInsertMarker(canvasHeight),
                                               ],
                                             ),
@@ -753,89 +772,6 @@ class _PianoRollState extends State<PianoRoll>
   // - onVelocityPanStart(), onVelocityPanUpdate(), onVelocityPanEnd()
   // Note finding: findNoteAtVelocityPosition() is in NoteGestureHandlerMixin
 
-  /// Build the draggable loop end marker
-  Widget _buildLoopEndMarker(double loopLength, double canvasHeight) {
-    final markerX = loopLength * pixelsPerBeat;
-    const handleWidth = 12.0;
-
-    return Positioned(
-      left: markerX - handleWidth / 2,
-      top: 0,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeLeftRight,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (details) {
-            isDraggingLoopEnd = true;
-            loopDragStartX = details.globalPosition.dx;
-            loopLengthAtDragStart = currentClip?.loopLength ?? loopLength;
-          },
-          onHorizontalDragUpdate: (details) {
-            if (!isDraggingLoopEnd || currentClip == null) return;
-
-            // Calculate delta from drag start position
-            final deltaX = details.globalPosition.dx - loopDragStartX;
-            final deltaBeats = deltaX / pixelsPerBeat;
-
-            // Calculate new loop length from initial value + delta
-            var newLoopLength = loopLengthAtDragStart + deltaBeats;
-
-            // Snap to grid
-            newLoopLength = snapToGrid(newLoopLength);
-
-            // Minimum 1 bar (4 beats)
-            newLoopLength = newLoopLength.clamp(4.0, 256.0);
-
-            // Update clip with new loop length
-            setState(() {
-              currentClip = currentClip!.copyWith(loopLength: newLoopLength);
-            });
-
-            notifyClipUpdated();
-          },
-          onHorizontalDragEnd: (details) {
-            isDraggingLoopEnd = false;
-          },
-          child: Container(
-            width: handleWidth,
-            height: canvasHeight,
-            decoration: BoxDecoration(
-              // Vertical line
-              border: Border(
-                left: BorderSide(
-                  color: context.colors.warning.withValues(alpha: 0.8), // Orange line
-                  width: 2,
-                ),
-              ),
-            ),
-            child: Center(
-              child: Container(
-                width: handleWidth,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: context.colors.warning, // Orange handle
-                  borderRadius: BorderRadius.circular(3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: context.colors.darkest.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 10,
-                  color: context.colors.textPrimary,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Build insert marker (blue dashed line) - spec v2.0
   Widget _buildInsertMarker(double canvasHeight) {
     if (insertMarkerBeats == null) return const SizedBox.shrink();
@@ -860,21 +796,6 @@ class _PianoRollState extends State<PianoRoll>
         ),
       ),
     );
-  }
-
-  /// Quantize all notes in the clip to the specified grid division
-  void _quantizeClip(int gridDivision) {
-    if (currentClip == null || widget.audioEngine == null) {
-      return;
-    }
-
-    final clipId = currentClip!.clipId;
-
-    // Call the Rust engine to quantize
-    widget.audioEngine!.quantizeMidiClip(clipId, gridDivision);
-
-    // Reload notes from clip to show updated positions
-    loadClipFromEngine();
   }
 
   /// Build the Randomize button with dropdown for velocity lane header
@@ -2113,6 +2034,11 @@ class _PianoRollState extends State<PianoRoll>
       // Resize note from left or right edge (FL Studio style)
       // Shift key bypasses grid snap for fine adjustment
       final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+      // When snap is off or shift is pressed, allow very small notes (like Ableton)
+      // Otherwise use effective grid division as minimum
+      final minDuration = (!snapEnabled || isShiftPressed)
+          ? 0.01 // ~1-2px at typical zoom, allows very short notes
+          : getEffectiveGridDivision();
       MidiNoteData? resizedNote;
       setState(() {
         currentClip = currentClip?.copyWith(
@@ -2123,13 +2049,13 @@ class _PianoRollState extends State<PianoRoll>
 
               if (resizingEdge == 'right') {
                 // Right edge: change duration only
-                final newDuration = (newBeat - n.startTime).clamp(gridDivision, 64.0);
+                final newDuration = (newBeat - n.startTime).clamp(minDuration, 64.0);
                 resizedNote = n.copyWith(duration: newDuration);
                 return resizedNote!;
               } else if (resizingEdge == 'left') {
                 // Left edge: change start time and duration
                 final oldEndTime = n.endTime;
-                final newStartTime = newBeat.clamp(0.0, oldEndTime - gridDivision);
+                final newStartTime = newBeat.clamp(0.0, oldEndTime - minDuration);
                 final newDuration = oldEndTime - newStartTime;
                 resizedNote = n.copyWith(
                   startTime: newStartTime,

@@ -18,6 +18,9 @@ class GridPainter extends CustomPainter {
   // Time signature
   final int beatsPerBar; // e.g., 4 for 4/4, 3 for 3/4, 6 for 6/8
 
+  // Triplet mode (3 lines per beat instead of 4)
+  final bool tripletEnabled;
+
   // Theme-aware colors (passed from widget with BuildContext)
   final Color blackKeyBackground;
   final Color whiteKeyBackground;
@@ -44,6 +47,7 @@ class GridPainter extends CustomPainter {
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
     this.beatsPerBar = 4, // Default to 4/4 time
+    this.tripletEnabled = false,
     required this.blackKeyBackground,
     required this.whiteKeyBackground,
     required this.separatorLine,
@@ -103,11 +107,19 @@ class GridPainter extends CustomPainter {
       ..color = barGridLine
       ..strokeWidth = 2.5;
 
+    // Calculate effective grid step
+    // For triplets, the gridDivision is already 2/3 of normal,
+    // so we just use it as-is
+    final gridStep = gridDivision;
+
     // Vertical lines (beats and bars)
-    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
+    for (double beat = 0; beat <= totalBeats; beat += gridStep) {
       final x = beat * pixelsPerBeat;
-      final isBar = (beat % beatsPerBar) == 0.0; // Uses time signature
-      final isBeat = (beat % 1.0) == 0.0;
+
+      // Check if this is a bar line (uses time signature)
+      final isBar = _isApproximately(beat % beatsPerBar, 0.0);
+      // Check if this is a beat line
+      final isBeat = _isApproximately(beat % 1.0, 0.0);
 
       final paint = isBar ? barPaint : (isBeat ? beatPaint : subdivisionPaint);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
@@ -151,6 +163,11 @@ class GridPainter extends CustomPainter {
     return scaleIntervals.contains(normalized);
   }
 
+  /// Check if two doubles are approximately equal (handles triplet rounding)
+  bool _isApproximately(double a, double b, [double epsilon = 0.001]) {
+    return (a - b).abs() < epsilon;
+  }
+
   @override
   bool shouldRepaint(GridPainter oldDelegate) {
     return pixelsPerBeat != oldDelegate.pixelsPerBeat ||
@@ -162,6 +179,7 @@ class GridPainter extends CustomPainter {
         loopStart != oldDelegate.loopStart ||
         loopEnd != oldDelegate.loopEnd ||
         beatsPerBar != oldDelegate.beatsPerBar ||
+        tripletEnabled != oldDelegate.tripletEnabled ||
         blackKeyBackground != oldDelegate.blackKeyBackground ||
         whiteKeyBackground != oldDelegate.whiteKeyBackground ||
         separatorLine != oldDelegate.separatorLine ||
