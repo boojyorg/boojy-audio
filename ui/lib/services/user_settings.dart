@@ -29,6 +29,29 @@ class RecentProject {
   }
 }
 
+/// Remembered device preference per audio driver
+class DevicePreference {
+  final String? outputDevice;
+  final String? inputDevice;
+
+  DevicePreference({
+    this.outputDevice,
+    this.inputDevice,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'outputDevice': outputDevice,
+    'inputDevice': inputDevice,
+  };
+
+  factory DevicePreference.fromJson(Map<String, dynamic> json) {
+    return DevicePreference(
+      outputDevice: json['outputDevice'] as String?,
+      inputDevice: json['inputDevice'] as String?,
+    );
+  }
+}
+
 /// User settings service for persistent app preferences
 /// Singleton that manages user-configurable settings
 class UserSettings extends ChangeNotifier {
@@ -56,8 +79,10 @@ class UserSettings extends ChangeNotifier {
   static const String _keyExportRememberArtist = 'export_remember_artist';
 
   // Audio device setting keys
+  static const String _keyAudioDriver = 'audio_driver';
   static const String _keyPreferredOutputDevice = 'preferred_output_device';
   static const String _keyPreferredInputDevice = 'preferred_input_device';
+  static const String _keyDevicePerDriver = 'device_per_driver'; // JSON map
   static const String _keySampleRate = 'sample_rate';
   static const String _keyBufferSize = 'buffer_size';
 
@@ -117,10 +142,12 @@ class UserSettings extends ChangeNotifier {
   bool _rememberArtist = false;
 
   // Audio device settings
+  String _audioDriver = 'wasapi'; // 'wasapi', 'asio4all', or specific ASIO driver id
   String? _preferredOutputDevice;
   String? _preferredInputDevice;
+  Map<String, DevicePreference> _devicePerDriver = {}; // Remember device per driver
   int _sampleRate = 48000; // 44100 or 48000
-  int _bufferSize = 256; // 128/256/512/1024
+  int _bufferSize = 256; // 64/128/256/512/1024
 
   // MIDI settings
   String? _preferredMidiInput; // null = all devices
@@ -267,6 +294,39 @@ class UserSettings extends ChangeNotifier {
   // Audio Device Settings
   // ========================================================================
 
+  /// Audio driver: 'wasapi', 'asio4all', or specific ASIO driver id
+  String get audioDriver => _audioDriver;
+  set audioDriver(String value) {
+    if (_audioDriver != value) {
+      // Save current device preferences for the old driver
+      _devicePerDriver[_audioDriver] = DevicePreference(
+        outputDevice: _preferredOutputDevice,
+        inputDevice: _preferredInputDevice,
+      );
+
+      _audioDriver = value;
+
+      // Restore device preferences for the new driver (if any)
+      final pref = _devicePerDriver[value];
+      if (pref != null) {
+        _preferredOutputDevice = pref.outputDevice;
+        _preferredInputDevice = pref.inputDevice;
+      } else {
+        // New driver - clear device selections
+        _preferredOutputDevice = null;
+        _preferredInputDevice = null;
+      }
+
+      _saveAudioSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Get remembered device preference for a specific driver
+  DevicePreference? getDevicePreferenceForDriver(String driver) {
+    return _devicePerDriver[driver];
+  }
+
   /// Preferred audio output device
   String? get preferredOutputDevice => _preferredOutputDevice;
   set preferredOutputDevice(String? value) {
@@ -297,10 +357,10 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
-  /// Buffer size: 128, 256, 512, or 1024 samples
+  /// Buffer size: 64, 128, 256, 512, or 1024 samples
   int get bufferSize => _bufferSize;
   set bufferSize(int value) {
-    if (_bufferSize != value && [128, 256, 512, 1024].contains(value)) {
+    if (_bufferSize != value && [64, 128, 256, 512, 1024].contains(value)) {
       _bufferSize = value;
       _saveAudioSettings();
       notifyListeners();
@@ -496,10 +556,23 @@ class UserSettings extends ChangeNotifier {
       _rememberArtist = _prefs?.getBool(_keyExportRememberArtist) ?? false;
 
       // Load audio device settings
+      _audioDriver = _prefs?.getString(_keyAudioDriver) ?? 'wasapi';
       _preferredOutputDevice = _prefs?.getString(_keyPreferredOutputDevice);
       _preferredInputDevice = _prefs?.getString(_keyPreferredInputDevice);
       _sampleRate = _prefs?.getInt(_keySampleRate) ?? 48000;
       _bufferSize = _prefs?.getInt(_keyBufferSize) ?? 256;
+
+      // Load device per driver preferences
+      final devicePerDriverJson = _prefs?.getString(_keyDevicePerDriver);
+      if (devicePerDriverJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(devicePerDriverJson);
+          _devicePerDriver = decoded.map((key, value) =>
+              MapEntry(key, DevicePreference.fromJson(value as Map<String, dynamic>)));
+        } catch (e) {
+          _devicePerDriver = {};
+        }
+      }
 
       // Load MIDI settings
       _preferredMidiInput = _prefs?.getString(_keyPreferredMidiInput);
@@ -583,6 +656,7 @@ class UserSettings extends ChangeNotifier {
     if (_prefs == null) return;
 
     try {
+      await _prefs!.setString(_keyAudioDriver, _audioDriver);
       if (_preferredOutputDevice != null) {
         await _prefs!.setString(_keyPreferredOutputDevice, _preferredOutputDevice!);
       } else {
@@ -595,6 +669,11 @@ class UserSettings extends ChangeNotifier {
       }
       await _prefs!.setInt(_keySampleRate, _sampleRate);
       await _prefs!.setInt(_keyBufferSize, _bufferSize);
+
+      // Save device per driver preferences
+      final devicePerDriverMap = _devicePerDriver.map((key, value) =>
+          MapEntry(key, value.toJson()));
+      await _prefs!.setString(_keyDevicePerDriver, jsonEncode(devicePerDriverMap));
     } catch (e) {
       debugPrint('UserSettings: Failed to save audio settings: $e');
     }
