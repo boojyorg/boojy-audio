@@ -22,6 +22,7 @@ mod ffi;
 mod audio_file;
 mod audio_graph;
 mod audio_input;
+mod latency_test;  // Latency measurement tool
 mod recorder;
 mod midi;
 mod midi_input;
@@ -52,6 +53,7 @@ pub use track::*;
 pub use effects::*;
 pub use project::*;
 pub use export::*;
+pub use latency_test::*;
 
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub use vst3_host::*;

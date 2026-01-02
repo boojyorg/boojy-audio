@@ -47,6 +47,31 @@ pub fn get_audio_output_devices() -> Result<Vec<(String, String, bool)>, String>
     Ok(AudioGraph::get_output_devices())
 }
 
+/// Set audio output device by name
+/// Pass empty string to use system default
+pub fn set_audio_output_device(device_name: &str) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let name = if device_name.is_empty() {
+        None
+    } else {
+        Some(device_name.to_string())
+    };
+
+    graph.set_output_device(name).map_err(|e| e.to_string())?;
+
+    Ok(format!("Output device set to: {}", if device_name.is_empty() { "System Default" } else { device_name }))
+}
+
+/// Get currently selected output device name (empty string = system default)
+pub fn get_selected_audio_output_device() -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    Ok(graph.get_selected_output_device().unwrap_or_default())
+}
+
 /// Get current sample rate
 pub fn get_sample_rate() -> u32 {
     use crate::audio_graph::AudioGraph;

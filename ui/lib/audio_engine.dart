@@ -4,6 +4,7 @@
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 
 /// FFI bindings for the Rust audio engine
 class AudioEngine {
@@ -31,6 +32,10 @@ class AudioEngine {
   late final _GetBufferSizePresetFfi _getBufferSizePreset;
   late final _GetActualBufferSizeFfi _getActualBufferSize;
   late final _GetLatencyInfoFfi _getLatencyInfo;
+  late final _StartLatencyTestFfi _startLatencyTest;
+  late final _StopLatencyTestFfi _stopLatencyTest;
+  late final _GetLatencyTestStatusFfi _getLatencyTestStatus;
+  late final _GetLatencyTestErrorFfi _getLatencyTestError;
   late final _SetClipStartTimeFfi _setClipStartTime;
   late final _GetWaveformPeaksFfi _getWaveformPeaks;
   late final _FreeWaveformPeaksFfi _freeWaveformPeaks;
@@ -145,6 +150,8 @@ class AudioEngine {
   late final _GetAudioInputDevicesFfi _getAudioInputDevices;
   late final _GetAudioOutputDevicesFfi _getAudioOutputDevices;
   late final _SetAudioInputDeviceFfi _setAudioInputDevice;
+  late final _SetAudioOutputDeviceFfi _setAudioOutputDevice;
+  late final _GetSelectedAudioOutputDeviceFfi _getSelectedAudioOutputDevice;
   late final _GetSampleRateFfi _getSampleRate;
 
   AudioEngine() {
@@ -300,6 +307,26 @@ class AudioEngine {
       _getLatencyInfo = _lib
           .lookup<ffi.NativeFunction<_GetLatencyInfoFfiNative>>(
               'get_latency_info_ffi')
+          .asFunction();
+
+      _startLatencyTest = _lib
+          .lookup<ffi.NativeFunction<_StartLatencyTestFfiNative>>(
+              'start_latency_test_ffi')
+          .asFunction();
+
+      _stopLatencyTest = _lib
+          .lookup<ffi.NativeFunction<_StopLatencyTestFfiNative>>(
+              'stop_latency_test_ffi')
+          .asFunction();
+
+      _getLatencyTestStatus = _lib
+          .lookup<ffi.NativeFunction<_GetLatencyTestStatusFfiNative>>(
+              'get_latency_test_status_ffi')
+          .asFunction();
+
+      _getLatencyTestError = _lib
+          .lookup<ffi.NativeFunction<_GetLatencyTestErrorFfiNative>>(
+              'get_latency_test_error_ffi')
           .asFunction();
 
       _getClipDuration = _lib
@@ -769,6 +796,16 @@ class AudioEngine {
               'set_audio_input_device_ffi')
           .asFunction();
 
+      _setAudioOutputDevice = _lib
+          .lookup<ffi.NativeFunction<_SetAudioOutputDeviceFfiNative>>(
+              'set_audio_output_device_ffi')
+          .asFunction();
+
+      _getSelectedAudioOutputDevice = _lib
+          .lookup<ffi.NativeFunction<_GetSelectedAudioOutputDeviceFfiNative>>(
+              'get_selected_audio_output_device_ffi')
+          .asFunction();
+
       _getSampleRate = _lib
           .lookup<ffi.NativeFunction<_GetSampleRateFfiNative>>(
               'get_sample_rate_ffi')
@@ -998,6 +1035,110 @@ class AudioEngine {
       calloc.free(outputLatencyPtr);
       calloc.free(roundtripPtr);
     }
+  }
+
+  // ============================================================================
+  // LATENCY TEST
+  // ============================================================================
+
+  /// Latency test state constants
+  static const int latencyTestStateIdle = 0;
+  static const int latencyTestStateWaitingForSilence = 1;
+  static const int latencyTestStatePlaying = 2;
+  static const int latencyTestStateListening = 3;
+  static const int latencyTestStateAnalyzing = 4;
+  static const int latencyTestStateDone = 5;
+  static const int latencyTestStateError = 6;
+
+  /// Start latency test to measure real round-trip audio latency
+  /// Requires audio input connected to output (loopback)
+  String startLatencyTest() {
+    final resultPtr = _startLatencyTest();
+    try {
+      return resultPtr.toDartString();
+    } finally {
+      _freeRustString(resultPtr);
+    }
+  }
+
+  /// Stop/cancel the latency test
+  String stopLatencyTest() {
+    final resultPtr = _stopLatencyTest();
+    try {
+      return resultPtr.toDartString();
+    } finally {
+      _freeRustString(resultPtr);
+    }
+  }
+
+  /// Get latency test status
+  /// Returns: (state, resultMs)
+  /// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
+  /// Result: latency in ms (or -1.0 if not available)
+  (int, double) getLatencyTestStatus() {
+    final statePtr = calloc<ffi.Int32>();
+    final resultPtr = calloc<ffi.Float>();
+
+    try {
+      _getLatencyTestStatus(statePtr, resultPtr);
+      return (statePtr.value, resultPtr.value);
+    } catch (e) {
+      return (0, -1.0);
+    } finally {
+      calloc.free(statePtr);
+      calloc.free(resultPtr);
+    }
+  }
+
+  /// Get latency test error message (if state is Error)
+  String? getLatencyTestError() {
+    final resultPtr = _getLatencyTestError();
+    if (resultPtr == ffi.nullptr) {
+      return null;
+    }
+    try {
+      return resultPtr.toDartString();
+    } finally {
+      _freeRustString(resultPtr);
+    }
+  }
+
+  /// Run a latency test asynchronously
+  /// Returns the measured latency in ms, or null if the test failed
+  Future<double?> runLatencyTest({
+    Duration timeout = const Duration(seconds: 5),
+    Duration pollInterval = const Duration(milliseconds: 100),
+  }) async {
+    // Start the test
+    startLatencyTest();
+
+    final endTime = DateTime.now().add(timeout);
+
+    // Poll for completion
+    while (DateTime.now().isBefore(endTime)) {
+      await Future.delayed(pollInterval);
+
+      final (state, result) = getLatencyTestStatus();
+
+      if (state == latencyTestStateDone) {
+        return result;
+      }
+
+      if (state == latencyTestStateError) {
+        final error = getLatencyTestError();
+        debugPrint('Latency test error: $error');
+        return null;
+      }
+
+      if (state == latencyTestStateIdle) {
+        // Test was stopped
+        return null;
+      }
+    }
+
+    // Timeout - stop the test
+    stopLatencyTest();
+    return null;
   }
 
   /// Get clip duration in seconds
@@ -1448,6 +1589,38 @@ class AudioEngine {
       return result;
     } catch (e) {
       return 'Error: $e';
+    }
+  }
+
+  /// Set audio output device by name
+  /// Pass empty string to use system default
+  /// Returns success message or error
+  String setAudioOutputDevice(String deviceName) {
+    try {
+      final deviceNamePtr = deviceName.toNativeUtf8();
+      final resultPtr = _setAudioOutputDevice(deviceNamePtr);
+      calloc.free(deviceNamePtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Get currently selected audio output device name
+  /// Returns empty string if using system default
+  String getSelectedAudioOutputDevice() {
+    try {
+      final resultPtr = _getSelectedAudioOutputDevice();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error:')) {
+        return '';
+      }
+      return result;
+    } catch (e) {
+      return '';
     }
   }
 
@@ -2479,6 +2652,21 @@ typedef _GetLatencyInfoFfiNative = ffi.Void Function(
 typedef _GetLatencyInfoFfi = void Function(
     ffi.Pointer<ffi.Uint32>, ffi.Pointer<ffi.Float>, ffi.Pointer<ffi.Float>, ffi.Pointer<ffi.Float>);
 
+// Latency Test types
+typedef _StartLatencyTestFfiNative = ffi.Pointer<Utf8> Function();
+typedef _StartLatencyTestFfi = ffi.Pointer<Utf8> Function();
+
+typedef _StopLatencyTestFfiNative = ffi.Pointer<Utf8> Function();
+typedef _StopLatencyTestFfi = ffi.Pointer<Utf8> Function();
+
+typedef _GetLatencyTestStatusFfiNative = ffi.Void Function(
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Float>);
+typedef _GetLatencyTestStatusFfi = void Function(
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Float>);
+
+typedef _GetLatencyTestErrorFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetLatencyTestErrorFfi = ffi.Pointer<Utf8> Function();
+
 typedef _GetClipDurationFfiNative = ffi.Double Function(ffi.Uint64);
 typedef _GetClipDurationFfi = double Function(int);
 
@@ -2773,6 +2961,12 @@ typedef _GetAudioOutputDevicesFfi = ffi.Pointer<Utf8> Function();
 
 typedef _SetAudioInputDeviceFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetAudioInputDeviceFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _SetAudioOutputDeviceFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+typedef _SetAudioOutputDeviceFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<Utf8>);
+
+typedef _GetSelectedAudioOutputDeviceFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetSelectedAudioOutputDeviceFfi = ffi.Pointer<Utf8> Function();
 
 typedef _GetSampleRateFfiNative = ffi.Uint32 Function();
 typedef _GetSampleRateFfi = int Function();

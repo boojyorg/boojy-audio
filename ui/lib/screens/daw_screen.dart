@@ -282,13 +282,17 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   Future<void> _initAudioEngine() async {
+    debugPrint('DawScreen: Starting audio engine initialization...');
     try {
       // Load plugin preferences early (before any plugin operations)
       await PluginPreferencesService.load();
 
       // Called after 800ms delay from initState, so UI has rendered
+      debugPrint('DawScreen: Creating AudioEngine...');
       _audioEngine = AudioEngine();
+      debugPrint('DawScreen: AudioEngine created, calling initAudioEngine...');
       _audioEngine!.initAudioEngine();
+      debugPrint('DawScreen: initAudioEngine done');
 
       // Initialize audio graph
       _audioEngine!.initAudioGraph();
@@ -300,6 +304,25 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
       } catch (e) {
         debugPrint('DawScreen: Failed to initialize recording settings: $e');
+      }
+
+      // Initialize buffer size from user settings
+      try {
+        final bufferPreset = _bufferSizeToPreset(_userSettings.bufferSize);
+        _audioEngine!.setBufferSize(bufferPreset);
+        debugPrint('DawScreen: Buffer size set to ${_userSettings.bufferSize} samples (preset $bufferPreset)');
+      } catch (e) {
+        debugPrint('DawScreen: Failed to set buffer size: $e');
+      }
+
+      // Initialize output device from user settings
+      if (_userSettings.preferredOutputDevice != null) {
+        try {
+          _audioEngine!.setAudioOutputDevice(_userSettings.preferredOutputDevice!);
+          debugPrint('DawScreen: Output device set to ${_userSettings.preferredOutputDevice}');
+        } catch (e) {
+          debugPrint('DawScreen: Failed to set output device: $e');
+        }
       }
 
       if (mounted) {
@@ -352,7 +375,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Check for crash recovery
       _checkForCrashRecovery();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('DawScreen: FAILED to initialize audio engine: $e');
+      debugPrint('DawScreen: Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _statusMessage = 'Failed to initialize: $e';
@@ -505,6 +530,19 @@ class _DAWScreenState extends State<DAWScreen> {
             ? 'Count-in: 1 bar'
             : 'Count-in: 2 bars';
     _playbackController.setStatusMessage(message);
+  }
+
+  /// Convert buffer size in samples to preset index
+  /// 64=0 (Lowest), 128=1 (Low), 256=2 (Balanced), 512=3 (Safe), 1024=4 (HighStability)
+  int _bufferSizeToPreset(int bufferSize) {
+    switch (bufferSize) {
+      case 64: return 0;
+      case 128: return 1;
+      case 256: return 2;
+      case 512: return 3;
+      case 1024: return 4;
+      default: return 2; // Default to Balanced (256)
+    }
   }
 
   void _onTempoChanged(double bpm) {
@@ -2449,7 +2487,21 @@ class _DAWScreenState extends State<DAWScreen> {
 
   Future<void> _appSettings() async {
     // Open app-wide settings dialog (accessed via logo "O" click)
-    await AppSettingsDialog.show(context, _userSettings);
+
+    // Wait for audio engine if not yet initialized (up to 2 seconds)
+    if (_audioEngine == null) {
+      debugPrint('DawScreen._appSettings: Waiting for audio engine...');
+      for (int i = 0; i < 20 && _audioEngine == null && mounted; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
+    if (!mounted) return;
+
+    final engineStatus = _audioEngine != null ? 'available' : 'NULL';
+    debugPrint('DawScreen._appSettings: audioEngine is $engineStatus');
+
+    await AppSettingsDialog.show(context, _userSettings, audioEngine: _audioEngine);
   }
 
   Future<void> _projectSettings() async {
@@ -2893,7 +2945,7 @@ class _DAWScreenState extends State<DAWScreen> {
             ),
             PlatformMenuItem(
               label: 'Settings...',
-              onSelected: () => SettingsDialog.show(context),
+              onSelected: _appSettings,
             ),
             const PlatformMenuItem(
               label: 'Zoom In',

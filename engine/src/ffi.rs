@@ -189,6 +189,63 @@ pub extern "C" fn get_latency_info_ffi(
     }
 }
 
+// ============================================================================
+// LATENCY TEST FFI
+// ============================================================================
+
+/// Start latency test to measure real round-trip audio latency
+#[no_mangle]
+pub extern "C" fn start_latency_test_ffi() -> *mut c_char {
+    match api::start_latency_test() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Stop/cancel latency test
+#[no_mangle]
+pub extern "C" fn stop_latency_test_ffi() -> *mut c_char {
+    match api::stop_latency_test() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get latency test status
+/// Returns packed i64: (state << 32) | (result_ms as bits)
+/// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
+#[no_mangle]
+pub extern "C" fn get_latency_test_status_ffi(
+    out_state: *mut i32,
+    out_result_ms: *mut f32,
+) {
+    match api::get_latency_test_status() {
+        Ok((state, result_ms)) => {
+            unsafe {
+                if !out_state.is_null() { *out_state = state; }
+                if !out_result_ms.is_null() { *out_result_ms = result_ms; }
+            }
+        }
+        Err(_) => {
+            unsafe {
+                if !out_state.is_null() { *out_state = 0; }
+                if !out_result_ms.is_null() { *out_result_ms = -1.0; }
+            }
+        }
+    }
+}
+
+/// Get latency test error message (if state is Error)
+/// Returns null if no error
+#[no_mangle]
+pub extern "C" fn get_latency_test_error_ffi() -> *mut c_char {
+    match api::get_latency_test_error() {
+        Ok(Some(msg)) => safe_cstring(msg).into_raw(),
+        Ok(None) => std::ptr::null_mut(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
 /// Get clip duration in seconds
 #[no_mangle]
 pub extern "C" fn get_clip_duration_ffi(clip_id: u64) -> f64 {
@@ -526,6 +583,37 @@ pub extern "C" fn set_audio_input_device_ffi(device_index: i32) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn get_sample_rate_ffi() -> u32 {
     api::get_sample_rate()
+}
+
+/// Set audio output device by name
+/// Pass empty string to use system default
+#[no_mangle]
+pub extern "C" fn set_audio_output_device_ffi(device_name: *const c_char) -> *mut c_char {
+    let name = unsafe {
+        if device_name.is_null() {
+            ""
+        } else {
+            match CStr::from_ptr(device_name).to_str() {
+                Ok(s) => s,
+                Err(_) => return safe_cstring("Error: Invalid UTF-8".to_string()).into_raw(),
+            }
+        }
+    };
+
+    match api::set_audio_output_device(name) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get currently selected audio output device name
+/// Returns empty string for system default
+#[no_mangle]
+pub extern "C" fn get_selected_audio_output_device_ffi() -> *mut c_char {
+    match api::get_selected_audio_output_device() {
+        Ok(name) => safe_cstring(name).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
 }
 
 /// Create a new empty MIDI clip

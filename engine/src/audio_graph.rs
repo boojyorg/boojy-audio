@@ -109,6 +109,14 @@ pub struct AudioGraph {
     preferred_buffer_size: Arc<Mutex<BufferSizePreset>>,
     /// Actual buffer size being used (set by audio callback)
     actual_buffer_size: Arc<std::sync::atomic::AtomicU32>,
+
+    // --- Device Selection ---
+    /// Selected output device name (None = use system default)
+    selected_output_device: Arc<Mutex<Option<String>>>,
+
+    // --- Latency Testing ---
+    /// Latency test engine for measuring real round-trip latency
+    pub latency_test: Arc<crate::latency_test::LatencyTest>,
 }
 
 // SAFETY: AudioGraph is only accessed through a Mutex in the API layer,
@@ -152,6 +160,8 @@ impl AudioGraph {
             track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
             preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
             actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            selected_output_device: Arc::new(Mutex::new(None)),
+            latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
 
         // Create audio stream immediately (prevents deadlock on first play)
@@ -512,13 +522,95 @@ impl AudioGraph {
     /// Create the audio output stream
     fn create_audio_stream(&self) -> anyhow::Result<cpal::Stream> {
         use cpal::SupportedBufferSize;
+        use cpal::traits::HostTrait;
 
-        let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .ok_or_else(|| anyhow::anyhow!("No output device available"))?;
+        // Check if a specific device is selected
+        let selected_name = self.selected_output_device.lock()
+            .expect("mutex poisoned")
+            .clone();
+
+        // Helper to find device by name from a host
+        fn find_device_in_host<H: HostTrait>(host: &H, name: &str) -> Option<H::Device> {
+            host.output_devices().ok()?.find(|d| {
+                d.name().ok().as_ref().map(|n| n == name).unwrap_or(false)
+            })
+        }
+
+        // Determine if we should use ASIO host and get the device
+        #[cfg(all(windows, feature = "asio"))]
+        let device = if let Some(ref name) = selected_name {
+            if name.starts_with("[ASIO] ") {
+                let actual_name = name.strip_prefix("[ASIO] ").unwrap();
+                eprintln!("🔊 [AudioGraph] Attempting to use ASIO device: {}", actual_name);
+
+                match cpal::host_from_id(cpal::HostId::Asio) {
+                    Ok(asio_host) => {
+                        match find_device_in_host(&asio_host, actual_name) {
+                            Some(d) => {
+                                eprintln!("🔊 [AudioGraph] Using ASIO device: {}", actual_name);
+                                d
+                            }
+                            None => {
+                                eprintln!("⚠️ [AudioGraph] ASIO device '{}' not found, falling back to default", actual_name);
+                                cpal::default_host().default_output_device()
+                                    .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️ [AudioGraph] Failed to initialize ASIO host: {}, falling back to default", e);
+                        cpal::default_host().default_output_device()
+                            .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+                    }
+                }
+            } else {
+                // Non-ASIO device, use default host
+                let host = cpal::default_host();
+                match find_device_in_host(&host, name) {
+                    Some(d) => {
+                        eprintln!("🔊 [AudioGraph] Using selected output device: {}", name);
+                        d
+                    }
+                    None => {
+                        eprintln!("⚠️ [AudioGraph] Selected device '{}' not found, using default", name);
+                        host.default_output_device()
+                            .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+                    }
+                }
+            }
+        } else {
+            cpal::default_host().default_output_device()
+                .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+        };
+
+        #[cfg(not(all(windows, feature = "asio")))]
+        let device = {
+            let host = cpal::default_host();
+            if let Some(ref name) = selected_name {
+                match find_device_in_host(&host, name) {
+                    Some(d) => {
+                        eprintln!("🔊 [AudioGraph] Using selected output device: {}", name);
+                        d
+                    }
+                    None => {
+                        eprintln!("⚠️ [AudioGraph] Selected device '{}' not found, using default", name);
+                        host.default_output_device()
+                            .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+                    }
+                }
+            } else {
+                host.default_output_device()
+                    .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+            }
+        };
+
+        // Log device info
+        if let Ok(name) = device.name() {
+            eprintln!("🔊 [AudioGraph] Using device: {}", name);
+        }
 
         let supported_config = device.default_output_config()?;
+        eprintln!("🔊 [AudioGraph] Device config: {:?}", supported_config);
 
         // Get preferred buffer size
         let preferred_samples = self.preferred_buffer_size.lock()
@@ -571,6 +663,9 @@ impl AudioGraph {
         // M6: Clone track synth manager
         let track_synth_manager = self.track_synth_manager.clone();
 
+        // Latency test
+        let latency_test = self.latency_test.clone();
+
         let stream = device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -585,6 +680,9 @@ impl AudioGraph {
                     // Even when not playing, we might be recording or using virtual piano
                     // Process metronome, recording, AND synths (for real-time MIDI input)
                     // but DON'T advance playhead or trigger MIDI clips from timeline
+
+                    // Get current playhead for latency test sample counting
+                    let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
                     // Debug: log that we're in stopped callback (once)
                     static LOGGED_STOPPED: AtomicBool = AtomicBool::new(false);
@@ -751,6 +849,13 @@ impl AudioGraph {
                                 }
                             }
                         }
+
+                        // Process latency test (if running)
+                        let sample_idx = current_playhead.wrapping_add(frame_idx as u64);
+                        latency_test.process_input(input_left, sample_idx);
+                        let test_tone = latency_test.generate_output(sample_idx);
+                        out_left += test_tone;
+                        out_right += test_tone;
 
                         // Output metronome + synths + VST3 when not playing
                         data[frame_idx * 2] = out_left;
@@ -1099,8 +1204,14 @@ impl AudioGraph {
 
                     // Add metronome AFTER metering so it doesn't affect the master meter
                     // Metronome goes directly to output, bypassing master volume/effects
-                    let output_left = limited_left + met_left;
-                    let output_right = limited_right + met_right;
+                    let mut output_left = limited_left + met_left;
+                    let mut output_right = limited_right + met_right;
+
+                    // Process latency test (if running)
+                    latency_test.process_input(input_left, playhead_frame);
+                    let test_tone = latency_test.generate_output(playhead_frame);
+                    output_left += test_tone;
+                    output_right += test_tone;
 
                     // Write to output buffer (interleaved stereo)
                     data[frame_idx * 2] = output_left;
@@ -2161,25 +2272,61 @@ impl AudioGraph {
 
     /// Get list of available audio output devices
     /// Returns: Vec of (id, name, is_default)
+    /// When ASIO feature is enabled, ASIO devices are listed first with [ASIO] prefix
     pub fn get_output_devices() -> Vec<(String, String, bool)> {
+        let mut all_devices = Vec::new();
+
+        // ASIO devices (when feature enabled, Windows only)
+        #[cfg(all(windows, feature = "asio"))]
+        {
+            eprintln!("🔊 [AudioGraph] Enumerating ASIO devices...");
+            if let Ok(asio_host) = cpal::host_from_id(cpal::HostId::Asio) {
+                let asio_default = asio_host.default_output_device()
+                    .and_then(|d| d.name().ok());
+
+                if let Ok(devices) = asio_host.output_devices() {
+                    for device in devices {
+                        if let Ok(name) = device.name() {
+                            let is_default = asio_default.as_ref() == Some(&name);
+                            let prefixed_name = format!("[ASIO] {}", name);
+                            eprintln!("  🎛️ ASIO: {} {}", name, if is_default { "(default)" } else { "" });
+                            all_devices.push((prefixed_name.clone(), prefixed_name, is_default));
+                        }
+                    }
+                }
+                eprintln!("🔊 [AudioGraph] Found {} ASIO devices", all_devices.len());
+            } else {
+                eprintln!("⚠️ [AudioGraph] ASIO host not available");
+            }
+        }
+
+        // Standard devices (WASAPI on Windows, CoreAudio on macOS, etc.)
         let host = cpal::default_host();
+        eprintln!("🔊 [AudioGraph] Enumerating standard output devices...");
+
         let default_name = host.default_output_device()
             .and_then(|d| d.name().ok());
+        eprintln!("🔊 [AudioGraph] Default output device: {:?}", default_name);
 
         match host.output_devices() {
             Ok(devices) => {
-                devices.filter_map(|d| {
+                let standard_devices: Vec<_> = devices.filter_map(|d| {
                     d.name().ok().map(|name| {
                         let is_default = default_name.as_ref() == Some(&name);
+                        eprintln!("  📢 Output: {} {}", name, if is_default { "(default)" } else { "" });
                         (name.clone(), name, is_default)
                     })
-                }).collect()
+                }).collect();
+                eprintln!("🔊 [AudioGraph] Found {} standard output devices", standard_devices.len());
+                all_devices.extend(standard_devices);
             }
             Err(e) => {
                 eprintln!("❌ [AudioGraph] Failed to enumerate output devices: {}", e);
-                Vec::new()
             }
         }
+
+        eprintln!("🔊 [AudioGraph] Total devices: {}", all_devices.len());
+        all_devices
     }
 
     /// Get list of available audio input devices
@@ -2208,6 +2355,38 @@ impl AudioGraph {
     /// Get current sample rate
     pub fn get_sample_rate() -> u32 {
         TARGET_SAMPLE_RATE
+    }
+
+    /// Set the audio output device by name
+    /// Pass empty string or None to use system default
+    pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
+        let device_name = device_name.filter(|s| !s.is_empty());
+
+        eprintln!("🔊 [AudioGraph] Setting output device to: {:?}", device_name);
+
+        // Update selected device
+        {
+            let mut selected = self.selected_output_device.lock().expect("mutex poisoned");
+            *selected = device_name.clone();
+        }
+
+        // Restart stream to apply new device
+        self.restart_audio_stream()?;
+
+        if let Some(ref name) = device_name {
+            eprintln!("✅ [AudioGraph] Output device changed to: {}", name);
+        } else {
+            eprintln!("✅ [AudioGraph] Output device changed to system default");
+        }
+
+        Ok(())
+    }
+
+    /// Get the currently selected output device name (None = system default)
+    pub fn get_selected_output_device(&self) -> Option<String> {
+        self.selected_output_device.lock()
+            .expect("mutex poisoned")
+            .clone()
     }
 }
 

@@ -15,15 +15,15 @@ enum TrackColorCategory {
 
 /// Track color utilities for assigning colors to tracks
 class TrackColors {
-  /// Category-based colors for auto-detection (spec colors)
+  /// Category-based colors for auto-detection
   static const Map<TrackColorCategory, Color> categoryColors = {
     TrackColorCategory.drums: Color(0xFFEF4444), // Red
     TrackColorCategory.bass: Color(0xFFF97316), // Orange
-    TrackColorCategory.synth: Color(0xFFEC4899), // Pink
-    TrackColorCategory.guitar: Color(0xFF22C55E), // Green
-    TrackColorCategory.vocals: Color(0xFF69DB7C), // Lime Green
-    TrackColorCategory.orchestral: Color(0xFFFF922B), // Tangerine
-    TrackColorCategory.fx: Color(0xFF9775FA), // Violet
+    TrackColorCategory.synth: Color(0xFF22C55E), // Green
+    TrackColorCategory.guitar: Color(0xFF3B82F6), // Blue
+    TrackColorCategory.vocals: Color(0xFF9775FA), // Purple
+    TrackColorCategory.orchestral: Color(0xFF3B82F6), // Blue (same as guitar)
+    TrackColorCategory.fx: Color(0xFFEC4899), // Pink
     TrackColorCategory.audio: Color(0xFF9CA3AF), // Grey
     TrackColorCategory.master: Color(0xFF3B82F6), // Blue
   };
@@ -123,7 +123,7 @@ class TrackColors {
 
     // Default based on track type
     return trackType.toLowerCase() == 'midi'
-        ? TrackColorCategory.synth // Default MIDI to synth (pink)
+        ? TrackColorCategory.synth // Default MIDI to synth (green)
         : TrackColorCategory.audio; // Default audio to grey
   }
 

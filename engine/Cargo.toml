@@ -12,6 +12,11 @@ desktop = ["vst3", "midi"]  # VST3 now enabled for Windows
 mobile = []
 vst3 = []
 midi = []
+# ASIO support for Windows (professional low-latency audio)
+# To enable: cargo build --features asio
+# Requires: ASIO SDK (auto-downloaded or set CPAL_ASIO_DIR)
+# Requires: LLVM/clang for bindgen (set LIBCLANG_PATH)
+asio = ["cpal/asio"]
 
 [dependencies]
 # Audio I/O and playback

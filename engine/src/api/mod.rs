@@ -41,7 +41,8 @@ pub use helpers::{get_audio_clips, get_audio_graph, AUDIO_CLIPS, AUDIO_GRAPH};
 pub use init::{init_audio_engine, init_audio_graph, play_sine_wave};
 pub use latency::{
     get_actual_buffer_size, get_buffer_size_preset, get_clip_duration, get_latency_info,
-    get_waveform_peaks, set_buffer_size,
+    get_latency_test_error, get_latency_test_status, get_waveform_peaks, set_buffer_size,
+    start_latency_test, stop_latency_test,
 };
 pub use midi_clips::{
     add_midi_clip_to_track_api, add_midi_clip_to_track_api as add_midi_clip_to_track,
@@ -60,8 +61,9 @@ pub use project::{
 };
 pub use recording::{
     get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_recorded_duration,
-    get_recording_state, get_recording_waveform, get_sample_rate, set_audio_input_device,
-    set_count_in_bars, start_audio_input, start_recording, stop_audio_input, stop_recording,
+    get_recording_state, get_recording_waveform, get_sample_rate, get_selected_audio_output_device,
+    set_audio_input_device, set_audio_output_device, set_count_in_bars, start_audio_input,
+    start_recording, stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
     get_synth_parameters, send_track_midi_note_off, send_track_midi_note_on, set_synth_parameter,

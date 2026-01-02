@@ -64,6 +64,40 @@ pub fn get_latency_info() -> Option<(u32, f32, f32, f32)> {
 }
 
 // ============================================================================
+// LATENCY TEST
+// ============================================================================
+
+/// Start a latency test to measure real round-trip audio latency
+/// Requires audio input connected to output (loopback)
+pub fn start_latency_test() -> Result<String, String> {
+    with_graph(|graph| {
+        graph.latency_test.start()?;
+        Ok("Latency test started".to_string())
+    })
+}
+
+/// Stop/cancel the latency test
+pub fn stop_latency_test() -> Result<String, String> {
+    with_graph(|graph| {
+        graph.latency_test.stop();
+        Ok("Latency test stopped".to_string())
+    })
+}
+
+/// Get latency test status
+/// Returns: (state, result_ms)
+/// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
+/// Result: latency in ms (or -1.0 if not available)
+pub fn get_latency_test_status() -> Result<(i32, f32), String> {
+    with_graph(|graph| Ok(graph.latency_test.get_status()))
+}
+
+/// Get latency test error message (if state is Error)
+pub fn get_latency_test_error() -> Result<Option<String>, String> {
+    with_graph(|graph| Ok(graph.latency_test.get_error()))
+}
+
+// ============================================================================
 // WAVEFORM VISUALIZATION
 // ============================================================================
 
