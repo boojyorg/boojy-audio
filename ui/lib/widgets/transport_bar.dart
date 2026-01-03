@@ -35,16 +35,16 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
-  final VoidCallback? onMakeCopy;
   final VoidCallback? onExportAudio;
-  final VoidCallback? onQuickExportMp3;
-  final VoidCallback? onQuickExportWav;
+  final VoidCallback? onExportMp3;
+  final VoidCallback? onExportWav;
   final VoidCallback? onExportMidi;
   final VoidCallback? onAppSettings; // App-wide settings (logo click)
-  final VoidCallback? onProjectSettings; // Project-specific settings (File menu)
+  final VoidCallback? onProjectSettings; // Project-specific settings (song name click)
   final VoidCallback? onCloseProject;
-  final VoidCallback? onCreateSnapshot;
-  final VoidCallback? onViewSnapshots;
+
+  // Project name for clickable song name
+  final String projectName;
 
   // View menu callbacks
   final VoidCallback? onToggleLibrary;
@@ -100,16 +100,14 @@ class TransportBar extends StatefulWidget {
     this.onOpenProject,
     this.onSaveProject,
     this.onSaveProjectAs,
-    this.onMakeCopy,
     this.onExportAudio,
-    this.onQuickExportMp3,
-    this.onQuickExportWav,
+    this.onExportMp3,
+    this.onExportWav,
     this.onExportMidi,
     this.onAppSettings,
     this.onProjectSettings,
     this.onCloseProject,
-    this.onCreateSnapshot,
-    this.onViewSnapshots,
+    this.projectName = 'Untitled',
     this.onToggleLibrary,
     this.onToggleMixer,
     this.onToggleEditor,
@@ -179,6 +177,15 @@ class _TransportBarState extends State<TransportBar> {
 
           if (!isCompact) const SizedBox(width: 12),
 
+          // Clickable project name - opens Project Settings
+          _ProjectNameButton(
+            name: widget.projectName,
+            onTap: widget.onProjectSettings,
+            isCompact: isCompact,
+          ),
+
+          SizedBox(width: isCompact ? 4 : 8),
+
           // File menu button
           PopupMenuButton<String>(
             icon: Icon(Icons.folder, color: context.colors.textSecondary, size: 20),
@@ -197,29 +204,14 @@ class _TransportBarState extends State<TransportBar> {
                 case 'save_as':
                   widget.onSaveProjectAs?.call();
                   break;
-                case 'make_copy':
-                  widget.onMakeCopy?.call();
+                case 'export_mp3':
+                  widget.onExportMp3?.call();
                   break;
-                case 'create_snapshot':
-                  widget.onCreateSnapshot?.call();
+                case 'export_wav':
+                  widget.onExportWav?.call();
                   break;
-                case 'view_snapshots':
-                  widget.onViewSnapshots?.call();
-                  break;
-                case 'quick_export_mp3':
-                  widget.onQuickExportMp3?.call();
-                  break;
-                case 'quick_export_wav':
-                  widget.onQuickExportWav?.call();
-                  break;
-                case 'export_audio':
+                case 'export_settings':
                   widget.onExportAudio?.call();
-                  break;
-                case 'export_midi':
-                  widget.onExportMidi?.call();
-                  break;
-                case 'settings':
-                  widget.onProjectSettings?.call();
                   break;
                 case 'close':
                   widget.onCloseProject?.call();
@@ -268,60 +260,29 @@ class _TransportBarState extends State<TransportBar> {
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
-                value: 'make_copy',
-                child: Row(
-                  children: [
-                    Icon(Icons.content_copy, size: 18),
-                    SizedBox(width: 8),
-                    Text('Make a Copy...'),
-                  ],
-                ),
-              ),
               const PopupMenuDivider(),
               const PopupMenuItem<String>(
-                value: 'create_snapshot',
-                child: Row(
-                  children: [
-                    Icon(Icons.bookmark_add, size: 18),
-                    SizedBox(width: 8),
-                    Text('New Snapshot...'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'view_snapshots',
-                child: Row(
-                  children: [
-                    Icon(Icons.bookmarks, size: 18),
-                    SizedBox(width: 8),
-                    Text('Snapshots...'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'quick_export_mp3',
+                value: 'export_mp3',
                 child: Row(
                   children: [
                     Icon(Icons.music_note, size: 18),
                     SizedBox(width: 8),
-                    Text('Quick Export MP3'),
+                    Text('Export MP3'),
                   ],
                 ),
               ),
               const PopupMenuItem<String>(
-                value: 'quick_export_wav',
+                value: 'export_wav',
                 child: Row(
                   children: [
                     Icon(Icons.audio_file, size: 18),
                     SizedBox(width: 8),
-                    Text('Quick Export WAV'),
+                    Text('Export WAV'),
                   ],
                 ),
               ),
               const PopupMenuItem<String>(
-                value: 'export_audio',
+                value: 'export_settings',
                 child: Row(
                   children: [
                     Icon(Icons.settings, size: 18),
@@ -331,27 +292,6 @@ class _TransportBarState extends State<TransportBar> {
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'export_midi',
-                child: Row(
-                  children: [
-                    Icon(Icons.piano, size: 18),
-                    SizedBox(width: 8),
-                    Text('Export MIDI...'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 18),
-                    SizedBox(width: 8),
-                    Text('Project Settings...'),
-                  ],
-                ),
-              ),
               const PopupMenuItem<String>(
                 value: 'close',
                 child: Row(
@@ -382,9 +322,6 @@ class _TransportBarState extends State<TransportBar> {
                 case 'editor':
                   widget.onToggleEditor?.call();
                   break;
-                case 'piano':
-                  widget.onTogglePiano?.call();
-                  break;
                 case 'reset':
                   widget.onResetPanelLayout?.call();
                   break;
@@ -400,7 +337,7 @@ class _TransportBarState extends State<TransportBar> {
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    const Text('Library Panel'),
+                    const Text('Library'),
                     const Spacer(),
                     Text('L', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
@@ -415,7 +352,7 @@ class _TransportBarState extends State<TransportBar> {
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    const Text('Mixer Panel'),
+                    const Text('Mixer'),
                     const Spacer(),
                     Text('M', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
@@ -430,24 +367,9 @@ class _TransportBarState extends State<TransportBar> {
                       size: 18,
                     ),
                     const SizedBox(width: 8),
-                    const Text('Editor Panel'),
+                    const Text('Editor'),
                     const Spacer(),
                     Text('E', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'piano',
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.pianoVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Virtual Piano'),
-                    const Spacer(),
-                    Text('P', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -458,7 +380,7 @@ class _TransportBarState extends State<TransportBar> {
                   children: [
                     Icon(Icons.restart_alt, size: 18),
                     SizedBox(width: 8),
-                    Text('Reset Panel Layout'),
+                    Text('Reset Layout'),
                   ],
                 ),
               ),
@@ -771,6 +693,69 @@ class _TransportButtonState extends State<_TransportButton> {
                 color: isEnabled
                     ? widget.color
                     : context.colors.textMuted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Clickable project name button that opens Project Settings
+class _ProjectNameButton extends StatefulWidget {
+  final String name;
+  final VoidCallback? onTap;
+  final bool isCompact;
+
+  const _ProjectNameButton({
+    required this.name,
+    this.onTap,
+    this.isCompact = false,
+  });
+
+  @override
+  State<_ProjectNameButton> createState() => _ProjectNameButtonState();
+}
+
+class _ProjectNameButtonState extends State<_ProjectNameButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Truncate long names
+    final displayName = widget.name.length > 20
+        ? '${widget.name.substring(0, 18)}...'
+        : widget.name;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Tooltip(
+        message: 'Project Settings',
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isCompact ? 8 : 12,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? context.colors.elevated
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              displayName,
+              style: TextStyle(
+                color: _isHovered
+                    ? context.colors.textPrimary
+                    : context.colors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),

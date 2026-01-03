@@ -32,14 +32,13 @@ import '../services/plugin_preferences_service.dart';
 import '../widgets/settings_dialog.dart';
 import '../widgets/app_settings_dialog.dart';
 import '../widgets/project_settings_dialog.dart';
-import '../widgets/create_snapshot_dialog.dart';
-import '../widgets/snapshots_list_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../models/project_metadata.dart';
-import '../models/snapshot.dart';
+import '../models/project_version.dart';
+import '../models/version_type.dart';
 import '../models/project_view_state.dart';
 import '../models/midi_event.dart';
-import '../services/snapshot_manager.dart';
+import '../services/version_manager.dart';
 import '../services/midi_capture_buffer.dart';
 import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/latency_settings_dialog.dart';
@@ -76,8 +75,8 @@ class _DAWScreenState extends State<DAWScreen> {
   // M5: Project manager (lazy initialized when audio engine is ready)
   ProjectManager? _projectManager;
 
-  // Snapshot manager (lazy initialized when project is loaded)
-  SnapshotManager? _snapshotManager;
+  // Version manager (lazy initialized when project is loaded)
+  VersionManager? _versionManager;
 
   // M8: MIDI playback manager (lazy initialized when audio engine is ready)
   MidiPlaybackManager? _midiPlaybackManager;
@@ -2504,117 +2503,95 @@ class _DAWScreenState extends State<DAWScreen> {
     await AppSettingsDialog.show(context, _userSettings, audioEngine: _audioEngine);
   }
 
-  Future<void> _projectSettings() async {
-    // Open project-specific settings dialog (accessed via File menu)
-    final updatedMetadata = await ProjectSettingsDialog.show(
+  Future<void> _openProjectSettings() async {
+    // Initialize version manager if needed
+    final projectPath = _projectManager?.currentPath;
+    if (projectPath != null) {
+      final projectFolder = File(projectPath).parent.path;
+      _versionManager ??= VersionManager(projectFolder);
+      await _versionManager!.refresh();
+    }
+
+    // Open project-specific settings dialog (accessed via clicking song name)
+    final result = await ProjectSettingsDialog.show(
       context,
-      _projectMetadata,
+      metadata: _projectMetadata,
+      versions: _versionManager?.versions ?? [],
+      currentVersionNumber: _versionManager?.currentVersionNumber,
+      nextVersionNumber: _versionManager?.nextVersionNumber ?? 1,
     );
 
-    if (updatedMetadata != null && mounted) {
-      // Check what changed before updating
-      final bpmChanged = updatedMetadata.bpm != _projectMetadata.bpm;
-      final nameChanged = updatedMetadata.name != _projectMetadata.name;
+    if (result == null || !mounted) return;
 
-      setState(() {
-        _projectMetadata = updatedMetadata;
-      });
+    // Handle metadata changes
+    final updatedMetadata = result.metadata;
+    final bpmChanged = updatedMetadata.bpm != _projectMetadata.bpm;
+    final nameChanged = updatedMetadata.name != _projectMetadata.name;
 
-      // Update audio engine with new BPM
-      if (bpmChanged) {
-        _audioEngine?.setTempo(updatedMetadata.bpm);
-        _recordingController.setTempo(updatedMetadata.bpm);
-      }
+    setState(() {
+      _projectMetadata = updatedMetadata;
+    });
 
-      // Update project name if changed
-      if (nameChanged) {
-        _projectManager?.setProjectName(updatedMetadata.name);
-      }
+    // Update audio engine with new BPM
+    if (bpmChanged) {
+      _audioEngine?.setTempo(updatedMetadata.bpm);
+      _recordingController.setTempo(updatedMetadata.bpm);
+    }
 
+    // Update project name if changed
+    if (nameChanged) {
+      _projectManager?.setProjectName(updatedMetadata.name);
+    }
+
+    // Handle version actions
+    if (result.versionAction == 'create' && result.newVersionData != null) {
+      await _createVersion(result.newVersionData!);
+    } else if (result.versionAction == 'restore' && result.selectedVersion != null) {
+      await _restoreVersion(result.selectedVersion!);
     }
   }
 
   // ========================================================================
-  // Snapshot Methods (Phase 4)
+  // Version Methods
   // ========================================================================
 
-  Future<void> _createSnapshot() async {
-    if (_projectManager?.currentPath == null) {
+  Future<void> _createVersion(({String name, String? note, VersionType type}) data) async {
+    if (_projectManager?.currentPath == null || _versionManager == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please save the project first')),
       );
       return;
     }
 
-    // Initialize snapshot manager if needed
     final projectPath = _projectManager!.currentPath!;
-    final projectFolder = File(projectPath).parent.path;
-    _snapshotManager ??= SnapshotManager(projectFolder);
 
-    // Get existing snapshot names
-    final existingNames = _snapshotManager!.snapshots.map((s) => s.name).toList();
-
-    // Show create snapshot dialog
-    final result = await CreateSnapshotDialog.show(
-      context,
-      existingNames: existingNames,
+    // Create the version
+    final version = await _versionManager!.createVersion(
+      name: data.name,
+      note: data.note,
+      versionType: data.type,
+      currentProjectFilePath: projectPath,
     );
 
-    if (result != null && mounted) {
-      // Create the snapshot
-      final snapshot = await _snapshotManager!.createSnapshot(
-        name: result.name,
-        note: result.note,
-        currentProjectFilePath: projectPath,
-      );
-
-      if (snapshot != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Snapshot "${snapshot.name}" created')),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create snapshot')),
-        );
-      }
-    }
-  }
-
-  Future<void> _viewSnapshots() async {
-    if (_projectManager?.currentPath == null) {
+    if (version != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please save the project first')),
+        SnackBar(content: Text('Version "${version.name}" created')),
       );
-      return;
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to create version')),
+      );
     }
-
-    // Initialize snapshot manager if needed
-    final projectPath = _projectManager!.currentPath!;
-    final projectFolder = File(projectPath).parent.path;
-    _snapshotManager ??= SnapshotManager(projectFolder);
-
-    // Refresh snapshots
-    await _snapshotManager!.refresh();
-
-    if (!mounted) return;
-
-    // Show snapshots list dialog
-    await SnapshotsListDialog.show(
-      context,
-      snapshots: _snapshotManager!.snapshots,
-      onLoad: (snapshot) => _loadSnapshot(snapshot),
-      onDelete: (snapshot) => _deleteSnapshot(snapshot),
-    );
   }
 
-  Future<void> _loadSnapshot(Snapshot snapshot) async {
-    if (_projectManager?.currentPath == null || _snapshotManager == null) return;
+  Future<void> _restoreVersion(ProjectVersion version) async {
+    if (_projectManager?.currentPath == null || _versionManager == null) return;
 
     final projectPath = _projectManager!.currentPath!;
 
-    // Load the snapshot
-    final success = await _snapshotManager!.loadSnapshot(
-      snapshot: snapshot,
+    // Switch to the version
+    final success = await _versionManager!.switchToVersion(
+      version: version,
       currentProjectFilePath: projectPath,
     );
 
@@ -2624,28 +2601,12 @@ class _DAWScreenState extends State<DAWScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Loaded snapshot "${snapshot.name}"')),
+          SnackBar(content: Text('Restored version "${version.name}"')),
         );
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to load snapshot')),
-      );
-    }
-  }
-
-  Future<void> _deleteSnapshot(Snapshot snapshot) async {
-    if (_snapshotManager == null) return;
-
-    final success = await _snapshotManager!.deleteSnapshot(snapshot);
-
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Deleted snapshot "${snapshot.name}"')),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete snapshot')),
+        const SnackBar(content: Text('Failed to restore version')),
       );
     }
   }
@@ -2816,7 +2777,7 @@ class _DAWScreenState extends State<DAWScreen> {
             PlatformMenuItem(
               label: 'Project Settings...',
               shortcut: const SingleActivator(LogicalKeyboardKey.comma, meta: true),
-              onSelected: _projectSettings,
+              onSelected: _openProjectSettings,
             ),
             PlatformMenuItem(
               label: 'Close Project',
@@ -3019,21 +2980,19 @@ class _DAWScreenState extends State<DAWScreen> {
             selectedMidiDeviceIndex: _selectedMidiDeviceIndex,
             onMidiDeviceSelected: _onMidiDeviceSelected,
             onRefreshMidiDevices: _refreshMidiDevices,
-            // New parameters for file menu and mixer toggle
+            // File menu callbacks
             onNewProject: _newProject,
             onOpenProject: _openProject,
             onSaveProject: _saveProject,
             onSaveProjectAs: _saveProjectAs,
-            onMakeCopy: _makeCopy,
-            onCreateSnapshot: _createSnapshot,
-            onViewSnapshots: _viewSnapshots,
             onExportAudio: _exportAudio,
-            onQuickExportMp3: _quickExportMp3,
-            onQuickExportWav: _quickExportWav,
+            onExportMp3: _quickExportMp3,
+            onExportWav: _quickExportWav,
             onExportMidi: _exportMidi,
             onAppSettings: _appSettings, // App-wide settings (logo click)
-            onProjectSettings: _projectSettings, // Project-specific settings (File menu)
+            onProjectSettings: _openProjectSettings, // Project-specific settings (song name click)
             onCloseProject: _closeProject,
+            projectName: _projectMetadata.name,
             // View menu parameters
             onToggleLibrary: _toggleLibraryPanel,
             onToggleMixer: _toggleMixer,
