@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extension.dart';
 import '../state/ui_layout_state.dart';
-import 'shared/circular_toggle_button.dart';
+
+/// Button display mode for responsive layout
+enum _ButtonDisplayMode { wide, narrow }
 
 /// Transport control bar for play/pause/stop/record controls
 class TransportBar extends StatefulWidget {
@@ -134,461 +136,426 @@ class _TransportBarState extends State<TransportBar> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen width to determine layout
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isCompact = screenWidth < 1100; // iPad portrait or smaller windows
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Determine display mode based on available width
+        final mode = constraints.maxWidth > 900
+            ? _ButtonDisplayMode.wide
+            : _ButtonDisplayMode.narrow;
+        final isCompact = mode == _ButtonDisplayMode.narrow;
 
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: context.colors.standard,
-        border: Border(
-          bottom: BorderSide(color: context.colors.elevated),
-        ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(width: isCompact ? 8 : 16),
+        return Container(
+          height: 60,
+          decoration: BoxDecoration(
+            color: context.colors.standard,
+            border: Border(
+              bottom: BorderSide(color: context.colors.elevated),
+            ),
+          ),
+          child: Row(
+            children: [
+              SizedBox(width: isCompact ? 8 : 16),
 
-          // Audio logo image - hide on very compact screens
-          // Clickable logo "O" opens settings (Boojy Suite pattern)
-          if (!isCompact)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _logoHovered = true),
-              onExit: (_) => setState(() => _logoHovered = false),
-              child: Tooltip(
-                message: 'Settings',
-                child: GestureDetector(
-                  onTap: () => widget.onAppSettings?.call(),
-                  child: AnimatedScale(
-                    scale: _logoHovered ? 1.1 : 1.0,
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeInOut,
-                    child: Image.asset(
-                      'assets/images/boojy_audio_text.png',
-                      height: 32,
-                      filterQuality: FilterQuality.high,
+              // Audio logo image - hide on very compact screens
+              // Clickable logo "O" opens settings (Boojy Suite pattern)
+              if (!isCompact)
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  onEnter: (_) => setState(() => _logoHovered = true),
+                  onExit: (_) => setState(() => _logoHovered = false),
+                  child: Tooltip(
+                    message: 'Settings',
+                    child: GestureDetector(
+                      onTap: () => widget.onAppSettings?.call(),
+                      child: AnimatedScale(
+                        scale: _logoHovered ? 1.1 : 1.0,
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeInOut,
+                        child: Image.asset(
+                          'assets/images/boojy_audio_text.png',
+                          height: 32,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-          if (!isCompact) const SizedBox(width: 12),
+              if (!isCompact) const SizedBox(width: 12),
 
-          // Clickable project name - opens Project Settings
-          _ProjectNameButton(
-            name: widget.projectName,
-            onTap: widget.onProjectSettings,
-            isCompact: isCompact,
-          ),
+              // Clickable project name - opens Project Settings
+              _ProjectNameButton(
+                name: widget.projectName,
+                onTap: widget.onProjectSettings,
+                mode: mode,
+              ),
 
-          SizedBox(width: isCompact ? 4 : 8),
+              SizedBox(width: isCompact ? 4 : 8),
 
-          // File menu button
-          PopupMenuButton<String>(
-            icon: Icon(Icons.folder, color: context.colors.textSecondary, size: 20),
-            tooltip: 'File',
-            onSelected: (String value) {
-              switch (value) {
-                case 'new':
-                  widget.onNewProject?.call();
-                  break;
-                case 'open':
-                  widget.onOpenProject?.call();
-                  break;
-                case 'save':
-                  widget.onSaveProject?.call();
-                  break;
-                case 'save_as':
-                  widget.onSaveProjectAs?.call();
-                  break;
-                case 'export_mp3':
-                  widget.onExportMp3?.call();
-                  break;
-                case 'export_wav':
-                  widget.onExportWav?.call();
-                  break;
-                case 'export_settings':
-                  widget.onExportAudio?.call();
-                  break;
-                case 'close':
-                  widget.onCloseProject?.call();
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'new',
-                child: Row(
-                  children: [
-                    Icon(Icons.description, size: 18),
-                    SizedBox(width: 8),
-                    Text('New Project'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'open',
-                child: Row(
-                  children: [
-                    Icon(Icons.folder_open, size: 18),
-                    SizedBox(width: 8),
-                    Text('Open Project...'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'save',
-                child: Row(
-                  children: [
-                    Icon(Icons.save, size: 18),
-                    SizedBox(width: 8),
-                    Text('Save'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'save_as',
-                child: Row(
-                  children: [
-                    Icon(Icons.save_as, size: 18),
-                    SizedBox(width: 8),
-                    Text('Save As...'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'export_mp3',
-                child: Row(
-                  children: [
-                    Icon(Icons.music_note, size: 18),
-                    SizedBox(width: 8),
-                    Text('Export MP3'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'export_wav',
-                child: Row(
-                  children: [
-                    Icon(Icons.audio_file, size: 18),
-                    SizedBox(width: 8),
-                    Text('Export WAV'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'export_settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 18),
-                    SizedBox(width: 8),
-                    Text('Export Settings...'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'close',
-                child: Row(
-                  children: [
-                    Icon(Icons.close, size: 18),
-                    SizedBox(width: 8),
-                    Text('Close Project'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(width: 4),
-
-          // View menu button
-          PopupMenuButton<String>(
-            icon: Icon(Icons.visibility, color: context.colors.textSecondary, size: 20),
-            tooltip: 'View',
-            onSelected: (String value) {
-              switch (value) {
-                case 'library':
-                  widget.onToggleLibrary?.call();
-                  break;
-                case 'mixer':
-                  widget.onToggleMixer?.call();
-                  break;
-                case 'editor':
-                  widget.onToggleEditor?.call();
-                  break;
-                case 'reset':
-                  widget.onResetPanelLayout?.call();
-                  break;
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'library',
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.libraryVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                      size: 18,
+              // File menu button
+              PopupMenuButton<String>(
+                icon: Icon(Icons.folder, color: context.colors.textSecondary, size: 20),
+                tooltip: 'File',
+                onSelected: (String value) {
+                  switch (value) {
+                    case 'new':
+                      widget.onNewProject?.call();
+                      break;
+                    case 'open':
+                      widget.onOpenProject?.call();
+                      break;
+                    case 'save':
+                      widget.onSaveProject?.call();
+                      break;
+                    case 'save_as':
+                      widget.onSaveProjectAs?.call();
+                      break;
+                    case 'export_mp3':
+                      widget.onExportMp3?.call();
+                      break;
+                    case 'export_wav':
+                      widget.onExportWav?.call();
+                      break;
+                    case 'export_settings':
+                      widget.onExportAudio?.call();
+                      break;
+                    case 'close':
+                      widget.onCloseProject?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'new',
+                    child: Row(
+                      children: [
+                        Icon(Icons.description, size: 18),
+                        SizedBox(width: 8),
+                        Text('New Project'),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text('Library'),
-                    const Spacer(),
-                    Text('L', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'mixer',
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.mixerVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                      size: 18,
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'open',
+                    child: Row(
+                      children: [
+                        Icon(Icons.folder_open, size: 18),
+                        SizedBox(width: 8),
+                        Text('Open Project...'),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text('Mixer'),
-                    const Spacer(),
-                    Text('M', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'editor',
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.editorVisible ? Icons.check_box : Icons.check_box_outline_blank,
-                      size: 18,
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'save',
+                    child: Row(
+                      children: [
+                        Icon(Icons.save, size: 18),
+                        SizedBox(width: 8),
+                        Text('Save'),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text('Editor'),
-                    const Spacer(),
-                    Text('E', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
-                  ],
-                ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'save_as',
+                    child: Row(
+                      children: [
+                        Icon(Icons.save_as, size: 18),
+                        SizedBox(width: 8),
+                        Text('Save As...'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'export_mp3',
+                    child: Row(
+                      children: [
+                        Icon(Icons.music_note, size: 18),
+                        SizedBox(width: 8),
+                        Text('Export MP3'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'export_wav',
+                    child: Row(
+                      children: [
+                        Icon(Icons.audio_file, size: 18),
+                        SizedBox(width: 8),
+                        Text('Export WAV'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'export_settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings, size: 18),
+                        SizedBox(width: 8),
+                        Text('Export Settings...'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'close',
+                    child: Row(
+                      children: [
+                        Icon(Icons.close, size: 18),
+                        SizedBox(width: 8),
+                        Text('Close Project'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'reset',
-                child: Row(
-                  children: [
-                    Icon(Icons.restart_alt, size: 18),
-                    SizedBox(width: 8),
-                    Text('Reset Layout'),
-                  ],
-                ),
+
+              const SizedBox(width: 4),
+
+              // View menu button
+              PopupMenuButton<String>(
+                icon: Icon(Icons.visibility, color: context.colors.textSecondary, size: 20),
+                tooltip: 'View',
+                onSelected: (String value) {
+                  switch (value) {
+                    case 'library':
+                      widget.onToggleLibrary?.call();
+                      break;
+                    case 'mixer':
+                      widget.onToggleMixer?.call();
+                      break;
+                    case 'editor':
+                      widget.onToggleEditor?.call();
+                      break;
+                    case 'reset':
+                      widget.onResetPanelLayout?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'library',
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.libraryVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Library'),
+                        const Spacer(),
+                        Text('L', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'mixer',
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.mixerVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Mixer'),
+                        const Spacer(),
+                        Text('M', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'editor',
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.editorVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Editor'),
+                        const Spacer(),
+                        Text('E', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'reset',
+                    child: Row(
+                      children: [
+                        Icon(Icons.restart_alt, size: 18),
+                        SizedBox(width: 8),
+                        Text('Reset Layout'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
 
-          SizedBox(width: isCompact ? 8 : 24),
-          VerticalDivider(color: context.colors.elevated, width: 1),
-          SizedBox(width: isCompact ? 8 : 16),
+              SizedBox(width: isCompact ? 4 : 12),
 
-          // Transport buttons group - all same size (40px)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            decoration: BoxDecoration(
-              color: context.colors.darkest,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Play/Pause button - Green per spec (#22C55E)
-                _TransportButton(
-                  icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
-                  onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
-                  tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
-                  size: 40,
-                ),
+              // Transport buttons - Play, Stop, Record
+              _TransportButton(
+                icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
+                color: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
+                onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
+                tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
+                size: 36,
+              ),
 
-                const SizedBox(width: 4),
+              const SizedBox(width: 4),
 
-                // Stop button - Orange per spec (#F97316)
-                _TransportButton(
-                  icon: Icons.stop,
-                  color: const Color(0xFFF97316),
-                  onPressed: widget.canPlay ? widget.onStop : null,
-                  tooltip: 'Stop',
-                  size: 40,
-                ),
+              _TransportButton(
+                icon: Icons.stop,
+                color: const Color(0xFFF97316),
+                onPressed: widget.canPlay ? widget.onStop : null,
+                tooltip: 'Stop',
+                size: 36,
+              ),
 
-                const SizedBox(width: 4),
+              const SizedBox(width: 4),
 
-                // Record button with right-click menu for count-in settings
-                _RecordButton(
+              _RecordButton(
+                isRecording: widget.isRecording,
+                isCountingIn: widget.isCountingIn,
+                countInBars: widget.countInBars,
+                onPressed: widget.onRecord,
+                onCountInChanged: widget.onCountInChanged,
+                size: 36,
+              ),
+
+              // Recording indicator with duration
+              if (widget.isRecording || widget.isCountingIn)
+                _RecordingIndicator(
                   isRecording: widget.isRecording,
                   isCountingIn: widget.isCountingIn,
-                  countInBars: widget.countInBars,
-                  onPressed: widget.onRecord,
-                  onCountInChanged: widget.onCountInChanged,
-                  size: 40,
+                  playheadPosition: widget.playheadPosition,
                 ),
 
-                const SizedBox(width: 4),
+              SizedBox(width: isCompact ? 8 : 16),
 
-                // Capture MIDI button
-                _TransportButton(
-                  icon: Icons.history,
-                  color: context.colors.accent,
-                  onPressed: widget.onCaptureMidi,
-                  tooltip: 'Capture MIDI (Cmd+Shift+R)',
-                  size: 40,
+              // MIDI Capture pill button
+              _PillButton(
+                icon: Icons.history,
+                label: 'MIDI',
+                isActive: false,
+                mode: mode,
+                onTap: widget.onCaptureMidi,
+                tooltip: 'Capture MIDI (Cmd+Shift+R)',
+                activeColor: context.colors.accent,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Loop toggle pill button
+              _PillButton(
+                icon: Icons.loop,
+                label: 'Loop',
+                isActive: widget.isLoopEnabled,
+                mode: mode,
+                onTap: widget.onLoopToggle,
+                tooltip: widget.isLoopEnabled ? 'Loop On (L)' : 'Loop Off (L)',
+                activeColor: const Color(0xFFF97316), // Orange for loop
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Snap dropdown
+              _SnapDropdown(
+                value: widget.arrangementSnap,
+                onChanged: widget.onSnapChanged,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Metronome toggle pill button
+              _PillButton(
+                icon: Icons.graphic_eq,
+                label: 'Metronome',
+                isActive: widget.metronomeEnabled,
+                mode: mode,
+                onTap: widget.onMetronomeToggle,
+                tooltip: widget.metronomeEnabled ? 'Metronome On' : 'Metronome Off',
+                activeColor: context.colors.accent,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Tap tempo pill button
+              _TapTempoPill(
+                tempo: widget.tempo,
+                onTempoChanged: widget.onTempoChanged,
+                mode: mode,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Tempo display with drag interaction
+              _TempoDisplay(
+                tempo: widget.tempo,
+                onTempoChanged: widget.onTempoChanged,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Time display
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: context.colors.elevated,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              ],
-            ),
-          ),
-
-          // Recording indicator with duration
-          if (widget.isRecording || widget.isCountingIn)
-            _RecordingIndicator(
-              isRecording: widget.isRecording,
-              isCountingIn: widget.isCountingIn,
-              playheadPosition: widget.playheadPosition,
-            ),
-
-          SizedBox(width: isCompact ? 8 : 16),
-
-          // Loop toggle button
-          CircularToggleButton(
-            enabled: widget.isLoopEnabled,
-            onPressed: widget.onLoopToggle,
-            icon: Icons.loop,
-            tooltip: widget.isLoopEnabled ? 'Loop On (L)' : 'Loop Off (L)',
-            enabledColor: const Color(0xFFF97316), // Orange for loop
-          ),
-
-          SizedBox(width: isCompact ? 4 : 8),
-
-          // Snap dropdown
-          _SnapDropdown(
-            value: widget.arrangementSnap,
-            onChanged: widget.onSnapChanged,
-          ),
-
-          SizedBox(width: isCompact ? 8 : 16),
-          VerticalDivider(color: context.colors.elevated, width: 1),
-          SizedBox(width: isCompact ? 8 : 16),
-
-          // Metronome toggle
-          CircularToggleButton(
-            enabled: widget.metronomeEnabled,
-            onPressed: widget.onMetronomeToggle,
-            icon: Icons.graphic_eq,
-            tooltip: widget.metronomeEnabled ? 'Metronome On' : 'Metronome Off',
-          ),
-
-          SizedBox(width: isCompact ? 4 : 8),
-
-          // Virtual piano toggle
-          CircularToggleButton(
-            enabled: widget.virtualPianoEnabled,
-            onPressed: widget.onPianoToggle,
-            icon: Icons.piano,
-            tooltip: widget.virtualPianoEnabled
-                ? 'Virtual Piano On (z,x,c,w,e,r...)'
-                : 'Virtual Piano Off',
-            enabledColor: context.colors.success,
-          ),
-
-          SizedBox(width: isCompact ? 4 : 8),
-
-          // MIDI device selector - hide on compact screens
-          if (!isCompact)
-            _MidiDeviceSelector(
-              devices: widget.midiDevices,
-              selectedIndex: widget.selectedMidiDeviceIndex,
-              onDeviceSelected: widget.onMidiDeviceSelected,
-              onRefresh: widget.onRefreshMidiDevices,
-            ),
-
-          if (!isCompact) const SizedBox(width: 8),
-
-          // Tempo control with drag and tap
-          _TempoControl(
-            tempo: widget.tempo,
-            onTempoChanged: widget.onTempoChanged,
-          ),
-
-          SizedBox(width: isCompact ? 4 : 8),
-
-          // Time display
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: context.colors.elevated,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.access_time,
-                  size: 14,
-                  color: context.colors.textSecondary,
-                ),
-                const SizedBox(width: 6),
-                Text(
+                child: Text(
                   _formatTime(widget.playheadPosition),
                   style: TextStyle(
                     color: context.colors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          SizedBox(width: isCompact ? 4 : 8),
-
-          // Position display (bars.beats.subdivision) - hide on very compact screens
-          if (!isCompact)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.colors.elevated,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: context.colors.elevated),
               ),
-              child: Text(
-                _formatPosition(widget.playheadPosition, widget.tempo),
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Position display (bars.beats.subdivision)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: context.colors.elevated,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  _formatPosition(widget.playheadPosition, widget.tempo),
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
-            ),
 
-          // Use Spacer to push remaining items to the right edge
-          const Spacer(),
+              // Use Spacer to push remaining items to the right edge
+              const Spacer(),
 
-          // Help button
-          IconButton(
-            icon: Icon(
-              Icons.help_outline,
-              color: context.colors.textSecondary,
-              size: 20,
-            ),
-            onPressed: widget.onHelpPressed,
-            tooltip: 'Keyboard Shortcuts (?)',
+              // Help button
+              IconButton(
+                icon: Icon(
+                  Icons.help_outline,
+                  color: context.colors.textSecondary,
+                  size: 20,
+                ),
+                onPressed: widget.onHelpPressed,
+                tooltip: 'Keyboard Shortcuts (?)',
+              ),
+
+              SizedBox(width: isCompact ? 8 : 16),
+            ],
           ),
-
-          SizedBox(width: isCompact ? 8 : 16),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -706,12 +673,12 @@ class _TransportButtonState extends State<_TransportButton> {
 class _ProjectNameButton extends StatefulWidget {
   final String name;
   final VoidCallback? onTap;
-  final bool isCompact;
+  final _ButtonDisplayMode mode;
 
   const _ProjectNameButton({
     required this.name,
     this.onTap,
-    this.isCompact = false,
+    required this.mode,
   });
 
   @override
@@ -723,9 +690,10 @@ class _ProjectNameButtonState extends State<_ProjectNameButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Truncate long names
-    final displayName = widget.name.length > 20
-        ? '${widget.name.substring(0, 18)}...'
+    // Truncate based on mode: narrow = shorter truncation
+    final maxLength = widget.mode == _ButtonDisplayMode.narrow ? 8 : 20;
+    final displayName = widget.name.length > maxLength
+        ? '${widget.name.substring(0, maxLength - 2)}...'
         : widget.name;
 
     return MouseRegion(
@@ -739,14 +707,14 @@ class _ProjectNameButtonState extends State<_ProjectNameButton> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: EdgeInsets.symmetric(
-              horizontal: widget.isCompact ? 8 : 12,
+              horizontal: widget.mode == _ButtonDisplayMode.narrow ? 8 : 12,
               vertical: 6,
             ),
             decoration: BoxDecoration(
               color: _isHovered
                   ? context.colors.elevated
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               displayName,
@@ -765,24 +733,110 @@ class _ProjectNameButtonState extends State<_ProjectNameButton> {
   }
 }
 
-/// Tempo control widget with drag interaction and tap tempo (Ableton-style)
-class _TempoControl extends StatefulWidget {
-  final double tempo;
-  final Function(double)? onTempoChanged;
+/// Pill-style button that shows icon+text in wide mode, icon-only in narrow mode
+class _PillButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final _ButtonDisplayMode mode;
+  final VoidCallback? onTap;
+  final String tooltip;
+  final Color activeColor;
 
-  const _TempoControl({
-    required this.tempo,
-    this.onTempoChanged,
+  const _PillButton({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.mode,
+    this.onTap,
+    required this.tooltip,
+    required this.activeColor,
   });
 
   @override
-  State<_TempoControl> createState() => _TempoControlState();
+  State<_PillButton> createState() => _PillButtonState();
 }
 
-class _TempoControlState extends State<_TempoControl> {
-  bool _isDragging = false;
-  double _dragStartY = 0.0;
-  double _dragStartTempo = 120.0;
+class _PillButtonState extends State<_PillButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
+    final bgColor = widget.isActive
+        ? widget.activeColor
+        : (_isHovered ? context.colors.elevated : context.colors.dark);
+    final textColor = widget.isActive ? Colors.black : context.colors.textSecondary;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            widget.onTap?.call();
+          },
+          onTapCancel: () => setState(() => _isPressed = false),
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.icon, size: 16, color: textColor),
+                  if (widget.mode == _ButtonDisplayMode.wide) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 12,
+                        fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tap tempo pill button with tap-to-set-tempo functionality
+class _TapTempoPill extends StatefulWidget {
+  final double tempo;
+  final Function(double)? onTempoChanged;
+  final _ButtonDisplayMode mode;
+
+  const _TapTempoPill({
+    required this.tempo,
+    this.onTempoChanged,
+    required this.mode,
+  });
+
+  @override
+  State<_TapTempoPill> createState() => _TapTempoPillState();
+}
+
+class _TapTempoPillState extends State<_TapTempoPill> {
+  bool _isHovered = false;
+  bool _isPressed = false;
   final List<DateTime> _tapTimes = [];
 
   void _onTapTempo() {
@@ -812,274 +866,129 @@ class _TempoControlState extends State<_TempoControl> {
 
   @override
   Widget build(BuildContext context) {
-    // Always show integers (tempo is rounded to whole numbers)
-    final tempoText = widget.tempo.toStringAsFixed(0);
+    final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
+    final isRecentTap = _tapTimes.isNotEmpty &&
+        DateTime.now().difference(_tapTimes.last).inMilliseconds < 500;
+    final bgColor = isRecentTap
+        ? context.colors.accent.withValues(alpha: 0.3)
+        : (_isHovered ? context.colors.elevated : context.colors.dark);
+    final textColor = context.colors.textSecondary;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Tap tempo button
-        InkWell(
-          onTap: _onTapTempo,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _tapTimes.isNotEmpty &&
-                     DateTime.now().difference(_tapTimes.last).inMilliseconds < 500
-                  ? context.colors.accent.withValues(alpha: 0.3)
-                  : context.colors.elevated,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: context.colors.elevated),
-            ),
-            child: Text(
-              'Tap',
-              style: TextStyle(
-                color: context.colors.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 4),
-
-        // Tempo display with drag interaction
-        GestureDetector(
-          onVerticalDragStart: (details) {
-            setState(() {
-              _isDragging = true;
-              _dragStartY = details.globalPosition.dy;
-              _dragStartTempo = widget.tempo;
-            });
+    return Tooltip(
+      message: 'Tap Tempo',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            _onTapTempo();
           },
-          onVerticalDragUpdate: (details) {
-            if (widget.onTempoChanged != null) {
-              // Drag up = increase tempo, drag down = decrease tempo
-              final deltaY = _dragStartY - details.globalPosition.dy;
-              // ~0.5 BPM per pixel (like Ableton)
-              final deltaTempo = deltaY * 0.5;
-              final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0).roundToDouble();
-              widget.onTempoChanged!(newTempo);
-            }
-          },
-          onVerticalDragEnd: (details) {
-            setState(() {
-              _isDragging = false;
-            });
-          },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeUpDown,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          onTapCancel: () => setState(() => _isPressed = false),
+          child: AnimatedScale(
+            scale: scale,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
-                color: _isDragging
-                    ? context.colors.accent.withValues(alpha: 0.2)
-                    : context.colors.elevated,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: _isDragging
-                      ? context.colors.accent
-                      : context.colors.elevated,
-                ),
+                color: bgColor,
+                borderRadius: BorderRadius.circular(2),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.speed,
-                    size: 14,
-                    color: context.colors.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$tempoText BPM',
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                  Icon(Icons.touch_app, size: 16, color: textColor),
+                  if (widget.mode == _ButtonDisplayMode.wide) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tap',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-/// MIDI device selector dropdown widget
-class _MidiDeviceSelector extends StatefulWidget {
-  final List<Map<String, dynamic>> devices;
-  final int selectedIndex;
-  final Function(int)? onDeviceSelected;
-  final VoidCallback? onRefresh;
+/// Tempo display with drag-to-adjust functionality
+class _TempoDisplay extends StatefulWidget {
+  final double tempo;
+  final Function(double)? onTempoChanged;
 
-  const _MidiDeviceSelector({
-    required this.devices,
-    required this.selectedIndex,
-    this.onDeviceSelected,
-    this.onRefresh,
+  const _TempoDisplay({
+    required this.tempo,
+    this.onTempoChanged,
   });
 
   @override
-  State<_MidiDeviceSelector> createState() => _MidiDeviceSelectorState();
+  State<_TempoDisplay> createState() => _TempoDisplayState();
 }
 
-class _MidiDeviceSelectorState extends State<_MidiDeviceSelector> {
-  bool _isHovered = false;
-
-  String get _selectedDeviceName {
-    if (widget.devices.isEmpty) {
-      return 'No MIDI';
-    }
-    if (widget.selectedIndex < 0 || widget.selectedIndex >= widget.devices.length) {
-      return 'Select MIDI';
-    }
-    final name = widget.devices[widget.selectedIndex]['name'] as String? ?? 'Unknown';
-    // Truncate long names
-    return name.length > 16 ? '${name.substring(0, 14)}...' : name;
-  }
+class _TempoDisplayState extends State<_TempoDisplay> {
+  bool _isDragging = false;
+  double _dragStartY = 0.0;
+  double _dragStartTempo = 120.0;
 
   @override
   Widget build(BuildContext context) {
-    // Capture colors outside the popup menu builder to avoid provider context issues
-    final colors = context.colors;
+    final tempoText = widget.tempo.toStringAsFixed(0);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: PopupMenuButton<int>(
-        tooltip: 'MIDI Input Device',
-        onSelected: (int index) {
-          if (index == -2) {
-            // Refresh option
-            widget.onRefresh?.call();
-          } else {
-            widget.onDeviceSelected?.call(index);
-          }
-        },
-        offset: const Offset(0, 40),
-        itemBuilder: (BuildContext menuContext) {
-          final items = <PopupMenuEntry<int>>[];
-
-          if (widget.devices.isEmpty) {
-            items.add(
-              PopupMenuItem<int>(
-                enabled: false,
-                child: Text(
-                  'No MIDI devices found',
-                  style: TextStyle(color: colors.textMuted),
-                ),
-              ),
-            );
-          } else {
-            for (int i = 0; i < widget.devices.length; i++) {
-              final device = widget.devices[i];
-              final name = device['name'] as String? ?? 'Unknown';
-              final isDefault = device['isDefault'] as bool? ?? false;
-              final isSelected = i == widget.selectedIndex;
-
-              items.add(
-                PopupMenuItem<int>(
-                  value: i,
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected ? Icons.check : Icons.piano,
-                        size: 18,
-                        color: isSelected ? colors.accent : null,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            color: isSelected ? colors.accent : null,
-                            fontWeight: isSelected ? FontWeight.w600 : null,
-                          ),
-                        ),
-                      ),
-                      if (isDefault)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: colors.elevated,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Default',
-                            style: TextStyle(fontSize: 10, color: colors.textMuted),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }
-          }
-
-          items.add(const PopupMenuDivider());
-          items.add(
-            const PopupMenuItem<int>(
-              value: -2,
-              child: Row(
-                children: [
-                  Icon(Icons.refresh, size: 18),
-                  SizedBox(width: 8),
-                  Text('Refresh Devices'),
-                ],
-              ),
-            ),
-          );
-
-          return items;
-        },
+    return GestureDetector(
+      onVerticalDragStart: (details) {
+        setState(() {
+          _isDragging = true;
+          _dragStartY = details.globalPosition.dy;
+          _dragStartTempo = widget.tempo;
+        });
+      },
+      onVerticalDragUpdate: (details) {
+        if (widget.onTempoChanged != null) {
+          // Drag up = increase tempo, drag down = decrease tempo
+          final deltaY = _dragStartY - details.globalPosition.dy;
+          // ~0.5 BPM per pixel (like Ableton)
+          final deltaTempo = deltaY * 0.5;
+          final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0).roundToDouble();
+          widget.onTempoChanged!(newTempo);
+        }
+      },
+      onVerticalDragEnd: (details) {
+        setState(() {
+          _isDragging = false;
+        });
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeUpDown,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
-            color: _isHovered
-                ? colors.elevated
-                : colors.standard,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: widget.selectedIndex >= 0
-                  ? colors.accent.withValues(alpha: 0.5)
-                  : colors.elevated,
-            ),
+            color: _isDragging
+                ? context.colors.accent.withValues(alpha: 0.2)
+                : context.colors.elevated,
+            borderRadius: BorderRadius.circular(2),
+            border: _isDragging
+                ? Border.all(color: context.colors.accent, width: 1)
+                : null,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.piano,
-                size: 14,
-                color: widget.selectedIndex >= 0
-                    ? colors.accent
-                    : colors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _selectedDeviceName,
-                style: TextStyle(
-                  color: widget.selectedIndex >= 0
-                      ? colors.textPrimary
-                      : colors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 16,
-                color: widget.selectedIndex >= 0
-                    ? colors.accent
-                    : colors.textSecondary,
-              ),
-            ],
+          child: Text(
+            '$tempoText BPM',
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

@@ -326,13 +326,19 @@ pub struct VST3Plugin {
 
 impl VST3Plugin {
     pub fn load(file_path: &str) -> Result<Self, String> {
+        eprintln!("🔌 [VST3Plugin::load] Loading: {}", file_path);
         let path_cstr = CString::new(file_path).map_err(|e| e.to_string())?;
 
         unsafe {
+            eprintln!("🔌 [VST3Plugin::load] Calling C++ vst3_load_plugin...");
             let handle = vst3_load_plugin(path_cstr.as_ptr());
+            eprintln!("🔌 [VST3Plugin::load] C++ returned handle: {:?}", handle);
             if handle.is_null() {
-                Err(VST3Host::get_last_error())
+                let err = VST3Host::get_last_error();
+                eprintln!("🔌 [VST3Plugin::load] Error: {}", err);
+                Err(err)
             } else {
+                eprintln!("🔌 [VST3Plugin::load] Success!");
                 Ok(VST3Plugin { handle })
             }
         }
@@ -615,10 +621,14 @@ pub struct VST3Effect {
 impl VST3Effect {
     /// Create a new VST3Effect from a plugin path
     pub fn new(plugin_path: &str, sample_rate: f64, block_size: i32) -> Result<Self, String> {
+        eprintln!("🔌 [VST3Effect::new] Loading plugin: {}", plugin_path);
         let plugin = VST3Plugin::load(plugin_path)?;
+        eprintln!("🔌 [VST3Effect::new] Plugin loaded, getting info...");
         let info = plugin.get_info()?;
+        eprintln!("🔌 [VST3Effect::new] Got info, extracting name...");
         let name = info.name_str().to_string();
         let is_instrument = info.is_instrument;
+        eprintln!("🔌 [VST3Effect::new] Plugin: {} is_instrument={}", name, is_instrument);
 
         Ok(Self {
             plugin: Arc::new(Mutex::new(plugin)),
@@ -644,9 +654,14 @@ impl VST3Effect {
     /// Initialize the plugin (must be called before processing)
     pub fn initialize(&mut self) -> Result<(), String> {
         if !self.initialized {
+            eprintln!("🔌 [VST3Effect::initialize] Initializing plugin {} (sr={}, block={})",
+                     self.name, self.sample_rate, self.block_size);
             let plugin = self.plugin.lock().expect("mutex poisoned");
+            eprintln!("🔌 [VST3Effect::initialize] Calling plugin.initialize()...");
             plugin.initialize(self.sample_rate, self.block_size)?;
+            eprintln!("🔌 [VST3Effect::initialize] Calling plugin.activate()...");
             plugin.activate()?;
+            eprintln!("🔌 [VST3Effect::initialize] Plugin activated successfully");
             self.initialized = true;
         }
         Ok(())

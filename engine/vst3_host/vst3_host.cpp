@@ -449,61 +449,112 @@ int vst3_scan_standard_locations(VST3ScanCallback callback, void* user_data) {
 }
 
 VST3PluginHandle vst3_load_plugin(const char* file_path) {
+    fprintf(stderr, "🔌 [C++] vst3_load_plugin ENTER: %s\n", file_path ? file_path : "(null)");
+    fflush(stderr);
+
+#ifdef __APPLE__
+    // Check if we're on the main thread - some plugins require this
+    bool is_main_thread = pthread_main_np() != 0;
+    fprintf(stderr, "🔌 [C++] Is main thread: %s\n", is_main_thread ? "YES" : "NO");
+    fflush(stderr);
+#endif
+
     if (!file_path) {
         set_error("Invalid file path");
+        fprintf(stderr, "❌ [C++] file_path is null\n");
+        fflush(stderr);
         return nullptr;
     }
 
     if (!g_host_app) {
         set_error("Host not initialized. Call vst3_host_init() first");
+        fprintf(stderr, "❌ [C++] Host not initialized\n");
+        fflush(stderr);
         return nullptr;
     }
 
     try {
+        fprintf(stderr, "🔌 [C++] Creating VST3PluginInstance...\n");
+        fflush(stderr);
         auto instance = std::make_unique<VST3PluginInstance>();
         instance->file_path = file_path;
 
         // Load the module
+        fprintf(stderr, "🔌 [C++] Calling Module::create for: %s\n", file_path);
+        fflush(stderr);
         std::string error;
         auto module = VST3::Hosting::Module::create(file_path, error);
         if (!module) {
             set_error("Failed to load module: " + error);
+            fprintf(stderr, "❌ [C++] Module::create failed: %s\n", error.c_str());
+            fflush(stderr);
             return nullptr;
         }
 
+        fprintf(stderr, "🔌 [C++] Module loaded, getting factory...\n");
+        fflush(stderr);
         instance->module = module;
 
         auto factory = module->getFactory();
+        fprintf(stderr, "🔌 [C++] Got factory, iterating class infos...\n");
+        fflush(stderr);
 
         // Find the first audio effect class
         for (const auto& class_info : factory.classInfos()) {
+            fprintf(stderr, "🔌 [C++] Checking class: %s, category: %s\n",
+                    class_info.name().c_str(), class_info.category().c_str());
+            fflush(stderr);
+
             if (class_info.category() == kVstAudioEffectClass) {
+                fprintf(stderr, "🔌 [C++] Found audio effect class, creating component...\n");
+                fflush(stderr);
+
                 // Create the component using modern API
                 auto component = factory.createInstance<IComponent>(class_info.ID());
                 if (!component) {
                     set_error("Failed to create component instance");
+                    fprintf(stderr, "❌ [C++] createInstance<IComponent> failed\n");
+                    fflush(stderr);
                     return nullptr;
                 }
 
+                fprintf(stderr, "🔌 [C++] Component created, initializing with host app...\n");
+                fflush(stderr);
                 instance->component = component;
 
                 // Initialize the component
-                if (component->initialize(g_host_app) != kResultOk) {
+                tresult initResult = component->initialize(g_host_app);
+                fprintf(stderr, "🔌 [C++] component->initialize result: %d\n", initResult);
+                fflush(stderr);
+                if (initResult != kResultOk) {
                     set_error("Failed to initialize component");
                     return nullptr;
                 }
 
                 // Get the audio processor interface
+                fprintf(stderr, "🔌 [C++] Getting IAudioProcessor interface...\n");
+                fflush(stderr);
                 auto processor = FUnknownPtr<IAudioProcessor>(component);
                 if (processor) {
                     instance->processor = processor;
+                    fprintf(stderr, "🔌 [C++] Got IAudioProcessor\n");
+                    fflush(stderr);
+                } else {
+                    fprintf(stderr, "⚠️ [C++] No IAudioProcessor interface\n");
+                    fflush(stderr);
                 }
 
                 // Get the edit controller
+                fprintf(stderr, "🔌 [C++] Getting edit controller...\n");
+                fflush(stderr);
                 TUID controller_cid;
                 if (component->getControllerClassId(controller_cid) == kResultOk) {
+                    fprintf(stderr, "🔌 [C++] Creating controller instance...\n");
+                    fflush(stderr);
                     auto controller = factory.createInstance<IEditController>(VST3::UID::fromTUID(controller_cid));
                     if (controller) {
+                        fprintf(stderr, "🔌 [C++] Controller created, initializing...\n");
+                        fflush(stderr);
                         instance->controller = controller;
                         controller->initialize(g_host_app);
 
@@ -511,6 +562,8 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
                         // This allows the plugin to notify us of parameter changes, restarts, etc.
                         // Many plugins may crash or malfunction without this!
                         if (g_component_handler) {
+                            fprintf(stderr, "🔌 [C++] Setting component handler...\n");
+                            fflush(stderr);
                             tresult handlerResult = controller->setComponentHandler(g_component_handler);
                             fprintf(stdout, "📊 setComponentHandler result: %d\n", handlerResult);
                             fflush(stdout);
@@ -519,6 +572,8 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
                         // CRITICAL: Connect component and controller via IConnectionPoint
                         // This allows them to communicate - many plugins crash without this!
                         // This matches what the SDK's PlugProvider::connectComponents() does.
+                        fprintf(stderr, "🔌 [C++] Connecting via IConnectionPoint...\n");
+                        fflush(stderr);
                         FUnknownPtr<IConnectionPoint> componentCP(component);
                         FUnknownPtr<IConnectionPoint> controllerCP(controller);
 
@@ -532,18 +587,30 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
                                     (void*)componentCP.get(), (void*)controllerCP.get());
                             fflush(stdout);
                         }
+                    } else {
+                        fprintf(stderr, "⚠️ [C++] Failed to create controller\n");
+                        fflush(stderr);
                     }
+                } else {
+                    fprintf(stderr, "⚠️ [C++] No controller class ID\n");
+                    fflush(stderr);
                 }
 
+                fprintf(stderr, "✅ [C++] Plugin loaded successfully!\n");
+                fflush(stderr);
                 return instance.release();
             }
         }
 
         set_error("No audio effect class found in plugin");
+        fprintf(stderr, "❌ [C++] No audio effect class found\n");
+        fflush(stderr);
         return nullptr;
 
     } catch (const std::exception& e) {
         set_error(std::string("Load error: ") + e.what());
+        fprintf(stderr, "❌ [C++] Exception: %s\n", e.what());
+        fflush(stderr);
         return nullptr;
     }
 }
