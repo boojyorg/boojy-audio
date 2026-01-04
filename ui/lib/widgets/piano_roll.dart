@@ -49,6 +49,15 @@ class PianoRoll extends StatefulWidget {
   /// Callback when tool mode changes (e.g., via keyboard shortcut)
   final Function(ToolMode)? onToolModeChanged;
 
+  /// MIDI note to highlight (from Virtual Piano input)
+  final int? highlightedNote;
+
+  /// Whether virtual piano is visible
+  final bool virtualPianoVisible;
+
+  /// Callback to toggle virtual piano visibility
+  final VoidCallback? onVirtualPianoToggle;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -58,6 +67,9 @@ class PianoRoll extends StatefulWidget {
     this.ghostNotes = const [],
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
+    this.highlightedNote,
+    this.virtualPianoVisible = false,
+    this.onVirtualPianoToggle,
   });
 
   @override
@@ -430,6 +442,9 @@ class _PianoRollState extends State<PianoRoll>
             onVelocityLaneToggle: toggleVelocityLane,
             ccLaneVisible: ccLaneExpanded,
             onCCLaneToggle: () => setState(() => ccLaneExpanded = !ccLaneExpanded),
+            // Virtual Piano toggle
+            virtualPianoVisible: widget.virtualPianoVisible,
+            onVirtualPianoToggle: widget.onVirtualPianoToggle,
           ),
           // Main content area
           Expanded(
@@ -914,17 +929,24 @@ class _PianoRollState extends State<PianoRoll>
     final isBlackKey = _isBlackKey(midiNote);
     final noteName = _getNoteNameForKey(midiNote);
     final isC = midiNote % 12 == 0;
+    final isHighlighted = widget.highlightedNote == midiNote;
 
     return Container(
       height: pixelsPerNote,
       decoration: BoxDecoration(
-        // Dark theme piano keys - dark grey for black keys, medium grey for white keys
-        color: isBlackKey ? context.colors.standard : context.colors.elevated,
+        // Highlighted when virtual piano plays this note
+        color: isHighlighted
+            ? context.colors.accent
+            : (isBlackKey ? context.colors.standard : context.colors.elevated),
         border: Border(
           bottom: BorderSide(
             color: context.colors.surface, // Subtle border
             width: 0.5,
           ),
+          // Add left border highlight for visual emphasis
+          left: isHighlighted
+              ? BorderSide(color: context.colors.accent, width: 3)
+              : BorderSide.none,
         ),
       ),
       child: Padding(
@@ -934,9 +956,11 @@ class _PianoRollState extends State<PianoRoll>
           child: Text(
             noteName,
             style: TextStyle(
-              color: isBlackKey ? context.colors.textMuted : context.colors.textPrimary,
+              color: isHighlighted
+                  ? context.colors.textPrimary
+                  : (isBlackKey ? context.colors.textMuted : context.colors.textPrimary),
               fontSize: isC ? 9 : 8, // C notes slightly larger
-              fontWeight: isC ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isC || isHighlighted ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
         ),

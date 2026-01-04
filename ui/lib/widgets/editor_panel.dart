@@ -19,6 +19,7 @@ class EditorPanel extends StatefulWidget {
   final String? selectedTrackName; // Track name for display
   final InstrumentData? currentInstrumentData;
   final VoidCallback? onVirtualPianoClose;
+  final VoidCallback? onVirtualPianoToggle; // Toggle virtual piano visibility
   final VoidCallback? onClosePanel; // Close the entire editor panel
   final MidiClipData? currentEditingClip;
   final Function(MidiClipData)? onMidiClipUpdated;
@@ -45,6 +46,7 @@ class EditorPanel extends StatefulWidget {
     this.selectedTrackName,
     this.currentInstrumentData,
     this.onVirtualPianoClose,
+    this.onVirtualPianoToggle,
     this.onClosePanel,
     this.currentEditingClip,
     this.onMidiClipUpdated,
@@ -71,6 +73,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
   // Temporary tool mode when holding modifier keys (Alt, Cmd)
   ToolMode? _tempToolMode;
+
+  // Highlighted note from Virtual Piano (for Piano Roll sync)
+  int? _highlightedNote;
 
   @override
   void initState() {
@@ -252,6 +257,11 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               isEnabled: widget.virtualPianoEnabled,
               onClose: widget.onVirtualPianoClose,
               selectedTrackId: widget.selectedTrackId,
+              onNoteHighlight: (note) {
+                setState(() {
+                  _highlightedNote = note;
+                });
+              },
             ),
         ],
       ),
@@ -498,6 +508,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       ghostNotes: widget.ghostNotes,
       toolMode: _currentToolMode,
       onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+      highlightedNote: _highlightedNote,
+      virtualPianoVisible: widget.virtualPianoEnabled,
+      onVirtualPianoToggle: widget.onVirtualPianoToggle,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

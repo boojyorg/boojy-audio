@@ -81,6 +81,10 @@ class PianoRollControlsBar extends StatefulWidget {
   final bool ccLaneVisible;
   final VoidCallback? onCCLaneToggle;
 
+  // Virtual Piano toggle
+  final bool virtualPianoVisible;
+  final VoidCallback? onVirtualPianoToggle;
+
   // Current effective grid division (for display when adaptive)
   final double effectiveGridDivision;
 
@@ -144,6 +148,9 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onVelocityLaneToggle,
     this.ccLaneVisible = false,
     this.onCCLaneToggle,
+    // Virtual Piano toggle
+    this.virtualPianoVisible = false,
+    this.onVirtualPianoToggle,
   });
 
   @override
@@ -751,6 +758,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           label: 'MIDI CC',
           isActive: widget.ccLaneVisible,
           onTap: widget.onCCLaneToggle,
+        ),
+        const SizedBox(width: 4),
+        // Virtual Piano visibility toggle (computer keyboard icon)
+        _buildToggleButton(
+          context,
+          icon: Icons.keyboard,
+          label: 'Piano',
+          isActive: widget.virtualPianoVisible,
+          onTap: widget.onVirtualPianoToggle,
         ),
       ],
     );

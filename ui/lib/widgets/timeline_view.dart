@@ -1932,7 +1932,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     final trackClips = clips.where((c) => c.trackId == track.id).toList();
     final trackMidiClips = widget.midiClips.where((c) => c.trackId == track.id).toList();
     final isHovered = dragHoveredTrackId == track.id;
-    final isSelected = widget.selectedMidiTrackId == track.id;
     final isMidiTrack = track.type.toLowerCase() == 'midi';
 
     // Wrap with VST3Plugin drag target first
@@ -2076,11 +2075,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         child: Container(
         height: widget.trackHeights[track.id] ?? 100.0,
         decoration: BoxDecoration(
+          // Transparent background to show grid through
           color: isHovered
-              ? context.colors.elevated.withValues(alpha: 0.3)
-              : (isSelected
-                  ? context.colors.elevated.withValues(alpha: 0.3)
-                  : context.colors.dark),
+              ? context.colors.elevated.withValues(alpha: 0.2)
+              : Colors.transparent,
           border: Border(
             bottom: BorderSide(
               color: context.colors.hover,

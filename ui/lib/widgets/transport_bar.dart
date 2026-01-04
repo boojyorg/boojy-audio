@@ -328,6 +328,9 @@ class _TransportBarState extends State<TransportBar> {
                     case 'editor':
                       widget.onToggleEditor?.call();
                       break;
+                    case 'piano':
+                      widget.onTogglePiano?.call();
+                      break;
                     case 'reset':
                       widget.onResetPanelLayout?.call();
                       break;
@@ -376,6 +379,21 @@ class _TransportBarState extends State<TransportBar> {
                         const Text('Editor'),
                         const Spacer(),
                         Text('E', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'piano',
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.pianoVisible ? Icons.check_box : Icons.check_box_outline_blank,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Virtual Piano'),
+                        const Spacer(),
+                        Text('P', style: TextStyle(color: context.colors.textMuted, fontSize: 12)),
                       ],
                     ),
                   ),
