@@ -448,6 +448,7 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   // ============================================
 
   /// Auto-extend loop length if a note extends beyond the current loop boundary.
+  /// Also syncs duration (arrangement clip length) to match loopLength (one-way sync).
   void autoExtendLoopIfNeeded(MidiNoteData note) {
     if (currentClip == null) return;
 
@@ -456,15 +457,32 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     if (noteEndTime > currentLoopLength) {
       final newLoopLength = ((noteEndTime / 4).ceil() * 4).toDouble();
-      currentClip = currentClip!.copyWith(loopLength: newLoopLength);
+      // One-way sync: when loop length expands due to notes, also expand duration
+      // This keeps the arrangement clip in sync with the Piano Roll content
+      final newDuration = newLoopLength > currentClip!.duration
+          ? newLoopLength
+          : currentClip!.duration;
+      currentClip = currentClip!.copyWith(
+        loopLength: newLoopLength,
+        duration: newDuration,
+      );
     }
   }
 
   /// Update the loop length in the current clip.
+  /// One-way sync: also updates arrangement duration if loop length expands.
   void updateLoopLength(double newLength) {
     if (currentClip == null) return;
     final clampedLength = newLength.clamp(gridDivision, 256.0);
-    currentClip = currentClip!.copyWith(loopLength: clampedLength);
+    // One-way sync: when loop length expands, also expand duration
+    // If loop length shrinks, keep duration unchanged (allows clip stretching)
+    final newDuration = clampedLength > currentClip!.duration
+        ? clampedLength
+        : currentClip!.duration;
+    currentClip = currentClip!.copyWith(
+      loopLength: clampedLength,
+      duration: newDuration,
+    );
   }
 
   /// Auto-extend the canvas/clip if loop end exceeds current bounds.

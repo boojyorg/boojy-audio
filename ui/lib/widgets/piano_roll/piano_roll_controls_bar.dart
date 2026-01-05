@@ -304,13 +304,14 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Loop toggle
+        // Loop toggle - controls clip's canRepeat property
         _buildToggleButton(
           context,
           icon: Icons.loop,
           label: 'Loop',
           isActive: widget.loopEnabled,
           onTap: widget.onLoopToggle,
+          tooltip: 'Loop clip content (allows repeating in arrangement)',
         ),
         const SizedBox(width: 8),
         // Start label + input
@@ -771,11 +772,12 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     required String label,
     required bool isActive,
     VoidCallback? onTap,
+    String? tooltip,
   }) {
     final colors = context.colors;
     final mode = _displayMode;
 
-    return GestureDetector(
+    final button = GestureDetector(
       onTap: onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -812,6 +814,14 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(
+        message: tooltip,
+        child: button,
+      );
+    }
+    return button;
   }
 
   Widget _buildActionButton(

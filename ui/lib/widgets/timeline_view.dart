@@ -89,8 +89,8 @@ class TimelineView extends StatefulWidget {
   // Track color callback (for auto-detected colors with override support)
   final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
 
-  // Loop region state
-  final bool isLoopEnabled;
+  // Loop playback state (controls if arrangement playback loops)
+  final bool loopPlaybackEnabled;
   final double loopStartBeats;
   final double loopEndBeats;
   final Function(double startBeats, double endBeats)? onLoopRegionChanged;
@@ -123,7 +123,7 @@ class TimelineView extends StatefulWidget {
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
     this.getTrackColor,
-    this.isLoopEnabled = false,
+    this.loopPlaybackEnabled = false,
     this.loopStartBeats = 0.0,
     this.loopEndBeats = 4.0,
     this.onLoopRegionChanged,
@@ -829,9 +829,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     widget.onMidiClipUpdated?.call(mutedClip);
   }
 
-  /// Toggle loop state of a MIDI clip
+  /// Toggle loop state of a MIDI clip (controls if content can repeat when stretched)
   void _toggleMidiClipLoop(MidiClipData clip) {
-    final loopedClip = clip.copyWith(isLooping: !clip.isLooping);
+    final loopedClip = clip.copyWith(canRepeat: !clip.canRepeat);
     widget.onMidiClipUpdated?.call(loopedClip);
   }
 
@@ -1735,7 +1735,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             child: CustomPaint(
               painter: TimeRulerPainter(
                 pixelsPerBeat: pixelsPerBeat,
-                isLoopEnabled: widget.isLoopEnabled,
+                loopPlaybackEnabled: widget.loopPlaybackEnabled,
                 loopStartBeats: widget.loopStartBeats,
                 loopEndBeats: widget.loopEndBeats,
               ),
@@ -1743,7 +1743,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           ),
         ),
         // Loop region drag handles and bar (only visible when loop is enabled)
-        if (widget.isLoopEnabled) ...[
+        if (widget.loopPlaybackEnabled) ...[
           // Loop bar (draggable region between handles) - added first so handles are on top
           _buildLoopBar(),
           // Loop start handle
@@ -2918,6 +2918,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onHorizontalDragStart: (details) {
+                    // Don't allow resize if canRepeat is false and already at loopLength
+                    if (!midiClip.canRepeat && midiClip.duration >= midiClip.loopLength) {
+                      return;
+                    }
                     setState(() {
                       resizingMidiClipId = midiClip.clipId;
                       resizeStartDuration = midiClip.duration;
@@ -2935,6 +2939,11 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                     newDuration = (newDuration / snapResolution).round() * snapResolution;
                     newDuration = newDuration.clamp(1.0, 256.0);
 
+                    // Constrain to loopLength if canRepeat is false
+                    if (!midiClip.canRepeat) {
+                      newDuration = newDuration.clamp(1.0, midiClip.loopLength);
+                    }
+
                     final updatedClip = midiClip.copyWith(duration: newDuration);
                     widget.onMidiClipUpdated?.call(updatedClip);
                   },
@@ -2943,12 +2952,20 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                       resizingMidiClipId = null;
                     });
                   },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeRight,
-                    child: Container(
-                      width: 8,
-                      height: totalHeight,
-                      color: Colors.transparent,
+                  child: Tooltip(
+                    message: midiClip.canRepeat
+                        ? 'Drag to resize clip'
+                        : 'Enable clip loop to stretch beyond content',
+                    child: MouseRegion(
+                      // Show forbidden cursor if canRepeat is false and at max length
+                      cursor: !midiClip.canRepeat && midiClip.duration >= midiClip.loopLength
+                          ? SystemMouseCursors.forbidden
+                          : SystemMouseCursors.resizeRight,
+                      child: Container(
+                        width: 8,
+                        height: totalHeight,
+                        color: Colors.transparent,
+                      ),
                     ),
                   ),
                 ),
@@ -2973,26 +2990,29 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
   /// Build loop boundary lines for when arrangement > loop length
   Widget _buildLoopBoundaryLines(double loopLength, double clipDuration, double height, Color trackColor) {
-    final List<Widget> lines = [];
+    final List<Widget> markers = [];
     var loopBeat = loopLength;
 
     while (loopBeat < clipDuration) {
       final lineX = loopBeat * pixelsPerBeat;
-      lines.add(
+      // Add subtle dimple notches at top and bottom edges instead of full vertical lines
+      markers.add(
         Positioned(
-          left: lineX,
+          left: lineX - 4, // Center the dimple on the loop point
           top: 0,
-          child: Container(
-            width: 1,
-            height: height,
-            color: trackColor.withValues(alpha: 0.4),
+          child: CustomPaint(
+            size: Size(8, height),
+            painter: _DimplePainter(
+              color: trackColor.withValues(alpha: 0.6),
+              height: height,
+            ),
           ),
         ),
       );
       loopBeat += loopLength;
     }
 
-    return Stack(children: lines);
+    return Stack(children: markers);
   }
 
   Widget _buildPreviewClip(PreviewClip preview) {
@@ -3455,6 +3475,46 @@ class _MidiClipPainter extends CustomPainter {
     return !listEquals(notes, oldDelegate.notes) ||
            clipDuration != oldDelegate.clipDuration ||
            trackColor != oldDelegate.trackColor;
+  }
+}
+
+/// Painter for dimple indicators at loop boundaries when clips are stretched
+class _DimplePainter extends CustomPainter {
+  final Color color;
+  final double height;
+
+  _DimplePainter({
+    required this.color,
+    required this.height,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    const dimpleSize = 4.0;
+    final centerX = size.width / 2;
+
+    // Top dimple (curved notch pointing down)
+    final topPath = Path()
+      ..moveTo(centerX - dimpleSize, 0)
+      ..quadraticBezierTo(centerX, dimpleSize * 1.5, centerX + dimpleSize, 0)
+      ..close();
+    canvas.drawPath(topPath, paint);
+
+    // Bottom dimple (curved notch pointing up)
+    final bottomPath = Path()
+      ..moveTo(centerX - dimpleSize, height)
+      ..quadraticBezierTo(centerX, height - dimpleSize * 1.5, centerX + dimpleSize, height)
+      ..close();
+    canvas.drawPath(bottomPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DimplePainter oldDelegate) {
+    return color != oldDelegate.color || height != oldDelegate.height;
   }
 }
 

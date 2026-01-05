@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Painter for the time ruler (bar numbers with beat subdivisions)
 class TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
-  final bool isLoopEnabled;
+  final bool loopPlaybackEnabled;
   final double loopStartBeats;
   final double loopEndBeats;
 
@@ -12,7 +12,7 @@ class TimeRulerPainter extends CustomPainter {
 
   TimeRulerPainter({
     required this.pixelsPerBeat,
-    this.isLoopEnabled = false,
+    this.loopPlaybackEnabled = false,
     this.loopStartBeats = 0.0,
     this.loopEndBeats = 4.0,
   });
@@ -28,7 +28,7 @@ class TimeRulerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Draw loop region first (behind everything else)
-    if (isLoopEnabled && loopEndBeats > loopStartBeats) {
+    if (loopPlaybackEnabled && loopEndBeats > loopStartBeats) {
       final loopStartX = loopStartBeats * pixelsPerBeat;
       final loopEndX = loopEndBeats * pixelsPerBeat;
 
@@ -169,7 +169,7 @@ class TimeRulerPainter extends CustomPainter {
   @override
   bool shouldRepaint(TimeRulerPainter oldDelegate) {
     return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-        oldDelegate.isLoopEnabled != isLoopEnabled ||
+        oldDelegate.loopPlaybackEnabled != loopPlaybackEnabled ||
         oldDelegate.loopStartBeats != loopStartBeats ||
         oldDelegate.loopEndBeats != loopEndBeats;
   }

@@ -141,7 +141,8 @@ class MidiPlaybackManager extends ChangeNotifier {
 
     // Calculate how many loop iterations fit within the arrangement duration
     // If duration < loopLength, we still play once but truncated
-    final numLoops = clip.duration >= clip.loopLength
+    // If canRepeat is false, only play once (no looping)
+    final numLoops = clip.canRepeat && clip.duration >= clip.loopLength
         ? (clip.duration / clip.loopLength).ceil()
         : 1;
 

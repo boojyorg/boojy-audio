@@ -366,13 +366,19 @@ class _PianoRollState extends State<PianoRoll>
         children: [
           // Horizontal controls bar (replaces left sidebar)
           PianoRollControlsBar(
-            // Clip section
-            loopEnabled: loopEnabled,
+            // Clip section - loopEnabled controls clip's canRepeat property
+            loopEnabled: currentClip?.canRepeat ?? true,
             loopStartBeats: loopStartBeats,
             loopLengthBeats: getLoopLength(),
             beatsPerBar: beatsPerBar,
             beatUnit: beatUnit,
-            onLoopToggle: () => setState(() => loopEnabled = !loopEnabled),
+            onLoopToggle: () {
+              if (currentClip == null) return;
+              setState(() {
+                currentClip = currentClip!.copyWith(canRepeat: !currentClip!.canRepeat);
+              });
+              notifyClipUpdated();
+            },
             onLoopStartChanged: (beats) => setState(() => loopStartBeats = beats),
             onLoopLengthChanged: (beats) {
               if (currentClip == null) return;
@@ -1986,6 +1992,8 @@ class _PianoRollState extends State<PianoRoll>
         setState(() {
           currentClip = currentClip?.addNote(newNote);
           lastPaintedBeat = nextNoteBeat;
+          // Auto-extend loop if note extends beyond current loop boundary
+          autoExtendLoopIfNeeded(newNote);
         });
 
       }

@@ -68,9 +68,9 @@ class TransportBar extends StatefulWidget {
   final SnapValue arrangementSnap;
   final Function(SnapValue)? onSnapChanged;
 
-  // Loop control
-  final bool isLoopEnabled;
-  final VoidCallback? onLoopToggle;
+  // Loop playback control (controls if arrangement playback loops)
+  final bool loopPlaybackEnabled;
+  final VoidCallback? onLoopPlaybackToggle;
 
   final bool isLoading;
 
@@ -122,8 +122,8 @@ class TransportBar extends StatefulWidget {
     this.onHelpPressed,
     this.arrangementSnap = SnapValue.bar,
     this.onSnapChanged,
-    this.isLoopEnabled = false,
-    this.onLoopToggle,
+    this.loopPlaybackEnabled = false,
+    this.onLoopPlaybackToggle,
     this.isLoading = false,
   });
 
@@ -381,14 +381,14 @@ class _TransportBarState extends State<TransportBar> {
 
               SizedBox(width: isCompact ? 4 : 8),
 
-              // Loop toggle pill button
+              // Loop playback toggle pill button
               _PillButton(
                 icon: Icons.loop,
                 label: 'Loop',
-                isActive: widget.isLoopEnabled,
+                isActive: widget.loopPlaybackEnabled,
                 mode: mode,
-                onTap: widget.onLoopToggle,
-                tooltip: widget.isLoopEnabled ? 'Loop On (L)' : 'Loop Off (L)',
+                onTap: widget.onLoopPlaybackToggle,
+                tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
                 activeColor: const Color(0xFFF97316), // Orange for loop
               ),
 

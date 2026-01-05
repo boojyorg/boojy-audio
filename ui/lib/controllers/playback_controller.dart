@@ -21,6 +21,18 @@ class PlaybackController extends ChangeNotifier {
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0;
 
+  // Double-stop behavior state
+  DateTime? _lastStopTime;
+  static const _doubleStopThreshold = Duration(milliseconds: 500);
+
+  // Loop playback enabled (from arrangement)
+  bool _loopPlaybackEnabled = true;
+
+  /// Set loop playback enabled state (from arrangement)
+  void setLoopPlaybackEnabled({required bool enabled}) {
+    _loopPlaybackEnabled = enabled;
+  }
+
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 
@@ -104,20 +116,44 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
-  /// Stop playback and reset position
+  /// Stop playback with double-stop behavior.
+  /// First stop: pause at current position
+  /// Second stop (within 500ms): return to loop start (if loop enabled) or bar 1
   void stop() {
     if (_audioEngine == null) {
       return;
     }
 
     try {
-      _audioEngine!.transportStop();
+      final now = DateTime.now();
+      final isDoubleStop = _lastStopTime != null &&
+          now.difference(_lastStopTime!) < _doubleStopThreshold;
 
+      _audioEngine!.transportStop();
       _isPlaying = false;
-      _playheadPosition = 0.0;
-      _statusMessage = 'Stopped';
-      notifyListeners();
       _stopPlayheadTimer();
+
+      if (isDoubleStop) {
+        // Second stop: return to loop start or bar 1
+        if (_loopPlaybackEnabled) {
+          // Return to loop start
+          _playheadPosition = _loopStartBeats;
+          _audioEngine!.transportSeek(_loopStartBeats);
+          _statusMessage = 'Stopped (loop start)';
+        } else {
+          // Return to bar 1 (beat 0)
+          _playheadPosition = 0.0;
+          _audioEngine!.transportSeek(0.0);
+          _statusMessage = 'Stopped (bar 1)';
+        }
+        _lastStopTime = null; // Reset for next double-stop
+      } else {
+        // First stop: just pause at current position
+        _statusMessage = 'Stopped';
+        _lastStopTime = now;
+      }
+
+      notifyListeners();
     } catch (e) {
       _statusMessage = 'Stop error: $e';
       notifyListeners();

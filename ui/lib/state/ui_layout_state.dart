@@ -69,8 +69,8 @@ class UILayoutState extends ChangeNotifier {
   // Arrangement snap setting (independent from Piano Roll snap)
   SnapValue _arrangementSnap = SnapValue.bar;
 
-  // Loop region state
-  bool _isLoopEnabled = true; // Loop ON by default
+  // Loop playback state (controls if arrangement playback loops)
+  bool _loopPlaybackEnabled = true; // Loop ON by default
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
 
@@ -315,12 +315,12 @@ class UILayoutState extends ChangeNotifier {
   }
 
   // ============================================
-  // LOOP REGION
+  // LOOP PLAYBACK (Arrangement loop - controls if playback loops)
   // ============================================
 
-  bool get isLoopEnabled => _isLoopEnabled;
-  set isLoopEnabled(bool value) {
-    _isLoopEnabled = value;
+  bool get loopPlaybackEnabled => _loopPlaybackEnabled;
+  set loopPlaybackEnabled(bool value) {
+    _loopPlaybackEnabled = value;
     notifyListeners();
   }
 
@@ -336,9 +336,9 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Toggle loop on/off
-  void toggleLoop() {
-    _isLoopEnabled = !_isLoopEnabled;
+  /// Toggle loop playback on/off
+  void toggleLoopPlayback() {
+    _loopPlaybackEnabled = !_loopPlaybackEnabled;
     notifyListeners();
   }
 

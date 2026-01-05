@@ -177,8 +177,9 @@ class MidiClipData {
   /// Whether this clip is muted
   final bool isMuted;
 
-  /// Whether this clip is looping (vs one-shot)
-  final bool isLooping;
+  /// Whether this clip can repeat when stretched beyond loopLength
+  /// Controls if content loops when arrangement duration > loop length
+  final bool canRepeat;
 
   MidiClipData({
     required this.clipId,
@@ -191,7 +192,7 @@ class MidiClipData {
     this.name = 'MIDI Clip',
     this.color,
     this.isMuted = false,
-    this.isLooping = false,
+    this.canRepeat = true,
   }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
@@ -213,7 +214,7 @@ class MidiClipData {
       name: name,
       color: color,
       isMuted: isMuted,
-      isLooping: isLooping,
+      canRepeat: canRepeat,
     );
   }
 
@@ -230,7 +231,7 @@ class MidiClipData {
       name: name,
       color: color,
       isMuted: isMuted,
-      isLooping: isLooping,
+      canRepeat: canRepeat,
     );
   }
 
@@ -247,7 +248,7 @@ class MidiClipData {
       name: name,
       color: color,
       isMuted: isMuted,
-      isLooping: isLooping,
+      canRepeat: canRepeat,
     );
   }
 
@@ -271,7 +272,7 @@ class MidiClipData {
       name: name,
       color: color,
       isMuted: isMuted,
-      isLooping: isLooping,
+      canRepeat: canRepeat,
     );
   }
 
@@ -288,7 +289,7 @@ class MidiClipData {
       name: name,
       color: color,
       isMuted: isMuted,
-      isLooping: isLooping,
+      canRepeat: canRepeat,
     );
   }
 
@@ -304,7 +305,7 @@ class MidiClipData {
     String? name,
     Color? color,
     bool? isMuted,
-    bool? isLooping,
+    bool? canRepeat,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -317,7 +318,7 @@ class MidiClipData {
       name: name ?? this.name,
       color: color ?? this.color,
       isMuted: isMuted ?? this.isMuted,
-      isLooping: isLooping ?? this.isLooping,
+      canRepeat: canRepeat ?? this.canRepeat,
     );
   }
 }

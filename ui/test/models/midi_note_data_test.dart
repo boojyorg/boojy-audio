@@ -489,7 +489,7 @@ void main() {
         expect(clip.notes, isEmpty);
         expect(clip.name, 'MIDI Clip');
         expect(clip.isMuted, false);
-        expect(clip.isLooping, false);
+        expect(clip.canRepeat, true);
       });
 
       test('creates clip with custom loopLength', () {
