@@ -200,6 +200,7 @@ class RecordingController extends ChangeNotifier {
   }
 
   /// Toggle virtual piano
+  /// Note: Only starts MIDI input, does NOT start transport/metronome
   bool toggleVirtualPiano() {
     if (_audioEngine == null) return false;
 
@@ -208,7 +209,7 @@ class RecordingController extends ChangeNotifier {
     if (_isVirtualPianoEnabled) {
       try {
         _audioEngine!.startMidiInput();
-        _audioEngine!.transportPlay();
+        // Don't start transport - virtual piano should not trigger metronome
         notifyListeners();
         return true;
       } catch (e) {

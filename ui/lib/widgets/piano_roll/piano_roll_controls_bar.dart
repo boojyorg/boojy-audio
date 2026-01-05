@@ -759,15 +759,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           isActive: widget.ccLaneVisible,
           onTap: widget.onCCLaneToggle,
         ),
-        const SizedBox(width: 4),
-        // Virtual Piano visibility toggle (computer keyboard icon)
-        _buildToggleButton(
-          context,
-          icon: Icons.keyboard,
-          label: 'Piano',
-          isActive: widget.virtualPianoVisible,
-          onTap: widget.onVirtualPianoToggle,
-        ),
       ],
     );
   }

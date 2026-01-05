@@ -10,6 +10,7 @@ import '../widgets/timeline_view.dart';
 import '../widgets/track_mixer_panel.dart';
 import '../widgets/library_panel.dart';
 import '../widgets/editor_panel.dart';
+import '../widgets/virtual_piano.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
 import '../widgets/vst3_plugin_browser.dart';
@@ -3183,10 +3184,10 @@ class _DAWScreenState extends State<DAWScreen> {
                   ),
                 ),
 
-                // Editor panel: Piano Roll / Effects / Instrument / Virtual Piano
-                // Always show editor - either expanded or collapsed bar
-                if (_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoVisible) ...[
-                  // Expanded editor panel with resizable divider
+                // Editor panel: Piano Roll / Effects / Instrument
+                // Only show when editor is enabled in View menu
+                if (_uiLayout.isEditorPanelVisible) ...[
+                  // Resizable divider above editor
                   ResizableDivider(
                     orientation: DividerOrientation.horizontal,
                     isCollapsed: false,
@@ -3198,8 +3199,6 @@ class _DAWScreenState extends State<DAWScreen> {
                         // Snap collapse if dragged below threshold
                         if (newHeight < UILayoutState.editorCollapseThreshold) {
                           _uiLayout.collapseEditor();
-                          _uiLayout.isVirtualPianoVisible = false;
-                          _uiLayout.isVirtualPianoEnabled = false;
                           _userSettings.editorVisible = false;
                         } else {
                           _uiLayout.editorPanelHeight = newHeight.clamp(
@@ -3213,8 +3212,6 @@ class _DAWScreenState extends State<DAWScreen> {
                     onDoubleClick: () {
                       setState(() {
                         _uiLayout.collapseEditor();
-                        _uiLayout.isVirtualPianoVisible = false;
-                        _uiLayout.isVirtualPianoEnabled = false;
                         _userSettings.editorVisible = false;
                       });
                     },
@@ -3230,11 +3227,10 @@ class _DAWScreenState extends State<DAWScreen> {
                           ? _trackInstruments[_selectedTrackId]
                           : null,
                       onVirtualPianoClose: _toggleVirtualPiano,
+                      onVirtualPianoToggle: _toggleVirtualPiano,
                       onClosePanel: () {
                         setState(() {
                           _uiLayout.isEditorPanelVisible = false;
-                          _uiLayout.isVirtualPianoVisible = false;
-                          _uiLayout.isVirtualPianoEnabled = false;
                         });
                       },
                       currentEditingClip: _midiPlaybackManager?.currentEditingClip,
@@ -3248,22 +3244,16 @@ class _DAWScreenState extends State<DAWScreen> {
                       isCollapsed: false,
                     ),
                   ),
-                ] else ...[
-                  // Collapsed editor bar - always visible
-                  EditorPanel(
-                    audioEngine: _audioEngine,
-                    virtualPianoEnabled: false,
-                    selectedTrackId: _selectedTrackId,
-                    currentInstrumentData: _selectedTrackId != null
-                        ? _trackInstruments[_selectedTrackId]
-                        : null,
-                    isCollapsed: true,
-                    onExpandPanel: _toggleEditor,
-                    onTabAndExpand: (tabIndex) {
-                      _toggleEditor(); // Expand the panel
-                    },
-                  ),
                 ],
+
+                // Virtual Piano - independent panel, always below editor
+                if (_uiLayout.isVirtualPianoEnabled)
+                  VirtualPiano(
+                    audioEngine: _audioEngine,
+                    isEnabled: _uiLayout.isVirtualPianoEnabled,
+                    onClose: _toggleVirtualPiano,
+                    selectedTrackId: _selectedTrackId,
+                  ),
               ],
             ),
           ),

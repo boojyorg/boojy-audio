@@ -266,21 +266,15 @@ class UILayoutState extends ChangeNotifier {
 
   void toggleVirtualPiano() {
     _isVirtualPianoEnabled = !_isVirtualPianoEnabled;
-    if (_isVirtualPianoEnabled) {
-      _isVirtualPianoVisible = true;
-    } else {
-      _isVirtualPianoVisible = false;
-      _isEditorPanelVisible = false;
-    }
+    _isVirtualPianoVisible = _isVirtualPianoEnabled;
+    // Don't close the editor panel - just hide the virtual piano keyboard
     notifyListeners();
   }
 
   void setVirtualPianoEnabled({required bool enabled}) {
     _isVirtualPianoEnabled = enabled;
     _isVirtualPianoVisible = enabled;
-    if (!enabled) {
-      _isEditorPanelVisible = false;
-    }
+    // Don't close the editor panel - just hide the virtual piano keyboard
     notifyListeners();
   }
 

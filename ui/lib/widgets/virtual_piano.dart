@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
+import 'shared/mini_knob.dart';
 
 /// Compact virtual piano keyboard widget for testing MIDI without physical hardware
 /// Displays inline with controls on the left and 21 piano keys (~2 octaves) on the right
@@ -28,11 +29,15 @@ class VirtualPiano extends StatefulWidget {
 class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderStateMixin {
   // Height constraints
   static const double _minHeight = 56.0;
-  static const double _maxHeight = 120.0;
-  static const double _defaultHeight = 56.0;
+  static const double _maxHeight = 150.0;
+  static const double _defaultHeight = 72.0;
 
   // Current height (adjustable via drag)
   double _height = _defaultHeight;
+
+  // Resize handle state
+  bool _isResizeHovered = false;
+  bool _isResizeDragging = false;
 
   // Current octave (base octave for the keyboard, default C4)
   int _currentOctave = 4;
@@ -65,8 +70,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   // Focus node for keyboard input
   final FocusNode _focusNode = FocusNode();
 
-  // Track focus state for visual indicator
-  bool _hasFocus = false;
 
   // White key keyboard mapping (A-\ keys) -> relative MIDI notes from C
   static final Map<LogicalKeyboardKey, int> _whiteKeyMapping = {
@@ -135,13 +138,6 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-
-    // Listen to focus changes
-    _focusNode.addListener(() {
-      setState(() {
-        _hasFocus = _focusNode.hasFocus;
-      });
-    });
 
     // Setup slide animation
     _animationController = AnimationController(
@@ -374,19 +370,11 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
               // Main piano content
               Container(
                 height: _height,
-                decoration: BoxDecoration(
-                  color: context.colors.darkest,
-                ),
+                color: context.colors.dark,
                 child: Row(
                   children: [
                     // Controls section
                     _buildControls(),
-
-                    // Divider
-                    Container(
-                      width: 1,
-                      color: context.colors.elevated,
-                    ),
 
                     // Piano keyboard
                     Expanded(
@@ -403,34 +391,36 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   }
 
   Widget _buildResizeHandle() {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeRow,
-      child: GestureDetector(
-        onVerticalDragUpdate: (details) {
-          setState(() {
-            // Drag up = increase height (negative delta.dy)
-            _height = (_height - details.delta.dy).clamp(_minHeight, _maxHeight);
-          });
-        },
+    // Colors matching ResizableDivider style
+    const idleColor = Color(0xFF505050);
+    const activeColor = Color(0xFF38BDF8);
+
+    final isActive = _isResizeHovered || _isResizeDragging;
+    final lineHeight = isActive ? 3.0 : 1.0;
+    final lineColor = isActive ? activeColor : idleColor;
+
+    return GestureDetector(
+      onPanStart: (_) => setState(() => _isResizeDragging = true),
+      onPanUpdate: (details) {
+        setState(() {
+          // Drag up = increase height (negative delta.dy)
+          _height = (_height - details.delta.dy).clamp(_minHeight, _maxHeight);
+        });
+      },
+      onPanEnd: (_) => setState(() => _isResizeDragging = false),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeRow,
+        onEnter: (_) => setState(() => _isResizeHovered = true),
+        onExit: (_) => setState(() => _isResizeHovered = false),
         child: Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: context.colors.standard,
-            border: Border(
-              top: BorderSide(
-                color: _hasFocus ? context.colors.accent : context.colors.elevated,
-                width: _hasFocus ? 2 : 1,
-              ),
-            ),
-          ),
+          // 8px invisible hit area for dragging (matching ResizableDivider)
+          height: 8.0,
+          color: Colors.transparent,
           child: Center(
+            // Visible line centered within hit area
             child: Container(
-              width: 40,
-              height: 3,
-              decoration: BoxDecoration(
-                color: context.colors.textMuted,
-                borderRadius: BorderRadius.circular(1.5),
-              ),
+              height: lineHeight,
+              color: lineColor,
             ),
           ),
         ),
@@ -440,134 +430,168 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
 
   Widget _buildControls() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.colors.standard,
+        border: Border(
+          right: BorderSide(color: context.colors.surface, width: 1),
+        ),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Octave down button
-          _buildControlButton(
-            label: 'Oct -',
-            sublabel: 'Z',
-            onPressed: _currentOctave > -1 ? _decreaseOctave : null,
+          // Current octave display (prominent)
+          _buildOctaveDisplay(),
+
+          const SizedBox(width: 12),
+
+          // Octave controls group
+          Container(
+            decoration: BoxDecoration(
+              color: context.colors.dark,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildCompactButton(
+                  icon: Icons.remove,
+                  sublabel: 'Z',
+                  onPressed: _currentOctave > -1 ? _decreaseOctave : null,
+                ),
+                Container(width: 1, height: 24, color: context.colors.surface),
+                _buildCompactButton(
+                  icon: Icons.add,
+                  sublabel: 'X',
+                  onPressed: _currentOctave < 9 ? _increaseOctave : null,
+                ),
+              ],
+            ),
           ),
 
-          const SizedBox(width: 4),
+          const SizedBox(width: 12),
 
-          // Octave up button
-          _buildControlButton(
-            label: 'Oct +',
-            sublabel: 'X',
-            onPressed: _currentOctave < 9 ? _increaseOctave : null,
-          ),
-
-          const SizedBox(width: 8),
-
-          // Velocity knob
+          // Velocity knob (split button style)
           _buildVelocityKnob(),
 
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
 
           // Keyboard toggle
           _buildKeyboardToggle(),
-
-          const SizedBox(width: 8),
-
-          // Current octave display
-          _buildOctaveDisplay(),
-
-          const SizedBox(width: 4),
         ],
       ),
     );
   }
 
-  Widget _buildControlButton({
-    required String label,
+  Widget _buildCompactButton({
+    required IconData icon,
     required String sublabel,
     VoidCallback? onPressed,
   }) {
     final isEnabled = onPressed != null;
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        decoration: BoxDecoration(
-          color: isEnabled ? context.colors.dark : context.colors.dark.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: context.colors.elevated,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
+      child: MouseRegion(
+        cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
                 color: isEnabled ? context.colors.textPrimary : context.colors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
-            ),
-            Text(
-              sublabel,
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 8,
+              Text(
+                sublabel,
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: 8,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildVelocityKnob() {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _velocity = (_velocity - details.delta.dy.round()).clamp(1, 127);
-        });
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: context.colors.dark,
-              border: Border.all(
-                color: context.colors.accent,
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                'Vel',
-                style: TextStyle(
-                  color: context.colors.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Velocity label with value
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: context.colors.dark,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(2),
+              bottomLeft: Radius.circular(2),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            '$_velocity',
+          child: Text(
+            'Vel $_velocity',
             style: TextStyle(
-              color: context.colors.textSecondary,
+              color: context.colors.textPrimary,
               fontSize: 9,
             ),
           ),
-        ],
+        ),
+        // Divider
+        Container(
+          width: 1,
+          height: 14,
+          color: context.colors.textPrimary.withValues(alpha: 0.2),
+        ),
+        // MiniKnob in dropdown style area
+        GestureDetector(
+          onTap: _showVelocityKnobPopup,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: context.colors.dark,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(2),
+                  bottomRight: Radius.circular(2),
+                ),
+              ),
+              child: Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: context.colors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showVelocityKnobPopup() {
+    final overlay = Overlay.of(context);
+
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => _VelocityKnobPopup(
+        velocity: _velocity,
+        onChanged: (value) {
+          setState(() {
+            _velocity = value.round().clamp(1, 127);
+          });
+        },
+        onClose: () {
+          overlayEntry.remove();
+        },
       ),
     );
+
+    overlay.insert(overlayEntry);
   }
 
   Widget _buildKeyboardToggle() {
@@ -599,21 +623,21 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
 
   Widget _buildOctaveDisplay() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: context.colors.dark,
+        color: context.colors.accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: context.colors.elevated,
+          color: context.colors.accent.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
       child: Text(
         'C$_currentOctave',
         style: TextStyle(
-          color: context.colors.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          color: context.colors.accent,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -708,24 +732,50 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           decoration: BoxDecoration(
             color: isPressed
                 ? context.colors.accent
-                : (isValidNote ? context.colors.textPrimary : context.colors.surface),
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(
-              color: isPressed ? context.colors.accent : context.colors.surface,
-              width: 1,
+                : (isValidNote ? const Color(0xFFF5F5F5) : context.colors.surface),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(4),
+              bottomRight: Radius.circular(4),
             ),
-          ),
-          child: Center(
-            child: Text(
-              '$noteName/$keyLabel',
-              style: TextStyle(
-                color: isPressed
-                    ? context.colors.textPrimary
-                    : context.colors.darkest,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+            boxShadow: isPressed ? null : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                offset: const Offset(0, 2),
+                blurRadius: 2,
               ),
-            ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      noteName,
+                      style: TextStyle(
+                        color: isPressed
+                            ? context.colors.textPrimary
+                            : const Color(0xFF333333),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      keyLabel,
+                      style: TextStyle(
+                        color: isPressed
+                            ? context.colors.textPrimary.withValues(alpha: 0.7)
+                            : const Color(0xFF888888),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -735,39 +785,178 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   Widget _buildBlackKey(int midiNote, int relativeNote, double width) {
     final isPressed = _pressedNotes.contains(midiNote) || _sustainedNotes.contains(midiNote);
     final keyLabel = _keyLabels[relativeNote] ?? '';
-    final noteName = _getNoteNameWithoutOctave(midiNote);
     final isValidNote = midiNote >= 0 && midiNote <= 127;
 
-    return GestureDetector(
-      onTapDown: isValidNote ? (_) => _noteOn(midiNote) : null,
-      onTapUp: isValidNote ? (_) => _noteOff(midiNote) : null,
-      onTapCancel: isValidNote ? () => _noteOff(midiNote) : null,
-      child: Container(
-        width: width,
-        height: 28,
-        decoration: BoxDecoration(
-          color: isPressed
-              ? context.colors.accent
-              : (isValidNote ? context.colors.darkest : context.colors.dark),
-          borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: isPressed ? context.colors.accent : context.colors.surface,
-            width: 1,
+    // Black keys are 60% of the height
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final keyHeight = (_height - 8) * 0.6; // 60% of piano area height
+
+        return GestureDetector(
+          onTapDown: isValidNote ? (_) => _noteOn(midiNote) : null,
+          onTapUp: isValidNote ? (_) => _noteOff(midiNote) : null,
+          onTapCancel: isValidNote ? () => _noteOff(midiNote) : null,
+          child: Container(
+            width: width,
+            height: keyHeight.clamp(24.0, 80.0),
+            decoration: BoxDecoration(
+              gradient: isPressed ? null : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  isValidNote ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
+                  isValidNote ? const Color(0xFF1A1A1A) : const Color(0xFF0A0A0A),
+                ],
+              ),
+              color: isPressed ? this.context.colors.accent : null,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(3),
+                bottomRight: Radius.circular(3),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  offset: const Offset(0, 2),
+                  blurRadius: 3,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    keyLabel,
+                    style: TextStyle(
+                      color: isPressed
+                          ? this.context.colors.textPrimary
+                          : const Color(0xFF888888),
+                      fontSize: 7,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Popup overlay with a MiniKnob for velocity adjustment
+class _VelocityKnobPopup extends StatefulWidget {
+  final int velocity;
+  final Function(double) onChanged;
+  final VoidCallback onClose;
+
+  const _VelocityKnobPopup({
+    required this.velocity,
+    required this.onChanged,
+    required this.onClose,
+  });
+
+  @override
+  State<_VelocityKnobPopup> createState() => _VelocityKnobPopupState();
+}
+
+class _VelocityKnobPopupState extends State<_VelocityKnobPopup> {
+  late double _currentValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentValue = widget.velocity.toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Stack(
+      children: [
+        // Tap outside to close
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onClose,
+            behavior: HitTestBehavior.opaque,
+            child: Container(color: Colors.transparent),
           ),
         ),
-        child: Center(
-          child: Text(
-            '$noteName/$keyLabel',
-            style: TextStyle(
-              color: isPressed
-                  ? context.colors.textPrimary
-                  : context.colors.textSecondary,
-              fontSize: 7,
-              fontWeight: FontWeight.w600,
+        // Position popup near bottom of screen (above virtual piano)
+        Positioned(
+          bottom: 180,
+          left: 100,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.elevated,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: colors.surface),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Velocity',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  MiniKnob(
+                    value: _currentValue,
+                    min: 1.0,
+                    max: 127.0,
+                    size: 48,
+                    valueFormatter: (v) => v.round().toString(),
+                    onChanged: (value) {
+                      setState(() => _currentValue = value);
+                      widget.onChanged(value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Done button
+                  GestureDetector(
+                    onTap: widget.onClose,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: colors.accent,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          'Done',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
-import 'virtual_piano.dart';
 import 'piano_roll.dart';
 import 'synthesizer_panel.dart';
 import 'vst3_plugin_parameter_panel.dart';
@@ -167,8 +166,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       return _buildCollapsedBar();
     }
 
-    return Container(
-      height: 250,
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colors.dark,
         border: Border(
@@ -212,6 +210,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                     ],
                   ),
                 ),
+                // Virtual Piano toggle (right side, before collapse button)
+                _buildPianoToggle(),
+                const SizedBox(width: 8),
                 // Collapse button (down arrow)
                 Tooltip(
                   message: 'Collapse Panel',
@@ -238,7 +239,7 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
             ),
           ),
 
-          // Tab content
+          // Tab content expands to fill available space
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -249,20 +250,6 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               ],
             ),
           ),
-
-          // Virtual Piano (below tabs, always visible when enabled)
-          if (widget.virtualPianoEnabled)
-            VirtualPiano(
-              audioEngine: widget.audioEngine,
-              isEnabled: widget.virtualPianoEnabled,
-              onClose: widget.onVirtualPianoClose,
-              selectedTrackId: widget.selectedTrackId,
-              onNoteHighlight: (note) {
-                setState(() {
-                  _highlightedNote = note;
-                });
-              },
-            ),
         ],
       ),
     );
@@ -304,6 +291,9 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               ],
             ),
           ),
+          // Virtual Piano toggle (right side, before expand button)
+          _buildPianoToggle(),
+          const SizedBox(width: 8),
           // Expand arrow (up arrow)
           Tooltip(
             message: 'Expand Editor',
@@ -444,6 +434,47 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               icon,
               size: 16,
               color: iconColor,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build the Virtual Piano toggle button
+  Widget _buildPianoToggle() {
+    final isActive = widget.virtualPianoEnabled;
+
+    return Tooltip(
+      message: 'Virtual Piano (P)',
+      child: GestureDetector(
+        onTap: widget.onVirtualPianoToggle,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isActive ? context.colors.accent : context.colors.dark,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.keyboard,
+                  size: 16,
+                  color: isActive ? context.colors.elevated : context.colors.textPrimary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Piano',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isActive ? context.colors.elevated : context.colors.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
