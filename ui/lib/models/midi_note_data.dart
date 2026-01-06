@@ -181,6 +181,12 @@ class MidiClipData {
   /// Controls if content loops when arrangement duration > loop length
   final bool canRepeat;
 
+  /// Content start offset in beats - determines which beat of the clip content
+  /// begins playback. When set to 4.0 (bar 2), notes at beat 0-4 are skipped
+  /// and playback starts from beat 4 of the clip content.
+  /// This is the Piano Roll "Start" field value.
+  final double contentStartOffset;
+
   MidiClipData({
     required this.clipId,
     required this.trackId,
@@ -193,6 +199,7 @@ class MidiClipData {
     this.color,
     this.isMuted = false,
     this.canRepeat = true,
+    this.contentStartOffset = 0.0,
   }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
@@ -215,6 +222,7 @@ class MidiClipData {
       color: color,
       isMuted: isMuted,
       canRepeat: canRepeat,
+      contentStartOffset: contentStartOffset,
     );
   }
 
@@ -232,6 +240,7 @@ class MidiClipData {
       color: color,
       isMuted: isMuted,
       canRepeat: canRepeat,
+      contentStartOffset: contentStartOffset,
     );
   }
 
@@ -249,6 +258,7 @@ class MidiClipData {
       color: color,
       isMuted: isMuted,
       canRepeat: canRepeat,
+      contentStartOffset: contentStartOffset,
     );
   }
 
@@ -273,6 +283,7 @@ class MidiClipData {
       color: color,
       isMuted: isMuted,
       canRepeat: canRepeat,
+      contentStartOffset: contentStartOffset,
     );
   }
 
@@ -290,6 +301,7 @@ class MidiClipData {
       color: color,
       isMuted: isMuted,
       canRepeat: canRepeat,
+      contentStartOffset: contentStartOffset,
     );
   }
 
@@ -306,6 +318,7 @@ class MidiClipData {
     Color? color,
     bool? isMuted,
     bool? canRepeat,
+    double? contentStartOffset,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -319,6 +332,7 @@ class MidiClipData {
       color: color ?? this.color,
       isMuted: isMuted ?? this.isMuted,
       canRepeat: canRepeat ?? this.canRepeat,
+      contentStartOffset: contentStartOffset ?? this.contentStartOffset,
     );
   }
 }

@@ -470,18 +470,17 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   }
 
   /// Update the loop length in the current clip.
-  /// One-way sync: also updates arrangement duration if loop length expands.
+  /// One-way sync: always updates arrangement duration to match loopLength.
   void updateLoopLength(double newLength) {
     if (currentClip == null) return;
-    final clampedLength = newLength.clamp(gridDivision, 256.0);
-    // One-way sync: when loop length expands, also expand duration
-    // If loop length shrinks, keep duration unchanged (allows clip stretching)
-    final newDuration = clampedLength > currentClip!.duration
-        ? clampedLength
-        : currentClip!.duration;
+    // Minimum is 1/16th note (0.25 beats), maximum is 256 beats (64 bars)
+    const minLength = 0.25;
+    final clampedLength = newLength.clamp(minLength, 256.0);
+    // One-way sync: loopLength change always syncs to duration
+    // This keeps the arrangement clip length matching the Piano Roll loop length
     currentClip = currentClip!.copyWith(
       loopLength: clampedLength,
-      duration: newDuration,
+      duration: clampedLength,
     );
   }
 

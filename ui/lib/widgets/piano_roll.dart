@@ -98,6 +98,10 @@ class _PianoRollState extends State<PianoRoll>
   void initState() {
     super.initState();
     currentClip = widget.clipData;
+    // Initialize loopStartBeats from clip's contentStartOffset
+    if (currentClip != null) {
+      loopStartBeats = currentClip!.contentStartOffset;
+    }
 
     // Listen for undo/redo changes to update our state
     undoRedoManager.addListener(_onUndoRedoChanged);
@@ -188,6 +192,10 @@ class _PianoRollState extends State<PianoRoll>
     if (widget.clipData != oldWidget.clipData) {
       setState(() {
         currentClip = widget.clipData;
+        // Sync loopStartBeats from clip's contentStartOffset
+        if (currentClip != null) {
+          loopStartBeats = currentClip!.contentStartOffset;
+        }
       });
     }
   }
@@ -379,12 +387,32 @@ class _PianoRollState extends State<PianoRoll>
               });
               notifyClipUpdated();
             },
-            onLoopStartChanged: (beats) => setState(() => loopStartBeats = beats),
+            onLoopStartChanged: (beats) {
+              // When typing Start value: Keep LENGTH fixed, only change contentStartOffset
+              // (Length is controlled separately by the Length field)
+              final newStart = beats.clamp(0.0, double.infinity);
+              debugPrint('[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+              setState(() {
+                loopStartBeats = newStart;
+                // Only update contentStartOffset - loopLength and duration stay the same
+                if (currentClip != null) {
+                  currentClip = currentClip!.copyWith(contentStartOffset: newStart);
+                }
+              });
+              debugPrint('[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+              notifyClipUpdated();
+            },
             onLoopLengthChanged: (beats) {
               if (currentClip == null) return;
-              final newLength = beats.clamp(4.0, 256.0);
+              // Allow very small loops (1/16th note = 0.25 beats)
+              final newLength = beats.clamp(0.25, 256.0);
               setState(() {
-                currentClip = currentClip!.copyWith(loopLength: newLength);
+                // Update both loopLength AND duration for one-way sync
+                // Piano Roll loop length changes sync to Arrangement clip duration
+                currentClip = currentClip!.copyWith(
+                  loopLength: newLength,
+                  duration: newLength,
+                );
               });
               notifyClipUpdated();
             },
@@ -1154,37 +1182,59 @@ class _PianoRollState extends State<PianoRoll>
 
         switch (_loopMarkerDrag!) {
           case LoopMarkerDrag.start:
-            // Move start marker, keep end fixed
-            final loopEnd = loopStartBeats + getLoopLength();
-            final newStart = snappedBeat.clamp(0.0, loopEnd - gridDivision);
-            final newLength = loopEnd - newStart;
+            // Move start marker - only changes contentStartOffset (where playback begins)
+            // Arrangement clip length (duration) stays the same - controlled by Length field
+            final newStart = snappedBeat.clamp(0.0, double.infinity);
+            debugPrint('[LoopMarkerDrag.start] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}, contentStartOffset=${currentClip?.contentStartOffset}');
             setState(() {
               loopStartBeats = newStart;
-              updateLoopLength(newLength);
+              // Only update contentStartOffset - duration stays the same
+              if (currentClip != null) {
+                currentClip = currentClip!.copyWith(contentStartOffset: newStart);
+              }
             });
+            debugPrint('[LoopMarkerDrag.start] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}, contentStartOffset=${currentClip?.contentStartOffset}');
+            // Live sync to arrangement during drag
+            notifyClipUpdated();
             break;
 
           case LoopMarkerDrag.end:
             // Move end marker, keep start fixed
+            // The end position is the absolute beat, but the length is always
+            // relative to loopStartBeats (which represents contentStartOffset visually)
             final newEnd = snappedBeat.clamp(loopStartBeats + gridDivision, double.infinity);
             final newLength = newEnd - loopStartBeats;
+            debugPrint('[LoopMarkerDrag.end] newEnd=$newEnd, loopStartBeats=$loopStartBeats, newLength=$newLength, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
             setState(() {
               updateLoopLength(newLength);
             });
-            // Auto-extend canvas if needed
-            autoExtendCanvasIfNeeded(newEnd);
+            debugPrint('[LoopMarkerDrag.end] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+            // Note: Don't call autoExtendCanvasIfNeeded here - updateLoopLength already
+            // sets the correct duration. autoExtendCanvasIfNeeded would overwrite it
+            // with a bar-aligned value, causing the duration bug.
+            // Live sync to arrangement during drag
+            notifyClipUpdated();
             break;
 
           case LoopMarkerDrag.middle:
-            // Move entire loop region
+            // Move entire loop region (only changes contentStartOffset, not duration)
             final delta = snappedBeat - snapToGrid(loopDragStartBeat);
             final newStart = (loopStartBeats + delta).clamp(0.0, double.infinity);
             if (newStart >= 0) {
+              debugPrint('[LoopMarkerDrag.middle] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}, contentStartOffset=${currentClip?.contentStartOffset}');
               setState(() {
                 loopStartBeats = newStart;
+                // Sync to clip's contentStartOffset (determines where in content playback begins)
+                // Duration stays the same - controlled by Length field only
+                if (currentClip != null) {
+                  currentClip = currentClip!.copyWith(contentStartOffset: newStart);
+                }
               });
               loopDragStartBeat = snappedBeat;
-              autoExtendCanvasIfNeeded(newStart + getLoopLength());
+              // Don't call autoExtendCanvasIfNeeded - it can overwrite duration
+              debugPrint('[LoopMarkerDrag.middle] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}, contentStartOffset=${currentClip?.contentStartOffset}');
+              // Live sync to arrangement during drag
+              notifyClipUpdated();
             }
             break;
         }

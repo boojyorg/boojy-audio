@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 
 /// Painter for the time ruler (bar numbers with beat subdivisions)
+/// Note: Loop region is now drawn separately by LoopBarPainter in a dedicated row
 class TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
-  final bool loopPlaybackEnabled;
-  final double loopStartBeats;
-  final double loopEndBeats;
-
-  // Loop region color (orange per spec #F97316)
-  static const Color loopRegionColor = Color(0xFFF97316);
 
   TimeRulerPainter({
     required this.pixelsPerBeat,
-    this.loopPlaybackEnabled = false,
-    this.loopStartBeats = 0.0,
-    this.loopEndBeats = 4.0,
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
@@ -27,59 +19,6 @@ class TimeRulerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw loop region first (behind everything else)
-    if (loopPlaybackEnabled && loopEndBeats > loopStartBeats) {
-      final loopStartX = loopStartBeats * pixelsPerBeat;
-      final loopEndX = loopEndBeats * pixelsPerBeat;
-
-      // Draw loop region background
-      final loopPaint = Paint()
-        ..color = loopRegionColor.withValues(alpha: 0.2);
-      canvas.drawRect(
-        Rect.fromLTRB(loopStartX, 0, loopEndX, size.height),
-        loopPaint,
-      );
-
-      // Draw loop region top bar (thicker, more visible)
-      final loopBarPaint = Paint()
-        ..color = loopRegionColor
-        ..strokeWidth = 3;
-      canvas.drawLine(
-        Offset(loopStartX, 2),
-        Offset(loopEndX, 2),
-        loopBarPaint,
-      );
-
-      // Draw loop start bracket
-      final bracketPaint = Paint()
-        ..color = loopRegionColor
-        ..strokeWidth = 2;
-      canvas.drawLine(
-        Offset(loopStartX, 0),
-        Offset(loopStartX, size.height),
-        bracketPaint,
-      );
-      // Left bracket top corner
-      canvas.drawLine(
-        Offset(loopStartX, 2),
-        Offset(loopStartX + 8, 2),
-        bracketPaint,
-      );
-
-      // Draw loop end bracket
-      canvas.drawLine(
-        Offset(loopEndX, 0),
-        Offset(loopEndX, size.height),
-        bracketPaint,
-      );
-      // Right bracket top corner
-      canvas.drawLine(
-        Offset(loopEndX - 8, 2),
-        Offset(loopEndX, 2),
-        bracketPaint,
-      );
-    }
-
     // Beat-based measurements (tempo-independent)
     final gridDivision = _getGridDivision();
 
@@ -168,9 +107,6 @@ class TimeRulerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(TimeRulerPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-        oldDelegate.loopPlaybackEnabled != loopPlaybackEnabled ||
-        oldDelegate.loopStartBeats != loopStartBeats ||
-        oldDelegate.loopEndBeats != loopEndBeats;
+    return oldDelegate.pixelsPerBeat != pixelsPerBeat;
   }
 }

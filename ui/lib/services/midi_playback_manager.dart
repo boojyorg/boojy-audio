@@ -46,6 +46,7 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// - `loopLength`: Piano roll loop boundary (user-controlled via piano roll)
   /// Both are preserved from the updatedClip - not auto-calculated from notes.
   void updateClip(MidiClipData updatedClip, double tempo, double playheadPosition) {
+
     // Check if we're editing an existing clip or need to create a new one
     if (updatedClip.clipId == -1) {
       // No clip ID provided - check if we're editing an existing clip
@@ -107,9 +108,11 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// Uses the Ableton-style clip model:
   /// - `loopLength`: The loop boundary in the piano roll (notes loop at this point)
   /// - `duration`: The arrangement length (total playback time on timeline)
+  /// - `contentStartOffset`: Which beat of clip content to start from (Piano Roll Start field)
   ///
   /// When duration > loopLength: Notes repeat (loop) within the arrangement
   /// When duration < loopLength: Only the portion up to duration plays
+  /// When contentStartOffset > 0: Notes before this offset are skipped
   void _scheduleMidiClipPlayback(MidiClipData clip, double tempo) {
     // Check if this Dart clip already has a Rust clip
     int rustClipId;
@@ -134,10 +137,16 @@ class MidiPlaybackManager extends ChangeNotifier {
     // Ableton-style loop handling:
     // - loopLength: piano roll loop boundary (in beats)
     // - duration: arrangement length on timeline (in beats)
+    // - contentStartOffset: which beat of content to start from (Piano Roll Start field)
     // - Notes within loopLength repeat if duration > loopLength
     // - Playback stops at duration regardless of loopLength
     final beatsPerSecond = tempo / 60.0;
+
+    // The effective loop length for playback considers the content start offset
+    // If loopLength is 16 and contentStartOffset is 4, we play from beat 4 to beat 20
+    // which is still 16 beats of playback
     final loopLengthSeconds = clip.loopLength / beatsPerSecond;
+    final contentOffset = clip.contentStartOffset;
 
     // Calculate how many loop iterations fit within the arrangement duration
     // If duration < loopLength, we still play once but truncated
@@ -151,18 +160,26 @@ class MidiPlaybackManager extends ChangeNotifier {
       final loopOffsetSeconds = loop * loopLengthSeconds;
 
       for (final note in clip.notes) {
-        // Only include notes that are within the loopLength boundary
-        if (note.startTime >= clip.loopLength) continue;
+        // Calculate note position relative to content start offset
+        // Notes before contentStartOffset are skipped
+        // Notes at/after contentStartOffset are shifted back
+        final noteRelativeStart = note.startTime - contentOffset;
+
+        // Skip notes that start before the content offset
+        if (noteRelativeStart < 0) continue;
+
+        // Only include notes that are within the loopLength boundary (relative to content start)
+        if (noteRelativeStart >= clip.loopLength) continue;
 
         // Calculate note position within the arrangement
-        final noteStartBeats = loopOffsetBeats + note.startTime;
-        final noteEndBeats = loopOffsetBeats + note.startTime + note.duration;
+        final noteStartBeats = loopOffsetBeats + noteRelativeStart;
+        final noteEndBeats = loopOffsetBeats + noteRelativeStart + note.duration;
 
         // Skip notes that start beyond the arrangement duration
         if (noteStartBeats >= clip.duration) continue;
 
-        // Convert to seconds
-        final noteStartSeconds = note.startTimeInSeconds(tempo) + loopOffsetSeconds;
+        // Convert to seconds (using relative start time)
+        final noteStartSeconds = (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
         var durationSeconds = note.durationInSeconds(tempo);
 
         // Truncate note if it extends beyond the arrangement duration
@@ -172,9 +189,9 @@ class MidiPlaybackManager extends ChangeNotifier {
         }
 
         // Also truncate if note extends beyond the loop boundary (for looped notes)
-        final noteEndInLoop = note.startTime + note.duration;
+        final noteEndInLoop = noteRelativeStart + note.duration;
         if (noteEndInLoop > clip.loopLength) {
-          final truncatedDurationBeats = clip.loopLength - note.startTime;
+          final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
           final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
           durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
         }
@@ -224,9 +241,10 @@ class MidiPlaybackManager extends ChangeNotifier {
       // Clear existing notes
       _audioEngine.clearMidiClip(rustClipId);
 
-      // Reschedule notes with new tempo
+      // Reschedule notes with new tempo (respecting contentStartOffset)
       final loopLengthSeconds = clip.loopLength / beatsPerSecond;
-      final numLoops = clip.duration >= clip.loopLength
+      final contentOffset = clip.contentStartOffset;
+      final numLoops = clip.canRepeat && clip.duration >= clip.loopLength
           ? (clip.duration / clip.loopLength).ceil()
           : 1;
 
@@ -235,14 +253,22 @@ class MidiPlaybackManager extends ChangeNotifier {
         final loopOffsetSeconds = loop * loopLengthSeconds;
 
         for (final note in clip.notes) {
-          if (note.startTime >= clip.loopLength) continue;
+          // Calculate note position relative to content start offset
+          final noteRelativeStart = note.startTime - contentOffset;
 
-          final noteStartBeats = loopOffsetBeats + note.startTime;
-          final noteEndBeats = loopOffsetBeats + note.startTime + note.duration;
+          // Skip notes that start before the content offset
+          if (noteRelativeStart < 0) continue;
+
+          // Only include notes within the loopLength boundary (relative to content start)
+          if (noteRelativeStart >= clip.loopLength) continue;
+
+          final noteStartBeats = loopOffsetBeats + noteRelativeStart;
+          final noteEndBeats = loopOffsetBeats + noteRelativeStart + note.duration;
 
           if (noteStartBeats >= clip.duration) continue;
 
-          final noteStartSeconds = note.startTimeInSeconds(newTempo) + loopOffsetSeconds;
+          // Convert to seconds (using relative start time)
+          final noteStartSeconds = (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
           var durationSeconds = note.durationInSeconds(newTempo);
 
           if (noteEndBeats > clip.duration) {
@@ -250,9 +276,9 @@ class MidiPlaybackManager extends ChangeNotifier {
             durationSeconds = truncatedDurationBeats / beatsPerSecond;
           }
 
-          final noteEndInLoop = note.startTime + note.duration;
+          final noteEndInLoop = noteRelativeStart + note.duration;
           if (noteEndInLoop > clip.loopLength) {
-            final truncatedDurationBeats = clip.loopLength - note.startTime;
+            final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
             final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
             durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
           }

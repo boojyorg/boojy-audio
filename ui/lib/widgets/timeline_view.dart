@@ -13,6 +13,7 @@ import '../models/midi_note_data.dart';
 import '../models/vst3_plugin_data.dart';
 import 'instrument_browser.dart';
 import 'painters/dashed_line_painter.dart';
+import 'painters/loop_bar_painter.dart';
 import 'painters/time_ruler_painter.dart';
 import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
@@ -1708,9 +1709,55 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   }
 
   Widget _buildTimeRuler(double width, double duration) {
-    return Stack(
+    // Two-row layout matching Piano Roll:
+    // Row 1: Loop bar (20px, dark background)
+    // Row 2: Bar numbers ruler (30px)
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Base ruler with CustomPaint
+        // ROW 1: Loop bar with drag handles
+        Stack(
+          children: [
+            // Loop bar background and region
+            Container(
+              height: 20,
+              width: width,
+              child: CustomPaint(
+                painter: LoopBarPainter(
+                  pixelsPerBeat: pixelsPerBeat,
+                  totalBeats: duration,
+                  loopEnabled: widget.loopPlaybackEnabled,
+                  loopStart: widget.loopStartBeats,
+                  loopEnd: widget.loopEndBeats,
+                ),
+              ),
+            ),
+            // Loop drag handles (only when loop is enabled)
+            if (widget.loopPlaybackEnabled) ...[
+              // Draggable middle region
+              _buildLoopBar(),
+              // Start handle
+              _buildLoopHandle(
+                beats: widget.loopStartBeats,
+                isStart: true,
+                onDrag: (newBeats) {
+                  final clampedBeats = newBeats.clamp(0.0, widget.loopEndBeats - 1.0);
+                  widget.onLoopRegionChanged?.call(clampedBeats, widget.loopEndBeats);
+                },
+              ),
+              // End handle
+              _buildLoopHandle(
+                beats: widget.loopEndBeats,
+                isStart: false,
+                onDrag: (newBeats) {
+                  final clampedBeats = newBeats.clamp(widget.loopStartBeats + 1.0, double.infinity);
+                  widget.onLoopRegionChanged?.call(widget.loopStartBeats, clampedBeats);
+                },
+              ),
+            ],
+          ],
+        ),
+        // ROW 2: Bar numbers ruler
         GestureDetector(
           onTapUp: (details) {
             // Click ruler to place insert marker (spec v2.0)
@@ -1735,54 +1782,26 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             child: CustomPaint(
               painter: TimeRulerPainter(
                 pixelsPerBeat: pixelsPerBeat,
-                loopPlaybackEnabled: widget.loopPlaybackEnabled,
-                loopStartBeats: widget.loopStartBeats,
-                loopEndBeats: widget.loopEndBeats,
               ),
             ),
           ),
         ),
-        // Loop region drag handles and bar (only visible when loop is enabled)
-        if (widget.loopPlaybackEnabled) ...[
-          // Loop bar (draggable region between handles) - added first so handles are on top
-          _buildLoopBar(),
-          // Loop start handle
-          _buildLoopHandle(
-            beats: widget.loopStartBeats,
-            isStart: true,
-            onDrag: (newBeats) {
-              // Clamp to not go past loop end
-              final clampedBeats = newBeats.clamp(0.0, widget.loopEndBeats - 1.0);
-              widget.onLoopRegionChanged?.call(clampedBeats, widget.loopEndBeats);
-            },
-          ),
-          // Loop end handle
-          _buildLoopHandle(
-            beats: widget.loopEndBeats,
-            isStart: false,
-            onDrag: (newBeats) {
-              // Clamp to not go before loop start
-              final clampedBeats = newBeats.clamp(widget.loopStartBeats + 1.0, double.infinity);
-              widget.onLoopRegionChanged?.call(widget.loopStartBeats, clampedBeats);
-            },
-          ),
-        ],
       ],
     );
   }
 
-  /// Build a draggable handle for loop region start or end
+  /// Build an invisible drag zone for loop region start or end edge
+  /// Matches Piano Roll style: cursor feedback only, no visible handle widget
   Widget _buildLoopHandle({
     required double beats,
     required bool isStart,
     required Function(double) onDrag,
   }) {
     final handleX = beats * pixelsPerBeat;
-    const handleWidth = 12.0;
-    const loopColor = Color(0xFFF97316);
+    const handleWidth = 8.0; // Invisible hit area width
 
     return Positioned(
-      left: isStart ? handleX - handleWidth / 2 : handleX - handleWidth / 2,
+      left: handleX - handleWidth / 2,
       top: 0,
       child: GestureDetector(
         onHorizontalDragUpdate: (details) {
@@ -1795,35 +1814,24 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           cursor: SystemMouseCursors.resizeColumn,
           child: Container(
             width: handleWidth,
-            height: 30,
-            decoration: BoxDecoration(
-              color: loopColor.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(2),
-              border: Border.all(color: loopColor, width: 1),
-            ),
-            child: Center(
-              child: Icon(
-                isStart ? Icons.chevron_left : Icons.chevron_right,
-                size: 10,
-                color: Colors.white,
-              ),
-            ),
+            height: 20,
+            color: Colors.transparent, // Invisible - just a hit area
           ),
         ),
       ),
     );
   }
 
-  /// Build a draggable bar for moving the entire loop region
+  /// Build an invisible drag zone for moving the entire loop region
+  /// Matches Piano Roll style: cursor feedback only, no visible bar or icon
   Widget _buildLoopBar() {
     final loopStartX = widget.loopStartBeats * pixelsPerBeat;
     final loopEndX = widget.loopEndBeats * pixelsPerBeat;
     final loopWidth = loopEndX - loopStartX;
     final loopDuration = widget.loopEndBeats - widget.loopStartBeats;
-    const loopColor = Color(0xFFF97316);
-    const handleWidth = 12.0;
+    const handleWidth = 8.0; // Match the invisible handle width
 
-    // Only show bar if there's enough width (handles take 12px each)
+    // Only show if there's enough width between edge handles
     if (loopWidth <= handleWidth * 2) {
       return const SizedBox.shrink();
     }
@@ -1843,20 +1851,8 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           cursor: SystemMouseCursors.grab,
           child: Container(
             width: loopWidth - handleWidth,
-            height: 30,
-            decoration: BoxDecoration(
-              color: loopColor.withValues(alpha: 0.3),
-              border: const Border(
-                top: BorderSide(color: loopColor, width: 3),
-              ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.drag_indicator,
-                size: 14,
-                color: loopColor.withValues(alpha: 0.8),
-              ),
-            ),
+            height: 20,
+            color: Colors.transparent, // Invisible - just a hit area
           ),
         ),
       ),
@@ -2560,7 +2556,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     // MIDI clips use beat-based positioning (tempo-independent visual layout)
     final clipStartBeats = midiClip.startTime;
     final clipDurationBeats = midiClip.duration;
-    final clipWidth = clipDurationBeats * pixelsPerBeat;
+    // Ensure minimum width to prevent layout errors (Stack requires finite size)
+    final clipWidth = (clipDurationBeats * pixelsPerBeat).clamp(10.0, double.infinity);
+    debugPrint('[_buildMidiClip] clipId=${midiClip.clipId}, duration=$clipDurationBeats, loopLength=${midiClip.loopLength}, contentStartOffset=${midiClip.contentStartOffset}');
 
     // Use dragged position if this clip is being dragged (with snap preview)
     double displayStartBeats;
@@ -2825,6 +2823,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                                       clipDuration: clipDurationBeats,
                                       loopLength: midiClip.loopLength,
                                       trackColor: trackColor,
+                                      contentStartOffset: midiClip.contentStartOffset,
                                     ),
                                   );
                                 },
@@ -3390,6 +3389,7 @@ class _MidiClipPainter extends CustomPainter {
   final List<MidiNoteData> notes;
   final double clipDuration; // Total clip duration in beats (arrangement length)
   final double loopLength; // Loop length in beats
+  final double contentStartOffset; // Which beat of content to start from (Piano Roll Start field)
   final Color trackColor;
 
   _MidiClipPainter({
@@ -3397,6 +3397,7 @@ class _MidiClipPainter extends CustomPainter {
     required this.clipDuration,
     required this.loopLength,
     required this.trackColor,
+    this.contentStartOffset = 0.0,
   });
 
   /// Get lighter shade of track color for notes
@@ -3409,9 +3410,15 @@ class _MidiClipPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (notes.isEmpty || clipDuration == 0) return;
 
-    // Find note range for vertical scaling
-    final minNote = notes.map((n) => n.note).reduce(math.min);
-    final maxNote = notes.map((n) => n.note).reduce(math.max);
+    // Filter notes that are visible (at or after contentStartOffset)
+    final visibleNotes = notes.where((n) => n.startTime >= contentStartOffset ||
+        n.startTime + n.duration > contentStartOffset).toList();
+
+    if (visibleNotes.isEmpty) return;
+
+    // Find note range for vertical scaling (using visible notes only)
+    final minNote = visibleNotes.map((n) => n.note).reduce(math.min);
+    final maxNote = visibleNotes.map((n) => n.note).reduce(math.max);
     final noteRange = maxNote - minNote + 1;
 
     // Calculate dynamic height based on note range
@@ -3439,13 +3446,23 @@ class _MidiClipPainter extends CustomPainter {
       ..color = noteColor
       ..style = PaintingStyle.fill;
 
-    // Draw notes
-    for (final note in notes) {
-      final noteStartBeats = note.startTime;
+    // Draw notes (shifted by contentStartOffset)
+    for (final note in visibleNotes) {
+      // Shift note position by contentStartOffset
+      final noteRelativeStart = note.startTime - contentStartOffset;
       final noteDurationBeats = note.duration;
 
-      final x = noteStartBeats * pixelsPerBeat;
-      var width = noteDurationBeats * pixelsPerBeat;
+      // Handle notes that start before contentStartOffset but extend past it
+      double x;
+      double width;
+      if (noteRelativeStart < 0) {
+        // Note starts before offset - clip the beginning
+        x = 0;
+        width = (noteDurationBeats + noteRelativeStart) * pixelsPerBeat;
+      } else {
+        x = noteRelativeStart * pixelsPerBeat;
+        width = noteDurationBeats * pixelsPerBeat;
+      }
 
       // Calculate Y position based on note's position in range
       final notePosition = note.note - minNote;
@@ -3459,6 +3476,9 @@ class _MidiClipPainter extends CustomPainter {
       if (x + width > size.width) {
         width = size.width - x;
       }
+
+      // Skip if width is too small
+      if (width <= 0) continue;
 
       // Draw note rectangle with slight rounding
       final rect = RRect.fromRectAndRadius(
@@ -3474,6 +3494,8 @@ class _MidiClipPainter extends CustomPainter {
   bool shouldRepaint(_MidiClipPainter oldDelegate) {
     return !listEquals(notes, oldDelegate.notes) ||
            clipDuration != oldDelegate.clipDuration ||
+           loopLength != oldDelegate.loopLength ||
+           contentStartOffset != oldDelegate.contentStartOffset ||
            trackColor != oldDelegate.trackColor;
   }
 }
