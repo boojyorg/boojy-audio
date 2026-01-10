@@ -13,8 +13,8 @@ class TrackController extends ChangeNotifier {
 
   // Height constraints
   static const double defaultTrackHeight = 100.0;
-  static const double minTrackHeight = 45.0;
-  static const double maxTrackHeight = 300.0;
+  static const double minTrackHeight = 40.0;
+  static const double maxTrackHeight = 400.0;
 
   // Track color state (auto-detected with manual override)
   final Map<int, Color> _trackColorOverrides = {};

@@ -12,12 +12,9 @@ import 'capsule_fader.dart';
 /// Unified track strip combining track info and mixer controls
 /// Displayed on the right side of timeline, aligned with each track row
 class TrackMixerStrip extends StatefulWidget {
-  // Height constants for layout snapping
-  static const double kCompactHeight = 40.0;
-  static const double kStandardHeight = 80.0;
-  static const double kSnapThreshold = 60.0;
+  // Height constraints
   static const double kMinHeight = 40.0;
-  static const double kMaxHeight = 300.0;
+  static const double kMaxHeight = 400.0;
   final int trackId;
   final int displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
   final String trackName;
@@ -167,12 +164,44 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Build standard 2-row layout
+  /// Calculate scale factor based on track height (0.0 at 40px, 1.0 at 72px+)
+  /// Accounts for bottom margin (2px) and potential border (2px)
+  double get _scaleFactor {
+    const minHeight = 40.0;
+    const standardHeight = 76.0; // Adjusted for comfortable 2-row layout
+    return ((widget.trackHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
+  }
+
+  /// Lerp helper for scaling values
+  double _lerp(double min, double max, double t) => min + (max - min) * t;
+
+  /// Build 2-row layout that scales with track height
   /// Row 1: Icon + Number + Name + MSR + Pan
   /// Row 2: dB + Volume Slider
   Widget _buildStandardLayout(BuildContext context, bool isHovered) {
+    final scale = _scaleFactor;
+
+    // Available height for content (subtract margin and potential border)
+    final availableHeight = widget.trackHeight - 2; // 2px bottom margin
+
+    // Calculate row height to fit exactly in available space
+    // Layout: padding + row1 + spacing + row2 + padding
+    // At min (40px): available = 38px, need padding(2*2) + rows(2*14) + spacing(2) = 34px
+    // At standard (76px): available = 74px, need padding(2*6) + rows(2*28) + spacing(4) = 72px
+    final padding = _lerp(2, 6, scale);
+    final rowSpacing = _lerp(2, 4, scale);
+    // Calculate row height to fit: (available - 2*padding - spacing) / 2
+    final rowHeight = ((availableHeight - 2 * padding - rowSpacing) / 2).clamp(12.0, 28.0);
+
+    final buttonSize = _lerp(14, 22, scale);
+    final panSize = _lerp(14, 22, scale);
+    final buttonSpacing = _lerp(2, 4, scale);
+    final fontSize = _lerp(9, 12, scale);
+    final iconSize = _lerp(10, 14, scale);
+    final dbFontSize = _lerp(8, 10, scale);
+
     return Padding(
-      padding: const EdgeInsets.all(6),
+      padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.start,
@@ -181,33 +210,33 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           // Row 1: Icon + Number + Name + MSR + Pan
           // Name area expands to fill available space, truncates with "..." as needed
           SizedBox(
-            height: 28,
+            height: rowHeight,
             child: Row(
               children: [
                 // Icon + Number + Name (expands to fill remaining space)
-                Expanded(child: _buildTrackInfoRow()),
-                const SizedBox(width: 5),
-                // M, S, R buttons (fixed width: 74px)
-                _buildControlButtons(),
-                const SizedBox(width: 6),
-                // Pan knob (fixed width: 22px)
+                Expanded(child: _buildTrackInfoRow(fontSize: fontSize, iconSize: iconSize)),
+                SizedBox(width: _lerp(3, 5, scale)),
+                // M, S, R buttons
+                _buildControlButtons(buttonSize: buttonSize, spacing: buttonSpacing, fontSize: _lerp(8, 10, scale)),
+                SizedBox(width: _lerp(4, 6, scale)),
+                // Pan knob
                 PanKnob(
                   pan: widget.pan,
                   onChanged: widget.onPanChanged,
-                  size: 22,
+                  size: panSize,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: rowSpacing),
           // Row 2: dB + Volume Slider
           SizedBox(
-            height: 28,
+            height: rowHeight,
             child: Row(
               children: [
                 // dB value display
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: EdgeInsets.symmetric(horizontal: _lerp(4, 6, scale), vertical: _lerp(1, 2, scale)),
                   decoration: BoxDecoration(
                     color: context.colors.darkest,
                     borderRadius: BorderRadius.circular(3),
@@ -216,12 +245,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     '${widget.volumeDb.toStringAsFixed(1)} dB',
                     style: TextStyle(
                       color: context.colors.textSecondary,
-                      fontSize: 10,
+                      fontSize: dbFontSize,
                       fontFamily: 'monospace',
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: _lerp(4, 8, scale)),
                 // Volume Slider (takes remaining space)
                 Expanded(
                   child: CapsuleFader(
@@ -241,25 +270,26 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Build track info row (Icon + Number + Name)
-  Widget _buildTrackInfoRow() {
+  Widget _buildTrackInfoRow({double fontSize = 12, double iconSize = 14}) {
     final textColor = _getTextColor();
     final trackColor = widget.trackColor ?? context.colors.textPrimary;
+    final scale = _scaleFactor;
 
     return Row(
       children: [
         // Icon
-        Text(_getTrackEmoji(), style: const TextStyle(fontSize: 14)),
-        const SizedBox(width: 6),
+        Text(_getTrackEmoji(), style: TextStyle(fontSize: iconSize)),
+        SizedBox(width: _lerp(4, 6, scale)),
         // Number (sequential display index, not internal ID)
         Text(
           '${widget.displayIndex}',
           style: TextStyle(
             color: textColor,
-            fontSize: 12,
+            fontSize: fontSize,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: _lerp(4, 8, scale)),
         // Name (editable) - expanded to fill remaining space
         Expanded(
           child: _isEditing
@@ -268,12 +298,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   focusNode: _focusNode,
                   style: TextStyle(
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: fontSize,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    contentPadding: EdgeInsets.symmetric(horizontal: _lerp(2, 4, scale), vertical: _lerp(1, 2, scale)),
                     border: const OutlineInputBorder(),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: trackColor),
@@ -287,7 +317,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     _getStandardDisplayName(),
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 12,
+                      fontSize: fontSize,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
@@ -371,15 +401,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       },
                       onVerticalDragEnd: (details) {
                         _isResizing = false;
-                        // Snap to compact or standard height based on threshold
-                        final snappedHeight = widget.trackHeight < TrackMixerStrip.kSnapThreshold
-                            ? TrackMixerStrip.kCompactHeight
-                            : (widget.trackHeight < TrackMixerStrip.kStandardHeight + 10
-                                ? TrackMixerStrip.kStandardHeight
-                                : widget.trackHeight);
-                        if (snappedHeight != widget.trackHeight) {
-                          widget.onHeightChanged?.call(snappedHeight);
-                        }
                       },
                       child: Container(
                         color: Colors.transparent,
@@ -595,33 +616,35 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildControlButtons() {
+  Widget _buildControlButtons({double buttonSize = 22, double spacing = 4, double fontSize = 10}) {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm = widget.trackType.toLowerCase() == 'audio' || widget.trackType.toLowerCase() == 'midi';
 
     return Row(
       children: [
         // Mute button - Yellow/Amber when active
-        _buildControlButton('M', widget.isMuted, context.colors.muteActive, widget.onMuteToggle),
-        const SizedBox(width: 4),
+        _buildControlButton('M', widget.isMuted, context.colors.muteActive, widget.onMuteToggle, buttonSize, fontSize),
+        SizedBox(width: spacing),
         // Solo button - Blue when active
-        _buildControlButton('S', widget.isSoloed, context.colors.soloActive, widget.onSoloToggle),
-        const SizedBox(width: 4),
+        _buildControlButton('S', widget.isSoloed, context.colors.soloActive, widget.onSoloToggle, buttonSize, fontSize),
+        SizedBox(width: spacing),
         // Record arm button - Red when active
         _buildControlButton(
           'R',
           widget.isArmed,
           context.colors.recordActive,
           canArm ? widget.onArmToggle : null,
+          buttonSize,
+          fontSize,
         ),
       ],
     );
   }
 
-  Widget _buildControlButton(String label, bool isActive, Color activeColor, VoidCallback? onPressed) {
+  Widget _buildControlButton(String label, bool isActive, Color activeColor, VoidCallback? onPressed, double size, double fontSize) {
     return SizedBox(
-      width: 22,
-      height: 22,
+      width: size,
+      height: size,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
@@ -631,9 +654,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ? context.colors.darkest
               : context.colors.textSecondary,
           padding: EdgeInsets.zero,
-          minimumSize: const Size(22, 22),
-          textStyle: const TextStyle(
-            fontSize: 10,
+          minimumSize: Size(size, size),
+          textStyle: TextStyle(
+            fontSize: fontSize,
             fontWeight: FontWeight.bold,
           ),
         ),
