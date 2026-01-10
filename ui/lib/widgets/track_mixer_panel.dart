@@ -92,6 +92,9 @@ class TrackMixerPanel extends StatefulWidget {
   final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
   final Function(int trackId, Color color)? onTrackColorChanged;
 
+  // Track name changed callback (for marking as user-edited)
+  final Function(int trackId, String newName)? onTrackNameChanged;
+
   // Double-click track to open editor
   final Function(int trackId)? onTrackDoubleClick;
 
@@ -119,6 +122,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.onTogglePanel,
     this.getTrackColor,
     this.onTrackColorChanged,
+    this.onTrackNameChanged,
     this.onTrackDoubleClick,
   });
 
@@ -293,7 +297,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       return;
     }
 
-    final name = '${type.toUpperCase()} ${_tracks.length + 1}';
+    // Use simple type name - visual numbering comes from displayIndex
+    final name = type == 'audio' ? 'Audio' : 'MIDI';
 
     // Use UndoRedoManager for undoable track creation
     final command = CreateTrackCommand(
@@ -426,8 +431,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           children: [
             Column(
               children: [
-                // Header
+                // Header (30px to match timeline ruler)
                 _buildHeader(),
+
+                // Spacer to match timeline loop bar (20px)
+                Container(
+                  height: 20,
+                  color: context.colors.elevated,
+                ),
 
                 // Track strips (vertically scrollable)
                 Expanded(
@@ -649,6 +660,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                 return TrackMixerStrip(
                     key: ValueKey(track.id),
                     trackId: track.id,
+                    displayIndex: index + 1, // 1-based sequential number
                     trackName: track.name,
                     trackType: track.type,
                     volumeDb: track.volumeDb,
@@ -709,6 +721,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                       setState(() {
                         track.name = newName;
                       });
+                      // Notify parent that user manually edited track name
+                      widget.onTrackNameChanged?.call(track.id, newName);
                     },
                     onColorChanged: widget.onTrackColorChanged != null
                         ? (color) => widget.onTrackColorChanged!(track.id, color)

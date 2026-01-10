@@ -13,10 +13,10 @@ import 'capsule_fader.dart';
 /// Displayed on the right side of timeline, aligned with each track row
 class TrackMixerStrip extends StatefulWidget {
   // Height constants for layout snapping
-  static const double kCompactHeight = 45.0;
+  static const double kCompactHeight = 40.0;
   static const double kStandardHeight = 80.0;
-  static const double kSnapThreshold = 62.0;
-  static const double kMinHeight = 45.0;
+  static const double kSnapThreshold = 60.0;
+  static const double kMinHeight = 40.0;
   static const double kMaxHeight = 300.0;
   final int trackId;
   final int displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
@@ -167,9 +167,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Check if we're in compact mode (1-row layout)
-  bool get _isCompactMode => widget.trackHeight < TrackMixerStrip.kSnapThreshold;
-
   /// Build standard 2-row layout
   /// Row 1: Icon + Number + Name + MSR + Pan
   /// Row 2: dB + Volume Slider
@@ -181,19 +178,19 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         mainAxisAlignment: MainAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1: Icon + Number + Name + MSR + Pan (all left-aligned)
+          // Row 1: Icon + Number + Name + MSR + Pan
+          // Name area expands to fill available space, truncates with "..." as needed
           SizedBox(
             height: 28,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // Icon + Number + Name (takes only needed space)
-                _buildTrackInfoRow(),
-                const SizedBox(width: 12),
-                // M, S, R buttons
+                // Icon + Number + Name (expands to fill remaining space)
+                Expanded(child: _buildTrackInfoRow()),
+                const SizedBox(width: 5),
+                // M, S, R buttons (fixed width: 74px)
                 _buildControlButtons(),
                 const SizedBox(width: 6),
-                // Pan knob
+                // Pan knob (fixed width: 22px)
                 PanKnob(
                   pan: widget.pan,
                   onChanged: widget.onPanChanged,
@@ -243,55 +240,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  /// Build compact 1-row layout
-  /// Same as standard row 1, but with volume slider at end (no dB display)
-  Widget _buildCompactLayout(BuildContext context, bool isHovered) {
-    return Padding(
-      padding: const EdgeInsets.all(6),
-      child: SizedBox(
-        height: 28,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            // Icon + Number + Name (same as standard)
-            _buildTrackInfoRow(),
-            const SizedBox(width: 12),
-            // M, S, R buttons
-            _buildControlButtons(),
-            const SizedBox(width: 6),
-            // Pan knob
-            PanKnob(
-              pan: widget.pan,
-              onChanged: widget.onPanChanged,
-              size: 22,
-            ),
-            const SizedBox(width: 8),
-            // Volume Slider (takes remaining space, same 28px height as standard)
-            Expanded(
-              child: SizedBox(
-                height: 28,
-                child: CapsuleFader(
-                  leftLevel: widget.peakLevelLeft,
-                  rightLevel: widget.peakLevelRight,
-                  volumeDb: widget.volumeDb,
-                  onVolumeChanged: widget.onVolumeChanged,
-                  onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build track info row for standard layout (Icon + Number + Name)
+  /// Build track info row (Icon + Number + Name)
   Widget _buildTrackInfoRow() {
     final textColor = _getTextColor();
     final trackColor = widget.trackColor ?? context.colors.textPrimary;
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
         // Icon
         Text(_getTrackEmoji(), style: const TextStyle(fontSize: 14)),
@@ -306,9 +260,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           ),
         ),
         const SizedBox(width: 8),
-        // Name (editable) - constrained width, not expanded
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 120),
+        // Name (editable) - expanded to fill remaining space
+        Expanded(
           child: _isEditing
               ? TextField(
                   controller: _nameController,
@@ -377,7 +330,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 Container(
                   width: 380,
                   height: widget.trackHeight,
-                  margin: const EdgeInsets.only(bottom: 4), // Match timeline track spacing
+                  margin: const EdgeInsets.only(bottom: 2), // Match timeline track spacing
                   decoration: BoxDecoration(
                     // Full track colour background (same as color picker)
                     color: isHovered
@@ -390,9 +343,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                             ? Border.all(color: Colors.white, width: 2)
                             : null),
                   ),
-                  child: _isCompactMode
-                      ? _buildCompactLayout(context, isHovered)
-                      : _buildStandardLayout(context, isHovered),
+                  child: _buildStandardLayout(context, isHovered),
                 ),
                 // Bottom resize handle
                 Positioned(
@@ -768,7 +719,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
           Container(
             width: 380,
             height: widget.trackHeight,
-            margin: const EdgeInsets.only(bottom: 4),
+            margin: const EdgeInsets.only(bottom: 2),
             decoration: BoxDecoration(
               color: context.colors.standard,
               border: Border(
