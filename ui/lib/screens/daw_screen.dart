@@ -43,6 +43,7 @@ import '../services/version_manager.dart';
 import '../services/midi_capture_buffer.dart';
 import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/latency_settings_dialog.dart';
+import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
 
@@ -151,6 +152,41 @@ class _DAWScreenState extends State<DAWScreen> {
   final GlobalKey<TimelineViewState> _timelineKey = GlobalKey<TimelineViewState>();
   final GlobalKey<TrackMixerPanelState> _mixerKey = GlobalKey<TrackMixerPanelState>();
 
+  // Linked vertical scroll controllers for timeline and mixer panel sync
+  final ScrollController _timelineVerticalScrollController = ScrollController();
+  final ScrollController _mixerVerticalScrollController = ScrollController();
+  bool _isScrollSyncing = false; // Prevent infinite loop during sync
+
+  /// Sync timeline scroll to mixer
+  void _onTimelineVerticalScroll() {
+    if (_isScrollSyncing) return;
+    if (!_mixerVerticalScrollController.hasClients) return;
+    if (!_mixerVerticalScrollController.position.hasContentDimensions) return;
+
+    _isScrollSyncing = true;
+    final targetOffset = _timelineVerticalScrollController.offset.clamp(
+      _mixerVerticalScrollController.position.minScrollExtent,
+      _mixerVerticalScrollController.position.maxScrollExtent,
+    );
+    _mixerVerticalScrollController.jumpTo(targetOffset);
+    _isScrollSyncing = false;
+  }
+
+  /// Sync mixer scroll to timeline
+  void _onMixerVerticalScroll() {
+    if (_isScrollSyncing) return;
+    if (!_timelineVerticalScrollController.hasClients) return;
+    if (!_timelineVerticalScrollController.position.hasContentDimensions) return;
+
+    _isScrollSyncing = true;
+    final targetOffset = _mixerVerticalScrollController.offset.clamp(
+      _timelineVerticalScrollController.position.minScrollExtent,
+      _timelineVerticalScrollController.position.maxScrollExtent,
+    );
+    _timelineVerticalScrollController.jumpTo(targetOffset);
+    _isScrollSyncing = false;
+  }
+
   /// Trigger immediate refresh of track lists in both timeline and mixer panels
   void _refreshTrackWidgets({bool clearClips = false}) {
     // Use post-frame callback to ensure the engine state has settled
@@ -181,8 +217,12 @@ class _DAWScreenState extends State<DAWScreen> {
     _midiClipController.addListener(_onControllerChanged);
     _uiLayout.addListener(_onControllerChanged);
 
+    // Set up vertical scroll sync between timeline and mixer
+    _timelineVerticalScrollController.addListener(_onTimelineVerticalScroll);
+    _mixerVerticalScrollController.addListener(_onMixerVerticalScroll);
+
     // Load user settings and apply saved panel states
-    _userSettings.load().then((_) {
+    _userSettings.load().then((_) async {
       if (mounted) {
         setState(() {
           // Load visibility states
@@ -194,6 +234,13 @@ class _DAWScreenState extends State<DAWScreen> {
           _uiLayout.mixerPanelWidth = _userSettings.mixerWidth;
           _uiLayout.editorPanelHeight = _userSettings.editorHeight;
         });
+
+        // Show crash reporting opt-in dialog on first launch
+        if (!_userSettings.crashReportingAsked && mounted) {
+          final optIn = await CrashReportingDialog.show(context);
+          _userSettings.crashReportingEnabled = optIn;
+          _userSettings.crashReportingAsked = true;
+        }
       }
     });
 
@@ -260,6 +307,10 @@ class _DAWScreenState extends State<DAWScreen> {
     // Dispose controllers
     _playbackController.dispose();
     _recordingController.dispose();
+    _timelineVerticalScrollController.removeListener(_onTimelineVerticalScroll);
+    _mixerVerticalScrollController.removeListener(_onMixerVerticalScroll);
+    _timelineVerticalScrollController.dispose();
+    _mixerVerticalScrollController.dispose();
 
     // Remove VST3 manager listener
     _vst3PluginManager?.removeListener(_onVst3ManagerChanged);
@@ -645,6 +696,11 @@ class _DAWScreenState extends State<DAWScreen> {
     _trackController.selectTrack(trackId);
     _uiLayout.isEditorPanelVisible = true;
 
+    // Auto-populate track name if not user-edited
+    if (!_trackController.isTrackNameUserEdited(trackId)) {
+      _audioEngine?.setTrackName(trackId, 'Synthesizer');
+    }
+
     // Call audio engine to set instrument
     if (_audioEngine != null) {
       _audioEngine!.setTrackInstrument(trackId, instrumentId);
@@ -734,6 +790,11 @@ class _DAWScreenState extends State<DAWScreen> {
         effectId: effectId,
       ));
 
+      // Auto-populate track name with plugin name if not user-edited
+      if (!_trackController.isTrackNameUserEdited(trackId)) {
+        _audioEngine?.setTrackName(trackId, plugin.name);
+      }
+
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
       final noteOnResult = _audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
@@ -784,6 +845,9 @@ class _DAWScreenState extends State<DAWScreen> {
         pluginName: plugin.name,
         effectId: effectId,
       ));
+
+      // Auto-populate track name with plugin name (new track, so not user-edited)
+      _audioEngine?.setTrackName(trackId, plugin.name);
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
@@ -1547,7 +1611,7 @@ class _DAWScreenState extends State<DAWScreen> {
   void _onMidiClipSelected(int? clipId, MidiClipData? clipData) {
     final trackId = _midiClipController.selectClip(clipId, clipData);
     if (clipId != null && clipData != null) {
-      _uiLayout.isEditorPanelVisible = true;
+      // Don't auto-open editor panel - let user control visibility via View menu or double-click
       _selectedTrackId = trackId ?? clipData.trackId;
     }
   }
@@ -3107,6 +3171,8 @@ class _DAWScreenState extends State<DAWScreen> {
                           onLoopRegionChanged: (start, end) {
                             _uiLayout.setLoopRegion(start, end);
                           },
+                          // Vertical scroll sync with mixer panel
+                          verticalScrollController: _timelineVerticalScrollController,
                         ),
                       ),
 
@@ -3148,6 +3214,7 @@ class _DAWScreenState extends State<DAWScreen> {
                             key: _mixerKey,
                             audioEngine: _audioEngine,
                             isEngineReady: _isAudioGraphInitialized,
+                            scrollController: _mixerVerticalScrollController,
                             selectedTrackId: _selectedTrackId,
                             onTrackSelected: _onTrackSelected,
                             onInstrumentSelected: _onInstrumentSelected,
@@ -3167,6 +3234,10 @@ class _DAWScreenState extends State<DAWScreen> {
                             onTogglePanel: _toggleMixer,
                             getTrackColor: _getTrackColor,
                             onTrackColorChanged: _setTrackColor,
+                            onTrackNameChanged: (trackId, newName) {
+                              // Mark track name as user-edited
+                              _trackController.markTrackNameUserEdited(trackId, edited: true);
+                            },
                             onTrackDoubleClick: (trackId) {
                               // Select track and open editor
                               _onTrackSelected(trackId);

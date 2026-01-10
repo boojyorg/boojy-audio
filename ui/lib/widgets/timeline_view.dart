@@ -96,6 +96,9 @@ class TimelineView extends StatefulWidget {
   final double loopEndBeats;
   final Function(double startBeats, double endBeats)? onLoopRegionChanged;
 
+  // Vertical scroll controller (synced with track mixer panel)
+  final ScrollController? verticalScrollController;
+
   const TimelineView({
     super.key,
     required this.playheadPosition,
@@ -128,6 +131,7 @@ class TimelineView extends StatefulWidget {
     this.loopStartBeats = 0.0,
     this.loopEndBeats = 4.0,
     this.onLoopRegionChanged,
+    this.verticalScrollController,
   });
 
   @override
@@ -1320,6 +1324,18 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     // Duration in seconds for backward compatibility
     final duration = totalBeats / beatsPerSecond;
 
+    // Calculate total tracks height for scrollable area (excludes Master - it's pinned at bottom)
+    final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+    final masterTrack = tracks.firstWhere(
+      (t) => t.type == 'Master',
+      orElse: () => TimelineTrackData(id: -1, name: 'Master', type: 'Master'),
+    );
+    double totalTracksHeight = 0.0;
+    for (final track in regularTracks) {
+      totalTracksHeight += widget.trackHeights[track.id] ?? 100.0;
+    }
+    totalTracksHeight += 160.0; // Empty drop target area + buffer before Master
+
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
@@ -1426,46 +1442,75 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                     // Time ruler (scrolls with content)
                     _buildTimeRuler(totalWidth, duration),
 
-                    // Timeline tracks area with eraser mode support (Ctrl/Cmd+drag)
+                    // Main content area: scrollable tracks + fixed Master track
+                    // Use Stack so grid, playhead, and insert marker span entire height (including Master)
                     Expanded(
-                      child: Listener(
-                        onPointerDown: (event) {
-                          // Ctrl/Cmd+click on empty space - no action needed
-                        },
-                        onPointerMove: (event) {
-                          // Ctrl/Cmd+drag = eraser mode
-                          if (event.buttons == kPrimaryButton) {
-                            final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-                                HardwareKeyboard.instance.isControlPressed;
-                            if (isCtrlOrCmd) {
-                              if (!isErasing) {
-                                _startErasing(event.position);
-                              } else {
-                                _eraseClipsAt(event.position);
-                              }
-                            }
-                          }
-                        },
-                        onPointerUp: (event) {
-                          if (isErasing) {
-                            _stopErasing();
-                          }
-                        },
-                        child: Stack(
-                          children: [
-                            // Grid lines
-                            _buildGrid(totalWidth, duration),
+                      child: Stack(
+                        children: [
+                          // Grid lines spanning entire area (scrollable + Master)
+                          Positioned.fill(
+                            child: _buildGrid(totalWidth, duration, double.infinity),
+                          ),
 
-                            // Tracks
-                            _buildTracks(totalWidth),
+                          // Content column: scrollable tracks + Master
+                          Column(
+                            children: [
+                              // Scrollable tracks area
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  controller: widget.verticalScrollController,
+                                  scrollDirection: Axis.vertical,
+                                  child: Listener(
+                                    onPointerDown: (event) {
+                                      // Ctrl/Cmd+click on empty space - no action needed
+                                    },
+                                    onPointerMove: (event) {
+                                      // Ctrl/Cmd+drag = eraser mode
+                                      if (event.buttons == kPrimaryButton) {
+                                        final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                                            HardwareKeyboard.instance.isControlPressed;
+                                        if (isCtrlOrCmd) {
+                                          if (!isErasing) {
+                                            _startErasing(event.position);
+                                          } else {
+                                            _eraseClipsAt(event.position);
+                                          }
+                                        }
+                                      }
+                                    },
+                                    onPointerUp: (event) {
+                                      if (isErasing) {
+                                        _stopErasing();
+                                      }
+                                    },
+                                    child: Stack(
+                                      children: [
+                                        // Sized box to ensure proper height for scrolling
+                                        SizedBox(
+                                          height: totalTracksHeight,
+                                          width: totalWidth,
+                                        ),
 
-                            // Insert marker (blue dashed line)
-                            _buildInsertMarker(),
+                                        // Tracks (regular tracks only, Master is pinned below)
+                                        _buildTracks(totalWidth),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
 
-                            // Playhead
-                            _buildPlayhead(),
-                          ],
-                        ),
+                              // Master track pinned at bottom (outside scroll area)
+                              if (masterTrack.id != -1)
+                                _buildMasterTrack(totalWidth, masterTrack),
+                            ],
+                          ),
+
+                          // Insert marker (blue dashed line) - spans full height including Master
+                          _buildInsertMarker(),
+
+                          // Playhead - spans full height including Master
+                          _buildPlayhead(),
+                        ],
                       ),
                     ),
                   ],
@@ -1477,7 +1522,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           // Zoom controls (fixed position, top-right)
           Positioned(
             right: 8,
-            top: 4,
+            top: 0,
             child: _buildZoomControls(),
           ),
         ],
@@ -1503,18 +1548,15 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       );
     }
 
-    // Separate regular tracks from master
+    // Separate regular tracks from master (Master is rendered outside scroll area)
     final regularTracks = tracks.where((t) => t.type != 'Master').toList();
-    final masterTrack = tracks.firstWhere(
-      (t) => t.type == 'Master',
-      orElse: () => TimelineTrackData(id: -1, name: 'Master', type: 'Master'),
-    );
 
     // Count audio and MIDI tracks for numbering
     int audioCount = 0;
     int midiCount = 0;
 
     return Column(
+      mainAxisSize: MainAxisSize.min, // Don't expand, use actual content size
       children: [
         // Regular tracks
         ...regularTracks.asMap().entries.map((entry) {
@@ -1543,9 +1585,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           );
         }),
 
-        // Empty space drop target - wraps spacer to push master track to bottom
+        // Empty space drop target - minimum height area for drops
         // Supports: instruments, VST3 plugins, audio files, AND drag-to-create
-        Expanded(
+        SizedBox(
+          height: 100, // Minimum drop target area height
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onHorizontalDragStart: (details) {
@@ -1700,10 +1743,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             ),
           ),
         ),
-
-        // Master track at bottom
-        if (masterTrack.id != -1)
-          _buildMasterTrack(width, masterTrack),
+        // Master track is now rendered outside scroll area (in build method)
       ],
     );
   }
@@ -1908,9 +1948,20 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     );
   }
 
-  Widget _buildGrid(double width, double duration) {
+  Widget _buildGrid(double width, double duration, double height) {
+    // When height is infinite, let the CustomPaint fill available space
+    if (height == double.infinity) {
+      return SizedBox(
+        width: width,
+        child: CustomPaint(
+          painter: TimelineGridPainter(
+            pixelsPerBeat: pixelsPerBeat,
+          ),
+        ),
+      );
+    }
     return CustomPaint(
-      size: Size(width, double.infinity),
+      size: Size(width, height),
       painter: TimelineGridPainter(
         pixelsPerBeat: pixelsPerBeat,
       ),
@@ -2125,47 +2176,54 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   }
 
   Widget _buildMasterTrack(double width, TimelineTrackData track) {
+    final masterColor = context.colors.accent;
     const headerHeight = 18.0;
 
+    // Match the MIDI/Audio clip style - spans full width like a clip
+    // Content area is transparent so grid shows through from behind
     return Container(
+      width: width,
       height: widget.masterTrackHeight,
+      margin: const EdgeInsets.only(left: 2, right: 2, top: 1, bottom: 1),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: context.colors.hover,
-            width: 1,
-          ),
+        // Rounded corners like clips
+        borderRadius: BorderRadius.circular(4),
+        // Border matching clip style (1px when not selected)
+        border: Border.all(
+          color: masterColor,
+          width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Track header bar (fully opaque)
-          Container(
-            height: headerHeight,
-            color: TrackColors.masterColor,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Text(
-                  '🎚️ Master',
-                  style: TextStyle(
-                    color: context.colors.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3), // Inside border radius
+        child: Column(
+          children: [
+            // Header bar (like clip header)
+            Container(
+              height: headerHeight,
+              color: masterColor,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  // Icon (headphones)
+                  const Text('🎧', style: TextStyle(fontSize: 11)),
+                  const SizedBox(width: 4),
+                  // "Master" text (white)
+                  Text(
+                    'Master',
+                    style: TextStyle(
+                      color: context.colors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          // Content area (transparent, shows grid)
-          Expanded(
-            child: CustomPaint(
-              painter: _GridPatternPainter(),
-            ),
-          ),
-        ],
+            // Content area - transparent so grid shows through
+            const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
       ),
     );
   }
@@ -2182,7 +2240,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     final isMultiSelected = selectedAudioClipIds.length > 1 && isSelected;
 
     const headerHeight = 18.0;
-    final totalHeight = trackHeight - 8.0; // Track height minus padding
+    final totalHeight = trackHeight - 3.0; // Track height minus padding
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewAudioClipId == clip.clipId;
@@ -2192,7 +2250,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     return Positioned(
       left: clipX,
-      top: 4,
+      top: 0,
       child: GestureDetector(
         onTapDown: (details) {
           // Ctrl/Cmd+click: delete clip immediately
@@ -2511,7 +2569,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   List<Widget> _buildStampCopyPreviews(MidiClipData sourceClip, Color trackColor, double trackHeight) {
     final previews = <Widget>[];
     final clipWidth = sourceClip.duration * pixelsPerBeat;
-    final totalHeight = trackHeight - 8.0;
+    final totalHeight = trackHeight - 3.0;
 
     for (int i = 1; i <= stampCopyCount; i++) {
       final copyStartBeats = sourceClip.startTime + (i * stampCopySourceDuration);
@@ -2520,7 +2578,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       previews.add(
         Positioned(
           left: copyX,
-          top: 4,
+          top: 0,
           child: IgnorePointer(
             child: Container(
               width: clipWidth,
@@ -2580,7 +2638,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     final isDragging = draggingMidiClipId == midiClip.clipId;
 
     const headerHeight = 18.0;
-    final totalHeight = trackHeight - 8.0; // Track height minus padding
+    final totalHeight = trackHeight - 3.0; // Track height minus padding
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewMidiClipId == midiClip.clipId;
@@ -2590,7 +2648,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     return Positioned(
       left: clipX,
-      top: 4,
+      top: 0,
       child: GestureDetector(
         onTapDown: (details) {
           // Ctrl/Cmd+click: delete clip immediately
@@ -3021,7 +3079,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     return Positioned(
       left: clipX,
-      top: 4,
+      top: 0,
       child: Container(
         width: clipWidth,
         height: 72,
@@ -3274,10 +3332,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     return Positioned(
       left: startX,
-      top: 4,
+      top: 0,
       child: Container(
         width: math.max(width, 20.0),
-        height: trackHeight - 8,
+        height: trackHeight - 3,
         decoration: BoxDecoration(
           color: trackColor.withValues(alpha: 0.3),
           border: Border.all(

@@ -9,7 +9,7 @@ class TrackController extends ChangeNotifier {
 
   // Track height state (synced between mixer and timeline)
   final Map<int, double> _trackHeights = {};
-  double _masterTrackHeight = 60.0;
+  double _masterTrackHeight = 50.0;
 
   // Height constraints
   static const double defaultTrackHeight = 100.0;
@@ -177,7 +177,7 @@ class TrackController extends ChangeNotifier {
     _trackColorOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();
-    _masterTrackHeight = 60.0;
+    _masterTrackHeight = 50.0;
     notifyListeners();
   }
 }

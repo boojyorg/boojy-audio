@@ -650,85 +650,89 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           child: SingleChildScrollView(
             controller: widget.scrollController,
             child: Column(
-              children: regularTracks.asMap().entries.map((entry) {
-                final index = entry.key;
-                final track = entry.value;
-                // Use auto-detected color with override support, fallback to index-based
-                final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
-                    ?? TrackColors.getTrackColor(index);
+              children: [
+                ...regularTracks.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final track = entry.value;
+                  // Use auto-detected color with override support, fallback to index-based
+                  final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
+                      ?? TrackColors.getTrackColor(index);
 
-                return TrackMixerStrip(
-                    key: ValueKey(track.id),
-                    trackId: track.id,
-                    displayIndex: index + 1, // 1-based sequential number
-                    trackName: track.name,
-                    trackType: track.type,
-                    volumeDb: track.volumeDb,
-                    pan: track.pan,
-                    isMuted: track.mute,
-                    isSoloed: track.solo,
-                    peakLevelLeft: _peakLevels[track.id]?.$1 ?? 0.0,
-                    peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
-                    trackColor: trackColor,
-                    audioEngine: widget.audioEngine,
-                    isSelected: widget.selectedTrackId == track.id,
-                    instrumentData: widget.trackInstruments?[track.id],
-                    onInstrumentSelect: (instrumentId) {
-                      widget.onInstrumentSelected?.call(track.id, instrumentId);
-                    },
-                    vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0, // M10
-                    onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id), // M10
-                    onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin), // M10
-                    onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id), // M10
-                    trackHeight: widget.trackHeights[track.id] ?? 100.0,
-                    onHeightChanged: (height) {
-                      widget.onTrackHeightChanged?.call(track.id, height);
-                    },
-                    onTap: () {
-                      widget.onTrackSelected?.call(track.id);
-                    },
-                    onDoubleTap: () {
-                      widget.onTrackDoubleClick?.call(track.id);
-                    },
-                    onVolumeChanged: (volumeDb) {
-                      setState(() {
-                        track.volumeDb = volumeDb;
-                      });
-                      widget.audioEngine?.setTrackVolume(track.id, volumeDb);
-                    },
-                    onPanChanged: (pan) {
-                      setState(() {
-                        track.pan = pan;
-                      });
-                      widget.audioEngine?.setTrackPan(track.id, pan);
-                    },
-                    onMuteToggle: () {
-                      setState(() {
-                        track.mute = !track.mute;
-                      });
-                      widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
-                    },
-                    onSoloToggle: () {
-                      setState(() {
-                        track.solo = !track.solo;
-                      });
-                      widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
-                    },
-                    onDuplicatePressed: () => _duplicateTrack(track),
-                    onDeletePressed: () => _confirmDeleteTrack(track),
-                    onNameChanged: (newName) {
-                      widget.audioEngine?.setTrackName(track.id, newName);
-                      setState(() {
-                        track.name = newName;
-                      });
-                      // Notify parent that user manually edited track name
-                      widget.onTrackNameChanged?.call(track.id, newName);
-                    },
-                    onColorChanged: widget.onTrackColorChanged != null
-                        ? (color) => widget.onTrackColorChanged!(track.id, color)
-                        : null,
-                  );
-                }).toList(),
+                  return TrackMixerStrip(
+                      key: ValueKey(track.id),
+                      trackId: track.id,
+                      displayIndex: index + 1, // 1-based sequential number
+                      trackName: track.name,
+                      trackType: track.type,
+                      volumeDb: track.volumeDb,
+                      pan: track.pan,
+                      isMuted: track.mute,
+                      isSoloed: track.solo,
+                      peakLevelLeft: _peakLevels[track.id]?.$1 ?? 0.0,
+                      peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
+                      trackColor: trackColor,
+                      audioEngine: widget.audioEngine,
+                      isSelected: widget.selectedTrackId == track.id,
+                      instrumentData: widget.trackInstruments?[track.id],
+                      onInstrumentSelect: (instrumentId) {
+                        widget.onInstrumentSelected?.call(track.id, instrumentId);
+                      },
+                      vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0, // M10
+                      onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id), // M10
+                      onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin), // M10
+                      onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id), // M10
+                      trackHeight: widget.trackHeights[track.id] ?? 100.0,
+                      onHeightChanged: (height) {
+                        widget.onTrackHeightChanged?.call(track.id, height);
+                      },
+                      onTap: () {
+                        widget.onTrackSelected?.call(track.id);
+                      },
+                      onDoubleTap: () {
+                        widget.onTrackDoubleClick?.call(track.id);
+                      },
+                      onVolumeChanged: (volumeDb) {
+                        setState(() {
+                          track.volumeDb = volumeDb;
+                        });
+                        widget.audioEngine?.setTrackVolume(track.id, volumeDb);
+                      },
+                      onPanChanged: (pan) {
+                        setState(() {
+                          track.pan = pan;
+                        });
+                        widget.audioEngine?.setTrackPan(track.id, pan);
+                      },
+                      onMuteToggle: () {
+                        setState(() {
+                          track.mute = !track.mute;
+                        });
+                        widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
+                      },
+                      onSoloToggle: () {
+                        setState(() {
+                          track.solo = !track.solo;
+                        });
+                        widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
+                      },
+                      onDuplicatePressed: () => _duplicateTrack(track),
+                      onDeletePressed: () => _confirmDeleteTrack(track),
+                      onNameChanged: (newName) {
+                        widget.audioEngine?.setTrackName(track.id, newName);
+                        setState(() {
+                          track.name = newName;
+                        });
+                        // Notify parent that user manually edited track name
+                        widget.onTrackNameChanged?.call(track.id, newName);
+                      },
+                      onColorChanged: widget.onTrackColorChanged != null
+                          ? (color) => widget.onTrackColorChanged!(track.id, color)
+                          : null,
+                    );
+                }),
+                // Empty drop target area + buffer before Master
+                const SizedBox(height: 160),
+              ],
             ),
           ),
         ),
