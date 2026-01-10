@@ -76,6 +76,18 @@ class TrackMixerPanel extends StatefulWidget {
   // Callback when MIDI track is created from mixer (to add default clip)
   final Function(int trackId)? onMidiTrackCreated;
 
+  // Callback when any track is created from mixer (to refresh timeline)
+  final Function(int trackId, String trackType)? onTrackCreated;
+
+  // Callback when tracks are reordered via drag-and-drop
+  final Function(int oldIndex, int newIndex)? onTrackReordered;
+
+  // Track order (synced from TrackController)
+  final List<int> trackOrder;
+
+  // Callback to sync track IDs when loaded from engine
+  final Function(List<int> trackIds)? onTrackOrderSync;
+
   // Engine ready state
   final bool isEngineReady;
 
@@ -115,6 +127,10 @@ class TrackMixerPanel extends StatefulWidget {
     this.onEditPluginsPressed, // M10
     this.onAudioFileDropped,
     this.onMidiTrackCreated,
+    this.onTrackCreated,
+    this.onTrackReordered,
+    this.trackOrder = const [],
+    this.onTrackOrderSync,
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
     this.onTrackHeightChanged,
@@ -139,6 +155,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   DateTime _lastLevelUpdate = DateTime.now();
   bool _isAudioFileDragging = false;
   bool _forceDecayToZero = false; // When true, decay all meters to zero
+
+  // Drag-and-drop state
+  int? _draggingIndex;         // Current position of dragged track in the list
+  int? _originalDraggingIndex; // Original position when drag started (for cancel/revert)
+  Offset? _dragStartPosition;
+  double _dragOffsetY = 0.0;
+  bool _dragActivated = false;
+  static const double _dragThreshold = 8.0;
 
   @override
   void initState() {
@@ -255,6 +279,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   /// Load tracks asynchronously to avoid blocking UI thread
+  /// Uses track order from TrackController (widget.trackOrder)
   Future<void> _loadTracksAsync() async {
     if (widget.audioEngine == null) return;
 
@@ -263,7 +288,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         return widget.audioEngine!.getAllTrackIds();
       });
 
-      final tracks = <TrackData>[];
+      final tracksMap = <int, TrackData>{};
 
       for (final int trackId in trackIds) {
         final info = await Future.microtask(() {
@@ -272,13 +297,40 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
         final track = TrackData.fromCSV(info);
         if (track != null) {
-          tracks.add(track);
+          tracksMap[track.id] = track;
         }
       }
 
       if (mounted) {
+        // Separate master track (not reorderable)
+        final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
+        final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toList();
+
+        // Sync track IDs to TrackController (it will preserve existing order)
+        widget.onTrackOrderSync?.call(regularTrackIds);
+
         setState(() {
-          _tracks = tracks;
+          // Build ordered track list using widget.trackOrder
+          final orderedTracks = <TrackData>[];
+
+          // First add tracks in the order from TrackController
+          for (final id in widget.trackOrder) {
+            if (tracksMap.containsKey(id) && tracksMap[id]!.type != 'Master') {
+              orderedTracks.add(tracksMap[id]!);
+            }
+          }
+
+          // Add any tracks not in the order list (new tracks)
+          for (final id in regularTrackIds) {
+            if (!widget.trackOrder.contains(id)) {
+              orderedTracks.add(tracksMap[id]!);
+            }
+          }
+
+          // Add master track at the end (it's handled separately in UI)
+          orderedTracks.addAll(masterTrack);
+
+          _tracks = orderedTracks;
         });
       }
     } catch (e) {
@@ -315,6 +367,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       if (type == 'midi') {
         widget.onMidiTrackCreated?.call(command.createdTrackId!);
       }
+
+      // Notify parent to refresh timeline (for both MIDI and Audio tracks)
+      widget.onTrackCreated?.call(command.createdTrackId!, type);
     } else {
       // Show error to user when track creation fails
       if (mounted) {
@@ -645,93 +700,44 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
     return Column(
       children: [
-        // Regular tracks in scrollable area
+        // Regular tracks with drag-and-drop
         Expanded(
           child: SingleChildScrollView(
             controller: widget.scrollController,
-            child: Column(
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                ...regularTracks.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final track = entry.value;
-                  // Use auto-detected color with override support, fallback to index-based
-                  final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
-                      ?? TrackColors.getTrackColor(index);
-
-                  return TrackMixerStrip(
-                      key: ValueKey(track.id),
-                      trackId: track.id,
-                      displayIndex: index + 1, // 1-based sequential number
-                      trackName: track.name,
-                      trackType: track.type,
-                      volumeDb: track.volumeDb,
-                      pan: track.pan,
-                      isMuted: track.mute,
-                      isSoloed: track.solo,
-                      peakLevelLeft: _peakLevels[track.id]?.$1 ?? 0.0,
-                      peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
-                      trackColor: trackColor,
-                      audioEngine: widget.audioEngine,
-                      isSelected: widget.selectedTrackId == track.id,
-                      instrumentData: widget.trackInstruments?[track.id],
-                      onInstrumentSelect: (instrumentId) {
-                        widget.onInstrumentSelected?.call(track.id, instrumentId);
-                      },
-                      vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0, // M10
-                      onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id), // M10
-                      onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin), // M10
-                      onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id), // M10
-                      trackHeight: widget.trackHeights[track.id] ?? 100.0,
-                      onHeightChanged: (height) {
-                        widget.onTrackHeightChanged?.call(track.id, height);
-                      },
-                      onTap: () {
-                        widget.onTrackSelected?.call(track.id);
-                      },
-                      onDoubleTap: () {
-                        widget.onTrackDoubleClick?.call(track.id);
-                      },
-                      onVolumeChanged: (volumeDb) {
-                        setState(() {
-                          track.volumeDb = volumeDb;
-                        });
-                        widget.audioEngine?.setTrackVolume(track.id, volumeDb);
-                      },
-                      onPanChanged: (pan) {
-                        setState(() {
-                          track.pan = pan;
-                        });
-                        widget.audioEngine?.setTrackPan(track.id, pan);
-                      },
-                      onMuteToggle: () {
-                        setState(() {
-                          track.mute = !track.mute;
-                        });
-                        widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
-                      },
-                      onSoloToggle: () {
-                        setState(() {
-                          track.solo = !track.solo;
-                        });
-                        widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
-                      },
-                      onDuplicatePressed: () => _duplicateTrack(track),
-                      onDeletePressed: () => _confirmDeleteTrack(track),
-                      onNameChanged: (newName) {
-                        widget.audioEngine?.setTrackName(track.id, newName);
-                        setState(() {
-                          track.name = newName;
-                        });
-                        // Notify parent that user manually edited track name
-                        widget.onTrackNameChanged?.call(track.id, newName);
-                      },
-                      onColorChanged: widget.onTrackColorChanged != null
-                          ? (color) => widget.onTrackColorChanged!(track.id, color)
-                          : null,
-                    );
-                }),
-                // Empty drop target area + buffer before Master
-                const SizedBox(height: 160),
+                // Background column with gap animation
+                Column(
+                  children: [
+                    ...regularTracks.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final track = entry.value;
+                      return _buildDraggableTrackWrapper(track, index, regularTracks);
+                    }),
+                    // Buffer spacer at the end
+                    const SizedBox(height: 160),
+                  ],
+                ),
+                // Dragged track rendered on top (if dragging)
+                if (_dragActivated && _draggingIndex != null && _draggingIndex! < regularTracks.length)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: _calculateDraggedTrackTop(regularTracks),
+                    child: IgnorePointer(
+                      child: Material(
+                        elevation: 8,
+                        color: Colors.transparent,
+                        shadowColor: Colors.black.withValues(alpha: 0.5),
+                        child: _buildTrackStrip(
+                          regularTracks[_draggingIndex!],
+                          _draggingIndex!,
+                          regularTracks,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -763,4 +769,237 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     );
   }
 
+  /// Build a draggable track wrapper - live reordering (no gap animation needed)
+  Widget _buildDraggableTrackWrapper(TrackData track, int index, List<TrackData> allTracks) {
+    final trackHeight = widget.trackHeights[track.id] ?? 100.0;
+    final isDragging = _draggingIndex == index;
+
+    return KeyedSubtree(
+      key: ValueKey(track.id),
+      child: MouseRegion(
+        cursor: _dragActivated
+            ? SystemMouseCursors.grabbing
+            : SystemMouseCursors.grab,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: (details) => _onDragStart(index, details),
+          onPanUpdate: (details) => _onDragUpdate(details, allTracks),
+          onPanEnd: (details) => _onDragEnd(allTracks),
+          onPanCancel: _onDragCancel, // CRITICAL: Handle arena loss
+          child: isDragging && _dragActivated
+              ? SizedBox(height: trackHeight, width: 380) // Placeholder for dragged track
+              : IgnorePointer(
+                  ignoring: _dragActivated, // Disable controls during any drag
+                  child: _buildTrackStrip(track, index, allTracks),
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// Called when drag starts
+  void _onDragStart(int index, DragStartDetails details) {
+    setState(() {
+      _draggingIndex = index;
+      _originalDraggingIndex = index; // Remember original position for cancel
+      _dragStartPosition = details.globalPosition;
+      _dragOffsetY = 0.0;
+      _dragActivated = false; // Not yet - wait for threshold
+    });
+  }
+
+  /// Called during drag movement - live reorder when crossing track boundaries
+  void _onDragUpdate(DragUpdateDetails details, List<TrackData> tracks) {
+    if (_draggingIndex == null || _dragStartPosition == null) return;
+
+    // Check threshold
+    if (!_dragActivated) {
+      final distance = (details.globalPosition - _dragStartPosition!).distance;
+      if (distance < _dragThreshold) return; // Not yet
+      _dragActivated = true;
+    }
+
+    final newOffsetY = details.globalPosition.dy - _dragStartPosition!.dy;
+
+    // Calculate gap index based on dragged track center position
+    final draggedHeight = widget.trackHeights[tracks[_draggingIndex!].id] ?? 100.0;
+    double originalTop = 0;
+    for (int i = 0; i < _draggingIndex!; i++) {
+      originalTop += widget.trackHeights[tracks[i].id] ?? 100.0;
+    }
+    final draggedCenter = originalTop + newOffsetY + (draggedHeight / 2);
+
+    // Find insertion point
+    int newGapIndex = _draggingIndex!;
+    double cumulativeHeight = 0;
+    for (int i = 0; i < tracks.length; i++) {
+      final itemHeight = widget.trackHeights[tracks[i].id] ?? 100.0;
+      final itemMidpoint = cumulativeHeight + (itemHeight / 2);
+
+      if (i < _draggingIndex! && draggedCenter < itemMidpoint) {
+        newGapIndex = i;
+        break;
+      } else if (i > _draggingIndex! && draggedCenter > itemMidpoint) {
+        newGapIndex = i;
+      }
+      cumulativeHeight += itemHeight;
+    }
+
+    newGapIndex = newGapIndex.clamp(0, tracks.length - 1);
+
+    // Live reorder: when gap changes, actually move the track
+    if (newGapIndex != _draggingIndex) {
+      final fromIndex = _draggingIndex!;
+      final toIndex = newGapIndex;
+
+      // Reorder local tracks list
+      final track = _tracks.removeAt(fromIndex);
+      _tracks.insert(toIndex, track);
+
+      // Notify parent (syncs timeline live)
+      widget.onTrackReordered?.call(fromIndex, toIndex);
+
+      // Update dragging index to new position
+      _draggingIndex = toIndex;
+
+      // Adjust drag start position so the track stays under cursor
+      // When moving down, we need to add the heights of tracks we passed
+      // When moving up, we need to subtract the heights of tracks we passed
+      if (toIndex > fromIndex) {
+        // Moved down - adjust start position up by the height of the track we passed
+        final passedTrackHeight = widget.trackHeights[tracks[fromIndex].id] ?? 100.0;
+        _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy + passedTrackHeight);
+      } else {
+        // Moved up - adjust start position down by the height of the track we passed
+        final passedTrackHeight = widget.trackHeights[tracks[toIndex].id] ?? 100.0;
+        _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy - passedTrackHeight);
+      }
+    }
+
+    setState(() {
+      _dragOffsetY = details.globalPosition.dy - _dragStartPosition!.dy;
+    });
+  }
+
+  /// Called when drag ends - just reset state (reorder already happened live)
+  void _onDragEnd(List<TrackData> tracks) {
+    _resetDragState();
+  }
+
+  /// Called when drag is cancelled (gesture arena loss)
+  void _onDragCancel() {
+    // Revert to original position if drag was cancelled
+    if (_dragActivated && _originalDraggingIndex != null && _draggingIndex != null) {
+      final currentIndex = _draggingIndex!;
+      final originalIndex = _originalDraggingIndex!;
+
+      if (currentIndex != originalIndex) {
+        // Revert the reorder
+        final track = _tracks.removeAt(currentIndex);
+        _tracks.insert(originalIndex, track);
+
+        // Notify parent to revert
+        widget.onTrackReordered?.call(currentIndex, originalIndex);
+      }
+    }
+
+    _resetDragState();
+  }
+
+  /// Reset all drag state
+  void _resetDragState() {
+    setState(() {
+      _draggingIndex = null;
+      _originalDraggingIndex = null;
+      _dragStartPosition = null;
+      _dragOffsetY = 0.0;
+      _dragActivated = false;
+    });
+  }
+
+  /// Calculate top position of dragged track (for visual positioning)
+  double _calculateDraggedTrackTop(List<TrackData> tracks) {
+    if (_draggingIndex == null) return 0;
+    double top = 0;
+    for (int i = 0; i < _draggingIndex!; i++) {
+      top += widget.trackHeights[tracks[i].id] ?? 100.0;
+    }
+    return top + _dragOffsetY;
+  }
+
+  /// Build the TrackMixerStrip widget
+  Widget _buildTrackStrip(TrackData track, int index, List<TrackData> allTracks) {
+    final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
+        ?? TrackColors.getTrackColor(index);
+
+    return TrackMixerStrip(
+      trackId: track.id,
+      displayIndex: index + 1, // 1-based sequential number
+      trackName: track.name,
+      trackType: track.type,
+      volumeDb: track.volumeDb,
+      pan: track.pan,
+      isMuted: track.mute,
+      isSoloed: track.solo,
+      peakLevelLeft: _peakLevels[track.id]?.$1 ?? 0.0,
+      peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
+      trackColor: trackColor,
+      audioEngine: widget.audioEngine,
+      isSelected: widget.selectedTrackId == track.id,
+      instrumentData: widget.trackInstruments?[track.id],
+      onInstrumentSelect: (instrumentId) {
+        widget.onInstrumentSelected?.call(track.id, instrumentId);
+      },
+      vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0,
+      onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id),
+      onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin),
+      onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id),
+      trackHeight: widget.trackHeights[track.id] ?? 100.0,
+      onHeightChanged: (height) {
+        widget.onTrackHeightChanged?.call(track.id, height);
+      },
+      onTap: () {
+        widget.onTrackSelected?.call(track.id);
+      },
+      onDoubleTap: () {
+        widget.onTrackDoubleClick?.call(track.id);
+      },
+      onVolumeChanged: (volumeDb) {
+        setState(() {
+          track.volumeDb = volumeDb;
+        });
+        widget.audioEngine?.setTrackVolume(track.id, volumeDb);
+      },
+      onPanChanged: (pan) {
+        setState(() {
+          track.pan = pan;
+        });
+        widget.audioEngine?.setTrackPan(track.id, pan);
+      },
+      onMuteToggle: () {
+        setState(() {
+          track.mute = !track.mute;
+        });
+        widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
+      },
+      onSoloToggle: () {
+        setState(() {
+          track.solo = !track.solo;
+        });
+        widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
+      },
+      onDuplicatePressed: () => _duplicateTrack(track),
+      onDeletePressed: () => _confirmDeleteTrack(track),
+      onNameChanged: (newName) {
+        widget.audioEngine?.setTrackName(track.id, newName);
+        setState(() {
+          track.name = newName;
+        });
+        widget.onTrackNameChanged?.call(track.id, newName);
+      },
+      onColorChanged: widget.onTrackColorChanged != null
+          ? (color) => widget.onTrackColorChanged!(track.id, color)
+          : null,
+    );
+  }
 }

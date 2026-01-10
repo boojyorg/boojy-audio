@@ -713,6 +713,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Remove track state from controller
     _trackController.onTrackDeleted(trackId);
+
+    // Refresh timeline immediately
+    _refreshTrackWidgets();
   }
 
   void _onTrackDuplicated(int sourceTrackId, int newTrackId) {
@@ -740,6 +743,20 @@ class _DAWScreenState extends State<DAWScreen> {
     );
 
     _midiPlaybackManager?.addRecordedClip(defaultClip);
+  }
+
+  /// Called when a track is created from the mixer panel - refresh timeline immediately
+  void _onTrackCreatedFromMixer(int trackId, String trackType) {
+    _onTrackSelected(trackId);
+    _refreshTrackWidgets();
+  }
+
+  /// Called when tracks are reordered via drag-and-drop in the mixer panel
+  void _onTrackReordered(int oldIndex, int newIndex) {
+    // Update shared track order in TrackController
+    _trackController.reorderTrack(oldIndex, newIndex);
+    // Refresh timeline to match new track order
+    _refreshTrackWidgets();
   }
 
   Future<void> _onInstrumentDroppedOnEmpty(Instrument instrument) async {
@@ -3157,6 +3174,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           onCreateClipOnTrack: _onCreateClipOnTrack,
                           trackHeights: _trackHeights,
                           masterTrackHeight: _masterTrackHeight,
+                          trackOrder: _trackController.trackOrder,
                           getTrackColor: _getTrackColor,
                           onSeek: (position) {
                             _audioEngine?.transportSeek(position);
@@ -3227,6 +3245,10 @@ class _DAWScreenState extends State<DAWScreen> {
                             onEditPluginsPressed: _showVst3PluginEditor, // M10
                             onAudioFileDropped: _onAudioFileDroppedOnEmpty,
                             onMidiTrackCreated: _createDefaultMidiClip,
+                            onTrackCreated: _onTrackCreatedFromMixer,
+                            onTrackReordered: _onTrackReordered,
+                            trackOrder: _trackController.trackOrder,
+                            onTrackOrderSync: _trackController.syncTrackOrder,
                             trackHeights: _trackHeights,
                             masterTrackHeight: _masterTrackHeight,
                             onTrackHeightChanged: _setTrackHeight,

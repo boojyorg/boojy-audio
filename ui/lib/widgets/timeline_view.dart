@@ -87,6 +87,9 @@ class TimelineView extends StatefulWidget {
   final Map<int, double> trackHeights; // trackId -> height
   final double masterTrackHeight;
 
+  // Track order (synced from TrackController for drag-and-drop reordering)
+  final List<int> trackOrder;
+
   // Track color callback (for auto-detected colors with override support)
   final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
 
@@ -126,6 +129,7 @@ class TimelineView extends StatefulWidget {
     this.onCreateClipOnTrack,
     this.trackHeights = const {},
     this.masterTrackHeight = 60.0,
+    this.trackOrder = const [],
     this.getTrackColor,
     this.loopPlaybackEnabled = false,
     this.loopStartBeats = 0.0,
@@ -157,6 +161,53 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     if (widget.audioEngine != null && oldWidget.audioEngine == null) {
       _loadTracksAsync();
     }
+    // Reorder tracks immediately when track order changes (from drag-and-drop)
+    if (!_listEquals(widget.trackOrder, oldWidget.trackOrder)) {
+      _reorderTracksToMatchOrder();
+    }
+  }
+
+  /// Reorder local tracks list to match widget.trackOrder (instant, no async)
+  void _reorderTracksToMatchOrder() {
+    if (tracks.isEmpty) return;
+
+    final tracksMap = <int, TimelineTrackData>{};
+    for (final track in tracks) {
+      tracksMap[track.id] = track;
+    }
+
+    // Separate master track
+    final masterTrack = tracks.where((t) => t.type == 'Master').toList();
+    final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toSet();
+
+    // Build ordered list
+    final orderedTracks = <TimelineTrackData>[];
+    for (final id in widget.trackOrder) {
+      if (tracksMap.containsKey(id) && regularTrackIds.contains(id)) {
+        orderedTracks.add(tracksMap[id]!);
+      }
+    }
+    // Add any tracks not in order (shouldn't happen but just in case)
+    for (final id in regularTrackIds) {
+      if (!widget.trackOrder.contains(id)) {
+        orderedTracks.add(tracksMap[id]!);
+      }
+    }
+    // Add master at end
+    orderedTracks.addAll(masterTrack);
+
+    setState(() {
+      tracks = orderedTracks;
+    });
+  }
+
+  /// Compare two lists for equality
+  bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -1269,6 +1320,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   }
 
   /// Load tracks from audio engine
+  /// Respects track order from TrackController for drag-and-drop reordering
   Future<void> _loadTracksAsync() async {
     if (widget.audioEngine == null) return;
 
@@ -1277,7 +1329,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         return widget.audioEngine!.getAllTrackIds();
       });
 
-      final loadedTracks = <TimelineTrackData>[];
+      final tracksMap = <int, TimelineTrackData>{};
 
       for (final int trackId in trackIds) {
         final info = await Future.microtask(() {
@@ -1286,13 +1338,37 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
         final track = TimelineTrackData.fromCSV(info);
         if (track != null) {
-          loadedTracks.add(track);
+          tracksMap[track.id] = track;
         }
       }
 
       if (mounted) {
         setState(() {
-          tracks = loadedTracks;
+          // Separate master track (always at end, not reorderable)
+          final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
+          final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toSet();
+
+          // Build ordered list respecting widget.trackOrder
+          final orderedTracks = <TimelineTrackData>[];
+
+          // First add tracks in the specified order
+          for (final id in widget.trackOrder) {
+            if (tracksMap.containsKey(id) && regularTrackIds.contains(id)) {
+              orderedTracks.add(tracksMap[id]!);
+            }
+          }
+
+          // Add any tracks not in the order list (new tracks)
+          for (final id in regularTrackIds) {
+            if (!widget.trackOrder.contains(id)) {
+              orderedTracks.add(tracksMap[id]!);
+            }
+          }
+
+          // Add master track at the end
+          orderedTracks.addAll(masterTrack);
+
+          tracks = orderedTracks;
         });
       }
     } catch (e) {
@@ -2616,7 +2692,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     final clipDurationBeats = midiClip.duration;
     // Ensure minimum width to prevent layout errors (Stack requires finite size)
     final clipWidth = (clipDurationBeats * pixelsPerBeat).clamp(10.0, double.infinity);
-    debugPrint('[_buildMidiClip] clipId=${midiClip.clipId}, duration=$clipDurationBeats, loopLength=${midiClip.loopLength}, contentStartOffset=${midiClip.contentStartOffset}');
 
     // Use dragged position if this clip is being dragged (with snap preview)
     double displayStartBeats;
