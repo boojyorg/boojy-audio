@@ -13,7 +13,7 @@ class TrackController extends ChangeNotifier {
 
   // Height constraints
   static const double defaultTrackHeight = 100.0;
-  static const double minTrackHeight = 50.0;
+  static const double minTrackHeight = 45.0;
   static const double maxTrackHeight = 300.0;
 
   // Track color state (auto-detected with manual override)
@@ -22,11 +22,30 @@ class TrackController extends ChangeNotifier {
   // Track instruments
   final Map<int, InstrumentData> _trackInstruments = {};
 
+  // Track name user-edited state (false = auto-generated, true = user edited)
+  final Map<int, bool> _trackNameUserEdited = {};
+
   // Getters
   int? get selectedTrackId => _selectedTrackId;
   Map<int, double> get trackHeights => Map.unmodifiable(_trackHeights);
   double get masterTrackHeight => _masterTrackHeight;
   Map<int, InstrumentData> get trackInstruments => Map.unmodifiable(_trackInstruments);
+
+  /// Check if track name was manually edited by user
+  bool isTrackNameUserEdited(int trackId) {
+    return _trackNameUserEdited[trackId] ?? false;
+  }
+
+  /// Mark track name as user-edited or auto-generated
+  void markTrackNameUserEdited(int trackId, {required bool edited}) {
+    _trackNameUserEdited[trackId] = edited;
+    notifyListeners();
+  }
+
+  /// Initialize a new track with auto-generated name state
+  void initTrackNameState(int trackId) {
+    _trackNameUserEdited[trackId] = false;
+  }
 
   /// Get track height, returning default if not set
   double getTrackHeight(int trackId) {
@@ -113,6 +132,7 @@ class TrackController extends ChangeNotifier {
     _trackInstruments.remove(trackId);
     _trackHeights.remove(trackId);
     _trackColorOverrides.remove(trackId);
+    _trackNameUserEdited.remove(trackId);
 
     if (_selectedTrackId == trackId) {
       _selectedTrackId = null;
@@ -142,6 +162,11 @@ class TrackController extends ChangeNotifier {
       _trackColorOverrides[newTrackId] = _trackColorOverrides[sourceTrackId]!;
     }
 
+    // Copy user-edited name state
+    if (_trackNameUserEdited.containsKey(sourceTrackId)) {
+      _trackNameUserEdited[newTrackId] = _trackNameUserEdited[sourceTrackId]!;
+    }
+
     notifyListeners();
   }
 
@@ -151,6 +176,7 @@ class TrackController extends ChangeNotifier {
     _trackHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();
+    _trackNameUserEdited.clear();
     _masterTrackHeight = 60.0;
     notifyListeners();
   }

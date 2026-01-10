@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
-import 'instrument_browser.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../theme/theme_extension.dart';
@@ -13,7 +12,14 @@ import 'capsule_fader.dart';
 /// Unified track strip combining track info and mixer controls
 /// Displayed on the right side of timeline, aligned with each track row
 class TrackMixerStrip extends StatefulWidget {
+  // Height constants for layout snapping
+  static const double kCompactHeight = 45.0;
+  static const double kStandardHeight = 80.0;
+  static const double kSnapThreshold = 62.0;
+  static const double kMinHeight = 45.0;
+  static const double kMaxHeight = 300.0;
   final int trackId;
+  final int displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
   final String trackName;
   final String trackType;
   final double volumeDb;
@@ -59,6 +65,7 @@ class TrackMixerStrip extends StatefulWidget {
   const TrackMixerStrip({
     super.key,
     required this.trackId,
+    required this.displayIndex,
     required this.trackName,
     required this.trackType,
     required this.volumeDb,
@@ -160,10 +167,191 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Get background color for right box - consistent grey like master track
-  Color _getTintedBackground() {
-    return context.colors.elevated;
+  /// Check if we're in compact mode (1-row layout)
+  bool get _isCompactMode => widget.trackHeight < TrackMixerStrip.kSnapThreshold;
+
+  /// Build standard 2-row layout
+  /// Row 1: Icon + Number + Name + MSR + Pan
+  /// Row 2: dB + Volume Slider
+  Widget _buildStandardLayout(BuildContext context, bool isHovered) {
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Row 1: Icon + Number + Name + MSR + Pan (all left-aligned)
+          SizedBox(
+            height: 28,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                // Icon + Number + Name (takes only needed space)
+                _buildTrackInfoRow(),
+                const SizedBox(width: 12),
+                // M, S, R buttons
+                _buildControlButtons(),
+                const SizedBox(width: 6),
+                // Pan knob
+                PanKnob(
+                  pan: widget.pan,
+                  onChanged: widget.onPanChanged,
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Row 2: dB + Volume Slider
+          SizedBox(
+            height: 28,
+            child: Row(
+              children: [
+                // dB value display
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: context.colors.darkest,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    '${widget.volumeDb.toStringAsFixed(1)} dB',
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Volume Slider (takes remaining space)
+                Expanded(
+                  child: CapsuleFader(
+                    leftLevel: widget.peakLevelLeft,
+                    rightLevel: widget.peakLevelRight,
+                    volumeDb: widget.volumeDb,
+                    onVolumeChanged: widget.onVolumeChanged,
+                    onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
+  /// Build compact 1-row layout
+  /// Same as standard row 1, but with volume slider at end (no dB display)
+  Widget _buildCompactLayout(BuildContext context, bool isHovered) {
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: SizedBox(
+        height: 28,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            // Icon + Number + Name (same as standard)
+            _buildTrackInfoRow(),
+            const SizedBox(width: 12),
+            // M, S, R buttons
+            _buildControlButtons(),
+            const SizedBox(width: 6),
+            // Pan knob
+            PanKnob(
+              pan: widget.pan,
+              onChanged: widget.onPanChanged,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            // Volume Slider (takes remaining space, same 28px height as standard)
+            Expanded(
+              child: SizedBox(
+                height: 28,
+                child: CapsuleFader(
+                  leftLevel: widget.peakLevelLeft,
+                  rightLevel: widget.peakLevelRight,
+                  volumeDb: widget.volumeDb,
+                  onVolumeChanged: widget.onVolumeChanged,
+                  onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build track info row for standard layout (Icon + Number + Name)
+  Widget _buildTrackInfoRow() {
+    final textColor = _getTextColor();
+    final trackColor = widget.trackColor ?? context.colors.textPrimary;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Icon
+        Text(_getTrackEmoji(), style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 6),
+        // Number (sequential display index, not internal ID)
+        Text(
+          '${widget.displayIndex}',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Name (editable) - constrained width, not expanded
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 120),
+          child: _isEditing
+              ? TextField(
+                  controller: _nameController,
+                  focusNode: _focusNode,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    border: const OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: trackColor),
+                    ),
+                  ),
+                  onSubmitted: (_) => _submitName(),
+                )
+              : GestureDetector(
+                  onDoubleTap: _startEditing,
+                  child: Text(
+                    _getStandardDisplayName(),
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  /// Get display name for standard layout
+  String _getStandardDisplayName() {
+    // Show track name (which may be auto-populated from instrument)
+    return widget.trackName;
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -191,104 +379,20 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   height: widget.trackHeight,
                   margin: const EdgeInsets.only(bottom: 4), // Match timeline track spacing
                   decoration: BoxDecoration(
-                    // Ableton-style selection: brighter background and thicker border when selected
-                    // M10: Highlight when VST3 plugin is being dragged over
+                    // Full track colour background (same as color picker)
                     color: isHovered
-                        ? context.colors.accent.withValues(alpha: 0.2)
+                        ? context.colors.accent.withValues(alpha: 0.5)
+                        : (widget.trackColor ?? context.colors.standard),
+                    // Selection: white border when selected, no border when not
+                    border: isHovered
+                        ? Border.all(color: context.colors.accent, width: 2)
                         : (widget.isSelected
-                            ? _brightenColor(context.colors.elevated, 0.1)
-                            : context.colors.standard),
-                    border: Border.all(
-                      color: isHovered
-                          ? context.colors.accent
-                          : (widget.isSelected ? (widget.trackColor ?? context.colors.accent) : context.colors.elevated),
-                      width: isHovered ? 2 : (widget.isSelected ? 3 : 1),
-                    ),
+                            ? Border.all(color: Colors.white, width: 2)
+                            : null),
                   ),
-                  child: Row(
-                    children: [
-                      // Left section: Track Info with opacity background and colored outline
-                      Container(
-                        width: 120,
-                        decoration: BoxDecoration(
-                          // Background: Track color at 18% opacity
-                          color: (widget.trackColor ?? context.colors.elevated).withValues(alpha: 0.18),
-                          // Outline: 1px track color (2px when selected)
-                          border: Border.all(
-                            color: widget.trackColor ?? context.colors.elevated,
-                            width: widget.isSelected ? 2.0 : 1.0,
-                          ),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        child: _buildTrackNameSection(),
-                      ),
-
-                      // Right section: Controls area (tinted with track color)
-                      Expanded(
-                        child: Container(
-                          color: _getTintedBackground(),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Column(
-                            children: [
-                              // Top row: dB → M S R → Pan (new order per spec)
-                              Row(
-                                children: [
-                                  // dB value display (moved to left)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: context.colors.darkest,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: Text(
-                                      '${widget.volumeDb.toStringAsFixed(1)} dB',
-                                      style: TextStyle(
-                                        color: context.colors.textSecondary,
-                                        fontSize: 10,
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 8),
-
-                                  // M, S, R buttons
-                                  _buildControlButtons(),
-
-                                  const SizedBox(width: 8),
-
-                                  // Pan knob (right next to MSR, same size as buttons)
-                                  PanKnob(
-                                    pan: widget.pan,
-                                    onChanged: widget.onPanChanged,
-                                    size: 22,
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 4),
-
-                              // Bottom row: Capsule fader with integrated level meters
-                              SizedBox(
-                                height: 32,
-                                child: CapsuleFader(
-                                  leftLevel: widget.peakLevelLeft,
-                                  rightLevel: widget.peakLevelRight,
-                                  volumeDb: widget.volumeDb,
-                                  onVolumeChanged: widget.onVolumeChanged,
-                                  onDoubleTap: () {
-                                    // Reset to 0 dB on double-tap
-                                    widget.onVolumeChanged?.call(0.0);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _isCompactMode
+                      ? _buildCompactLayout(context, isHovered)
+                      : _buildStandardLayout(context, isHovered),
                 ),
                 // Bottom resize handle
                 Positioned(
@@ -307,12 +411,24 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       onVerticalDragUpdate: (details) {
                         if (_isResizing) {
                           final delta = details.globalPosition.dy - _resizeStartY;
-                          final newHeight = (_resizeStartHeight + delta).clamp(70.0, 300.0);
+                          final newHeight = (_resizeStartHeight + delta).clamp(
+                            TrackMixerStrip.kMinHeight,
+                            TrackMixerStrip.kMaxHeight,
+                          );
                           widget.onHeightChanged?.call(newHeight);
                         }
                       },
                       onVerticalDragEnd: (details) {
                         _isResizing = false;
+                        // Snap to compact or standard height based on threshold
+                        final snappedHeight = widget.trackHeight < TrackMixerStrip.kSnapThreshold
+                            ? TrackMixerStrip.kCompactHeight
+                            : (widget.trackHeight < TrackMixerStrip.kStandardHeight + 10
+                                ? TrackMixerStrip.kStandardHeight
+                                : widget.trackHeight);
+                        if (snappedHeight != widget.trackHeight) {
+                          widget.onHeightChanged?.call(snappedHeight);
+                        }
                       },
                       child: Container(
                         color: Colors.transparent,
@@ -528,175 +644,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildTrackNameSection() {
-    final isMidiTrack = widget.trackType.toLowerCase() == 'midi';
-    final trackNumber = widget.trackId; // 1-indexed track number
-    final trackColor = widget.trackColor ?? context.colors.textPrimary;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Line 1: [Emoji] [Number] [Type] (e.g., "🎼 1 MIDI")
-        Row(
-          children: [
-            // Track emoji (moved to front per spec)
-            Text(
-              _getTrackEmoji(),
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(width: 4),
-            // Track number
-            Text(
-              '$trackNumber',
-              style: TextStyle(
-                color: trackColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Track type
-            Text(
-              widget.trackType.toUpperCase(),
-              style: TextStyle(
-                color: trackColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-
-        // Line 2: Instrument info (MIDI only)
-        if (isMidiTrack) ...[
-          const SizedBox(height: 4),
-          if (_isEditing)
-            TextField(
-              controller: _nameController,
-              focusNode: _focusNode,
-              style: TextStyle(
-                color: trackColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: trackColor),
-                ),
-              ),
-              onSubmitted: (_) => _submitName(),
-            )
-          else if (widget.instrumentData != null)
-            // Show instrument name
-            GestureDetector(
-              onDoubleTap: _startEditing,
-              child: Text(
-                widget.instrumentData!.pluginName ?? widget.instrumentData!.type,
-                style: TextStyle(
-                  color: trackColor.withValues(alpha: 0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          else
-            // Show "+ Instrument" selector
-            _buildInstrumentSelector(trackColor),
-        ],
-
-        // Audio tracks: show track name if custom (different from "Audio")
-        if (!isMidiTrack && _getDisplayName().isNotEmpty) ...[
-          const SizedBox(height: 4),
-          if (_isEditing)
-            TextField(
-              controller: _nameController,
-              focusNode: _focusNode,
-              style: TextStyle(
-                color: trackColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: trackColor),
-                ),
-              ),
-              onSubmitted: (_) => _submitName(),
-            )
-          else
-            GestureDetector(
-              onDoubleTap: _startEditing,
-              child: Text(
-                _getDisplayName(),
-                style: TextStyle(
-                  color: trackColor.withValues(alpha: 0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-      ],
-    );
-  }
-
-  /// Get display name - show instrument name if available, otherwise track name
-  /// Returns empty string if track name matches type (to avoid "MIDI" appearing twice)
-  String _getDisplayName() {
-    if (widget.instrumentData != null) {
-      return widget.instrumentData!.type;
-    }
-    // Don't show track name if it matches the type (avoids "MIDI" appearing twice)
-    if (widget.trackName.toLowerCase() == widget.trackType.toLowerCase()) {
-      return '';
-    }
-    return widget.trackName;
-  }
-
-  Widget _buildInstrumentSelector(Color trackColor) {
-    return Builder(
-      builder: (context) => GestureDetector(
-        onTap: widget.onInstrumentSelect != null
-            ? () async {
-                final selectedInstrument = await showInstrumentBrowser(context);
-                if (selectedInstrument != null) {
-                  widget.onInstrumentSelect?.call(selectedInstrument.id);
-                }
-              }
-            : null,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.add,
-              size: 10,
-              color: trackColor.withValues(alpha: 0.6),
-            ),
-            const SizedBox(width: 2),
-            Text(
-              'Instrument',
-              style: TextStyle(
-                color: trackColor.withValues(alpha: 0.6),
-                fontSize: 9,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildControlButtons() {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm = widget.trackType.toLowerCase() == 'audio' || widget.trackType.toLowerCase() == 'midi';
@@ -744,10 +691,15 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  /// Brighten a color by increasing lightness
-  Color _brightenColor(Color color, double amount) {
-    final hsl = HSLColor.fromColor(color);
-    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+  /// Get text colour - much darker shade of track colour for readability
+  Color _getTextColor() {
+    final trackColor = widget.trackColor;
+    if (trackColor == null) return context.colors.textPrimary;
+
+    // Darken the track colour significantly for readable text on coloured background
+    final hsl = HSLColor.fromColor(trackColor);
+    // Use very low lightness for dark text on coloured background
+    return hsl.withLightness((hsl.lightness * 0.25).clamp(0.05, 0.25)).toColor();
   }
 
   String _getTrackEmoji() {
