@@ -122,11 +122,15 @@ class RecordingController extends ChangeNotifier {
       _recordingStateTimer?.cancel();
       _recordingStateTimer = null;
 
+      // Calculate high-resolution peaks for detailed waveform display
+      final duration = audioClipId >= 0 ? _audioEngine!.getClipDuration(audioClipId) : 0.0;
+      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+
       final result = RecordingResult(
         audioClipId: audioClipId >= 0 ? audioClipId : null,
         midiClipId: midiClipId > 0 ? midiClipId : null,
-        duration: audioClipId >= 0 ? _audioEngine!.getClipDuration(audioClipId) : null,
-        waveformPeaks: audioClipId >= 0 ? _audioEngine!.getWaveformPeaks(audioClipId, 2000) : null,
+        duration: duration > 0 ? duration : null,
+        waveformPeaks: audioClipId >= 0 ? _audioEngine!.getWaveformPeaks(audioClipId, peakResolution) : null,
         midiClipInfo: midiClipId > 0 ? _audioEngine!.getMidiClipInfo(midiClipId) : null,
       );
 

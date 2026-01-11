@@ -97,6 +97,9 @@ class _DAWScreenState extends State<DAWScreen> {
   bool _isAudioGraphInitialized = false;
   bool _isLoading = false;
 
+  // Audio clip selection for Audio Editor
+  ClipData? _selectedAudioClip;
+
   // Project metadata
   ProjectMetadata _projectMetadata = const ProjectMetadata(
     name: 'Untitled Project',
@@ -688,6 +691,58 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  /// Get the type of the currently selected track ("MIDI", "Audio", or "Master")
+  String? _getSelectedTrackType() {
+    if (_selectedTrackId == null || _audioEngine == null) return null;
+    final info = _audioEngine!.getTrackInfo(_selectedTrackId!);
+    if (info.isEmpty) return null;
+    final parts = info.split(',');
+    if (parts.length >= 3) {
+      // Track type is at index 2: "track_id,name,type,..."
+      final type = parts[2].toLowerCase();
+      if (type == 'midi') return 'MIDI';
+      if (type == 'audio') return 'Audio';
+      if (type == 'master') return 'Master';
+      return type;
+    }
+    return null;
+  }
+
+  /// Get the name of the currently selected track
+  String? _getSelectedTrackName() {
+    if (_selectedTrackId == null || _audioEngine == null) return null;
+    final info = _audioEngine!.getTrackInfo(_selectedTrackId!);
+    if (info.isEmpty) return null;
+    final parts = info.split(',');
+    if (parts.length >= 2) {
+      // Track name is at index 1: "track_id,name,type,..."
+      return parts[1];
+    }
+    return null;
+  }
+
+  /// Handle audio clip selection from timeline
+  void _onAudioClipSelected(int? clipId, ClipData? clip) {
+    setState(() {
+      _selectedAudioClip = clip;
+      if (clip != null) {
+        // Also select the track that contains this clip
+        _selectedTrackId = clip.trackId;
+        _uiLayout.isEditorPanelVisible = true;
+        // Clear MIDI clip selection
+        _midiPlaybackManager?.selectClip(null, null);
+      }
+    });
+  }
+
+  /// Handle audio clip updates from Audio Editor
+  void _onAudioClipUpdated(ClipData clip) {
+    setState(() {
+      _selectedAudioClip = clip;
+    });
+    // TODO: Persist changes to audio engine when audio clip editing is implemented
+  }
+
   // M9: Instrument methods
   void _onInstrumentSelected(int trackId, String instrumentId) {
     // Create default instrument data for the track
@@ -917,7 +972,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // 4. Get clip info
       final duration = _audioEngine!.getClipDuration(clipId);
-      final peaks = _audioEngine!.getWaveformPeaks(clipId, 2000);
+      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
+      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      final peaks = _audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       // 5. Add to timeline view's clip list
       _timelineKey.currentState?.addClip(ClipData(
@@ -1291,7 +1348,9 @@ class _DAWScreenState extends State<DAWScreen> {
       }
 
       final duration = _audioEngine!.getClipDuration(clipId);
-      final peaks = _audioEngine!.getWaveformPeaks(clipId, 2000);
+      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
+      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      final peaks = _audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       _timelineKey.currentState?.addClip(ClipData(
         clipId: clipId,
@@ -3161,6 +3220,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           midiClips: _midiPlaybackManager?.midiClips ?? [], // Pass all MIDI clips for visualization
                           onMidiTrackSelected: _onTrackSelected,
                           onMidiClipSelected: _onMidiClipSelected,
+                          onAudioClipSelected: _onAudioClipSelected,
                           onMidiClipUpdated: _onMidiClipUpdated,
                           onMidiClipCopied: _onMidiClipCopied,
                           getRustClipId: (dartClipId) => _midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
@@ -3316,6 +3376,8 @@ class _DAWScreenState extends State<DAWScreen> {
                       audioEngine: _audioEngine,
                       virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
                       selectedTrackId: _selectedTrackId,
+                      selectedTrackName: _getSelectedTrackName(),
+                      selectedTrackType: _getSelectedTrackType(),
                       currentInstrumentData: _selectedTrackId != null
                           ? _trackInstruments[_selectedTrackId]
                           : null,
@@ -3329,6 +3391,8 @@ class _DAWScreenState extends State<DAWScreen> {
                       currentEditingClip: _midiPlaybackManager?.currentEditingClip,
                       onMidiClipUpdated: _onMidiClipUpdated,
                       onInstrumentParameterChanged: _onInstrumentParameterChanged,
+                      currentEditingAudioClip: _selectedAudioClip,
+                      onAudioClipUpdated: _onAudioClipUpdated,
                       currentTrackPlugins: _selectedTrackId != null // M10
                           ? _getTrackVst3Plugins(_selectedTrackId!)
                           : null,

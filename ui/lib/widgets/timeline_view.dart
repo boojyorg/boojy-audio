@@ -63,6 +63,7 @@ class TimelineView extends StatefulWidget {
   final List<MidiClipData> midiClips; // All MIDI clips for visualization
   final Function(int?)? onMidiTrackSelected;
   final Function(int?, MidiClipData?)? onMidiClipSelected;
+  final Function(int?, ClipData?)? onAudioClipSelected;
   final Function(MidiClipData)? onMidiClipUpdated;
   final Function(MidiClipData sourceClip, double newStartTime)? onMidiClipCopied;
   final int Function(int dartClipId)? getRustClipId;
@@ -116,6 +117,7 @@ class TimelineView extends StatefulWidget {
     this.midiClips = const [], // All MIDI clips for visualization
     this.onMidiTrackSelected,
     this.onMidiClipSelected,
+    this.onAudioClipSelected,
     this.onMidiClipUpdated,
     this.onMidiClipCopied,
     this.getRustClipId,
@@ -272,7 +274,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
       // Get duration and waveform
       final duration = widget.audioEngine!.getClipDuration(clipId);
-      final peaks = widget.audioEngine!.getWaveformPeaks(clipId, 2000);
+      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
+      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      final peaks = widget.audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       // Calculate drop position
       final startTime = _calculateTimelinePosition(localPosition);
@@ -408,6 +412,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       // Clear MIDI selection when selecting audio
       selectedMidiClipIds.clear();
     });
+
+    // Notify parent about audio clip selection
+    final selectedClip = selectedAudioClip;
+    widget.onAudioClipSelected?.call(selectedAudioClipId, selectedClip);
   }
 
   /// Clear all clip selections
@@ -1499,10 +1507,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                   setState(() {
                     if (scrollDelta < 0) {
                       // Scroll up = zoom in
-                      pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(10.0, 150.0);
+                      pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(10.0, 500.0);
                     } else {
                       // Scroll down = zoom out
-                      pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(10.0, 150.0);
+                      pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
                     }
                   });
                 }
@@ -1988,7 +1996,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           IconButton(
             onPressed: () {
               setState(() {
-                pixelsPerBeat = (pixelsPerBeat - 10).clamp(10.0, 150.0);
+                pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
               });
             },
             icon: const Icon(Icons.remove, size: 14),
@@ -2009,7 +2017,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           IconButton(
             onPressed: () {
               setState(() {
-                pixelsPerBeat = (pixelsPerBeat + 10).clamp(10.0, 150.0);
+                pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(10.0, 500.0);
               });
             },
             icon: const Icon(Icons.add, size: 14),
@@ -3449,52 +3457,65 @@ class _WaveformPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (peaks.isEmpty) return;
 
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.5) // Semi-transparent so grid shows through
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
     final centerY = size.height / 2;
-    final pixelsPerPeak = size.width / (peaks.length / 2);
+    final peakCount = peaks.length ~/ 2;
+    if (peakCount == 0) return;
 
-    path.moveTo(0, centerY);
+    final step = size.width / peakCount;
 
-    // Draw waveform (peaks come as min/max pairs)
-    for (int i = 0; i < peaks.length; i += 2) {
-      if (i + 1 >= peaks.length) break;
+    // Create closed polygon path for continuous waveform shape
+    final path = Path();
 
-      final x = (i / 2) * pixelsPerPeak;
+    // Start at first peak's top
+    final firstMax = peaks[1];
+    final firstTopY = centerY - (firstMax * centerY);
+    path.moveTo(step / 2, firstTopY);
+
+    // Trace TOP edge (max values) left to right
+    for (int i = 2; i < peaks.length; i += 2) {
+      final x = (i ~/ 2) * step + step / 2;
       final max = peaks[i + 1];
-
-      final maxY = centerY + (max * centerY);
-
-      if (i == 0) {
-        path.moveTo(x, maxY);
-      } else {
-        path.lineTo(x, maxY);
-      }
+      final topY = centerY - (max * centerY);
+      path.lineTo(x, topY);
     }
 
-    // Draw bottom half
+    // Trace BOTTOM edge (min values) right to left
     for (int i = peaks.length - 2; i >= 0; i -= 2) {
-      final x = (i / 2) * pixelsPerPeak;
+      final x = (i ~/ 2) * step + step / 2;
       final min = peaks[i];
-      final minY = centerY + (min * centerY);
-      path.lineTo(x, minY);
+      final bottomY = centerY - (min * centerY);
+      path.lineTo(x, bottomY);
     }
 
     path.close();
-    canvas.drawPath(path, paint);
 
-    // Draw center line
+    // Use opaque color for both fill and stroke so they match exactly
+    final waveformColor = color.withValues(alpha: 0.85);
+
+    // Fill the waveform
+    final fillPaint = Paint()
+      ..color = waveformColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
+
+    // Add stroke when zoomed out to fatten the waveform
+    if (step < 1.0) {
+      final strokeWidth = (1.0 / step).clamp(1.0, 1.5);
+      final strokePaint = Paint()
+        ..color = waveformColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..blendMode = BlendMode.src;
+      canvas.drawPath(path, strokePaint);
+    }
+
+    // Subtle center line
     final centerLinePaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..strokeWidth = 1;
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(size.width, centerY),
-      centerLinePaint,
-    );
+      ..color = color.withValues(alpha: 0.06)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerLinePaint);
   }
 
   @override
