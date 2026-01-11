@@ -5,53 +5,13 @@ import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
 import '../utils/track_colors.dart';
 import '../models/instrument_data.dart';
+import '../models/track_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import 'platform_drop_target.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
-
-/// Track data model
-class TrackData {
-  final int id;
-  String name;
-  final String type;
-  double volumeDb;
-  double pan;
-  bool mute;
-  bool solo;
-
-  TrackData({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.volumeDb,
-    required this.pan,
-    required this.mute,
-    required this.solo,
-  });
-
-  /// Parse track info from CSV format: "track_id,name,type,volume_db,pan,mute,solo"
-  static TrackData? fromCSV(String csv) {
-    try {
-      final parts = csv.split(',');
-      if (parts.length < 7) return null;
-
-      return TrackData(
-        id: int.parse(parts[0]),
-        name: parts[1],
-        type: parts[2],
-        volumeDb: double.parse(parts[3]),
-        pan: double.parse(parts[4]),
-        mute: parts[5] == 'true' || parts[5] == '1',
-        solo: parts[6] == 'true' || parts[6] == '1',
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-}
 
 /// Track mixer panel - displays track mixer strips vertically aligned with timeline
 class TrackMixerPanel extends StatefulWidget {
@@ -695,6 +655,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         pan: 0.0,
         mute: false,
         solo: false,
+        armed: false,
       ),
     );
 

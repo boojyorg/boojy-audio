@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
 import 'commands/command.dart';
@@ -12,6 +13,9 @@ class UndoRedoManager extends ChangeNotifier {
 
   final List<Command> _undoStack = [];
   final List<Command> _redoStack = [];
+
+  /// Lock to prevent concurrent command execution (race condition protection)
+  Completer<void>? _executionLock;
 
   /// Maximum history size (configurable via UserSettings)
   int get maxHistorySize => UserSettings().undoLimit;
@@ -45,12 +49,27 @@ class UndoRedoManager extends ChangeNotifier {
   List<String> get redoHistory =>
       _redoStack.reversed.map((cmd) => cmd.description).toList();
 
+  /// Acquire execution lock to prevent concurrent operations
+  Future<void> _acquireLock() async {
+    // Wait for any existing operation to complete
+    while (_executionLock != null && !_executionLock!.isCompleted) {
+      await _executionLock!.future;
+    }
+    _executionLock = Completer<void>();
+  }
+
+  /// Release execution lock
+  void _releaseLock() {
+    _executionLock?.complete();
+  }
+
   /// Execute a command and add it to the undo stack
   Future<void> execute(Command command) async {
     if (_engine == null) {
       return;
     }
 
+    await _acquireLock();
     try {
       await command.execute(_engine!);
 
@@ -68,6 +87,8 @@ class UndoRedoManager extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('UndoRedoManager: Error executing command: $e');
+    } finally {
+      _releaseLock();
     }
   }
 
@@ -75,7 +96,12 @@ class UndoRedoManager extends ChangeNotifier {
   /// Useful when you want to batch multiple small changes
   Future<void> executeWithoutHistory(Command command) async {
     if (_engine == null) return;
-    await command.execute(_engine!);
+    await _acquireLock();
+    try {
+      await command.execute(_engine!);
+    } finally {
+      _releaseLock();
+    }
   }
 
   /// Undo the last action
@@ -84,6 +110,7 @@ class UndoRedoManager extends ChangeNotifier {
       return false;
     }
 
+    await _acquireLock();
     try {
       final command = _undoStack.removeLast();
       await command.undo(_engine!);
@@ -95,6 +122,8 @@ class UndoRedoManager extends ChangeNotifier {
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _releaseLock();
     }
   }
 
@@ -104,6 +133,7 @@ class UndoRedoManager extends ChangeNotifier {
       return false;
     }
 
+    await _acquireLock();
     try {
       final command = _redoStack.removeLast();
       await command.execute(_engine!);
@@ -115,6 +145,8 @@ class UndoRedoManager extends ChangeNotifier {
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _releaseLock();
     }
   }
 

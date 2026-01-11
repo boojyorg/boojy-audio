@@ -25,8 +25,12 @@ class TrackController extends ChangeNotifier {
   // Track name user-edited state (false = auto-generated, true = user edited)
   final Map<int, bool> _trackNameUserEdited = {};
 
+  // Track display order (list of track IDs, excluding Master)
+  List<int> _trackOrder = [];
+
   // Getters
   int? get selectedTrackId => _selectedTrackId;
+  List<int> get trackOrder => List.unmodifiable(_trackOrder);
   Map<int, double> get trackHeights => Map.unmodifiable(_trackHeights);
   double get masterTrackHeight => _masterTrackHeight;
   Map<int, InstrumentData> get trackInstruments => Map.unmodifiable(_trackInstruments);
@@ -105,6 +109,46 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update track order from a list of track IDs
+  /// This syncs the order when tracks are loaded from engine
+  void syncTrackOrder(List<int> trackIds) {
+    // Keep existing order for tracks that still exist, add new ones at end
+    final existingIds = trackIds.toSet();
+    final newOrder = <int>[];
+
+    // Preserve existing order for tracks that still exist
+    for (final id in _trackOrder) {
+      if (existingIds.contains(id)) {
+        newOrder.add(id);
+      }
+    }
+
+    // Add any new tracks that weren't in the order
+    for (final id in trackIds) {
+      if (!newOrder.contains(id)) {
+        newOrder.add(id);
+      }
+    }
+
+    _trackOrder = newOrder;
+    // Don't notify here - this is called during load, caller will handle rebuild
+  }
+
+  /// Reorder tracks (from drag-and-drop)
+  void reorderTrack(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _trackOrder.length) return;
+    if (newIndex < 0 || newIndex >= _trackOrder.length) return;
+
+    final trackId = _trackOrder.removeAt(oldIndex);
+    _trackOrder.insert(newIndex, trackId);
+    notifyListeners();
+  }
+
+  /// Get ordered list of track IDs
+  List<int> getOrderedTrackIds() {
+    return List.from(_trackOrder);
+  }
+
   /// Set instrument for a track
   void setTrackInstrument(int trackId, InstrumentData instrument) {
     _trackInstruments[trackId] = instrument;
@@ -177,7 +221,19 @@ class TrackController extends ChangeNotifier {
     _trackColorOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();
+    _trackOrder.clear();
     _masterTrackHeight = 50.0;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    // Clear all state before disposing
+    _trackHeights.clear();
+    _trackColorOverrides.clear();
+    _trackInstruments.clear();
+    _trackNameUserEdited.clear();
+    _trackOrder.clear();
+    super.dispose();
   }
 }

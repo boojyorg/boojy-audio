@@ -277,4 +277,13 @@ class MidiClipController extends ChangeNotifier {
     _clipboardClip = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    // Clear references to prevent memory leaks
+    _audioEngine = null;
+    _midiPlaybackManager = null;
+    _clipboardClip = null;
+    super.dispose();
+  }
 }

@@ -1,51 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../audio_engine.dart';
+import '../models/track_data.dart';
 import '../theme/theme_extension.dart';
-
-/// Track data model
-class TrackData {
-  final int id;
-  final String name;
-  final String type;
-  double volumeDb;
-  double pan;
-  bool mute;
-  bool solo;
-  bool armed;
-
-  TrackData({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.volumeDb,
-    required this.pan,
-    required this.mute,
-    required this.solo,
-    required this.armed,
-  });
-
-  /// Parse track info from CSV format: "track_id,name,type,volume_db,pan,mute,solo,armed"
-  static TrackData? fromCSV(String csv) {
-    try {
-      final parts = csv.split(',');
-      if (parts.length < 8) return null;
-
-      return TrackData(
-        id: int.parse(parts[0]),
-        name: parts[1],
-        type: parts[2],
-        volumeDb: double.parse(parts[3]),
-        pan: double.parse(parts[4]),
-        mute: parts[5] == 'true' || parts[5] == '1',
-        solo: parts[6] == 'true' || parts[6] == '1',
-        armed: parts[7] == 'true' || parts[7] == '1',
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-}
 
 /// Mixer panel widget - slide-in from right
 class MixerPanel extends StatefulWidget {

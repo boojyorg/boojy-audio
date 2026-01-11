@@ -17,7 +17,7 @@ class AutoSaveService extends ChangeNotifier {
   UILayoutData Function()? _getUILayout;
 
   DateTime? _lastAutoSave;
-  bool _isAutoSaving = false;
+  Completer<void>? _autoSaveCompleter; // Prevents concurrent auto-saves
   String? _backupDirectory;
 
   // Max number of rotating auto-save backups
@@ -30,7 +30,7 @@ class AutoSaveService extends ChangeNotifier {
   DateTime? get lastAutoSave => _lastAutoSave;
 
   /// Whether currently performing an auto-save
-  bool get isAutoSaving => _isAutoSaving;
+  bool get isAutoSaving => _autoSaveCompleter != null && !_autoSaveCompleter!.isCompleted;
 
   /// Initialize the service with project manager reference
   void initialize({
@@ -85,11 +85,12 @@ class AutoSaveService extends ChangeNotifier {
       return;
     }
 
-    if (_isAutoSaving) {
-      return;
+    // Use Completer to prevent concurrent auto-saves (race-condition safe)
+    if (_autoSaveCompleter != null && !_autoSaveCompleter!.isCompleted) {
+      return; // Already saving
     }
 
-    _isAutoSaving = true;
+    _autoSaveCompleter = Completer<void>();
     notifyListeners();
 
     try {
@@ -103,10 +104,11 @@ class AutoSaveService extends ChangeNotifier {
       await _createBackup();
 
       _lastAutoSave = DateTime.now();
+      _autoSaveCompleter!.complete();
     } catch (e) {
       debugPrint('AutoSaveService: Auto-save failed: $e');
+      _autoSaveCompleter!.completeError(e);
     } finally {
-      _isAutoSaving = false;
       notifyListeners();
     }
   }

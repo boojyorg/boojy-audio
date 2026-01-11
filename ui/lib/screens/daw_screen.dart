@@ -167,12 +167,15 @@ class _DAWScreenState extends State<DAWScreen> {
     if (!_mixerVerticalScrollController.position.hasContentDimensions) return;
 
     _isScrollSyncing = true;
-    final targetOffset = _timelineVerticalScrollController.offset.clamp(
-      _mixerVerticalScrollController.position.minScrollExtent,
-      _mixerVerticalScrollController.position.maxScrollExtent,
-    );
-    _mixerVerticalScrollController.jumpTo(targetOffset);
-    _isScrollSyncing = false;
+    try {
+      final targetOffset = _timelineVerticalScrollController.offset.clamp(
+        _mixerVerticalScrollController.position.minScrollExtent,
+        _mixerVerticalScrollController.position.maxScrollExtent,
+      );
+      _mixerVerticalScrollController.jumpTo(targetOffset);
+    } finally {
+      _isScrollSyncing = false;
+    }
   }
 
   /// Sync mixer scroll to timeline
@@ -182,12 +185,15 @@ class _DAWScreenState extends State<DAWScreen> {
     if (!_timelineVerticalScrollController.position.hasContentDimensions) return;
 
     _isScrollSyncing = true;
-    final targetOffset = _mixerVerticalScrollController.offset.clamp(
-      _timelineVerticalScrollController.position.minScrollExtent,
-      _timelineVerticalScrollController.position.maxScrollExtent,
-    );
-    _timelineVerticalScrollController.jumpTo(targetOffset);
-    _isScrollSyncing = false;
+    try {
+      final targetOffset = _mixerVerticalScrollController.offset.clamp(
+        _timelineVerticalScrollController.position.minScrollExtent,
+        _timelineVerticalScrollController.position.maxScrollExtent,
+      );
+      _timelineVerticalScrollController.jumpTo(targetOffset);
+    } finally {
+      _isScrollSyncing = false;
+    }
   }
 
   /// Trigger immediate refresh of track lists in both timeline and mixer panels
@@ -305,11 +311,21 @@ class _DAWScreenState extends State<DAWScreen> {
     _playbackController.removeListener(_onControllerChanged);
     _recordingController.removeListener(_onControllerChanged);
     _trackController.removeListener(_onControllerChanged);
+    _midiClipController.removeListener(_onControllerChanged); // Was missing!
     _uiLayout.removeListener(_onControllerChanged);
 
-    // Dispose controllers
+    // Clear callbacks to prevent memory leaks
+    _recordingController.onRecordingComplete = null;
+    _playbackController.onAutoStop = null;
+
+    // Dispose controllers (ChangeNotifiers must be disposed)
     _playbackController.dispose();
     _recordingController.dispose();
+    _trackController.dispose();
+    _midiClipController.dispose();
+    _uiLayout.dispose();
+
+    // Dispose scroll controllers
     _timelineVerticalScrollController.removeListener(_onTimelineVerticalScroll);
     _mixerVerticalScrollController.removeListener(_onMixerVerticalScroll);
     _timelineVerticalScrollController.dispose();
@@ -972,8 +988,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // 4. Get clip info
       final duration = _audioEngine!.getClipDuration(clipId);
-      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
-      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
+      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = _audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       // 5. Add to timeline view's clip list
@@ -1348,8 +1364,8 @@ class _DAWScreenState extends State<DAWScreen> {
       }
 
       final duration = _audioEngine!.getClipDuration(clipId);
-      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
-      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
+      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = _audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       _timelineKey.currentState?.addClip(ClipData(
@@ -3097,7 +3113,10 @@ class _DAWScreenState extends State<DAWScreen> {
         body: Column(
           children: [
           // Transport bar (with logo and file/mixer buttons)
-          TransportBar(
+          // PERFORMANCE: Use ValueListenableBuilder for playhead-only updates
+          ValueListenableBuilder<double>(
+            valueListenable: _playbackController.playheadNotifier,
+            builder: (context, playheadPos, _) => TransportBar(
             onPlay: _play,
             onPause: _pause,
             onStop: _stopPlayback,
@@ -3107,7 +3126,7 @@ class _DAWScreenState extends State<DAWScreen> {
             countInBars: _userSettings.countInBars,
             onMetronomeToggle: _toggleMetronome,
             onPianoToggle: _toggleVirtualPiano,
-            playheadPosition: _playheadPosition,
+            playheadPosition: playheadPos,
             isPlaying: _isPlaying,
             canPlay: true, // Always allow transport controls
             isRecording: _isRecording,
@@ -3152,6 +3171,7 @@ class _DAWScreenState extends State<DAWScreen> {
             loopPlaybackEnabled: _uiLayout.loopPlaybackEnabled,
             onLoopPlaybackToggle: _uiLayout.toggleLoopPlayback,
             isLoading: _isLoading,
+          ),
           ),
 
           // Main content area - 3-column layout
@@ -3206,10 +3226,14 @@ class _DAWScreenState extends State<DAWScreen> {
                       ),
 
                       // Center: Timeline area
+                      // PERFORMANCE: Use ValueListenableBuilder to only rebuild TimelineView
+                      // when playhead changes, not on every controller notification
                       Expanded(
-                        child: TimelineView(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _playbackController.playheadNotifier,
+                          builder: (context, playheadPos, _) => TimelineView(
                           key: _timelineKey,
-                          playheadPosition: _playheadPosition,
+                          playheadPosition: playheadPos,
                           clipDuration: _clipDuration,
                           waveformPeaks: _waveformPeaks,
                           audioEngine: _audioEngine,
@@ -3251,6 +3275,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           },
                           // Vertical scroll sync with mixer panel
                           verticalScrollController: _timelineVerticalScrollController,
+                        ),
                         ),
                       ),
 
