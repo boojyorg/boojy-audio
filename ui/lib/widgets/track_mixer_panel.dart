@@ -951,12 +951,24 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       },
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
-      onNameChanged: (newName) {
-        widget.audioEngine?.setTrackName(track.id, newName);
-        setState(() {
-          track.name = newName;
-        });
-        widget.onTrackNameChanged?.call(track.id, newName);
+      onNameChanged: (newName) async {
+        final oldName = track.name;
+        if (oldName == newName) return;
+
+        final command = RenameTrackCommand(
+          trackId: track.id,
+          oldName: oldName,
+          newName: newName,
+          onTrackRenamed: (trackId, name) {
+            if (mounted) {
+              setState(() {
+                track.name = name;
+              });
+              widget.onTrackNameChanged?.call(trackId, name);
+            }
+          },
+        );
+        await UndoRedoManager().execute(command);
       },
       onColorChanged: widget.onTrackColorChanged != null
           ? (color) => widget.onTrackColorChanged!(track.id, color)

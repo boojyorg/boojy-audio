@@ -120,3 +120,98 @@ class DuplicateTrackCommand extends Command {
   @override
   String get description => 'Duplicate track: $sourceTrackName';
 }
+
+/// Command to rename a track
+class RenameTrackCommand extends Command {
+  final int trackId;
+  final String oldName;
+  final String newName;
+
+  /// Callback to update UI state after rename
+  final void Function(int trackId, String name)? onTrackRenamed;
+
+  RenameTrackCommand({
+    required this.trackId,
+    required this.oldName,
+    required this.newName,
+    this.onTrackRenamed,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    engine.setTrackName(trackId, newName);
+    onTrackRenamed?.call(trackId, newName);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    engine.setTrackName(trackId, oldName);
+    onTrackRenamed?.call(trackId, oldName);
+  }
+
+  @override
+  String get description => 'Rename Track: $oldName → $newName';
+}
+
+/// Command to reorder tracks (drag-and-drop)
+class ReorderTrackCommand extends Command {
+  final int trackId;
+  final String trackName;
+  final int oldIndex;
+  final int newIndex;
+
+  /// Callback to update UI state after reorder
+  final void Function(int oldIndex, int newIndex)? onTrackReordered;
+
+  ReorderTrackCommand({
+    required this.trackId,
+    required this.trackName,
+    required this.oldIndex,
+    required this.newIndex,
+    this.onTrackReordered,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    // Track reordering is UI-only state (not in audio engine)
+    onTrackReordered?.call(oldIndex, newIndex);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    // Reverse the reorder
+    onTrackReordered?.call(newIndex, oldIndex);
+  }
+
+  @override
+  String get description => 'Reorder Track: $trackName';
+}
+
+/// Command to arm/disarm a track for recording
+class ArmTrackCommand extends Command {
+  final int trackId;
+  final String trackName;
+  final bool newArmed;
+  final bool oldArmed;
+
+  ArmTrackCommand({
+    required this.trackId,
+    required this.trackName,
+    required this.newArmed,
+    required this.oldArmed,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    engine.setTrackArmed(trackId, armed: newArmed);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    engine.setTrackArmed(trackId, armed: oldArmed);
+  }
+
+  @override
+  String get description =>
+      '${newArmed ? 'Arm' : 'Disarm'} Track: $trackName';
+}

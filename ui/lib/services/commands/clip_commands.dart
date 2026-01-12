@@ -1,4 +1,5 @@
 import '../../audio_engine.dart';
+import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import 'command.dart';
 
@@ -369,4 +370,193 @@ class SplitAudioClipCommand extends Command {
   double get rightStartTime => splitPointSeconds;
   double get rightDuration => originalDuration - leftDuration;
   double get rightOffset => originalOffset + leftDuration;
+}
+
+/// Command to add an audio clip to a track
+class AddAudioClipCommand extends Command {
+  final int trackId;
+  final String filePath;
+  final double startTime;
+  final String clipName;
+
+  int? _createdClipId;
+
+  /// Callback to add clip to UI state (provides clipId, duration, peaks)
+  final void Function(int clipId, double duration, List<double> peaks)? onClipAdded;
+
+  /// Callback to remove clip from UI state (undo)
+  final void Function(int clipId)? onClipRemoved;
+
+  AddAudioClipCommand({
+    required this.trackId,
+    required this.filePath,
+    required this.startTime,
+    required this.clipName,
+    this.onClipAdded,
+    this.onClipRemoved,
+  });
+
+  /// Get the created clip ID (available after execute)
+  int? get createdClipId => _createdClipId;
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    _createdClipId = engine.loadAudioFileToTrack(filePath, trackId);
+    if (_createdClipId != null && _createdClipId! >= 0) {
+      final duration = engine.getClipDuration(_createdClipId!);
+      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
+      final peaks = engine.getWaveformPeaks(_createdClipId!, peakResolution);
+      engine.setClipStartTime(trackId, _createdClipId!, startTime);
+      onClipAdded?.call(_createdClipId!, duration, peaks);
+    }
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    if (_createdClipId != null && _createdClipId! >= 0) {
+      onClipRemoved?.call(_createdClipId!);
+    }
+  }
+
+  @override
+  String get description => 'Add Clip: $clipName';
+}
+
+/// Command to delete an audio clip
+class DeleteAudioClipCommand extends Command {
+  final ClipData clipData;
+
+  /// Callback to remove clip from UI state
+  final void Function(int clipId)? onClipRemoved;
+
+  /// Callback to restore clip to UI state (undo)
+  final void Function(ClipData clip)? onClipRestored;
+
+  DeleteAudioClipCommand({
+    required this.clipData,
+    this.onClipRemoved,
+    this.onClipRestored,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipRemoved?.call(clipData.clipId);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipRestored?.call(clipData);
+  }
+
+  @override
+  String get description => 'Delete Clip: ${clipData.fileName}';
+}
+
+/// Command to duplicate an audio clip
+class DuplicateAudioClipCommand extends Command {
+  final ClipData originalClip;
+  final double newStartTime;
+
+  int? _duplicatedClipId;
+
+  /// Callback to add duplicated clip to UI state
+  final void Function(ClipData newClip)? onClipDuplicated;
+
+  /// Callback to remove duplicated clip (undo)
+  final void Function(int clipId)? onClipRemoved;
+
+  DuplicateAudioClipCommand({
+    required this.originalClip,
+    required this.newStartTime,
+    this.onClipDuplicated,
+    this.onClipRemoved,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+    final newClip = originalClip.copyWith(
+      clipId: _duplicatedClipId,
+      startTime: newStartTime,
+    );
+    onClipDuplicated?.call(newClip);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    if (_duplicatedClipId != null) {
+      onClipRemoved?.call(_duplicatedClipId!);
+    }
+  }
+
+  @override
+  String get description => 'Duplicate Clip: ${originalClip.fileName}';
+}
+
+/// Command to resize an audio clip (change duration)
+class ResizeAudioClipCommand extends Command {
+  final int trackId;
+  final int clipId;
+  final String clipName;
+  final double oldDuration;
+  final double newDuration;
+  final double? oldOffset;
+  final double? newOffset;
+
+  /// Callback to update clip in UI state
+  final void Function(int clipId, double duration, double? offset)? onClipResized;
+
+  ResizeAudioClipCommand({
+    required this.trackId,
+    required this.clipId,
+    required this.clipName,
+    required this.oldDuration,
+    required this.newDuration,
+    this.oldOffset,
+    this.newOffset,
+    this.onClipResized,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipResized?.call(clipId, newDuration, newOffset);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipResized?.call(clipId, oldDuration, oldOffset);
+  }
+
+  @override
+  String get description => 'Resize Clip: $clipName';
+}
+
+/// Command to rename a clip
+class RenameClipCommand extends Command {
+  final int clipId;
+  final String oldName;
+  final String newName;
+
+  /// Callback to update clip name in UI state
+  final void Function(int clipId, String name)? onClipRenamed;
+
+  RenameClipCommand({
+    required this.clipId,
+    required this.oldName,
+    required this.newName,
+    this.onClipRenamed,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipRenamed?.call(clipId, newName);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipRenamed?.call(clipId, oldName);
+  }
+
+  @override
+  String get description => 'Rename Clip: $oldName → $newName';
 }

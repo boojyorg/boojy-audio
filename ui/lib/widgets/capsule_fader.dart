@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Logic Pro-style capsule fader with integrated stereo level meters
@@ -53,46 +52,40 @@ class CapsuleFader extends StatelessWidget {
     );
   }
 
-  /// Convert dB to slider value (0.0 to 1.0) using logarithmic scale
-  /// 0dB at ~80% position, more resolution near unity
+  // Boojy volume curve: piecewise linear interpolation
+  // Unity at 70%, intuitive midpoint at 50% (-10dB), true silence at 0
+  static const List<double> _sliderPoints = [0.01, 0.05, 0.10, 0.30, 0.50, 0.70, 0.85, 1.00];
+  static const List<double> _dbPoints = [-60.0, -52.0, -45.0, -24.0, -10.0, 0.0, 3.0, 6.0];
+
+  /// Convert dB to slider value (0.0 to 1.0) using Boojy curve
   double _volumeDbToSlider(double db) {
-    const maxDb = 6.0;
-    const unityDb = 0.0;
-    const minDb = -60.0; // Treat as -∞
+    if (db <= -60.0) return 0.0;
+    if (db >= 6.0) return 1.0;
 
-    if (db >= maxDb) return 1.0;
-    if (db <= minDb) return 0.0;
-
-    if (db >= unityDb) {
-      // 0dB to +6dB maps to 0.8 to 1.0 (top 20%)
-      return 0.8 + (db / maxDb) * 0.2;
-    } else {
-      // -60dB to 0dB maps to 0.0 to 0.8 (bottom 80%)
-      // Use logarithmic curve for natural feel
-      final normalizedDb = (db - minDb) / (-minDb); // 0 to 1
-      // Apply curve: x^0.4 gives more resolution near unity
-      return 0.8 * math.pow(normalizedDb, 0.4);
+    // Find segment and interpolate
+    for (int i = 0; i < _dbPoints.length - 1; i++) {
+      if (db <= _dbPoints[i + 1]) {
+        final t = (db - _dbPoints[i]) / (_dbPoints[i + 1] - _dbPoints[i]);
+        return _sliderPoints[i] + t * (_sliderPoints[i + 1] - _sliderPoints[i]);
+      }
     }
+    return 0.7; // fallback to unity
   }
 
-  /// Convert slider value (0.0 to 1.0) to dB using inverse logarithmic scale
+  /// Convert slider value (0.0 to 1.0) to dB using Boojy curve
   double _sliderToVolumeDb(double slider) {
-    const maxDb = 6.0;
-    const minDb = -60.0;
+    if (slider <= 0.0) return -60.0; // True silence (treated as -∞)
+    if (slider <= 0.01) return -60.0;
+    if (slider >= 1.0) return 6.0;
 
-    if (slider >= 1.0) return maxDb;
-    if (slider <= 0.0) return minDb;
-
-    if (slider >= 0.8) {
-      // Top 20% (0.8 to 1.0) maps to 0dB to +6dB
-      return ((slider - 0.8) / 0.2) * maxDb;
-    } else {
-      // Bottom 80% (0.0 to 0.8) maps to -60dB to 0dB
-      final normalizedSlider = slider / 0.8; // 0 to 1
-      // Inverse of x^0.4
-      final dbNormalized = math.pow(normalizedSlider, 1.0 / 0.4);
-      return minDb + dbNormalized * (-minDb);
+    // Find segment and interpolate
+    for (int i = 0; i < _sliderPoints.length - 1; i++) {
+      if (slider <= _sliderPoints[i + 1]) {
+        final t = (slider - _sliderPoints[i]) / (_sliderPoints[i + 1] - _sliderPoints[i]);
+        return _dbPoints[i] + t * (_dbPoints[i + 1] - _dbPoints[i]);
+      }
     }
+    return 6.0; // fallback to max
   }
 }
 

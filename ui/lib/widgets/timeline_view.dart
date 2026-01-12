@@ -11,6 +11,8 @@ import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../models/vst3_plugin_data.dart';
+import '../services/undo_redo_manager.dart';
+import '../services/commands/clip_commands.dart';
 import 'instrument_browser.dart';
 import 'painters/dashed_line_painter.dart';
 import 'painters/loop_bar_painter.dart';
@@ -274,8 +276,8 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
       // Get duration and waveform
       final duration = widget.audioEngine!.getClipDuration(clipId);
-      // Request high-resolution peaks: ~4000 peak pairs per second for smooth, detailed waveforms
-      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
+      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = widget.audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       // Calculate drop position
@@ -810,32 +812,54 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   }
 
   /// Delete an audio clip
-  void _deleteAudioClip(ClipData clip) {
-    // Note: Audio clips are managed locally in Flutter state
-    // The Rust engine doesn't have a remove_audio_clip FFI yet
-    setState(() {
-      clips.removeWhere((c) => c.clipId == clip.clipId);
-      if (selectedAudioClipId == clip.clipId) {
-        selectedAudioClipId = null;
-      }
-      selectedAudioClipIds.remove(clip.clipId);
-    });
+  Future<void> _deleteAudioClip(ClipData clip) async {
+    final command = DeleteAudioClipCommand(
+      clipData: clip,
+      onClipRemoved: (clipId) {
+        if (mounted) {
+          setState(() {
+            clips.removeWhere((c) => c.clipId == clipId);
+            if (selectedAudioClipId == clipId) {
+              selectedAudioClipId = null;
+            }
+            selectedAudioClipIds.remove(clipId);
+          });
+        }
+      },
+      onClipRestored: (restoredClip) {
+        if (mounted) {
+          setState(() {
+            clips.add(restoredClip);
+          });
+        }
+      },
+    );
+    await UndoRedoManager().execute(command);
   }
 
   /// Duplicate an audio clip (place copy after original)
-  void _duplicateAudioClip(ClipData clip) {
-    final newClipId = DateTime.now().millisecondsSinceEpoch;
+  Future<void> _duplicateAudioClip(ClipData clip) async {
     final newStartTime = clip.startTime + clip.duration;
 
-    // Note: Audio clips are managed locally in Flutter state
-    // For full engine support, we'd need to load the file again via loadAudioFileToTrack
-    final newClip = clip.copyWith(
-      clipId: newClipId,
-      startTime: newStartTime,
+    final command = DuplicateAudioClipCommand(
+      originalClip: clip,
+      newStartTime: newStartTime,
+      onClipDuplicated: (newClip) {
+        if (mounted) {
+          setState(() {
+            clips.add(newClip);
+          });
+        }
+      },
+      onClipRemoved: (clipId) {
+        if (mounted) {
+          setState(() {
+            clips.removeWhere((c) => c.clipId == clipId);
+          });
+        }
+      },
     );
-    setState(() {
-      clips.add(newClip);
-    });
+    await UndoRedoManager().execute(command);
   }
 
   /// Duplicate a MIDI clip
@@ -1504,15 +1528,16 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
                 if (isModifierPressed) {
                   final scrollDelta = pointerSignal.scrollDelta.dy;
-                  setState(() {
-                    if (scrollDelta < 0) {
-                      // Scroll up = zoom in
-                      pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(10.0, 500.0);
-                    } else {
-                      // Scroll down = zoom out
-                      pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
-                    }
-                  });
+                  final oldValue = pixelsPerBeat;
+                  final newValue = scrollDelta < 0
+                      ? (pixelsPerBeat * 1.1).clamp(10.0, 500.0)
+                      : (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
+                  // Only rebuild if value actually changed
+                  if (newValue != oldValue) {
+                    setState(() {
+                      pixelsPerBeat = newValue;
+                    });
+                  }
                 }
               }
             },
@@ -2416,13 +2441,25 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             dragCurrentX = details.globalPosition.dx;
           });
         },
-        onHorizontalDragEnd: (details) {
+        onHorizontalDragEnd: (details) async {
           if (draggingClipId == null) return;
 
-          // Calculate final position and persist to engine
+          // Calculate final position
           final newStartTime = (dragStartTime + (dragCurrentX - dragStartX) / pixelsPerSecond)
               .clamp(0.0, double.infinity);
-          widget.audioEngine?.setClipStartTime(clip.trackId, clip.clipId, newStartTime);
+
+          // Only create command if position actually changed
+          if ((newStartTime - clip.startTime).abs() > 0.001) {
+            final command = MoveAudioClipCommand(
+              trackId: clip.trackId,
+              clipId: clip.clipId,
+              clipName: clip.fileName,
+              newStartTime: newStartTime,
+              oldStartTime: clip.startTime,
+            );
+            await UndoRedoManager().execute(command);
+          }
+
           // Update local state
           setState(() {
             final index = clips.indexWhere((c) => c.clipId == clip.clipId);
@@ -3443,7 +3480,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
 }
 
-/// Painter for the waveform
+/// Painter for the waveform with LOD (Level-of-Detail) downsampling
 class _WaveformPainter extends CustomPainter {
   final List<double> peaks;
   final Color color;
@@ -3458,7 +3495,23 @@ class _WaveformPainter extends CustomPainter {
     if (peaks.isEmpty) return;
 
     final centerY = size.height / 2;
-    final peakCount = peaks.length ~/ 2;
+    final originalPeakCount = peaks.length ~/ 2;
+    if (originalPeakCount == 0) return;
+
+    // LOD: Calculate optimal peak count for visible width
+    // Target ~1 pixel per peak for crisp detail (like Ableton)
+    final targetPeakCount = size.width.clamp(100, originalPeakCount.toDouble()).toInt();
+
+    // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
+    List<double> renderPeaks;
+    if (originalPeakCount > targetPeakCount * 2) {
+      final groupSize = originalPeakCount ~/ targetPeakCount;
+      renderPeaks = _downsamplePeaks(peaks, groupSize);
+    } else {
+      renderPeaks = peaks;
+    }
+
+    final peakCount = renderPeaks.length ~/ 2;
     if (peakCount == 0) return;
 
     final step = size.width / peakCount;
@@ -3467,22 +3520,22 @@ class _WaveformPainter extends CustomPainter {
     final path = Path();
 
     // Start at first peak's top
-    final firstMax = peaks[1];
+    final firstMax = renderPeaks[1];
     final firstTopY = centerY - (firstMax * centerY);
     path.moveTo(step / 2, firstTopY);
 
     // Trace TOP edge (max values) left to right
-    for (int i = 2; i < peaks.length; i += 2) {
+    for (int i = 2; i < renderPeaks.length; i += 2) {
       final x = (i ~/ 2) * step + step / 2;
-      final max = peaks[i + 1];
+      final max = renderPeaks[i + 1];
       final topY = centerY - (max * centerY);
       path.lineTo(x, topY);
     }
 
     // Trace BOTTOM edge (min values) right to left
-    for (int i = peaks.length - 2; i >= 0; i -= 2) {
+    for (int i = renderPeaks.length - 2; i >= 0; i -= 2) {
       final x = (i ~/ 2) * step + step / 2;
-      final min = peaks[i];
+      final min = renderPeaks[i];
       final bottomY = centerY - (min * centerY);
       path.lineTo(x, bottomY);
     }
@@ -3498,9 +3551,17 @@ class _WaveformPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, fillPaint);
 
-    // Add stroke when zoomed out to fatten the waveform
+    // Add stroke to give waveform body
+    double strokeWidth = 0;
     if (step < 1.0) {
-      final strokeWidth = (1.0 / step).clamp(1.0, 1.5);
+      // Zoomed out: scale stroke to compensate for sub-pixel peaks
+      strokeWidth = (1.0 / step).clamp(1.0, 1.5);
+    } else {
+      // Normal/zoomed in: minimum stroke for visual continuity
+      strokeWidth = 0.5;
+    }
+
+    if (strokeWidth > 0) {
       final strokePaint = Paint()
         ..color = waveformColor
         ..style = PaintingStyle.stroke
@@ -3511,16 +3572,44 @@ class _WaveformPainter extends CustomPainter {
       canvas.drawPath(path, strokePaint);
     }
 
-    // Subtle center line
+    // Center line for visual continuity through silent parts
     final centerLinePaint = Paint()
-      ..color = color.withValues(alpha: 0.06)
+      ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = 0.5;
     canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerLinePaint);
   }
 
+  /// Downsample peaks by grouping and taking min/max of each group.
+  /// This preserves waveform amplitude while reducing point count.
+  List<double> _downsamplePeaks(List<double> peaks, int groupSize) {
+    if (groupSize <= 1) return peaks;
+
+    final result = <double>[];
+    final pairCount = peaks.length ~/ 2;
+
+    for (int i = 0; i < pairCount; i += groupSize) {
+      double groupMin = double.infinity;
+      double groupMax = double.negativeInfinity;
+
+      final end = (i + groupSize).clamp(0, pairCount);
+      for (int j = i; j < end; j++) {
+        final min = peaks[j * 2];
+        final max = peaks[j * 2 + 1];
+        if (min < groupMin) groupMin = min;
+        if (max > groupMax) groupMax = max;
+      }
+
+      result.add(groupMin);
+      result.add(groupMax);
+    }
+
+    return result;
+  }
+
   @override
   bool shouldRepaint(_WaveformPainter oldDelegate) {
-    return oldDelegate.peaks != peaks || oldDelegate.color != color;
+    // O(1) reference checks - downsampling happens fresh each paint
+    return !identical(peaks, oldDelegate.peaks) || color != oldDelegate.color;
   }
 }
 

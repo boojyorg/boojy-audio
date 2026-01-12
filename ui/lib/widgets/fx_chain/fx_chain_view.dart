@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../effect_parameter_panel.dart';
 import '../../audio_engine.dart';
+import '../../services/undo_redo_manager.dart';
+import '../../services/commands/effect_commands.dart';
 import '../../theme/theme_extension.dart';
 import 'effect_card.dart';
 
@@ -76,29 +78,78 @@ class _FxChainViewState extends State<FxChainView> {
     }
   }
 
-  void _toggleBypass(int effectId) {
+  Future<void> _toggleBypass(int effectId) async {
     if (widget.audioEngine == null) return;
 
     final effect = _effects.firstWhere((e) => e.id == effectId);
-    final newBypassed = !effect.bypassed;
-    widget.audioEngine!.setEffectBypass(effectId, bypassed: newBypassed);
+    final effectName = _getEffectDisplayName(effect.type);
+    final command = BypassEffectCommand(
+      effectId: effectId,
+      effectName: effectName,
+      newBypassed: !effect.bypassed,
+      oldBypassed: effect.bypassed,
+    );
+    await UndoRedoManager().execute(command);
     _loadEffects();
   }
 
-  void _removeEffect(int effectId) {
+  Future<void> _removeEffect(int effectId) async {
     if (widget.audioEngine == null || widget.selectedTrackId == null) return;
 
-    widget.audioEngine!.removeEffectFromTrack(widget.selectedTrackId!, effectId);
-    _floatingVst3s.remove(effectId);
-    _loadEffects();
+    final effect = _effects.firstWhere((e) => e.id == effectId);
+    final effectIndex = _effects.indexOf(effect);
+    final effectName = _getEffectDisplayName(effect.type);
+    final isVst3 = effect.type.startsWith('vst3:');
+    final command = RemoveEffectCommand(
+      trackId: widget.selectedTrackId!,
+      trackName: widget.trackName ?? 'Track',
+      effectId: effectId,
+      effectName: effectName,
+      effectType: effect.type,
+      isVst3: isVst3,
+      effectIndex: effectIndex,
+      onEffectRemoved: (_) {
+        _floatingVst3s.remove(effectId);
+        if (mounted) _loadEffects();
+      },
+      onEffectAdded: (_) {
+        if (mounted) _loadEffects();
+      },
+    );
+    await UndoRedoManager().execute(command);
   }
 
-  void _addEffect(String type) {
+  Future<void> _addEffect(String type) async {
     if (widget.audioEngine == null || widget.selectedTrackId == null) return;
 
-    final effectId = widget.audioEngine!.addEffectToTrack(widget.selectedTrackId!, type);
-    if (effectId >= 0) {
-      _loadEffects();
+    final command = AddEffectCommand(
+      trackId: widget.selectedTrackId!,
+      trackName: widget.trackName ?? 'Track',
+      effectType: type,
+      effectName: _getEffectDisplayName(type),
+      isVst3: false,
+      onEffectAdded: (_) {
+        if (mounted) _loadEffects();
+      },
+      onEffectRemoved: (_) {
+        if (mounted) _loadEffects();
+      },
+    );
+    await UndoRedoManager().execute(command);
+  }
+
+  String _getEffectDisplayName(String type) {
+    if (type.startsWith('vst3:')) {
+      return type.substring(5); // Remove 'vst3:' prefix
+    }
+    switch (type) {
+      case 'reverb': return 'Reverb';
+      case 'delay': return 'Delay';
+      case 'chorus': return 'Chorus';
+      case 'compressor': return 'Compressor';
+      case 'eq': return 'EQ';
+      case 'distortion': return 'Distortion';
+      default: return type;
     }
   }
 
@@ -287,7 +338,7 @@ class _FxChainViewState extends State<FxChainView> {
     );
   }
 
-  void _onReorder(int oldIndex, int newIndex) {
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
     if (widget.audioEngine == null || widget.selectedTrackId == null) return;
 
     // Adjust index when moving down
@@ -295,14 +346,24 @@ class _FxChainViewState extends State<FxChainView> {
       newIndex -= 1;
     }
 
+    // Capture old order before reordering
+    final oldOrder = _effects.map((e) => e.id).toList();
+
     setState(() {
       final effect = _effects.removeAt(oldIndex);
       _effects.insert(newIndex, effect);
     });
 
-    // Update the backend with the new order
+    // Calculate new order after reordering
     final newOrder = _effects.map((e) => e.id).toList();
-    widget.audioEngine!.reorderTrackEffects(widget.selectedTrackId!, newOrder);
+
+    final command = ReorderEffectsCommand(
+      trackId: widget.selectedTrackId!,
+      trackName: widget.trackName ?? 'Track',
+      newOrder: newOrder,
+      oldOrder: oldOrder,
+    );
+    await UndoRedoManager().execute(command);
   }
 
   Widget _buildEffectsChain() {
