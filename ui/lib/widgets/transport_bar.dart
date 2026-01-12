@@ -725,28 +725,15 @@ class _FileMenuButtonState extends State<_FileMenuButton> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(2),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                displayName,
-                style: TextStyle(
-                  color: _isHovered
-                      ? context.colors.textPrimary
-                      : context.colors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_drop_down,
-                color: _isHovered
-                    ? context.colors.textPrimary
-                    : context.colors.textSecondary,
-                size: 18,
-              ),
-            ],
+          child: Text(
+            displayName,
+            style: TextStyle(
+              color: _isHovered
+                  ? context.colors.textPrimary
+                  : context.colors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),
