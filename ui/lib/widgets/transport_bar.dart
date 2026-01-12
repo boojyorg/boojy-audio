@@ -37,6 +37,7 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
+  final VoidCallback? onMakeCopy;
   final VoidCallback? onExportAudio;
   final VoidCallback? onExportMp3;
   final VoidCallback? onExportWav;
@@ -63,6 +64,14 @@ class TransportBar extends StatefulWidget {
 
   // Help callback
   final VoidCallback? onHelpPressed;
+
+  // Edit menu (Undo/Redo) callbacks
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+  final bool canUndo;
+  final bool canRedo;
+  final String? undoDescription;
+  final String? redoDescription;
 
   // Snap control
   final SnapValue arrangementSnap;
@@ -102,6 +111,7 @@ class TransportBar extends StatefulWidget {
     this.onOpenProject,
     this.onSaveProject,
     this.onSaveProjectAs,
+    this.onMakeCopy,
     this.onExportAudio,
     this.onExportMp3,
     this.onExportWav,
@@ -120,6 +130,12 @@ class TransportBar extends StatefulWidget {
     this.editorVisible = true,
     this.pianoVisible = false,
     this.onHelpPressed,
+    this.onUndo,
+    this.onRedo,
+    this.canUndo = false,
+    this.canRedo = false,
+    this.undoDescription,
+    this.redoDescription,
     this.arrangementSnap = SnapValue.bar,
     this.onSnapChanged,
     this.loopPlaybackEnabled = false,
@@ -183,137 +199,38 @@ class _TransportBarState extends State<TransportBar> {
 
               if (!isCompact) const SizedBox(width: 12),
 
-              // Clickable project name - opens Project Settings
-              _ProjectNameButton(
-                name: widget.projectName,
-                onTap: widget.onProjectSettings,
+              // Project name with File menu dropdown
+              // Plan: Project name doubles as File menu (always visible, helpful in fullscreen)
+              _FileMenuButton(
+                projectName: widget.projectName,
                 mode: mode,
-              ),
-
-              SizedBox(width: isCompact ? 4 : 8),
-
-              // File menu button
-              PopupMenuButton<String>(
-                icon: Icon(Icons.folder, color: context.colors.textSecondary, size: 20),
-                tooltip: 'File',
-                onSelected: (String value) {
-                  switch (value) {
-                    case 'new':
-                      widget.onNewProject?.call();
-                      break;
-                    case 'open':
-                      widget.onOpenProject?.call();
-                      break;
-                    case 'save':
-                      widget.onSaveProject?.call();
-                      break;
-                    case 'save_as':
-                      widget.onSaveProjectAs?.call();
-                      break;
-                    case 'export_mp3':
-                      widget.onExportMp3?.call();
-                      break;
-                    case 'export_wav':
-                      widget.onExportWav?.call();
-                      break;
-                    case 'export_settings':
-                      widget.onExportAudio?.call();
-                      break;
-                    case 'close':
-                      widget.onCloseProject?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'new',
-                    child: Row(
-                      children: [
-                        Icon(Icons.description, size: 18),
-                        SizedBox(width: 8),
-                        Text('New Project'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'open',
-                    child: Row(
-                      children: [
-                        Icon(Icons.folder_open, size: 18),
-                        SizedBox(width: 8),
-                        Text('Open Project...'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'save',
-                    child: Row(
-                      children: [
-                        Icon(Icons.save, size: 18),
-                        SizedBox(width: 8),
-                        Text('Save'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'save_as',
-                    child: Row(
-                      children: [
-                        Icon(Icons.save_as, size: 18),
-                        SizedBox(width: 8),
-                        Text('Save As...'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'export_mp3',
-                    child: Row(
-                      children: [
-                        Icon(Icons.music_note, size: 18),
-                        SizedBox(width: 8),
-                        Text('Export MP3'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'export_wav',
-                    child: Row(
-                      children: [
-                        Icon(Icons.audio_file, size: 18),
-                        SizedBox(width: 8),
-                        Text('Export WAV'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'export_settings',
-                    child: Row(
-                      children: [
-                        Icon(Icons.settings, size: 18),
-                        SizedBox(width: 8),
-                        Text('Export Settings...'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'close',
-                    child: Row(
-                      children: [
-                        Icon(Icons.close, size: 18),
-                        SizedBox(width: 8),
-                        Text('Close Project'),
-                      ],
-                    ),
-                  ),
-                ],
+                onNewProject: widget.onNewProject,
+                onOpenProject: widget.onOpenProject,
+                onSaveProject: widget.onSaveProject,
+                onSaveProjectAs: widget.onSaveProjectAs,
+                onMakeCopy: widget.onMakeCopy,
+                onExportAudio: widget.onExportAudio,
+                onExportMp3: widget.onExportMp3,
+                onExportWav: widget.onExportWav,
+                onExportMidi: widget.onExportMidi,
+                onCloseProject: widget.onCloseProject,
               ),
 
               const SizedBox(width: 4),
 
-              // View menu button (stays open when toggling items)
+              // Edit menu button (pencil icon) with Undo/Redo
+              _EditMenuButton(
+                canUndo: widget.canUndo,
+                canRedo: widget.canRedo,
+                undoDescription: widget.undoDescription,
+                redoDescription: widget.redoDescription,
+                onUndo: widget.onUndo,
+                onRedo: widget.onRedo,
+              ),
+
+              const SizedBox(width: 4),
+
+              // View menu button (eye icon, stays open when toggling items)
               _ViewMenuButton(
                 libraryVisible: widget.libraryVisible,
                 mixerVisible: widget.mixerVisible,
@@ -603,65 +520,371 @@ class _TransportButtonState extends State<_TransportButton> {
 }
 
 /// Clickable project name button that opens Project Settings
-class _ProjectNameButton extends StatefulWidget {
-  final String name;
-  final VoidCallback? onTap;
+/// File menu button that displays project name with dropdown
+/// According to plan: Project name doubles as File menu (always visible, helpful in fullscreen)
+class _FileMenuButton extends StatefulWidget {
+  final String projectName;
   final _ButtonDisplayMode mode;
+  final VoidCallback? onNewProject;
+  final VoidCallback? onOpenProject;
+  final VoidCallback? onSaveProject;
+  final VoidCallback? onSaveProjectAs;
+  final VoidCallback? onMakeCopy;
+  final VoidCallback? onExportAudio;
+  final VoidCallback? onExportMp3;
+  final VoidCallback? onExportWav;
+  final VoidCallback? onExportMidi;
+  final VoidCallback? onCloseProject;
 
-  const _ProjectNameButton({
-    required this.name,
-    this.onTap,
+  const _FileMenuButton({
+    required this.projectName,
     required this.mode,
+    this.onNewProject,
+    this.onOpenProject,
+    this.onSaveProject,
+    this.onSaveProjectAs,
+    this.onMakeCopy,
+    this.onExportAudio,
+    this.onExportMp3,
+    this.onExportWav,
+    this.onExportMidi,
+    this.onCloseProject,
   });
 
   @override
-  State<_ProjectNameButton> createState() => _ProjectNameButtonState();
+  State<_FileMenuButton> createState() => _FileMenuButtonState();
 }
 
-class _ProjectNameButtonState extends State<_ProjectNameButton> {
+class _FileMenuButtonState extends State<_FileMenuButton> {
   bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     // Truncate based on mode: narrow = shorter truncation
     final maxLength = widget.mode == _ButtonDisplayMode.narrow ? 8 : 20;
-    final displayName = widget.name.length > maxLength
-        ? '${widget.name.substring(0, maxLength - 2)}...'
-        : widget.name;
+    final displayName = widget.projectName.length > maxLength
+        ? '${widget.projectName.substring(0, maxLength - 2)}...'
+        : widget.projectName;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Tooltip(
-        message: 'Project Settings',
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.mode == _ButtonDisplayMode.narrow ? 8 : 12,
-              vertical: 6,
-            ),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? context.colors.elevated
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Text(
-              displayName,
-              style: TextStyle(
+    return PopupMenuButton<String>(
+      tooltip: 'File Menu',
+      offset: const Offset(0, 40),
+      onSelected: (String value) {
+        switch (value) {
+          case 'new':
+            widget.onNewProject?.call();
+            break;
+          case 'open':
+            widget.onOpenProject?.call();
+            break;
+          case 'save':
+            widget.onSaveProject?.call();
+            break;
+          case 'save_as':
+            widget.onSaveProjectAs?.call();
+            break;
+          case 'make_copy':
+            widget.onMakeCopy?.call();
+            break;
+          case 'export_audio':
+            widget.onExportAudio?.call();
+            break;
+          case 'export_mp3':
+            widget.onExportMp3?.call();
+            break;
+          case 'export_wav':
+            widget.onExportWav?.call();
+            break;
+          case 'export_midi':
+            widget.onExportMidi?.call();
+            break;
+          case 'close':
+            widget.onCloseProject?.call();
+            break;
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'new',
+          child: Row(
+            children: [
+              Icon(Icons.description, size: 18),
+              SizedBox(width: 8),
+              Text('New Project'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'open',
+          child: Row(
+            children: [
+              Icon(Icons.folder_open, size: 18),
+              SizedBox(width: 8),
+              Text('Open Project...'),
+            ],
+          ),
+        ),
+        // TODO: Open Recent submenu would go here
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'save',
+          child: Row(
+            children: [
+              Icon(Icons.save, size: 18),
+              SizedBox(width: 8),
+              Text('Save'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'save_as',
+          child: Row(
+            children: [
+              Icon(Icons.save_as, size: 18),
+              SizedBox(width: 8),
+              Text('Save As...'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'make_copy',
+          child: Row(
+            children: [
+              Icon(Icons.file_copy, size: 18),
+              SizedBox(width: 8),
+              Text('Make a Copy...'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'export_mp3',
+          child: Row(
+            children: [
+              Icon(Icons.music_note, size: 18),
+              SizedBox(width: 8),
+              Text('Export MP3'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'export_wav',
+          child: Row(
+            children: [
+              Icon(Icons.audio_file, size: 18),
+              SizedBox(width: 8),
+              Text('Export WAV'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'export_audio',
+          child: Row(
+            children: [
+              Icon(Icons.settings, size: 18),
+              SizedBox(width: 8),
+              Text('Export Audio...'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'export_midi',
+          child: Row(
+            children: [
+              Icon(Icons.piano, size: 18),
+              SizedBox(width: 8),
+              Text('Export MIDI...'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'close',
+          child: Row(
+            children: [
+              Icon(Icons.close, size: 18),
+              SizedBox(width: 8),
+              Text('Close Project'),
+            ],
+          ),
+        ),
+      ],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.mode == _ButtonDisplayMode.narrow ? 8 : 12,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? context.colors.elevated
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                displayName,
+                style: TextStyle(
+                  color: _isHovered
+                      ? context.colors.textPrimary
+                      : context.colors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_drop_down,
                 color: _isHovered
                     ? context.colors.textPrimary
                     : context.colors.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                size: 18,
               ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Edit menu button (pencil icon) with Undo/Redo operations
+/// Plan: Pencil icon dropdown for Edit menu
+class _EditMenuButton extends StatelessWidget {
+  final bool canUndo;
+  final bool canRedo;
+  final String? undoDescription;
+  final String? redoDescription;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
+
+  const _EditMenuButton({
+    required this.canUndo,
+    required this.canRedo,
+    this.undoDescription,
+    this.redoDescription,
+    this.onUndo,
+    this.onRedo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final undoLabel = canUndo
+        ? 'Undo - ${undoDescription ?? "Action"}'
+        : 'Undo';
+    final redoLabel = canRedo
+        ? 'Redo - ${redoDescription ?? "Action"}'
+        : 'Redo';
+
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.edit, color: context.colors.textSecondary, size: 20),
+      tooltip: 'Edit',
+      offset: const Offset(0, 40),
+      onSelected: (String value) {
+        switch (value) {
+          case 'undo':
+            onUndo?.call();
+            break;
+          case 'redo':
+            onRedo?.call();
+            break;
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          value: 'undo',
+          enabled: canUndo,
+          child: Row(
+            children: [
+              Icon(Icons.undo, size: 18, color: canUndo ? null : Colors.grey),
+              const SizedBox(width: 8),
+              Text(undoLabel),
+              const Spacer(),
+              Text(
+                '⌘Z',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'redo',
+          enabled: canRedo,
+          child: Row(
+            children: [
+              Icon(Icons.redo, size: 18, color: canRedo ? null : Colors.grey),
+              const SizedBox(width: 8),
+              Text(redoLabel),
+              const Spacer(),
+              Text(
+                '⇧⌘Z',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'cut',
+          enabled: false, // Future feature
+          child: Row(
+            children: [
+              Icon(Icons.content_cut, size: 18, color: Colors.grey),
+              SizedBox(width: 8),
+              Text('Cut'),
+              Spacer(),
+              Text(
+                '⌘X',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'copy',
+          enabled: false, // Future feature
+          child: Row(
+            children: [
+              Icon(Icons.content_copy, size: 18, color: Colors.grey),
+              SizedBox(width: 8),
+              Text('Copy'),
+              Spacer(),
+              Text(
+                '⌘C',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'paste',
+          enabled: false, // Future feature
+          child: Row(
+            children: [
+              Icon(Icons.content_paste, size: 18, color: Colors.grey),
+              SizedBox(width: 8),
+              Text('Paste'),
+              Spacer(),
+              Text(
+                '⌘V',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

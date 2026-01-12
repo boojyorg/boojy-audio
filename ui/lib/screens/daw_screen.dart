@@ -3155,6 +3155,7 @@ class _DAWScreenState extends State<DAWScreen> {
             onOpenProject: _openProject,
             onSaveProject: _saveProject,
             onSaveProjectAs: _saveProjectAs,
+            onMakeCopy: _makeCopy,
             onExportAudio: _exportAudio,
             onExportMp3: _quickExportMp3,
             onExportWav: _quickExportWav,
@@ -3174,6 +3175,13 @@ class _DAWScreenState extends State<DAWScreen> {
             editorVisible: _uiLayout.isEditorPanelVisible,
             pianoVisible: _uiLayout.isVirtualPianoEnabled,
             onHelpPressed: _showKeyboardShortcuts,
+            // Edit menu (Undo/Redo) callbacks
+            onUndo: _undoRedoManager.canUndo ? _performUndo : null,
+            onRedo: _undoRedoManager.canRedo ? _performRedo : null,
+            canUndo: _undoRedoManager.canUndo,
+            canRedo: _undoRedoManager.canRedo,
+            undoDescription: _undoRedoManager.undoDescription,
+            redoDescription: _undoRedoManager.redoDescription,
             // Snap control
             arrangementSnap: _uiLayout.arrangementSnap,
             onSnapChanged: (value) => _uiLayout.setArrangementSnap(value),
