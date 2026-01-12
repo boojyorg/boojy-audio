@@ -465,12 +465,23 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomLeft: Radius.circular(2),
                   ),
                 ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 9,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.grid_on,
+                      size: 12,
+                      color: textColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

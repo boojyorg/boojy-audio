@@ -218,18 +218,6 @@ class _TransportBarState extends State<TransportBar> {
 
               const SizedBox(width: 4),
 
-              // Edit menu button (pencil icon) with Undo/Redo
-              _EditMenuButton(
-                canUndo: widget.canUndo,
-                canRedo: widget.canRedo,
-                undoDescription: widget.undoDescription,
-                redoDescription: widget.redoDescription,
-                onUndo: widget.onUndo,
-                onRedo: widget.onRedo,
-              ),
-
-              const SizedBox(width: 4),
-
               // View menu button (eye icon, stays open when toggling items)
               _ViewMenuButton(
                 libraryVisible: widget.libraryVisible,
@@ -243,7 +231,77 @@ class _TransportBarState extends State<TransportBar> {
                 onResetPanelLayout: widget.onResetPanelLayout,
               ),
 
-              SizedBox(width: isCompact ? 4 : 12),
+              const SizedBox(width: 4),
+
+              // Undo button (replaces Edit menu)
+              _UndoRedoButton(
+                icon: Icons.undo,
+                enabled: widget.canUndo,
+                onPressed: widget.onUndo,
+                tooltip: widget.canUndo && widget.undoDescription != null
+                    ? 'Undo: ${widget.undoDescription} (⌘Z)'
+                    : 'Undo (⌘Z)',
+              ),
+
+              const SizedBox(width: 2),
+
+              // Redo button
+              _UndoRedoButton(
+                icon: Icons.redo,
+                enabled: widget.canRedo,
+                onPressed: widget.onRedo,
+                tooltip: widget.canRedo && widget.redoDescription != null
+                    ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
+                    : 'Redo (⇧⌘Z)',
+              ),
+
+              SizedBox(width: isCompact ? 8 : 12),
+
+              // === VERTICAL DIVIDER ===
+              Container(
+                width: 1,
+                height: 28,
+                color: context.colors.elevated,
+              ),
+
+              SizedBox(width: isCompact ? 8 : 12),
+
+              // === CENTER-LEFT: SETUP TOOLS ===
+
+              // Loop playback toggle button (Piano Roll style)
+              _PillButton(
+                icon: Icons.loop,
+                label: 'Loop',
+                isActive: widget.loopPlaybackEnabled,
+                mode: mode,
+                onTap: widget.onLoopPlaybackToggle,
+                tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
+                activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Snap split button: icon toggles on/off, chevron opens grid menu
+              _SnapSplitButton(
+                value: widget.arrangementSnap,
+                onChanged: widget.onSnapChanged,
+                mode: mode,
+              ),
+
+              SizedBox(width: isCompact ? 4 : 8),
+
+              // Metronome split button: icon toggles, chevron opens count-in menu
+              _MetronomeSplitButton(
+                isActive: widget.metronomeEnabled,
+                countInBars: widget.countInBars,
+                onToggle: widget.onMetronomeToggle,
+                onCountInChanged: widget.onCountInChanged,
+                mode: mode,
+              ),
+
+              SizedBox(width: isCompact ? 8 : 12),
+
+              // === CENTER: TRANSPORT ===
 
               // Transport buttons - Play, Stop, Record
               _TransportButton(
@@ -283,65 +341,62 @@ class _TransportBarState extends State<TransportBar> {
                   playheadPosition: widget.playheadPosition,
                 ),
 
-              SizedBox(width: isCompact ? 8 : 16),
+              SizedBox(width: isCompact ? 8 : 12),
 
-              // MIDI Capture pill button
-              _PillButton(
-                icon: Icons.history,
-                label: 'MIDI',
-                isActive: false,
-                mode: mode,
-                onTap: widget.onCaptureMidi,
-                tooltip: 'Capture MIDI (Cmd+Shift+R)',
-                activeColor: context.colors.accent,
+              // Main Position display (bars.beats.subdivision)
+              // Styled to match tempo box (dark background with border)
+              // Background color changes during recording states
+              // Larger text to make it the central focus point
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: widget.isRecording
+                      ? const Color(0xFFEF4444) // Red during recording
+                      : widget.isCountingIn
+                          ? const Color(0xFFFFA600) // Orange during count-in
+                          : context.colors.dark, // Match tempo box
+                  borderRadius: BorderRadius.circular(2),
+                  border: widget.isRecording || widget.isCountingIn
+                      ? null
+                      : Border.all(color: context.colors.surface, width: 1.5),
+                ),
+                child: Text(
+                  _formatPosition(widget.playheadPosition, widget.tempo),
+                  style: TextStyle(
+                    color: widget.isRecording || widget.isCountingIn
+                        ? Colors.white // White text on colored backgrounds
+                        : context.colors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              SizedBox(width: isCompact ? 8 : 12),
 
-              // Loop playback toggle pill button
-              _PillButton(
-                icon: Icons.loop,
-                label: 'Loop',
-                isActive: widget.loopPlaybackEnabled,
-                mode: mode,
-                onTap: widget.onLoopPlaybackToggle,
-                tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
-                activeColor: const Color(0xFFF97316), // Orange for loop
+              // === VERTICAL DIVIDER ===
+              Container(
+                width: 1,
+                height: 28,
+                color: context.colors.elevated,
               ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              SizedBox(width: isCompact ? 8 : 12),
 
-              // Snap dropdown
-              _SnapDropdown(
-                value: widget.arrangementSnap,
-                onChanged: widget.onSnapChanged,
-              ),
+              // === RIGHT: MUSICAL CONTEXT ===
 
-              SizedBox(width: isCompact ? 4 : 8),
-
-              // Metronome toggle pill button
-              _PillButton(
-                icon: Icons.graphic_eq,
-                label: 'Metronome',
-                isActive: widget.metronomeEnabled,
-                mode: mode,
-                onTap: widget.onMetronomeToggle,
-                tooltip: widget.metronomeEnabled ? 'Metronome On' : 'Metronome Off',
-                activeColor: context.colors.accent,
-              ),
-
-              SizedBox(width: isCompact ? 4 : 8),
-
-              // Tap tempo pill button
+              // Tap tempo button (Piano Roll style)
               _TapTempoPill(
                 tempo: widget.tempo,
                 onTempoChanged: widget.onTempoChanged,
                 mode: mode,
               ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              SizedBox(width: isCompact ? 2 : 4),
 
-              // Tempo display with drag interaction
+              // Tempo display [120 BPM] with drag interaction
               _TempoDisplay(
                 tempo: widget.tempo,
                 onTempoChanged: widget.onTempoChanged,
@@ -349,45 +404,14 @@ class _TransportBarState extends State<TransportBar> {
 
               SizedBox(width: isCompact ? 4 : 8),
 
-              // Time display
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: context.colors.elevated,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  _formatTime(widget.playheadPosition),
-                  style: TextStyle(
-                    color: context.colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
+              // Signature display/dropdown
+              _SignatureDropdown(
+                beatsPerBar: 4, // TODO: Wire up to state
+                beatUnit: 4,   // TODO: Wire up to state
+                onChanged: null, // TODO: Wire up callback
               ),
 
-              SizedBox(width: isCompact ? 4 : 8),
-
-              // Position display (bars.beats.subdivision)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: context.colors.elevated,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  _formatPosition(widget.playheadPosition, widget.tempo),
-                  style: TextStyle(
-                    color: context.colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-
-              // Use Spacer to push remaining items to the right edge
+              // Use Spacer to push Help to the right edge
               const Spacer(),
 
               // Help button
@@ -407,14 +431,6 @@ class _TransportBarState extends State<TransportBar> {
         );
       },
     );
-  }
-
-  String _formatTime(double seconds) {
-    final minutes = (seconds / 60).floor();
-    final secs = (seconds % 60).floor();
-    final ms = ((seconds % 1) * 1000).floor();
-
-    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}.${ms.toString().padLeft(3, '0')}';
   }
 
   String _formatPosition(double seconds, double bpm) {
@@ -741,139 +757,6 @@ class _FileMenuButtonState extends State<_FileMenuButton> {
   }
 }
 
-/// Edit menu button (pencil icon) with Undo/Redo operations
-/// Plan: Pencil icon dropdown for Edit menu
-class _EditMenuButton extends StatelessWidget {
-  final bool canUndo;
-  final bool canRedo;
-  final String? undoDescription;
-  final String? redoDescription;
-  final VoidCallback? onUndo;
-  final VoidCallback? onRedo;
-
-  const _EditMenuButton({
-    required this.canUndo,
-    required this.canRedo,
-    this.undoDescription,
-    this.redoDescription,
-    this.onUndo,
-    this.onRedo,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final undoLabel = canUndo
-        ? 'Undo - ${undoDescription ?? "Action"}'
-        : 'Undo';
-    final redoLabel = canRedo
-        ? 'Redo - ${redoDescription ?? "Action"}'
-        : 'Redo';
-
-    // Capture theme colors before entering popup menu context
-    final iconColor = context.colors.textSecondary;
-    const shortcutColor = Colors.grey;
-
-    return PopupMenuButton<String>(
-      icon: Icon(Icons.edit, color: iconColor, size: 20),
-      tooltip: 'Edit',
-      offset: const Offset(0, 40),
-      onSelected: (String value) {
-        switch (value) {
-          case 'undo':
-            onUndo?.call();
-            break;
-          case 'redo':
-            onRedo?.call();
-            break;
-        }
-      },
-      itemBuilder: (BuildContext _) => <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(
-          value: 'undo',
-          enabled: canUndo,
-          child: Row(
-            children: [
-              Icon(Icons.undo, size: 18, color: canUndo ? null : Colors.grey),
-              const SizedBox(width: 8),
-              Text(undoLabel),
-              const Spacer(),
-              const Text(
-                '⌘Z',
-                style: TextStyle(fontSize: 12, color: shortcutColor),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'redo',
-          enabled: canRedo,
-          child: Row(
-            children: [
-              Icon(Icons.redo, size: 18, color: canRedo ? null : Colors.grey),
-              const SizedBox(width: 8),
-              Text(redoLabel),
-              const Spacer(),
-              const Text(
-                '⇧⌘Z',
-                style: TextStyle(fontSize: 12, color: shortcutColor),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: 'cut',
-          enabled: false, // Future feature
-          child: Row(
-            children: [
-              Icon(Icons.content_cut, size: 18, color: Colors.grey),
-              SizedBox(width: 8),
-              Text('Cut'),
-              Spacer(),
-              Text(
-                '⌘X',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'copy',
-          enabled: false, // Future feature
-          child: Row(
-            children: [
-              Icon(Icons.content_copy, size: 18, color: Colors.grey),
-              SizedBox(width: 8),
-              Text('Copy'),
-              Spacer(),
-              Text(
-                '⌘C',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'paste',
-          enabled: false, // Future feature
-          child: Row(
-            children: [
-              Icon(Icons.content_paste, size: 18, color: Colors.grey),
-              SizedBox(width: 8),
-              Text('Paste'),
-              Spacer(),
-              Text(
-                '⌘V',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// Pill-style button that shows icon+text in wide mode, icon-only in narrow mode
 class _PillButton extends StatefulWidget {
   final IconData icon;
@@ -908,7 +791,7 @@ class _PillButtonState extends State<_PillButton> {
     final bgColor = widget.isActive
         ? widget.activeColor
         : (_isHovered ? context.colors.elevated : context.colors.dark);
-    final textColor = widget.isActive ? Colors.black : context.colors.textSecondary;
+    final textColor = widget.isActive ? Colors.black : context.colors.textPrimary;
 
     return Tooltip(
       message: widget.tooltip,
@@ -929,7 +812,7 @@ class _PillButtonState extends State<_PillButton> {
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(2),
@@ -937,14 +820,14 @@ class _PillButtonState extends State<_PillButton> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(widget.icon, size: 16, color: textColor),
+                  Icon(widget.icon, size: 14, color: textColor),
                   if (widget.mode == _ButtonDisplayMode.wide) ...[
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 5),
                     Text(
                       widget.label,
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
@@ -953,6 +836,468 @@ class _PillButtonState extends State<_PillButton> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Simple undo/redo icon button (grey style)
+class _UndoRedoButton extends StatefulWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback? onPressed;
+  final String tooltip;
+
+  const _UndoRedoButton({
+    required this.icon,
+    required this.enabled,
+    this.onPressed,
+    required this.tooltip,
+  });
+
+  @override
+  State<_UndoRedoButton> createState() => _UndoRedoButtonState();
+}
+
+class _UndoRedoButtonState extends State<_UndoRedoButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.enabled
+        ? (_isHovered ? context.colors.textPrimary : context.colors.textSecondary)
+        : context.colors.textSecondary.withValues(alpha: 0.3);
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.enabled ? widget.onPressed : null,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            child: Icon(
+              widget.icon,
+              size: 18,
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Snap split button: icon toggles on/off, chevron opens grid size menu
+class _SnapSplitButton extends StatefulWidget {
+  final SnapValue value;
+  final Function(SnapValue)? onChanged;
+  final _ButtonDisplayMode mode;
+
+  const _SnapSplitButton({
+    required this.value,
+    this.onChanged,
+    required this.mode,
+  });
+
+  @override
+  State<_SnapSplitButton> createState() => _SnapSplitButtonState();
+}
+
+class _SnapSplitButtonState extends State<_SnapSplitButton> {
+  bool _isIconHovered = false;
+  bool _isChevronHovered = false;
+  SnapValue? _lastNonOffValue; // Remember last grid size for toggle
+  final GlobalKey _buttonKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // Remember initial value if not off
+    if (widget.value != SnapValue.off) {
+      _lastNonOffValue = widget.value;
+    } else {
+      _lastNonOffValue = SnapValue.beat; // Default to beat if starting off
+    }
+  }
+
+  @override
+  void didUpdateWidget(_SnapSplitButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Remember when user selects a non-off value
+    if (widget.value != SnapValue.off) {
+      _lastNonOffValue = widget.value;
+    }
+  }
+
+  void _toggleSnap() {
+    if (widget.value == SnapValue.off) {
+      // Turn on: restore last value
+      widget.onChanged?.call(_lastNonOffValue ?? SnapValue.beat);
+    } else {
+      // Turn off
+      widget.onChanged?.call(SnapValue.off);
+    }
+  }
+
+  void _showSnapMenu(BuildContext context, Color accentColor) {
+    final RenderBox button = _buttonKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+
+    showMenu<SnapValue>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: SnapValue.values.map((snapValue) {
+        final isSelected = snapValue == widget.value;
+        return PopupMenuItem<SnapValue>(
+          value: snapValue,
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? Icons.check : Icons.grid_on,
+                size: 18,
+                color: isSelected ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                snapValue.displayName,
+                style: TextStyle(
+                  color: isSelected ? accentColor : null,
+                  fontWeight: isSelected ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null) {
+        widget.onChanged?.call(value);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isActive = widget.value != SnapValue.off;
+    final bgColor = isActive ? colors.accent : colors.dark;
+    final textColor = isActive ? colors.elevated : colors.textPrimary;
+
+    final tooltip = isActive
+        ? 'Snap: ${widget.value.displayName} (click to toggle)'
+        : 'Snap Off (click to enable)';
+
+    return Tooltip(
+      message: tooltip,
+      child: DecoratedBox(
+        key: _buttonKey,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Left side: Label (clickable for toggle)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isIconHovered = true),
+              onExit: (_) => setState(() => _isIconHovered = false),
+              child: GestureDetector(
+                onTap: _toggleSnap,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _isIconHovered
+                        ? colors.textPrimary.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(2),
+                      bottomLeft: Radius.circular(2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.grid_on, size: 14, color: textColor),
+                      const SizedBox(width: 5),
+                      Text(
+                        isActive ? 'Snap ${widget.value.displayName}' : 'Snap',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Divider line
+            Container(
+              width: 1,
+              height: 17,
+              color: colors.textPrimary.withValues(alpha: 0.2),
+            ),
+            // Right side: Dropdown arrow
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isChevronHovered = true),
+              onExit: (_) => setState(() => _isChevronHovered = false),
+              child: GestureDetector(
+                onTap: () => _showSnapMenu(context, colors.accent),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _isChevronHovered
+                        ? colors.textPrimary.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(2),
+                      bottomRight: Radius.circular(2),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.arrow_drop_down,
+                    size: 17,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Metronome split button: icon toggles metronome, chevron opens count-in menu
+class _MetronomeSplitButton extends StatefulWidget {
+  final bool isActive;
+  final int countInBars;
+  final VoidCallback? onToggle;
+  final Function(int)? onCountInChanged;
+  final _ButtonDisplayMode mode;
+
+  const _MetronomeSplitButton({
+    required this.isActive,
+    required this.countInBars,
+    this.onToggle,
+    this.onCountInChanged,
+    required this.mode,
+  });
+
+  @override
+  State<_MetronomeSplitButton> createState() => _MetronomeSplitButtonState();
+}
+
+class _MetronomeSplitButtonState extends State<_MetronomeSplitButton> {
+  bool _isIconHovered = false;
+  bool _isChevronHovered = false;
+  final GlobalKey _buttonKey = GlobalKey();
+
+  void _showCountInMenu(BuildContext context, Color accentColor) {
+    final RenderBox button = _buttonKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+
+    final countInBars = widget.countInBars;
+
+    showMenu<int>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<int>(
+          value: 0,
+          child: Row(
+            children: [
+              Icon(
+                countInBars == 0 ? Icons.check : Icons.close,
+                size: 16,
+                color: countInBars == 0 ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Count-in: Off',
+                style: TextStyle(
+                  color: countInBars == 0 ? accentColor : null,
+                  fontWeight: countInBars == 0 ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: [
+              Icon(
+                countInBars == 1 ? Icons.check : Icons.looks_one,
+                size: 16,
+                color: countInBars == 1 ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Count-in: 1 Bar',
+                style: TextStyle(
+                  color: countInBars == 1 ? accentColor : null,
+                  fontWeight: countInBars == 1 ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 2,
+          child: Row(
+            children: [
+              Icon(
+                countInBars == 2 ? Icons.check : Icons.looks_two,
+                size: 16,
+                color: countInBars == 2 ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Count-in: 2 Bars',
+                style: TextStyle(
+                  color: countInBars == 2 ? accentColor : null,
+                  fontWeight: countInBars == 2 ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 4,
+          child: Row(
+            children: [
+              Icon(
+                countInBars == 4 ? Icons.check : Icons.looks_4,
+                size: 16,
+                color: countInBars == 4 ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Count-in: 4 Bars',
+                style: TextStyle(
+                  color: countInBars == 4 ? accentColor : null,
+                  fontWeight: countInBars == 4 ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value != null) {
+        widget.onCountInChanged?.call(value);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final bgColor = widget.isActive ? colors.accent : colors.dark;
+    final textColor = widget.isActive ? colors.elevated : colors.textPrimary;
+
+    // Build tooltip with count-in info
+    final countInText = widget.countInBars == 0
+        ? 'Off'
+        : widget.countInBars == 1
+            ? '1 Bar'
+            : '2 Bars';
+    final tooltip = widget.isActive
+        ? 'Metronome On | Count-in: $countInText'
+        : 'Metronome Off | Count-in: $countInText';
+
+    return Tooltip(
+      message: tooltip,
+      child: DecoratedBox(
+        key: _buttonKey,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Left side: Icon (clickable for toggle)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isIconHovered = true),
+              onExit: (_) => setState(() => _isIconHovered = false),
+              child: GestureDetector(
+                onTap: widget.onToggle,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _isIconHovered
+                        ? colors.textPrimary.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(2),
+                      bottomLeft: Radius.circular(2),
+                    ),
+                  ),
+                  child: Image.asset(
+                    'assets/images/metronome.png',
+                    width: 14,
+                    height: 14,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ),
+            // Divider line
+            Container(
+              width: 1,
+              height: 17,
+              color: colors.textPrimary.withValues(alpha: 0.2),
+            ),
+            // Right side: Dropdown arrow
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isChevronHovered = true),
+              onExit: (_) => setState(() => _isChevronHovered = false),
+              child: GestureDetector(
+                onTap: () => _showCountInMenu(context, colors.accent),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _isChevronHovered
+                        ? colors.textPrimary.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(2),
+                      bottomRight: Radius.circular(2),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.arrow_drop_down,
+                    size: 17,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1034,7 +1379,7 @@ class _TapTempoPillState extends State<_TapTempoPill> {
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: bgColor,
                 borderRadius: BorderRadius.circular(2),
@@ -1042,14 +1387,14 @@ class _TapTempoPillState extends State<_TapTempoPill> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.touch_app, size: 16, color: textColor),
+                  Icon(Icons.touch_app, size: 13, color: textColor),
                   if (widget.mode == _ButtonDisplayMode.wide) ...[
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Text(
                       'Tap',
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1064,7 +1409,7 @@ class _TapTempoPillState extends State<_TapTempoPill> {
   }
 }
 
-/// Tempo display with drag-to-adjust functionality
+/// Tempo display with drag-to-adjust functionality - shows [120 BPM] format
 class _TempoDisplay extends StatefulWidget {
   final double tempo;
   final Function(double)? onTempoChanged;
@@ -1085,50 +1430,53 @@ class _TempoDisplayState extends State<_TempoDisplay> {
 
   @override
   Widget build(BuildContext context) {
-    final tempoText = widget.tempo.toStringAsFixed(0);
+    final tempoText = '${widget.tempo.toStringAsFixed(0)} BPM';
 
-    return GestureDetector(
-      onVerticalDragStart: (details) {
-        setState(() {
-          _isDragging = true;
-          _dragStartY = details.globalPosition.dy;
-          _dragStartTempo = widget.tempo;
-        });
-      },
-      onVerticalDragUpdate: (details) {
-        if (widget.onTempoChanged != null) {
-          // Drag up = increase tempo, drag down = decrease tempo
-          final deltaY = _dragStartY - details.globalPosition.dy;
-          // ~0.5 BPM per pixel (like Ableton)
-          final deltaTempo = deltaY * 0.5;
-          final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0).roundToDouble();
-          widget.onTempoChanged!(newTempo);
-        }
-      },
-      onVerticalDragEnd: (details) {
-        setState(() {
-          _isDragging = false;
-        });
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeUpDown,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isDragging
-                ? context.colors.accent.withValues(alpha: 0.2)
-                : context.colors.elevated,
-            borderRadius: BorderRadius.circular(2),
-            border: _isDragging
-                ? Border.all(color: context.colors.accent, width: 1)
-                : null,
-          ),
-          child: Text(
-            '$tempoText BPM',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+    return Tooltip(
+      message: 'Tempo (drag to adjust)',
+      child: GestureDetector(
+        onVerticalDragStart: (details) {
+          setState(() {
+            _isDragging = true;
+            _dragStartY = details.globalPosition.dy;
+            _dragStartTempo = widget.tempo;
+          });
+        },
+        onVerticalDragUpdate: (details) {
+          if (widget.onTempoChanged != null) {
+            // Drag up = increase tempo, drag down = decrease tempo
+            final deltaY = _dragStartY - details.globalPosition.dy;
+            // ~0.5 BPM per pixel (like Ableton)
+            final deltaTempo = deltaY * 0.5;
+            final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0).roundToDouble();
+            widget.onTempoChanged!(newTempo);
+          }
+        },
+        onVerticalDragEnd: (details) {
+          setState(() {
+            _isDragging = false;
+          });
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.resizeUpDown,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: _isDragging
+                  ? context.colors.accent.withValues(alpha: 0.2)
+                  : context.colors.dark,
+              borderRadius: BorderRadius.circular(2),
+              border: _isDragging
+                  ? Border.all(color: context.colors.accent, width: 1.5)
+                  : Border.all(color: context.colors.surface, width: 1.5),
+            ),
+            child: Text(
+              tempoText,
+              style: TextStyle(
+                color: context.colors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -1271,9 +1619,44 @@ class _RecordButton extends StatefulWidget {
   State<_RecordButton> createState() => _RecordButtonState();
 }
 
-class _RecordButtonState extends State<_RecordButton> {
+class _RecordButtonState extends State<_RecordButton>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
+  late AnimationController _blinkController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Blink animation for count-in state (500ms on/off cycle)
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    // Start blinking if already counting in
+    if (widget.isCountingIn) {
+      _blinkController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_RecordButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Start/stop blink animation based on count-in state
+    if (widget.isCountingIn && !oldWidget.isCountingIn) {
+      _blinkController.repeat(reverse: true);
+    } else if (!widget.isCountingIn && oldWidget.isCountingIn) {
+      _blinkController.stop();
+      _blinkController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
 
   void _showCountInMenu(BuildContext context, Offset position) {
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -1315,6 +1698,16 @@ class _RecordButtonState extends State<_RecordButton> {
             ],
           ),
         ),
+        const PopupMenuItem<int>(
+          value: 4,
+          child: Row(
+            children: [
+              Icon(Icons.looks_4, size: 16),
+              SizedBox(width: 8),
+              Text('Count-in: 4 Bars'),
+            ],
+          ),
+        ),
       ],
     ).then((value) {
       if (value != null) {
@@ -1328,11 +1721,8 @@ class _RecordButtonState extends State<_RecordButton> {
     final isEnabled = widget.onPressed != null;
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
 
-    // Record button color: Red per spec (#EF4444)
-    const recordColor = Color(0xFFEF4444);
-    final Color color = widget.isRecording || widget.isCountingIn
-        ? recordColor
-        : recordColor;
+    // Record button color: Bright red (same intensity as play/stop)
+    const recordColor = Color(0xFFFF4444);
 
     String tooltip = widget.isRecording
         ? 'Stop Recording (R)'
@@ -1344,7 +1734,9 @@ class _RecordButtonState extends State<_RecordButton> {
           ? 'Off'
           : widget.countInBars == 1
               ? '1 Bar'
-              : '2 Bars';
+              : widget.countInBars == 2
+                  ? '2 Bars'
+                  : '4 Bars';
       tooltip += ' | Right-click: Count-in ($countInText)';
     }
 
@@ -1368,30 +1760,80 @@ class _RecordButtonState extends State<_RecordButton> {
             scale: scale,
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: widget.size,
-              height: widget.size,
-              decoration: BoxDecoration(
-                color: isEnabled
-                    ? color.withValues(alpha: _isHovered ? 0.9 : 0.7)
-                    : context.colors.elevated,
-                shape: BoxShape.circle,
-                boxShadow: _isHovered && isEnabled
+            child: AnimatedBuilder(
+              animation: _blinkController,
+              builder: (context, child) {
+                // Traffic Light System:
+                // - Idle: Grey/red fill with small red circle in center
+                // - Count-In: Blinking red (animated)
+                // - Recording: Solid red fill with glow
+
+                final bool isCountingIn = widget.isCountingIn;
+                final bool isRecording = widget.isRecording;
+
+                // Calculate fill color based on state
+                Color fillColor;
+                if (!isEnabled) {
+                  fillColor = context.colors.elevated;
+                } else if (isRecording) {
+                  // Solid red when recording
+                  fillColor = recordColor.withValues(alpha: _isHovered ? 0.95 : 0.85);
+                } else if (isCountingIn) {
+                  // Blinking: interpolate between dim and bright
+                  final blinkValue = _blinkController.value;
+                  fillColor = recordColor.withValues(alpha: 0.3 + (blinkValue * 0.55));
+                } else {
+                  // Idle: match play/stop button alpha values (0.2 idle, 0.3 hover)
+                  fillColor = recordColor.withValues(alpha: _isHovered ? 0.3 : 0.2);
+                }
+
+                // Border for all states when enabled (match play/stop - no alpha reduction)
+                final Border? border = isEnabled
+                    ? Border.all(
+                        color: recordColor,
+                        width: 2,
+                      )
+                    : null;
+
+                // Glow effect when hovering or recording
+                final List<BoxShadow>? shadows = (_isHovered || isRecording) && isEnabled
                     ? [
                         BoxShadow(
-                          color: color.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 2,
+                          color: recordColor.withValues(alpha: isRecording ? 0.5 : 0.3),
+                          blurRadius: isRecording ? 12 : 8,
+                          spreadRadius: isRecording ? 3 : 2,
                         ),
                       ]
-                    : null,
-              ),
-              child: Icon(
-                Icons.fiber_manual_record,
-                color: isEnabled ? context.colors.textPrimary : context.colors.textSecondary,
-                size: widget.size * 0.5,
-              ),
+                    : null;
+
+                return Container(
+                  width: widget.size,
+                  height: widget.size,
+                  decoration: BoxDecoration(
+                    color: fillColor,
+                    shape: BoxShape.circle,
+                    border: border,
+                    boxShadow: shadows,
+                  ),
+                  child: Center(
+                    // Always show inner red circle, varying in brightness
+                    child: Container(
+                      width: widget.size * 0.36,
+                      height: widget.size * 0.36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: !isEnabled
+                            ? context.colors.textSecondary
+                            : isRecording
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : isCountingIn
+                                    ? recordColor.withValues(alpha: 0.5 + (_blinkController.value * 0.5))
+                                    : recordColor.withValues(alpha: _isHovered ? 0.8 : 0.6),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -1689,100 +2131,115 @@ class _ViewMenuItemState extends State<_ViewMenuItem> {
   }
 }
 
-/// Snap value dropdown selector
-class _SnapDropdown extends StatefulWidget {
-  final SnapValue value;
-  final Function(SnapValue)? onChanged;
+/// Time signature dropdown with "Signature" label (matches piano roll style)
+class _SignatureDropdown extends StatefulWidget {
+  final int beatsPerBar;
+  final int beatUnit;
+  final Function(int beatsPerBar, int beatUnit)? onChanged;
 
-  const _SnapDropdown({
-    required this.value,
+  const _SignatureDropdown({
+    required this.beatsPerBar,
+    required this.beatUnit,
     this.onChanged,
   });
 
   @override
-  State<_SnapDropdown> createState() => _SnapDropdownState();
+  State<_SignatureDropdown> createState() => _SignatureDropdownState();
 }
 
-class _SnapDropdownState extends State<_SnapDropdown> {
+class _SignatureDropdownState extends State<_SignatureDropdown> {
   bool _isHovered = false;
+
+  void _showSignatureMenu(BuildContext context) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+
+    // Capture colors before showing menu (to avoid provider access in overlay)
+    final accentColor = context.colors.accent;
+    final beatsPerBar = widget.beatsPerBar;
+    final beatUnit = widget.beatUnit;
+
+    final signatures = [
+      (4, 4, '4/4'),
+      (3, 4, '3/4'),
+      (6, 8, '6/8'),
+      (2, 4, '2/4'),
+    ];
+
+    showMenu<(int, int)>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: signatures.map((sig) {
+        final isSelected = sig.$1 == beatsPerBar && sig.$2 == beatUnit;
+        return PopupMenuItem<(int, int)>(
+          value: (sig.$1, sig.$2),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? Icons.check : Icons.music_note,
+                size: 16,
+                color: isSelected ? accentColor : null,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                sig.$3,
+                style: TextStyle(
+                  color: isSelected ? accentColor : null,
+                  fontWeight: isSelected ? FontWeight.w600 : null,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null) {
+        widget.onChanged?.call(value.$1, value.$2);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: PopupMenuButton<SnapValue>(
-        tooltip: 'Snap to Grid',
-        onSelected: (SnapValue value) {
-          widget.onChanged?.call(value);
-        },
-        offset: const Offset(0, 40),
-        itemBuilder: (BuildContext context) {
-          return SnapValue.values.map((snapValue) {
-            final isSelected = snapValue == widget.value;
-            return PopupMenuItem<SnapValue>(
-              value: snapValue,
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected ? Icons.check : Icons.grid_on,
-                    size: 18,
-                    color: isSelected ? context.colors.accent : null,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    snapValue.displayName,
-                    style: TextStyle(
-                      color: isSelected ? context.colors.accent : null,
-                      fontWeight: isSelected ? FontWeight.w600 : null,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? context.colors.elevated
-                : context.colors.standard,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: widget.value != SnapValue.off
-                  ? context.colors.accent.withValues(alpha: 0.5)
-                  : context.colors.elevated,
-            ),
-          ),
+    return Tooltip(
+      message: 'Time Signature',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: () => _showSignatureMenu(context),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.grid_on,
-                size: 14,
-                color: widget.value != SnapValue.off
-                    ? context.colors.accent
-                    : context.colors.textSecondary,
-              ),
-              const SizedBox(width: 6),
               Text(
-                'Snap ${widget.value.displayName}',
+                'Signature',
                 style: TextStyle(
-                  color: widget.value != SnapValue.off
-                      ? context.colors.textPrimary
-                      : context.colors.textSecondary,
-                  fontSize: 12,
+                  color: context.colors.textMuted,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 16,
-                color: widget.value != SnapValue.off
-                    ? context.colors.accent
-                    : context.colors.textSecondary,
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _isHovered ? context.colors.surface : context.colors.dark,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: context.colors.surface, width: 1.5),
+                ),
+                child: Text(
+                  '${widget.beatsPerBar}/${widget.beatUnit}',
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ],
           ),
