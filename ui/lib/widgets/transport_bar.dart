@@ -782,8 +782,12 @@ class _EditMenuButton extends StatelessWidget {
         ? 'Redo - ${redoDescription ?? "Action"}'
         : 'Redo';
 
+    // Capture theme colors before entering popup menu context
+    final iconColor = context.colors.textSecondary;
+    const shortcutColor = Colors.grey;
+
     return PopupMenuButton<String>(
-      icon: Icon(Icons.edit, color: context.colors.textSecondary, size: 20),
+      icon: Icon(Icons.edit, color: iconColor, size: 20),
       tooltip: 'Edit',
       offset: const Offset(0, 40),
       onSelected: (String value) {
@@ -796,7 +800,7 @@ class _EditMenuButton extends StatelessWidget {
             break;
         }
       },
-      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+      itemBuilder: (BuildContext _) => <PopupMenuEntry<String>>[
         PopupMenuItem<String>(
           value: 'undo',
           enabled: canUndo,
@@ -806,12 +810,9 @@ class _EditMenuButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(undoLabel),
               const Spacer(),
-              Text(
+              const Text(
                 '⌘Z',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.colors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: shortcutColor),
               ),
             ],
           ),
@@ -825,12 +826,9 @@ class _EditMenuButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(redoLabel),
               const Spacer(),
-              Text(
+              const Text(
                 '⇧⌘Z',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.colors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: shortcutColor),
               ),
             ],
           ),
