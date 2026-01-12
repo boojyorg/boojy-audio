@@ -68,8 +68,17 @@ class RecordingController extends ChangeNotifier {
       debugPrint('RecordingController: Failed to initialize recording settings: $e');
     }
 
-    // Load MIDI devices
+    // Load MIDI devices and start MIDI input
     loadMidiDevices();
+
+    // Start MIDI input immediately - always listening for MIDI controllers
+    // MIDI is routed to armed tracks for live playback
+    try {
+      _audioEngine!.startMidiInput();
+      debugPrint('RecordingController: MIDI input started (always-on mode)');
+    } catch (e) {
+      debugPrint('RecordingController: Failed to start MIDI input: $e');
+    }
   }
 
   /// Toggle recording on/off
@@ -92,6 +101,7 @@ class RecordingController extends ChangeNotifier {
 
       _audioEngine!.startRecording();
       _audioEngine!.startMidiRecording();
+      // Note: MIDI input is always running (started in initialize)
 
       _isCountingIn = true;
       _isMidiRecording = true;
@@ -113,6 +123,7 @@ class RecordingController extends ChangeNotifier {
     try {
       final audioClipId = _audioEngine!.stopRecording();
       final midiClipId = _audioEngine!.stopMidiRecording();
+      // Note: MIDI input stays running (always-on mode)
 
       _isRecording = false;
       _isCountingIn = false;
@@ -203,28 +214,16 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  /// Toggle virtual piano
-  /// Note: Only starts MIDI input, does NOT start transport/metronome
+  /// Toggle virtual piano visibility
+  /// Note: MIDI input is always running, this just controls UI visibility
   bool toggleVirtualPiano() {
     if (_audioEngine == null) return false;
 
     _isVirtualPianoEnabled = !_isVirtualPianoEnabled;
-
-    if (_isVirtualPianoEnabled) {
-      try {
-        _audioEngine!.startMidiInput();
-        // Don't start transport - virtual piano should not trigger metronome
-        notifyListeners();
-        return true;
-      } catch (e) {
-        _isVirtualPianoEnabled = false;
-        notifyListeners();
-        return false;
-      }
-    } else {
-      notifyListeners();
-      return true;
-    }
+    // Note: MIDI input is always running (always-on mode)
+    // This flag just controls virtual piano UI visibility
+    notifyListeners();
+    return true;
   }
 
   void setVirtualPianoEnabled({required bool enabled}) {

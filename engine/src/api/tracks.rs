@@ -36,12 +36,8 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
         track_manager.create_track(track_type, name)
     };
 
-    // Auto-create synthesizer for MIDI tracks so they can produce sound immediately
-    if track_type == TrackType::Midi {
-        let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
-        synth_manager.create_synth(track_id);
-        println!("✅ Auto-created synth for MIDI track {}", track_id);
-    }
+    // Note: MIDI tracks are silent by default until an instrument is added
+    // (either VST3 plugin or "Boojy's Synthesizer" from the instrument menu)
 
     Ok(track_id)
 }

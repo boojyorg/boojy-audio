@@ -16,89 +16,14 @@ class Instrument {
   });
 }
 
-/// Available instruments (hardcoded for now, can be loaded from audio engine later)
+/// Available instruments (only Synthesizer is implemented for now)
 const List<Instrument> availableInstruments = [
-  // Keyboards
-  Instrument(
-    id: 'piano',
-    name: 'Piano',
-    category: 'Keyboard',
-    icon: Icons.piano,
-  ),
-  Instrument(
-    id: 'electric_piano',
-    name: 'Electric Piano',
-    category: 'Keyboard',
-    icon: Icons.piano,
-  ),
-  // Editable Synthesizer (user can customize parameters)
+  // Boojy's built-in Synthesizer
   Instrument(
     id: 'synthesizer',
     name: 'Synthesizer',
-    category: 'Synthesizer',
+    category: 'Instruments',
     icon: Icons.graphic_eq,
-  ),
-  Instrument(
-    id: 'synth_lead',
-    name: 'Synth Lead',
-    category: 'Synthesizer',
-    icon: Icons.music_note,
-  ),
-  Instrument(
-    id: 'synth_pad',
-    name: 'Synth Pad',
-    category: 'Synthesizer',
-    icon: Icons.music_note,
-  ),
-
-  // Bass
-  Instrument(
-    id: 'synth_bass',
-    name: 'Synth Bass',
-    category: 'Bass',
-    icon: Icons.speaker,
-  ),
-  Instrument(
-    id: 'electric_bass',
-    name: 'Electric Bass',
-    category: 'Bass',
-    icon: Icons.speaker,
-  ),
-
-  // Strings
-  Instrument(
-    id: 'strings',
-    name: 'Strings',
-    category: 'Orchestral',
-    icon: Icons.queue_music,
-  ),
-  Instrument(
-    id: 'violin',
-    name: 'Violin',
-    category: 'Orchestral',
-    icon: Icons.queue_music,
-  ),
-
-  // Brass
-  Instrument(
-    id: 'trumpet',
-    name: 'Trumpet',
-    category: 'Brass',
-    icon: Icons.music_note_outlined,
-  ),
-  Instrument(
-    id: 'trombone',
-    name: 'Trombone',
-    category: 'Brass',
-    icon: Icons.music_note_outlined,
-  ),
-
-  // Drums (for completeness)
-  Instrument(
-    id: 'drums',
-    name: 'Drums',
-    category: 'Percussion',
-    icon: Icons.album,
   ),
 ];
 

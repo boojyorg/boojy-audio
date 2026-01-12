@@ -109,6 +109,9 @@ class TrackMixerPanel extends StatefulWidget {
 class TrackMixerPanelState extends State<TrackMixerPanel> {
   List<TrackData> _tracks = [];
   Timer? _refreshTimer;
+
+  /// Public getter for tracks (used by parent to access track state)
+  List<TrackData> get tracks => _tracks;
   Timer? _levelTimer;
   Map<int, (double, double)> _peakLevels = {}; // (left, right) stereo peaks
   Map<int, (double, double)> _displayLevels = {}; // Smoothed levels with decay
@@ -341,6 +344,34 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         );
       }
     }
+  }
+
+  /// Handle arm button toggle with exclusive arm behavior for MIDI tracks.
+  /// Clicking arm on a MIDI track disarms all other MIDI tracks (Ableton-style).
+  void _handleArmToggle(TrackData track, List<TrackData> allTracks) {
+    setState(() {
+      if (!track.armed) {
+        // Arming this track - disarm all other MIDI tracks (exclusive arm)
+        for (final t in allTracks) {
+          if (t.type == 'midi' && t.id != track.id && t.armed) {
+            t.armed = false;
+            widget.audioEngine?.setTrackArmed(t.id, armed: false);
+          }
+        }
+      }
+      // Toggle this track's arm state
+      track.armed = !track.armed;
+    });
+    widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+  }
+
+  /// Handle Shift+click on arm button for multi-arm mode.
+  /// Just toggles this track without affecting others (allows layering).
+  void _handleArmShiftClick(TrackData track) {
+    setState(() {
+      track.armed = !track.armed;
+    });
+    widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
   }
 
   Future<void> _duplicateTrack(TrackData track) async {
@@ -949,6 +980,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
         widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
       },
+      isArmed: track.armed,
+      onArmToggle: () => _handleArmToggle(track, allTracks),
+      onArmShiftClick: () => _handleArmShiftClick(track),
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
       onNameChanged: (newName) async {

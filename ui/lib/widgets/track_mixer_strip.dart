@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
@@ -33,7 +34,8 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(double)? onPanChanged;
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
-  final VoidCallback? onArmToggle; // Toggle recording arm
+  final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
+  final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
   final VoidCallback? onTap; // Unified track selection callback
   final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
@@ -78,6 +80,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
+    this.onArmShiftClick,
     this.onTap,
     this.onDoubleTap,
     this.onDeletePressed,
@@ -674,14 +677,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         _buildControlButton('S', widget.isSoloed, context.colors.soloActive, widget.onSoloToggle, buttonSize, fontSize),
         SizedBox(width: spacing),
         // Record arm button - Red when active
-        _buildControlButton(
-          'R',
-          widget.isArmed,
-          context.colors.recordActive,
-          canArm ? widget.onArmToggle : null,
-          buttonSize,
-          fontSize,
-        ),
+        // Supports Shift+click for multi-arm mode
+        _buildArmButton(canArm, buttonSize, fontSize),
       ],
     );
   }
@@ -706,6 +703,38 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           ),
         ),
         child: Text(label),
+      ),
+    );
+  }
+
+  /// Build arm button with Shift+click support for multi-arm mode
+  Widget _buildArmButton(bool canArm, double size, double fontSize) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ElevatedButton(
+        onPressed: canArm
+            ? () {
+                // Check if Shift is held for multi-arm mode
+                final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+                if (shiftPressed && widget.onArmShiftClick != null) {
+                  widget.onArmShiftClick!();
+                } else {
+                  widget.onArmToggle?.call();
+                }
+              }
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.isArmed ? context.colors.recordActive : context.colors.surface,
+          foregroundColor: widget.isArmed ? context.colors.darkest : context.colors.textSecondary,
+          padding: EdgeInsets.zero,
+          minimumSize: Size(size, size),
+          textStyle: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        child: const Text('R'),
       ),
     );
   }

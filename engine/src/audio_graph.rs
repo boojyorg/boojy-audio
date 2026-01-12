@@ -737,50 +737,40 @@ impl AudioGraph {
                         // Process recording and get metronome output
                         let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, false);
 
-                        // Process synths for real-time MIDI input (virtual piano)
-                        // This allows synths to produce sound from real-time note_on/note_off calls
-                        // without triggering notes from timeline MIDI clips
-                        let mut synth_output = 0.0;
-                        if let Some(ref mut synth_manager) = synth_guard {
-                            synth_output = synth_manager.process_all_synths();
-                        }
+                        // Start with metronome output
+                        let mut out_left = met_left;
+                        let mut out_right = met_right;
+                        let mut master_peak_left = 0.0f32;
+                        let mut master_peak_right = 0.0f32;
 
-                        // Debug: log if synth is producing output (only first frame to avoid spam)
-                        if frame_idx == 0 && synth_output.abs() > 0.001 {
-                            static LAST_LOG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-                            let now = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_millis() as u64;
-                            let last = LAST_LOG.load(Ordering::Relaxed);
-                            if now - last > 100 { // Log every 100ms max
-                                LAST_LOG.store(now, Ordering::Relaxed);
-                                eprintln!("🔊 Synth output (stopped): {:.4}", synth_output);
-                            }
-                        }
-
-                        // Start with metronome + synth (synth handles virtual keyboard when stopped)
-                        let mut out_left = met_left + synth_output;
-                        let mut out_right = met_right + synth_output;
-
-                        // Process VST3 instruments in FX chains even when stopped
-                        // This is necessary because VST3 instruments (like Serum) need
-                        // continuous process() calls to stay active and respond to MIDI
-                        //
-                        // We process each track separately and apply volume/pan per track
+                        // Process each track (synth + VST3 instruments + volume/pan + metering)
+                        // This is necessary for:
+                        // 1. Per-track synthesizer output from MIDI input
+                        // 2. VST3 instruments that need continuous process() calls
+                        // 3. Track-level metering for level meters in UI
                         if let Ok(effect_mgr) = effect_manager.lock() {
                             if let Ok(tm) = track_manager.lock() {
                                 let has_solo = tm.has_solo();
                                 for track_arc in tm.get_all_tracks() {
-                                    if let Ok(track) = track_arc.lock() {
+                                    if let Ok(mut track) = track_arc.lock() {
                                         // Skip master track in per-track processing
                                         if track.track_type == crate::track::TrackType::Master {
                                             continue;
                                         }
 
+                                        // Get per-track synth output FIRST
+                                        let mut track_left = 0.0f32;
+                                        let mut track_right = 0.0f32;
+
+                                        if let Some(ref mut synth_manager) = synth_guard {
+                                            let synth_sample = synth_manager.process_sample(track.id);
+                                            track_left += synth_sample;
+                                            track_right += synth_sample;
+                                        }
+
                                         // Handle mute/solo
                                         if track.mute {
-                                            // Still process to keep VST3 alive, but don't mix
+                                            // Still process FX to keep VST3 alive, but don't mix
                                             for effect_id in &track.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                                     if let Ok(mut effect) = effect_arc.lock() {
@@ -788,23 +778,29 @@ impl AudioGraph {
                                                     }
                                                 }
                                             }
+                                            // Update peaks to 0 for muted track
+                                            if frame_idx == frames - 1 {
+                                                track.update_peaks(0.0, 0.0);
+                                            }
                                             continue;
                                         }
                                         if has_solo && !track.solo {
-                                            // Still process to keep VST3 alive
+                                            // Still process FX to keep VST3 alive
                                             for effect_id in &track.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
                                                     if let Ok(mut effect) = effect_arc.lock() {
                                                         let _ = effect.process_frame(0.0, 0.0);
                                                     }
                                                 }
+                                            }
+                                            // Update peaks to 0 for non-soloed track
+                                            if frame_idx == frames - 1 {
+                                                track.update_peaks(0.0, 0.0);
                                             }
                                             continue;
                                         }
 
                                         // Process FX chain for this track (instruments generate audio from MIDI)
-                                        let mut track_left = 0.0f32;
-                                        let mut track_right = 0.0f32;
                                         for effect_id in &track.fx_chain {
                                             // Skip bypassed effects (audio passes through unchanged)
                                             if effect_mgr.is_bypassed(*effect_id) {
@@ -823,29 +819,34 @@ impl AudioGraph {
                                         let volume_gain = track.get_gain();
                                         let (pan_left, pan_right) = track.get_pan_gains();
 
-                                        // Debug: log volume application (only occasionally)
-                                        let fx_chain_len = track.fx_chain.len();
-                                        if frame_idx == 0 && (track_left.abs() > 0.001 || track_right.abs() > 0.001) {
-                                            static LAST_VOL_LOG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-                                            let now = std::time::SystemTime::now()
-                                                .duration_since(std::time::UNIX_EPOCH)
-                                                .unwrap_or_default()
-                                                .as_millis() as u64;
-                                            let last = LAST_VOL_LOG.load(Ordering::Relaxed);
-                                            if now - last > 500 {
-                                                LAST_VOL_LOG.store(now, Ordering::Relaxed);
-                                                eprintln!("🎚️ Track {} (fx_chain={}) pre-vol: L={:.4} R={:.4}, gain={:.4}, vol_db={:.1}",
-                                                    track.id, fx_chain_len, track_left, track_right, volume_gain, track.volume_db);
-                                            }
-                                        }
-
                                         track_left *= volume_gain * pan_left;
                                         track_right *= volume_gain * pan_right;
+
+                                        // Update track peak levels for metering
+                                        // This allows UI to show level meters even when stopped
+                                        let current_peak_left = track.peak_left;
+                                        let current_peak_right = track.peak_right;
+                                        track.update_peaks(
+                                            current_peak_left.max(track_left.abs()),
+                                            current_peak_right.max(track_right.abs())
+                                        );
 
                                         // Mix into output
                                         out_left += track_left;
                                         out_right += track_right;
                                     }
+                                }
+
+                                // Update master track peaks
+                                master_peak_left = master_peak_left.max(out_left.abs());
+                                master_peak_right = master_peak_right.max(out_right.abs());
+
+                                // Update master track peaks at end of buffer
+                                if frame_idx == frames - 1 {
+                                    let master_arc = tm.get_master_track();
+                                    if let Ok(mut master) = master_arc.lock() {
+                                        master.update_peaks(master_peak_left, master_peak_right);
+                                    };
                                 }
                             }
                         }
@@ -998,8 +999,11 @@ impl AudioGraph {
                         }
 
                         // Process per-track MIDI clips (using pre-acquired synth lock)
-                        // Also send MIDI to VST3 instruments in the FX chain
+                        // Route MIDI to EITHER built-in synth OR VST3 instruments (not both)
                         if let Some(ref mut synth_manager) = synth_guard {
+                            // Check if track has VST3 plugins - if so, skip built-in synth
+                            let has_vst3 = !track_snap.fx_chain.is_empty();
+
                             for timeline_midi_clip in &track_snap.midi_clips {
                                 let clip_start_samples = (timeline_midi_clip.start_time * TARGET_SAMPLE_RATE as f64) as u64;
                                 let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
@@ -1014,17 +1018,21 @@ impl AudioGraph {
                                         if event.timestamp_samples == frame_in_clip {
                                             match event.event_type {
                                                 crate::midi::MidiEventType::NoteOn { note, velocity } => {
-                                                    // Send to built-in synth
-                                                    synth_manager.note_on(track_snap.id, note, velocity);
+                                                    // Send to built-in synth ONLY if no VST3 plugins
+                                                    if !has_vst3 {
+                                                        synth_manager.note_on(track_snap.id, note, velocity);
+                                                    }
 
                                                     // Send to VST3 instruments in FX chain
-                                                    if let Ok(effect_mgr) = effect_manager.lock() {
-                                                        for effect_id in &track_snap.fx_chain {
-                                                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                if let Ok(mut effect) = effect_arc.lock() {
-                                                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                        let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                    if has_vst3 {
+                                                        if let Ok(effect_mgr) = effect_manager.lock() {
+                                                            for effect_id in &track_snap.fx_chain {
+                                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                            let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1032,17 +1040,21 @@ impl AudioGraph {
                                                     }
                                                 }
                                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                                    // Send to built-in synth
-                                                    synth_manager.note_off(track_snap.id, note);
+                                                    // Send to built-in synth ONLY if no VST3 plugins
+                                                    if !has_vst3 {
+                                                        synth_manager.note_off(track_snap.id, note);
+                                                    }
 
                                                     // Send to VST3 instruments in FX chain
-                                                    if let Ok(effect_mgr) = effect_manager.lock() {
-                                                        for effect_id in &track_snap.fx_chain {
-                                                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                if let Ok(mut effect) = effect_arc.lock() {
-                                                                    #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                        let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                    if has_vst3 {
+                                                        if let Ok(effect_mgr) = effect_manager.lock() {
+                                                            for effect_id in &track_snap.fx_chain {
+                                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                            let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1627,13 +1639,11 @@ impl AudioGraph {
                 }
             }
 
-            // Create and restore synth for MIDI tracks
+            // Restore synth for MIDI tracks only if one was saved (not auto-created)
             if track_type == TrackType::Midi {
-                let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
-                synth_manager.create_synth(track_id);
-
-                // Restore synth parameters if saved
                 if let Some(synth_data) = &track_data.synth_settings {
+                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    synth_manager.create_synth(track_id);
                     synth_manager.restore_synth_parameters(track_id, synth_data);
                 }
             }
@@ -1932,7 +1942,8 @@ impl AudioGraph {
                     }
                 }
 
-                // Process MIDI clips through track synthesizer
+                // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
+                let has_vst3 = !track_snap.fx_chain.is_empty();
                 for timeline_midi_clip in &track_snap.midi_clips {
                     let clip_start_samples = (timeline_midi_clip.start_time * sample_rate as f64) as u64;
                     let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
@@ -1945,13 +1956,51 @@ impl AudioGraph {
                         // Check for MIDI events at this exact frame
                         for event in &timeline_midi_clip.clip.events {
                             if event.timestamp_samples == frame_in_clip {
-                                if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
-                                    match event.event_type {
-                                        crate::midi::MidiEventType::NoteOn { note, velocity } => {
-                                            synth_manager.note_on(track_snap.id, note, velocity);
+                                match event.event_type {
+                                    crate::midi::MidiEventType::NoteOn { note, velocity } => {
+                                        // Send to built-in synth ONLY if no VST3 plugins
+                                        if !has_vst3 {
+                                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                                synth_manager.note_on(track_snap.id, note, velocity);
+                                            }
                                         }
-                                        crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                            synth_manager.note_off(track_snap.id, note);
+                                        // Send to VST3 instruments in FX chain
+                                        if has_vst3 {
+                                            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                                for effect_id in &track_snap.fx_chain {
+                                                    if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                        if let Ok(mut effect) = effect_arc.lock() {
+                                                            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                            if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
+                                        // Send to built-in synth ONLY if no VST3 plugins
+                                        if !has_vst3 {
+                                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                                synth_manager.note_off(track_snap.id, note);
+                                            }
+                                        }
+                                        // Send to VST3 instruments in FX chain
+                                        if has_vst3 {
+                                            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                                for effect_id in &track_snap.fx_chain {
+                                                    if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                        if let Ok(mut effect) = effect_arc.lock() {
+                                                            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                            if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -2133,7 +2182,8 @@ impl AudioGraph {
                 }
             }
 
-            // Process MIDI clips through track synthesizer
+            // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
+            let has_vst3 = !track_snap.fx_chain.is_empty();
             for timeline_midi_clip in &track_snap.midi_clips {
                 let clip_start_samples = (timeline_midi_clip.start_time * sample_rate as f64) as u64;
                 let clip_end_samples =
@@ -2145,13 +2195,51 @@ impl AudioGraph {
 
                     for event in &timeline_midi_clip.clip.events {
                         if event.timestamp_samples == frame_in_clip {
-                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
-                                match event.event_type {
-                                    crate::midi::MidiEventType::NoteOn { note, velocity } => {
-                                        synth_manager.note_on(track_id, note, velocity);
+                            match event.event_type {
+                                crate::midi::MidiEventType::NoteOn { note, velocity } => {
+                                    // Send to built-in synth ONLY if no VST3 plugins
+                                    if !has_vst3 {
+                                        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                            synth_manager.note_on(track_id, note, velocity);
+                                        }
                                     }
-                                    crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                        synth_manager.note_off(track_id, note);
+                                    // Send to VST3 instruments in FX chain
+                                    if has_vst3 {
+                                        if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                            for effect_id in &track_snap.fx_chain {
+                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                            let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
+                                    // Send to built-in synth ONLY if no VST3 plugins
+                                    if !has_vst3 {
+                                        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                            synth_manager.note_off(track_id, note);
+                                        }
+                                    }
+                                    // Send to VST3 instruments in FX chain
+                                    if has_vst3 {
+                                        if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                            for effect_id in &track_snap.fx_chain {
+                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                            let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

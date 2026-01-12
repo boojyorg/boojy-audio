@@ -3,7 +3,9 @@
 //! Functions for MIDI device management, input capture, and MIDI recording.
 
 use super::helpers::get_audio_graph;
-use crate::track::{TrackType, TrackId};
+use crate::effects::EffectType;
+use crate::midi::MidiEventType;
+use crate::track::{TrackId, TrackType};
 use std::sync::Arc;
 
 // ============================================================================
@@ -55,24 +57,101 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
 // ============================================================================
 
 /// Start capturing MIDI input
+/// Routes incoming MIDI to:
+/// 1. MIDI recorder (if recording)
+/// 2. All armed MIDI track synthesizers (for live playback)
+/// 3. All VST3 instruments in armed tracks' FX chains
 pub fn start_midi_input() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     let mut midi_manager = graph.midi_input_manager.lock().map_err(|e| e.to_string())?;
 
-    // Set up event callback to forward to MIDI recorder
-    // Note: Live synth playback happens via per-track synths during audio callback
+    // Clone all needed Arc references for the callback
     let midi_recorder = graph.midi_recorder.clone();
+    let track_manager = graph.track_manager.clone();
+    let synth_manager = graph.track_synth_manager.clone();
+    let effect_manager = graph.effect_manager.clone();
 
     midi_manager.set_event_callback(move |event| {
-        // Send to recorder if recording
+        // 1. Record to MIDI recorder if recording
         if let Ok(mut recorder) = midi_recorder.lock() {
             if recorder.is_recording() {
                 recorder.record_event(event);
             }
         }
-        // Note: Per-track synth is triggered from audio_graph audio callback
+
+        // 2. Route to all armed MIDI track synthesizers and VST3 instruments
+        // Collect armed tracks with their FX chains
+        let armed_tracks_with_fx: Vec<(TrackId, Vec<u64>)> = {
+            if let Ok(tm) = track_manager.lock() {
+                tm.get_all_tracks()
+                    .iter()
+                    .filter_map(|track_arc| {
+                        if let Ok(track) = track_arc.lock() {
+                            if track.track_type == TrackType::Midi && track.armed {
+                                Some((track.id, track.fx_chain.clone()))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            } else {
+                vec![]
+            }
+        };
+
+        // Route to each armed track's synthesizer OR VST3 instruments (not both)
+        for (track_id, fx_chain) in armed_tracks_with_fx {
+            // Check if track has VST3 plugins - if so, skip built-in synth
+            let has_vst3 = !fx_chain.is_empty();
+
+            // Only route to built-in synth if NO VST3 plugins in the chain
+            if !has_vst3 {
+                if let Ok(mut sm) = synth_manager.lock() {
+                    match &event.event_type {
+                        MidiEventType::NoteOn { note, velocity } => {
+                            sm.note_on(track_id, *note, *velocity);
+                        }
+                        MidiEventType::NoteOff { note, velocity: _ } => {
+                            sm.note_off(track_id, *note);
+                        }
+                    }
+                }
+            }
+
+            // Route to VST3 instruments in the track's FX chain
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            if has_vst3 {
+                if let Ok(em) = effect_manager.lock() {
+                    for effect_id in fx_chain {
+                        if let Some(effect_arc) = em.get_effect(effect_id) {
+                            if let Ok(mut effect) = effect_arc.lock() {
+                                if let EffectType::VST3(ref mut vst3) = *effect {
+                                    match &event.event_type {
+                                        MidiEventType::NoteOn { note, velocity } => {
+                                            // event_type 0 = note on
+                                            if let Err(e) = vst3.process_midi_event(0, 0, *note as i32, *velocity as i32, 0) {
+                                                eprintln!("⚠️ [MIDI] Failed to send note on to VST3 {}: {}", effect_id, e);
+                                            }
+                                        }
+                                        MidiEventType::NoteOff { note, velocity } => {
+                                            // event_type 1 = note off
+                                            if let Err(e) = vst3.process_midi_event(1, 0, *note as i32, *velocity as i32, 0) {
+                                                eprintln!("⚠️ [MIDI] Failed to send note off to VST3 {}: {}", effect_id, e);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     });
 
     midi_manager.start_capture().map_err(|e| e.to_string())?;

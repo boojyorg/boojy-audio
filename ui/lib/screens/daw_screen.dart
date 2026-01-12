@@ -197,6 +197,18 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  /// Disarm all MIDI tracks except the specified one.
+  /// Called when a new MIDI track is created to implement exclusive arm.
+  void _disarmOtherMidiTracks(int exceptTrackId) {
+    final tracks = _mixerKey.currentState?.tracks ?? [];
+    for (final track in tracks) {
+      if (track.type == 'midi' && track.id != exceptTrackId && track.armed) {
+        track.armed = false;
+        _audioEngine?.setTrackArmed(track.id, armed: false);
+      }
+    }
+  }
+
   /// Trigger immediate refresh of track lists in both timeline and mixer panels
   void _refreshTrackWidgets({bool clearClips = false}) {
     // Use post-frame callback to ensure the engine state has settled
@@ -867,6 +879,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Immediately refresh track widgets so the new track appears instantly
     _refreshTrackWidgets();
+
+    // Disarm other MIDI tracks (exclusive arm for new track)
+    _disarmOtherMidiTracks(trackId);
   }
 
   // VST3 Instrument drop handlers
@@ -964,6 +979,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Immediately refresh track widgets so the new track appears instantly
       _refreshTrackWidgets();
+
+      // Disarm other MIDI tracks (exclusive arm for new track)
+      _disarmOtherMidiTracks(trackId);
     } catch (e) {
       debugPrint('DawScreen: Failed to create VST3 instrument track: $e');
     }
@@ -1049,6 +1067,10 @@ class _DAWScreenState extends State<DAWScreen> {
       // Refresh track widgets
       _refreshTrackWidgets();
 
+      // Disarm other MIDI tracks when creating new MIDI track (exclusive arm)
+      if (trackType == 'midi') {
+        _disarmOtherMidiTracks(trackId);
+      }
     } catch (e) {
       debugPrint('DawScreen: Failed to create audio track: $e');
     }

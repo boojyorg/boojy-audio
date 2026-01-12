@@ -235,113 +235,25 @@ class LibraryService extends ChangeNotifier {
     ];
   }
 
-  /// Build Sounds category with presets
+  /// Build Sounds category (empty - not yet implemented)
   LibraryCategory _buildSoundsCategory() {
     return const LibraryCategory(
       id: 'sounds',
       name: 'Sounds',
       icon: Icons.queue_music,
-      subcategories: [
-        LibraryCategory(
-          id: 'sounds_leads',
-          name: 'Leads',
-          icon: Icons.music_note,
-          items: [
-            PresetItem(id: 'preset_bright_lead', name: 'Bright Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
-            PresetItem(id: 'preset_pluck_lead', name: 'Pluck Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
-            PresetItem(id: 'preset_acid_lead', name: 'Acid Lead', instrumentId: 'synthesizer', category: 'Leads', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'sounds_pads',
-          name: 'Pads',
-          icon: Icons.blur_on,
-          items: [
-            PresetItem(id: 'preset_warm_pad', name: 'Warm Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
-            PresetItem(id: 'preset_ambient_pad', name: 'Ambient Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
-            PresetItem(id: 'preset_string_pad', name: 'String Pad', instrumentId: 'synthesizer', category: 'Pads', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'sounds_bass',
-          name: 'Bass',
-          icon: Icons.speaker,
-          items: [
-            PresetItem(id: 'preset_sub_bass', name: 'Sub Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
-            PresetItem(id: 'preset_wobble_bass', name: 'Wobble Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
-            PresetItem(id: 'preset_reese_bass', name: 'Reese Bass', instrumentId: 'synthesizer', category: 'Bass', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'sounds_keys',
-          name: 'Keys',
-          icon: Icons.piano,
-          items: [
-            PresetItem(id: 'preset_electric_piano', name: 'Electric Piano', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
-            PresetItem(id: 'preset_organ', name: 'Organ', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
-            PresetItem(id: 'preset_clav', name: 'Clav', instrumentId: 'piano', category: 'Keys', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'sounds_drums',
-          name: 'Drums',
-          icon: Icons.album,
-          items: [
-            PresetItem(id: 'preset_808_kit', name: '808 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
-            PresetItem(id: 'preset_909_kit', name: '909 Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
-            PresetItem(id: 'preset_trap_kit', name: 'Trap Kit', instrumentId: 'drums', category: 'Drums', isPlaceholder: true),
-          ],
-        ),
-      ],
+      subcategories: [],
+      items: [],
     );
   }
 
-  /// Build Samples category
+  /// Build Samples category (empty - not yet implemented)
   LibraryCategory _buildSamplesCategory() {
     return const LibraryCategory(
       id: 'samples',
       name: 'Samples',
       icon: Icons.audio_file,
-      subcategories: [
-        LibraryCategory(
-          id: 'samples_drums',
-          name: 'Drums',
-          icon: Icons.album,
-          items: [
-            SampleItem(id: 'sample_kick_808', name: 'Kick 808', filePath: '', category: 'Drums', isPlaceholder: true),
-            SampleItem(id: 'sample_snare_trap', name: 'Snare Trap', filePath: '', category: 'Drums', isPlaceholder: true),
-            SampleItem(id: 'sample_hihat_closed', name: 'Hi-Hat Closed', filePath: '', category: 'Drums', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'samples_loops',
-          name: 'Loops',
-          icon: Icons.loop,
-          items: [
-            SampleItem(id: 'sample_drum_loop_1', name: 'Drum Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
-            SampleItem(id: 'sample_bass_loop_1', name: 'Bass Loop 1', filePath: '', category: 'Loops', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'samples_oneshots',
-          name: 'One-shots',
-          icon: Icons.flash_on,
-          items: [
-            SampleItem(id: 'sample_clap_1', name: 'Clap 1', filePath: '', category: 'One-shots', isPlaceholder: true),
-            SampleItem(id: 'sample_perc_1', name: 'Perc 1', filePath: '', category: 'One-shots', isPlaceholder: true),
-          ],
-        ),
-        LibraryCategory(
-          id: 'samples_fx',
-          name: 'FX',
-          icon: Icons.auto_fix_high,
-          items: [
-            SampleItem(id: 'sample_riser_1', name: 'Riser 1', filePath: '', category: 'FX', isPlaceholder: true),
-            SampleItem(id: 'sample_impact_1', name: 'Impact 1', filePath: '', category: 'FX', isPlaceholder: true),
-            SampleItem(id: 'sample_sweep_1', name: 'Sweep 1', filePath: '', category: 'FX', isPlaceholder: true),
-          ],
-        ),
-      ],
+      subcategories: [],
+      items: [],
     );
   }
 
