@@ -122,9 +122,9 @@ class RecordingController extends ChangeNotifier {
       _recordingStateTimer?.cancel();
       _recordingStateTimer = null;
 
-      // Calculate high-resolution peaks for detailed waveform display
+      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
       final duration = audioClipId >= 0 ? _audioEngine!.getClipDuration(audioClipId) : 0.0;
-      final peakResolution = (duration * 4000).clamp(16000, 200000).toInt();
+      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
 
       final result = RecordingResult(
         audioClipId: audioClipId >= 0 ? audioClipId : null,

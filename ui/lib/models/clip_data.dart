@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'audio_clip_edit_data.dart';
 
 /// Represents an audio clip on the timeline
 class ClipData {
@@ -11,6 +12,9 @@ class ClipData {
   final List<double> waveformPeaks;
   final Color? color;
 
+  /// Non-destructive editing parameters (transpose, gain, reverse, etc.)
+  final AudioClipEditData? editData;
+
   ClipData({
     required this.clipId,
     required this.trackId,
@@ -20,6 +24,7 @@ class ClipData {
     this.offset = 0.0,
     this.waveformPeaks = const [],
     this.color,
+    this.editData,
   });
 
   String get fileName {
@@ -37,6 +42,7 @@ class ClipData {
     double? offset,
     List<double>? waveformPeaks,
     Color? color,
+    AudioClipEditData? editData,
   }) {
     return ClipData(
       clipId: clipId ?? this.clipId,
@@ -47,6 +53,7 @@ class ClipData {
       offset: offset ?? this.offset,
       waveformPeaks: waveformPeaks ?? this.waveformPeaks,
       color: color ?? this.color,
+      editData: editData ?? this.editData,
     );
   }
 }

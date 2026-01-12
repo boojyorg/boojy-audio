@@ -30,7 +30,7 @@ This document is the **single source of truth** for all Boojy Audio features, or
 Everything needed to make music: recording, editing, mixing, MIDI, VST3, stock instruments.
 
 ### v1.1 - Polish & iPad (Target: Q1 2026)
-iPad optimization, more effects, accessibility features, automation curves, CLAP support.
+iPad optimization, more effects, accessibility features, automation curves, CLAP support
 
 ### v1.2 - Advanced Features (Target: Q2 2026)
 Pitch correction, stem separation, MIDI effects, Dolby Atmos, smart tempo.
@@ -209,7 +209,7 @@ DJ Mode, Session View, clip launcher, crossfader, live looping.
 ## Tempo & Time
 
 - [x] Fixed tempo (BPM display)
-- [x] Time signature (4/4)
+- [ ] Time signature (4/4)
 - [ ] Tempo automation
 - [ ] Tap tempo
 - [ ] Time signature changes
@@ -260,10 +260,10 @@ DJ Mode, Session View, clip launcher, crossfader, live looping.
 ### Export
 - [x] Export WAV (16/24/32-bit)
 - [x] Export MP3 (128/192/320 kbps)
-- [x] Export with LUFS normalization
-- [x] Export progress tracking
+- [ ] Export with LUFS normalization
+- [ ] Export progress tracking
 - [x] Stem export (per-track)
-- [x] ID3 metadata for MP3
+- [ ] ID3 metadata for MP3
 - [ ] Export FLAC
 - [ ] Export MIDI
 - [ ] Import MIDI
@@ -289,7 +289,7 @@ DJ Mode, Session View, clip launcher, crossfader, live looping.
 
 ## Stock Instruments
 
-- [x] Basic synthesizer (8-voice, ADSR, filter)
+- [ ] Basic synthesizer (8-voice, ADSR, filter)
 - [ ] Boojy Synth (wavetable, Serum-style)
 - [ ] Boojy Sampler (simple/advanced modes)
 - [ ] Boojy Drums (pad grid + step sequencer)
@@ -300,16 +300,16 @@ DJ Mode, Session View, clip launcher, crossfader, live looping.
 ## Accessibility & QoL
 
 ### Keyboard Shortcuts
-- [x] Space = Play/Pause
-- [x] R = Record
-- [x] L = Toggle Loop
-- [x] M = Toggle Metronome
-- [x] Cmd+S = Save
-- [x] Cmd+E = Split clip
-- [x] Q = Quantize clip
-- [x] Cmd+J = Consolidate clips
-- [x] Native macOS menu bar shortcuts
-- [x] ? = Show keyboard shortcuts overlay
+- [ ] Space = Play/Pause
+- [ ] R = Record
+- [ ] L = Toggle Loop
+- [ ] M = Toggle Metronome
+- [ ] Cmd+S = Save
+- [ ] Cmd+E = Split clip
+- [ ] Q = Quantize clip
+- [ ] Cmd+J = Consolidate clips
+- [ ] Native macOS menu bar shortcuts
+- [ ] ? = Show keyboard shortcuts overlay
 - [ ] Customizable shortcuts
 
 ### Help & Learning

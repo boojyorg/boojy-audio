@@ -110,6 +110,10 @@ class UserSettings extends ChangeNotifier {
   // Appearance keys
   static const String _keyTheme = 'theme';
 
+  // Privacy keys
+  static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
+  static const String _keyCrashReportingAsked = 'crash_reporting_asked';
+
   // Limits
   static const int maxRecentProjects = 20;
 
@@ -172,6 +176,10 @@ class UserSettings extends ChangeNotifier {
 
   // Appearance settings
   String _theme = 'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
+
+  // Privacy settings
+  bool _crashReportingEnabled = false; // Default off - requires opt-in
+  bool _crashReportingAsked = false; // Whether user has been asked
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -512,6 +520,30 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  // ========================================================================
+  // Privacy Settings
+  // ========================================================================
+
+  /// Whether crash reporting is enabled (requires user opt-in)
+  bool get crashReportingEnabled => _crashReportingEnabled;
+  set crashReportingEnabled(bool value) {
+    if (_crashReportingEnabled != value) {
+      _crashReportingEnabled = value;
+      _savePrivacySettings();
+      notifyListeners();
+    }
+  }
+
+  /// Whether the user has been asked about crash reporting
+  bool get crashReportingAsked => _crashReportingAsked;
+  set crashReportingAsked(bool value) {
+    if (_crashReportingAsked != value) {
+      _crashReportingAsked = value;
+      _savePrivacySettings();
+      notifyListeners();
+    }
+  }
+
   /// Convenience method to set auto-save minutes
   void setAutoSaveMinutes(int value) {
     autoSaveMinutes = value;
@@ -597,6 +629,10 @@ class UserSettings extends ChangeNotifier {
 
       // Load appearance settings
       _theme = _prefs?.getString(_keyTheme) ?? 'dark';
+
+      // Load privacy settings
+      _crashReportingEnabled = _prefs?.getBool(_keyCrashReportingEnabled) ?? false;
+      _crashReportingAsked = _prefs?.getBool(_keyCrashReportingAsked) ?? false;
 
       _isLoaded = true;
       notifyListeners();
@@ -744,6 +780,18 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setString(_keyTheme, _theme);
     } catch (e) {
       debugPrint('UserSettings: Failed to save appearance settings: $e');
+    }
+  }
+
+  /// Save privacy settings to SharedPreferences
+  Future<void> _savePrivacySettings() async {
+    if (_prefs == null) return;
+
+    try {
+      await _prefs!.setBool(_keyCrashReportingEnabled, _crashReportingEnabled);
+      await _prefs!.setBool(_keyCrashReportingAsked, _crashReportingAsked);
+    } catch (e) {
+      debugPrint('UserSettings: Failed to save privacy settings: $e');
     }
   }
 

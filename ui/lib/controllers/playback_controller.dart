@@ -4,6 +4,10 @@ import '../audio_engine.dart';
 
 /// Manages playback state and transport controls.
 /// Handles play/pause/stop operations and playhead position updates.
+///
+/// PERFORMANCE NOTE: Playhead position updates use a separate ValueNotifier
+/// to avoid triggering full widget rebuilds on every frame. Widgets that need
+/// playhead updates should listen to [playheadNotifier] directly.
 class PlaybackController extends ChangeNotifier {
   AudioEngine? _audioEngine;
   Timer? _playheadTimer;
@@ -12,6 +16,11 @@ class PlaybackController extends ChangeNotifier {
   double _playheadPosition = 0.0;
   bool _isPlaying = false;
   String _statusMessage = '';
+
+  /// Separate notifier for playhead position to avoid triggering full rebuilds.
+  /// Widgets needing real-time playhead updates should use ValueListenableBuilder
+  /// with this notifier instead of listening to the main controller.
+  final ValueNotifier<double> playheadNotifier = ValueNotifier(0.0);
 
   // Clip info for auto-stop
   double? _clipDuration;
@@ -194,7 +203,10 @@ class PlaybackController extends ChangeNotifier {
           _playheadPosition = _loopStartBeats;
         }
 
-        notifyListeners();
+        // PERFORMANCE: Only update playhead notifier, not full controller.
+        // This prevents 60fps full widget rebuilds during playback.
+        // Widgets needing playhead updates use ValueListenableBuilder with playheadNotifier.
+        playheadNotifier.value = _playheadPosition;
 
         // Auto-stop at end of clip (only when not loop cycling)
         if (!_isLoopCycling && _clipDuration != null && pos >= _clipDuration!) {
@@ -213,6 +225,7 @@ class PlaybackController extends ChangeNotifier {
   @override
   void dispose() {
     _stopPlayheadTimer();
+    playheadNotifier.dispose();
     super.dispose();
   }
 }

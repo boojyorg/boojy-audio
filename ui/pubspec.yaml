@@ -58,6 +58,9 @@ dependencies:
   # State management
   provider: ^6.1.2
 
+  # Crash reporting
+  sentry_flutter: ^8.11.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

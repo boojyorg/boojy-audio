@@ -3,19 +3,22 @@ import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import 'piano_roll.dart';
+import 'audio_editor/audio_editor.dart';
 import 'synthesizer_panel.dart';
 import 'vst3_plugin_parameter_panel.dart';
 import 'fx_chain/fx_chain_view.dart';
 import '../models/midi_note_data.dart';
+import '../models/clip_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 
-/// Editor panel widget - tabbed interface for Piano Roll, Effects, Instrument, and Virtual Piano
+/// Editor panel widget - tabbed interface for Piano Roll/Audio Editor, Effects, Instrument
 class EditorPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool virtualPianoEnabled;
   final int? selectedTrackId; // Unified track selection
   final String? selectedTrackName; // Track name for display
+  final String? selectedTrackType; // Track type: "MIDI", "Audio", or "Master"
   final InstrumentData? currentInstrumentData;
   final VoidCallback? onVirtualPianoClose;
   final VoidCallback? onVirtualPianoToggle; // Toggle virtual piano visibility
@@ -26,6 +29,10 @@ class EditorPanel extends StatefulWidget {
 
   /// Ghost notes from other MIDI tracks to display in Piano Roll
   final List<MidiNoteData> ghostNotes;
+
+  // Audio clip editing
+  final ClipData? currentEditingAudioClip;
+  final Function(ClipData)? onAudioClipUpdated;
 
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
@@ -43,6 +50,7 @@ class EditorPanel extends StatefulWidget {
     this.virtualPianoEnabled = false,
     this.selectedTrackId,
     this.selectedTrackName,
+    this.selectedTrackType,
     this.currentInstrumentData,
     this.onVirtualPianoClose,
     this.onVirtualPianoToggle,
@@ -51,6 +59,8 @@ class EditorPanel extends StatefulWidget {
     this.onMidiClipUpdated,
     this.onInstrumentParameterChanged,
     this.ghostNotes = const [],
+    this.currentEditingAudioClip,
+    this.onAudioClipUpdated,
     this.currentTrackPlugins,
     this.onVst3ParameterChanged,
     this.onVst3PluginRemoved,
@@ -63,7 +73,7 @@ class EditorPanel extends StatefulWidget {
   State<EditorPanel> createState() => _EditorPanelState();
 }
 
-class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStateMixin {
+class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin {
   late TabController _tabController;
   int _selectedTabIndex = 0;
 
@@ -76,10 +86,31 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
   // Highlighted note from Virtual Piano (for Piano Roll sync)
   int? _highlightedNote;
 
+  /// Whether the selected track is an audio track
+  bool get _isAudioTrack => widget.selectedTrackType?.toLowerCase() == 'audio';
+
+  /// Get the first tab label based on track type
+  /// For audio tracks, shows the clip filename (truncated if needed)
+  String get _firstTabLabel {
+    if (_isAudioTrack) {
+      final clipName = widget.currentEditingAudioClip?.fileName;
+      if (clipName != null && clipName.isNotEmpty) {
+        return clipName.length > 20 ? '${clipName.substring(0, 17)}...' : clipName;
+      }
+      return 'Audio Editor';
+    }
+    return 'Piano Roll';
+  }
+
+  /// Get the first tab icon based on track type
+  IconData get _firstTabIcon => _isAudioTrack ? Icons.audio_file : Icons.piano_outlined;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // Audio tracks have 2 tabs (Editor, Effects), MIDI tracks have 3 (Piano Roll, Effects, Instrument)
+    final tabCount = _isAudioTrack ? 2 : 3;
+    _tabController = TabController(length: tabCount, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _selectedTabIndex = _tabController.index;
@@ -93,27 +124,51 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
   void didUpdateWidget(EditorPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Check if track type changed (switching between audio and MIDI tracks)
+    final oldIsAudio = oldWidget.selectedTrackType?.toLowerCase() == 'audio';
+    final newIsAudio = _isAudioTrack;
+    if (oldIsAudio != newIsAudio) {
+      // Recreate tab controller with new length - wrap in setState to ensure rebuild
+      setState(() {
+        final newTabCount = newIsAudio ? 2 : 3;
+        _tabController.dispose();
+        _tabController = TabController(length: newTabCount, vsync: this);
+        _tabController.addListener(() {
+          setState(() {
+            _selectedTabIndex = _tabController.index;
+          });
+        });
+        _selectedTabIndex = 0; // Reset to first tab
+      });
+      return; // Exit early to avoid setting index on newly created controller
+    }
+
     // Only auto-switch tabs if this is the first track selection (from null)
     // Otherwise, preserve the current tab when switching between tracks
     if (widget.selectedTrackId != oldWidget.selectedTrackId) {
       if (oldWidget.selectedTrackId == null && widget.selectedTrackId != null) {
         // First selection: auto-switch to appropriate tab
-        if (widget.currentInstrumentData != null) {
-          _tabController.index = 2; // Instrument tab
+        if (!_isAudioTrack && widget.currentInstrumentData != null) {
+          _tabController.index = 2; // Instrument tab (only for MIDI tracks)
         } else {
-          _tabController.index = 0; // Piano Roll tab
+          _tabController.index = 0; // Piano Roll/Audio Editor tab
         }
       }
       // If switching from one track to another, preserve current tab
     }
 
-    // Auto-switch to Piano Roll tab when clip selected
+    // Auto-switch to Piano Roll tab when MIDI clip selected
     if (widget.currentEditingClip != null && oldWidget.currentEditingClip == null) {
       _tabController.index = 0;
     }
 
-    // Auto-switch to Instrument tab when instrument data first appears
-    if (widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
+    // Auto-switch to Audio Editor tab when audio clip selected
+    if (widget.currentEditingAudioClip != null && oldWidget.currentEditingAudioClip == null) {
+      _tabController.index = 0;
+    }
+
+    // Auto-switch to Instrument tab when instrument data first appears (MIDI tracks only)
+    if (!_isAudioTrack && widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
       _tabController.index = 2;
     }
   }
@@ -184,19 +239,31 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                 bottom: BorderSide(color: context.colors.surface),
               ),
             ),
-            child: Row(
+            child: Stack(
               children: [
-                const SizedBox(width: 8),
-                // Tab buttons (left side)
-                _buildTabButton(0, Icons.piano_outlined, 'Piano Roll'),
-                const SizedBox(width: 4),
-                _buildTabButton(1, Icons.equalizer, 'Effects'),
-                const SizedBox(width: 4),
-                _buildTabButton(2, Icons.music_note, 'Instrument'),
-                // Centered tool buttons (always visible)
-                Expanded(
+                // Left side: Tab buttons
+                Positioned(
+                  left: 8,
+                  top: 0,
+                  bottom: 0,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTabButton(0, _firstTabIcon, _firstTabLabel),
+                      const SizedBox(width: 4),
+                      _buildTabButton(1, Icons.equalizer, 'Effects'),
+                      // Instrument tab only shown for MIDI tracks
+                      if (!_isAudioTrack) ...[
+                        const SizedBox(width: 4),
+                        _buildTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+                      ],
+                    ],
+                  ),
+                ),
+                // Center: Tool buttons (truly centered)
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
                       const SizedBox(width: 4),
@@ -210,31 +277,43 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
                     ],
                   ),
                 ),
-                // Virtual Piano toggle (right side, before collapse button)
-                _buildPianoToggle(),
-                const SizedBox(width: 8),
-                // Collapse button (down arrow)
-                Tooltip(
-                  message: 'Collapse Panel',
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: widget.onClosePanel,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 18,
-                          color: context.colors.textSecondary,
+                // Right side: Virtual Piano toggle + Collapse button
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Virtual Piano toggle - only for MIDI tracks
+                      if (!_isAudioTrack) ...[
+                        _buildPianoToggle(),
+                        const SizedBox(width: 8),
+                      ],
+                      // Collapse button (down arrow)
+                      Tooltip(
+                        message: 'Collapse Panel',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: widget.onClosePanel,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 18,
+                                color: context.colors.textSecondary,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
               ],
             ),
           ),
@@ -244,9 +323,10 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildPianoRollTab(),
+                _buildEditorTab(), // Context-sensitive: Audio Editor or Piano Roll
                 _buildFXChainTab(),
-                _buildInstrumentTab(),
+                // Instrument tab only for MIDI tracks
+                if (!_isAudioTrack) _buildInstrumentTab(),
               ],
             ),
           ),
@@ -265,19 +345,31 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
           top: BorderSide(color: context.colors.divider),
         ),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          // Tab buttons (clickable, expand panel and switch to that tab)
-          _buildCollapsedTabButton(0, Icons.piano_outlined, 'Piano Roll'),
-          const SizedBox(width: 4),
-          _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
-          const SizedBox(width: 4),
-          _buildCollapsedTabButton(2, Icons.music_note, 'Instrument'),
-          // Centered tool buttons (always visible)
-          Expanded(
+          // Left side: Tab buttons
+          Positioned(
+            left: 8,
+            top: 0,
+            bottom: 0,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
+                const SizedBox(width: 4),
+                _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
+                // Instrument tab only shown for MIDI tracks
+                if (!_isAudioTrack) ...[
+                  const SizedBox(width: 4),
+                  _buildCollapsedTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+                ],
+              ],
+            ),
+          ),
+          // Center: Tool buttons (truly centered)
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
                 const SizedBox(width: 4),
@@ -291,31 +383,43 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
               ],
             ),
           ),
-          // Virtual Piano toggle (right side, before expand button)
-          _buildPianoToggle(),
-          const SizedBox(width: 8),
-          // Expand arrow (up arrow)
-          Tooltip(
-            message: 'Expand Editor',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onExpandPanel,
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.keyboard_arrow_up,
-                    color: context.colors.textSecondary,
-                    size: 18,
+          // Right side: Virtual Piano toggle + Expand button
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Virtual Piano toggle - only for MIDI tracks
+                if (!_isAudioTrack) ...[
+                  _buildPianoToggle(),
+                  const SizedBox(width: 8),
+                ],
+                // Expand arrow (up arrow)
+                Tooltip(
+                  message: 'Expand Editor',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onExpandPanel,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.keyboard_arrow_up,
+                          color: context.colors.textSecondary,
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
     );
@@ -349,6 +453,19 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
         ),
       ),
     );
+  }
+
+  /// Get dynamic instrument tab label based on current instrument
+  String _getInstrumentTabLabel() {
+    if (widget.currentInstrumentData == null) {
+      return 'Instrument';
+    }
+    if (widget.currentInstrumentData!.isVst3) {
+      final name = widget.currentInstrumentData!.pluginName ?? 'Plugin';
+      // Truncate to max 15 characters with ellipsis
+      return name.length > 15 ? '${name.substring(0, 12)}...' : name;
+    }
+    return 'Synthesizer';
   }
 
   Widget _buildTabButton(int index, IconData icon, String label) {
@@ -396,17 +513,25 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
 
   /// Build a tool button for the Piano Roll toolbar
   /// Shows full highlight for active sticky tool, dimmer highlight for temporary hold modifier
+  /// Tools are greyed out when viewing Audio Editor (not functional in v1)
   Widget _buildToolButton(ToolMode mode, IconData icon, String tooltip) {
     final isActive = _currentToolMode == mode;
     final isTempActive = _tempToolMode == mode && !isActive;
 
+    // Grey out tools when on audio track (tools not functional in Audio Editor v1)
+    final isDisabled = _isAudioTrack;
+
     // Determine background color:
+    // - Greyed out for audio tracks
     // - Full accent for sticky active tool
     // - Dimmer accent (50% opacity) for temporary hold modifier
     // - Dark for inactive
     Color bgColor;
     Color iconColor;
-    if (isActive) {
+    if (isDisabled) {
+      bgColor = context.colors.dark.withValues(alpha: 0.5);
+      iconColor = context.colors.textMuted.withValues(alpha: 0.5);
+    } else if (isActive) {
       bgColor = context.colors.accent;
       iconColor = context.colors.elevated;
     } else if (isTempActive) {
@@ -417,12 +542,14 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
       iconColor = context.colors.textPrimary;
     }
 
+    final tooltipText = isDisabled ? '$tooltip (coming in v2)' : tooltip;
+
     return Tooltip(
-      message: tooltip,
+      message: tooltipText,
       child: GestureDetector(
-        onTap: () => setState(() => _currentToolMode = mode),
+        onTap: isDisabled ? null : () => setState(() => _currentToolMode = mode),
         child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
           child: Container(
             width: 28,
             height: 28,
@@ -479,6 +606,66 @@ class _EditorPanelState extends State<EditorPanel> with SingleTickerProviderStat
           ),
         ),
       ),
+    );
+  }
+
+  /// Build the first tab content - switches between Audio Editor and Piano Roll
+  /// based on the selected track type.
+  Widget _buildEditorTab() {
+    if (_isAudioTrack) {
+      return _buildAudioEditorTab();
+    } else {
+      return _buildPianoRollTab();
+    }
+  }
+
+  /// Build the Audio Editor tab for audio tracks
+  Widget _buildAudioEditorTab() {
+    final clipData = widget.currentEditingAudioClip;
+
+    if (clipData == null) {
+      // No audio clip selected - show empty state
+      return ColoredBox(
+        color: context.colors.dark,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.audio_file,
+                size: 64,
+                color: context.colors.textMuted,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Audio Editor',
+                style: TextStyle(
+                  color: context.colors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Select an audio clip to start editing',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return AudioEditor(
+      audioEngine: widget.audioEngine,
+      clipData: clipData,
+      onClipUpdated: widget.onAudioClipUpdated,
+      toolMode: _currentToolMode,
+      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
     );
   }
 

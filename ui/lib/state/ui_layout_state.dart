@@ -96,10 +96,10 @@ class UILayoutState extends ChangeNotifier {
   static const double autoCollapseLibraryWidth = 900.0;
   static const double autoCollapseMixerWidth = 1000.0;
 
-  // Collapse threshold = min (snap collapse when dragged below min)
-  static double get libraryCollapseThreshold => libraryMinWidth;
-  static double get mixerCollapseThreshold => mixerMinWidth;
-  static double get editorCollapseThreshold => editorMinHeight;
+  // Collapse threshold = separate from min (requires dragging further to collapse)
+  static double get libraryCollapseThreshold => libraryMinWidth - 50.0;
+  static double get mixerCollapseThreshold => mixerMinWidth - 50.0;
+  static double get editorCollapseThreshold => editorMinHeight - 50.0;
 
   // Calculate actual max based on window size (percentage OR hard max, whichever is smaller)
   static double getLibraryMaxWidth(double windowWidth) {
