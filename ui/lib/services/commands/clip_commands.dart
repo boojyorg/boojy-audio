@@ -35,7 +35,7 @@ class MoveMidiClipCommand extends Command {
 
   @override
   String get description =>
-      'Move clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
+      'Move Clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
 }
 
 /// Command to move an audio clip on the timeline
@@ -66,7 +66,7 @@ class MoveAudioClipCommand extends Command {
 
   @override
   String get description =>
-      'Move audio clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
+      'Move Audio Clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
 }
 
 /// Command to delete a MIDI clip
@@ -88,7 +88,7 @@ class DeleteMidiClipCommand extends Command {
   }
 
   @override
-  String get description => 'Delete MIDI clip: ${clipData.name}';
+  String get description => 'Delete MIDI Clip: ${clipData.name}';
 }
 
 /// Snapshot-based command for MIDI clip note changes
@@ -149,7 +149,7 @@ class AddMidiNoteCommand extends Command {
   }
 
   @override
-  String get description => 'Add note: ${addedNote.noteName}';
+  String get description => 'Add Note: ${addedNote.noteName}';
 }
 
 /// Command to delete MIDI note(s)
@@ -177,7 +177,7 @@ class DeleteMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Delete note' : 'Delete $noteCount notes';
+  String get description => noteCount == 1 ? 'Delete Note' : 'Delete $noteCount Notes';
 }
 
 /// Command to move MIDI note(s)
@@ -205,7 +205,7 @@ class MoveMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Move note' : 'Move $noteCount notes';
+  String get description => noteCount == 1 ? 'Move Note' : 'Move $noteCount Notes';
 }
 
 /// Command to resize MIDI note(s)
@@ -233,7 +233,7 @@ class ResizeMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Resize note' : 'Resize $noteCount notes';
+  String get description => noteCount == 1 ? 'Resize Note' : 'Resize $noteCount Notes';
 }
 
 /// Command to split a MIDI clip at the playhead position
@@ -311,7 +311,7 @@ class SplitMidiClipCommand extends Command {
   }
 
   @override
-  String get description => 'Split MIDI clip: ${originalClip.name}';
+  String get description => 'Split MIDI Clip: ${originalClip.name}';
 }
 
 /// Command to split an audio clip at the playhead position
@@ -363,7 +363,7 @@ class SplitAudioClipCommand extends Command {
   }
 
   @override
-  String get description => 'Split audio clip';
+  String get description => 'Split Audio Clip';
 
   // Helper getters for the callback to use
   double get leftDuration => splitPointSeconds - originalStartTime;

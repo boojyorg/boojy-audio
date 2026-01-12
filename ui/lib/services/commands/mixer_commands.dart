@@ -27,7 +27,7 @@ class SetVolumeCommand extends Command {
 
   @override
   String get description =>
-      'Set volume: $trackName (${oldVolumeDb.toStringAsFixed(1)} → ${newVolumeDb.toStringAsFixed(1)} dB)';
+      'Set Volume: $trackName (${oldVolumeDb.toStringAsFixed(1)} → ${newVolumeDb.toStringAsFixed(1)} dB)';
 }
 
 /// Command to change track pan
@@ -61,7 +61,7 @@ class SetPanCommand extends Command {
       if (p > 0.01) return '${(p * 100).round()}R';
       return 'C';
     }
-    return 'Set pan: $trackName (${panStr(oldPan)} → ${panStr(newPan)})';
+    return 'Set Pan: $trackName (${panStr(oldPan)} → ${panStr(newPan)})';
   }
 }
 
@@ -91,7 +91,7 @@ class SetMuteCommand extends Command {
 
   @override
   String get description =>
-      '${newMute ? 'Mute' : 'Unmute'} track: $trackName';
+      '${newMute ? 'Mute' : 'Unmute'} Track: $trackName';
 }
 
 /// Command to toggle track solo
@@ -120,5 +120,5 @@ class SetSoloCommand extends Command {
 
   @override
   String get description =>
-      '${newSolo ? 'Solo' : 'Unsolo'} track: $trackName';
+      '${newSolo ? 'Solo' : 'Unsolo'} Track: $trackName';
 }

@@ -27,8 +27,10 @@ class CreateTrackCommand extends Command {
     }
   }
 
+  String get _trackTypeDisplay => trackType == 'midi' ? 'MIDI' : 'Audio';
+
   @override
-  String get description => 'Create $trackType track: $trackName';
+  String get description => 'Create $_trackTypeDisplay Track';
 }
 
 /// Command to delete a track
@@ -88,7 +90,7 @@ class DeleteTrackCommand extends Command {
   }
 
   @override
-  String get description => 'Delete track: $trackName';
+  String get description => 'Delete Track: $trackName';
 }
 
 /// Command to duplicate a track
@@ -118,7 +120,7 @@ class DuplicateTrackCommand extends Command {
   }
 
   @override
-  String get description => 'Duplicate track: $sourceTrackName';
+  String get description => 'Duplicate Track: $sourceTrackName';
 }
 
 /// Command to rename a track
