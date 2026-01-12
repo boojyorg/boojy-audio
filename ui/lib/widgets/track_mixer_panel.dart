@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
+import 'instrument_browser.dart';
 import '../utils/track_colors.dart';
 import '../models/instrument_data.dart';
 import '../models/track_data.dart';
@@ -28,6 +29,8 @@ class TrackMixerPanel extends StatefulWidget {
   final Map<int, int>? trackVst3PluginCounts; // trackId -> plugin count
   final Function(int)? onFxButtonPressed; // (trackId)
   final Function(int, Vst3Plugin)? onVst3PluginDropped; // (trackId, plugin)
+  final Function(int, Vst3Plugin)? onVst3InstrumentDropped; // (trackId, vst3 instrument)
+  final Function(int, Instrument)? onInstrumentDropped; // (trackId, built-in instrument)
   final Function(int)? onEditPluginsPressed; // (trackId) - M10
 
   // Audio file drag-and-drop
@@ -84,6 +87,8 @@ class TrackMixerPanel extends StatefulWidget {
     this.trackVst3PluginCounts,
     this.onFxButtonPressed,
     this.onVst3PluginDropped,
+    this.onVst3InstrumentDropped,
+    this.onInstrumentDropped,
     this.onEditPluginsPressed, // M10
     this.onAudioFileDropped,
     this.onMidiTrackCreated,
@@ -945,6 +950,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0,
       onFxButtonPressed: () => widget.onFxButtonPressed?.call(track.id),
       onVst3PluginDropped: (plugin) => widget.onVst3PluginDropped?.call(track.id, plugin),
+      onVst3InstrumentDropped: (plugin) => widget.onVst3InstrumentDropped?.call(track.id, plugin),
+      onInstrumentDropped: (instrument) => widget.onInstrumentDropped?.call(track.id, instrument),
       onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id),
       trackHeight: widget.trackHeights[track.id] ?? 100.0,
       onHeightChanged: (height) {

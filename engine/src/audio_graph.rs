@@ -704,7 +704,8 @@ impl AudioGraph {
 
                     for frame_idx in 0..frames {
                         // Get input samples (if recording)
-                        let (input_left, input_right) = if let Ok(input_mgr) = input_manager.lock() {
+                        // Use try_lock() to avoid deadlock - if lock is held by API thread, just skip this frame
+                        let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
                             let channels = input_mgr.get_input_channels();
 
                             // Log once for debugging
@@ -1148,7 +1149,8 @@ impl AudioGraph {
                     */ // END LEGACY CODE REMOVAL
 
                     // Get input samples (if recording)
-                    let (input_left, input_right) = if let Ok(input_mgr) = input_manager.lock() {
+                    // Use try_lock() to avoid deadlock with API thread
+                    let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
                         let channels = input_mgr.get_input_channels();
                         if channels == 1 {
                             if let Some(samples) = input_mgr.read_samples(1) {

@@ -7,6 +7,7 @@ import 'audio_editor/audio_editor.dart';
 import 'synthesizer_panel.dart';
 import 'vst3_plugin_parameter_panel.dart';
 import 'fx_chain/fx_chain_view.dart';
+import 'instrument_browser.dart';
 import '../models/midi_note_data.dart';
 import '../models/clip_data.dart';
 import '../models/instrument_data.dart';
@@ -44,6 +45,10 @@ class EditorPanel extends StatefulWidget {
   final VoidCallback? onExpandPanel;
   final Function(int tabIndex)? onTabAndExpand; // Select tab AND expand
 
+  // Instrument swap via drag-and-drop
+  final Function(Vst3Plugin)? onVst3InstrumentDropped;
+  final Function(Instrument)? onInstrumentDropped;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -67,6 +72,8 @@ class EditorPanel extends StatefulWidget {
     this.isCollapsed = false,
     this.onExpandPanel,
     this.onTabAndExpand,
+    this.onVst3InstrumentDropped,
+    this.onInstrumentDropped,
   });
 
   @override
@@ -221,7 +228,27 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       return _buildCollapsedBar();
     }
 
-    return DecoratedBox(
+    // Check if current track is MIDI (can accept instrument drops)
+    // Note: selectedTrackType can be 'MIDI', 'midi', 'Audio', etc.
+    final isMidiTrack = widget.selectedTrackType?.toLowerCase() == 'midi';
+
+    // Wrap with DragTargets for instrument swapping
+    return DragTarget<Vst3Plugin>(
+      onWillAcceptWithDetails: (details) {
+        // Only accept VST3 instruments on MIDI tracks
+        return isMidiTrack && details.data.isInstrument;
+      },
+      onAcceptWithDetails: (details) {
+        widget.onVst3InstrumentDropped?.call(details.data);
+      },
+      builder: (context, candidateVst3, rejectedVst3) {
+        return DragTarget<Instrument>(
+          onWillAcceptWithDetails: (_) => isMidiTrack,
+          onAcceptWithDetails: (details) {
+            widget.onInstrumentDropped?.call(details.data);
+          },
+          builder: (context, candidateInstrument, rejectedInstrument) {
+            return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colors.dark,
         border: Border(
@@ -332,6 +359,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           ),
         ],
       ),
+    );
+          },
+        );
+      },
     );
   }
 

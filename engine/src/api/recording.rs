@@ -110,29 +110,66 @@ pub fn stop_audio_input() -> Result<String, String> {
 // AUDIO RECORDING
 // ============================================================================
 
-/// Start recording audio
+/// Start recording audio (also enables metronome/count-in for MIDI recording)
+///
+/// Note: Audio input capture failures are non-fatal - MIDI recording can still proceed.
 pub fn start_recording() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
-    // Start audio input if not already started
-    {
-        let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
-        if !input_manager.is_capturing() {
-            input_manager.start_capture(10.0).map_err(|e| e.to_string())?;
-        }
-    }
-
-    // CRITICAL: Ensure output stream is running so audio callback processes recording
-    // If not playing, we need to start the output stream for metronome and recording
-    // Note: play() checks internally if already playing and returns early if so
-    eprintln!("🔊 [API] Ensuring output stream is running for recording...");
+    // FIRST: Start playback state (lock-free atomic operation)
+    // This must happen before starting audio input to avoid deadlock
+    eprintln!("🔊 [API] Setting transport to playing for recording...");
     graph.play().map_err(|e| e.to_string())?;
 
+    // Start the recorder state machine (count-in, etc.)
     graph.recorder.start_recording()?;
-
     let state = graph.recorder.get_state();
-    Ok(format!("Recording started: {:?}", state))
+
+    // NOW try to start audio input (non-fatal if it fails - MIDI recording can still work)
+    // We do this AFTER play() to avoid deadlock: the audio callback tries to lock input_manager,
+    // and start_capture() calls stream.play() which may wait for the audio callback.
+    eprintln!("🎙️  [API] Attempting to acquire input_manager lock...");
+    let audio_input_started = {
+        let mut input_manager = match graph.input_manager.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                eprintln!("⚠️  [API] Could not acquire input_manager lock, skipping audio input");
+                return Ok(format!("Recording started (MIDI only, input busy): {:?}", state));
+            }
+        };
+
+        // Auto-enumerate and select default device if none selected
+        if input_manager.get_selected_device_index().is_none() {
+            eprintln!("🎙️  [API] No input device selected, auto-selecting default...");
+            let _ = input_manager.enumerate_devices(); // This auto-selects default
+        }
+
+        if input_manager.get_selected_device_index().is_some() && !input_manager.is_capturing() {
+            match input_manager.start_capture(10.0) {
+                Ok(()) => {
+                    eprintln!("🎙️  [API] Audio input capture started");
+                    true
+                }
+                Err(e) => {
+                    eprintln!("⚠️  [API] Audio input capture failed (MIDI recording will still work): {}", e);
+                    false
+                }
+            }
+        } else if input_manager.is_capturing() {
+            true
+        } else {
+            eprintln!("⚠️  [API] No audio input device available (MIDI recording will still work)");
+            false
+        }
+    };
+
+    let msg = if audio_input_started {
+        format!("Recording started (audio + MIDI): {:?}", state)
+    } else {
+        format!("Recording started (MIDI only): {:?}", state)
+    };
+    Ok(msg)
 }
 
 /// Stop recording and return the recorded clip ID

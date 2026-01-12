@@ -1181,7 +1181,7 @@ class _DAWScreenState extends State<DAWScreen> {
     if (_audioEngine == null) return;
 
     final selectedTrack = _selectedTrackId;
-    final isEmptyMidi = selectedTrack != null && _isEmptyMidiTrack(selectedTrack);
+    final isMidi = selectedTrack != null && _isMidiTrack(selectedTrack);
     final isEmptyAudio = selectedTrack != null && _isEmptyAudioTrack(selectedTrack);
 
     switch (item.type) {
@@ -1189,8 +1189,8 @@ class _DAWScreenState extends State<DAWScreen> {
         // Find the matching Instrument from availableInstruments
         final instrument = _findInstrumentByName(item.name);
         if (instrument != null) {
-          if (isEmptyMidi) {
-            // Load onto selected empty MIDI track
+          if (isMidi) {
+            // Swap/add instrument on selected MIDI track
             _onInstrumentSelected(selectedTrack, instrument.id);
           } else {
             // Create new MIDI track with instrument
@@ -1204,8 +1204,8 @@ class _DAWScreenState extends State<DAWScreen> {
           // Find the instrument for this preset
           final instrument = _findInstrumentById(item.instrumentId);
           if (instrument != null) {
-            if (isEmptyMidi) {
-              // Load onto selected empty MIDI track
+            if (isMidi) {
+              // Swap/add instrument on selected MIDI track
               _onInstrumentSelected(selectedTrack, instrument.id);
               // TODO: Load preset data when presets are implemented
             } else {
@@ -1269,11 +1269,11 @@ class _DAWScreenState extends State<DAWScreen> {
     if (_audioEngine == null) return;
 
     final selectedTrack = _selectedTrackId;
-    final isEmptyMidi = selectedTrack != null && _isEmptyMidiTrack(selectedTrack);
+    final isMidi = selectedTrack != null && _isMidiTrack(selectedTrack);
 
     if (plugin.isInstrument) {
-      if (isEmptyMidi) {
-        // Load VST3 instrument onto selected empty MIDI track
+      if (isMidi) {
+        // Swap/add VST3 instrument on selected MIDI track
         _onVst3InstrumentDropped(selectedTrack, plugin);
       } else {
         // Create new MIDI track with VST3 instrument
@@ -1289,19 +1289,16 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
-  // Helper: Check if track is an empty MIDI track (no instrument assigned)
-  bool _isEmptyMidiTrack(int trackId) {
+  // Helper: Check if track is a MIDI track
+  bool _isMidiTrack(int trackId) {
     final info = _audioEngine?.getTrackInfo(trackId) ?? '';
     if (info.isEmpty) return false;
 
     final parts = info.split(',');
     if (parts.length < 3) return false;
 
-    final trackType = parts[2];
-    if (trackType != 'midi') return false;
-
-    // Empty if no instrument assigned
-    return !_trackInstruments.containsKey(trackId);
+    // Engine returns 'MIDI' (uppercase)
+    return parts[2].toLowerCase() == 'midi';
   }
 
   // Helper: Check if track is an empty Audio track (no clips)
@@ -1312,7 +1309,8 @@ class _DAWScreenState extends State<DAWScreen> {
     final parts = info.split(',');
     if (parts.length < 3) return false;
 
-    final trackType = parts[2];
+    // Engine returns 'Audio' (capitalized)
+    final trackType = parts[2].toLowerCase();
     if (trackType != 'audio') return false;
 
     // Check if any clips are on this track
@@ -3367,6 +3365,8 @@ class _DAWScreenState extends State<DAWScreen> {
                             trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                             onFxButtonPressed: _showVst3PluginBrowser, // M10
                             onVst3PluginDropped: _onVst3PluginDropped, // M10
+                            onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
+                            onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
                             onEditPluginsPressed: _showVst3PluginEditor, // M10
                             onAudioFileDropped: _onAudioFileDroppedOnEmpty,
                             onMidiTrackCreated: _createDefaultMidiClip,
@@ -3463,6 +3463,16 @@ class _DAWScreenState extends State<DAWScreen> {
                           : null,
                       onVst3ParameterChanged: _onVst3ParameterChanged, // M10
                       onVst3PluginRemoved: _removeVst3Plugin, // M10
+                      onVst3InstrumentDropped: (plugin) {
+                        if (_selectedTrackId != null) {
+                          _onVst3InstrumentDropped(_selectedTrackId!, plugin);
+                        }
+                      },
+                      onInstrumentDropped: (instrument) {
+                        if (_selectedTrackId != null) {
+                          _onInstrumentDropped(_selectedTrackId!, instrument);
+                        }
+                      },
                       isCollapsed: false,
                     ),
                   ),

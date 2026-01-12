@@ -7,6 +7,7 @@ import '../models/vst3_plugin_data.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
 import '../utils/track_colors.dart';
+import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
 
@@ -52,6 +53,8 @@ class TrackMixerStrip extends StatefulWidget {
   final int vst3PluginCount;
   final VoidCallback? onFxButtonPressed;
   final Function(Vst3Plugin)? onVst3PluginDropped;
+  final Function(Vst3Plugin)? onVst3InstrumentDropped; // VST3 instrument swap
+  final Function(Instrument)? onInstrumentDropped; // Built-in instrument swap
   final VoidCallback? onEditPluginsPressed; // New: Edit active plugins
 
   // Track height resizing
@@ -93,6 +96,8 @@ class TrackMixerStrip extends StatefulWidget {
     this.vst3PluginCount = 0,
     this.onFxButtonPressed,
     this.onVst3PluginDropped,
+    this.onVst3InstrumentDropped,
+    this.onInstrumentDropped,
     this.onEditPluginsPressed,
     this.trackHeight = 100.0,
     this.onHeightChanged,
@@ -364,12 +369,33 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   @override
   Widget build(BuildContext context) {
+    // Note: trackType from engine is 'MIDI', 'Audio', 'Master' (uppercase)
+    final isMidiTrack = widget.trackType.toLowerCase() == 'midi';
+
+    // Nested DragTargets: VST3 (instruments + effects) -> Built-in Instruments
     return DragTarget<Vst3Plugin>(
-      onAcceptWithDetails: (details) {
-        widget.onVst3PluginDropped?.call(details.data);
+      onWillAcceptWithDetails: (details) {
+        // Accept VST3 instruments only on MIDI tracks, effects on any track
+        if (details.data.isInstrument) {
+          return isMidiTrack;
+        }
+        return true; // Effects accepted on any track
       },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
+      onAcceptWithDetails: (details) {
+        if (details.data.isInstrument) {
+          widget.onVst3InstrumentDropped?.call(details.data);
+        } else {
+          widget.onVst3PluginDropped?.call(details.data);
+        }
+      },
+      builder: (context, candidateVst3, rejectedVst3) {
+        return DragTarget<Instrument>(
+          onWillAcceptWithDetails: (_) => isMidiTrack,
+          onAcceptWithDetails: (details) {
+            widget.onInstrumentDropped?.call(details.data);
+          },
+          builder: (context, candidateInstrument, rejectedInstrument) {
+            final isHovered = candidateVst3.isNotEmpty || candidateInstrument.isNotEmpty;
 
         return GestureDetector(
           onTap: widget.onTap,
@@ -459,6 +485,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );

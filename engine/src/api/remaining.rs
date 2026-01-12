@@ -52,6 +52,27 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     // Remove all MIDI clips belonging to this track from the global collection
     graph.remove_midi_clips_for_track(track_id);
 
+    // Get the track's fx_chain before deleting so we can clean up effects
+    let fx_chain: Vec<u64> = {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        if let Some(track_arc) = track_manager.get_track(track_id) {
+            let track = track_arc.lock().map_err(|e| e.to_string())?;
+            track.fx_chain.clone()
+        } else {
+            Vec::new()
+        }
+    };
+
+    // Remove all VST3 effects in the track's fx_chain
+    if !fx_chain.is_empty() {
+        if let Ok(mut effect_manager) = graph.effect_manager.lock() {
+            for effect_id in &fx_chain {
+                effect_manager.remove_effect(*effect_id);
+                eprintln!("🧹 [API] Removed effect {} from deleted track {}", effect_id, track_id);
+            }
+        }
+    }
+
     let mut track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
 
     if track_manager.remove_track(track_id) {
@@ -95,6 +116,19 @@ pub fn clear_all_tracks() -> Result<String, String> {
             .collect()
     };
 
+    // Collect all fx_chains from tracks being deleted
+    let all_effect_ids: Vec<u64> = {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        track_ids_to_remove.iter().flat_map(|track_id| {
+            if let Some(track_arc) = track_manager.get_track(*track_id) {
+                let track = track_arc.lock().expect("mutex poisoned");
+                track.fx_chain.clone()
+            } else {
+                Vec::new()
+            }
+        }).collect()
+    };
+
     // Delete all non-master tracks
     for track_id in &track_ids_to_remove {
         // Stop any playing notes on the per-track synth
@@ -109,6 +143,16 @@ pub fn clear_all_tracks() -> Result<String, String> {
         // Remove the track
         let mut track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
         track_manager.remove_track(*track_id);
+    }
+
+    // Remove all VST3 effects that were on deleted tracks
+    if !all_effect_ids.is_empty() {
+        if let Ok(mut effect_manager) = graph.effect_manager.lock() {
+            for effect_id in &all_effect_ids {
+                effect_manager.remove_effect(*effect_id);
+            }
+            eprintln!("🧹 [API] Removed {} effects from deleted tracks", all_effect_ids.len());
+        }
     }
 
     // Clear all audio clips from global storage
