@@ -153,6 +153,22 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   bool isDuplicating = false;
 
   // ============================================
+  // DRAG ZOOM STATE (Ableton-style click+drag zoom)
+  // ============================================
+
+  /// Whether drag zoom is active.
+  bool isDragZooming = false;
+
+  /// Starting Y position for drag zoom.
+  double? dragZoomStartY;
+
+  /// Starting X position for drag zoom (anchor point for zoom).
+  double? dragZoomAnchorX;
+
+  /// pixelsPerBeat at drag zoom start.
+  double? dragZoomStartPPB;
+
+  // ============================================
   // VELOCITY LANE STATE
   // ============================================
 
@@ -408,21 +424,38 @@ mixin PianoRollStateMixin on State<PianoRoll> {
     return currentClip?.loopLength ?? 4.0;
   }
 
-  /// Calculate total visible beats (extends beyond loop for scrolling).
-  double calculateTotalBeats() {
+  /// Calculate total visible beats.
+  /// Extends to fill viewport width + scroll buffer, or furthest note, whichever is greater.
+  double calculateTotalBeats({double? viewportWidth, double? pixelsPerBeat}) {
     final loopLength = getLoopLength();
 
-    if (currentClip == null || currentClip!.notes.isEmpty) {
-      return loopLength + 4.0;
+    // Calculate minimum beats needed to fill viewport + scroll buffer
+    // Add 16 bars (64 beats in 4/4) beyond viewport for scrolling room
+    const scrollBufferBars = 16;
+    final scrollBufferBeats = scrollBufferBars * beatsPerBar.toDouble();
+
+    double viewportBeats = loopLength + scrollBufferBeats;
+    if (viewportWidth != null && pixelsPerBeat != null && pixelsPerBeat > 0) {
+      viewportBeats = (viewportWidth / pixelsPerBeat) + scrollBufferBeats;
     }
 
-    final furthestBeat = currentClip!.notes
-        .map((note) => note.startTime + note.duration)
+    // Also consider furthest note if any exist (plus buffer for drawing new notes)
+    double furthestBeat = loopLength;
+    if (currentClip != null && currentClip!.notes.isNotEmpty) {
+      furthestBeat = currentClip!.notes
+          .map((note) => note.startTime + note.duration)
+          .reduce((a, b) => a > b ? a : b);
+    }
+    // Add buffer beyond furthest note for drawing new notes
+    furthestBeat += scrollBufferBeats;
+
+    // Take the maximum: viewport + buffer, furthest note + buffer, or loop length + buffer
+    final maxBeat = [viewportBeats, furthestBeat, loopLength + scrollBufferBeats]
         .reduce((a, b) => a > b ? a : b);
 
-    final maxBeat = furthestBeat > loopLength ? furthestBeat : loopLength;
-    final requiredBars = (maxBeat / 4).ceil();
-    return (requiredBars + 1) * 4.0;
+    // Round up to next bar boundary
+    final requiredBars = (maxBeat / beatsPerBar).ceil();
+    return requiredBars * beatsPerBar.toDouble();
   }
 }
 

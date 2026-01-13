@@ -362,8 +362,11 @@ class _PianoRollState extends State<PianoRoll>
   Widget _buildPianoRollContent() {
     // Loop length is the active region (before the shaded area)
     final activeBeats = getLoopLength();
-    // Total beats extends beyond loop for scrolling
-    final totalBeats = calculateTotalBeats();
+    // Total beats extends to fill viewport width or furthest note
+    final totalBeats = calculateTotalBeats(
+      viewportWidth: viewWidth,
+      pixelsPerBeat: pixelsPerBeat,
+    );
 
     final canvasWidth = totalBeats * pixelsPerBeat;
     // Use visibleRowCount for canvas height (fold-aware)
@@ -443,9 +446,6 @@ class _PianoRollState extends State<PianoRoll>
             quantizeTripletEnabled: quantizeTripletEnabled,
             onQuantizeDivisionChanged: (div) => setState(() => quantizeDivision = div),
             onQuantizeTripletToggle: () => setState(() => quantizeTripletEnabled = !quantizeTripletEnabled),
-            swingAmount: swingAmount,
-            onSwingChanged: (v) => setState(() => swingAmount = v),
-            onSwingApply: applySwing,
             // View section
             foldEnabled: foldViewEnabled,
             ghostNotesEnabled: ghostNotesEnabled,
@@ -455,27 +455,18 @@ class _PianoRollState extends State<PianoRoll>
             scaleRoot: scaleRoot,
             scaleType: scaleType,
             highlightEnabled: scaleHighlightEnabled,
-            lockEnabled: scaleLockEnabled,
-            chordsEnabled: chordPaletteVisible,
             onRootChanged: (root) => setState(() => scaleRoot = root),
             onTypeChanged: (type) => setState(() => scaleType = type),
             onHighlightToggle: () => setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
-            onLockToggle: () => setState(() => scaleLockEnabled = !scaleLockEnabled),
-            onChordsToggle: () => setState(() => chordPaletteVisible = !chordPaletteVisible),
             // Transform section
             stretchAmount: stretchAmount,
-            humanizeAmount: humanizeAmount,
             onLegato: applyLegato,
             onStretchChanged: (v) => setState(() => stretchAmount = v),
             onStretchApply: applyStretch,
-            onHumanizeChanged: (v) => setState(() => humanizeAmount = v),
-            onHumanizeApply: applyHumanize,
             onReverse: reverseNotes,
             // Lane visibility toggles (Randomize/CC type are in lane headers)
             velocityLaneVisible: velocityLaneExpanded,
             onVelocityLaneToggle: toggleVelocityLane,
-            ccLaneVisible: ccLaneExpanded,
-            onCCLaneToggle: () => setState(() => ccLaneExpanded = !ccLaneExpanded),
             // Virtual Piano toggle
             virtualPianoVisible: widget.virtualPianoVisible,
             onVirtualPianoToggle: widget.onVirtualPianoToggle,
@@ -577,6 +568,9 @@ class _PianoRollState extends State<PianoRoll>
                                         if (event.buttons == kSecondaryMouseButton) {
                                           rightClickStartPosition = event.localPosition;
                                           rightClickNote = _findNoteAtPosition(event.localPosition);
+                                        } else if (event.buttons == kMiddleMouseButton) {
+                                          // Middle mouse button: start drag zoom (Ableton-style)
+                                          startDragZoom(event.localPosition.dx, event.position.dy);
                                         } else if (event.buttons == kPrimaryMouseButton) {
                                           final isAltPressed = HardwareKeyboard.instance.isAltPressed;
                                           if (isAltPressed) {
@@ -588,6 +582,11 @@ class _PianoRollState extends State<PianoRoll>
                                         }
                                       },
                                       onPointerMove: (event) {
+                                        // Handle drag zoom with middle mouse button
+                                        if (isDragZooming) {
+                                          updateDragZoom(event.position.dy);
+                                          return;
+                                        }
                                         if (event.buttons == kPrimaryMouseButton) {
                                           final isAltPressed = HardwareKeyboard.instance.isAltPressed;
                                           if (isAltPressed) {
@@ -600,6 +599,11 @@ class _PianoRollState extends State<PianoRoll>
                                         }
                                       },
                                       onPointerUp: (event) {
+                                        // End drag zoom if active
+                                        if (isDragZooming) {
+                                          endDragZoom();
+                                          return;
+                                        }
                                         if (rightClickNote != null && rightClickStartPosition != null) {
                                           final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
                                           if (renderBox != null) {

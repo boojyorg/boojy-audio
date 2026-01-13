@@ -7,9 +7,8 @@ import 'time_signature_display.dart';
 
 /// Display mode for responsive icon/label buttons
 enum _ButtonDisplayMode {
-  wide,   // Icon + Label
-  medium, // Label only
-  narrow, // Icon only
+  wide,    // Icon + Label (all icons visible)
+  compact, // Label only (all icons hidden at once when space is limited)
 }
 
 /// Horizontal controls bar for Piano Roll.
@@ -43,9 +42,6 @@ class PianoRollControlsBar extends StatefulWidget {
   final bool quantizeTripletEnabled;
   final Function(int)? onQuantizeDivisionChanged;
   final VoidCallback? onQuantizeTripletToggle;
-  final double swingAmount;
-  final Function(double)? onSwingChanged;
-  final VoidCallback? onSwingApply;
 
   // View section
   final bool foldEnabled;
@@ -57,22 +53,15 @@ class PianoRollControlsBar extends StatefulWidget {
   final String scaleRoot;
   final ScaleType scaleType;
   final bool highlightEnabled;
-  final bool lockEnabled;
-  final bool chordsEnabled;
   final Function(String)? onRootChanged;
   final Function(ScaleType)? onTypeChanged;
   final VoidCallback? onHighlightToggle;
-  final VoidCallback? onLockToggle;
-  final VoidCallback? onChordsToggle;
 
   // Transform section
   final double stretchAmount;
-  final double humanizeAmount;
   final VoidCallback? onLegato;
   final Function(double)? onStretchChanged;
   final VoidCallback? onStretchApply;
-  final Function(double)? onHumanizeChanged;
-  final VoidCallback? onHumanizeApply;
   final VoidCallback? onReverse;
 
   // Lane visibility toggles (Randomize/CC type moved to lane headers)
@@ -114,9 +103,6 @@ class PianoRollControlsBar extends StatefulWidget {
     this.quantizeTripletEnabled = false,
     this.onQuantizeDivisionChanged,
     this.onQuantizeTripletToggle,
-    this.swingAmount = 0.0,
-    this.onSwingChanged,
-    this.onSwingApply,
     this.effectiveGridDivision = 0.25,
     // View section
     this.foldEnabled = false,
@@ -127,21 +113,14 @@ class PianoRollControlsBar extends StatefulWidget {
     required this.scaleRoot,
     required this.scaleType,
     this.highlightEnabled = false,
-    this.lockEnabled = false,
-    this.chordsEnabled = false,
     this.onRootChanged,
     this.onTypeChanged,
     this.onHighlightToggle,
-    this.onLockToggle,
-    this.onChordsToggle,
     // Transform section
     this.stretchAmount = 1.0,
-    this.humanizeAmount = 0.0,
     this.onLegato,
     this.onStretchChanged,
     this.onStretchApply,
-    this.onHumanizeChanged,
-    this.onHumanizeApply,
     this.onReverse,
     // Lane visibility toggles
     this.velocityLaneVisible = false,
@@ -167,10 +146,13 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   bool _isHoveringSnapDropdown = false;
   bool _isHoveringQuantizeLabel = false;
   bool _isHoveringQuantizeDropdown = false;
+  bool _isHoveringScaleToggle = false;
+  bool _isHoveringScaleDropdown = false;
 
   // Keys and overlays for dropdown menus
   final GlobalKey _snapButtonKey = GlobalKey();
   final GlobalKey _quantizeButtonKey = GlobalKey();
+  final GlobalKey _scaleButtonKey = GlobalKey();
   OverlayEntry? _snapOverlay;
   OverlayEntry? _quantizeOverlay;
 
@@ -212,12 +194,9 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     const singleLineMaxHeight = 30.0;
 
     if (wrapHeight > singleLineMaxHeight) {
-      // Content wrapped - try a more compact mode
+      // Content wrapped - switch to compact mode (hide all icons at once)
       if (_displayMode == _ButtonDisplayMode.wide) {
-        setState(() => _displayMode = _ButtonDisplayMode.medium);
-        WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfFitsOnOneLine());
-      } else if (_displayMode == _ButtonDisplayMode.medium) {
-        setState(() => _displayMode = _ButtonDisplayMode.narrow);
+        setState(() => _displayMode = _ButtonDisplayMode.compact);
       }
     }
   }
@@ -399,35 +378,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         const SizedBox(width: 4),
         // Quantize split button with grid + triplet
         _buildQuantizeDropdown(context, quantizeLabel),
-        const SizedBox(width: 4),
-        // Fold toggle
-        _buildToggleButton(
-          context,
-          icon: Icons.unfold_less,
-          label: 'Fold',
-          isActive: widget.foldEnabled,
-          onTap: widget.onFoldToggle,
-        ),
-        const SizedBox(width: 4),
-        // Ghost toggle
-        _buildToggleButton(
-          context,
-          icon: Icons.layers,
-          label: 'Ghost',
-          isActive: widget.ghostNotesEnabled,
-          onTap: widget.onGhostNotesToggle,
-        ),
-        const SizedBox(width: 4),
-        // Swing knob split button
-        KnobSplitButton(
-          label: 'Swing',
-          value: widget.swingAmount,
-          min: 0.0,
-          max: 1.0,
-          valueFormatter: (v) => '${(v * 100).round()}%',
-          onChanged: widget.onSwingChanged,
-          onApply: widget.onSwingApply,
-        ),
       ],
     );
   }
@@ -455,7 +405,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               onTap: widget.onSnapToggle,
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringSnapLabel
                       ? colors.textPrimary.withValues(alpha: 0.1)
@@ -468,17 +418,20 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.grid_on,
-                      size: 12,
-                      color: textColor,
-                    ),
-                    const SizedBox(width: 4),
+                    // Show icon only in wide mode
+                    if (_displayMode == _ButtonDisplayMode.wide) ...[
+                      Icon(
+                        Icons.grid_on,
+                        size: 13,
+                        color: textColor,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Text(
                       label,
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 9,
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -490,7 +443,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           // Divider line
           Container(
             width: 1,
-            height: 14,
+            height: 15,
             color: colors.textPrimary.withValues(alpha: 0.2),
           ),
 
@@ -503,7 +456,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               onTap: () => _showSnapMenu(context),
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringSnapDropdown
                       ? colors.textPrimary.withValues(alpha: 0.1)
@@ -515,7 +468,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 ),
                 child: Icon(
                   Icons.arrow_drop_down,
-                  size: 14,
+                  size: 15,
                   color: textColor,
                 ),
               ),
@@ -571,7 +524,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Left side: Label (clickable for quantize action)
+          // Left side: Icon + Label (clickable for quantize action)
           MouseRegion(
             onEnter: (_) => setState(() => _isHoveringQuantizeLabel = true),
             onExit: (_) => setState(() => _isHoveringQuantizeLabel = false),
@@ -580,7 +533,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               onTap: widget.onQuantize,
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringQuantizeLabel
                       ? colors.textPrimary.withValues(alpha: 0.1)
@@ -590,12 +543,27 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomLeft: Radius.circular(2),
                   ),
                 ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 9,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Show icon only in wide mode
+                    if (_displayMode == _ButtonDisplayMode.wide) ...[
+                      Image.asset(
+                        'assets/images/magnet.png',
+                        width: 13,
+                        height: 13,
+                        color: textColor,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -604,7 +572,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           // Divider line
           Container(
             width: 1,
-            height: 14,
+            height: 15,
             color: colors.textPrimary.withValues(alpha: 0.2),
           ),
 
@@ -617,7 +585,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               onTap: () => _showQuantizeMenu(context),
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                 decoration: BoxDecoration(
                   color: _isHoveringQuantizeDropdown
                       ? colors.textPrimary.withValues(alpha: 0.1)
@@ -629,7 +597,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 ),
                 child: Icon(
                   Icons.arrow_drop_down,
-                  size: 14,
+                  size: 15,
                   color: textColor,
                 ),
               ),
@@ -671,33 +639,30 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     Overlay.of(context).insert(_quantizeOverlay!);
   }
 
-  // ============ SCALE GROUP ============
+  // ============ VISUAL AIDS GROUP (Scale + Fold + Ghost) ============
   Widget _buildScaleGroup(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Scale dropdown (combined root + type)
-        _buildScaleDropdown(context),
+        // Scale toggle dropdown (combined toggle + dropdown)
+        _buildScaleToggleDropdown(context),
         const SizedBox(width: 4),
-        // Chords toggle (green outlined style)
-        _buildChordsButton(context),
-        const SizedBox(width: 4),
-        // Highlight toggle
+        // Fold toggle
         _buildToggleButton(
           context,
-          icon: Icons.visibility,
-          label: 'Highlight',
-          isActive: widget.highlightEnabled,
-          onTap: widget.onHighlightToggle,
+          icon: Icons.unfold_less,
+          label: 'Fold',
+          isActive: widget.foldEnabled,
+          onTap: widget.onFoldToggle,
         ),
         const SizedBox(width: 4),
-        // Lock toggle
+        // Ghost toggle
         _buildToggleButton(
           context,
-          icon: Icons.lock,
-          label: 'Lock',
-          isActive: widget.lockEnabled,
-          onTap: widget.onLockToggle,
+          icon: Icons.layers,
+          label: 'Ghost',
+          isActive: widget.ghostNotesEnabled,
+          onTap: widget.onGhostNotesToggle,
         ),
       ],
     );
@@ -726,6 +691,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         const SizedBox(width: 4),
         // Stretch knob split button
         KnobSplitButton(
+          imagePath: 'assets/images/resize.png',
           label: 'Stretch',
           value: widget.stretchAmount,
           min: 0.5,
@@ -733,23 +699,13 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           valueFormatter: _stretchFormatter,
           onChanged: widget.onStretchChanged,
           onApply: widget.onStretchApply,
-        ),
-        const SizedBox(width: 4),
-        // Humanize knob split button
-        KnobSplitButton(
-          label: 'Humanize',
-          value: widget.humanizeAmount,
-          min: 0.0,
-          max: 1.0,
-          valueFormatter: (v) => '${(v * 100).round()}%',
-          onChanged: widget.onHumanizeChanged,
-          onApply: widget.onHumanizeApply,
+          showIcon: _displayMode == _ButtonDisplayMode.wide,
         ),
       ],
     );
   }
 
-  // ============ LANES GROUP (visibility toggles only) ============
+  // ============ LANES GROUP (velocity only) ============
   Widget _buildLanesGroup(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -761,15 +717,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           label: 'Velocity',
           isActive: widget.velocityLaneVisible,
           onTap: widget.onVelocityLaneToggle,
-        ),
-        const SizedBox(width: 4),
-        // CC lane visibility toggle
-        _buildToggleButton(
-          context,
-          icon: Icons.visibility,
-          label: 'MIDI CC',
-          isActive: widget.ccLaneVisible,
-          onTap: widget.onCCLaneToggle,
         ),
       ],
     );
@@ -793,7 +740,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
           decoration: BoxDecoration(
             color: isActive ? colors.accent : colors.dark,
             borderRadius: BorderRadius.circular(2),
@@ -801,25 +748,23 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Show icon in wide and narrow modes
-              if (mode == _ButtonDisplayMode.wide || mode == _ButtonDisplayMode.narrow)
+              // Show icon only in wide mode
+              if (mode == _ButtonDisplayMode.wide) ...[
                 Icon(
                   icon,
-                  size: 12,
+                  size: 13,
                   color: isActive ? colors.elevated : colors.textPrimary,
                 ),
-              // Show spacing between icon and label in wide mode only
-              if (mode == _ButtonDisplayMode.wide)
                 const SizedBox(width: 4),
-              // Show label in wide and medium modes
-              if (mode == _ButtonDisplayMode.wide || mode == _ButtonDisplayMode.medium)
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isActive ? colors.elevated : colors.textPrimary,
-                    fontSize: 9,
-                  ),
+              ],
+              // Always show label
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? colors.elevated : colors.textPrimary,
+                  fontSize: 10,
                 ),
+              ),
             ],
           ),
         ),
@@ -849,7 +794,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
           decoration: BoxDecoration(
             color: colors.dark,
             borderRadius: BorderRadius.circular(2),
@@ -857,18 +802,16 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Show icon in wide and narrow modes
-              if (mode == _ButtonDisplayMode.wide || mode == _ButtonDisplayMode.narrow)
-                Icon(icon, size: 12, color: colors.textPrimary),
-              // Show spacing between icon and label in wide mode only
-              if (mode == _ButtonDisplayMode.wide)
+              // Show icon only in wide mode
+              if (mode == _ButtonDisplayMode.wide) ...[
+                Icon(icon, size: 13, color: colors.textPrimary),
                 const SizedBox(width: 4),
-              // Show label in wide and medium modes
-              if (mode == _ButtonDisplayMode.wide || mode == _ButtonDisplayMode.medium)
-                Text(
-                  label,
-                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
-                ),
+              ],
+              // Always show label
+              Text(
+                label,
+                style: TextStyle(color: colors.textPrimary, fontSize: 10),
+              ),
             ],
           ),
         ),
@@ -876,42 +819,122 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     );
   }
 
-  Widget _buildScaleDropdown(BuildContext context) {
+  /// Combined Scale toggle + dropdown: [Icon] C Major [v]
+  /// Left side toggles highlight on/off, right side opens scale selection menu
+  Widget _buildScaleToggleDropdown(BuildContext context) {
     final colors = context.colors;
+    final isActive = widget.highlightEnabled;
+    final bgColor = isActive ? colors.accent : colors.dark;
+    final textColor = isActive ? colors.elevated : colors.textPrimary;
     final displayLabel = '${widget.scaleRoot} ${widget.scaleType.displayName}';
 
-    return GestureDetector(
-      onTap: () => _showScaleMenu(context),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                displayLabel,
-                style: TextStyle(color: colors.textPrimary, fontSize: 9),
+    return DecoratedBox(
+      key: _scaleButtonKey,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Left side: Toggle icon + label (clickable to toggle highlight)
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringScaleToggle = true),
+            onExit: (_) => setState(() => _isHoveringScaleToggle = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: widget.onHighlightToggle,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _isHoveringScaleToggle
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    bottomLeft: Radius.circular(2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Show icon only in wide mode
+                    if (_displayMode == _ButtonDisplayMode.wide) ...[
+                      Icon(
+                        Icons.contrast, // Half-circle icon for scale highlight
+                        size: 13,
+                        color: textColor,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      displayLabel,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 2),
-              Icon(Icons.arrow_drop_down, size: 14, color: colors.textMuted),
-            ],
+            ),
           ),
-        ),
+
+          // Divider line
+          Container(
+            width: 1,
+            height: 15,
+            color: colors.textPrimary.withValues(alpha: 0.2),
+          ),
+
+          // Right side: Dropdown arrow (opens scale menu)
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHoveringScaleDropdown = true),
+            onExit: (_) => setState(() => _isHoveringScaleDropdown = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _showScaleMenuFromButton(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _isHoveringScaleDropdown
+                      ? colors.textPrimary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(2),
+                    bottomRight: Radius.circular(2),
+                  ),
+                ),
+                child: Icon(
+                  Icons.arrow_drop_down,
+                  size: 15,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void _showScaleMenu(BuildContext context) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
+  /// Shows scale menu positioned relative to the scale button
+  void _showScaleMenuFromButton(BuildContext context) {
+    final RenderBox? button =
+        _scaleButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (button == null) return;
+
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
 
+    _showScaleMenuAt(context, buttonPosition, button.size);
+  }
+
+  /// Shows scale menu at the specified position
+  void _showScaleMenuAt(BuildContext context, Offset position, Size buttonSize) {
     // Build menu items: first root notes, then scale types
     final items = <PopupMenuEntry<dynamic>>[];
 
@@ -949,12 +972,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       ));
     }
 
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
     showMenu<dynamic>(
       context: context,
       position: RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy + button.size.height,
-        overlay.size.width - buttonPosition.dx - button.size.width,
+        position.dx,
+        position.dy + buttonSize.height,
+        overlay.size.width - position.dx - buttonSize.width,
         0,
       ),
       items: items,
@@ -967,37 +993,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       }
     });
   }
-
-  // Mint green color for Chords button
-  static const Color _chordsGreen = Color(0xFF10B981);
-
-  Widget _buildChordsButton(BuildContext context) {
-    final isActive = widget.chordsEnabled;
-
-    return GestureDetector(
-      onTap: widget.onChordsToggle,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: isActive ? _chordsGreen : Colors.transparent,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: _chordsGreen, width: 1),
-          ),
-          child: Text(
-            'Chords',
-            style: TextStyle(
-              color: isActive ? Colors.white : _chordsGreen,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
 
   // ============ FORMATTERS ============
 

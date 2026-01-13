@@ -34,6 +34,12 @@ class KnobSplitButton extends StatefulWidget {
   /// Optional icon to show before label
   final IconData? icon;
 
+  /// Optional image asset path (alternative to icon)
+  final String? imagePath;
+
+  /// Whether to show the icon (for responsive layouts)
+  final bool showIcon;
+
   /// Size of the knob in the popup
   final double knobSize;
 
@@ -47,6 +53,8 @@ class KnobSplitButton extends StatefulWidget {
     this.onChanged,
     this.onApply,
     this.icon,
+    this.imagePath,
+    this.showIcon = true,
     this.knobSize = 40,
   });
 
@@ -113,7 +121,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
               child: GestureDetector(
                 onTap: widget.onApply,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                   decoration: BoxDecoration(
                     color: _isHoveringLabel
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -126,10 +134,19 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.icon != null) ...[
+                      // Only show icon when showIcon is true
+                      if (widget.showIcon && widget.imagePath != null) ...[
+                        Image.asset(
+                          widget.imagePath!,
+                          width: 13,
+                          height: 13,
+                          color: colors.textPrimary,
+                        ),
+                        const SizedBox(width: 4),
+                      ] else if (widget.showIcon && widget.icon != null) ...[
                         Icon(
                           widget.icon,
-                          size: 12,
+                          size: 13,
                           color: colors.textPrimary,
                         ),
                         const SizedBox(width: 4),
@@ -138,7 +155,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
                         '${widget.label} $displayValue',
                         style: TextStyle(
                           color: colors.textPrimary,
-                          fontSize: 9,
+                          fontSize: 10,
                         ),
                       ),
                     ],
@@ -150,7 +167,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
             // Divider line
             Container(
               width: 1,
-              height: 14,
+              height: 15,
               color: colors.textPrimary.withValues(alpha: 0.2),
             ),
 
@@ -162,7 +179,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
               child: GestureDetector(
                 onTap: _showKnobPopup,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                   decoration: BoxDecoration(
                     color: _isHoveringDropdown
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -174,7 +191,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
                   ),
                   child: Icon(
                     Icons.arrow_drop_down,
-                    size: 14,
+                    size: 15,
                     color: colors.textPrimary,
                   ),
                 ),
