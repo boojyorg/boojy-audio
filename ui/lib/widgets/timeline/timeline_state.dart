@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HardwareKeyboard;
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
+import '../../models/tool_mode.dart';
 import '../timeline_view.dart';
 
 /// Mixin containing all state variables for TimelineView.
@@ -211,6 +213,62 @@ mixin TimelineViewStateMixin on State<TimelineView> {
 
   /// Insert marker position in beats (null = not visible).
   double? insertMarkerBeats;
+
+  // ============================================
+  // TOOL MODE STATE
+  // ============================================
+
+  /// Temporary tool mode when holding modifier keys (Alt, Cmd/Ctrl).
+  /// When non-null, overrides widget.toolMode temporarily.
+  ToolMode? tempToolMode;
+
+  /// Current cursor for the timeline (updated based on tool mode).
+  MouseCursor currentCursor = SystemMouseCursors.basic;
+
+  /// Get effective tool mode (temp overrides permanent).
+  ToolMode get effectiveToolMode => tempToolMode ?? widget.toolMode;
+
+  /// Update temporary tool mode and cursor based on currently held modifier keys.
+  /// Shift = Select, Alt = Eraser, Cmd/Ctrl = Duplicate, otherwise null.
+  void updateTempToolMode() {
+    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
+    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+
+    setState(() {
+      if (isAltPressed) {
+        tempToolMode = ToolMode.eraser; // Alt = Eraser
+        currentCursor = SystemMouseCursors.forbidden;
+      } else if (isCtrlOrCmd) {
+        tempToolMode = ToolMode.duplicate; // Cmd/Ctrl = Duplicate
+        currentCursor = SystemMouseCursors.copy;
+      } else if (isShiftPressed) {
+        tempToolMode = ToolMode.select; // Shift = Select
+        currentCursor = SystemMouseCursors.basic;
+      } else {
+        tempToolMode = null; // Back to selected tool
+        // Update cursor based on the actual tool mode
+        currentCursor = _getCursorForToolMode(widget.toolMode);
+      }
+    });
+  }
+
+  /// Get cursor for a given tool mode.
+  MouseCursor _getCursorForToolMode(ToolMode tool) {
+    switch (tool) {
+      case ToolMode.draw:
+        return SystemMouseCursors.precise;
+      case ToolMode.select:
+        return SystemMouseCursors.basic;
+      case ToolMode.eraser:
+        return SystemMouseCursors.forbidden;
+      case ToolMode.duplicate:
+        return SystemMouseCursors.copy;
+      case ToolMode.slice:
+        return SystemMouseCursors.verticalText;
+    }
+  }
 
   // ============================================
   // CLIPBOARD STATE

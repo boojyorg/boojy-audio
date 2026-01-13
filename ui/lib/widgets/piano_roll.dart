@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import '../models/midi_note_data.dart';
 import '../models/midi_cc_data.dart';
 import '../models/scale_data.dart';
+import '../models/tool_mode.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
@@ -23,15 +24,6 @@ import 'context_menus/note_context_menu.dart';
 
 /// Interaction modes for piano roll (internal tracking during gestures)
 enum InteractionMode { draw, select, move, resize }
-
-/// Tool modes for piano roll toolbar buttons
-enum ToolMode {
-  draw,      // Default: click to create notes
-  select,    // Select and move notes
-  eraser,    // Delete notes on click
-  duplicate, // Duplicate notes on click/drag
-  slice,     // Split notes at click position
-}
 
 /// Piano Roll MIDI editor widget
 class PianoRoll extends StatefulWidget {
@@ -114,6 +106,9 @@ class _PianoRollState extends State<PianoRoll>
     rulerScroll.addListener(_syncGridFromRuler);
     loopBarScroll.addListener(_syncGridFromLoopBar);
 
+    // Initialize cursor based on initial tool mode
+    currentCursor = _cursorForToolMode(widget.toolMode);
+
     // Scroll to default view (middle of piano)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToDefaultView();
@@ -170,8 +165,11 @@ class _PianoRollState extends State<PianoRoll>
 
   /// Handle hardware keyboard events for modifier key cursor updates
   bool _onHardwareKey(KeyEvent event) {
-    // Update cursor when Alt or Cmd/Ctrl is pressed or released
-    if (event.logicalKey == LogicalKeyboardKey.alt ||
+    // Update cursor when Shift, Alt, or Cmd/Ctrl is pressed or released
+    if (event.logicalKey == LogicalKeyboardKey.shift ||
+        event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+        event.logicalKey == LogicalKeyboardKey.shiftRight ||
+        event.logicalKey == LogicalKeyboardKey.alt ||
         event.logicalKey == LogicalKeyboardKey.altLeft ||
         event.logicalKey == LogicalKeyboardKey.altRight ||
         event.logicalKey == LogicalKeyboardKey.meta ||
@@ -196,6 +194,12 @@ class _PianoRollState extends State<PianoRoll>
         if (currentClip != null) {
           loopStartBeats = currentClip!.contentStartOffset;
         }
+      });
+    }
+    // Update cursor when tool mode changes (from toolbar button click)
+    if (widget.toolMode != oldWidget.toolMode && tempModeOverride == null) {
+      setState(() {
+        currentCursor = _cursorForToolMode(widget.toolMode);
       });
     }
   }
@@ -1447,13 +1451,14 @@ class _PianoRollState extends State<PianoRoll>
   }
 
   /// Update cursor and temp mode override based on current modifier key state
-  /// Called when Alt/Cmd/Ctrl pressed/released for hold modifier support
+  /// Called when Shift/Alt/Cmd/Ctrl pressed/released for hold modifier support
   void _updateCursorForModifiers() {
     // Don't update cursor during active drag operations
     if (currentMode == InteractionMode.move || currentMode == InteractionMode.resize) {
       return;
     }
 
+    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
@@ -1468,12 +1473,32 @@ class _PianoRollState extends State<PianoRoll>
         // We set duplicate as the temp mode; slice handled in tap handler
         tempModeOverride = ToolMode.duplicate;
         currentCursor = SystemMouseCursors.copy;
-      } else {
-        // No modifier = clear temp override
-        tempModeOverride = null;
+      } else if (isShiftPressed) {
+        // Shift held = temporary select mode
+        tempModeOverride = ToolMode.select;
         currentCursor = SystemMouseCursors.basic;
+      } else {
+        // No modifier = clear temp override, use tool mode's cursor
+        tempModeOverride = null;
+        currentCursor = _cursorForToolMode(widget.toolMode);
       }
     });
+  }
+
+  /// Get cursor for a given tool mode.
+  MouseCursor _cursorForToolMode(ToolMode tool) {
+    switch (tool) {
+      case ToolMode.draw:
+        return SystemMouseCursors.precise;
+      case ToolMode.select:
+        return SystemMouseCursors.basic;
+      case ToolMode.eraser:
+        return SystemMouseCursors.forbidden;
+      case ToolMode.duplicate:
+        return SystemMouseCursors.copy;
+      case ToolMode.slice:
+        return SystemMouseCursors.verticalText;
+    }
   }
 
   // Handle hover for cursor feedback (smart context-aware cursors)
@@ -1683,9 +1708,12 @@ class _PianoRollState extends State<PianoRoll>
       return;
     }
 
+    // DRAW TOOL: Click on existing note = select it (FL Studio style)
     if (clickedNote != null) {
-      // Shift+click on note = toggle selection (add/remove from selection)
-      if (isShiftPressed) {
+      // Select this note, deselect others (unless Shift held)
+      final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
+      if (isShiftHeld) {
+        // Toggle selection
         setState(() {
           currentClip = currentClip?.copyWith(
             notes: currentClip!.notes.map((n) {
@@ -1696,32 +1724,27 @@ class _PianoRollState extends State<PianoRoll>
             }).toList(),
           );
         });
-        notifyClipUpdated();
-        return;
+      } else {
+        // Select only this note
+        setState(() {
+          currentClip = currentClip?.copyWith(
+            notes: currentClip!.notes.map((n) {
+              if (n.id == clickedNote.id) {
+                return n.copyWith(isSelected: true);
+              } else {
+                return n.copyWith(isSelected: false);
+              }
+            }).toList(),
+          );
+        });
       }
-
-      // Regular click on note = select it (deselect others) or toggle if already selected
-      setState(() {
-        currentClip = currentClip?.copyWith(
-          notes: currentClip!.notes.map((n) {
-            if (n.id == clickedNote.id) {
-              // Toggle selection: if already selected, deselect; otherwise select
-              return n.copyWith(isSelected: !n.isSelected);
-            } else {
-              // Deselect all other notes
-              return n.copyWith(isSelected: false);
-            }
-          }).toList(),
-        );
-      });
       notifyClipUpdated();
-
-      // Start sustained audition (will stop on mouse up)
       startAudition(clickedNote.note, clickedNote.velocity);
+      return;
+    }
 
-      // Clear just-created tracking since we clicked on existing note
-      justCreatedNoteId = null;
-    } else {
+    // DRAW TOOL: Click on empty space = create new note
+    {
       // Single-click on empty space = create note (Draw tool)
       final beat = _getBeatAtX(details.localPosition.dx);
       final noteRow = _getNoteAtY(details.localPosition.dy);
@@ -1775,7 +1798,18 @@ class _PianoRollState extends State<PianoRoll>
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
-    final toolMode = effectiveToolMode;
+    // Get effective tool mode, but also check modifiers directly for immediate response
+    // (tempModeOverride may not be set yet if setState hasn't completed)
+    ToolMode toolMode;
+    if (isAltPressed) {
+      toolMode = ToolMode.eraser;
+    } else if (isCtrlOrCmd) {
+      toolMode = ToolMode.duplicate;
+    } else if (isShiftPressed) {
+      toolMode = ToolMode.select;
+    } else {
+      toolMode = effectiveToolMode;
+    }
 
     // Skip normal pan handling if Alt is held OR eraser tool is active
     if (isAltPressed || toolMode == ToolMode.eraser) {
@@ -1962,7 +1996,8 @@ class _PianoRollState extends State<PianoRoll>
       // Clear just-created tracking
       justCreatedNoteId = null;
     } else if (clickedNote != null && !isSliceModeActive) {
-      // Check if we're near the edge for resizing (FL Studio style)
+      // DRAW TOOL: Allow moving/resizing existing notes (FL Studio style)
+      // Check if we're near the edge for resizing
       final edge = _getEdgeAtPosition(details.localPosition, clickedNote);
 
       if (edge != null) {

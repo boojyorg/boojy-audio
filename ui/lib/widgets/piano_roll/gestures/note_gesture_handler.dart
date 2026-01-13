@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../models/midi_note_data.dart';
+import '../../../models/tool_mode.dart';
 import '../../piano_roll.dart';
 import '../piano_roll_state.dart';
 import '../operations/note_operations.dart';

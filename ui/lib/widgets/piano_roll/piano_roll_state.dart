@@ -3,6 +3,7 @@ import '../../models/midi_note_data.dart';
 import '../../models/midi_cc_data.dart';
 import '../../models/scale_data.dart';
 import '../../models/chord_data.dart';
+import '../../models/tool_mode.dart';
 import '../../services/undo_redo_manager.dart';
 import '../piano_roll.dart';
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
+import '../models/tool_mode.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'synthesizer_panel.dart';
@@ -49,6 +50,10 @@ class EditorPanel extends StatefulWidget {
   final Function(Vst3Plugin)? onVst3InstrumentDropped;
   final Function(Instrument)? onInstrumentDropped;
 
+  // Tool mode (shared with arrangement view)
+  final ToolMode toolMode;
+  final Function(ToolMode)? onToolModeChanged;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -74,6 +79,8 @@ class EditorPanel extends StatefulWidget {
     this.onTabAndExpand,
     this.onVst3InstrumentDropped,
     this.onInstrumentDropped,
+    this.toolMode = ToolMode.draw,
+    this.onToolModeChanged,
   });
 
   @override
@@ -83,9 +90,6 @@ class EditorPanel extends StatefulWidget {
 class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin {
   late TabController _tabController;
   int _selectedTabIndex = 0;
-
-  // Tool mode state for Piano Roll (managed here so tools can be in tab bar)
-  ToolMode _currentToolMode = ToolMode.draw;
 
   // Temporary tool mode when holding modifier keys (Alt, Cmd)
   ToolMode? _tempToolMode;
@@ -189,8 +193,11 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Handle keyboard events for modifier key tracking (visual feedback for hold modifiers)
   bool _onKeyEvent(KeyEvent event) {
-    // Check if Alt or Cmd/Ctrl modifiers changed
-    if (event.logicalKey == LogicalKeyboardKey.alt ||
+    // Check if Shift, Alt, or Cmd/Ctrl modifiers changed
+    if (event.logicalKey == LogicalKeyboardKey.shift ||
+        event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+        event.logicalKey == LogicalKeyboardKey.shiftRight ||
+        event.logicalKey == LogicalKeyboardKey.alt ||
         event.logicalKey == LogicalKeyboardKey.altLeft ||
         event.logicalKey == LogicalKeyboardKey.altRight ||
         event.logicalKey == LogicalKeyboardKey.meta ||
@@ -206,6 +213,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Update temporary tool mode based on held modifiers
   void _updateTempToolMode() {
+    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
@@ -214,7 +222,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       if (isAltPressed) {
         _tempToolMode = ToolMode.eraser;
       } else if (isCtrlOrCmd) {
-        _tempToolMode = ToolMode.duplicate; // or slice depending on context
+        _tempToolMode = ToolMode.duplicate;
+      } else if (isShiftPressed) {
+        _tempToolMode = ToolMode.select;
       } else {
         _tempToolMode = null;
       }
@@ -546,7 +556,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   /// Shows full highlight for active sticky tool, dimmer highlight for temporary hold modifier
   /// Tools are greyed out when viewing Audio Editor (not functional in v1)
   Widget _buildToolButton(ToolMode mode, IconData icon, String tooltip) {
-    final isActive = _currentToolMode == mode;
+    final isActive = widget.toolMode == mode;
     final isTempActive = _tempToolMode == mode && !isActive;
 
     // Grey out tools when on audio track (tools not functional in Audio Editor v1)
@@ -578,7 +588,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     return Tooltip(
       message: tooltipText,
       child: GestureDetector(
-        onTap: isDisabled ? null : () => setState(() => _currentToolMode = mode),
+        onTap: isDisabled ? null : () => widget.onToolModeChanged?.call(mode),
         child: MouseRegion(
           cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
           child: Container(
@@ -695,8 +705,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       audioEngine: widget.audioEngine,
       clipData: clipData,
       onClipUpdated: widget.onAudioClipUpdated,
-      toolMode: _currentToolMode,
-      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+      toolMode: widget.toolMode,
+      onToolModeChanged: widget.onToolModeChanged,
     );
   }
 
@@ -755,8 +765,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       clipData: clipData,
       onClipUpdated: widget.onMidiClipUpdated,
       ghostNotes: widget.ghostNotes,
-      toolMode: _currentToolMode,
-      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+      toolMode: widget.toolMode,
+      onToolModeChanged: widget.onToolModeChanged,
       highlightedNote: _highlightedNote,
       virtualPianoVisible: widget.virtualPianoEnabled,
       onVirtualPianoToggle: widget.onVirtualPianoToggle,

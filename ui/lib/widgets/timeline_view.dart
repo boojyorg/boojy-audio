@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart' show PointerScrollEvent, kPrimaryButton;
-import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
+import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cross_file/cross_file.dart';
@@ -10,6 +10,7 @@ import '../theme/theme_extension.dart';
 import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
+import '../models/tool_mode.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
@@ -105,6 +106,10 @@ class TimelineView extends StatefulWidget {
   // Vertical scroll controller (synced with track mixer panel)
   final ScrollController? verticalScrollController;
 
+  // Tool mode (shared with piano roll)
+  final ToolMode toolMode;
+  final Function(ToolMode)? onToolModeChanged;
+
   const TimelineView({
     super.key,
     required this.playheadPosition,
@@ -140,6 +145,8 @@ class TimelineView extends StatefulWidget {
     this.loopEndBeats = 4.0,
     this.onLoopRegionChanged,
     this.verticalScrollController,
+    this.toolMode = ToolMode.draw,
+    this.onToolModeChanged,
   });
 
   @override
@@ -156,6 +163,32 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _loadTracksAsync();
     });
+
+    // Listen for hardware keyboard events (for instant modifier key updates)
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
+
+    // Initialize cursor based on initial tool mode
+    currentCursor = _cursorForToolMode(widget.toolMode);
+  }
+
+  /// Handle hardware keyboard events for instant modifier key cursor updates
+  bool _onHardwareKey(KeyEvent event) {
+    // Update temp tool mode when Shift, Alt, or Cmd/Ctrl is pressed or released
+    if (event.logicalKey == LogicalKeyboardKey.shift ||
+        event.logicalKey == LogicalKeyboardKey.shiftLeft ||
+        event.logicalKey == LogicalKeyboardKey.shiftRight ||
+        event.logicalKey == LogicalKeyboardKey.alt ||
+        event.logicalKey == LogicalKeyboardKey.altLeft ||
+        event.logicalKey == LogicalKeyboardKey.altRight ||
+        event.logicalKey == LogicalKeyboardKey.meta ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight ||
+        event.logicalKey == LogicalKeyboardKey.control ||
+        event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight) {
+      updateTempToolMode();
+    }
+    return false; // Don't consume the event, let other handlers process it
   }
 
   @override
@@ -168,6 +201,28 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     // Reorder tracks immediately when track order changes (from drag-and-drop)
     if (!_listEquals(widget.trackOrder, oldWidget.trackOrder)) {
       _reorderTracksToMatchOrder();
+    }
+    // Update cursor when tool mode changes (from toolbar button click)
+    if (widget.toolMode != oldWidget.toolMode && tempToolMode == null) {
+      setState(() {
+        currentCursor = _cursorForToolMode(widget.toolMode);
+      });
+    }
+  }
+
+  /// Get cursor for a given tool mode.
+  MouseCursor _cursorForToolMode(ToolMode tool) {
+    switch (tool) {
+      case ToolMode.draw:
+        return SystemMouseCursors.precise;
+      case ToolMode.select:
+        return SystemMouseCursors.basic;
+      case ToolMode.eraser:
+        return SystemMouseCursors.forbidden;
+      case ToolMode.duplicate:
+        return SystemMouseCursors.copy;
+      case ToolMode.slice:
+        return SystemMouseCursors.verticalText;
     }
   }
 
@@ -216,6 +271,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     scrollController.dispose();
     refreshTimer?.cancel();
     super.dispose();
@@ -249,6 +305,22 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   double _snapToGrid(double beats) {
     final snapResolution = _getGridSnapResolution();
     return (beats / snapResolution).round() * snapResolution;
+  }
+
+  /// Get cursor based on current tool mode
+  MouseCursor _getCursorForTool(ToolMode tool, {bool isOverClip = false}) {
+    switch (tool) {
+      case ToolMode.draw:
+        return SystemMouseCursors.precise;
+      case ToolMode.select:
+        return isOverClip ? SystemMouseCursors.grab : SystemMouseCursors.basic;
+      case ToolMode.eraser:
+        return SystemMouseCursors.forbidden;
+      case ToolMode.duplicate:
+        return SystemMouseCursors.copy;
+      case ToolMode.slice:
+        return SystemMouseCursors.verticalText;
+    }
   }
 
   /// Handle file drop on track
@@ -837,9 +909,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     await UndoRedoManager().execute(command);
   }
 
-  /// Duplicate an audio clip (place copy after original)
-  Future<void> _duplicateAudioClip(ClipData clip) async {
-    final newStartTime = clip.startTime + clip.duration;
+  /// Duplicate an audio clip (place copy at specified position or after original)
+  Future<void> _duplicateAudioClip(ClipData clip, {double? atPosition}) async {
+    final newStartTime = atPosition ?? clip.startTime + clip.duration;
 
     final command = DuplicateAudioClipCommand(
       originalClip: clip,
@@ -1182,7 +1254,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   }
 
   /// Split audio clip at preview position
-  void _splitAudioClipAtPreview(ClipData clip) {
+  Future<void> _splitAudioClipAtPreview(ClipData clip) async {
     if (splitPreviewAudioClipId != clip.clipId) return;
 
     // Convert beat position back to seconds
@@ -1191,40 +1263,87 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     // Validate split point is within clip bounds
     if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) {
+      _clearSplitPreview();
       return;
     }
 
-    // Create left clip (original, shortened)
-    final leftClip = clip.copyWith(
-      duration: splitTimeRelative,
+    // Store original clip data for undo
+    final originalClip = clip;
+
+    // Create command for split operation
+    final command = SplitAudioClipCommand(
+      originalClipId: clip.clipId,
+      originalTrackId: clip.trackId,
+      originalFilePath: clip.filePath,
+      originalStartTime: clip.startTime,
+      originalDuration: clip.duration,
+      originalOffset: clip.offset,
+      originalWaveformPeaks: clip.waveformPeaks,
+      splitPointSeconds: splitTimeAbsolute,
+      onSplit: (leftClipId, rightClipId) {
+        if (!mounted) return;
+
+        // Create left clip (original, shortened - reuse original ID)
+        final leftClip = clip.copyWith(
+          duration: splitTimeRelative,
+        );
+
+        // Create right clip (new, starting at split point)
+        final rightClip = clip.copyWith(
+          clipId: rightClipId,
+          startTime: splitTimeAbsolute,
+          duration: clip.duration - splitTimeRelative,
+          offset: clip.offset + splitTimeRelative,
+        );
+
+        setState(() {
+          final index = clips.indexWhere((c) => c.clipId == clip.clipId);
+          if (index >= 0) {
+            clips[index] = leftClip;
+            clips.add(rightClip);
+          }
+        });
+
+        // Register right clip with engine (load same audio file at new position)
+        if (widget.audioEngine != null) {
+          final newEngineClipId = widget.audioEngine!.loadAudioFileToTrack(
+            clip.filePath,
+            clip.trackId,
+            startTime: splitTimeAbsolute,
+          );
+          // Update right clip with engine clip ID if successful
+          if (newEngineClipId >= 0) {
+            setState(() {
+              final rightIndex = clips.indexWhere((c) => c.clipId == rightClipId);
+              if (rightIndex >= 0) {
+                clips[rightIndex] = clips[rightIndex].copyWith(clipId: newEngineClipId);
+              }
+            });
+          }
+        }
+      },
+      onUndo: () {
+        if (!mounted) return;
+        setState(() {
+          // Remove the right clip
+          clips.removeWhere((c) => c.startTime == splitTimeAbsolute && c.trackId == clip.trackId);
+          // Restore original left clip
+          final index = clips.indexWhere((c) => c.clipId == clip.clipId);
+          if (index >= 0) {
+            clips[index] = originalClip;
+          } else {
+            clips.add(originalClip);
+          }
+        });
+      },
     );
 
-    // Create right clip (new, starting at split point)
-    final rightClipId = DateTime.now().millisecondsSinceEpoch;
-    final rightClip = clip.copyWith(
-      clipId: rightClipId,
-      startTime: splitTimeAbsolute,
-      duration: clip.duration - splitTimeRelative,
-      offset: clip.offset + splitTimeRelative,
-    );
-
-    // Update local state
-    setState(() {
-      final index = clips.indexWhere((c) => c.clipId == clip.clipId);
-      if (index >= 0) {
-        clips[index] = leftClip;
-        clips.add(rightClip);
-      }
-    });
-
-    // Update engine for left clip
-    widget.audioEngine?.setClipStartTime(clip.trackId, clip.clipId, clip.startTime);
-
+    await UndoRedoManager().execute(command);
     _clearSplitPreview();
   }
 
   /// Split MIDI clip at preview position
-  void _splitMidiClipAtPreview(MidiClipData clip) {
+  Future<void> _splitMidiClipAtPreview(MidiClipData clip) async {
     if (splitPreviewMidiClipId != clip.clipId) return;
 
     // Split point in beats relative to clip start
@@ -1232,57 +1351,30 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
     // Validate split point is within clip bounds
     if (splitPointBeats <= 0 || splitPointBeats >= clip.duration) {
+      _clearSplitPreview();
       return;
     }
 
-    // Split notes into two groups
-    final leftNotes = <MidiNoteData>[];
-    final rightNotes = <MidiNoteData>[];
-
-    for (final note in clip.notes) {
-      if (note.endTime <= splitPointBeats) {
-        leftNotes.add(note);
-      } else if (note.startTime >= splitPointBeats) {
-        rightNotes.add(note.copyWith(
-          startTime: note.startTime - splitPointBeats,
-          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
-      } else {
-        // Note straddles split - truncate to left
-        leftNotes.add(note.copyWith(
-          duration: splitPointBeats - note.startTime,
-        ));
-      }
-    }
-
-    // Create left and right clips
-    final leftClipId = DateTime.now().millisecondsSinceEpoch;
-    final rightClipId = leftClipId + 1;
-
-    final leftClip = clip.copyWith(
-      clipId: leftClipId,
-      duration: splitPointBeats,
-      loopLength: splitPointBeats.clamp(0.25, clip.loopLength),
-      notes: leftNotes,
-      name: '${clip.name} (L)',
+    // Create command for split operation
+    final command = SplitMidiClipCommand(
+      originalClip: clip,
+      splitPointBeats: splitPointBeats,
+      onSplit: (leftClip, rightClip) {
+        // Delete original and add both new clips via callbacks
+        widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+        // Add both new clips
+        widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
+        widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
+      },
+      onUndo: (restoredClip) {
+        // Delete the split clips (by their IDs)
+        // Note: This requires the parent to handle restoration
+        // For now, signal that original clip should be restored
+        widget.onMidiClipCopied?.call(restoredClip, restoredClip.startTime);
+      },
     );
 
-    final rightClip = clip.copyWith(
-      clipId: rightClipId,
-      startTime: clip.startTime + splitPointBeats,
-      duration: clip.duration - splitPointBeats,
-      loopLength: (clip.duration - splitPointBeats).clamp(0.25, clip.loopLength),
-      notes: rightNotes,
-      name: '${clip.name} (R)',
-    );
-
-    // Delete original and add both new clips via callbacks
-    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
-
-    // Add both new clips (need to call the copy callback twice)
-    widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
-    widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
-
+    await UndoRedoManager().execute(command);
     _clearSplitPreview();
   }
 
@@ -1444,9 +1536,11 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     }
     totalTracksHeight += 160.0; // Empty drop target area + buffer before Master
 
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) {
+    return MouseRegion(
+      cursor: currentCursor,
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           // Handle Delete/Backspace to delete selected MIDI clip
           if (event.logicalKey == LogicalKeyboardKey.delete ||
@@ -1507,7 +1601,57 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
               }
             }
           }
+
+          // ============================================
+          // Tool shortcuts (Z, X, C, V, B)
+          // Press once to switch tool, stays active until switched again
+          // ============================================
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+              HardwareKeyboard.instance.isControlPressed;
+
+          // Z = Draw tool (without Cmd/Ctrl - Cmd+Z is undo)
+          if (event.logicalKey == LogicalKeyboardKey.keyZ && !isCtrlOrCmd) {
+            widget.onToolModeChanged?.call(ToolMode.draw);
+            return KeyEventResult.handled;
+          }
+          // X = Select tool (without Cmd/Ctrl - Cmd+X is cut)
+          if (event.logicalKey == LogicalKeyboardKey.keyX && !isCtrlOrCmd) {
+            widget.onToolModeChanged?.call(ToolMode.select);
+            return KeyEventResult.handled;
+          }
+          // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
+          if (event.logicalKey == LogicalKeyboardKey.keyC && !isCtrlOrCmd) {
+            widget.onToolModeChanged?.call(ToolMode.eraser);
+            return KeyEventResult.handled;
+          }
+          // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
+          if (event.logicalKey == LogicalKeyboardKey.keyV && !isCtrlOrCmd) {
+            widget.onToolModeChanged?.call(ToolMode.duplicate);
+            return KeyEventResult.handled;
+          }
+          // B = Slice tool
+          if (event.logicalKey == LogicalKeyboardKey.keyB && !isCtrlOrCmd) {
+            widget.onToolModeChanged?.call(ToolMode.slice);
+            return KeyEventResult.handled;
+          }
         }
+
+        // ============================================
+        // Modifier key handling for temporary tool override
+        // ============================================
+        // Update tempToolMode when Alt/Cmd/Ctrl keys change
+        if (event.logicalKey == LogicalKeyboardKey.alt ||
+            event.logicalKey == LogicalKeyboardKey.altLeft ||
+            event.logicalKey == LogicalKeyboardKey.altRight ||
+            event.logicalKey == LogicalKeyboardKey.meta ||
+            event.logicalKey == LogicalKeyboardKey.metaLeft ||
+            event.logicalKey == LogicalKeyboardKey.metaRight ||
+            event.logicalKey == LogicalKeyboardKey.control ||
+            event.logicalKey == LogicalKeyboardKey.controlLeft ||
+            event.logicalKey == LogicalKeyboardKey.controlRight) {
+          updateTempToolMode();
+        }
+
         return KeyEventResult.ignored;
       },
       child: DecoratedBox(
@@ -1635,6 +1779,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             child: _buildZoomControls(),
           ),
         ],
+      ),
       ),
       ),
     );
@@ -2144,10 +2289,37 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           },
           child: GestureDetector(
         onTapUp: (details) {
-          // Place insert marker at click position on empty space (spec v2.0)
           final beatPosition = _calculateBeatPosition(details.localPosition);
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
+          final tool = effectiveToolMode;
 
+          // Draw tool on empty MIDI track space: copy selected clip or create new
+          if (tool == ToolMode.draw && isMidiTrack && !isOnClip) {
+            final startBeats = _snapToGrid(beatPosition);
+
+            // Check if there's a selected MIDI clip to copy
+            if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
+              // Copy the selected clip to this position
+              widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
+            } else {
+              // Create a new empty 1-bar clip
+              const durationBeats = 4.0; // 1 bar
+              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+            }
+            return;
+          }
+
+          // SELECT TOOL: Click on empty space = deselect all clips
+          if (tool == ToolMode.select && !isOnClip) {
+            setState(() {
+              selectedAudioClipIds.clear();
+              selectedMidiClipIds.clear();
+              selectedAudioClipId = null;
+            });
+            widget.onMidiClipSelected?.call(null, null);
+          }
+
+          // Place insert marker at click position on empty space
           if (!isOnClip) {
             setInsertMarker(beatPosition);
           }
@@ -2172,6 +2344,10 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
               }
             : null,
         onHorizontalDragStart: (details) {
+          // Only allow drag-to-create in Draw mode on MIDI tracks
+          final tool = effectiveToolMode;
+          if (tool != ToolMode.draw) return;
+
           // Check if drag starts on empty space (not on a clip)
           final beatPosition = _calculateBeatPosition(details.localPosition);
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
@@ -2339,10 +2515,21 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
   Widget _buildClip(ClipData clip, Color trackColor, double trackHeight) {
     final clipWidth = clip.duration * pixelsPerSecond;
-    // Use dragged position if this clip is being dragged
-    final displayStartTime = draggingClipId == clip.clipId
-        ? dragStartTime + (dragCurrentX - dragStartX) / pixelsPerSecond
-        : clip.startTime;
+    // Use dragged position if this clip is being dragged (with snap preview)
+    double displayStartTime;
+    if (draggingClipId == clip.clipId) {
+      // Calculate raw position in seconds
+      var rawStartTime = dragStartTime + (dragCurrentX - dragStartX) / pixelsPerSecond;
+      rawStartTime = rawStartTime.clamp(0.0, double.infinity);
+
+      // Snap to grid: convert seconds to beats, snap, convert back
+      final beatsPerSecond = widget.tempo / 60.0;
+      final rawBeats = rawStartTime * beatsPerSecond;
+      final snappedBeats = _snapToGrid(rawBeats);
+      displayStartTime = snappedBeats / beatsPerSecond;
+    } else {
+      displayStartTime = clip.startTime;
+    }
     final clipX = displayStartTime.clamp(0.0, double.infinity) * pixelsPerSecond;
     final isDragging = draggingClipId == clip.clipId;
     final isSelected = selectedAudioClipIds.contains(clip.clipId);
@@ -2362,31 +2549,58 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       top: 0,
       child: GestureDetector(
         onTapDown: (details) {
-          // Ctrl/Cmd+click: delete clip immediately
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) {
+          // Tool-based behavior (effectiveToolMode includes modifier key overrides)
+          final tool = effectiveToolMode;
+
+          // Eraser tool: delete clip immediately
+          if (tool == ToolMode.eraser) {
             _deleteAudioClip(clip);
             return;
           }
 
-          // Alt+click: split at hover position
-          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-          if (isAltPressed && hasSplitPreview) {
-            _splitAudioClipAtPreview(clip);
+          // Slice tool: split at click position
+          if (tool == ToolMode.slice) {
+            // Calculate split position from click (audio clips use seconds)
+            final clickXInClip = details.localPosition.dx;
+            final clickSecondsInClip = clickXInClip / pixelsPerSecond;
+            if (clickSecondsInClip > 0 && clickSecondsInClip < clip.duration) {
+              // Convert to beats for split preview
+              final beatsPerSecond = widget.tempo / 60.0;
+              setState(() {
+                splitPreviewAudioClipId = clip.clipId;
+                splitPreviewBeatPosition = clickSecondsInClip * beatsPerSecond;
+              });
+              _splitAudioClipAtPreview(clip);
+            }
+            return;
+          }
+
+          // Duplicate tool: duplicate clip at click position (snapped)
+          if (tool == ToolMode.duplicate) {
+            // Calculate position from click (audio clips use seconds, snap uses beats)
+            final clickXInClip = details.localPosition.dx;
+            final clickSecondsInClip = clickXInClip / pixelsPerSecond;
+            final clickSecondsAbsolute = clip.startTime + clickSecondsInClip;
+            // Convert to beats for snapping, then back to seconds
+            final beatsPerSecond = widget.tempo / 60.0;
+            final clickBeats = clickSecondsAbsolute * beatsPerSecond;
+            final snappedBeats = _snapToGrid(clickBeats);
+            final snappedSeconds = snappedBeats / beatsPerSecond;
+            _duplicateAudioClip(clip, atPosition: snappedSeconds);
             return;
           }
         },
         onTapUp: (details) {
-          // Skip if Ctrl/Cmd was pressed (delete handled in onTapDown)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Tool-based behavior
+          final tool = effectiveToolMode;
 
-          // Skip if Alt was pressed (split handled in onTapDown)
-          if (HardwareKeyboard.instance.isAltPressed) return;
+          // Skip if eraser/slice/duplicate handled in onTapDown
+          if (tool == ToolMode.eraser || tool == ToolMode.slice || tool == ToolMode.duplicate) {
+            return;
+          }
 
-          // Shift+click = toggle selection (spec v2.0)
+          // DRAW + SELECT TOOL: Click on existing clip = select it (FL Studio style)
+          // Shift+click = toggle selection
           final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
           selectAudioClipMulti(
@@ -2410,13 +2624,14 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           _showAudioClipContextMenu(details.globalPosition, clip);
         },
         onHorizontalDragStart: (details) {
-          // Skip if Ctrl/Cmd is held (eraser mode)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Don't start drag in eraser/slice mode (Draw mode allows moving)
+          final tool = effectiveToolMode;
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedAudioClipIds.contains(clip.clipId);
+          // Duplicate mode = copy drag
+          final isDuplicate = tool == ToolMode.duplicate;
 
           setState(() {
             // If not in multi-selection, select just this clip
@@ -2429,13 +2644,13 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             dragStartTime = clip.startTime;
             dragStartX = details.globalPosition.dx;
             dragCurrentX = details.globalPosition.dx;
+            isCopyDrag = isDuplicate; // Store for drag end
           });
         },
         onHorizontalDragUpdate: (details) {
-          // Skip if Ctrl/Cmd is held (eraser mode)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Skip in eraser/slice mode (Draw mode allows moving)
+          final tool = effectiveToolMode;
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           setState(() {
             dragCurrentX = details.globalPosition.dx;
@@ -2444,42 +2659,54 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         onHorizontalDragEnd: (details) async {
           if (draggingClipId == null) return;
 
-          // Calculate final position
-          final newStartTime = (dragStartTime + (dragCurrentX - dragStartX) / pixelsPerSecond)
+          // Calculate final position with snap to grid
+          final rawStartTime = (dragStartTime + (dragCurrentX - dragStartX) / pixelsPerSecond)
               .clamp(0.0, double.infinity);
 
-          // Only create command if position actually changed
-          if ((newStartTime - clip.startTime).abs() > 0.001) {
-            final command = MoveAudioClipCommand(
-              trackId: clip.trackId,
-              clipId: clip.clipId,
-              clipName: clip.fileName,
-              newStartTime: newStartTime,
-              oldStartTime: clip.startTime,
-            );
-            await UndoRedoManager().execute(command);
+          // Snap to grid: convert seconds to beats, snap, convert back
+          final beatsPerSecond = widget.tempo / 60.0;
+          final rawBeats = rawStartTime * beatsPerSecond;
+          final snappedBeats = _snapToGrid(rawBeats);
+          final newStartTime = snappedBeats / beatsPerSecond;
+
+          if (isCopyDrag) {
+            // Duplicate tool: create copy at new position
+            await _duplicateAudioClip(clip, atPosition: newStartTime);
+          } else {
+            // Move: update existing clip position
+            // Only create command if position actually changed
+            if ((newStartTime - clip.startTime).abs() > 0.001) {
+              final command = MoveAudioClipCommand(
+                trackId: clip.trackId,
+                clipId: clip.clipId,
+                clipName: clip.fileName,
+                newStartTime: newStartTime,
+                oldStartTime: clip.startTime,
+              );
+              await UndoRedoManager().execute(command);
+            }
+
+            // Update local state
+            setState(() {
+              final index = clips.indexWhere((c) => c.clipId == clip.clipId);
+              if (index >= 0) {
+                clips[index] = clips[index].copyWith(startTime: newStartTime);
+              }
+            });
           }
 
-          // Update local state
           setState(() {
-            final index = clips.indexWhere((c) => c.clipId == clip.clipId);
-            if (index >= 0) {
-              clips[index] = clips[index].copyWith(startTime: newStartTime);
-            }
             draggingClipId = null;
+            isCopyDrag = false;
           });
         },
         child: MouseRegion(
           cursor: trimmingAudioClipId == clip.clipId
               ? (isTrimmingLeftEdge ? SystemMouseCursors.resizeLeft : SystemMouseCursors.resizeRight)
-              : (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)
-                  ? SystemMouseCursors.forbidden // Ctrl/Cmd = delete
-                  : HardwareKeyboard.instance.isAltPressed
-                      ? SystemMouseCursors.copy // Alt = duplicate
-                      : SystemMouseCursors.grab,
+              : _getCursorForTool(effectiveToolMode, isOverClip: true),
           onHover: (event) {
-            // Track hover position for split preview (only when Alt is pressed - but Alt is now duplicate)
-            // Keep split preview disabled for now, we'll use a different approach later
+            // Update temp tool mode on hover (in case modifier keys changed)
+            updateTempToolMode();
           },
           onExit: (_) {
             if (splitPreviewAudioClipId == clip.clipId) {
@@ -2771,31 +2998,53 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       top: 0,
       child: GestureDetector(
         onTapDown: (details) {
-          // Ctrl/Cmd+click: delete clip immediately
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) {
+          // Tool-based behavior (effectiveToolMode includes modifier key overrides)
+          final tool = effectiveToolMode;
+
+          // Eraser tool: delete clip immediately
+          if (tool == ToolMode.eraser) {
             widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
             return;
           }
 
-          // Alt+click: split at hover position
-          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-          if (isAltPressed && hasSplitPreview) {
-            _splitMidiClipAtPreview(midiClip);
+          // Slice tool: split at click position
+          if (tool == ToolMode.slice) {
+            // Calculate split position from click
+            final clickXInClip = details.localPosition.dx;
+            final clickBeatsInClip = clickXInClip / pixelsPerBeat;
+            if (clickBeatsInClip > 0 && clickBeatsInClip < midiClip.duration) {
+              // Use split preview mechanism
+              setState(() {
+                splitPreviewMidiClipId = midiClip.clipId;
+                splitPreviewBeatPosition = clickBeatsInClip;
+              });
+              _splitMidiClipAtPreview(midiClip);
+            }
+            return;
+          }
+
+          // Duplicate tool: duplicate clip at click position (snapped)
+          if (tool == ToolMode.duplicate) {
+            // Calculate beat position from click (localPosition is relative to clip)
+            final clickXInClip = details.localPosition.dx;
+            final clickBeatsInClip = clickXInClip / pixelsPerBeat;
+            final clickBeatsAbsolute = midiClip.startTime + clickBeatsInClip;
+            final snappedBeats = _snapToGrid(clickBeatsAbsolute);
+            widget.onMidiClipCopied?.call(midiClip, snappedBeats);
             return;
           }
         },
         onTapUp: (details) {
-          // Skip if Ctrl/Cmd was pressed (delete handled in onTapDown)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Tool-based behavior
+          final tool = effectiveToolMode;
 
-          // Skip if Alt was pressed (split handled in onTapDown)
-          if (HardwareKeyboard.instance.isAltPressed) return;
+          // Skip if eraser/slice/duplicate handled in onTapDown
+          if (tool == ToolMode.eraser || tool == ToolMode.slice || tool == ToolMode.duplicate) {
+            return;
+          }
 
-          // Shift+click = toggle selection (spec v2.0)
+          // DRAW + SELECT TOOL: Click on existing clip = select it (FL Studio style)
+          // Shift+click = toggle selection
           final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
 
           selectMidiClipMulti(
@@ -2820,15 +3069,14 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           _showMidiClipContextMenu(details.globalPosition, midiClip);
         },
         onHorizontalDragStart: (details) {
-          // Check if Ctrl/Cmd is held (eraser mode - don't start drag)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Don't start drag in eraser/slice mode (Draw mode allows moving)
+          final tool = effectiveToolMode;
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedMidiClipIds.contains(midiClip.clipId);
-          // Alt+drag = duplicate (spec v2.0)
-          final isDuplicate = HardwareKeyboard.instance.isAltPressed;
+          // Duplicate mode = copy drag (from tool or Cmd/Ctrl modifier)
+          final isDuplicate = tool == ToolMode.duplicate;
           setState(() {
             // If not in multi-selection, select just this clip
             if (!isInMultiSelection) {
@@ -2839,17 +3087,16 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
             midiDragStartTime = midiClip.startTime;
             midiDragStartX = details.globalPosition.dx;
             midiDragCurrentX = details.globalPosition.dx;
-            isCopyDrag = isDuplicate; // Alt = duplicate
+            isCopyDrag = isDuplicate; // Duplicate tool = copy drag
             // Store source clip duration for stamp copies
             stampCopySourceDuration = midiClip.duration;
             stampCopyCount = 0;
           });
         },
         onHorizontalDragUpdate: (details) {
-          // Skip if Ctrl/Cmd is held (eraser mode)
-          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-              HardwareKeyboard.instance.isControlPressed;
-          if (isCtrlOrCmd) return;
+          // Skip in eraser/slice mode (Draw mode allows moving)
+          final tool = effectiveToolMode;
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           // Shift bypasses snap (spec v2.0)
           final bypassSnap = HardwareKeyboard.instance.isShiftPressed;
@@ -2916,14 +3163,12 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         child: MouseRegion(
           cursor: resizingMidiClipId == midiClip.clipId
               ? SystemMouseCursors.resizeRight
-              : (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)
-                  ? SystemMouseCursors.forbidden // Ctrl/Cmd = delete
-                  : HardwareKeyboard.instance.isAltPressed
-                      ? SystemMouseCursors.copy // Alt = duplicate
-                      : SystemMouseCursors.grab,
+              : _getCursorForTool(effectiveToolMode, isOverClip: true),
           onHover: (event) {
-            // Track hover position for split preview (only when Alt is pressed)
-            if (HardwareKeyboard.instance.isAltPressed) {
+            // Update temp tool mode on hover (in case modifier keys changed)
+            updateTempToolMode();
+            // Track hover position for split preview (when using slice tool)
+            if (effectiveToolMode == ToolMode.slice) {
               _updateMidiClipSplitPreview(midiClip.clipId, event.localPosition.dx, clipWidth, midiClip);
             }
           },
