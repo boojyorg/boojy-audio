@@ -23,6 +23,7 @@ import '../models/library_item.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/project_commands.dart';
+import '../services/commands/clip_commands.dart';
 import '../services/library_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
@@ -40,8 +41,10 @@ import '../models/project_version.dart';
 import '../models/version_type.dart';
 import '../models/project_view_state.dart';
 import '../models/midi_event.dart';
+import '../models/tool_mode.dart';
 import '../services/version_manager.dart';
 import '../services/midi_capture_buffer.dart';
+import '../services/clip_naming_service.dart';
 import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
@@ -100,6 +103,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // Audio clip selection for Audio Editor
   ClipData? _selectedAudioClip;
+
+  // Tool mode (shared between piano roll and arrangement view)
+  ToolMode _currentToolMode = ToolMode.draw;
 
   // Project metadata
   ProjectMetadata _projectMetadata = const ProjectMetadata(
@@ -569,12 +575,13 @@ class _DAWScreenState extends State<DAWScreen> {
                 : 16.0; // Default 4 bars (16 beats) if no duration
 
             // Create MidiClipData and add to timeline
+            final actualTrackId = trackId >= 0 ? trackId : (_selectedTrackId ?? 0);
             final clipData = MidiClipData(
               clipId: result.midiClipId!,
-              trackId: trackId >= 0 ? trackId : (_selectedTrackId ?? 0),
+              trackId: actualTrackId,
               startTime: startTimeBeats,
               duration: durationBeats,
-              name: 'Recorded MIDI',
+              name: _generateClipName(actualTrackId),
               notes: [], // Notes are managed by the engine
             );
 
@@ -831,7 +838,7 @@ class _DAWScreenState extends State<DAWScreen> {
       trackId: trackId,
       startTime: 0.0, // Start at beat 0
       duration: durationBeats,
-      name: 'New MIDI Clip',
+      name: _generateClipName(trackId),
       notes: [],
     );
 
@@ -1093,11 +1100,24 @@ class _DAWScreenState extends State<DAWScreen> {
       startTime: startBeats,
       duration: durationBeats,
       loopLength: durationBeats, // Loop length matches arrangement length initially
-      name: 'New MIDI Clip',
+      name: _generateClipName(trackId),
       notes: [],
     );
 
-    _midiPlaybackManager?.addRecordedClip(clip);
+    // Use undo/redo for clip creation
+    final command = CreateMidiClipCommand(
+      clipData: clip,
+      onClipCreated: (newClip) {
+        _midiPlaybackManager?.addRecordedClip(newClip);
+        _midiPlaybackManager?.selectClip(newClip.clipId, newClip);
+        if (mounted) setState(() {});
+      },
+      onClipRemoved: (clipId, tId) {
+        _midiClipController.deleteClip(clipId, tId);
+        if (mounted) setState(() {});
+      },
+    );
+    _undoRedoManager.execute(command);
   }
 
   /// Capture MIDI from the buffer and create a clip
@@ -1168,7 +1188,7 @@ class _DAWScreenState extends State<DAWScreen> {
       startTime: _playheadPosition / 60.0 * _tempo, // Current playhead position in beats
       duration: clipDuration,
       loopLength: clipDuration,
-      name: 'Captured MIDI',
+      name: _generateClipName(_selectedTrackId!),
       notes: notes,
     );
 
@@ -1316,6 +1336,27 @@ class _DAWScreenState extends State<DAWScreen> {
     // Check if any clips are on this track
     final hasClips = _timelineKey.currentState?.hasClipsOnTrack(trackId) ?? false;
     return !hasClips;
+  }
+
+  // Helper: Get track name by ID
+  String? _getTrackName(int trackId) {
+    final info = _audioEngine?.getTrackInfo(trackId) ?? '';
+    if (info.isEmpty) return null;
+
+    final parts = info.split(',');
+    if (parts.length < 2) return null;
+
+    return parts[1];
+  }
+
+  // Helper: Generate clip name for a track using instrument or track name
+  String _generateClipName(int trackId) {
+    final instrument = _trackInstruments[trackId];
+    final trackName = _getTrackName(trackId);
+    return ClipNamingService.generateClipName(
+      instrument: instrument,
+      trackName: trackName,
+    );
   }
 
   // Helper: Find instrument by name
@@ -1740,30 +1781,62 @@ class _DAWScreenState extends State<DAWScreen> {
 
   void _onMidiClipUpdated(MidiClipData updatedClip) {
     _midiClipController.updateClip(updatedClip, _playheadPosition);
+
+    // Propagate changes to all linked clips (same patternId)
+    _midiPlaybackManager?.updateLinkedClips(updatedClip, _tempo);
   }
 
   void _onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
-    _midiClipController.copyClipToTime(sourceClip, newStartTime);
+    // Use undo/redo manager for arrangement operations
+    final command = DuplicateMidiClipCommand(
+      originalClip: sourceClip,
+      newStartTime: newStartTime,
+      onClipDuplicated: (newClip, sharedPatternId) {
+        // Update original clip's patternId if it was null (first duplication)
+        if (sourceClip.patternId == null) {
+          final updatedOriginal = sourceClip.copyWith(patternId: sharedPatternId);
+          _midiPlaybackManager?.updateClipInPlace(updatedOriginal);
+        }
+
+        // Add new clip to manager and schedule for playback
+        _midiPlaybackManager?.addRecordedClip(newClip);
+        _midiClipController.updateClip(newClip, _playheadPosition);
+        // Select the new clip
+        _midiPlaybackManager?.selectClip(newClip.clipId, newClip);
+        if (mounted) setState(() {});
+      },
+      onClipRemoved: (clipId) {
+        // Find the clip to get track ID
+        final clip = _midiPlaybackManager?.midiClips.firstWhere(
+          (c) => c.clipId == clipId,
+          orElse: () => sourceClip,
+        );
+        _midiClipController.deleteClip(clipId, clip?.trackId ?? sourceClip.trackId);
+        if (mounted) setState(() {});
+      },
+    );
+    _undoRedoManager.execute(command);
   }
 
   void _duplicateSelectedClip() {
-    _midiClipController.duplicateSelectedClip();
+    final clip = _midiPlaybackManager?.currentEditingClip;
+    if (clip == null) return;
+
+    // Place duplicate immediately after original
+    final newStartTime = clip.startTime + clip.duration;
+    _onMidiClipCopied(clip, newStartTime);
   }
 
   void _splitSelectedClipAtPlayhead() {
-    // Use insert marker position if available, otherwise fall back to playhead
-    final insertMarkerSeconds = _timelineKey.currentState?.getInsertMarkerSeconds();
-    final splitPosition = insertMarkerSeconds ?? _playheadPosition;
-    final usingInsertMarker = insertMarkerSeconds != null;
+    // Split at playhead position
+    final splitPosition = _playheadPosition;
 
     // Try MIDI clip first
     if (_midiPlaybackManager?.selectedClipId != null) {
       final success = _midiClipController.splitSelectedClipAtPlayhead(splitPosition);
       if (success && mounted) {
         setState(() {
-          _statusMessage = usingInsertMarker
-              ? 'Split MIDI clip at insert marker'
-              : 'Split MIDI clip at playhead';
+          _statusMessage = 'Split MIDI clip at playhead';
         });
         return;
       }
@@ -1773,9 +1846,7 @@ class _DAWScreenState extends State<DAWScreen> {
     final audioSplit = _timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
     if (audioSplit && mounted) {
       setState(() {
-        _statusMessage = usingInsertMarker
-            ? 'Split audio clip at insert marker'
-            : 'Split audio clip at playhead';
+        _statusMessage = 'Split audio clip at playhead';
       });
       return;
     }
@@ -1783,9 +1854,7 @@ class _DAWScreenState extends State<DAWScreen> {
     // Neither worked
     if (mounted) {
       setState(() {
-        _statusMessage = usingInsertMarker
-            ? 'Cannot split: select a clip and place insert marker within it'
-            : 'Cannot split: select a clip and place playhead within it';
+        _statusMessage = 'Cannot split: select a clip and place playhead within it';
       });
     }
   }
@@ -1958,7 +2027,32 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   void _deleteMidiClip(int clipId, int trackId) {
-    _midiClipController.deleteClip(clipId, trackId);
+    // Find the clip data for undo
+    final clip = _midiPlaybackManager?.midiClips.firstWhere(
+      (c) => c.clipId == clipId,
+      orElse: () => MidiClipData(
+        clipId: clipId,
+        trackId: trackId,
+        startTime: 0,
+        duration: 4,
+        name: 'Deleted Clip',
+      ),
+    );
+
+    final command = DeleteMidiClipFromArrangementCommand(
+      clipData: clip!,
+      onClipRemoved: (cId, tId) {
+        _midiClipController.deleteClip(cId, tId);
+        if (mounted) setState(() {});
+      },
+      onClipRestored: (restoredClip) {
+        _midiPlaybackManager?.addRecordedClip(restoredClip);
+        _midiClipController.updateClip(restoredClip, _playheadPosition);
+        _midiPlaybackManager?.selectClip(restoredClip.clipId, restoredClip);
+        if (mounted) setState(() {});
+      },
+    );
+    _undoRedoManager.execute(command);
   }
 
   // ========================================================================
@@ -3313,6 +3407,9 @@ class _DAWScreenState extends State<DAWScreen> {
                           },
                           // Vertical scroll sync with mixer panel
                           verticalScrollController: _timelineVerticalScrollController,
+                          // Tool mode (shared with piano roll)
+                          toolMode: _currentToolMode,
+                          onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
                         ),
                         ),
                       ),
@@ -3474,6 +3571,8 @@ class _DAWScreenState extends State<DAWScreen> {
                         }
                       },
                       isCollapsed: false,
+                      toolMode: _currentToolMode,
+                      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
                     ),
                   ),
                 ],

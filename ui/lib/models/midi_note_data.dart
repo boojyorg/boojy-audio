@@ -187,6 +187,10 @@ class MidiClipData {
   /// This is the Piano Roll "Start" field value.
   final double contentStartOffset;
 
+  /// Pattern ID for linked clips. Clips with same patternId share note content.
+  /// Null means this is a standalone clip (not linked to others).
+  final String? patternId;
+
   MidiClipData({
     required this.clipId,
     required this.trackId,
@@ -200,6 +204,7 @@ class MidiClipData {
     this.isMuted = false,
     this.canRepeat = true,
     this.contentStartOffset = 0.0,
+    this.patternId,
   }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
 
   /// Total duration including all loop iterations
@@ -223,6 +228,7 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
+      patternId: patternId,
     );
   }
 
@@ -241,6 +247,7 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
+      patternId: patternId,
     );
   }
 
@@ -259,6 +266,7 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
+      patternId: patternId,
     );
   }
 
@@ -284,6 +292,7 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
+      patternId: patternId,
     );
   }
 
@@ -302,6 +311,7 @@ class MidiClipData {
       isMuted: isMuted,
       canRepeat: canRepeat,
       contentStartOffset: contentStartOffset,
+      patternId: patternId,
     );
   }
 
@@ -319,6 +329,7 @@ class MidiClipData {
     bool? isMuted,
     bool? canRepeat,
     double? contentStartOffset,
+    String? patternId,
   }) {
     return MidiClipData(
       clipId: clipId ?? this.clipId,
@@ -333,6 +344,7 @@ class MidiClipData {
       isMuted: isMuted ?? this.isMuted,
       canRepeat: canRepeat ?? this.canRepeat,
       contentStartOffset: contentStartOffset ?? this.contentStartOffset,
+      patternId: patternId ?? this.patternId,
     );
   }
 }

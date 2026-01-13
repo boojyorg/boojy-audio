@@ -15,7 +15,6 @@ import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
 import 'instrument_browser.dart';
-import 'painters/dashed_line_painter.dart';
 import 'painters/loop_bar_painter.dart';
 import 'painters/time_ruler_painter.dart';
 import 'painters/timeline_grid_painter.dart';
@@ -668,7 +667,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           _duplicateMidiClip(clip);
           break;
         case 'split':
-          _splitMidiClipAtInsertMarker(clip);
+          _splitMidiClipAtPlayhead(clip);
           break;
         case 'cut':
           _cutMidiClip(clip);
@@ -837,17 +836,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         ),
         const PopupMenuDivider(),
         PopupMenuItem<String>(
-          value: 'set_marker',
-          child: Row(
-            children: [
-              Icon(Icons.location_on, size: 18, color: context.colors.textSecondary),
-              const SizedBox(width: 8),
-              const Text('Set Insert Marker Here'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
           value: 'select_all',
           child: Row(
             children: [
@@ -872,9 +860,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           if (clipboardMidiClip != null) {
             _pasteMidiClip(track.id);
           }
-          break;
-        case 'set_marker':
-          setInsertMarker(snappedBeat);
           break;
         case 'select_all':
           selectAllClips();
@@ -974,8 +959,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
       return;
     }
 
-    // Paste at insert marker if available, otherwise at start
-    final pastePosition = insertMarkerBeats ?? 0.0;
+    // Paste at playhead position (convert from seconds to beats)
+    final beatsPerSecond = widget.tempo / 60.0;
+    final pastePosition = widget.playheadPosition * beatsPerSecond;
     widget.onMidiClipCopied?.call(clipboardMidiClip!, pastePosition);
   }
 
@@ -1378,20 +1364,19 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     _clearSplitPreview();
   }
 
-  /// Split MIDI clip at insert marker position
-  void _splitMidiClipAtInsertMarker(MidiClipData clip) {
-    if (insertMarkerBeats == null) {
-      return;
-    }
+  /// Split MIDI clip at playhead position
+  void _splitMidiClipAtPlayhead(MidiClipData clip) {
+    // Convert playhead from seconds to beats
+    final beatsPerSecond = widget.tempo / 60.0;
+    final playheadBeats = widget.playheadPosition * beatsPerSecond;
 
-    // Check if insert marker is within clip bounds
-    final markerBeats = insertMarkerBeats!;
-    if (markerBeats <= clip.startTime || markerBeats >= clip.endTime) {
+    // Check if playhead is within clip bounds
+    if (playheadBeats <= clip.startTime || playheadBeats >= clip.endTime) {
       return;
     }
 
     // Split point in beats relative to clip start
-    final splitPointBeats = markerBeats - clip.startTime;
+    final splitPointBeats = playheadBeats - clip.startTime;
 
     // Split notes into two groups
     final leftNotes = <MidiNoteData>[];
@@ -1758,9 +1743,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
                             ],
                           ),
 
-                          // Insert marker (blue dashed line) - spans full height including Master
-                          _buildInsertMarker(),
-
                           // Playhead - spans full height including Master
                           _buildPlayhead(),
                         ],
@@ -2053,13 +2035,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         ),
         // ROW 2: Bar numbers ruler
         GestureDetector(
-          onTapUp: (details) {
-            // Click ruler to place insert marker (spec v2.0)
-            final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
-            final xInContent = details.localPosition.dx + scrollOffset;
-            final beats = xInContent / pixelsPerBeat;
-            setInsertMarker(beats.clamp(0.0, double.infinity));
-          },
           onSecondaryTapUp: (details) {
             // Right-click ruler for context menu
             _showRulerContextMenu(details.globalPosition, details.localPosition);
@@ -2293,18 +2268,20 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
           final tool = effectiveToolMode;
 
-          // Draw tool on empty MIDI track space: copy selected clip or create new
+          // Draw tool on empty MIDI track space: create new clip
           if (tool == ToolMode.draw && isMidiTrack && !isOnClip) {
             final startBeats = _snapToGrid(beatPosition);
+            // Create a new 1-bar clip at the clicked position
+            const durationBeats = 4.0; // 1 bar
+            widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+            return;
+          }
 
-            // Check if there's a selected MIDI clip to copy
+          // Duplicate tool on empty space: copy selected clip to clicked position
+          if (tool == ToolMode.duplicate && isMidiTrack && !isOnClip) {
             if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
-              // Copy the selected clip to this position
+              final startBeats = _snapToGrid(beatPosition);
               widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
-            } else {
-              // Create a new empty 1-bar clip
-              const durationBeats = 4.0; // 1 bar
-              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
             }
             return;
           }
@@ -2317,11 +2294,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
               selectedAudioClipId = null;
             });
             widget.onMidiClipSelected?.call(null, null);
-          }
-
-          // Place insert marker at click position on empty space
-          if (!isOnClip) {
-            setInsertMarker(beatPosition);
           }
 
           // Select track if it's a MIDI track
@@ -2611,13 +2583,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           // Deselect any MIDI clip (notify parent)
           widget.onMidiClipSelected?.call(null, null);
 
-          // Place insert marker at click position (spec v2.0)
-          // Convert local X position in clip to global beats
-          final clickXInClip = details.localPosition.dx;
-          final clickSeconds = clip.startTime + (clickXInClip / pixelsPerSecond);
-          final beatsPerSecond = widget.tempo / 60.0;
-          final clickBeats = clickSeconds * beatsPerSecond;
-          setInsertMarker(clickBeats.clamp(0.0, double.infinity));
         },
         onSecondaryTapDown: (details) {
           // Right-click: show context menu
@@ -3059,11 +3024,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           } else if (selectedMidiClipIds.isEmpty) {
             widget.onMidiClipSelected?.call(null, null);
           }
-
-          // Place insert marker at click position (spec v2.0)
-          final clickXInClip = details.localPosition.dx;
-          final clickBeats = midiClip.startTime + (clickXInClip / pixelsPerBeat);
-          setInsertMarker(clickBeats.clamp(0.0, double.infinity));
         },
         onSecondaryTapDown: (details) {
           _showMidiClipContextMenu(details.globalPosition, midiClip);
@@ -3526,47 +3486,6 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         ),
       ),
     );
-  }
-
-  /// Build the insert marker (blue dashed line, separate from playhead)
-  /// Used for split operations (Cmd+E) and paste location
-  Widget _buildInsertMarker() {
-    if (insertMarkerBeats == null) return const SizedBox.shrink();
-
-    final markerX = insertMarkerBeats! * pixelsPerBeat;
-
-    return Positioned(
-      left: markerX - 1, // Center the 2px line
-      top: 0,
-      bottom: 0,
-      child: IgnorePointer(
-        child: SizedBox(
-          width: 2,
-          child: CustomPaint(
-            painter: DashedLinePainter(
-              color: context.colors.accent, // Accent color for insert marker
-              strokeWidth: 2,
-              dashLength: 6,
-              gapLength: 4,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Set insert marker position (in beats)
-  void setInsertMarker(double? beats) {
-    setState(() {
-      insertMarkerBeats = beats;
-    });
-  }
-
-  /// Get insert marker position in seconds (for split operations)
-  double? getInsertMarkerSeconds() {
-    if (insertMarkerBeats == null) return null;
-    final beatsPerSecond = widget.tempo / 60.0;
-    return insertMarkerBeats! / beatsPerSecond;
   }
 
   /// Build the drag-to-create preview rectangle

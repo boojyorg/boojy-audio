@@ -440,12 +440,29 @@ class DeleteAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngine engine) async {
+    // Remove from engine (stops playback)
+    engine.removeAudioClip(clipData.trackId, clipData.clipId);
+    // Remove from UI
     onClipRemoved?.call(clipData.clipId);
   }
 
   @override
   Future<void> undo(AudioEngine engine) async {
-    onClipRestored?.call(clipData);
+    // Reload the audio file from disk at the original position
+    final newClipId = engine.loadAudioFileToTrack(
+      clipData.filePath,
+      clipData.trackId,
+      startTime: clipData.startTime,
+    );
+
+    if (newClipId >= 0) {
+      // Restore with new clip ID from engine
+      final restoredClip = clipData.copyWith(clipId: newClipId);
+      onClipRestored?.call(restoredClip);
+    } else {
+      // Fallback: restore to UI with original ID (won't play but visible)
+      onClipRestored?.call(clipData);
+    }
   }
 
   @override
@@ -474,7 +491,20 @@ class DuplicateAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngine engine) async {
-    _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+    // Call engine API to duplicate the clip - this registers it for playback
+    final newClipId = engine.duplicateAudioClip(
+      originalClip.trackId,
+      originalClip.clipId,
+      newStartTime,
+    );
+
+    if (newClipId < 0) {
+      // Fallback to local-only ID if engine call fails
+      _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+    } else {
+      _duplicatedClipId = newClipId;
+    }
+
     final newClip = originalClip.copyWith(
       clipId: _duplicatedClipId,
       startTime: newStartTime,
@@ -485,6 +515,9 @@ class DuplicateAudioClipCommand extends Command {
   @override
   Future<void> undo(AudioEngine engine) async {
     if (_duplicatedClipId != null) {
+      // Remove from engine
+      engine.removeAudioClip(originalClip.trackId, _duplicatedClipId!);
+      // Remove from UI
       onClipRemoved?.call(_duplicatedClipId!);
     }
   }
@@ -559,4 +592,150 @@ class RenameClipCommand extends Command {
 
   @override
   String get description => 'Rename Clip: $oldName → $newName';
+}
+
+/// Command to duplicate a MIDI clip in the arrangement view
+/// Creates a linked instance that shares the same patternId
+class DuplicateMidiClipCommand extends Command {
+  final MidiClipData originalClip;
+  final double newStartTime;
+
+  int? _duplicatedClipId;
+  String? _sharedPatternId;
+
+  /// Callback to add duplicated clip AND update original's patternId if needed
+  /// Parameters: (newClip, sharedPatternId)
+  final void Function(MidiClipData newClip, String sharedPatternId)? onClipDuplicated;
+
+  /// Callback to remove duplicated clip (undo)
+  final void Function(int clipId)? onClipRemoved;
+
+  DuplicateMidiClipCommand({
+    required this.originalClip,
+    required this.newStartTime,
+    this.onClipDuplicated,
+    this.onClipRemoved,
+  });
+
+  /// Get the duplicated clip ID (available after execute)
+  int? get duplicatedClipId => _duplicatedClipId;
+
+  /// Get the shared pattern ID (available after execute)
+  String? get sharedPatternId => _sharedPatternId;
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+
+    // Generate patternId if original doesn't have one
+    // This creates a shared pattern ID for linking clips together
+    _sharedPatternId = originalClip.patternId ?? 'pattern_${originalClip.clipId}';
+
+    final newClip = originalClip.copyWith(
+      clipId: _duplicatedClipId,
+      startTime: newStartTime,
+      patternId: _sharedPatternId,
+    );
+    onClipDuplicated?.call(newClip, _sharedPatternId!);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    if (_duplicatedClipId != null) {
+      onClipRemoved?.call(_duplicatedClipId!);
+    }
+  }
+
+  @override
+  String get description => 'Duplicate MIDI Clip: ${originalClip.name}';
+}
+
+/// Command to delete a MIDI clip from the arrangement view
+class DeleteMidiClipFromArrangementCommand extends Command {
+  final MidiClipData clipData;
+
+  /// Callback to remove clip from UI state
+  final void Function(int clipId, int trackId)? onClipRemoved;
+
+  /// Callback to restore clip to UI state (undo)
+  final void Function(MidiClipData clip)? onClipRestored;
+
+  DeleteMidiClipFromArrangementCommand({
+    required this.clipData,
+    this.onClipRemoved,
+    this.onClipRestored,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipRemoved?.call(clipData.clipId, clipData.trackId);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipRestored?.call(clipData);
+  }
+
+  @override
+  String get description => 'Delete MIDI Clip: ${clipData.name}';
+}
+
+/// Command to move a MIDI clip position in the arrangement
+class MoveMidiClipPositionCommand extends Command {
+  final MidiClipData originalClip;
+  final double newStartTime;
+  final double oldStartTime;
+
+  /// Callback to update clip position in UI state
+  final void Function(int clipId, double startTime)? onClipMoved;
+
+  MoveMidiClipPositionCommand({
+    required this.originalClip,
+    required this.newStartTime,
+    required this.oldStartTime,
+    this.onClipMoved,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipMoved?.call(originalClip.clipId, newStartTime);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipMoved?.call(originalClip.clipId, oldStartTime);
+  }
+
+  @override
+  String get description => 'Move MIDI Clip: ${originalClip.name}';
+}
+
+/// Command to create a new MIDI clip in the arrangement
+class CreateMidiClipCommand extends Command {
+  final MidiClipData clipData;
+
+  /// Callback to add clip to UI state
+  final void Function(MidiClipData clip)? onClipCreated;
+
+  /// Callback to remove clip from UI state (undo)
+  final void Function(int clipId, int trackId)? onClipRemoved;
+
+  CreateMidiClipCommand({
+    required this.clipData,
+    this.onClipCreated,
+    this.onClipRemoved,
+  });
+
+  @override
+  Future<void> execute(AudioEngine engine) async {
+    onClipCreated?.call(clipData);
+  }
+
+  @override
+  Future<void> undo(AudioEngine engine) async {
+    onClipRemoved?.call(clipData.clipId, clipData.trackId);
+  }
+
+  @override
+  String get description => 'Create MIDI Clip: ${clipData.name}';
 }

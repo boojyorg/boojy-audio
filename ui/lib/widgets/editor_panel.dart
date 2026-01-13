@@ -102,6 +102,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)
+  /// For MIDI tracks, shows the pattern name (e.g., "Serum" or "Synthesizer")
   String get _firstTabLabel {
     if (_isAudioTrack) {
       final clipName = widget.currentEditingAudioClip?.fileName;
@@ -110,11 +111,22 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       }
       return 'Audio Editor';
     }
+
+    // MIDI track: show pattern name from clip
+    if (widget.currentEditingClip != null) {
+      final clipName = widget.currentEditingClip!.name;
+      // Truncate if too long
+      if (clipName.length > 20) {
+        return '${clipName.substring(0, 17)}...';
+      }
+      return clipName;
+    }
+
     return 'Piano Roll';
   }
 
   /// Get the first tab icon based on track type
-  IconData get _firstTabIcon => _isAudioTrack ? Icons.audio_file : Icons.piano_outlined;
+  IconData get _firstTabIcon => _isAudioTrack ? Icons.audio_file : Icons.piano;
 
   @override
   void initState() {
