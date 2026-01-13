@@ -723,20 +723,38 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   }
 
   Widget _buildPianoRollTab() {
-    // Use real clip data if available, otherwise create an empty clip for the selected track
-    final clipData = widget.currentEditingClip ?? (widget.selectedTrackId != null
-      ? MidiClipData(
-          clipId: -1, // -1 indicates a new, unsaved clip
-          trackId: widget.selectedTrackId!,
-          startTime: 0.0,
-          duration: 16.0,
-          name: 'New MIDI Clip',
-          notes: [],
-        )
-      : null);
+    // Check if we have a real clip selected
+    final clipData = widget.currentEditingClip;
 
+    // Track selected but no clip - show "Click to create" message
+    if (clipData == null && widget.selectedTrackId != null) {
+      return ColoredBox(
+        color: context.colors.dark,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.piano_outlined,
+                size: 64,
+                color: context.colors.textMuted,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Click to create MIDI clip',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // No track selected - show empty state
     if (clipData == null) {
-      // No track selected - show empty state
       return ColoredBox(
         color: context.colors.dark,
         child: Center(
