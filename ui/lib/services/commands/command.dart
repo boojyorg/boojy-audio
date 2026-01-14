@@ -1,12 +1,13 @@
-import '../../audio_engine.dart';
+import 'audio_engine_interface.dart';
 
-/// Base abstract class for all undoable commands
+/// Base abstract class for all undoable commands.
+/// Uses [AudioEngineInterface] to allow testing with mock implementations.
 abstract class Command {
   /// Execute the command
-  Future<void> execute(AudioEngine engine);
+  Future<void> execute(AudioEngineInterface engine);
 
   /// Undo the command (reverse the action)
-  Future<void> undo(AudioEngine engine);
+  Future<void> undo(AudioEngineInterface engine);
 
   /// Human-readable description for undo history UI
   String get description;
@@ -23,14 +24,14 @@ class CompositeCommand extends Command {
   CompositeCommand(this.commands, this._description);
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     for (final cmd in commands) {
       await cmd.execute(engine);
     }
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Undo in reverse order
     for (final cmd in commands.reversed) {
       await cmd.undo(engine);

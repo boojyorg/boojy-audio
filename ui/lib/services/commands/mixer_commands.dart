@@ -1,4 +1,4 @@
-import '../../audio_engine.dart';
+import 'audio_engine_interface.dart';
 import 'command.dart';
 
 /// Command to change track volume
@@ -16,12 +16,12 @@ class SetVolumeCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackVolume(trackId, newVolumeDb);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackVolume(trackId, oldVolumeDb);
   }
 
@@ -45,12 +45,12 @@ class SetPanCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackPan(trackId, newPan);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackPan(trackId, oldPan);
   }
 
@@ -80,12 +80,12 @@ class SetMuteCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackMute(trackId, mute: newMute);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackMute(trackId, mute: oldMute);
   }
 
@@ -109,12 +109,12 @@ class SetSoloCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackSolo(trackId, solo: newSolo);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackSolo(trackId, solo: oldSolo);
   }
 

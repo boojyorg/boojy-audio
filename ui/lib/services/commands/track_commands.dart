@@ -1,4 +1,4 @@
-import '../../audio_engine.dart';
+import 'audio_engine_interface.dart';
 import 'command.dart';
 
 /// Command to create a new track
@@ -16,12 +16,12 @@ class CreateTrackCommand extends Command {
   int? get createdTrackId => _createdTrackId;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     _createdTrackId = engine.createTrack(trackType, trackName);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_createdTrackId != null && _createdTrackId! >= 0) {
       engine.deleteTrack(_createdTrackId!);
     }
@@ -59,7 +59,7 @@ class DeleteTrackCommand extends Command {
         _solo = solo;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Store current state before deletion
     final info = engine.getTrackInfo(trackId);
     if (info.isNotEmpty && !info.startsWith('Error')) {
@@ -76,7 +76,7 @@ class DeleteTrackCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Recreate the track
     final newTrackId = engine.createTrack(trackType, trackName);
 
@@ -108,12 +108,12 @@ class DuplicateTrackCommand extends Command {
   int? get duplicatedTrackId => _duplicatedTrackId;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     _duplicatedTrackId = engine.duplicateTrack(sourceTrackId);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_duplicatedTrackId != null && _duplicatedTrackId! >= 0) {
       engine.deleteTrack(_duplicatedTrackId!);
     }
@@ -140,13 +140,13 @@ class RenameTrackCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackName(trackId, newName);
     onTrackRenamed?.call(trackId, newName);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackName(trackId, oldName);
     onTrackRenamed?.call(trackId, oldName);
   }
@@ -174,13 +174,13 @@ class ReorderTrackCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Track reordering is UI-only state (not in audio engine)
     onTrackReordered?.call(oldIndex, newIndex);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Reverse the reorder
     onTrackReordered?.call(newIndex, oldIndex);
   }
@@ -204,12 +204,12 @@ class ArmTrackCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackArmed(trackId, armed: newArmed);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackArmed(trackId, armed: oldArmed);
   }
 

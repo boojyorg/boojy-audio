@@ -1,6 +1,6 @@
-import '../../audio_engine.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
+import 'audio_engine_interface.dart';
 import 'command.dart';
 
 /// Command to move a MIDI clip on the timeline
@@ -22,14 +22,14 @@ class MoveMidiClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Note: This updates the clip position in the engine
     // The actual implementation depends on your engine API
     // For now, this is handled in Flutter state
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Restore previous position
   }
 
@@ -55,12 +55,12 @@ class MoveAudioClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setClipStartTime(trackId, clipId, newStartTime);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setClipStartTime(trackId, clipId, oldStartTime);
   }
 
@@ -76,13 +76,13 @@ class DeleteMidiClipCommand extends Command {
   DeleteMidiClipCommand({required this.clipData});
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Delete clip from engine
     // Note: Implement engine.deleteMidiClip() if not exists
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Recreate the clip with stored data
     // This requires storing all clip state
   }
@@ -109,13 +109,13 @@ class MidiClipSnapshotCommand extends Command {
   }) : _description = actionDescription;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Apply the "after" state
     onApplyState?.call(afterState);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Apply the "before" state
     onApplyState?.call(beforeState);
   }
@@ -139,12 +139,12 @@ class AddMidiNoteCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onApplyState?.call(clipAfter);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onApplyState?.call(clipBefore);
   }
 
@@ -167,12 +167,12 @@ class DeleteMidiNotesCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onApplyState?.call(clipAfter);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onApplyState?.call(clipBefore);
   }
 
@@ -195,12 +195,12 @@ class MoveMidiNotesCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onApplyState?.call(clipAfter);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onApplyState?.call(clipBefore);
   }
 
@@ -223,12 +223,12 @@ class ResizeMidiNotesCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onApplyState?.call(clipAfter);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onApplyState?.call(clipBefore);
   }
 
@@ -259,7 +259,7 @@ class SplitMidiClipCommand extends Command {
   }
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Split notes into two groups based on the split point
     final leftNotes = <MidiNoteData>[];
     final rightNotes = <MidiNoteData>[];
@@ -306,7 +306,7 @@ class SplitMidiClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onUndo?.call(originalClip);
   }
 
@@ -350,7 +350,7 @@ class SplitAudioClipCommand extends Command {
   }
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // The actual clip creation happens in the callback
     // because we need to interact with both the engine and the UI state.
     // Use the helper getters (leftDuration, rightStartTime, etc.) in the callback.
@@ -358,7 +358,7 @@ class SplitAudioClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onUndo?.call();
   }
 
@@ -400,7 +400,7 @@ class AddAudioClipCommand extends Command {
   int? get createdClipId => _createdClipId;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     _createdClipId = engine.loadAudioFileToTrack(filePath, trackId);
     if (_createdClipId != null && _createdClipId! >= 0) {
       final duration = engine.getClipDuration(_createdClipId!);
@@ -412,7 +412,7 @@ class AddAudioClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_createdClipId != null && _createdClipId! >= 0) {
       onClipRemoved?.call(_createdClipId!);
     }
@@ -439,7 +439,7 @@ class DeleteAudioClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
     engine.removeAudioClip(clipData.trackId, clipData.clipId);
     // Remove from UI
@@ -447,7 +447,7 @@ class DeleteAudioClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Reload the audio file from disk at the original position
     final newClipId = engine.loadAudioFileToTrack(
       clipData.filePath,
@@ -490,7 +490,7 @@ class DuplicateAudioClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     // Call engine API to duplicate the clip - this registers it for playback
     final newClipId = engine.duplicateAudioClip(
       originalClip.trackId,
@@ -513,7 +513,7 @@ class DuplicateAudioClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_duplicatedClipId != null) {
       // Remove from engine
       engine.removeAudioClip(originalClip.trackId, _duplicatedClipId!);
@@ -551,12 +551,12 @@ class ResizeAudioClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onClipResized?.call(clipId, newDuration, newOffset);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onClipResized?.call(clipId, oldDuration, oldOffset);
   }
 
@@ -581,12 +581,12 @@ class RenameClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onClipRenamed?.call(clipId, newName);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onClipRenamed?.call(clipId, oldName);
   }
 
@@ -624,7 +624,7 @@ class DuplicateMidiClipCommand extends Command {
   String? get sharedPatternId => _sharedPatternId;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
 
     // Generate patternId if original doesn't have one
@@ -640,7 +640,7 @@ class DuplicateMidiClipCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_duplicatedClipId != null) {
       onClipRemoved?.call(_duplicatedClipId!);
     }
@@ -667,12 +667,12 @@ class DeleteMidiClipFromArrangementCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onClipRemoved?.call(clipData.clipId, clipData.trackId);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onClipRestored?.call(clipData);
   }
 
@@ -697,12 +697,12 @@ class MoveMidiClipPositionCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onClipMoved?.call(originalClip.clipId, newStartTime);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onClipMoved?.call(originalClip.clipId, oldStartTime);
   }
 
@@ -727,12 +727,12 @@ class CreateMidiClipCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onClipCreated?.call(clipData);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onClipRemoved?.call(clipData.clipId, clipData.trackId);
   }
 

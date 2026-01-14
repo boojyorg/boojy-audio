@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/audio_clip_edit_data.dart';
-import '../../../audio_engine.dart';
+import '../../../services/commands/audio_engine_interface.dart';
 import '../../../services/commands/command.dart';
 import '../audio_editor.dart';
 import '../audio_editor_state.dart';
@@ -212,12 +212,12 @@ class AudioClipEditCommand extends Command {
   }) : _actionDescription = actionDescription;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     onApplyState(afterState, clipData);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     onApplyState(beforeState, clipData);
   }
 

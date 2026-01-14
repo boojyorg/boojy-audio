@@ -1,4 +1,4 @@
-import '../../audio_engine.dart';
+import 'audio_engine_interface.dart';
 import 'command.dart';
 
 /// Command to change project tempo (BPM)
@@ -16,13 +16,13 @@ class SetTempoCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setTempo(newBpm);
     onTempoChanged?.call(newBpm);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setTempo(oldBpm);
     onTempoChanged?.call(oldBpm);
   }
@@ -47,13 +47,13 @@ class SetCountInCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setCountInBars(newBars);
     onCountInChanged?.call(newBars);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setCountInBars(oldBars);
     onCountInChanged?.call(oldBars);
   }

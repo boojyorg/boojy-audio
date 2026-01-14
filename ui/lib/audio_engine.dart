@@ -6,8 +6,10 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
+import 'services/commands/audio_engine_interface.dart';
+
 /// FFI bindings for the Rust audio engine
-class AudioEngine {
+class AudioEngine implements AudioEngineInterface {
   late final ffi.DynamicLibrary _lib;
   
   // M0 functions
@@ -87,6 +89,8 @@ class AudioEngine {
   late final _GetTrackPeakLevelsFfi _getTrackPeakLevels;
   late final _DeleteTrackFfi _deleteTrack;
   late final _DuplicateTrackFfi _duplicateTrack;
+  late final _DuplicateAudioClipFfi _duplicateAudioClip;
+  late final _RemoveAudioClipFfi _removeAudioClip;
   late final _ClearAllTracksFfi _clearAllTracks;
 
   // M4 functions - Effects
@@ -525,6 +529,16 @@ class AudioEngine {
       _duplicateTrack = _lib
           .lookup<ffi.NativeFunction<_DuplicateTrackFfiNative>>(
               'duplicate_track_ffi')
+          .asFunction();
+
+      _duplicateAudioClip = _lib
+          .lookup<ffi.NativeFunction<_DuplicateAudioClipFfiNative>>(
+              'duplicate_audio_clip_ffi')
+          .asFunction();
+
+      _removeAudioClip = _lib
+          .lookup<ffi.NativeFunction<_RemoveAudioClipFfiNative>>(
+              'remove_audio_clip_ffi')
           .asFunction();
 
       _clearAllTracks = _lib
@@ -1897,6 +1911,32 @@ class AudioEngine {
     }
   }
 
+  /// Duplicate an audio clip on the same track at a new position
+  /// Returns the new clip ID, or -1 on error
+  int duplicateAudioClip(int trackId, int sourceClipId, double newStartTime) {
+    try {
+      final newClipId = _duplicateAudioClip(trackId, sourceClipId, newStartTime);
+      if (newClipId >= 0) {
+        return newClipId;
+      } else {
+        return -1;
+      }
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  /// Remove an audio clip from a track
+  /// Returns true if removed, false if not found
+  bool removeAudioClip(int trackId, int clipId) {
+    try {
+      final result = _removeAudioClip(trackId, clipId);
+      return result > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Clear all tracks except master - used for New Project / Close Project
   String clearAllTracks() {
     try {
@@ -2790,6 +2830,12 @@ typedef _DeleteTrackFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _DuplicateTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
 typedef _DuplicateTrackFfi = int Function(int);
+
+typedef _DuplicateAudioClipFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Uint64, ffi.Double);
+typedef _DuplicateAudioClipFfi = int Function(int, int, double);
+
+typedef _RemoveAudioClipFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Uint64);
+typedef _RemoveAudioClipFfi = int Function(int, int);
 
 typedef _ClearAllTracksFfiNative = ffi.Pointer<Utf8> Function();
 typedef _ClearAllTracksFfi = ffi.Pointer<Utf8> Function();

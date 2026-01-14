@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:boojy_audio/services/commands/command.dart';
-import 'package:boojy_audio/audio_engine.dart';
+import 'package:boojy_audio/services/commands/audio_engine_interface.dart';
 
 /// A mock command for testing that tracks execution
 class MockCommand extends Command {
@@ -17,14 +17,14 @@ class MockCommand extends Command {
   String get description => _description;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     executed = true;
     undone = false;
     executeCount++;
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     undone = true;
     executeCount--;
     undoCount++;
@@ -37,19 +37,19 @@ class FailingCommand extends Command {
   String get description => 'Failing Command';
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     throw Exception('Execution failed');
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     throw Exception('Undo failed');
   }
 }
 
 void main() {
   // Note: UndoRedoManager is a singleton, so we need to clear it between tests
-  // We also can't fully test execute/undo without a real AudioEngine
+  // We also can't fully test execute/undo without a real AudioEngineInterface
   // These tests focus on the state management logic
 
   group('UndoRedoManager', () {

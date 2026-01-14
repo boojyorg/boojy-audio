@@ -1,4 +1,4 @@
-import '../../audio_engine.dart';
+import 'audio_engine_interface.dart';
 import 'command.dart';
 
 /// Command to add an effect to a track
@@ -31,7 +31,7 @@ class AddEffectCommand extends Command {
   int? get createdEffectId => _createdEffectId;
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     if (isVst3) {
       _createdEffectId = engine.addVst3EffectToTrack(trackId, effectType);
     } else {
@@ -43,7 +43,7 @@ class AddEffectCommand extends Command {
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     if (_createdEffectId != null && _createdEffectId! >= 0) {
       engine.removeEffectFromTrack(trackId, _createdEffectId!);
       onEffectRemoved?.call(_createdEffectId!);
@@ -85,13 +85,13 @@ class RemoveEffectCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.removeEffectFromTrack(trackId, effectId);
     onEffectRemoved?.call(effectId);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     // Re-add the effect
     if (isVst3) {
       _restoredEffectId = engine.addVst3EffectToTrack(trackId, effectType);
@@ -122,12 +122,12 @@ class BypassEffectCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setEffectBypass(effectId, bypassed: newBypassed);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setEffectBypass(effectId, bypassed: oldBypassed);
   }
 
@@ -151,12 +151,12 @@ class ReorderEffectsCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.reorderTrackEffects(trackId, newOrder);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.reorderTrackEffects(trackId, oldOrder);
   }
 
@@ -183,12 +183,12 @@ class SetEffectParameterCommand extends Command {
   });
 
   @override
-  Future<void> execute(AudioEngine engine) async {
+  Future<void> execute(AudioEngineInterface engine) async {
     engine.setVst3ParameterValue(effectId, paramIndex, newValue);
   }
 
   @override
-  Future<void> undo(AudioEngine engine) async {
+  Future<void> undo(AudioEngineInterface engine) async {
     engine.setVst3ParameterValue(effectId, paramIndex, oldValue);
   }
 
