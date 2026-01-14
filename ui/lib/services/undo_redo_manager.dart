@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../audio_engine.dart';
+import 'commands/audio_engine_interface.dart';
 import 'commands/command.dart';
 import 'user_settings.dart';
 
@@ -20,10 +20,10 @@ class UndoRedoManager extends ChangeNotifier {
   /// Maximum history size (configurable via UserSettings)
   int get maxHistorySize => UserSettings().undoLimit;
 
-  AudioEngine? _engine;
+  AudioEngineInterface? _engine;
 
   /// Initialize with audio engine reference
-  void initialize(AudioEngine engine) {
+  void initialize(AudioEngineInterface engine) {
     _engine = engine;
   }
 
