@@ -50,6 +50,7 @@ import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
+import 'daw/daw_menu_bar.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -2973,240 +2974,59 @@ class _DAWScreenState extends State<DAWScreen> {
     }
 
     return PlatformMenuBar(
-      menus: [
-        // Standard macOS app menu (Audio)
-        PlatformMenu(
-          label: 'Audio',
-          menus: [
-            PlatformMenuItem(
-              label: 'About Audio',
-              onSelected: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('About Audio'),
-                    content: const Text('Audio\nVersion M6.2\n\nA modern, cross-platform DAW'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            if (Platform.isMacOS)
-              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu),
-            if (Platform.isMacOS)
-              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
-            if (Platform.isMacOS)
-              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
-            if (Platform.isMacOS)
-              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
-            PlatformMenuItem(
-              label: 'Quit Audio',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
-              onSelected: () {
-                // Close the app
-                exit(0);
-              },
-            ),
-          ],
-        ),
-
-        // File Menu
-        PlatformMenu(
-          label: 'File',
-          menus: [
-            PlatformMenuItem(
-              label: 'New Project',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyN, meta: true),
-              onSelected: _newProject,
-            ),
-            PlatformMenuItem(
-              label: 'Open Project...',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyO, meta: true),
-              onSelected: _openProject,
-            ),
-            PlatformMenu(
-              label: 'Open Recent',
-              menus: _buildRecentProjectsMenu(),
-            ),
-            PlatformMenuItem(
-              label: 'Save',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyS, meta: true),
-              onSelected: _saveProject,
-            ),
-            PlatformMenuItem(
-              label: 'Save As...',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true),
-              onSelected: _saveProjectAs,
-            ),
-            PlatformMenuItem(
-              label: 'Make a Copy...',
-              onSelected: _makeCopy,
-            ),
-            PlatformMenuItem(
-              label: 'Export Audio...',
-              onSelected: _exportAudio,
-            ),
-            PlatformMenuItem(
-              label: 'Export MIDI...',
-              onSelected: _exportMidi,
-            ),
-            PlatformMenuItem(
-              label: 'Project Settings...',
-              shortcut: const SingleActivator(LogicalKeyboardKey.comma, meta: true),
-              onSelected: _openProjectSettings,
-            ),
-            PlatformMenuItem(
-              label: 'Close Project',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyW, meta: true),
-              onSelected: _closeProject,
-            ),
-          ],
-        ),
-
-        // Edit Menu
-        PlatformMenu(
-          label: 'Edit',
-          menus: [
-            PlatformMenuItem(
-              label: _undoRedoManager.canUndo
-                  ? 'Undo - ${_undoRedoManager.undoDescription ?? "Action"}'
-                  : 'Undo',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyZ, meta: true),
-              onSelected: _undoRedoManager.canUndo ? _performUndo : null,
-            ),
-            PlatformMenuItem(
-              label: _undoRedoManager.canRedo
-                  ? 'Redo - ${_undoRedoManager.redoDescription ?? "Action"}'
-                  : 'Redo',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true),
-              onSelected: _undoRedoManager.canRedo ? _performRedo : null,
-            ),
-            const PlatformMenuItem(
-              label: 'Cut',
-              shortcut: SingleActivator(LogicalKeyboardKey.keyX, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-            const PlatformMenuItem(
-              label: 'Copy',
-              shortcut: SingleActivator(LogicalKeyboardKey.keyC, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-            const PlatformMenuItem(
-              label: 'Paste',
-              shortcut: SingleActivator(LogicalKeyboardKey.keyV, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-            PlatformMenuItem(
-              label: 'Delete',
-              shortcut: const SingleActivator(LogicalKeyboardKey.delete),
-              onSelected: _midiPlaybackManager?.selectedClipId != null
-                  ? () {
-                      final clipId = _midiPlaybackManager!.selectedClipId!;
-                      final clip = _midiPlaybackManager!.currentEditingClip;
-                      if (clip != null) {
-                        _deleteMidiClip(clipId, clip.trackId);
-                      }
-                    }
-                  : null,
-            ),
-            PlatformMenuItem(
-              label: 'Duplicate',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyD, meta: true),
-              onSelected: _duplicateSelectedClip,
-            ),
-            PlatformMenuItem(
-              label: 'Split at Marker',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
-              onSelected: (_midiPlaybackManager?.selectedClipId != null ||
-                      _timelineKey.currentState?.selectedAudioClipId != null)
-                  ? _splitSelectedClipAtPlayhead
-                  : null,
-            ),
-            PlatformMenuItem(
-              label: 'Quantize Clip',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyQ),
-              onSelected: (_midiPlaybackManager?.selectedClipId != null ||
-                      _timelineKey.currentState?.selectedAudioClipId != null)
-                  ? _quantizeSelectedClip
-                  : null,
-            ),
-            PlatformMenuItem(
-              label: 'Consolidate Clips',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyJ, meta: true),
-              onSelected: (_timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
-                  ? _consolidateSelectedClips
-                  : null,
-            ),
-            PlatformMenuItem(
-              label: 'Bounce MIDI to Audio',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyB, meta: true),
-              onSelected: _midiPlaybackManager?.selectedClipId != null
-                  ? _bounceMidiToAudio
-                  : null,
-            ),
-            const PlatformMenuItem(
-              label: 'Select All',
-              shortcut: SingleActivator(LogicalKeyboardKey.keyA, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-          ],
-        ),
-
-        // View Menu
-        PlatformMenu(
-          label: 'View',
-          menus: [
-            PlatformMenuItem(
-              label: !_uiLayout.isLibraryPanelCollapsed ? '✓ Show Library Panel' : 'Show Library Panel',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyL, meta: true),
-              onSelected: _toggleLibraryPanel,
-            ),
-            PlatformMenuItem(
-              label: _uiLayout.isMixerVisible ? '✓ Show Mixer Panel' : 'Show Mixer Panel',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyM, meta: true),
-              onSelected: _toggleMixer,
-            ),
-            PlatformMenuItem(
-              label: _uiLayout.isEditorPanelVisible ? '✓ Show Editor Panel' : 'Show Editor Panel',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
-              onSelected: _toggleEditor,
-            ),
-            PlatformMenuItem(
-              label: _uiLayout.isVirtualPianoEnabled ? '✓ Show Virtual Piano' : 'Show Virtual Piano',
-              shortcut: const SingleActivator(LogicalKeyboardKey.keyP, meta: true),
-              onSelected: _toggleVirtualPiano,
-            ),
-            PlatformMenuItem(
-              label: 'Reset Panel Layout',
-              onSelected: _resetPanelLayout,
-            ),
-            PlatformMenuItem(
-              label: 'Settings...',
-              onSelected: _appSettings,
-            ),
-            const PlatformMenuItem(
-              label: 'Zoom In',
-              shortcut: SingleActivator(LogicalKeyboardKey.equal, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-            const PlatformMenuItem(
-              label: 'Zoom Out',
-              shortcut: SingleActivator(LogicalKeyboardKey.minus, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-            const PlatformMenuItem(
-              label: 'Zoom to Fit',
-              shortcut: SingleActivator(LogicalKeyboardKey.digit0, meta: true),
-              onSelected: null, // Disabled - future feature
-            ),
-          ],
-        ),
-      ],
+      menus: buildDawMenus(context, DawMenuConfig(
+        // File menu callbacks
+        onNewProject: _newProject,
+        onOpenProject: _openProject,
+        onSaveProject: _saveProject,
+        onSaveProjectAs: _saveProjectAs,
+        onMakeCopy: _makeCopy,
+        onExportAudio: _exportAudio,
+        onExportMidi: _exportMidi,
+        onProjectSettings: _openProjectSettings,
+        onCloseProject: _closeProject,
+        recentProjectsMenu: _buildRecentProjectsMenu(),
+        // Edit menu state and callbacks
+        undoRedoManager: _undoRedoManager,
+        onDelete: _midiPlaybackManager?.selectedClipId != null
+            ? () {
+                final clipId = _midiPlaybackManager!.selectedClipId!;
+                final clip = _midiPlaybackManager!.currentEditingClip;
+                if (clip != null) {
+                  _deleteMidiClip(clipId, clip.trackId);
+                }
+              }
+            : null,
+        onDuplicate: _duplicateSelectedClip,
+        onSplitAtMarker: (_midiPlaybackManager?.selectedClipId != null ||
+                _timelineKey.currentState?.selectedAudioClipId != null)
+            ? _splitSelectedClipAtPlayhead
+            : null,
+        onQuantizeClip: (_midiPlaybackManager?.selectedClipId != null ||
+                _timelineKey.currentState?.selectedAudioClipId != null)
+            ? _quantizeSelectedClip
+            : null,
+        onConsolidateClips: (_timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
+            ? _consolidateSelectedClips
+            : null,
+        onBounceMidiToAudio: _midiPlaybackManager?.selectedClipId != null
+            ? _bounceMidiToAudio
+            : null,
+        hasSelectedMidiClip: _midiPlaybackManager?.selectedClipId != null,
+        hasSelectedAudioClip: _timelineKey.currentState?.selectedAudioClipId != null,
+        selectedMidiClipCount: _timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
+        // View menu state and callbacks
+        uiLayout: _uiLayout,
+        onToggleLibrary: _toggleLibraryPanel,
+        onToggleMixer: _toggleMixer,
+        onToggleEditor: _toggleEditor,
+        onTogglePiano: _toggleVirtualPiano,
+        onResetPanelLayout: _resetPanelLayout,
+        onAppSettings: _appSettings,
+        // Undo/redo callbacks
+        onUndo: _performUndo,
+        onRedo: _performRedo,
+      )),
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
           // Space bar to play/pause (context-aware: Piano Roll = loop, Timeline = arrangement)
