@@ -5,6 +5,7 @@ import '../../models/tool_mode.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/grid_utils.dart';
 import '../painters/painters.dart';
 import 'audio_editor_state.dart';
 import 'audio_editor_controls_bar.dart';
@@ -509,7 +510,7 @@ class _AudioEditorState extends State<AudioEditor>
 
   double _snapToGrid(double beat) {
     const gridDivision = 0.25; // 1/16th note
-    return (beat / gridDivision).round() * gridDivision;
+    return GridUtils.snapToGridRound(beat, gridDivision);
   }
 
   // ============================================

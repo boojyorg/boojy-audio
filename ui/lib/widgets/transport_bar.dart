@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/theme_extension.dart';
 import '../state/ui_layout_state.dart';
+import 'shared/circular_toggle_button.dart';
+import 'shared/pill_toggle_button.dart';
 
 /// Button display mode for responsive layout
+/// Note: ButtonDisplayMode is also exported from pill_toggle_button.dart for external use
 enum _ButtonDisplayMode { wide, narrow }
 
 /// Transport control bar for play/pause/stop/record controls
@@ -234,10 +237,10 @@ class _TransportBarState extends State<TransportBar> {
               const SizedBox(width: 4),
 
               // Undo button (replaces Edit menu)
-              _UndoRedoButton(
+              IconToggleButton(
                 icon: Icons.undo,
                 enabled: widget.canUndo,
-                onPressed: widget.onUndo,
+                onTap: widget.onUndo,
                 tooltip: widget.canUndo && widget.undoDescription != null
                     ? 'Undo: ${widget.undoDescription} (⌘Z)'
                     : 'Undo (⌘Z)',
@@ -246,10 +249,10 @@ class _TransportBarState extends State<TransportBar> {
               const SizedBox(width: 2),
 
               // Redo button
-              _UndoRedoButton(
+              IconToggleButton(
                 icon: Icons.redo,
                 enabled: widget.canRedo,
-                onPressed: widget.onRedo,
+                onTap: widget.onRedo,
                 tooltip: widget.canRedo && widget.redoDescription != null
                     ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
                     : 'Redo (⇧⌘Z)',
@@ -269,11 +272,11 @@ class _TransportBarState extends State<TransportBar> {
               // === CENTER-LEFT: SETUP TOOLS ===
 
               // Loop playback toggle button (Piano Roll style)
-              _PillButton(
+              PillToggleButton(
                 icon: Icons.loop,
                 label: 'Loop',
                 isActive: widget.loopPlaybackEnabled,
-                mode: mode,
+                mode: mode == _ButtonDisplayMode.wide ? ButtonDisplayMode.wide : ButtonDisplayMode.narrow,
                 onTap: widget.onLoopPlaybackToggle,
                 tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
                 activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
@@ -304,22 +307,26 @@ class _TransportBarState extends State<TransportBar> {
               // === CENTER: TRANSPORT ===
 
               // Transport buttons - Play, Stop, Record
-              _TransportButton(
+              CircularToggleButton(
                 icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                color: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
+                enabled: widget.canPlay,
+                enabledColor: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
                 onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
                 tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
                 size: 36,
+                iconSize: 18,
               ),
 
               const SizedBox(width: 4),
 
-              _TransportButton(
+              CircularToggleButton(
                 icon: Icons.stop,
-                color: const Color(0xFFF97316),
+                enabled: widget.canPlay,
+                enabledColor: const Color(0xFFF97316),
                 onPressed: widget.canPlay ? widget.onStop : null,
                 tooltip: 'Stop',
                 size: 36,
+                iconSize: 18,
               ),
 
               const SizedBox(width: 4),
@@ -447,91 +454,6 @@ class _TransportBarState extends State<TransportBar> {
     final subdivision = ((totalBeats % 1) * subdivisionsPerBeat).floor() + 1; // 1-indexed
 
     return '$bar.$beat.$subdivision';
-  }
-}
-
-/// Individual transport button widget with hover animation
-class _TransportButton extends StatefulWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onPressed;
-  final String tooltip;
-  final double size;
-
-  const _TransportButton({
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-    required this.tooltip,
-    this.size = 40,
-  });
-
-  @override
-  State<_TransportButton> createState() => _TransportButtonState();
-}
-
-class _TransportButtonState extends State<_TransportButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = widget.onPressed != null;
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
-
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onPressed?.call();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: widget.size,
-              height: widget.size,
-              decoration: BoxDecoration(
-                color: isEnabled
-                    ? widget.color.withValues(alpha: _isHovered ? 0.3 : 0.2)
-                    : context.colors.elevated,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isEnabled
-                      ? widget.color
-                      : context.colors.elevated,
-                  width: 2,
-                ),
-                boxShadow: _isHovered && isEnabled
-                    ? [
-                        BoxShadow(
-                          color: widget.color.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Icon(
-                widget.icon,
-                size: widget.size * 0.5,
-                color: isEnabled
-                    ? widget.color
-                    : context.colors.textMuted,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -749,140 +671,6 @@ class _FileMenuButtonState extends State<_FileMenuButton> {
                   : context.colors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Pill-style button that shows icon+text in wide mode, icon-only in narrow mode
-class _PillButton extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final _ButtonDisplayMode mode;
-  final VoidCallback? onTap;
-  final String tooltip;
-  final Color activeColor;
-
-  const _PillButton({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.mode,
-    this.onTap,
-    required this.tooltip,
-    required this.activeColor,
-  });
-
-  @override
-  State<_PillButton> createState() => _PillButtonState();
-}
-
-class _PillButtonState extends State<_PillButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
-    final bgColor = widget.isActive
-        ? widget.activeColor
-        : (_isHovered ? context.colors.elevated : context.colors.dark);
-    final textColor = widget.isActive ? Colors.black : context.colors.textPrimary;
-
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onTap?.call();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(widget.icon, size: 14, color: textColor),
-                  if (widget.mode == _ButtonDisplayMode.wide) ...[
-                    const SizedBox(width: 5),
-                    Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 11,
-                        fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Simple undo/redo icon button (grey style)
-class _UndoRedoButton extends StatefulWidget {
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback? onPressed;
-  final String tooltip;
-
-  const _UndoRedoButton({
-    required this.icon,
-    required this.enabled,
-    this.onPressed,
-    required this.tooltip,
-  });
-
-  @override
-  State<_UndoRedoButton> createState() => _UndoRedoButtonState();
-}
-
-class _UndoRedoButtonState extends State<_UndoRedoButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.enabled
-        ? (_isHovered ? context.colors.textPrimary : context.colors.textSecondary)
-        : context.colors.textSecondary.withValues(alpha: 0.3);
-
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.enabled ? widget.onPressed : null,
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            child: Icon(
-              widget.icon,
-              size: 18,
-              color: color,
             ),
           ),
         ),

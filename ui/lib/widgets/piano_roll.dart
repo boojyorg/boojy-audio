@@ -16,6 +16,7 @@ import 'piano_roll/operations/note_operations.dart';
 import 'piano_roll/operations/clipboard_operations.dart';
 import 'piano_roll/operations/selection_operations.dart';
 import 'piano_roll/gestures/note_gesture_handler.dart';
+import 'piano_roll/utilities/piano_roll_coordinates.dart';
 import 'piano_roll/audition_mixin.dart';
 import 'piano_roll/velocity_lane_mixin.dart';
 import 'piano_roll/zoom_mixin.dart';
@@ -1010,17 +1011,10 @@ class _PianoRollState extends State<PianoRoll>
     );
   }
 
-  bool _isBlackKey(int midiNote) {
-    final noteInOctave = midiNote % 12;
-    return [1, 3, 6, 8, 10].contains(noteInOctave); // C#, D#, F#, G#, A#
-  }
+  // Use shared utility from NoteNameUtils
+  bool _isBlackKey(int midiNote) => NoteNameUtils.isBlackKey(midiNote);
 
-  String _getNoteNameForKey(int midiNote) {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    final octave = (midiNote ~/ 12) - 1;
-    final noteName = noteNames[midiNote % 12];
-    return '$noteName$octave';
-  }
+  String _getNoteNameForKey(int midiNote) => NoteNameUtils.getNoteName(midiNote);
 
   /// Build zoom controls (at end of timeline row)
   Widget _buildZoomControls(BuildContext context) {

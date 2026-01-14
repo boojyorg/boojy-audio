@@ -4,11 +4,13 @@ import 'package:flutter/services.dart' show HardwareKeyboard;
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../models/tool_mode.dart';
+import '../../utils/grid_utils.dart';
+import '../shared/editors/zoomable_editor_mixin.dart';
 import '../timeline_view.dart';
 
 /// Mixin containing all state variables for TimelineView.
 /// This separates state management from UI logic.
-mixin TimelineViewStateMixin on State<TimelineView> {
+mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMixin<TimelineView> {
   // ============================================
   // SCROLL AND ZOOM STATE
   // ============================================
@@ -17,7 +19,37 @@ mixin TimelineViewStateMixin on State<TimelineView> {
   final ScrollController scrollController = ScrollController();
 
   /// Horizontal zoom (pixels per beat).
-  double pixelsPerBeat = 25.0;
+  double _pixelsPerBeat = 25.0;
+
+  /// View width for zoom calculations (updated from MediaQuery).
+  double _viewWidth = 800.0;
+
+  // ZoomableEditorMixin interface implementation
+  @override
+  ScrollController get horizontalScrollController => scrollController;
+
+  @override
+  double get pixelsPerBeat => _pixelsPerBeat;
+  @override
+  set pixelsPerBeat(double value) {
+    if (value != _pixelsPerBeat) {
+      setState(() => _pixelsPerBeat = value);
+    }
+  }
+
+  @override
+  double get viewWidth => _viewWidth;
+  set viewWidth(double value) => _viewWidth = value;
+
+  @override
+  double get minZoom => 10.0;
+  @override
+  double get maxZoom => 500.0;
+
+  @override
+  double calculateMinZoom() => minZoom;
+  @override
+  double calculateMaxZoom() => maxZoom;
 
   // ============================================
   // TRACK STATE
@@ -142,6 +174,25 @@ mixin TimelineViewStateMixin on State<TimelineView> {
 
   /// Set of selected audio clip IDs.
   final Set<int> selectedAudioClipIds = {};
+
+  // ============================================
+  // BOX SELECTION STATE (Marquee Selection)
+  // ============================================
+
+  /// Whether box selection is currently active.
+  bool isBoxSelecting = false;
+
+  /// Starting position of box selection (in local coordinates relative to gesture).
+  Offset? boxSelectionStart;
+
+  /// Current/end position of box selection (in local coordinates relative to gesture).
+  Offset? boxSelectionEnd;
+
+  /// Scroll offset when box selection started (for proper coordinate calculation).
+  double boxSelectionScrollOffset = 0.0;
+
+  /// Y offset of the track where selection started (for proper vertical positioning).
+  double boxSelectionTrackYOffset = 0.0;
 
   // ============================================
   // AUDIO CLIP TRIM STATE
@@ -289,17 +340,13 @@ mixin TimelineViewStateMixin on State<TimelineView> {
 
   /// Get grid snap resolution in beats based on zoom level.
   double getGridSnapResolution() {
-    if (pixelsPerBeat < 10) return 4.0;
-    if (pixelsPerBeat < 20) return 1.0;
-    if (pixelsPerBeat < 40) return 0.5;
-    if (pixelsPerBeat < 80) return 0.25;
-    return 0.125;
+    return GridUtils.getTimelineGridResolution(pixelsPerBeat);
   }
 
   /// Snap a beat value to the current grid resolution.
   double snapToGrid(double beats) {
     final snapResolution = getGridSnapResolution();
-    return (beats / snapResolution).round() * snapResolution;
+    return GridUtils.snapToGridRound(beats, snapResolution);
   }
 
   /// Calculate timeline position in seconds from X coordinate.
@@ -332,8 +379,6 @@ mixin TimelineViewStateMixin on State<TimelineView> {
 
   /// Set pixels per beat (zoom level).
   void setPixelsPerBeat(double zoom) {
-    setState(() {
-      pixelsPerBeat = zoom;
-    });
+    pixelsPerBeat = zoom; // Uses setter which calls setState
   }
 }

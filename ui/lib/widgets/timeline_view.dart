@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/gestures.dart' show PointerScrollEvent, kPrimaryButton;
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cross_file/cross_file.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
+import '../utils/grid_utils.dart';
 import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
@@ -20,6 +21,7 @@ import 'painters/time_ruler_painter.dart';
 import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
 import 'context_menus/clip_context_menu.dart';
+import 'shared/editors/zoomable_editor_mixin.dart';
 import 'timeline/timeline_state.dart';
 
 /// Track data model for timeline
@@ -152,7 +154,7 @@ class TimelineView extends StatefulWidget {
   State<TimelineView> createState() => TimelineViewState();
 }
 
-class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin {
+class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, TimelineViewStateMixin {
   @override
   void initState() {
     super.initState();
@@ -286,11 +288,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   /// Get grid snap resolution in beats based on zoom level
   /// Matches TimelineGridPainter._getGridDivision for consistent snapping
   double _getGridSnapResolution() {
-    if (pixelsPerBeat < 10) return 4.0;     // Snap to bars (every 4 beats)
-    if (pixelsPerBeat < 20) return 1.0;     // Snap to beats
-    if (pixelsPerBeat < 40) return 0.5;     // Snap to half beats (1/8th notes)
-    if (pixelsPerBeat < 80) return 0.25;    // Snap to quarter beats (1/16th notes)
-    return 0.125;                            // Snap to eighth beats (1/32nd notes)
+    return GridUtils.getTimelineGridResolution(pixelsPerBeat);
   }
 
   /// Calculate beat position from mouse X coordinate (for MIDI/beat-based operations)
@@ -303,7 +301,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
   /// Snap a beat value to the current grid resolution
   double _snapToGrid(double beats) {
     final snapResolution = _getGridSnapResolution();
-    return (beats / snapResolution).round() * snapResolution;
+    return GridUtils.snapToGridRound(beats, snapResolution);
   }
 
   /// Get cursor based on current tool mode
@@ -1487,7 +1485,8 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    final viewWidth = MediaQuery.of(context).size.width;
+    // Update viewWidth for zoom calculations
+    viewWidth = MediaQuery.of(context).size.width;
 
     // Beat-based width calculation (tempo-independent)
     final beatsPerSecond = widget.tempo / 60.0;
@@ -1648,28 +1647,7 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
         children: [
           // Main scrollable area (time ruler + tracks)
           Listener(
-            onPointerSignal: (pointerSignal) {
-              if (pointerSignal is PointerScrollEvent) {
-                // Check for Cmd (Mac) or Ctrl (Windows/Linux) modifier
-                final isModifierPressed =
-                    HardwareKeyboard.instance.isMetaPressed ||
-                    HardwareKeyboard.instance.isControlPressed;
-
-                if (isModifierPressed) {
-                  final scrollDelta = pointerSignal.scrollDelta.dy;
-                  final oldValue = pixelsPerBeat;
-                  final newValue = scrollDelta < 0
-                      ? (pixelsPerBeat * 1.1).clamp(10.0, 500.0)
-                      : (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
-                  // Only rebuild if value actually changed
-                  if (newValue != oldValue) {
-                    setState(() {
-                      pixelsPerBeat = newValue;
-                    });
-                  }
-                }
-              }
-            },
+            onPointerSignal: handlePointerSignalSimple,
             child: SingleChildScrollView(
               controller: scrollController,
               scrollDirection: Axis.horizontal,
@@ -1745,6 +1723,9 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
 
                           // Playhead - spans full height including Master
                           _buildPlayhead(),
+
+                          // Box selection overlay
+                          _buildBoxSelectionOverlay(),
                         ],
                       ),
                     ),
@@ -2268,32 +2249,50 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
           final tool = effectiveToolMode;
 
-          // Draw tool on empty MIDI track space: create new clip
-          if (tool == ToolMode.draw && isMidiTrack && !isOnClip) {
-            final startBeats = _snapToGrid(beatPosition);
-            // Create a new 1-bar clip at the clicked position
-            const durationBeats = 4.0; // 1 bar
-            widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
-            return;
-          }
-
-          // Duplicate tool on empty space: copy selected clip to clicked position
-          if (tool == ToolMode.duplicate && isMidiTrack && !isOnClip) {
-            if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
-              final startBeats = _snapToGrid(beatPosition);
-              widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
+          // Click on empty space handling
+          if (!isOnClip) {
+            // SELECT TOOL: Clicking empty space deselects everything
+            if (tool == ToolMode.select) {
+              setState(() {
+                selectedAudioClipIds.clear();
+                selectedMidiClipIds.clear();
+                selectedAudioClipId = null;
+              });
+              widget.onMidiClipSelected?.call(null, null);
+              widget.onAudioClipSelected?.call(null, null);
             }
-            return;
-          }
-
-          // SELECT TOOL: Click on empty space = deselect all clips
-          if (tool == ToolMode.select && !isOnClip) {
-            setState(() {
-              selectedAudioClipIds.clear();
-              selectedMidiClipIds.clear();
-              selectedAudioClipId = null;
-            });
-            widget.onMidiClipSelected?.call(null, null);
+            // DRAW TOOL on MIDI track: Create new clip (also deselects)
+            else if (tool == ToolMode.draw && isMidiTrack) {
+              // Deselect first
+              setState(() {
+                selectedAudioClipIds.clear();
+                selectedMidiClipIds.clear();
+                selectedAudioClipId = null;
+              });
+              widget.onMidiClipSelected?.call(null, null);
+              widget.onAudioClipSelected?.call(null, null);
+              // Then create clip
+              final startBeats = _snapToGrid(beatPosition);
+              const durationBeats = 4.0; // 1 bar
+              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+            }
+            // DRAW TOOL on Audio track: Just deselect
+            else if (tool == ToolMode.draw) {
+              setState(() {
+                selectedAudioClipIds.clear();
+                selectedMidiClipIds.clear();
+                selectedAudioClipId = null;
+              });
+              widget.onMidiClipSelected?.call(null, null);
+              widget.onAudioClipSelected?.call(null, null);
+            }
+            // DUPLICATE TOOL: Copy selected clip to clicked position
+            else if (tool == ToolMode.duplicate && isMidiTrack) {
+              if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
+                final startBeats = _snapToGrid(beatPosition);
+                widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
+              }
+            }
           }
 
           // Select track if it's a MIDI track
@@ -2316,16 +2315,41 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
               }
             : null,
         onHorizontalDragStart: (details) {
-          // Only allow drag-to-create in Draw mode on MIDI tracks
           final tool = effectiveToolMode;
-          if (tool != ToolMode.draw) return;
-
-          // Check if drag starts on empty space (not on a clip)
           final beatPosition = _calculateBeatPosition(details.localPosition);
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
 
-          if (!isOnClip && isMidiTrack) {
-            // Start drag-to-create on this track
+          // SELECT TOOL: Start box selection on empty space
+          if (tool == ToolMode.select && !isOnClip) {
+            // Calculate the track's Y offset in the timeline
+            final trackIndex = tracks.indexWhere((t) => t.id == track.id);
+            double yOffset = 0.0;
+            for (int i = 0; i < trackIndex; i++) {
+              yOffset += widget.trackHeights[tracks[i].id] ?? 100.0;
+            }
+            final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+
+            setState(() {
+              isBoxSelecting = true;
+              // Store position including scroll offset (absolute content position)
+              boxSelectionStart = Offset(
+                details.localPosition.dx + scrollOffset,
+                details.localPosition.dy + yOffset,
+              );
+              boxSelectionEnd = boxSelectionStart;
+              boxSelectionScrollOffset = scrollOffset;
+              boxSelectionTrackYOffset = yOffset;
+              // Clear existing selection unless Shift is held
+              if (!HardwareKeyboard.instance.isShiftPressed) {
+                selectedAudioClipIds.clear();
+                selectedMidiClipIds.clear();
+              }
+            });
+            return;
+          }
+
+          // DRAW TOOL: Drag-to-create on MIDI tracks
+          if (tool == ToolMode.draw && !isOnClip && isMidiTrack) {
             setState(() {
               isDraggingNewClip = true;
               newClipStartBeats = _snapToGrid(beatPosition);
@@ -2335,6 +2359,22 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           }
         },
         onHorizontalDragUpdate: (details) {
+          // Box selection update
+          if (isBoxSelecting) {
+            final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+            setState(() {
+              // Update end position in absolute content coordinates
+              boxSelectionEnd = Offset(
+                details.localPosition.dx + scrollOffset,
+                details.localPosition.dy + boxSelectionTrackYOffset,
+              );
+            });
+            // Live selection update - select clips within the box
+            _updateBoxSelection();
+            return;
+          }
+
+          // Drag-to-create update
           if (isDraggingNewClip && newClipTrackId == track.id) {
             final currentBeats = _calculateBeatPosition(details.localPosition);
             setState(() {
@@ -2343,6 +2383,22 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
           }
         },
         onHorizontalDragEnd: (details) {
+          // Box selection end
+          if (isBoxSelecting) {
+            // If nothing was selected, notify parent to deselect current clip
+            if (selectedMidiClipIds.isEmpty && selectedAudioClipIds.isEmpty) {
+              widget.onMidiClipSelected?.call(null, null);
+              widget.onAudioClipSelected?.call(null, null);
+            }
+            setState(() {
+              isBoxSelecting = false;
+              boxSelectionStart = null;
+              boxSelectionEnd = null;
+            });
+            return;
+          }
+
+          // Drag-to-create end
           if (isDraggingNewClip && newClipTrackId == track.id) {
             // Calculate final start and duration (handle reverse drag)
             final startBeats = math.min(newClipStartBeats, newClipEndBeats);
@@ -3594,6 +3650,100 @@ class TimelineViewState extends State<TimelineView> with TimelineViewStateMixin 
     }
 
     return false;
+  }
+
+  /// Update selection based on box selection rectangle.
+  /// Called during drag to provide live selection feedback.
+  void _updateBoxSelection() {
+    if (!isBoxSelecting || boxSelectionStart == null || boxSelectionEnd == null) return;
+
+    // Box selection coordinates are already in absolute content space (pixels)
+    // Convert to beat range
+    final minX = math.min(boxSelectionStart!.dx, boxSelectionEnd!.dx);
+    final maxX = math.max(boxSelectionStart!.dx, boxSelectionEnd!.dx);
+
+    final minBeats = minX / pixelsPerBeat;
+    final maxBeats = maxX / pixelsPerBeat;
+
+    // Clear and rebuild selection (preserve shift behavior handled at start)
+    final newMidiSelection = <int>{};
+    final newAudioSelection = <int>{};
+
+    // Check all MIDI clips
+    for (final clip in widget.midiClips) {
+      final clipStart = clip.startTime;
+      final clipEnd = clip.startTime + clip.duration;
+
+      // Check if clip overlaps with selection rectangle (horizontal only for now)
+      if (clipStart < maxBeats && clipEnd > minBeats) {
+        newMidiSelection.add(clip.clipId);
+      }
+    }
+
+    // Check all audio clips
+    final beatsPerSecond = widget.tempo / 60.0;
+    for (final clip in clips) {
+      final clipStartBeats = clip.startTime * beatsPerSecond;
+      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+
+      if (clipStartBeats < maxBeats && clipEndBeats > minBeats) {
+        newAudioSelection.add(clip.clipId);
+      }
+    }
+
+    // Update selection state
+    setState(() {
+      // If shift was held at start, we already preserved existing selection
+      // Just add newly selected items
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        selectedMidiClipIds.addAll(newMidiSelection);
+        selectedAudioClipIds.addAll(newAudioSelection);
+      } else {
+        selectedMidiClipIds
+          ..clear()
+          ..addAll(newMidiSelection);
+        selectedAudioClipIds
+          ..clear()
+          ..addAll(newAudioSelection);
+      }
+    });
+  }
+
+  /// Build the box selection rectangle overlay.
+  Widget _buildBoxSelectionOverlay() {
+    if (!isBoxSelecting || boxSelectionStart == null || boxSelectionEnd == null) {
+      return const SizedBox.shrink();
+    }
+
+    // Get current scroll offset to convert absolute to visible coordinates
+    final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+
+    // Convert from absolute content coordinates to visible coordinates
+    final visibleStartX = boxSelectionStart!.dx - scrollOffset;
+    final visibleEndX = boxSelectionEnd!.dx - scrollOffset;
+
+    final left = math.min(visibleStartX, visibleEndX);
+    final top = math.min(boxSelectionStart!.dy, boxSelectionEnd!.dy);
+    final width = (visibleStartX - visibleEndX).abs();
+    final height = (boxSelectionStart!.dy - boxSelectionEnd!.dy).abs();
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: context.colors.accent.withValues(alpha: 0.15),
+            border: Border.all(
+              color: context.colors.accent,
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Build drag-to-create preview for an existing track

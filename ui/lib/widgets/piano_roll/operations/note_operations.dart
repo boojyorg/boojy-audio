@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/commands/clip_commands.dart';
+import '../../../utils/grid_utils.dart';
 import '../../piano_roll.dart';
 import '../piano_roll_state.dart';
 import '../utilities/piano_roll_coordinates.dart';
@@ -536,27 +537,20 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   double snapToGrid(double beat) {
     if (!snapEnabled) return beat;
 
-    // Get effective grid division
-    double division = adaptiveGridEnabled
-        ? PianoRollCoordinates.getAdaptiveGridDivision(pixelsPerBeat)
-        : gridDivision;
+    // Get effective grid division (with triplet modifier if enabled)
+    final division = getEffectiveGridDivision();
 
-    // Apply triplet modifier (2/3 of normal division)
-    if (snapTripletEnabled) {
-      division = division * 2 / 3;
-    }
-
-    return (beat / division).floor() * division;
+    return GridUtils.snapToGridFloor(beat, division);
   }
 
   /// Get the current effective grid division (for display and grid rendering).
   double getEffectiveGridDivision() {
     double division = adaptiveGridEnabled
-        ? PianoRollCoordinates.getAdaptiveGridDivision(pixelsPerBeat)
+        ? GridUtils.getAdaptiveGridDivision(pixelsPerBeat)
         : gridDivision;
 
     if (snapTripletEnabled) {
-      division = division * 2 / 3;
+      division = GridUtils.applyTripletModifier(division);
     }
 
     return division;

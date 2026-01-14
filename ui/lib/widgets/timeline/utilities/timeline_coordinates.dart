@@ -1,3 +1,5 @@
+import '../../../utils/grid_utils.dart';
+
 /// Utility class for timeline coordinate calculations.
 /// Converts between beat positions, time positions, and pixel coordinates.
 class TimelineCoordinates {
@@ -41,17 +43,13 @@ class TimelineCoordinates {
   /// Get grid snap resolution in beats based on zoom level.
   /// Matches TimelineGridPainter._getGridDivision for consistent snapping.
   double getGridSnapResolution() {
-    if (pixelsPerBeat < 10) return 4.0;     // Snap to bars (every 4 beats)
-    if (pixelsPerBeat < 20) return 1.0;     // Snap to beats
-    if (pixelsPerBeat < 40) return 0.5;     // Snap to half beats (1/8th notes)
-    if (pixelsPerBeat < 80) return 0.25;    // Snap to quarter beats (1/16th notes)
-    return 0.125;                            // Snap to eighth beats (1/32nd notes)
+    return GridUtils.getTimelineGridResolution(pixelsPerBeat);
   }
 
   /// Snap a beat value to the current grid resolution.
   double snapToGrid(double beats) {
     final snapResolution = getGridSnapResolution();
-    return (beats / snapResolution).round() * snapResolution;
+    return GridUtils.snapToGridRound(beats, snapResolution);
   }
 
   /// Snap a beat value to bar boundaries.

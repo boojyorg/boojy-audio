@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../piano_roll/utilities/piano_roll_coordinates.dart';
 
 /// Custom painter for piano roll grid background
 class GridPainter extends CustomPainter {
@@ -159,10 +160,8 @@ class GridPainter extends CustomPainter {
     }
   }
 
-  bool _isBlackKey(int midiNote) {
-    final noteInOctave = midiNote % 12;
-    return [1, 3, 6, 8, 10].contains(noteInOctave);
-  }
+  // Use shared utility from NoteNameUtils
+  bool _isBlackKey(int midiNote) => NoteNameUtils.isBlackKey(midiNote);
 
   /// Check if a MIDI note is in the current scale
   bool _isInScale(int midiNote) {
