@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/clip_data.dart';
+import '../../models/tool_mode.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/app_colors.dart';
 import '../painters/painters.dart';
-import '../piano_roll.dart' show ToolMode;
 import 'audio_editor_state.dart';
 import 'audio_editor_controls_bar.dart';
 import 'painters/waveform_editor_painter.dart';

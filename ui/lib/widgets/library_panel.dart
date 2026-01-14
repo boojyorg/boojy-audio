@@ -43,6 +43,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// - For top-level: close other top-level categories but KEEP their children
   ///   (children won't render since parent is collapsed, but will restore when parent reopens)
   /// - For subcategories: close sibling subcategories
+  /// - For nested folders (folder_ and nested_folder_): NO accordion - allow multiple open
   void _expandWithAccordion(String categoryId) {
     // Check if this is a top-level category
     if (_topLevelCategories.contains(categoryId)) {
@@ -52,6 +53,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
       _expandedCategories.removeWhere((id) {
         return _topLevelCategories.contains(id) && id != categoryId;
       });
+      _expandedCategories.add(categoryId);
+    } else if (categoryId.startsWith('folder_') || categoryId.startsWith('nested_folder_')) {
+      // User folders and nested folders: NO accordion behavior
+      // Allow multiple folders to be open simultaneously (like a file browser)
       _expandedCategories.add(categoryId);
     } else {
       // This is a subcategory - find its parent and close siblings

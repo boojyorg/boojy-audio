@@ -992,6 +992,45 @@ pub extern "C" fn duplicate_track_ffi(track_id: u64) -> i64 {
     }
 }
 
+/// Duplicate an audio clip on the same track at a new position
+///
+/// Returns the new clip ID on success, or -1 on failure.
+#[no_mangle]
+pub extern "C" fn duplicate_audio_clip_ffi(
+    track_id: u64,
+    source_clip_id: u64,
+    new_start_time: f64,
+) -> i64 {
+    match api::duplicate_audio_clip(track_id, source_clip_id, new_start_time) {
+        Ok(new_clip_id) => new_clip_id as i64,
+        Err(e) => {
+            eprintln!(
+                "❌ [FFI] Failed to duplicate clip {} on track {}: {}",
+                source_clip_id, track_id, e
+            );
+            -1
+        }
+    }
+}
+
+/// Remove an audio clip from a track
+///
+/// Returns 1 if removed, 0 if not found, -1 on error.
+#[no_mangle]
+pub extern "C" fn remove_audio_clip_ffi(track_id: u64, clip_id: u64) -> i32 {
+    match api::remove_audio_clip(track_id, clip_id) {
+        Ok(true) => 1,
+        Ok(false) => 0,
+        Err(e) => {
+            eprintln!(
+                "❌ [FFI] Failed to remove clip {} from track {}: {}",
+                clip_id, track_id, e
+            );
+            -1
+        }
+    }
+}
+
 // ============================================================================
 // M5: SAVE/LOAD PROJECT FFI
 // ============================================================================

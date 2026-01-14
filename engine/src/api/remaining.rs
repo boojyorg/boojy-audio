@@ -289,3 +289,99 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
 
     Ok(new_track_id)
 }
+
+/// Duplicate an audio clip on the same track at a new position
+///
+/// Creates a new timeline clip that references the same audio data
+/// but at a different start time. This is efficient as no audio data is copied.
+///
+/// # Arguments
+/// * `track_id` - Track containing the original clip
+/// * `source_clip_id` - ID of the clip to duplicate
+/// * `new_start_time` - Position (in seconds) for the duplicated clip
+///
+/// # Returns
+/// New clip ID on success
+pub fn duplicate_audio_clip(
+    track_id: TrackId,
+    source_clip_id: u64,
+    new_start_time: f64,
+) -> Result<u64, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    // Find the source clip and get its Arc<AudioClip>
+    let (clip_arc, offset, duration) = {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let track_arc = track_manager
+            .get_track(track_id)
+            .ok_or(format!("Track {} not found", track_id))?;
+
+        let track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        // Find the source clip
+        let source_clip = track
+            .audio_clips
+            .iter()
+            .find(|c| c.id == source_clip_id)
+            .ok_or(format!("Clip {} not found on track {}", source_clip_id, track_id))?;
+
+        // Clone the Arc (cheap - just increments reference count)
+        (source_clip.clip.clone(), source_clip.offset, source_clip.duration)
+    };
+
+    // Add a new timeline clip with the same audio data at new position
+    let new_clip_id = graph
+        .add_clip_to_track(track_id, clip_arc, new_start_time)
+        .ok_or("Failed to add duplicated clip to track")?;
+
+    // Copy offset and duration settings to the new clip
+    {
+        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        if let Some(track_arc) = track_manager.get_track(track_id) {
+            let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+            if let Some(new_clip) = track.audio_clips.iter_mut().find(|c| c.id == new_clip_id) {
+                new_clip.offset = offset;
+                new_clip.duration = duration;
+            }
+        }
+    }
+
+    eprintln!(
+        "📋 [API] Duplicated clip {} → new clip {} at {:.3}s",
+        source_clip_id, new_clip_id, new_start_time
+    );
+
+    Ok(new_clip_id)
+}
+
+/// Remove an audio clip from a track
+///
+/// # Arguments
+/// * `track_id` - Track containing the clip
+/// * `clip_id` - ID of the clip to remove
+///
+/// # Returns
+/// true if clip was removed, false if not found
+pub fn remove_audio_clip(track_id: TrackId, clip_id: u64) -> Result<bool, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_arc = track_manager
+        .get_track(track_id)
+        .ok_or(format!("Track {} not found", track_id))?;
+
+    let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+    // Find and remove the clip
+    let initial_len = track.audio_clips.len();
+    track.audio_clips.retain(|c| c.id != clip_id);
+    let removed = track.audio_clips.len() < initial_len;
+
+    if removed {
+        eprintln!("🗑️  [API] Removed audio clip {} from track {}", clip_id, track_id);
+    }
+
+    Ok(removed)
+}
