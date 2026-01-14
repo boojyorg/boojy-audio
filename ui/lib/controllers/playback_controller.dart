@@ -43,6 +43,30 @@ class PlaybackController extends ChangeNotifier {
     _loopPlaybackEnabled = enabled;
   }
 
+  /// Update loop bounds in real-time during playback.
+  /// Call this when the user drags loop handles while playing.
+  void updateLoopBounds({
+    required double loopStartBeats,
+    required double loopEndBeats,
+  }) {
+    _loopStartBeats = loopStartBeats;
+    _loopEndBeats = loopEndBeats;
+
+    // If currently playing and playhead is outside new loop bounds, seek to loop start
+    if (_isLoopCycling && _isPlaying) {
+      final loopStartSeconds = loopStartBeats * 60.0 / _loopTempo;
+      final loopEndSeconds = loopEndBeats * 60.0 / _loopTempo;
+
+      // If playhead is now outside the loop, bring it back in
+      if (_playheadPosition < loopStartSeconds ||
+          _playheadPosition >= loopEndSeconds) {
+        _audioEngine?.transportSeek(loopStartSeconds);
+        _playheadPosition = loopStartSeconds;
+        playheadNotifier.value = _playheadPosition;
+      }
+    }
+  }
+
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 

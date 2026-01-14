@@ -1048,6 +1048,55 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  // Audio file drop handler - adds clip to existing audio track (with undo support)
+  Future<void> _onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
+    if (_audioEngine == null) return;
+
+    // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
+    if (_isMidiTrack(trackId)) return;
+
+    try {
+      // 1. Copy sample to project folder if setting is enabled
+      final finalPath = await _prepareSamplePath(filePath);
+
+      // 2. Convert beats to seconds (audio clips use seconds)
+      final startTimeSeconds = startTimeBeats * 60.0 / _tempo;
+
+      // 3. Extract filename for display
+      final fileName = finalPath.split('/').last.split('\\').last;
+
+      // 4. Use AddAudioClipCommand for undo support
+      final command = AddAudioClipCommand(
+        trackId: trackId,
+        filePath: finalPath,
+        startTime: startTimeSeconds,
+        clipName: fileName,
+        onClipAdded: (clipId, duration, peaks) {
+          // Add to timeline view's clip list
+          _timelineKey.currentState?.addClip(ClipData(
+            clipId: clipId,
+            trackId: trackId,
+            filePath: finalPath,
+            startTime: startTimeSeconds,
+            duration: duration,
+            waveformPeaks: peaks,
+          ));
+        },
+        onClipRemoved: (clipId) {
+          // Remove from timeline view (undo)
+          _timelineKey.currentState?.removeClip(clipId);
+        },
+      );
+
+      await _undoRedoManager.execute(command);
+
+      // 5. Refresh track widgets
+      _refreshTrackWidgets();
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
   // Drag-to-create handlers
   Future<void> _onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
     if (_audioEngine == null) return;
@@ -3209,6 +3258,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           onVst3InstrumentDropped: _onVst3InstrumentDropped,
                           onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
                           onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+                          onAudioFileDroppedOnTrack: _onAudioFileDroppedOnTrack,
                           onCreateTrackWithClip: _onCreateTrackWithClip,
                           onCreateClipOnTrack: _onCreateClipOnTrack,
                           trackHeights: _trackHeights,
@@ -3227,6 +3277,11 @@ class _DAWScreenState extends State<DAWScreen> {
                           loopEndBeats: _uiLayout.loopEndBeats,
                           onLoopRegionChanged: (start, end) {
                             _uiLayout.setLoopRegion(start, end);
+                            // Update playback controller in real-time during playback
+                            _playbackController.updateLoopBounds(
+                              loopStartBeats: start,
+                              loopEndBeats: end,
+                            );
                           },
                           // Vertical scroll sync with mixer panel
                           verticalScrollController: _timelineVerticalScrollController,

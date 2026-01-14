@@ -13,6 +13,7 @@ import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../models/tool_mode.dart';
 import '../models/vst3_plugin_data.dart';
+import '../models/library_item.dart';
 import '../services/tool_mode_resolver.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
@@ -85,6 +86,9 @@ class TimelineView extends StatefulWidget {
   // Audio file drag-and-drop on empty space
   final Function(String filePath)? onAudioFileDroppedOnEmpty;
 
+  // Audio file drag-and-drop on existing track
+  final Function(int trackId, String filePath, double startTimeBeats)? onAudioFileDroppedOnTrack;
+
   // Drag-to-create callbacks
   final Function(String trackType, double startBeats, double durationBeats)? onCreateTrackWithClip;
   final Function(int trackId, double startBeats, double durationBeats)? onCreateClipOnTrack;
@@ -136,6 +140,7 @@ class TimelineView extends StatefulWidget {
     this.onVst3InstrumentDropped,
     this.onVst3InstrumentDroppedOnEmpty,
     this.onAudioFileDroppedOnEmpty,
+    this.onAudioFileDroppedOnTrack,
     this.onCreateTrackWithClip,
     this.onCreateClipOnTrack,
     this.trackHeights = const {},
@@ -391,6 +396,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   void addClip(ClipData clip) {
     setState(() {
       clips.add(clip);
+    });
+  }
+
+  /// Public method to remove a clip from the timeline (for undo support)
+  void removeClip(int clipId) {
+    setState(() {
+      clips.removeWhere((c) => c.clipId == clipId);
+      // Also deselect if this clip was selected
+      selectedAudioClipIds.remove(clipId);
+      if (selectedAudioClipId == clipId) {
+        selectedAudioClipId = null;
+      }
     });
   }
 
@@ -1847,9 +1864,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 isDraggingNewClip = false;
               });
             },
-            child: PlatformDropTarget(
+            // Library panel AudioFileItem drag target (outermost)
+            child: DragTarget<AudioFileItem>(
+              onWillAcceptWithDetails: (details) => true,
+              onAcceptWithDetails: (details) {
+                widget.onAudioFileDroppedOnEmpty?.call(details.data.filePath);
+              },
+              builder: (context, candidateLibraryAudioFiles, rejectedLibraryAudioFiles) {
+                final isLibraryAudioHovering = candidateLibraryAudioFiles.isNotEmpty;
+
+                return PlatformDropTarget(
               onDragDone: (details) {
-                // Handle audio file drops
+                // Handle audio file drops from Finder
                 for (final file in details.files) {
                   final ext = file.path.split('.').last.toLowerCase();
                   if (['wav', 'mp3', 'flac', 'aif', 'aiff'].contains(ext)) {
@@ -1887,11 +1913,21 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     },
                     builder: (context, candidateInstruments, rejectedInstruments) {
                       final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
-                      final isAnyHovering = isInstrumentHovering || isAudioFileDraggingOverEmpty;
+                      final isAudioHovering = isAudioFileDraggingOverEmpty || isLibraryAudioHovering;
+                      final isAnyHovering = isInstrumentHovering || isAudioHovering;
+
+                      // Helper to truncate filename for display
+                      String truncateFilename(String name, {int maxLength = 30}) {
+                        if (name.length <= maxLength) return name;
+                        return '${name.substring(0, maxLength - 3)}...';
+                      }
 
                       // Determine label text
                       String dropLabel;
-                      if (isAudioFileDraggingOverEmpty) {
+                      if (isLibraryAudioHovering && candidateLibraryAudioFiles.isNotEmpty) {
+                        final fileName = truncateFilename(candidateLibraryAudioFiles.first!.name);
+                        dropLabel = 'Drop to create new Audio track with $fileName';
+                      } else if (isAudioFileDraggingOverEmpty) {
                         dropLabel = 'Drop to create new Audio track';
                       } else if (candidateVst3Plugins.isNotEmpty) {
                         dropLabel = 'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
@@ -1957,6 +1993,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   );
                 },
               ),
+            );
+              },
             ),
           ),
         ),
@@ -2250,58 +2288,101 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final isHovered = dragHoveredTrackId == track.id;
     final isMidiTrack = track.type.toLowerCase() == 'midi';
 
-    // Wrap with VST3Plugin drag target first
-    return DragTarget<Vst3Plugin>(
+    // Wrap with AudioFileItem drag target first (for library panel drags)
+    return DragTarget<AudioFileItem>(
       onWillAcceptWithDetails: (details) {
-        return isMidiTrack && details.data.isInstrument;
+        // Only accept on Audio tracks, reject on MIDI tracks
+        return !isMidiTrack;
       },
       onAcceptWithDetails: (details) {
-        widget.onVst3InstrumentDropped?.call(track.id, details.data);
-      },
-      builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
-        // Note: candidateVst3Plugins/rejectedVst3Plugins available for visual feedback
+        // Calculate drop position with scroll offset
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+        final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+        final xInContent = localPos.dx + scrollOffset;
+        final rawBeats = xInContent / pixelsPerBeat;
 
-        // Nest Instrument drag target inside
-        return DragTarget<Instrument>(
+        // Snap to grid
+        final snappedBeats = GridUtils.snapToGridRound(
+          rawBeats,
+          GridUtils.getTimelineGridResolution(pixelsPerBeat),
+        );
+
+        widget.onAudioFileDroppedOnTrack?.call(
+          track.id,
+          details.data.filePath,
+          snappedBeats.clamp(0.0, double.infinity),
+        );
+      },
+      builder: (context, candidateAudioFiles, rejectedAudioFiles) {
+        final isAudioFileRejected = rejectedAudioFiles.isNotEmpty;
+
+        // Wrap with VST3Plugin drag target
+        return DragTarget<Vst3Plugin>(
           onWillAcceptWithDetails: (details) {
-            return isMidiTrack;
+            return isMidiTrack && details.data.isInstrument;
           },
           onAcceptWithDetails: (details) {
-            widget.onInstrumentDropped?.call(track.id, details.data);
+            widget.onVst3InstrumentDropped?.call(track.id, details.data);
           },
-          builder: (context, candidateInstruments, rejectedInstruments) {
-            // Note: candidateInstruments/rejectedInstruments and isVst3PluginHovering/Rejected
-            // are available for visual feedback if needed in the future
+          builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
+            // Note: candidateVst3Plugins/rejectedVst3Plugins available for visual feedback
 
-        return PlatformDropTarget(
-          onDragEntered: (details) {
-            setState(() {
-              dragHoveredTrackId = track.id;
-            });
-          },
-          onDragExited: (details) {
-            setState(() {
-              dragHoveredTrackId = null;
-              previewClip = null;
-            });
-          },
-          onDragUpdated: (details) {
-            // Update preview position
-            const fileName = 'Preview'; // We don't have filename yet
-            final startTime = _calculateTimelinePosition(details.localPosition);
+            // Nest Instrument drag target inside
+            return DragTarget<Instrument>(
+              onWillAcceptWithDetails: (details) {
+                return isMidiTrack;
+              },
+              onAcceptWithDetails: (details) {
+                widget.onInstrumentDropped?.call(track.id, details.data);
+              },
+              builder: (context, candidateInstruments, rejectedInstruments) {
+                // Note: candidateInstruments/rejectedInstruments and isVst3PluginHovering/Rejected
+                // are available for visual feedback if needed in the future
 
-            setState(() {
-              previewClip = PreviewClip(
-                fileName: fileName,
-                startTime: startTime,
-                trackId: track.id,
-                mousePosition: details.localPosition,
-              );
-            });
-          },
-          onDragDone: (details) async {
-            await _handleFileDrop(details.files, track.id, details.localPosition);
-          },
+            return PlatformDropTarget(
+              onDragEntered: (details) {
+                // Only show hover state if not MIDI track (for audio file drops)
+                if (!isMidiTrack) {
+                  setState(() {
+                    dragHoveredTrackId = track.id;
+                  });
+                } else {
+                  // Track platform drag over MIDI for visual feedback
+                  setState(() {
+                    platformDragOverMidiTrackId = track.id;
+                  });
+                }
+              },
+              onDragExited: (details) {
+                setState(() {
+                  dragHoveredTrackId = null;
+                  previewClip = null;
+                  platformDragOverMidiTrackId = null;
+                });
+              },
+              onDragUpdated: (details) {
+                // Only show preview on Audio tracks
+                if (isMidiTrack) return;
+
+                // Update preview position
+                const fileName = 'Preview'; // We don't have filename yet
+                final startTime = _calculateTimelinePosition(details.localPosition);
+
+                setState(() {
+                  previewClip = PreviewClip(
+                    fileName: fileName,
+                    startTime: startTime,
+                    trackId: track.id,
+                    mousePosition: details.localPosition,
+                  );
+                });
+              },
+              onDragDone: (details) async {
+                // Reject drops on MIDI tracks
+                if (isMidiTrack) return;
+                await _handleFileDrop(details.files, track.id, details.localPosition);
+              },
           child: GestureDetector(
         onTapDown: (details) {
           // Handle deselection on tap down (before drag can intercept)
@@ -2519,10 +2600,27 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Drag-to-create preview for this track
             if (isDraggingNewClip && newClipTrackId == track.id)
               _buildDragToCreatePreviewOnTrack(trackColor, widget.trackHeights[track.id] ?? 100.0),
+
+            // Red rejection overlay when dragging audio onto MIDI track
+            if (isAudioFileRejected || platformDragOverMidiTrackId == track.id)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.red.withValues(alpha: 0.15),
+                  child: Center(
+                    child: Icon(
+                      Icons.block,
+                      color: Colors.red.withValues(alpha: 0.6),
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     ),
+            );
+          },
         );
           },
         );

@@ -77,6 +77,9 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Whether an audio file is being dragged over empty space.
   bool isAudioFileDraggingOverEmpty = false;
 
+  /// Track ID when platform drag (Finder file) is over a MIDI track (for rejection feedback).
+  int? platformDragOverMidiTrackId;
+
   // ============================================
   // AUDIO CLIP DRAG STATE
   // ============================================

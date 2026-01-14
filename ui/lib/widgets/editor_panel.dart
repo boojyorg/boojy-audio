@@ -543,26 +543,19 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   }
 
   /// Build a tool button for the Piano Roll toolbar
-  /// Shows full highlight for active sticky tool, dimmer highlight for temporary hold modifier
-  /// Tools are greyed out when viewing Audio Editor (not functional in v1)
+  /// Shows full highlight for active sticky tool, dimmer highlight for temporary hold modifier.
+  /// Tools are always enabled - they work in Arrangement View for both MIDI and audio clips.
   Widget _buildToolButton(ToolMode mode, IconData icon, String tooltip) {
     final isActive = widget.toolMode == mode;
     final isTempActive = _tempToolMode == mode && !isActive;
 
-    // Grey out tools when on audio track (tools not functional in Audio Editor v1)
-    final isDisabled = _isAudioTrack;
-
     // Determine background color:
-    // - Greyed out for audio tracks
     // - Full accent for sticky active tool
     // - Dimmer accent (50% opacity) for temporary hold modifier
     // - Dark for inactive
     Color bgColor;
     Color iconColor;
-    if (isDisabled) {
-      bgColor = context.colors.dark.withValues(alpha: 0.5);
-      iconColor = context.colors.textMuted.withValues(alpha: 0.5);
-    } else if (isActive) {
+    if (isActive) {
       bgColor = context.colors.accent;
       iconColor = context.colors.elevated;
     } else if (isTempActive) {
@@ -573,14 +566,12 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       iconColor = context.colors.textPrimary;
     }
 
-    final tooltipText = isDisabled ? '$tooltip (coming in v2)' : tooltip;
-
     return Tooltip(
-      message: tooltipText,
+      message: tooltip,
       child: GestureDetector(
-        onTap: isDisabled ? null : () => widget.onToolModeChanged?.call(mode),
+        onTap: () => widget.onToolModeChanged?.call(mode),
         child: MouseRegion(
-          cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+          cursor: SystemMouseCursors.click,
           child: Container(
             width: 28,
             height: 28,
