@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 /// Painter for timeline grid lines (beat-based with zoom-dependent visibility)
 class TimelineGridPainter extends CustomPainter {
   final double pixelsPerBeat;
+  final bool loopEnabled;
+  final double loopStart;
+  final double loopEnd;
 
   TimelineGridPainter({
     required this.pixelsPerBeat,
+    this.loopEnabled = false,
+    this.loopStart = 0.0,
+    this.loopEnd = 4.0,
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
@@ -61,10 +67,37 @@ class TimelineGridPainter extends CustomPainter {
         paint,
       );
     }
+
+    // Draw loop region dimming overlay (20% darker outside loop)
+    if (loopEnabled) {
+      final dimPaint = Paint()..color = const Color(0x33000000);
+
+      final loopStartX = loopStart * pixelsPerBeat;
+      final loopEndX = loopEnd * pixelsPerBeat;
+
+      // Dim area before loop start
+      if (loopStartX > 0) {
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, loopStartX, size.height),
+          dimPaint,
+        );
+      }
+
+      // Dim area after loop end
+      if (loopEndX < size.width) {
+        canvas.drawRect(
+          Rect.fromLTWH(loopEndX, 0, size.width - loopEndX, size.height),
+          dimPaint,
+        );
+      }
+    }
   }
 
   @override
   bool shouldRepaint(TimelineGridPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat;
+    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
+        oldDelegate.loopEnabled != loopEnabled ||
+        oldDelegate.loopStart != loopStart ||
+        oldDelegate.loopEnd != loopEnd;
   }
 }

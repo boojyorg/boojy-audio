@@ -130,6 +130,10 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Original note positions at drag start for delta calculation.
   Map<String, MidiNoteData> dragStartNotes = {};
 
+  /// Note ID that should reduce to single selection on tap-up (if no drag occurred).
+  /// Used when clicking on already-selected note to allow multi-drag.
+  String? pendingNoteTapSelection;
+
   // ============================================
   // ERASER MODE STATE
   // ============================================

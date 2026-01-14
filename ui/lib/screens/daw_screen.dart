@@ -480,6 +480,15 @@ class _DAWScreenState extends State<DAWScreen> {
     _playbackController.play(loadedClipId: _loadedClipId);
   }
 
+  /// Play with loop check - used by transport bar play button
+  void _playWithLoopCheck() {
+    if (_uiLayout.loopPlaybackEnabled) {
+      _playLoopRegion();
+    } else {
+      _play();
+    }
+  }
+
   void _pause() {
     _playbackController.pause();
   }
@@ -491,24 +500,17 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   /// Context-aware play/pause toggle (Space bar)
-  /// - When Piano Roll is visible: plays just the loop region (cycling)
-  /// - When Timeline only: plays full arrangement
+  /// - When loop is enabled: plays the loop region (cycling)
+  /// - Otherwise: plays full arrangement
   void _togglePlayPause() {
     if (_isPlaying) {
       _pause();
     } else {
-      // Context-aware: check if Piano Roll is the focus
-      if (_uiLayout.isEditorPanelVisible && _loadedClipId != null) {
-        // Piano Roll context: play loop region (cycling)
-        _playLoopRegion();
-      } else {
-        // Timeline context: normal arrangement playback
-        _play();
-      }
+      _playWithLoopCheck();
     }
   }
 
-  /// Play just the loop region in the Piano Roll, cycling forever
+  /// Play the loop region, cycling forever until stopped
   void _playLoopRegion() {
     // Get loop bounds from UI layout state
     final loopStart = _uiLayout.loopStartBeats;
@@ -519,6 +521,7 @@ class _DAWScreenState extends State<DAWScreen> {
       loadedClipId: _loadedClipId,
       loopStartBeats: loopStart,
       loopEndBeats: loopEnd,
+      tempo: _tempo,
     );
   }
 
@@ -3061,7 +3064,7 @@ class _DAWScreenState extends State<DAWScreen> {
           ValueListenableBuilder<double>(
             valueListenable: _playbackController.playheadNotifier,
             builder: (context, playheadPos, _) => TransportBar(
-            onPlay: _play,
+            onPlay: _playWithLoopCheck,
             onPause: _pause,
             onStop: _stopPlayback,
             onRecord: _toggleRecording,

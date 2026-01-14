@@ -29,6 +29,7 @@ class PlaybackController extends ChangeNotifier {
   bool _isLoopCycling = false;
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0;
+  double _loopTempo = 120.0;
 
   // Double-stop behavior state
   DateTime? _lastStopTime;
@@ -86,20 +87,25 @@ class PlaybackController extends ChangeNotifier {
     int? loadedClipId,
     required double loopStartBeats,
     required double loopEndBeats,
+    required double tempo,
   }) {
     if (_audioEngine == null) return;
 
     try {
-      // Store loop bounds
+      // Store loop bounds and tempo for conversion
       _isLoopCycling = true;
       _loopStartBeats = loopStartBeats;
       _loopEndBeats = loopEndBeats;
+      _loopTempo = tempo;
+
+      // Convert beats to seconds for engine (which works in seconds)
+      final loopStartSeconds = loopStartBeats * 60.0 / tempo;
 
       // Seek to loop start and play
-      _audioEngine!.transportSeek(loopStartBeats);
+      _audioEngine!.transportSeek(loopStartSeconds);
       _audioEngine!.transportPlay();
       _isPlaying = true;
-      _playheadPosition = loopStartBeats;
+      _playheadPosition = loopStartSeconds;
       _statusMessage = 'Playing loop...';
       notifyListeners();
       _startPlayheadTimer();
@@ -145,9 +151,10 @@ class PlaybackController extends ChangeNotifier {
       if (isDoubleStop) {
         // Second stop: return to loop start or bar 1
         if (_loopPlaybackEnabled) {
-          // Return to loop start
-          _playheadPosition = _loopStartBeats;
-          _audioEngine!.transportSeek(_loopStartBeats);
+          // Return to loop start (convert beats to seconds)
+          final loopStartSeconds = _loopStartBeats * 60.0 / _loopTempo;
+          _playheadPosition = loopStartSeconds;
+          _audioEngine!.transportSeek(loopStartSeconds);
           _statusMessage = 'Stopped (loop start)';
         } else {
           // Return to bar 1 (beat 0)
@@ -194,13 +201,20 @@ class PlaybackController extends ChangeNotifier {
     // 16ms = ~60fps for smooth visual playhead updates
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
       if (_audioEngine != null) {
+        // pos is in SECONDS from the engine
         final pos = _audioEngine!.getPlayheadPosition();
         _playheadPosition = pos;
 
         // Loop cycling: jump back to start when reaching end
-        if (_isLoopCycling && pos >= _loopEndBeats) {
-          _audioEngine!.transportSeek(_loopStartBeats);
-          _playheadPosition = _loopStartBeats;
+        if (_isLoopCycling) {
+          // Convert loop bounds from beats to seconds for comparison
+          final loopEndSeconds = _loopEndBeats * 60.0 / _loopTempo;
+          final loopStartSeconds = _loopStartBeats * 60.0 / _loopTempo;
+
+          if (pos >= loopEndSeconds) {
+            _audioEngine!.transportSeek(loopStartSeconds);
+            _playheadPosition = loopStartSeconds;
+          }
         }
 
         // PERFORMANCE: Only update playhead notifier, not full controller.

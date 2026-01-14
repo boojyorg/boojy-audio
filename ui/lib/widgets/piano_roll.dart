@@ -6,6 +6,7 @@ import '../models/midi_cc_data.dart';
 import '../models/scale_data.dart';
 import '../models/tool_mode.dart';
 import '../audio_engine.dart';
+import '../services/tool_mode_resolver.dart';
 import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
 import 'piano_roll/piano_roll_controls_bar.dart';
@@ -108,7 +109,7 @@ class _PianoRollState extends State<PianoRoll>
     loopBarScroll.addListener(_syncGridFromLoopBar);
 
     // Initialize cursor based on initial tool mode
-    currentCursor = _cursorForToolMode(widget.toolMode);
+    currentCursor = ToolModeResolver.getCursor(widget.toolMode);
 
     // Scroll to default view (middle of piano)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -167,18 +168,7 @@ class _PianoRollState extends State<PianoRoll>
   /// Handle hardware keyboard events for modifier key cursor updates
   bool _onHardwareKey(KeyEvent event) {
     // Update cursor when Shift, Alt, or Cmd/Ctrl is pressed or released
-    if (event.logicalKey == LogicalKeyboardKey.shift ||
-        event.logicalKey == LogicalKeyboardKey.shiftLeft ||
-        event.logicalKey == LogicalKeyboardKey.shiftRight ||
-        event.logicalKey == LogicalKeyboardKey.alt ||
-        event.logicalKey == LogicalKeyboardKey.altLeft ||
-        event.logicalKey == LogicalKeyboardKey.altRight ||
-        event.logicalKey == LogicalKeyboardKey.meta ||
-        event.logicalKey == LogicalKeyboardKey.metaLeft ||
-        event.logicalKey == LogicalKeyboardKey.metaRight ||
-        event.logicalKey == LogicalKeyboardKey.control ||
-        event.logicalKey == LogicalKeyboardKey.controlLeft ||
-        event.logicalKey == LogicalKeyboardKey.controlRight) {
+    if (ToolModeResolver.isModifierKey(event.logicalKey)) {
       _updateCursorForModifiers();
     }
     return false; // Don't consume the event, let other handlers process it
@@ -200,7 +190,7 @@ class _PianoRollState extends State<PianoRoll>
     // Update cursor when tool mode changes (from toolbar button click)
     if (widget.toolMode != oldWidget.toolMode && tempModeOverride == null) {
       setState(() {
-        currentCursor = _cursorForToolMode(widget.toolMode);
+        currentCursor = ToolModeResolver.getCursor(widget.toolMode);
       });
     }
   }
@@ -577,8 +567,7 @@ class _PianoRollState extends State<PianoRoll>
                                           // Middle mouse button: start drag zoom (Ableton-style)
                                           startDragZoom(event.localPosition.dx, event.position.dy);
                                         } else if (event.buttons == kPrimaryMouseButton) {
-                                          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-                                          if (isAltPressed) {
+                                          if (ModifierKeyState.current().isAltPressed) {
                                             final note = _findNoteAtPosition(event.localPosition);
                                             if (note != null) {
                                               deleteNote(note);
@@ -593,8 +582,7 @@ class _PianoRollState extends State<PianoRoll>
                                           return;
                                         }
                                         if (event.buttons == kPrimaryMouseButton) {
-                                          final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-                                          if (isAltPressed) {
+                                          if (ModifierKeyState.current().isAltPressed) {
                                             if (!isErasing) {
                                               _startErasing(event.localPosition);
                                             } else {
@@ -629,8 +617,11 @@ class _PianoRollState extends State<PianoRoll>
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.translucent,
                                           onTapDown: _onTapDown,
-                                          onTapUp: (_) => stopAudition(),
-                                          onTapCancel: stopAudition,
+                                          onTapUp: _onTapUp,
+                                          onTapCancel: () {
+                                            stopAudition();
+                                            pendingNoteTapSelection = null;
+                                          },
                                           onPanStart: _onPanStart,
                                           onPanUpdate: _onPanUpdate,
                                           onPanEnd: _onPanEnd,
@@ -1452,47 +1443,13 @@ class _PianoRollState extends State<PianoRoll>
       return;
     }
 
-    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
+    final modifiers = ModifierKeyState.current();
+    final overrideMode = modifiers.getOverrideToolMode();
 
     setState(() {
-      if (isAltPressed) {
-        // Alt held = temporary erase mode
-        tempModeOverride = ToolMode.eraser;
-        currentCursor = SystemMouseCursors.forbidden;
-      } else if (isCtrlOrCmd) {
-        // Cmd/Ctrl held = context-sensitive (duplicate on note, slice on empty)
-        // We set duplicate as the temp mode; slice handled in tap handler
-        tempModeOverride = ToolMode.duplicate;
-        currentCursor = SystemMouseCursors.copy;
-      } else if (isShiftPressed) {
-        // Shift held = temporary select mode
-        tempModeOverride = ToolMode.select;
-        currentCursor = SystemMouseCursors.basic;
-      } else {
-        // No modifier = clear temp override, use tool mode's cursor
-        tempModeOverride = null;
-        currentCursor = _cursorForToolMode(widget.toolMode);
-      }
+      tempModeOverride = overrideMode;
+      currentCursor = ToolModeResolver.getCursor(overrideMode ?? widget.toolMode);
     });
-  }
-
-  /// Get cursor for a given tool mode.
-  MouseCursor _cursorForToolMode(ToolMode tool) {
-    switch (tool) {
-      case ToolMode.draw:
-        return SystemMouseCursors.precise;
-      case ToolMode.select:
-        return SystemMouseCursors.basic;
-      case ToolMode.eraser:
-        return SystemMouseCursors.forbidden;
-      case ToolMode.duplicate:
-        return SystemMouseCursors.copy;
-      case ToolMode.slice:
-        return SystemMouseCursors.verticalText;
-    }
   }
 
   // Handle hover for cursor feedback (smart context-aware cursors)
@@ -1504,15 +1461,13 @@ class _PianoRollState extends State<PianoRoll>
 
     final position = event.localPosition;
     final hoveredNote = _findNoteAtPosition(position);
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
+    final modifiers = ModifierKeyState.current();
     final toolMode = effectiveToolMode;
 
     // Tool-mode-aware cursor logic
     if (hoveredNote != null) {
       // On a note
-      if (isAltPressed || toolMode == ToolMode.eraser) {
+      if (modifiers.isAltPressed || toolMode == ToolMode.eraser) {
         // Eraser mode - show delete cursor
         setState(() {
           currentCursor = SystemMouseCursors.forbidden;
@@ -1522,7 +1477,7 @@ class _PianoRollState extends State<PianoRoll>
         setState(() {
           currentCursor = SystemMouseCursors.verticalText;
         });
-      } else if (isCtrlOrCmd || toolMode == ToolMode.duplicate) {
+      } else if (modifiers.isCtrlOrCmd || toolMode == ToolMode.duplicate) {
         // Duplicate mode - show copy cursor
         setState(() {
           currentCursor = SystemMouseCursors.copy;
@@ -1556,7 +1511,7 @@ class _PianoRollState extends State<PianoRoll>
       }
     } else {
       // Empty space
-      if (isAltPressed || toolMode == ToolMode.eraser) {
+      if (modifiers.isAltPressed || toolMode == ToolMode.eraser) {
         // Eraser mode on empty space
         setState(() {
           currentCursor = SystemMouseCursors.forbidden;
@@ -1590,10 +1545,7 @@ class _PianoRollState extends State<PianoRoll>
     focusNode.requestFocus();
 
     final clickedNote = _findNoteAtPosition(details.localPosition);
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
+    final modifiers = ModifierKeyState.current();
     final toolMode = effectiveToolMode;
 
     // ============================================
@@ -1601,7 +1553,7 @@ class _PianoRollState extends State<PianoRoll>
     // ============================================
 
     // Alt+click OR Erase tool = delete note
-    if (isAltPressed || toolMode == ToolMode.eraser) {
+    if (modifiers.isAltPressed || toolMode == ToolMode.eraser) {
       if (clickedNote != null) {
         saveToHistory();
         setState(() {
@@ -1625,7 +1577,7 @@ class _PianoRollState extends State<PianoRoll>
     }
 
     // Duplicate tool OR Cmd+click on note = duplicate in place
-    if (toolMode == ToolMode.duplicate || (isCtrlOrCmd && clickedNote != null)) {
+    if (toolMode == ToolMode.duplicate || (modifiers.isCtrlOrCmd && clickedNote != null)) {
       if (clickedNote != null) {
         saveToHistory();
         final duplicate = clickedNote.copyWith(
@@ -1646,7 +1598,8 @@ class _PianoRollState extends State<PianoRoll>
     if (toolMode == ToolMode.select) {
       if (clickedNote != null) {
         // Shift+click = toggle selection (add/remove from selection)
-        if (isShiftPressed) {
+        if (modifiers.isShiftPressed) {
+          pendingNoteTapSelection = null;
           setState(() {
             currentClip = currentClip?.copyWith(
               notes: currentClip!.notes.map((n) {
@@ -1657,8 +1610,13 @@ class _PianoRollState extends State<PianoRoll>
               }).toList(),
             );
           });
+        } else if (clickedNote.isSelected) {
+          // Clicking on already-selected note: defer single-selection to tap-up
+          // (allows multi-drag if user drags instead of clicking)
+          pendingNoteTapSelection = clickedNote.id;
         } else {
-          // Regular click = select this note, deselect others
+          // Regular click on unselected note = select only this note
+          pendingNoteTapSelection = null;
           setState(() {
             currentClip = currentClip?.copyWith(
               notes: currentClip!.notes.map((n) {
@@ -1675,6 +1633,7 @@ class _PianoRollState extends State<PianoRoll>
         startAudition(clickedNote.note, clickedNote.velocity);
       } else {
         // Click on empty space = deselect all
+        pendingNoteTapSelection = null;
         setState(() {
           currentClip = currentClip?.copyWith(
             notes: currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
@@ -1690,7 +1649,7 @@ class _PianoRollState extends State<PianoRoll>
     // ============================================
 
     // Cmd+click on empty space = slice any note at that beat position
-    if (isCtrlOrCmd && clickedNote == null) {
+    if (modifiers.isCtrlOrCmd && clickedNote == null) {
       final beat = _getBeatAtX(details.localPosition.dx);
       final noteToSlice = currentClip?.notes.firstWhere(
         (n) => n.startTime < beat && (n.startTime + n.duration) > beat,
@@ -1704,10 +1663,10 @@ class _PianoRollState extends State<PianoRoll>
 
     // DRAW TOOL: Click on existing note = select it (FL Studio style)
     if (clickedNote != null) {
-      // Select this note, deselect others (unless Shift held)
-      final isShiftHeld = HardwareKeyboard.instance.isShiftPressed;
-      if (isShiftHeld) {
+      // Select this note, deselect others (unless Shift held or note already selected)
+      if (modifiers.isShiftPressed) {
         // Toggle selection
+        pendingNoteTapSelection = null;
         setState(() {
           currentClip = currentClip?.copyWith(
             notes: currentClip!.notes.map((n) {
@@ -1718,8 +1677,13 @@ class _PianoRollState extends State<PianoRoll>
             }).toList(),
           );
         });
+      } else if (clickedNote.isSelected) {
+        // Clicking on already-selected note: defer single-selection to tap-up
+        // (allows multi-drag if user drags instead of clicking)
+        pendingNoteTapSelection = clickedNote.id;
       } else {
-        // Select only this note
+        // Select only this note (unselected note clicked)
+        pendingNoteTapSelection = null;
         setState(() {
           currentClip = currentClip?.copyWith(
             notes: currentClip!.notes.map((n) {
@@ -1782,36 +1746,49 @@ class _PianoRollState extends State<PianoRoll>
     }
   }
 
+  void _onTapUp(TapUpDetails details) {
+    stopAudition();
+
+    // If we had a pending tap selection (clicked on already-selected note),
+    // now reduce to single selection since no drag occurred
+    if (pendingNoteTapSelection != null) {
+      final noteId = pendingNoteTapSelection!;
+      setState(() {
+        currentClip = currentClip?.copyWith(
+          notes: currentClip!.notes.map((n) {
+            if (n.id == noteId) {
+              return n.copyWith(isSelected: true);
+            } else {
+              return n.copyWith(isSelected: false);
+            }
+          }).toList(),
+        );
+      });
+      notifyClipUpdated();
+      pendingNoteTapSelection = null;
+    }
+  }
+
   void _onPanStart(DragStartDetails details) {
+    // Clear pending tap selection - user is dragging, not clicking
+    pendingNoteTapSelection = null;
+
     // Request focus to enable keyboard events (delete, undo, etc.)
     focusNode.requestFocus();
 
     dragStart = details.localPosition;
     final clickedNote = _findNoteAtPosition(details.localPosition);
-    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
-    // Get effective tool mode, but also check modifiers directly for immediate response
-    // (tempModeOverride may not be set yet if setState hasn't completed)
-    ToolMode toolMode;
-    if (isAltPressed) {
-      toolMode = ToolMode.eraser;
-    } else if (isCtrlOrCmd) {
-      toolMode = ToolMode.duplicate;
-    } else if (isShiftPressed) {
-      toolMode = ToolMode.select;
-    } else {
-      toolMode = effectiveToolMode;
-    }
+    final modifiers = ModifierKeyState.current();
+    // Get effective tool mode using resolver (handles modifier key overrides)
+    final toolMode = ToolModeResolver.resolve(widget.toolMode);
 
     // Skip normal pan handling if Alt is held OR eraser tool is active
-    if (isAltPressed || toolMode == ToolMode.eraser) {
+    if (modifiers.isAltPressed || toolMode == ToolMode.eraser) {
       return;
     }
 
     // Box selection: Shift+drag on empty OR Select tool drag on empty
-    if ((isShiftPressed || toolMode == ToolMode.select) && clickedNote == null) {
+    if ((modifiers.isShiftPressed || toolMode == ToolMode.select) && clickedNote == null) {
       // Marquee/box select
       setState(() {
         isSelecting = true;
@@ -1833,7 +1810,7 @@ class _PianoRollState extends State<PianoRoll>
             notes: currentClip!.notes.map((n) {
               if (n.id == clickedNote.id) {
                 return n.copyWith(isSelected: true);
-              } else if (!isShiftPressed) {
+              } else if (!modifiers.isShiftPressed) {
                 return n.copyWith(isSelected: false);
               }
               return n;
@@ -1910,7 +1887,7 @@ class _PianoRollState extends State<PianoRoll>
     // DRAW TOOL (default) behavior below
     // ============================================
 
-    if (isCtrlOrCmd && clickedNote != null) {
+    if (modifiers.isCtrlOrCmd && clickedNote != null) {
       // Cmd/Ctrl+drag on note = duplicate mode (supports multiple selected notes)
       saveToHistory();
       isDuplicating = true;

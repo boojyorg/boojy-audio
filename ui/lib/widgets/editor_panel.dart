@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../models/tool_mode.dart';
+import '../services/tool_mode_resolver.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'synthesizer_panel.dart';
@@ -206,18 +207,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   /// Handle keyboard events for modifier key tracking (visual feedback for hold modifiers)
   bool _onKeyEvent(KeyEvent event) {
     // Check if Shift, Alt, or Cmd/Ctrl modifiers changed
-    if (event.logicalKey == LogicalKeyboardKey.shift ||
-        event.logicalKey == LogicalKeyboardKey.shiftLeft ||
-        event.logicalKey == LogicalKeyboardKey.shiftRight ||
-        event.logicalKey == LogicalKeyboardKey.alt ||
-        event.logicalKey == LogicalKeyboardKey.altLeft ||
-        event.logicalKey == LogicalKeyboardKey.altRight ||
-        event.logicalKey == LogicalKeyboardKey.meta ||
-        event.logicalKey == LogicalKeyboardKey.metaLeft ||
-        event.logicalKey == LogicalKeyboardKey.metaRight ||
-        event.logicalKey == LogicalKeyboardKey.control ||
-        event.logicalKey == LogicalKeyboardKey.controlLeft ||
-        event.logicalKey == LogicalKeyboardKey.controlRight) {
+    if (ToolModeResolver.isModifierKey(event.logicalKey)) {
       _updateTempToolMode();
     }
     return false; // Don't consume the event
@@ -225,21 +215,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Update temporary tool mode based on held modifiers
   void _updateTempToolMode() {
-    final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-    final isAltPressed = HardwareKeyboard.instance.isAltPressed;
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
-
+    final modifiers = ModifierKeyState.current();
     setState(() {
-      if (isAltPressed) {
-        _tempToolMode = ToolMode.eraser;
-      } else if (isCtrlOrCmd) {
-        _tempToolMode = ToolMode.duplicate;
-      } else if (isShiftPressed) {
-        _tempToolMode = ToolMode.select;
-      } else {
-        _tempToolMode = null;
-      }
+      _tempToolMode = modifiers.getOverrideToolMode();
     });
   }
 

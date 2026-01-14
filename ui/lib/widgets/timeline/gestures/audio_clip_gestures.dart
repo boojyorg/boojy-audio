@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart' show HardwareKeyboard;
+import '../../../services/tool_mode_resolver.dart';
 import '../../../utils/grid_utils.dart';
 
 /// State tracking for audio clip drag operations.
@@ -175,12 +175,11 @@ class AudioClipGestureUtils {
 
   /// Check if shift key is pressed (for snap bypass).
   static bool isShiftPressed() {
-    return HardwareKeyboard.instance.isShiftPressed;
+    return ModifierKeyState.current().isShiftPressed;
   }
 
   /// Check if Cmd/Ctrl key is pressed (for copy/duplicate).
   static bool isModifierPressed() {
-    return HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
+    return ModifierKeyState.current().isCtrlOrCmd;
   }
 }

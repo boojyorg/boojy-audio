@@ -1,6 +1,6 @@
-import 'package:flutter/services.dart' show HardwareKeyboard;
 import '../../../models/midi_note_data.dart';
 import '../../../models/tool_mode.dart';
+import '../../../services/tool_mode_resolver.dart';
 import '../../../utils/grid_utils.dart';
 
 /// Configuration for MIDI clip gesture handling.
@@ -242,12 +242,11 @@ class MidiClipGestureUtils {
 
   /// Check if shift key is pressed (for snap bypass).
   static bool isShiftPressed() {
-    return HardwareKeyboard.instance.isShiftPressed;
+    return ModifierKeyState.current().isShiftPressed;
   }
 
   /// Check if Cmd/Ctrl key is pressed (for copy/duplicate).
   static bool isModifierPressed() {
-    return HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed;
+    return ModifierKeyState.current().isCtrlOrCmd;
   }
 }

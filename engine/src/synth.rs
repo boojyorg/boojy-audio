@@ -238,14 +238,12 @@ impl Synth {
         // Find free voice or steal oldest
         let idx = self.find_free_voice_index();
         self.voices[idx].note_on(note, velocity);
-        println!("🎹 Synth note ON: {} vel={} osc={:?}", note, velocity, self.osc_type);
     }
 
     pub fn note_off(&mut self, note: u8) {
         for voice in &mut self.voices {
             if voice.is_active && voice.note == note {
                 voice.note_off();
-                println!("🎹 Synth note OFF: {}", note);
             }
         }
     }
