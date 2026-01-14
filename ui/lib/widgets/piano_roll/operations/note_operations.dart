@@ -244,6 +244,44 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   // TRANSFORM OPERATIONS
   // ============================================
 
+  /// Transpose selected notes by a given number of semitones.
+  /// Positive values transpose up, negative values transpose down.
+  /// Notes are clamped to valid MIDI range (0-127).
+  void transposeSelectedNotes(int semitones) {
+    final selectedNotes = currentClip?.selectedNotes ?? [];
+    if (selectedNotes.isEmpty) return;
+
+    // Check if any note would go out of range
+    for (final note in selectedNotes) {
+      final newNote = note.note + semitones;
+      if (newNote < 0 || newNote > 127) {
+        // At least one note would be out of range, abort
+        return;
+      }
+    }
+
+    saveToHistory();
+
+    setState(() {
+      currentClip = currentClip?.copyWith(
+        notes: currentClip!.notes.map((n) {
+          if (n.isSelected) {
+            return n.copyWith(note: n.note + semitones);
+          }
+          return n;
+        }).toList(),
+      );
+    });
+
+    notifyClipUpdated();
+
+    final direction = semitones > 0 ? 'up' : 'down';
+    final amount = semitones.abs();
+    final unit = amount == 12 ? 'octave' : (amount == 1 ? 'semitone' : 'semitones');
+    final displayAmount = amount == 12 ? '1' : '$amount';
+    commitToHistory('Transpose $direction $displayAmount $unit');
+  }
+
   /// Apply swing to selected notes.
   void applySwing() {
     if (currentClip == null) return;

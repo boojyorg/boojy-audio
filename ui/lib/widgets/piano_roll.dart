@@ -2382,6 +2382,29 @@ class _PianoRollState extends State<PianoRoll>
           !HardwareKeyboard.instance.isControlPressed) {
         setState(() => chordPaletteVisible = !chordPaletteVisible);
       }
+      // ============================================
+      // TRANSPOSE SHORTCUTS
+      // ============================================
+      // Up arrow = transpose up 1 semitone
+      // Shift+Up = transpose up 1 octave (12 semitones)
+      else if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        if (currentClip?.selectedNotes.isNotEmpty ?? false) {
+          final semitones = HardwareKeyboard.instance.isShiftPressed ? 12 : 1;
+          transposeSelectedNotes(semitones);
+        }
+      }
+      // Down arrow = transpose down 1 semitone
+      // Shift+Down = transpose down 1 octave (12 semitones)
+      else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+          !HardwareKeyboard.instance.isMetaPressed &&
+          !HardwareKeyboard.instance.isControlPressed) {
+        if (currentClip?.selectedNotes.isNotEmpty ?? false) {
+          final semitones = HardwareKeyboard.instance.isShiftPressed ? -12 : -1;
+          transposeSelectedNotes(semitones);
+        }
+      }
     } else if (event is KeyUpEvent) {
       // Hold modifiers are handled via tempModeOverride in _updateCursorForModifiers
     }
