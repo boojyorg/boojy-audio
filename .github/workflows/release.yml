@@ -276,6 +276,15 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
+      - name: List downloaded artifacts
+        run: |
+          echo "=== All downloaded files ==="
+          find . -type f -name "*.dmg" -o -name "*.exe" -o -name "*.txt"
+          echo "=== Directory structure ==="
+          ls -la
+          ls -la macos-dmg/ || echo "macos-dmg folder not found"
+          ls -la windows-installer/ || echo "windows-installer folder not found"
+
       - name: Read Sparkle signature
         id: sparkle
         run: |
