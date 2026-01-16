@@ -37,6 +37,11 @@ jobs:
           cargo build --release
           cp target/release/libengine.dylib ../ui/assets/
 
+      - name: Flutter pub get
+        run: |
+          cd ui
+          flutter pub get
+
       - name: Install CocoaPods
         run: |
           cd ui/macos
@@ -45,10 +50,10 @@ jobs:
       - name: Build macOS app
         run: |
           cd ui
-          flutter pub get
           flutter build macos --release
 
       - name: Import code signing certificate
+        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -68,6 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Code sign app
+        if: ${{ secrets.DEVELOPER_ID != '' }}
         run: |
           APP_PATH="ui/build/macos/Build/Products/Release/Boojy Audio.app"
 
@@ -106,6 +112,7 @@ jobs:
           fi
 
       - name: Notarize DMG
+        if: ${{ secrets.APPLE_ID != '' }}
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
