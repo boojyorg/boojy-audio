@@ -53,8 +53,9 @@ jobs:
           flutter build macos --release
 
       - name: Import code signing certificate
-        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
+        if: ${{ env.HAS_CERTIFICATE == 'true' }}
         env:
+          HAS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE != '' }}
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
@@ -73,17 +74,20 @@ jobs:
           rm certificate.p12
 
       - name: Code sign app
-        if: ${{ secrets.DEVELOPER_ID != '' }}
+        if: ${{ env.HAS_DEVELOPER_ID == 'true' }}
+        env:
+          HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID != '' }}
+          DEVELOPER_ID: ${{ secrets.DEVELOPER_ID }}
         run: |
           APP_PATH="ui/build/macos/Build/Products/Release/Boojy Audio.app"
 
           # Sign frameworks and dylibs first
           find "$APP_PATH" -name "*.framework" -o -name "*.dylib" | while read file; do
-            codesign --force --sign "${{ secrets.DEVELOPER_ID }}" --timestamp "$file" || true
+            codesign --force --sign "$DEVELOPER_ID" --timestamp "$file" || true
           done
 
           # Sign the main app
-          codesign --force --deep --sign "${{ secrets.DEVELOPER_ID }}" --timestamp --options runtime "$APP_PATH"
+          codesign --force --deep --sign "$DEVELOPER_ID" --timestamp --options runtime "$APP_PATH"
 
           # Verify signature
           codesign --verify --verbose "$APP_PATH"
@@ -112,14 +116,16 @@ jobs:
           fi
 
       - name: Notarize DMG
-        if: ${{ secrets.APPLE_ID != '' }}
+        if: ${{ env.HAS_APPLE_ID == 'true' }}
         env:
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          DEVELOPER_ID: ${{ secrets.DEVELOPER_ID }}
         run: |
           # Sign the DMG
-          codesign --force --sign "${{ secrets.DEVELOPER_ID }}" "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+          codesign --force --sign "$DEVELOPER_ID" "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
 
           # Submit for notarization
           xcrun notarytool submit "Boojy-Audio-${{ github.ref_name }}-mac.dmg" \
