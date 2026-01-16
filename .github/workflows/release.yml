@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 env:
-  FLUTTER_VERSION: '3.29.0'
+  FLUTTER_VERSION: '3.38.0'
 
 jobs:
   build-macos:
@@ -138,7 +138,9 @@ jobs:
           xcrun stapler staple "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
 
       - name: Sign for Sparkle
+        if: ${{ env.HAS_SPARKLE_KEY == 'true' }}
         env:
+          HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           # Download Sparkle tools
@@ -158,6 +160,15 @@ jobs:
 
           # Clean up
           rm sparkle_private_key
+
+      - name: Get DMG size (no Sparkle key)
+        if: ${{ env.HAS_SPARKLE_KEY != 'true' }}
+        env:
+          HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+        run: |
+          FILE_SIZE=$(stat -f%z "Boojy-Audio-${{ github.ref_name }}-mac.dmg")
+          echo "DMG_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+          echo "SPARKLE_SIGNATURE=" >> $GITHUB_ENV
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -265,8 +276,8 @@ jobs:
       - name: Read Sparkle signature
         id: sparkle
         run: |
-          SIGNATURE=$(cat sparkle-signature/sparkle-signature.txt)
-          SIZE=$(cat sparkle-signature/dmg-size.txt)
+          SIGNATURE=$(cat sparkle-signature/sparkle-signature.txt 2>/dev/null || echo "")
+          SIZE=$(cat sparkle-signature/dmg-size.txt 2>/dev/null || echo "0")
           echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
           echo "size=$SIZE" >> $GITHUB_OUTPUT
 
