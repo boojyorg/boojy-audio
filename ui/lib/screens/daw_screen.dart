@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+// Conditional import for platform-specific code
+import 'daw_screen_io.dart' if (dart.library.js_interop) 'daw_screen_io_web.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../widgets/transport_bar.dart';
@@ -50,6 +52,7 @@ import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
+import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
@@ -2177,6 +2180,9 @@ class _DAWScreenState extends State<DAWScreen> {
               _midiPlaybackManager?.clear();
               _undoRedoManager.clear();
 
+              // Clear window title (back to just "Boojy Audio")
+              WindowTitleService.clearProjectName();
+
               // Refresh track widgets to show empty state (clear clips too)
               _refreshTrackWidgets(clearClips: true);
 
@@ -2250,6 +2256,9 @@ class _DAWScreenState extends State<DAWScreen> {
         // Add to recent projects
         _userSettings.addRecentProject(path, _projectManager!.currentName);
 
+        // Update window title with project name
+        WindowTitleService.setProjectName(_projectManager!.currentName);
+
         setState(() {
           _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
           _isLoading = false;
@@ -2305,6 +2314,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Update recent projects (moves to top)
       _userSettings.addRecentProject(path, _projectManager!.currentName);
+
+      // Update window title with project name
+      WindowTitleService.setProjectName(_projectManager!.currentName);
 
       setState(() {
         _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
@@ -2394,8 +2406,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
     if (projectName == null || projectName.isEmpty) return;
 
-    // Update project name in manager
+    // Update project name in manager and window title
     _projectManager?.setProjectName(projectName);
+    WindowTitleService.setProjectName(projectName);
 
     try {
       // Get default projects folder
@@ -2875,6 +2888,7 @@ class _DAWScreenState extends State<DAWScreen> {
     // Update project name if changed
     if (nameChanged) {
       _projectManager?.setProjectName(updatedMetadata.name);
+      WindowTitleService.setProjectName(updatedMetadata.name);
     }
 
     // Handle version actions

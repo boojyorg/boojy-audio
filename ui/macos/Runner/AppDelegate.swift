@@ -11,6 +11,7 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+
   override func applicationWillTerminate(_ notification: Notification) {
     // Clean up all VST3 editor windows
     VST3WindowManager.shared.closeAllWindows()

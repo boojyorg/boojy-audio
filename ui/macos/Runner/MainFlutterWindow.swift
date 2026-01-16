@@ -13,6 +13,10 @@ class MainFlutterWindow: NSWindow {
     // Set minimum window size (800x600) for responsive panel layout
     self.minSize = NSSize(width: 800, height: 600)
 
+    // Dark title bar appearance
+    self.appearance = NSAppearance(named: .darkAqua)
+    self.backgroundColor = NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     // Register VST3 platform view factory (must happen before Flutter engine uses it)
