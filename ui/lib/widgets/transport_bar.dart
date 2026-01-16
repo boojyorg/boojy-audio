@@ -158,10 +158,12 @@ class _TransportBarState extends State<TransportBar> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Determine display mode based on available width
-        final mode = constraints.maxWidth > 900
+        final availableWidth = constraints.maxWidth;
+        final mode = availableWidth > 1300
             ? _ButtonDisplayMode.wide
             : _ButtonDisplayMode.narrow;
         final isCompact = mode == _ButtonDisplayMode.narrow;
+        final isVeryCompact = availableWidth < 1150; // Hide more elements on narrow screens
 
         return Container(
           height: 60,
@@ -271,27 +273,29 @@ class _TransportBarState extends State<TransportBar> {
 
               // === CENTER-LEFT: SETUP TOOLS ===
 
-              // Loop playback toggle button (Piano Roll style)
-              PillToggleButton(
-                icon: Icons.loop,
-                label: 'Loop',
-                isActive: widget.loopPlaybackEnabled,
-                mode: mode == _ButtonDisplayMode.wide ? ButtonDisplayMode.wide : ButtonDisplayMode.narrow,
-                onTap: widget.onLoopPlaybackToggle,
-                tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
-                activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
-              ),
+              // Loop playback toggle button (Piano Roll style) - hide on very compact
+              if (!isVeryCompact)
+                PillToggleButton(
+                  icon: Icons.loop,
+                  label: 'Loop',
+                  isActive: widget.loopPlaybackEnabled,
+                  mode: mode == _ButtonDisplayMode.wide ? ButtonDisplayMode.wide : ButtonDisplayMode.narrow,
+                  onTap: widget.onLoopPlaybackToggle,
+                  tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
+                  activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
+                ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
 
-              // Snap split button: icon toggles on/off, chevron opens grid menu
-              _SnapSplitButton(
-                value: widget.arrangementSnap,
-                onChanged: widget.onSnapChanged,
-                mode: mode,
-              ),
+              // Snap split button: icon toggles on/off, chevron opens grid menu - hide on very compact
+              if (!isVeryCompact)
+                _SnapSplitButton(
+                  value: widget.arrangementSnap,
+                  onChanged: widget.onSnapChanged,
+                  mode: mode,
+                ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
 
               // Metronome split button: icon toggles, chevron opens count-in menu
               _MetronomeSplitButton(
@@ -394,14 +398,15 @@ class _TransportBarState extends State<TransportBar> {
 
               // === RIGHT: MUSICAL CONTEXT ===
 
-              // Tap tempo button (Piano Roll style)
-              _TapTempoPill(
-                tempo: widget.tempo,
-                onTempoChanged: widget.onTempoChanged,
-                mode: mode,
-              ),
+              // Tap tempo button (Piano Roll style) - hide on very compact
+              if (!isVeryCompact)
+                _TapTempoPill(
+                  tempo: widget.tempo,
+                  onTempoChanged: widget.onTempoChanged,
+                  mode: mode,
+                ),
 
-              SizedBox(width: isCompact ? 2 : 4),
+              if (!isVeryCompact) SizedBox(width: isCompact ? 2 : 4),
 
               // Tempo display [120 BPM] with drag interaction
               _TempoDisplay(
@@ -409,14 +414,15 @@ class _TransportBarState extends State<TransportBar> {
                 onTempoChanged: widget.onTempoChanged,
               ),
 
-              SizedBox(width: isCompact ? 4 : 8),
+              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
 
-              // Signature display/dropdown
-              _SignatureDropdown(
-                beatsPerBar: 4, // TODO: Wire up to state
-                beatUnit: 4,   // TODO: Wire up to state
-                onChanged: null, // TODO: Wire up callback
-              ),
+              // Signature display/dropdown - hide on very compact
+              if (!isVeryCompact)
+                _SignatureDropdown(
+                  beatsPerBar: 4, // TODO: Wire up to state
+                  beatUnit: 4,   // TODO: Wire up to state
+                  onChanged: null, // TODO: Wire up callback
+                ),
 
               // Use Spacer to push Help to the right edge
               const Spacer(),

@@ -3,7 +3,10 @@ import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 
 /// Track header widget - displays on left side of timeline for each track
-class TrackHeader extends StatelessWidget {
+/// Supports drag navigation:
+/// - Drag up/down = scroll tracks vertically
+/// - Drag left/right = zoom track height
+class TrackHeader extends StatefulWidget {
   final int trackId;
   final String trackName;
   final String trackType;
@@ -17,6 +20,10 @@ class TrackHeader extends StatelessWidget {
   final VoidCallback? onDeletePressed;
   final VoidCallback? onRenamePressed;
   final VoidCallback? onDoubleClick; // Double-click to open editor
+
+  // Drag navigation callbacks
+  final void Function(double delta)? onVerticalScroll;
+  final void Function(double factor)? onTrackHeightZoom;
 
   const TrackHeader({
     super.key,
@@ -33,133 +40,182 @@ class TrackHeader extends StatelessWidget {
     this.onDeletePressed,
     this.onRenamePressed,
     this.onDoubleClick,
+    this.onVerticalScroll,
+    this.onTrackHeightZoom,
   });
+
+  @override
+  State<TrackHeader> createState() => _TrackHeaderState();
+}
+
+class _TrackHeaderState extends State<TrackHeader> {
+  // Drag state
+  bool _isDragging = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onDoubleTap: onDoubleClick,
+      onDoubleTap: widget.onDoubleClick,
       onSecondaryTapDown: (TapDownDetails details) {
         _showContextMenu(context, details.globalPosition);
       },
-      child: Container(
-        width: 120,
-        height: 100, // Height of track row in timeline
-        decoration: BoxDecoration(
-          color: context.colors.textMuted,
-          border: Border(
-            right: BorderSide(color: context.colors.buttonInactive),
-            bottom: BorderSide(color: context.colors.buttonInactive),
-          ),
-        ),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Track name and icon
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Text(
-                  _getTrackEmoji(),
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    trackName,
-                    style: TextStyle(
-                      color: context.colors.darkest,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+      onPanStart: _handlePanStart,
+      onPanUpdate: _handlePanUpdate,
+      onPanEnd: _handlePanEnd,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeUpDown,
+        child: Container(
+          width: 120,
+          height: 100, // Height of track row in timeline
+          decoration: BoxDecoration(
+            color: context.colors.textMuted,
+            border: Border(
+              right: BorderSide(color: context.colors.buttonInactive),
+              bottom: BorderSide(color: context.colors.buttonInactive),
             ),
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Track name and icon
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Text(
+                      _getTrackEmoji(),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.trackName,
+                        style: TextStyle(
+                          color: context.colors.darkest,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-          // Mute/Solo buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Row(
-              children: [
-                // Solo button
-                Expanded(
-                  child: SizedBox(
-                    height: 24,
-                    child: ElevatedButton(
-                      onPressed: onSoloToggle,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isSoloed
-                            ? context.colors.soloActive
-                            : context.colors.buttonInactive,
-                        foregroundColor: isSoloed
-                            ? Colors.black
-                            : context.colors.textMuted,
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 24),
-                        textStyle: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+              // Mute/Solo buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  children: [
+                    // Solo button
+                    Expanded(
+                      child: SizedBox(
+                        height: 24,
+                        child: ElevatedButton(
+                          onPressed: widget.onSoloToggle,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.isSoloed
+                                ? context.colors.soloActive
+                                : context.colors.buttonInactive,
+                            foregroundColor: widget.isSoloed
+                                ? Colors.black
+                                : context.colors.textMuted,
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 24),
+                            textStyle: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          child: const Text('S'),
                         ),
                       ),
-                      child: const Text('S'),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 4),
+                    const SizedBox(width: 4),
 
-                // Mute button
-                Expanded(
-                  child: SizedBox(
-                    height: 24,
-                    child: ElevatedButton(
-                      onPressed: onMuteToggle,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isMuted
-                            ? context.colors.muteActive
-                            : context.colors.buttonInactive,
-                        foregroundColor: isMuted
-                            ? Colors.white
-                            : context.colors.textMuted,
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 24),
-                        textStyle: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                    // Mute button
+                    Expanded(
+                      child: SizedBox(
+                        height: 24,
+                        child: ElevatedButton(
+                          onPressed: widget.onMuteToggle,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.isMuted
+                                ? context.colors.muteActive
+                                : context.colors.buttonInactive,
+                            foregroundColor: widget.isMuted
+                                ? Colors.white
+                                : context.colors.textMuted,
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 24),
+                            textStyle: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          child: const Text('M'),
                         ),
                       ),
-                      child: const Text('M'),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Level meter
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: _buildLevelMeter(context),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+            ],
           ),
-
-          const SizedBox(height: 8),
-
-          // Level meter
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: _buildLevelMeter(context),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-        ],
         ),
       ),
     );
   }
 
+  // ============================================
+  // PAN HANDLING (Drag for scroll/zoom)
+  // ============================================
+
+  void _handlePanStart(DragStartDetails details) {
+    _isDragging = true;
+  }
+
+  void _handlePanUpdate(DragUpdateDetails details) {
+    if (!_isDragging) return;
+
+    final deltaX = details.delta.dx;
+    final deltaY = details.delta.dy;
+
+    // Vertical drag = scroll tracks (drag up = scroll up)
+    if (deltaY.abs() > 0.5) {
+      widget.onVerticalScroll?.call(deltaY);
+    }
+
+    // Horizontal drag = zoom track height
+    // Drag right = zoom in (tracks get taller)
+    // Drag left = zoom out (tracks get shorter)
+    if (deltaX.abs() > 0.5) {
+      // Sensitivity: 100px drag = ~1.5x zoom change
+      final factor = 1.0 + (deltaX / 200.0);
+      widget.onTrackHeightZoom?.call(factor);
+    }
+  }
+
+  void _handlePanEnd(DragEndDetails details) {
+    _isDragging = false;
+  }
+
   void _showContextMenu(BuildContext context, Offset position) {
     // Don't show context menu for master track
-    if (trackType.toLowerCase() == 'master') {
+    if (widget.trackType.toLowerCase() == 'master') {
       return;
     }
 
@@ -204,12 +260,12 @@ class TrackHeader extends StatelessWidget {
         ),
       ],
     ).then((value) {
-      if (value == 'rename' && onRenamePressed != null) {
-        onRenamePressed!();
-      } else if (value == 'duplicate' && onDuplicatePressed != null) {
-        onDuplicatePressed!();
-      } else if (value == 'delete' && onDeletePressed != null) {
-        onDeletePressed!();
+      if (value == 'rename' && widget.onRenamePressed != null) {
+        widget.onRenamePressed!();
+      } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
+        widget.onDuplicatePressed!();
+      } else if (value == 'delete' && widget.onDeletePressed != null) {
+        widget.onDeletePressed!();
       }
     });
   }
@@ -236,7 +292,7 @@ class TrackHeader extends StatelessWidget {
           child: Row(
             children: List.generate(10, (index) {
               final threshold = index / 10.0;
-              final isLit = peakLevel > threshold;
+              final isLit = widget.peakLevel > threshold;
 
               // Color gradient: green → yellow → red
               Color barColor;
@@ -270,8 +326,8 @@ class TrackHeader extends StatelessWidget {
 
   String _getTrackEmoji() {
     // Map track type or name to emoji
-    final lowerName = trackName.toLowerCase();
-    final lowerType = trackType.toLowerCase();
+    final lowerName = widget.trackName.toLowerCase();
+    final lowerType = widget.trackType.toLowerCase();
 
     if (lowerType == 'master') return '🎚️';
     if (lowerName.contains('guitar')) return '🎸';

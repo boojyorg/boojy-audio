@@ -1,8 +1,21 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/undo_redo_manager.dart';
+import '../../services/updater_service.dart';
 import '../../state/ui_layout_state.dart';
+
+// Platform detection that works on web
+bool get _isMacOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+
+// Web-safe exit function
+void _exitApp() {
+  if (!kIsWeb) {
+    // On native, we need to use SystemNavigator or exit
+    SystemNavigator.pop();
+  }
+  // On web, do nothing - browser handles window closing
+}
 
 /// Configuration object for DAW menu bar callbacks and state
 class DawMenuConfig {
@@ -101,18 +114,18 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             );
           },
         ),
-        if (Platform.isMacOS)
+        if (_isMacOS)
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu),
-        if (Platform.isMacOS)
+        if (_isMacOS)
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
-        if (Platform.isMacOS)
+        if (_isMacOS)
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
-        if (Platform.isMacOS)
+        if (_isMacOS)
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
         PlatformMenuItem(
           label: 'Quit Audio',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
-          onSelected: () => exit(0),
+          onSelected: _exitApp,
         ),
       ],
     ),
@@ -287,6 +300,24 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           label: 'Zoom to Fit',
           shortcut: SingleActivator(LogicalKeyboardKey.digit0, meta: true),
           onSelected: null, // Disabled - future feature
+        ),
+      ],
+    ),
+
+    // Help Menu
+    PlatformMenu(
+      label: 'Help',
+      menus: [
+        if (UpdaterService.isSupported)
+          PlatformMenuItem(
+            label: 'Check for Updates...',
+            onSelected: () => UpdaterService.checkForUpdates(),
+          ),
+        PlatformMenuItem(
+          label: 'Boojy Audio Help',
+          onSelected: () {
+            // TODO: Open help documentation
+          },
         ),
       ],
     ),

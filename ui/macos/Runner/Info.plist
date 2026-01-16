@@ -32,5 +32,16 @@
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Boojy Audio needs access to your microphone to record audio.</string>
+	<!-- Sparkle Auto-Update Configuration -->
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/tsbujacncl/boojy-audio/master/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>7bbsVuPkOkRYEus9sJ/mON6ah+4Le6kmeYlDJcOGJXg=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

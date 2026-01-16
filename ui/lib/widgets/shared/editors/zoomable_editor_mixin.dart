@@ -70,7 +70,7 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   double calculateMaxZoom() => viewWidth / 0.25;
 
   /// Default zoom limits (for simpler editors).
-  double get minZoom => 10.0;
+  double get minZoom => 3.0;
   double get maxZoom => 500.0;
 
   // ============================================

@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Display mode for VST3 plugin UI
 enum PluginDisplayMode { embedded, floating }
@@ -50,20 +49,22 @@ class PluginPreference {
 
 /// Service for persisting VST3 plugin UI preferences
 /// Stores per-plugin settings like display mode (embedded/floating) and window positions
+/// Uses SharedPreferences for cross-platform compatibility (including web)
 class PluginPreferencesService {
-  static const _fileName = 'plugin-preferences.json';
+  static const _prefsKey = 'plugin_preferences';
   static Map<String, PluginPreference> _preferences = {};
   static bool _initialized = false;
 
-  /// Load preferences from disk
+  /// Load preferences from storage
   static Future<void> load() async {
     if (_initialized) return;
 
     try {
-      final file = await _getPreferencesFile();
-      if (await file.exists()) {
-        final contents = await file.readAsString();
-        final json = jsonDecode(contents) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_prefsKey);
+
+      if (jsonString != null && jsonString.isNotEmpty) {
+        final json = jsonDecode(jsonString) as Map<String, dynamic>;
 
         final pluginPrefs = json['pluginPreferences'] as Map<String, dynamic>?;
         if (pluginPrefs != null) {
@@ -74,21 +75,20 @@ class PluginPreferencesService {
             ),
           );
         }
-
-      } else {
       }
 
       _initialized = true;
     } catch (e) {
+      debugPrint('PluginPreferencesService: Error loading preferences: $e');
       _preferences = {};
       _initialized = true;
     }
   }
 
-  /// Save preferences to disk
+  /// Save preferences to storage
   static Future<void> save() async {
     try {
-      final file = await _getPreferencesFile();
+      final prefs = await SharedPreferences.getInstance();
 
       final json = {
         'pluginPreferences': _preferences.map(
@@ -96,19 +96,13 @@ class PluginPreferencesService {
         ),
       };
 
-      await file.writeAsString(
+      await prefs.setString(
+        _prefsKey,
         const JsonEncoder.withIndent('  ').convert(json),
       );
-
     } catch (e) {
       debugPrint('PluginPreferencesService: Error saving preferences: $e');
     }
-  }
-
-  /// Get the preferences file path
-  static Future<File> _getPreferencesFile() async {
-    final appSupport = await getApplicationSupportDirectory();
-    return File('${appSupport.path}/$_fileName');
   }
 
   /// Get preference for a plugin by name

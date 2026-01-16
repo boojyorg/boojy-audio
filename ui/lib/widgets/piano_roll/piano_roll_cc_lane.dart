@@ -70,29 +70,39 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
         children: [
           // Label area with CC type dropdown
           _buildLabelArea(context),
-          // CC curve area (scrolls with note grid)
+          // CC curve area (synced with note grid scroll via AnimatedBuilder)
           Expanded(
-            child: SingleChildScrollView(
-              controller: widget.horizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTapDown: _onTapDown,
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                child: CustomPaint(
-                  size: Size(canvasWidth, widget.laneHeight),
-                  painter: CCLanePainter(
-                    lane: widget.lane,
-                    pixelsPerBeat: widget.pixelsPerBeat,
-                    laneHeight: widget.laneHeight,
-                    totalBeats: widget.totalBeats,
-                    lineColor: _getLineColor(context),
-                    fillColor: _getFillColor(context),
-                    pointColor: colors.textPrimary,
-                    selectedPointColor: colors.accent,
-                    gridLineColor: colors.surface,
+            child: ClipRect(
+              child: AnimatedBuilder(
+                animation: widget.horizontalScrollController,
+                builder: (context, child) {
+                  final scrollOffset = widget.horizontalScrollController.hasClients
+                      ? widget.horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(-scrollOffset, 0),
+                    child: child,
+                  );
+                },
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapDown: _onTapDown,
+                  onPanStart: _onPanStart,
+                  onPanUpdate: _onPanUpdate,
+                  onPanEnd: _onPanEnd,
+                  child: CustomPaint(
+                    size: Size(canvasWidth, widget.laneHeight),
+                    painter: CCLanePainter(
+                      lane: widget.lane,
+                      pixelsPerBeat: widget.pixelsPerBeat,
+                      laneHeight: widget.laneHeight,
+                      totalBeats: widget.totalBeats,
+                      lineColor: _getLineColor(context),
+                      fillColor: _getFillColor(context),
+                      pointColor: colors.textPrimary,
+                      selectedPointColor: colors.accent,
+                      gridLineColor: colors.surface,
+                    ),
                   ),
                 ),
               ),

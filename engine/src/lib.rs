@@ -16,60 +16,110 @@
     clippy::similar_names
 )]
 
-// Audio engine modules
-mod api;
-mod ffi;
+// ============================================
+// Core modules (shared across all platforms)
+// ============================================
 mod audio_file;
 mod audio_graph;
-mod audio_input;
-mod latency_test;  // Latency measurement tool
-mod recorder;
 mod midi;
-mod midi_input;
-mod midi_recorder;
 mod synth;
 mod track;      // M4: Track system
 mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
 mod export;     // M8: Audio export (WAV, MP3, stems)
 
-// VST3 plugin hosting - desktop only (not available on iOS) and requires vst3 feature
-#[cfg(all(feature = "vst3", not(target_os = "ios")))]
+// ============================================
+// Native platform modules (non-WASM)
+// ============================================
+#[cfg(not(target_arch = "wasm32"))]
+mod api;
+#[cfg(not(target_arch = "wasm32"))]
+mod ffi;
+#[cfg(not(target_arch = "wasm32"))]
+mod audio_input;
+#[cfg(not(target_arch = "wasm32"))]
+mod latency_test;
+#[cfg(not(target_arch = "wasm32"))]
+mod recorder;
+#[cfg(not(target_arch = "wasm32"))]
+mod midi_input;
+#[cfg(not(target_arch = "wasm32"))]
+mod midi_recorder;
+
+// VST3 plugin hosting - desktop only (not available on iOS/WASM) and requires vst3 feature
+#[cfg(all(feature = "vst3", not(target_os = "ios"), not(target_arch = "wasm32")))]
 mod vst3_host;
 
-// Re-export API functions
-// Allow ambiguous re-exports - the API module is the canonical source
-#[allow(ambiguous_glob_reexports)]
-pub use api::*;
+// ============================================
+// Web/WASM platform modules
+// ============================================
+#[cfg(target_arch = "wasm32")]
+mod web_audio;
+#[cfg(target_arch = "wasm32")]
+mod web_bindings;
+
+// ============================================
+// Re-exports: Core (all platforms)
+// ============================================
 pub use audio_file::*;
 pub use audio_graph::*;
-pub use audio_input::*;
-pub use recorder::*;
 pub use midi::*;
-pub use midi_input::*;
-pub use midi_recorder::*;
 pub use synth::*;
 pub use track::*;
 pub use effects::*;
 pub use project::*;
 pub use export::*;
+
+// ============================================
+// Re-exports: Native platform only
+// ============================================
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(ambiguous_glob_reexports)]
+pub use api::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use audio_input::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use recorder::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use midi_input::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use midi_recorder::*;
+#[cfg(not(target_arch = "wasm32"))]
 pub use latency_test::*;
 
-#[cfg(all(feature = "vst3", not(target_os = "ios")))]
+#[cfg(all(feature = "vst3", not(target_os = "ios"), not(target_arch = "wasm32")))]
 pub use vst3_host::*;
-// FFI exports are handled by #[no_mangle] in ffi.rs
 
+// ============================================
+// Re-exports: Web/WASM platform only
+// ============================================
+#[cfg(target_arch = "wasm32")]
+pub use web_audio::*;
+#[cfg(target_arch = "wasm32")]
+pub use web_bindings::*;
+
+// ============================================
+// Native AudioEngine (cpal-based)
+// ============================================
+#[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(not(target_arch = "wasm32"))]
 use cpal::Stream;
+// ============================================
+// Native AudioEngine implementation (cpal-based)
+// ============================================
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 
-/// Simple audio engine that outputs silence to default device
+/// Simple audio engine that outputs silence to default device (native platforms)
+#[cfg(not(target_arch = "wasm32"))]
 pub struct AudioEngine {
     is_running: Arc<AtomicBool>,
     // Store stream to prevent it from being dropped (and to allow proper cleanup)
     stream: Arc<Mutex<Option<Stream>>>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl AudioEngine {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
@@ -84,12 +134,12 @@ impl AudioEngine {
         let device = host
             .default_output_device()
             .ok_or_else(|| anyhow::anyhow!("No output device available"))?;
-        
+
         let config = device.default_output_config()?;
-        
+
         println!("Audio device: {}", device.name()?);
         println!("Audio config: {:?}", config);
-        
+
         // Create stream that outputs silence
         let stream = device.build_output_stream(
             &config.into(),
@@ -104,7 +154,7 @@ impl AudioEngine {
             },
             None,
         )?;
-        
+
         stream.play()?;
         self.is_running.store(true, Ordering::SeqCst);
 
@@ -130,7 +180,7 @@ impl AudioEngine {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
 

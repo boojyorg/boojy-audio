@@ -115,6 +115,37 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
         .restore_from_project_data(project_data.clone())
         .map_err(|e| e.to_string())?;
 
+    // Restore audio clips to tracks
+    // Audio clips are stored separately from tracks and need to be re-attached
+    let mut audio_clip_count = 0;
+    for track_data in &project_data.tracks {
+        for clip_data in &track_data.clips {
+            // Audio clips have audio_file_id but no midi_notes
+            if let Some(audio_file_id) = clip_data.audio_file_id {
+                if clip_data.midi_notes.is_some() {
+                    continue; // Skip MIDI clips (already restored by restore_from_project_data)
+                }
+                if let Some(clip_arc) = clips_map.get(&audio_file_id) {
+                    let clip_id = graph.add_clip_to_track_with_params(
+                        track_data.id,
+                        clip_arc.clone(),
+                        clip_data.start_time,
+                        clip_data.offset,
+                        clip_data.duration,
+                    );
+                    if clip_id.is_some() {
+                        audio_clip_count += 1;
+                        eprintln!(
+                            "   📎 Restored audio clip {} to track {} at {:.2}s",
+                            audio_file_id, track_data.id, clip_data.start_time
+                        );
+                    }
+                }
+            }
+        }
+    }
+    eprintln!("📎 [API] Restored {} audio clips", audio_clip_count);
+
     eprintln!("✅ [API] Project loaded successfully");
     Ok(format!("Loaded project: {}", project_data.name))
 }

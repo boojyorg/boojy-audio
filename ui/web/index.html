@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Boojy Audio - Digital Audio Workstation">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Boojy Audio">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Boojy Audio</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Loading indicator while WASM loads */
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #1a1a2e;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      z-index: 9999;
+    }
+    #loading.hidden {
+      display: none;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid #333;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #loading-text {
+      margin-top: 20px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading indicator -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading Boojy Audio...</div>
+  </div>
+
+  <!-- Load WASM audio engine -->
+  <script type="module">
+    // Import the WASM module
+    import init, * as engine from './wasm/engine.js';
+
+    // Initialize WASM and expose to global scope
+    async function initWasm() {
+      try {
+        document.getElementById('loading-text').textContent = 'Initializing audio engine...';
+        await init('./wasm/engine_bg.wasm');
+
+        // Expose engine functions globally for Dart interop
+        window.boojyEngine = engine;
+        window.boojyEngineReady = true;
+
+        console.log('Boojy Audio WASM engine loaded successfully');
+        console.log('Engine version:', engine.get_engine_version());
+      } catch (error) {
+        console.error('Failed to load WASM engine:', error);
+        window.boojyEngineReady = false;
+        window.boojyEngineError = error.message;
+      }
+    }
+
+    // Start WASM initialization
+    initWasm();
+  </script>
+
+  <!-- Flutter bootstrap -->
+  <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Hide loading indicator when Flutter is ready
+    window.addEventListener('flutter-first-frame', function() {
+      document.getElementById('loading').classList.add('hidden');
+    });
+
+    // Register service worker for PWA offline support
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(function(registration) {
+            console.log('ServiceWorker registration successful:', registration.scope);
+
+            // Check for updates periodically
+            setInterval(function() {
+              registration.update();
+            }, 60 * 60 * 1000); // Check every hour
+
+            // Handle updates
+            registration.addEventListener('updatefound', function() {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', function() {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available
+                  console.log('New version of Boojy Audio available');
+                  // Could show update notification to user here
+                }
+              });
+            });
+          })
+          .catch(function(error) {
+            console.log('ServiceWorker registration failed:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>

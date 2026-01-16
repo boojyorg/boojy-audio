@@ -1,17 +1,24 @@
 /// Audio graph and playback engine
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use crate::audio_input::AudioInputManager;
-use crate::recorder::Recorder;
 use crate::midi::MidiClip;
-use crate::midi_input::MidiInputManager;
-use crate::midi_recorder::MidiRecorder;
 use crate::synth::TrackSynthManager;
 use crate::track::{ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager};  // Import from track module
 use crate::effects::{Effect, EffectManager, Limiter};  // Import from effects module
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+
+// Native-only imports
+#[cfg(not(target_arch = "wasm32"))]
+use crate::audio_input::AudioInputManager;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::recorder::Recorder;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::midi_input::MidiInputManager;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::midi_recorder::MidiRecorder;
+#[cfg(not(target_arch = "wasm32"))]
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 /// Transport state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,17 +87,22 @@ pub struct AudioGraph {
     playhead_samples: Arc<AtomicU64>,
     /// Transport state (atomic: 0=Stopped, 1=Playing, 2=Paused)
     state: Arc<AtomicU8>,
-    /// Audio output stream (kept alive)
+    /// Audio output stream (kept alive) - native only
+    #[cfg(not(target_arch = "wasm32"))]
     stream: Option<cpal::Stream>,
     /// Next clip ID
     next_clip_id: Arc<Mutex<ClipId>>,
-    /// Audio input manager
+    /// Audio input manager - native only
+    #[cfg(not(target_arch = "wasm32"))]
     pub input_manager: Arc<Mutex<AudioInputManager>>,
-    /// Audio recorder
+    /// Audio recorder - native only
+    #[cfg(not(target_arch = "wasm32"))]
     pub recorder: Arc<Recorder>,
-    /// MIDI input manager
+    /// MIDI input manager - native only
+    #[cfg(not(target_arch = "wasm32"))]
     pub midi_input_manager: Arc<Mutex<MidiInputManager>>,
-    /// MIDI recorder
+    /// MIDI recorder - native only
+    #[cfg(not(target_arch = "wasm32"))]
     pub midi_recorder: Arc<Mutex<MidiRecorder>>,
     // --- M4: Mixing & Effects ---
     /// Track manager (handles all tracks)
@@ -114,8 +126,8 @@ pub struct AudioGraph {
     /// Selected output device name (None = use system default)
     selected_output_device: Arc<Mutex<Option<String>>>,
 
-    // --- Latency Testing ---
-    /// Latency test engine for measuring real round-trip latency
+    // --- Latency Testing --- (native only)
+    #[cfg(not(target_arch = "wasm32"))]
     pub latency_test: Arc<crate::latency_test::LatencyTest>,
 }
 
@@ -125,7 +137,8 @@ pub struct AudioGraph {
 unsafe impl Send for AudioGraph {}
 
 impl AudioGraph {
-    /// Create a new audio graph
+    /// Create a new audio graph (native platforms)
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> anyhow::Result<Self> {
         let mut input_manager = AudioInputManager::new()?;
         // Enumerate devices on creation
@@ -176,6 +189,35 @@ impl AudioGraph {
         Ok(graph)
     }
 
+    /// Create a new audio graph (web/WASM platforms)
+    #[cfg(target_arch = "wasm32")]
+    pub fn new() -> anyhow::Result<Self> {
+        // Create playhead
+        let playhead_samples = Arc::new(AtomicU64::new(0));
+
+        // Create M4 managers
+        let track_manager = TrackManager::new();
+        let effect_manager = EffectManager::new();
+        let master_limiter = Limiter::new();
+
+        let graph = Self {
+            clips: Arc::new(Mutex::new(Vec::new())),
+            midi_clips: Arc::new(Mutex::new(Vec::new())),
+            playhead_samples,
+            state: Arc::new(AtomicU8::new(TransportState::Stopped as u8)),
+            next_clip_id: Arc::new(Mutex::new(0)),
+            track_manager: Arc::new(Mutex::new(track_manager)),
+            effect_manager: Arc::new(Mutex::new(effect_manager)),
+            master_limiter: Arc::new(Mutex::new(master_limiter)),
+            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
+            preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
+            actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            selected_output_device: Arc::new(Mutex::new(None)),
+        };
+
+        Ok(graph)
+    }
+
     /// Add a clip to the timeline
     pub fn add_clip(&self, clip: Arc<AudioClip>, start_time: f64) -> ClipId {
         let mut clips = self.clips.lock().expect("mutex poisoned");
@@ -219,6 +261,19 @@ impl AudioGraph {
 
     /// Add an audio clip to a specific track (M5.5)
     pub fn add_clip_to_track(&self, track_id: TrackId, clip: Arc<AudioClip>, start_time: f64) -> Option<ClipId> {
+        self.add_clip_to_track_with_params(track_id, clip, start_time, 0.0, None)
+    }
+
+    /// Add an audio clip to a specific track with offset and duration parameters
+    /// Used when restoring clips from a saved project
+    pub fn add_clip_to_track_with_params(
+        &self,
+        track_id: TrackId,
+        clip: Arc<AudioClip>,
+        start_time: f64,
+        offset: f64,
+        duration: Option<f64>,
+    ) -> Option<ClipId> {
         let id = {
             let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
             let id = *next_id;
@@ -233,8 +288,8 @@ impl AudioGraph {
                 id,
                 clip,
                 start_time,
-                offset: 0.0,
-                duration: None,
+                offset,
+                duration,
             });
             Some(id)
         } else {
@@ -339,6 +394,9 @@ impl AudioGraph {
         // Simple conversion: seconds to samples (no tempo scaling)
         let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
         self.playhead_samples.store(samples, Ordering::SeqCst);
+        // Sync metronome to the same position so beats stay on beat after seek/loop (native only)
+        #[cfg(not(target_arch = "wasm32"))]
+        self.recorder.seek_metronome(samples);
     }
 
     /// Get current transport state
@@ -441,7 +499,8 @@ impl AudioGraph {
         let old_playhead = self.playhead_samples.swap(0, Ordering::SeqCst);
         eprintln!("   Playhead reset: {} → 0", old_playhead);
 
-        // Reset metronome beat position
+        // Reset metronome beat position (native only)
+        #[cfg(not(target_arch = "wasm32"))]
         self.recorder.reset_metronome();
 
         Ok(())
@@ -450,7 +509,8 @@ impl AudioGraph {
     // --- Latency Control Methods ---
 
     /// Set the preferred buffer size preset
-    /// Requires restarting the audio stream to take effect
+    /// Requires restarting the audio stream to take effect (native only)
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn set_buffer_size(&mut self, preset: BufferSizePreset) -> anyhow::Result<()> {
         {
             let mut current = self.preferred_buffer_size.lock().expect("mutex poisoned");
@@ -498,7 +558,8 @@ impl AudioGraph {
         (buffer_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
     }
 
-    /// Restart the audio stream (used when changing buffer size)
+    /// Restart the audio stream (used when changing buffer size) - native only
+    #[cfg(not(target_arch = "wasm32"))]
     fn restart_audio_stream(&mut self) -> anyhow::Result<()> {
         // Stop current stream
         if let Some(stream) = self.stream.take() {
@@ -519,7 +580,8 @@ impl AudioGraph {
         Ok(())
     }
 
-    /// Create the audio output stream
+    /// Create the audio output stream - native only
+    #[cfg(not(target_arch = "wasm32"))]
     fn create_audio_stream(&self) -> anyhow::Result<cpal::Stream> {
         use cpal::SupportedBufferSize;
         use cpal::traits::HostTrait;
@@ -1291,7 +1353,8 @@ impl AudioGraph {
     // M5: SAVE & LOAD PROJECT
     // ========================================================================
 
-    /// Export current state to ProjectData (for saving)
+    /// Export current state to ProjectData (for saving) - native only (uses recorder)
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn export_to_project_data(&self, project_name: String) -> crate::project::ProjectData {
         use crate::project::*;
         use crate::effects::EffectType as ET;
@@ -1522,7 +1585,8 @@ impl AudioGraph {
         }
     }
 
-    /// Restore state from ProjectData (for loading)
+    /// Restore state from ProjectData (for loading) - native only (uses recorder)
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn restore_from_project_data(&mut self, project_data: crate::project::ProjectData) -> anyhow::Result<()> {
         use crate::effects::*;
         use crate::track::TrackType;
@@ -2358,11 +2422,12 @@ impl AudioGraph {
         max_end_time + 1.0
     }
 
-    // --- Audio Device Management ---
+    // --- Audio Device Management --- (native only)
 
-    /// Get list of available audio output devices
+    /// Get list of available audio output devices - native only
     /// Returns: Vec of (id, name, is_default)
     /// When ASIO feature is enabled, ASIO devices are listed first with [ASIO] prefix
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_output_devices() -> Vec<(String, String, bool)> {
         let mut all_devices = Vec::new();
 
@@ -2419,8 +2484,9 @@ impl AudioGraph {
         all_devices
     }
 
-    /// Get list of available audio input devices
+    /// Get list of available audio input devices - native only
     /// Returns: Vec of (id, name, is_default)
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_input_devices() -> Vec<(String, String, bool)> {
         let host = cpal::default_host();
         let default_name = host.default_input_device()
@@ -2447,8 +2513,9 @@ impl AudioGraph {
         TARGET_SAMPLE_RATE
     }
 
-    /// Set the audio output device by name
+    /// Set the audio output device by name - native only
     /// Pass empty string or None to use system default
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
         let device_name = device_name.filter(|s| !s.is_empty());
 

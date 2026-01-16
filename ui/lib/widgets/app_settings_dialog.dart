@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
+import '../services/updater_service.dart';
 import '../services/user_settings.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
@@ -38,6 +39,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   String? _selectedInputDevice;
   String _selectedDriver = 'wasapi';
   bool _asioGuideExpanded = false;
+  bool _autoCheckUpdates = true;
 
   // Sidebar navigation state
   String _selectedSection = 'appearance';
@@ -48,6 +50,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     'midi': GlobalKey(),
     'saving': GlobalKey(),
     'projects': GlobalKey(),
+    'updates': GlobalKey(),
   };
 
   @override
@@ -55,6 +58,17 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     super.initState();
     _selectedTheme = BoojyThemeExtension.fromKey(widget.settings.theme);
     _loadAudioDevices();
+    _loadUpdaterSettings();
+  }
+
+  Future<void> _loadUpdaterSettings() async {
+    if (!UpdaterService.isSupported) return;
+    final autoCheck = await UpdaterService.getAutoCheck();
+    if (mounted) {
+      setState(() {
+        _autoCheckUpdates = autoCheck;
+      });
+    }
   }
 
   @override
@@ -83,6 +97,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       ('midi', 'MIDI', Icons.piano_outlined),
       ('saving', 'Saving', Icons.save_outlined),
       ('projects', 'Projects', Icons.folder_outlined),
+      if (UpdaterService.isSupported)
+        ('updates', 'Updates', Icons.system_update_outlined),
     ];
 
     return SizedBox(
@@ -196,6 +212,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                           _buildSectionWithKey('saving', 'SAVING', _buildSavingSettings()),
                           const SizedBox(height: 24),
                           _buildSectionWithKey('projects', 'PROJECTS', _buildProjectSettings()),
+                          if (UpdaterService.isSupported) ...[
+                            const SizedBox(height: 24),
+                            _buildSectionWithKey('updates', 'UPDATES', _buildUpdatesSettings()),
+                          ],
                         ],
                       ),
                     ),
@@ -1041,6 +1061,53 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               widget.settings.copySamplesToProject = value ?? true;
             });
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpdatesSettings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Auto-check for updates
+        _buildCheckboxSetting(
+          label: 'Check for updates automatically',
+          subtitle: 'Checks for new versions when the app starts',
+          value: _autoCheckUpdates,
+          onChanged: (value) async {
+            final enabled = value ?? true;
+            setState(() {
+              _autoCheckUpdates = enabled;
+            });
+            await UpdaterService.setAutoCheck(enabled: enabled);
+          },
+        ),
+        const SizedBox(height: 16),
+
+        // Manual check button
+        Row(
+          children: [
+            const SizedBox(width: 32), // Align with checkbox labels
+            TextButton.icon(
+              onPressed: () => UpdaterService.checkForUpdates(),
+              icon: Icon(
+                Icons.refresh,
+                size: 16,
+                color: context.colors.accent,
+              ),
+              label: Text(
+                'Check for Updates Now',
+                style: TextStyle(
+                  color: context.colors.accent,
+                  fontSize: 14,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ],
         ),
       ],
     );

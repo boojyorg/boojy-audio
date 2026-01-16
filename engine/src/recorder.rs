@@ -28,6 +28,8 @@ pub struct Recorder {
     metronome_enabled: Arc<AtomicBool>,
     /// Time signature (beats per bar)
     time_signature: Arc<Mutex<u32>>,
+    /// Samples remaining to suppress metronome after seek (prevents click overlap)
+    seek_cooldown: Arc<AtomicU64>,
 }
 
 impl Recorder {
@@ -41,6 +43,7 @@ impl Recorder {
             tempo: Arc::new(Mutex::new(120.0)), // Default: 120 BPM
             metronome_enabled: Arc::new(AtomicBool::new(true)),
             time_signature: Arc::new(Mutex::new(4)), // Default: 4/4
+            seek_cooldown: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -54,6 +57,7 @@ impl Recorder {
             tempo: self.tempo.clone(),
             metronome_enabled: self.metronome_enabled.clone(),
             time_signature: self.time_signature.clone(),
+            seek_cooldown: self.seek_cooldown.clone(),
         }
     }
 
@@ -219,6 +223,17 @@ impl Recorder {
         let old_value = self.sample_counter.swap(0, Ordering::SeqCst);
         eprintln!("🔄 [Recorder] Metronome reset: {} → 0", old_value);
     }
+
+    /// Seek metronome to a specific sample position (called when transport seeks)
+    /// This ensures metronome stays in sync when looping or seeking
+    pub fn seek_metronome(&self, sample_position: u64) {
+        self.sample_counter.store(sample_position, Ordering::SeqCst);
+        // No cooldown - we want the first beat to play immediately after loop wrap.
+        // The previous 4000-sample cooldown was causing the first beat to be missed.
+        // If click overlap becomes an issue on manual seeks, we can add smarter
+        // beat-alignment detection here instead.
+        self.seek_cooldown.store(0, Ordering::SeqCst);
+    }
 }
 
 /// References for use in audio callback
@@ -230,6 +245,7 @@ pub struct RecorderCallbackRefs {
     pub tempo: Arc<Mutex<f64>>,
     pub metronome_enabled: Arc<AtomicBool>,
     pub time_signature: Arc<Mutex<u32>>,
+    pub seek_cooldown: Arc<AtomicU64>,
 }
 
 impl RecorderCallbackRefs {
@@ -273,10 +289,17 @@ impl RecorderCallbackRefs {
         let samples_per_beat = (60.0 / tempo * TARGET_SAMPLE_RATE as f64) as u64;
         let samples_per_bar = samples_per_beat * time_sig as u64;
 
+        // Check and decrement seek cooldown (prevents click overlap on short loops)
+        let cooldown = self.seek_cooldown.load(Ordering::SeqCst);
+        if cooldown > 0 {
+            self.seek_cooldown.fetch_sub(1, Ordering::SeqCst);
+        }
+
         // Generate metronome click
         let mut metronome_output = 0.0;
 
-        if metronome_enabled {
+        // Only generate click if not in cooldown period (prevents overlapping clicks after seek)
+        if metronome_enabled && cooldown == 0 {
             let position_in_bar = sample_idx % samples_per_bar;
             let beat_in_bar = position_in_bar / samples_per_beat;
             let position_in_beat = position_in_bar % samples_per_beat;

@@ -6,4 +6,5 @@ export 'loop_bar_painter.dart';
 export 'note_painter.dart';
 export 'time_ruler_painter.dart';
 export 'timeline_grid_painter.dart';
+export 'unified_nav_bar_painter.dart';
 export 'velocity_lane_painter.dart';

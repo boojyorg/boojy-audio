@@ -18,6 +18,9 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Scroll controller for horizontal scrolling.
   final ScrollController scrollController = ScrollController();
 
+  /// Scroll controller for nav bar (synced with main scroll).
+  final ScrollController navBarScrollController = ScrollController();
+
   /// Horizontal zoom (pixels per beat).
   double _pixelsPerBeat = 25.0;
 
@@ -42,7 +45,7 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   set viewWidth(double value) => _viewWidth = value;
 
   @override
-  double get minZoom => 10.0;
+  double get minZoom => 3.0;
   @override
   double get maxZoom => 500.0;
 

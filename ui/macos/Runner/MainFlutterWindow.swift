@@ -31,7 +31,11 @@ class MainFlutterWindow: NSWindow {
     // Initialize VST3 platform channel handler for Swift -> Dart notifications
     VST3PlatformChannelHandler.shared.setup(messenger: messenger)
 
+    // Register updater channel for Sparkle auto-updates
+    UpdaterChannel.register(with: flutterViewController.engine.registrar(forPlugin: "UpdaterChannel"))
+
     print("✅ MainFlutterWindow: VST3 platform integration registered")
+    print("✅ MainFlutterWindow: Updater channel registered")
 
     super.awakeFromNib()
   }

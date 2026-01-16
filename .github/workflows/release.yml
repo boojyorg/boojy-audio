@@ -1,0 +1,327 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FLUTTER_VERSION: '3.29.0'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build Rust engine
+        run: |
+          cd engine
+          cargo build --release
+          cp target/release/libengine.dylib ../ui/assets/
+
+      - name: Install CocoaPods
+        run: |
+          cd ui/macos
+          pod install
+
+      - name: Build macOS app
+        run: |
+          cd ui
+          flutter pub get
+          flutter build macos --release
+
+      - name: Import code signing certificate
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
+
+          # Import certificate
+          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
+
+          # Clean up
+          rm certificate.p12
+
+      - name: Code sign app
+        run: |
+          APP_PATH="ui/build/macos/Build/Products/Release/Boojy Audio.app"
+
+          # Sign frameworks and dylibs first
+          find "$APP_PATH" -name "*.framework" -o -name "*.dylib" | while read file; do
+            codesign --force --sign "${{ secrets.DEVELOPER_ID }}" --timestamp "$file" || true
+          done
+
+          # Sign the main app
+          codesign --force --deep --sign "${{ secrets.DEVELOPER_ID }}" --timestamp --options runtime "$APP_PATH"
+
+          # Verify signature
+          codesign --verify --verbose "$APP_PATH"
+
+      - name: Create DMG
+        run: |
+          # Install create-dmg
+          brew install create-dmg
+
+          # Create DMG
+          create-dmg \
+            --volname "Boojy Audio" \
+            --volicon "ui/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "Boojy Audio.app" 150 190 \
+            --hide-extension "Boojy Audio.app" \
+            --app-drop-link 450 185 \
+            "Boojy-Audio-${{ github.ref_name }}-mac.dmg" \
+            "ui/build/macos/Build/Products/Release/Boojy Audio.app" || true
+
+          # Fallback to simple DMG if create-dmg fails
+          if [ ! -f "Boojy-Audio-${{ github.ref_name }}-mac.dmg" ]; then
+            hdiutil create -volname "Boojy Audio" -srcfolder "ui/build/macos/Build/Products/Release/Boojy Audio.app" -ov -format UDZO "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+          fi
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Sign the DMG
+          codesign --force --sign "${{ secrets.DEVELOPER_ID }}" "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+
+          # Submit for notarization
+          xcrun notarytool submit "Boojy-Audio-${{ github.ref_name }}-mac.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+
+      - name: Sign for Sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Download Sparkle tools
+          curl -L -o sparkle.tar.xz https://github.com/sparkle-project/Sparkle/releases/download/2.6.0/Sparkle-2.6.0.tar.xz
+          tar xf sparkle.tar.xz
+
+          # Save private key to file
+          echo "$SPARKLE_PRIVATE_KEY" > sparkle_private_key
+
+          # Generate EdDSA signature
+          SIGNATURE=$(./Sparkle.framework/Versions/B/Resources/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
+          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
+
+          # Get file size
+          FILE_SIZE=$(stat -f%z "Boojy-Audio-${{ github.ref_name }}-mac.dmg")
+          echo "DMG_SIZE=$FILE_SIZE" >> $GITHUB_ENV
+
+          # Clean up
+          rm sparkle_private_key
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: Boojy-Audio-${{ github.ref_name }}-mac.dmg
+
+      - name: Save Sparkle signature
+        run: |
+          echo "${{ env.SPARKLE_SIGNATURE }}" > sparkle-signature.txt
+          echo "${{ env.DMG_SIZE }}" > dmg-size.txt
+
+      - name: Upload Sparkle signature
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkle-signature
+          path: |
+            sparkle-signature.txt
+            dmg-size.txt
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Build Rust engine
+        run: |
+          cd engine
+          cargo build --release
+          copy target\release\engine.dll ..\ui\assets\
+
+      - name: Build Windows app
+        run: |
+          cd ui
+          flutter pub get
+          flutter build windows --release
+
+      - name: Create installer
+        run: |
+          # Download Inno Setup
+          choco install innosetup -y
+
+          # Create Inno Setup script
+          @"
+          [Setup]
+          AppName=Boojy Audio
+          AppVersion=${{ github.ref_name }}
+          AppPublisher=Boojy
+          AppPublisherURL=https://boojy.org
+          DefaultDirName={autopf}\Boojy Audio
+          DefaultGroupName=Boojy Audio
+          OutputDir=.
+          OutputBaseFilename=Boojy-Audio-${{ github.ref_name }}-win
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+
+          [Files]
+          Source: "ui\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\Boojy Audio"; Filename: "{app}\boojy_audio.exe"
+          Name: "{commondesktop}\Boojy Audio"; Filename: "{app}\boojy_audio.exe"
+
+          [Run]
+          Filename: "{app}\boojy_audio.exe"; Description: "Launch Boojy Audio"; Flags: nowait postinstall skipifsilent
+          "@ | Out-File -FilePath installer.iss -Encoding UTF8
+
+          # Run Inno Setup
+          iscc installer.iss
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: Boojy-Audio-${{ github.ref_name }}-win.exe
+
+  create-release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Read Sparkle signature
+        id: sparkle
+        run: |
+          SIGNATURE=$(cat sparkle-signature/sparkle-signature.txt)
+          SIZE=$(cat sparkle-signature/dmg-size.txt)
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NUM="${VERSION#v}"
+          echo "version=$VERSION_NUM" >> $GITHUB_OUTPUT
+
+      - name: Generate appcast.xml
+        run: |
+          DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
+
+          cat > appcast.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>Boojy Audio Updates</title>
+              <link>https://boojy.org</link>
+              <description>Updates for Boojy Audio</description>
+              <language>en</language>
+              <item>
+                <title>Version ${{ steps.version.outputs.version }}</title>
+                <pubDate>DATE_PLACEHOLDER</pubDate>
+                <sparkle:version>${{ steps.version.outputs.version }}</sparkle:version>
+                <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
+                <enclosure
+                  url="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+                  sparkle:edSignature="${{ steps.sparkle.outputs.signature }}"
+                  length="${{ steps.sparkle.outputs.size }}"
+                  type="application/octet-stream"
+                />
+              </item>
+            </channel>
+          </rss>
+          EOF
+
+          # Replace date placeholder
+          sed -i "s/DATE_PLACEHOLDER/$DATE/" appcast.xml
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            macos-dmg/Boojy-Audio-${{ github.ref_name }}-mac.dmg
+            windows-installer/Boojy-Audio-${{ github.ref_name }}-win.exe
+          body: |
+            ## Boojy Audio ${{ github.ref_name }}
+
+            ### Downloads
+            - **macOS** (11.0+): [Boojy-Audio-${{ github.ref_name }}-mac.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-mac.dmg)
+            - **Windows** (10+): [Boojy-Audio-${{ github.ref_name }}-win.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-win.exe)
+
+            ### What's New
+            <!-- Add release notes here before publishing -->
+
+            ---
+
+            **Existing users:** The app will automatically notify you of this update.
+          draft: true
+          generate_release_notes: true
+
+      - name: Commit appcast.xml
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add appcast.xml
+          git commit -m "Update appcast for ${{ github.ref_name }}" || echo "No changes to commit"
+          git push origin HEAD:master || echo "Could not push appcast update"

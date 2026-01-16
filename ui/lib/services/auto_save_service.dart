@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'project_manager.dart';
 import 'user_settings.dart';
+
+// Conditional import for path_provider (not available on web)
+import 'auto_save_service_io.dart' if (dart.library.js_interop) 'auto_save_service_io_web.dart';
 
 /// Auto-save service that periodically saves the project
 /// Also manages crash recovery backups
@@ -116,14 +117,7 @@ class AutoSaveService extends ChangeNotifier {
   /// Initialize the backup directory
   Future<void> _initBackupDirectory() async {
     try {
-      final appSupport = await getApplicationSupportDirectory();
-      final backupDir = Directory('${appSupport.path}/Backups');
-
-      if (!await backupDir.exists()) {
-        await backupDir.create(recursive: true);
-      }
-
-      _backupDirectory = backupDir.path;
+      _backupDirectory = await getBackupDirectoryPath();
     } catch (e) {
       debugPrint('AutoSaveService: Failed to init backup directory: $e');
     }
@@ -158,8 +152,7 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return;
 
     try {
-      final markerFile = File('$_backupDirectory/crash_recovery.marker');
-      await markerFile.writeAsString(latestBackupPath);
+      await writeFileAsString('$_backupDirectory/crash_recovery.marker', latestBackupPath);
     } catch (e) {
       debugPrint('AutoSaveService: Failed to update recovery marker: $e');
     }
@@ -170,22 +163,20 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return;
 
     try {
-      final backupDir = Directory(_backupDirectory!);
-      final entries = await backupDir.list().toList();
+      final entries = await listDirectory(_backupDirectory!);
 
       // Find auto-save folders
       final backups = entries
-          .whereType<Directory>()
-          .where((d) => d.path.contains('autosave_') && d.path.endsWith('.audio'))
+          .where((path) => path.contains('autosave_') && path.endsWith('.audio'))
           .toList();
 
       // Sort by name (which includes timestamp)
-      backups.sort((a, b) => b.path.compareTo(a.path));
+      backups.sort((a, b) => b.compareTo(a));
 
       // Delete old backups
       if (backups.length > maxBackups) {
         for (var i = maxBackups; i < backups.length; i++) {
-          await backups[i].delete(recursive: true);
+          await deleteDirectory(backups[i]);
         }
       }
     } catch (e) {
@@ -200,14 +191,14 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return null;
 
     try {
-      final markerFile = File('$_backupDirectory/crash_recovery.marker');
-      if (!await markerFile.exists()) return null;
+      final markerPath = '$_backupDirectory/crash_recovery.marker';
+      if (!await fileExists(markerPath)) return null;
 
-      final backupPath = await markerFile.readAsString();
-      final backupDir = Directory(backupPath.trim());
+      final backupPath = await readFileAsString(markerPath);
+      final trimmedPath = backupPath.trim();
 
-      if (await backupDir.exists()) {
-        return backupPath.trim();
+      if (await directoryExists(trimmedPath)) {
+        return trimmedPath;
       }
     } catch (e) {
       debugPrint('AutoSaveService: Failed to check for recovery: $e');
@@ -221,9 +212,9 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return;
 
     try {
-      final markerFile = File('$_backupDirectory/crash_recovery.marker');
-      if (await markerFile.exists()) {
-        await markerFile.delete();
+      final markerPath = '$_backupDirectory/crash_recovery.marker';
+      if (await fileExists(markerPath)) {
+        await deleteFile(markerPath);
       }
     } catch (e) {
       debugPrint('AutoSaveService: Failed to clear recovery marker: $e');
@@ -240,9 +231,8 @@ class AutoSaveService extends ChangeNotifier {
 
       // Optionally delete all auto-save backups on clean exit
       // Uncomment if you want to save disk space:
-      // final backupDir = Directory(_backupDirectory!);
-      // if (await backupDir.exists()) {
-      //   await backupDir.delete(recursive: true);
+      // if (await directoryExists(_backupDirectory!)) {
+      //   await deleteDirectory(_backupDirectory!);
       // }
 
     } catch (e) {
@@ -259,17 +249,16 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return [];
 
     try {
-      final backupDir = Directory(_backupDirectory!);
-      final entries = await backupDir.list().toList();
+      final entries = await listDirectory(_backupDirectory!);
 
       final backups = <BackupInfo>[];
-      for (final entry in entries) {
-        if (entry is Directory && entry.path.endsWith('.audio')) {
-          final stat = await entry.stat();
+      for (final entryPath in entries) {
+        if (entryPath.endsWith('.audio')) {
+          final modified = await getDirectoryModified(entryPath);
           backups.add(BackupInfo(
-            path: entry.path,
-            name: entry.path.split('/').last,
-            modified: stat.modified,
+            path: entryPath,
+            name: entryPath.split('/').last,
+            modified: modified,
           ));
         }
       }

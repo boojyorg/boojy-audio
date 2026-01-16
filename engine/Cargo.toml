@@ -8,8 +8,10 @@ crate-type = ["cdylib", "staticlib"]
 
 [features]
 default = ["desktop"]
-desktop = ["vst3", "midi"]  # VST3 now enabled for Windows
-mobile = []
+desktop = ["vst3", "midi", "native-audio"]  # Native platforms with full features
+mobile = ["native-audio"]                    # iOS/Android with native audio
+web = []                                     # Web/WASM target (uses Web Audio API)
+native-audio = []                            # Flag for cpal-based audio
 vst3 = []
 midi = []
 # ASIO support for Windows (professional low-latency audio)
@@ -19,9 +21,8 @@ midi = []
 asio = ["cpal/asio"]
 
 [dependencies]
-# Audio I/O and playback
-cpal = "0.15"                    # Cross-platform audio I/O
-symphonia = { version = "0.5", features = ["aac", "mp3", "isomp4", "alac"] }  # Audio decoding
+# Audio decoding (works on all platforms including WASM)
+symphonia = { version = "0.5", features = ["aac", "mp3", "isomp4", "alac"] }
 rubato = "0.15"                  # Sample rate conversion
 ringbuf = "0.4"                  # Lock-free audio buffers
 
@@ -37,18 +38,54 @@ hound = "3.5"                    # WAV encoding/decoding
 id3 = "1.14"                     # ID3v2 tag writing for MP3 metadata
 # Note: MP3 encoding uses ffmpeg via command line (commonly available on macOS/Linux)
 
-# FFI bridge
-flutter_rust_bridge = "2"        # Flutter-Rust bridge
-
 # VST3 Plugin Hosting (M7)
-# Note: VST3 hosting will require custom FFI bindings to VST3 SDK
-# For now, adding supporting libraries for plugin infrastructure
 lazy_static = "1.4"              # Plugin registry singleton
 parking_lot = "0.12"             # Better mutexes for plugin thread safety
 flate2 = "1.0"                   # Plugin state compression
 base64 = "0.21"                  # Base64 encoding for plugin state
 walkdir = "2.4"                  # Directory traversal for plugin scanning
 
-# MIDI I/O (desktop only - midir doesn't support iOS)
-[target.'cfg(not(target_os = "ios"))'.dependencies]
+# ============================================
+# Native platform dependencies (non-WASM)
+# ============================================
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = "0.15"                    # Cross-platform audio I/O
+flutter_rust_bridge = "2"        # Flutter-Rust bridge
+
+# MIDI I/O (desktop only - midir doesn't support iOS or WASM)
+[target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
 midir = "0.9"                    # Cross-platform MIDI I/O
+
+# ============================================
+# Web/WASM platform dependencies
+# ============================================
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window",
+    "Document",
+    "AudioContext",
+    "AudioContextState",
+    "AudioContextOptions",
+    "AudioDestinationNode",
+    "AudioNode",
+    "AudioParam",
+    "AudioWorklet",
+    "AudioWorkletNode",
+    "AudioWorkletNodeOptions",
+    "GainNode",
+    "GainOptions",
+    "OscillatorNode",
+    "OscillatorType",
+    "BlobPropertyBag",
+    "Blob",
+    "Url",
+    "MessageEvent",
+    "ErrorEvent",
+] }
+getrandom = { version = "0.2", features = ["js"] }  # Random number generation for WASM

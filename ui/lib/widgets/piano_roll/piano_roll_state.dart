@@ -33,9 +33,12 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   // ============================================
 
   final ScrollController horizontalScroll = ScrollController();
-  final ScrollController rulerScroll = ScrollController();
-  final ScrollController loopBarScroll = ScrollController();
+  final ScrollController navBarScroll = ScrollController();
   final ScrollController verticalScroll = ScrollController();
+
+  // Legacy scroll controllers - kept for compatibility during transition
+  ScrollController get rulerScroll => navBarScroll;
+  ScrollController get loopBarScroll => navBarScroll;
 
   /// Prevent infinite sync loops between scroll controllers.
   bool isSyncingScroll = false;

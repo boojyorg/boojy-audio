@@ -124,7 +124,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     final colors = context.colors;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: colors.standard,
         border: Border(
