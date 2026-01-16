@@ -18,12 +18,12 @@ import '../services/tool_mode_resolver.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/clip_commands.dart';
 import 'instrument_browser.dart';
-import 'painters/loop_bar_painter.dart';
-import 'painters/time_ruler_painter.dart';
 import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
 import 'context_menus/clip_context_menu.dart';
 import 'shared/editors/zoomable_editor_mixin.dart';
+import 'shared/editors/unified_nav_bar.dart';
+import 'shared/editors/nav_bar_with_zoom.dart';
 import 'timeline/timeline_state.dart';
 
 /// Track data model for timeline
@@ -1513,8 +1513,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // Beat-based width calculation (tempo-independent)
     final beatsPerSecond = widget.tempo / 60.0;
 
-    // Minimum 16 bars (64 beats), or extend based on clip duration
-    const minBars = 16;
+    // Minimum 64 bars (256 beats) for a typical song length, or extend based on clip duration
+    const minBars = 64;
     const beatsPerBar = 4;
     const minBeats = minBars * beatsPerBar;
 
@@ -1662,101 +1662,126 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           color: context.colors.standard,
           border: Border.all(color: context.colors.elevated),
         ),
-        child: Stack(
+        child: Column(
         children: [
-          // Main scrollable area (time ruler + tracks)
-          Listener(
-            onPointerSignal: handlePointerSignalSimple,
-            child: SingleChildScrollView(
-              controller: scrollController,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: totalWidth,
-                child: Column(
-                  children: [
-                    // Time ruler (scrolls with content)
-                    _buildTimeRuler(totalWidth, duration),
-
-                    // Main content area: scrollable tracks + fixed Master track
-                    // Use Stack so grid, playhead, and insert marker span entire height (including Master)
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          // Grid lines spanning entire area (scrollable + Master)
-                          Positioned.fill(
-                            child: _buildGrid(totalWidth, duration, double.infinity),
-                          ),
-
-                          // Content column: scrollable tracks + Master
-                          Column(
-                            children: [
-                              // Scrollable tracks area
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  controller: widget.verticalScrollController,
-                                  scrollDirection: Axis.vertical,
-                                  child: Listener(
-                                    onPointerDown: (event) {
-                                      // Ctrl/Cmd+click on empty space - no action needed
-                                    },
-                                    onPointerMove: (event) {
-                                      // Ctrl/Cmd+drag = eraser mode
-                                      if (event.buttons == kPrimaryButton) {
-                                        if (ModifierKeyState.current().isCtrlOrCmd) {
-                                          if (!isErasing) {
-                                            _startErasing(event.position);
-                                          } else {
-                                            _eraseClipsAt(event.position);
-                                          }
-                                        }
-                                      }
-                                    },
-                                    onPointerUp: (event) {
-                                      if (isErasing) {
-                                        _stopErasing();
-                                      }
-                                    },
-                                    child: Stack(
-                                      children: [
-                                        // Sized box to ensure proper height for scrolling
-                                        SizedBox(
-                                          height: totalTracksHeight,
-                                          width: totalWidth,
-                                        ),
-
-                                        // Tracks (regular tracks only, Master is pinned below)
-                                        _buildTracks(totalWidth),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                              // Master track pinned at bottom (outside scroll area)
-                              if (masterTrack.id != -1)
-                                _buildMasterTrack(totalWidth, masterTrack),
-                            ],
-                          ),
-
-                          // Playhead - spans full height including Master
-                          _buildPlayhead(),
-
-                          // Box selection overlay
-                          _buildBoxSelectionOverlay(),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+          // Unified nav bar (loop region + bar numbers + zoom controls)
+          NavBarWithZoom(
+            scrollController: navBarScrollController,
+            onZoomIn: () => setState(() {
+              pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(minZoom, maxZoom);
+            }),
+            onZoomOut: () => setState(() {
+              pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(minZoom, maxZoom);
+            }),
+            height: 24.0,
+            child: UnifiedNavBar(
+              config: UnifiedNavBarConfig(
+                pixelsPerBeat: pixelsPerBeat,
+                totalBeats: totalBeats.toDouble(),
+                loopEnabled: widget.loopPlaybackEnabled,
+                loopStart: widget.loopStartBeats,
+                loopEnd: widget.loopEndBeats,
+                playheadPosition: _calculatePlayheadBeat(),
               ),
+              callbacks: UnifiedNavBarCallbacks(
+                onHorizontalScroll: _handleNavBarScroll,
+                onZoom: _handleNavBarZoom,
+                onPlayheadSet: _handleNavBarPlayheadSet,
+                onLoopRegionChanged: widget.onLoopRegionChanged,
+              ),
+              scrollController: navBarScrollController,
+              height: 24.0,
             ),
           ),
 
-          // Zoom controls (fixed position, top-right)
-          Positioned(
-            right: 8,
-            top: 0,
-            child: _buildZoomControls(),
+          // Main scrollable area (tracks)
+          Expanded(
+            child: Stack(
+              children: [
+                Listener(
+                  onPointerSignal: handlePointerSignalSimple,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      // Sync nav bar scroll with main scroll
+                      _syncNavBarScroll();
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: totalWidth,
+                        child: Stack(
+                          children: [
+                            // Grid lines spanning entire area (scrollable + Master)
+                            Positioned.fill(
+                              child: _buildGrid(totalWidth, duration, double.infinity),
+                            ),
+
+                            // Content column: scrollable tracks + Master
+                            Column(
+                              children: [
+                                // Scrollable tracks area
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    controller: widget.verticalScrollController,
+                                    scrollDirection: Axis.vertical,
+                                    child: Listener(
+                                      onPointerDown: (event) {
+                                        // Ctrl/Cmd+click on empty space - no action needed
+                                      },
+                                      onPointerMove: (event) {
+                                        // Ctrl/Cmd+drag = eraser mode
+                                        if (event.buttons == kPrimaryButton) {
+                                          if (ModifierKeyState.current().isCtrlOrCmd) {
+                                            if (!isErasing) {
+                                              _startErasing(event.position);
+                                            } else {
+                                              _eraseClipsAt(event.position);
+                                            }
+                                          }
+                                        }
+                                      },
+                                      onPointerUp: (event) {
+                                        if (isErasing) {
+                                          _stopErasing();
+                                        }
+                                      },
+                                      child: Stack(
+                                        children: [
+                                          // Sized box to ensure proper height for scrolling
+                                          SizedBox(
+                                            height: totalTracksHeight,
+                                            width: totalWidth,
+                                          ),
+
+                                          // Tracks (regular tracks only, Master is pinned below)
+                                          _buildTracks(totalWidth),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Master track pinned at bottom (outside scroll area)
+                                if (masterTrack.id != -1)
+                                  _buildMasterTrack(totalWidth, masterTrack),
+                              ],
+                            ),
+
+                            // Playhead - spans full height including Master
+                            _buildPlayhead(),
+
+                            // Box selection overlay
+                            _buildBoxSelectionOverlay(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2000,252 +2025,6 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         ),
         // Master track is now rendered outside scroll area (in build method)
       ],
-    );
-  }
-
-  Widget _buildTimeRuler(double width, double duration) {
-    // Two-row layout matching Piano Roll:
-    // Row 1: Loop bar (20px, dark background)
-    // Row 2: Bar numbers ruler (30px)
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ROW 1: Loop bar with drag handles
-        Stack(
-          children: [
-            // Loop bar background and region
-            Container(
-              height: 20,
-              width: width,
-              child: CustomPaint(
-                painter: LoopBarPainter(
-                  pixelsPerBeat: pixelsPerBeat,
-                  totalBeats: duration,
-                  loopEnabled: widget.loopPlaybackEnabled,
-                  loopStart: widget.loopStartBeats,
-                  loopEnd: widget.loopEndBeats,
-                ),
-              ),
-            ),
-            // Loop drag handles (only when loop is enabled)
-            if (widget.loopPlaybackEnabled) ...[
-              // Draggable middle region
-              _buildLoopBar(),
-              // Start handle
-              _buildLoopHandle(
-                beats: widget.loopStartBeats,
-                isStart: true,
-                onDrag: (newBeats) {
-                  final clampedBeats = newBeats.clamp(0.0, widget.loopEndBeats - 1.0);
-                  widget.onLoopRegionChanged?.call(clampedBeats, widget.loopEndBeats);
-                },
-              ),
-              // End handle
-              _buildLoopHandle(
-                beats: widget.loopEndBeats,
-                isStart: false,
-                onDrag: (newBeats) {
-                  final clampedBeats = newBeats.clamp(widget.loopStartBeats + 1.0, double.infinity);
-                  widget.onLoopRegionChanged?.call(widget.loopStartBeats, clampedBeats);
-                },
-              ),
-            ],
-          ],
-        ),
-        // ROW 2: Bar numbers ruler
-        GestureDetector(
-          onSecondaryTapUp: (details) {
-            // Right-click ruler for context menu
-            _showRulerContextMenu(details.globalPosition, details.localPosition);
-          },
-          child: Container(
-            height: 30,
-            width: width,
-            decoration: BoxDecoration(
-              color: context.colors.elevated,
-              border: Border(
-                bottom: BorderSide(color: context.colors.elevated),
-              ),
-            ),
-            child: CustomPaint(
-              painter: TimeRulerPainter(
-                pixelsPerBeat: pixelsPerBeat,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Build an invisible drag zone for loop region start or end edge
-  /// Matches Piano Roll style: cursor feedback only, no visible handle widget
-  Widget _buildLoopHandle({
-    required double beats,
-    required bool isStart,
-    required Function(double) onDrag,
-  }) {
-    final handleX = beats * pixelsPerBeat;
-    const handleWidth = 8.0; // Invisible hit area width
-
-    return Positioned(
-      left: handleX - handleWidth / 2,
-      top: 0,
-      child: GestureDetector(
-        onHorizontalDragUpdate: (details) {
-          // Use globalPosition to calculate absolute position, then convert to local
-          // This is more reliable than accumulating deltas
-          final RenderBox? box = context.findRenderObject() as RenderBox?;
-          if (box == null) return;
-
-          final localPos = box.globalToLocal(details.globalPosition);
-          final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
-          final xInContent = localPos.dx + scrollOffset;
-          final rawBeats = xInContent / pixelsPerBeat;
-
-          // Snap to grid using timeline grid resolution (like Piano Roll)
-          final snappedBeats = GridUtils.snapToGridRound(
-            rawBeats,
-            GridUtils.getTimelineGridResolution(pixelsPerBeat),
-          );
-          onDrag(snappedBeats.clamp(0.0, double.infinity));
-        },
-        child: MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: Container(
-            width: handleWidth,
-            height: 20,
-            color: Colors.transparent, // Invisible - just a hit area
-          ),
-        ),
-      ),
-    );
-  }
-
-  // State for tracking loop bar drag
-  double? _loopBarDragStartBeat;
-  double? _loopBarDragStartLoopStart;
-
-  /// Build an invisible drag zone for moving the entire loop region
-  /// Matches Piano Roll style: cursor feedback only, no visible bar or icon
-  Widget _buildLoopBar() {
-    final loopStartX = widget.loopStartBeats * pixelsPerBeat;
-    final loopEndX = widget.loopEndBeats * pixelsPerBeat;
-    final loopWidth = loopEndX - loopStartX;
-    final loopDuration = widget.loopEndBeats - widget.loopStartBeats;
-    const handleWidth = 8.0; // Match the invisible handle width
-
-    // Only show if there's enough width between edge handles
-    if (loopWidth <= handleWidth * 2) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      left: loopStartX + handleWidth / 2,
-      top: 0,
-      child: GestureDetector(
-        onHorizontalDragStart: (details) {
-          // Capture the starting beat position for delta calculation
-          final RenderBox? box = context.findRenderObject() as RenderBox?;
-          if (box == null) return;
-
-          final localPos = box.globalToLocal(details.globalPosition);
-          final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
-          final xInContent = localPos.dx + scrollOffset;
-          _loopBarDragStartBeat = xInContent / pixelsPerBeat;
-          _loopBarDragStartLoopStart = widget.loopStartBeats;
-        },
-        onHorizontalDragUpdate: (details) {
-          if (_loopBarDragStartBeat == null || _loopBarDragStartLoopStart == null) return;
-
-          // Calculate current beat position from global position
-          final RenderBox? box = context.findRenderObject() as RenderBox?;
-          if (box == null) return;
-
-          final localPos = box.globalToLocal(details.globalPosition);
-          final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
-          final xInContent = localPos.dx + scrollOffset;
-          final currentBeat = xInContent / pixelsPerBeat;
-
-          // Calculate delta from drag start and apply to original loop start
-          final deltaBeat = currentBeat - _loopBarDragStartBeat!;
-          final rawStart = _loopBarDragStartLoopStart! + deltaBeat;
-
-          // Snap to grid
-          var snappedStart = GridUtils.snapToGridRound(
-            rawStart,
-            GridUtils.getTimelineGridResolution(pixelsPerBeat),
-          );
-
-          // Clamp start to 0 BEFORE calculating end to preserve loop duration
-          // This prevents the loop from shrinking when dragging left past 0
-          snappedStart = snappedStart.clamp(0.0, double.infinity);
-          final newEnd = snappedStart + loopDuration;
-
-          widget.onLoopRegionChanged?.call(snappedStart, newEnd);
-        },
-        onHorizontalDragEnd: (details) {
-          _loopBarDragStartBeat = null;
-          _loopBarDragStartLoopStart = null;
-        },
-        child: MouseRegion(
-          cursor: SystemMouseCursors.grab,
-          child: Container(
-            width: loopWidth - handleWidth,
-            height: 20,
-            color: Colors.transparent, // Invisible - just a hit area
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildZoomControls() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: context.colors.elevated.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            onPressed: () {
-              setState(() {
-                pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(10.0, 500.0);
-              });
-            },
-            icon: const Icon(Icons.remove, size: 14),
-            iconSize: 14,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            color: context.colors.textSecondary,
-            tooltip: 'Zoom out (Cmd -)',
-          ),
-          Text(
-            '${pixelsPerBeat.toInt()}',
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(10.0, 500.0);
-              });
-            },
-            icon: const Icon(Icons.add, size: 14),
-            iconSize: 14,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            color: context.colors.textSecondary,
-            tooltip: 'Zoom in (Cmd +)',
-          ),
-        ],
-      ),
     );
   }
 
@@ -3980,6 +3759,45 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         ),
       ),
     );
+  }
+
+  // ============================================
+  // UNIFIED NAV BAR HANDLERS
+  // ============================================
+
+  /// Sync nav bar scroll with main scroll controller.
+  void _syncNavBarScroll() {
+    if (navBarScrollController.hasClients && scrollController.hasClients) {
+      if ((navBarScrollController.offset - scrollController.offset).abs() > 0.1) {
+        navBarScrollController.jumpTo(scrollController.offset);
+      }
+    }
+  }
+
+  /// Handle horizontal scroll from UnifiedNavBar drag.
+  void _handleNavBarScroll(double delta) {
+    if (!scrollController.hasClients) return;
+    final maxScroll = scrollController.position.maxScrollExtent;
+    final newOffset = (scrollController.offset + delta).clamp(0.0, maxScroll);
+    scrollController.jumpTo(newOffset);
+  }
+
+  /// Handle zoom from UnifiedNavBar vertical drag.
+  void _handleNavBarZoom(double factor, double anchorBeat) {
+    setState(() {
+      pixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
+    });
+  }
+
+  /// Handle playhead set from UnifiedNavBar click.
+  void _handleNavBarPlayheadSet(double beat) {
+    final seconds = beat * 60.0 / widget.tempo;
+    widget.onSeek?.call(seconds);
+  }
+
+  /// Calculate playhead position in beats.
+  double _calculatePlayheadBeat() {
+    return widget.playheadPosition * widget.tempo / 60.0;
   }
 
 }
