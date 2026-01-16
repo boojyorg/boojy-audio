@@ -151,7 +151,7 @@ jobs:
           echo "$SPARKLE_PRIVATE_KEY" > sparkle_private_key
 
           # Generate EdDSA signature
-          SIGNATURE=$(./Sparkle.framework/Versions/B/Resources/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
+          SIGNATURE=$(./bin/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
           echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
 
           # Get file size
