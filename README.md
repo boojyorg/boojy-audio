@@ -6,8 +6,8 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 ## Download
 
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tsbujacncl/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-mac.dmg)
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/tsbujacncl/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-win.exe)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tyrbujac/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-mac.dmg)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/tyrbujac/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-win.exe)
 
 Or visit [boojy.org](https://boojy.org) for more information.
 
@@ -136,7 +136,7 @@ For VST3 plugin support on Windows:
 
 ```bash
 # Clone the repository
-git clone https://github.com/tsbujacncl/boojy-audio.git
+git clone https://github.com/tyrbujac/boojy-audio.git
 cd boojy-audio
 
 # Build Rust engine
@@ -173,8 +173,8 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Contact
 
-- **GitHub:** [@tsbujacncl](https://github.com/tsbujacncl)
-- **Repository:** [boojy-audio](https://github.com/tsbujacncl/boojy-audio)
+- **GitHub:** [@tyrbujac](https://github.com/tyrbujac)
+- **Repository:** [boojy-audio](https://github.com/tyrbujac/boojy-audio)
 
 ---
 

@@ -51,4 +51,4 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ---
 
-[View all releases](https://github.com/tsbujacncl/boojy-audio/releases)
+[View all releases](https://github.com/tyrbujac/boojy-audio/releases)
