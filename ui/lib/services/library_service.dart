@@ -20,6 +20,9 @@ class LibraryService extends ChangeNotifier {
 
   LibraryService() {
     _loadPreferences();
+    // Schedule a notification after the first frame to ensure widgets are listening
+    // This fixes built-in effects not appearing until manual refresh
+    Future.microtask(() => notifyListeners());
   }
 
   /// Get default user content path based on platform

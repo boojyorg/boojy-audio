@@ -15,6 +15,9 @@ All notable changes to Boojy Audio will be documented in this file.
 - Fixed MIDI clip looping: notes now visually repeat when clip is stretched beyond loop length
 - Fixed slight note stretching in looped MIDI clips (was ~1% off due to pixel rounding)
 - Added faint vertical line at loop boundaries for clearer visual indication
+- Fixed MIDI drone sound when loops repeat (note-off now fires before next note-on)
+- Fixed piano roll edits resetting arrangement length on looped clips
+- Fixed built-in effects not appearing in library until manual refresh
 
 ---
 
@@ -61,7 +64,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - ~~App is not code-signed (macOS Gatekeeper warning)~~ → Fixed in v0.1.1
 - ~~Library panel hidden if window is too narrow~~ → Fixed in v0.1.1
 - Virtual piano keyboard is disabled
-- Built-in effects require refresh before appearing
+- ~~Built-in effects require refresh before appearing~~ → Fixed in v0.1.1
 - Clip names can overflow in arrangement view
 - Windows build not yet tested
 - Undo/redo can be unreliable
