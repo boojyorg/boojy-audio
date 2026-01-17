@@ -3160,84 +3160,96 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Main clip container
-              Container(
+              // Main clip container with integrated loop boundary notches
+              SizedBox(
                 width: clipWidth,
                 height: totalHeight,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isSelected
-                        ? context.colors.textPrimary
-                        : trackColor.withValues(alpha: 0.7),
-                    width: isDragging || isSelected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
+                child: Stack(
                   children: [
-                    // Header
-                    Container(
-                      height: headerHeight,
-                      decoration: BoxDecoration(
-                        color: trackColor,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(3),
+                    // Content clipped to notched shape
+                    ClipPath(
+                      clipper: _ClipPathClipper(
+                        cornerRadius: 4,
+                        notchRadius: 4,
+                        loopBoundaryXPositions: _calculateLoopBoundaryPositions(
+                          midiClip.loopLength,
+                          clipDurationBeats,
+                          clipWidth,
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Icon(
-                            Icons.piano,
-                            size: 10,
-                            color: context.colors.textPrimary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              midiClip.name,
-                              style: TextStyle(
-                                color: context.colors.textPrimary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          // Header
+                          Container(
+                            height: headerHeight,
+                            decoration: BoxDecoration(
+                              color: trackColor,
                             ),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.piano,
+                                  size: 10,
+                                  color: context.colors.textPrimary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    midiClip.name,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Content area with notes (transparent background)
+                          Expanded(
+                            child: midiClip.notes.isNotEmpty
+                                ? LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return CustomPaint(
+                                        size: Size(constraints.maxWidth, constraints.maxHeight),
+                                        painter: _MidiClipPainter(
+                                          notes: midiClip.notes,
+                                          clipDuration: clipDurationBeats,
+                                          loopLength: midiClip.loopLength,
+                                          trackColor: trackColor,
+                                          contentStartOffset: midiClip.contentStartOffset,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                         ],
                       ),
                     ),
-                    // Content area with notes (transparent background)
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(3),
+                    // Border with integrated notches
+                    CustomPaint(
+                      size: Size(clipWidth, totalHeight),
+                      painter: _ClipBorderPainter(
+                        borderColor: isSelected
+                            ? context.colors.textPrimary
+                            : trackColor.withValues(alpha: 0.7),
+                        borderWidth: isDragging || isSelected ? 2 : 1,
+                        cornerRadius: 4,
+                        loopBoundaryXPositions: _calculateLoopBoundaryPositions(
+                          midiClip.loopLength,
+                          clipDurationBeats,
+                          clipWidth,
                         ),
-                        child: midiClip.notes.isNotEmpty
-                            ? LayoutBuilder(
-                                builder: (context, constraints) {
-                                  return CustomPaint(
-                                    size: Size(constraints.maxWidth, constraints.maxHeight),
-                                    painter: _MidiClipPainter(
-                                      notes: midiClip.notes,
-                                      clipDuration: clipDurationBeats,
-                                      loopLength: midiClip.loopLength,
-                                      trackColor: trackColor,
-                                      contentStartOffset: midiClip.contentStartOffset,
-                                    ),
-                                  );
-                                },
-                              )
-                            : const SizedBox.shrink(),
                       ),
                     ),
                   ],
                 ),
               ),
-              // Loop boundary lines overlay
-              if (clipDurationBeats > midiClip.loopLength)
-                _buildLoopBoundaryLines(midiClip.loopLength, clipDurationBeats, totalHeight, trackColor),
               // Left edge trim handle
               Positioned(
                 left: 0,
@@ -3389,31 +3401,16 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
-  /// Build loop boundary lines for when arrangement > loop length
-  Widget _buildLoopBoundaryLines(double loopLength, double clipDuration, double height, Color trackColor) {
-    final List<Widget> markers = [];
+  /// Calculate X positions of loop boundaries within a clip
+  List<double> _calculateLoopBoundaryPositions(double loopLength, double clipDuration, double clipWidth) {
+    final positions = <double>[];
+    final clipPixelsPerBeat = clipWidth / clipDuration;
     var loopBeat = loopLength;
-
     while (loopBeat < clipDuration) {
-      final lineX = loopBeat * pixelsPerBeat;
-      // Add subtle dimple notches at top and bottom edges instead of full vertical lines
-      markers.add(
-        Positioned(
-          left: lineX - 4, // Center the dimple on the loop point
-          top: 0,
-          child: CustomPaint(
-            size: Size(8, height),
-            painter: _DimplePainter(
-              color: trackColor.withValues(alpha: 0.6),
-              height: height,
-            ),
-          ),
-        ),
-      );
+      positions.add(loopBeat * clipPixelsPerBeat);
       loopBeat += loopLength;
     }
-
-    return Stack(children: markers);
+    return positions;
   }
 
   Widget _buildPreviewClip(PreviewClip preview) {
@@ -3975,9 +3972,12 @@ class _MidiClipPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (notes.isEmpty || clipDuration == 0) return;
 
-    // Filter notes that are visible (at or after contentStartOffset)
-    final visibleNotes = notes.where((n) => n.startTime >= contentStartOffset ||
-        n.startTime + n.duration > contentStartOffset).toList();
+    // Filter notes that are visible (within loopLength, accounting for contentStartOffset)
+    final visibleNotes = notes.where((n) {
+      final relativeStart = n.startTime - contentStartOffset;
+      // Include notes that are within the loop boundary
+      return relativeStart < loopLength && relativeStart + n.duration > 0;
+    }).toList();
 
     if (visibleNotes.isEmpty) return;
 
@@ -4002,7 +4002,7 @@ class _MidiClipPainter extends CustomPainter {
     final usedHeight = size.height * heightPercentage;
     final topOffset = size.height - usedHeight; // Anchor notes to bottom
 
-    // Calculate pixels per beat
+    // Calculate pixels per beat from actual content area width
     final pixelsPerBeat = size.width / clipDuration;
 
     // Use lighter shade of track color for notes
@@ -4011,47 +4011,75 @@ class _MidiClipPainter extends CustomPainter {
       ..color = noteColor
       ..style = PaintingStyle.fill;
 
-    // Draw notes (shifted by contentStartOffset)
-    for (final note in visibleNotes) {
-      // Shift note position by contentStartOffset
-      final noteRelativeStart = note.startTime - contentStartOffset;
-      final noteDurationBeats = note.duration;
+    // Calculate number of loop iterations to draw
+    // Notes repeat every loopLength beats until clipDuration is reached
+    final numLoops = loopLength > 0 ? (clipDuration / loopLength).ceil() : 1;
 
-      // Handle notes that start before contentStartOffset but extend past it
-      double x;
-      double width;
-      if (noteRelativeStart < 0) {
-        // Note starts before offset - clip the beginning
-        x = 0;
-        width = (noteDurationBeats + noteRelativeStart) * pixelsPerBeat;
-      } else {
-        x = noteRelativeStart * pixelsPerBeat;
-        width = noteDurationBeats * pixelsPerBeat;
+    // Draw notes for each loop iteration
+    for (int loop = 0; loop < numLoops; loop++) {
+      final loopOffsetBeats = loop * loopLength;
+
+      for (final note in visibleNotes) {
+        // Shift note position by contentStartOffset
+        final noteRelativeStart = note.startTime - contentStartOffset;
+        final noteDurationBeats = note.duration;
+
+        // Skip notes that start before the content offset (for first loop)
+        if (noteRelativeStart < 0 && loop == 0) continue;
+
+        // Skip notes that are beyond loopLength
+        if (noteRelativeStart >= loopLength) continue;
+
+        // Calculate absolute position in the clip
+        final noteAbsoluteStart = loopOffsetBeats + math.max(0.0, noteRelativeStart);
+
+        // Skip notes that start beyond the clip duration
+        if (noteAbsoluteStart >= clipDuration) continue;
+
+        // Handle notes that start before contentStartOffset but extend past it
+        double x;
+        double width;
+        if (noteRelativeStart < 0 && loop == 0) {
+          // Note starts before offset - clip the beginning
+          x = loopOffsetBeats * pixelsPerBeat;
+          width = (noteDurationBeats + noteRelativeStart) * pixelsPerBeat;
+        } else {
+          x = noteAbsoluteStart * pixelsPerBeat;
+          width = noteDurationBeats * pixelsPerBeat;
+        }
+
+        // Truncate width if note extends beyond loop boundary or clip duration
+        final noteEndBeats = noteAbsoluteStart + noteDurationBeats;
+        final loopEndBeats = loopOffsetBeats + loopLength;
+        final maxEndBeats = math.min(loopEndBeats, clipDuration);
+        if (noteEndBeats > maxEndBeats) {
+          width = (maxEndBeats - noteAbsoluteStart) * pixelsPerBeat;
+        }
+
+        // Calculate Y position based on note's position in range
+        final notePosition = note.note - minNote;
+        final y = topOffset + (usedHeight - (notePosition + 1) * noteSlotHeight);
+        final height = noteSlotHeight - 1; // 1px gap between notes
+
+        // Skip notes that would start beyond the clip
+        if (x >= size.width) continue;
+
+        // Clip width to not exceed the clip boundary
+        if (x + width > size.width) {
+          width = size.width - x;
+        }
+
+        // Skip if width is too small
+        if (width <= 0) continue;
+
+        // Draw note rectangle with slight rounding
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, math.max(width, 2.0), math.max(height, 2.0)),
+          const Radius.circular(2),
+        );
+
+        canvas.drawRRect(rect, notePaint);
       }
-
-      // Calculate Y position based on note's position in range
-      final notePosition = note.note - minNote;
-      final y = topOffset + (usedHeight - (notePosition + 1) * noteSlotHeight);
-      final height = noteSlotHeight - 1; // 1px gap between notes
-
-      // Skip notes that would start beyond the clip
-      if (x >= size.width) continue;
-
-      // Clip width to not exceed the clip boundary
-      if (x + width > size.width) {
-        width = size.width - x;
-      }
-
-      // Skip if width is too small
-      if (width <= 0) continue;
-
-      // Draw note rectangle with slight rounding
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, math.max(width, 2.0), math.max(height, 2.0)),
-        const Radius.circular(2),
-      );
-
-      canvas.drawRRect(rect, notePaint);
     }
   }
 
@@ -4065,43 +4093,158 @@ class _MidiClipPainter extends CustomPainter {
   }
 }
 
-/// Painter for dimple indicators at loop boundaries when clips are stretched
-class _DimplePainter extends CustomPainter {
-  final Color color;
-  final double height;
+/// Painter for clip border with integrated loop boundary notches
+class _ClipBorderPainter extends CustomPainter {
+  final Color borderColor;
+  final double borderWidth;
+  final double cornerRadius;
+  final List<double> loopBoundaryXPositions;
+  final double notchRadius;
 
-  _DimplePainter({
-    required this.color,
-    required this.height,
+  _ClipBorderPainter({
+    required this.borderColor,
+    required this.borderWidth,
+    required this.cornerRadius,
+    required this.loopBoundaryXPositions,
+    this.notchRadius = 4.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final path = buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
+
     final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+      ..color = borderColor
+      ..strokeWidth = borderWidth
+      ..style = PaintingStyle.stroke;
 
-    const dimpleSize = 4.0;
-    final centerX = size.width / 2;
+    canvas.drawPath(path, paint);
+  }
 
-    // Top dimple (curved notch pointing down)
-    final topPath = Path()
-      ..moveTo(centerX - dimpleSize, 0)
-      ..quadraticBezierTo(centerX, dimpleSize * 1.5, centerX + dimpleSize, 0)
-      ..close();
-    canvas.drawPath(topPath, paint);
+  static Path buildClipPath(Size size, double cornerRadius, double notchRadius, List<double> loopBoundaryXPositions) {
+    final path = Path();
+    final r = cornerRadius;
+    final nr = notchRadius;
 
-    // Bottom dimple (curved notch pointing up)
-    final bottomPath = Path()
-      ..moveTo(centerX - dimpleSize, height)
-      ..quadraticBezierTo(centerX, height - dimpleSize * 1.5, centerX + dimpleSize, height)
-      ..close();
-    canvas.drawPath(bottomPath, paint);
+    // Start at top-left, after corner arc
+    path.moveTo(r, 0);
+
+    // Top edge with notches
+    for (final notchX in loopBoundaryXPositions) {
+      // Line to just before notch
+      path.lineTo(notchX - nr, 0);
+      // Notch: ╮╭ (curve down-right, then down-left back up)
+      path.arcToPoint(
+        Offset(notchX, nr),
+        radius: Radius.circular(nr),
+        clockwise: true,
+      );
+      path.arcToPoint(
+        Offset(notchX + nr, 0),
+        radius: Radius.circular(nr),
+        clockwise: true,
+      );
+    }
+    // Line to top-right corner
+    path.lineTo(size.width - r, 0);
+
+    // Top-right corner
+    path.arcToPoint(
+      Offset(size.width, r),
+      radius: Radius.circular(r),
+      clockwise: true,
+    );
+
+    // Right edge (straight down)
+    path.lineTo(size.width, size.height - r);
+
+    // Bottom-right corner
+    path.arcToPoint(
+      Offset(size.width - r, size.height),
+      radius: Radius.circular(r),
+      clockwise: true,
+    );
+
+    // Bottom edge with notches (in reverse order)
+    for (final notchX in loopBoundaryXPositions.reversed) {
+      // Line to just after notch
+      path.lineTo(notchX + nr, size.height);
+      // Notch: ╯╰ (curve up-left, then up-right back down)
+      path.arcToPoint(
+        Offset(notchX, size.height - nr),
+        radius: Radius.circular(nr),
+        clockwise: true,
+      );
+      path.arcToPoint(
+        Offset(notchX - nr, size.height),
+        radius: Radius.circular(nr),
+        clockwise: true,
+      );
+    }
+    // Line to bottom-left corner
+    path.lineTo(r, size.height);
+
+    // Bottom-left corner
+    path.arcToPoint(
+      Offset(0, size.height - r),
+      radius: Radius.circular(r),
+      clockwise: true,
+    );
+
+    // Left edge (straight up)
+    path.lineTo(0, r);
+
+    // Top-left corner
+    path.arcToPoint(
+      Offset(r, 0),
+      radius: Radius.circular(r),
+      clockwise: true,
+    );
+
+    path.close();
+    return path;
   }
 
   @override
-  bool shouldRepaint(_DimplePainter oldDelegate) {
-    return color != oldDelegate.color || height != oldDelegate.height;
+  bool shouldRepaint(_ClipBorderPainter oldDelegate) {
+    return borderColor != oldDelegate.borderColor ||
+        borderWidth != oldDelegate.borderWidth ||
+        cornerRadius != oldDelegate.cornerRadius ||
+        notchRadius != oldDelegate.notchRadius ||
+        !_listEquals(loopBoundaryXPositions, oldDelegate.loopBoundaryXPositions);
+  }
+
+  static bool _listEquals(List<double> a, List<double> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+}
+
+/// Clipper for clip content to match the notched border shape
+class _ClipPathClipper extends CustomClipper<Path> {
+  final double cornerRadius;
+  final double notchRadius;
+  final List<double> loopBoundaryXPositions;
+
+  _ClipPathClipper({
+    required this.cornerRadius,
+    required this.notchRadius,
+    required this.loopBoundaryXPositions,
+  });
+
+  @override
+  Path getClip(Size size) {
+    return _ClipBorderPainter.buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
+  }
+
+  @override
+  bool shouldReclip(_ClipPathClipper oldClipper) {
+    return cornerRadius != oldClipper.cornerRadius ||
+        notchRadius != oldClipper.notchRadius ||
+        !_ClipBorderPainter._listEquals(loopBoundaryXPositions, oldClipper.loopBoundaryXPositions);
   }
 }
 

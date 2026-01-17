@@ -482,14 +482,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           children: [
             Column(
               children: [
-                // Header (30px to match timeline ruler)
+                // Header (24px to match timeline nav bar)
                 _buildHeader(),
-
-                // Spacer to match timeline loop bar (20px)
-                Container(
-                  height: 20,
-                  color: context.colors.elevated,
-                ),
 
                 // Track strips (vertically scrollable)
                 Expanded(
@@ -542,7 +536,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
   Widget _buildHeader() {
     return Container(
-      height: 30, // Match timeline ruler height
+      height: 24, // Match timeline nav bar height
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: context.colors.elevated,

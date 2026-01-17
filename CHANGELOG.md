@@ -11,6 +11,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - App is now code-signed and notarized (no more Gatekeeper warning)
 - Fixed library/mixer panels staying hidden after window resize (auto-expand when space available)
 - Panels now scale proportionally on first launch based on window size
+- Fixed mixer tracks not aligning vertically with arrangement view tracks
+- Fixed MIDI clip looping: notes now visually repeat when clip is stretched beyond loop length
+- Fixed slight note stretching in looped MIDI clips (was ~1% off due to pixel rounding)
+- Added faint vertical line at loop boundaries for clearer visual indication
 
 ---
 
