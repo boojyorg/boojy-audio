@@ -173,6 +173,7 @@ class UserSettings extends ChangeNotifier {
   double _mixerWidth = 380.0;
   double _editorHeight = 250.0;
   double _pianoRollSidebarWidth = 250.0;
+  bool _hasSavedPanelSettings = false; // True if user has saved panel settings before
 
   // Appearance settings
   String _theme = 'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
@@ -495,6 +496,9 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Whether panel settings have been saved before (false on first launch)
+  bool get hasSavedPanelSettings => _hasSavedPanelSettings;
+
   /// Piano roll sidebar width (220-350px, default 250px)
   double get pianoRollSidebarWidth => _pianoRollSidebarWidth;
   set pianoRollSidebarWidth(double value) {
@@ -621,8 +625,10 @@ class UserSettings extends ChangeNotifier {
       _mixerVisible = _prefs?.getBool(_keyMixerVisible) ?? true;
       _editorVisible = _prefs?.getBool(_keyEditorVisible) ?? true;
 
-      // Load panel size settings
-      _libraryWidth = _prefs?.getDouble(_keyLibraryWidth) ?? 200.0;
+      // Load panel size settings (check if saved before for first-launch detection)
+      final savedLibraryWidth = _prefs?.getDouble(_keyLibraryWidth);
+      _hasSavedPanelSettings = savedLibraryWidth != null;
+      _libraryWidth = savedLibraryWidth ?? 200.0;
       _mixerWidth = _prefs?.getDouble(_keyMixerWidth) ?? 380.0;
       _editorHeight = _prefs?.getDouble(_keyEditorHeight) ?? 250.0;
       _pianoRollSidebarWidth = _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;

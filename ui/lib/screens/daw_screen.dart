@@ -104,6 +104,7 @@ class _DAWScreenState extends State<DAWScreen> {
   List<double> _waveformPeaks = [];
   bool _isAudioGraphInitialized = false;
   bool _isLoading = false;
+  bool _hasInitializedPanelSizes = false; // Track if we've set initial panel sizes
 
   // Audio clip selection for Audio Editor
   ClipData? _selectedAudioClip;
@@ -3014,29 +3015,64 @@ class _DAWScreenState extends State<DAWScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Auto-collapse panels on small windows
     final windowSize = MediaQuery.of(context).size;
 
-    // Auto-collapse library if window < 900px wide and library is expanded
-    if (windowSize.width < UILayoutState.autoCollapseLibraryWidth &&
-        !_uiLayout.isLibraryPanelCollapsed) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _uiLayout.collapseLibrary();
-          _userSettings.libraryCollapsed = true;
-        }
-      });
+    // Initialize panel sizes based on window size on first launch
+    if (!_hasInitializedPanelSizes && _userSettings.isLoaded) {
+      _hasInitializedPanelSizes = true;
+      if (!_userSettings.hasSavedPanelSettings) {
+        // First launch: use percentage-based sizing
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _uiLayout.libraryPanelWidth = (windowSize.width * 0.15).clamp(
+                UILayoutState.libraryMinWidth,
+                UILayoutState.libraryHardMax,
+              );
+              _uiLayout.mixerPanelWidth = (windowSize.width * 0.28).clamp(
+                UILayoutState.mixerMinWidth,
+                UILayoutState.mixerHardMax,
+              );
+            });
+          }
+        });
+      }
     }
 
-    // Auto-collapse mixer if window < 1000px wide and mixer is visible
-    if (windowSize.width < UILayoutState.autoCollapseMixerWidth &&
-        _uiLayout.isMixerVisible) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _uiLayout.collapseMixer();
-          _userSettings.mixerVisible = false;
-        }
-      });
+    // Auto-collapse/expand library based on window size
+    if (windowSize.width < UILayoutState.autoCollapseLibraryWidth) {
+      // Auto-collapse library if window is too narrow
+      if (!_uiLayout.isLibraryPanelCollapsed) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _uiLayout.collapseLibrary();
+          // Don't save to _userSettings - this is a temporary auto-collapse
+        });
+      }
+    } else {
+      // Auto-expand library when window is large enough (if user didn't manually collapse)
+      if (_uiLayout.isLibraryPanelCollapsed && !_userSettings.libraryCollapsed) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _uiLayout.expandLibrary();
+        });
+      }
+    }
+
+    // Auto-collapse/expand mixer based on window size
+    if (windowSize.width < UILayoutState.autoCollapseMixerWidth) {
+      // Auto-collapse mixer if window is too narrow
+      if (_uiLayout.isMixerVisible) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _uiLayout.collapseMixer();
+          // Don't save to _userSettings - this is a temporary auto-collapse
+        });
+      }
+    } else {
+      // Auto-expand mixer when window is large enough (if user didn't manually collapse)
+      if (!_uiLayout.isMixerVisible && _userSettings.mixerVisible) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _uiLayout.expandMixer();
+        });
+      }
     }
 
     return PlatformMenuBar(

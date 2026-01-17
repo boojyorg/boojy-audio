@@ -8,6 +8,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - Fixed audio engine not loading on release builds (stuck on "Initializing...")
 - Fixed window starting too small (~720x480 → now 1280x800, centered)
+- App is now code-signed and notarized (no more Gatekeeper warning)
+- Fixed library/mixer panels staying hidden after window resize (auto-expand when space available)
+- Panels now scale proportionally on first launch based on window size
 
 ---
 
@@ -51,8 +54,8 @@ All notable changes to Boojy Audio will be documented in this file.
 - Duplicate button can behave unexpectedly
 - ~~Window may not start at correct resolution~~ → Fixed in v0.1.1
 - ~~Audio engine fails to load in release builds~~ → Fixed in v0.1.1
-- App is not code-signed (macOS Gatekeeper warning)
-- Library panel hidden if window is too narrow
+- ~~App is not code-signed (macOS Gatekeeper warning)~~ → Fixed in v0.1.1
+- ~~Library panel hidden if window is too narrow~~ → Fixed in v0.1.1
 - Virtual piano keyboard is disabled
 - Built-in effects require refresh before appearing
 - Clip names can overflow in arrangement view
