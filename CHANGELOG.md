@@ -2,6 +2,15 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## v0.1.1 — Unreleased
+
+### Bug Fixes
+
+- Fixed audio engine not loading on release builds (stuck on "Initializing...")
+- Fixed window starting too small (~720x480 → now 1280x800, centered)
+
+---
+
 ## v0.1.0 — 2026-01-16
 
 > Initial public alpha. Early test build for validating the build and release pipeline.
@@ -40,7 +49,8 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Known Issues
 
 - Duplicate button can behave unexpectedly
-- Window may not start at correct resolution
+- ~~Window may not start at correct resolution~~ → Fixed in v0.1.1
+- ~~Audio engine fails to load in release builds~~ → Fixed in v0.1.1
 - App is not code-signed (macOS Gatekeeper warning)
 - Library panel hidden if window is too narrow
 - Virtual piano keyboard is disabled
