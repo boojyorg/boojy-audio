@@ -487,7 +487,7 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   // ============================================
 
   /// Auto-extend loop length if a note extends beyond the current loop boundary.
-  /// Also syncs duration (arrangement clip length) to match loopLength (one-way sync).
+  /// Only syncs duration if clip is not looped (arrangement length == loop length).
   void autoExtendLoopIfNeeded(MidiNoteData note) {
     if (currentClip == null) return;
 
@@ -496,11 +496,14 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     if (noteEndTime > currentLoopLength) {
       final newLoopLength = ((noteEndTime / 4).ceil() * 4).toDouble();
-      // One-way sync: when loop length expands due to notes, also expand duration
-      // This keeps the arrangement clip in sync with the Piano Roll content
-      final newDuration = newLoopLength > currentClip!.duration
-          ? newLoopLength
-          : currentClip!.duration;
+
+      // Only sync duration if clip was NOT looped (duration == loopLength)
+      // If clip was looped (duration > loopLength), keep arrangement duration
+      final wasLooped = currentClip!.duration > currentClip!.loopLength;
+      final newDuration = wasLooped
+          ? currentClip!.duration // Keep arrangement length
+          : newLoopLength; // Sync to new loop length
+
       currentClip = currentClip!.copyWith(
         loopLength: newLoopLength,
         duration: newDuration,
@@ -509,17 +512,23 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   }
 
   /// Update the loop length in the current clip.
-  /// One-way sync: always updates arrangement duration to match loopLength.
+  /// Only syncs duration if clip is not looped (arrangement length == loop length).
   void updateLoopLength(double newLength) {
     if (currentClip == null) return;
     // Minimum is 1/16th note (0.25 beats), maximum is 256 beats (64 bars)
     const minLength = 0.25;
     final clampedLength = newLength.clamp(minLength, 256.0);
-    // One-way sync: loopLength change always syncs to duration
-    // This keeps the arrangement clip length matching the Piano Roll loop length
+
+    // Only sync duration if clip is NOT looped (duration == loopLength)
+    // If looped, keep the arrangement duration unchanged
+    final wasLooped = currentClip!.duration > currentClip!.loopLength;
+    final newDuration = wasLooped
+        ? currentClip!.duration // Keep arrangement length
+        : clampedLength; // Sync to new loop length
+
     currentClip = currentClip!.copyWith(
       loopLength: clampedLength,
-      duration: clampedLength,
+      duration: newDuration,
     );
   }
 

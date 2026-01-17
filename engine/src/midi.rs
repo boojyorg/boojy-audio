@@ -66,7 +66,19 @@ impl PartialOrd for MidiEvent {
 
 impl Ord for MidiEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.timestamp_samples.cmp(&other.timestamp_samples)
+        // First compare by timestamp
+        match self.timestamp_samples.cmp(&other.timestamp_samples) {
+            Ordering::Equal => {
+                // At the same timestamp, note-offs should come BEFORE note-ons
+                // This prevents drone sounds when loops repeat (the old note ends before new one starts)
+                match (&self.event_type, &other.event_type) {
+                    (MidiEventType::NoteOff { .. }, MidiEventType::NoteOn { .. }) => Ordering::Less,
+                    (MidiEventType::NoteOn { .. }, MidiEventType::NoteOff { .. }) => Ordering::Greater,
+                    _ => Ordering::Equal,
+                }
+            }
+            other => other,
+        }
     }
 }
 
