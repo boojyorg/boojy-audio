@@ -173,6 +173,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Contact
 
+- **Email:** [tyr@boojy.org](mailto:tyr@boojy.org)
 - **GitHub:** [@tyrbujac](https://github.com/tyrbujac)
 - **Repository:** [boojy-audio](https://github.com/tyrbujac/boojy-audio)
 
