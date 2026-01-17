@@ -63,6 +63,11 @@ jobs:
           MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
           KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
         run: |
+          # Debug: Check certificate and password
+          echo "Certificate length: ${#MACOS_CERTIFICATE}"
+          echo "Password length: ${#MACOS_CERTIFICATE_PWD}"
+          echo "First 20 chars of cert: ${MACOS_CERTIFICATE:0:20}"
+
           # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PWD" build.keychain
           security default-keychain -s build.keychain
@@ -70,7 +75,13 @@ jobs:
 
           # Import certificate
           echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
-          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+
+          # Debug: Check decoded file
+          echo "Decoded p12 size: $(wc -c < certificate.p12)"
+          file certificate.p12
+
+          # Try import with verbose output
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign -v
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
 
           # Clean up
