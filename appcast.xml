@@ -7,14 +7,14 @@
     <language>en</language>
     <item>
       <title>Version 0.1.0</title>
-      <pubDate>Fri, 16 Jan 2026 22:50:23 +0000</pubDate>
+      <pubDate>Sat, 17 Jan 2026 15:16:54 +0000</pubDate>
       <sparkle:version>0.1.0</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/tsbujacncl/boojy-audio/releases/download/v0.1.0/Boojy-Audio-v0.1.0-mac.dmg"
-        sparkle:edSignature="sparkle:edSignature=SSzQY84cRylxQwWP8mPgUMdN3KnaZigFvFOnO3ggJocTI72sqWxJ3gCY0ya8ADMNi5Kp8AKuR8fCHnnrS9gHBA== length=22898113"
-        length="22898113"
+        url="https://github.com/tyrbujac/boojy-audio/releases/latest/download/Boojy-Audio-mac.dmg"
+        sparkle:edSignature="sparkle:edSignature=XdWsfRDTxziV8Y7SepXm13gAVSWYOeIiEAZcSTALYHLB7+Tobr6cwainW9YdbrYificxUF4QD63LO/4/3MeQDw== length=23073331"
+        length="23073331"
         type="application/octet-stream"
       />
     </item>
