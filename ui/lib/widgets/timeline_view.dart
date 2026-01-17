@@ -3238,6 +3238,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         borderColor: isSelected
                             ? context.colors.textPrimary
                             : trackColor.withValues(alpha: 0.7),
+                        trackColor: trackColor,
+                        headerHeight: headerHeight,
                         borderWidth: isDragging || isSelected ? 2 : 1,
                         cornerRadius: 4,
                         loopBoundaryXPositions: _calculateLoopBoundaryPositions(
@@ -4096,15 +4098,19 @@ class _MidiClipPainter extends CustomPainter {
 /// Painter for clip border with integrated loop boundary notches
 class _ClipBorderPainter extends CustomPainter {
   final Color borderColor;
+  final Color trackColor;
   final double borderWidth;
   final double cornerRadius;
+  final double headerHeight;
   final List<double> loopBoundaryXPositions;
   final double notchRadius;
 
   _ClipBorderPainter({
     required this.borderColor,
+    required this.trackColor,
     required this.borderWidth,
     required this.cornerRadius,
+    required this.headerHeight,
     required this.loopBoundaryXPositions,
     this.notchRadius = 4.0,
   });
@@ -4119,6 +4125,22 @@ class _ClipBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     canvas.drawPath(path, paint);
+
+    // Draw vertical lines at loop boundaries (from header bottom to bottom notch tip)
+    if (loopBoundaryXPositions.isNotEmpty) {
+      final linePaint = Paint()
+        ..color = trackColor.withValues(alpha: 0.25)
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke;
+
+      for (final x in loopBoundaryXPositions) {
+        canvas.drawLine(
+          Offset(x, headerHeight),
+          Offset(x, size.height - notchRadius),
+          linePaint,
+        );
+      }
+    }
   }
 
   static Path buildClipPath(Size size, double cornerRadius, double notchRadius, List<double> loopBoundaryXPositions) {
