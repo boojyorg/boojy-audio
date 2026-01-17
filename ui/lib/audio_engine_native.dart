@@ -172,6 +172,8 @@ class AudioEngine implements AudioEngineInterface {
 
       // List of paths to try, in order of priority
       final pathsToTry = <String>[
+        // Release build: Frameworks folder inside app bundle
+        '$executableDir/../Frameworks/libengine.dylib',
         // Development: symlink in Runner directory (relative to app bundle)
         '$executableDir/../../../macos/Runner/libengine.dylib',
         // Development: engine folder relative to app bundle

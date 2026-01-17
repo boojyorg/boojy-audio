@@ -6,9 +6,11 @@ class MainFlutterWindow: NSWindow {
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
-    let windowFrame = self.frame
     self.contentViewController = flutterViewController
-    self.setFrame(windowFrame, display: true)
+
+    // Set initial window size (1280x800) and center on screen
+    self.setFrame(NSRect(x: 0, y: 0, width: 1280, height: 800), display: true)
+    self.center()
 
     // Set minimum window size (800x600) for responsive panel layout
     self.minSize = NSSize(width: 800, height: 600)
