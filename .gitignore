@@ -55,3 +55,18 @@ ui/macos/Frameworks/
 
 # Third-party SDKs (cloned separately)
 engine/vst3sdk/
+
+# CocoaPods
+/ui/macos/Pods/
+
+# Sparkle build artifacts
+sparkle.tar.xz
+Sparkle.framework/
+bin/
+
+# Certificate files (never commit!)
+*.p12
+*.cer
+*.pem
+*.key
+*.csr

@@ -2,6 +2,15 @@
 
 A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, simplicity, and collaboration**.
 
+![Boojy Audio Screenshot](docs/screenshot_v0.1.0.png)
+
+## Download
+
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tsbujacncl/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-mac.dmg)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/tsbujacncl/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-win.exe)
+
+Or visit [boojy.org](https://boojy.org) for more information.
+
 ## Overview
 
 Boojy Audio combines professional workflows with beginner-friendly UX. Built with Flutter (UI) and Rust (audio engine), it's designed to work seamlessly across macOS, iPad, and eventually web, Windows, Linux, iOS, and Android.
@@ -178,7 +187,7 @@ Boojy Audio combines professional workflows with beginner-friendly UX. Built wit
 - **Rust:** `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Flutter:** [Install Flutter](https://docs.flutter.dev/get-started/install)
 - **macOS:** Xcode Command Line Tools
-- **Windows:** Visual Studio 2026 with "Desktop development with C++" + CMake
+- **Windows:** Visual Studio 2022 with "Desktop development with C++" + CMake
 
 ### Windows VST3 Setup
 
@@ -186,14 +195,14 @@ For VST3 plugin support on Windows:
 
 1. **Install Build Tools:**
    - CMake: `winget install Kitware.CMake`
-   - Visual Studio 2026 Community with "Desktop development with C++" workload
+   - Visual Studio 2022 Community with "Desktop development with C++" workload
 
 2. **Build VST3 C++ Libraries:**
    ```powershell
    cd engine/vst3_host
    mkdir build_win
    cd build_win
-   cmake -G "Visual Studio 18 2026" -A x64 ..
+   cmake -G "Visual Studio 17 2022" -A x64 ..
    cmake --build . --config Release
    cd ../../..
    copy engine/vst3_host/build_win/lib/Release/*.lib engine/lib/
@@ -271,7 +280,7 @@ This project is currently in early development (pre-v1). Contributions will be w
 
 ## License
 
-TBD (To be decided before v1 launch)
+MIT License - See [LICENSE](LICENSE) for details.
 
 ## Contact
 
@@ -281,6 +290,4 @@ TBD (To be decided before v1 launch)
 ---
 
 **Built with ❤️ using Rust and Flutter**
-
-<!-- Testing from Windows device -->
 
