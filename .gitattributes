@@ -1,0 +1,3 @@
+# Hide generated/config files from GitHub file browser
+appcast.xml linguist-generated
+.gitmodules linguist-generated
