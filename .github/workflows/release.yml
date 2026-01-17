@@ -276,14 +276,10 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: List downloaded artifacts
+      - name: Rename artifacts for release
         run: |
-          echo "=== All downloaded files ==="
-          find . -type f -name "*.dmg" -o -name "*.exe" -o -name "*.txt"
-          echo "=== Directory structure ==="
-          ls -la
-          ls -la macos-dmg/ || echo "macos-dmg folder not found"
-          ls -la windows-installer/ || echo "windows-installer folder not found"
+          mv macos-dmg/Boojy-Audio-${{ github.ref_name }}-mac.dmg macos-dmg/Boojy-Audio-mac.dmg
+          mv windows-installer/Boojy-Audio-${{ github.ref_name }}-win.exe windows-installer/Boojy-Audio-win.exe
 
       - name: Read Sparkle signature
         id: sparkle
@@ -319,7 +315,7 @@ jobs:
                 <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
                 <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
                 <enclosure
-                  url="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-mac.dmg"
+                  url="https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-mac.dmg"
                   sparkle:edSignature="${{ steps.sparkle.outputs.signature }}"
                   length="${{ steps.sparkle.outputs.size }}"
                   type="application/octet-stream"
@@ -336,14 +332,14 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            macos-dmg/Boojy-Audio-${{ github.ref_name }}-mac.dmg
-            windows-installer/Boojy-Audio-${{ github.ref_name }}-win.exe
+            macos-dmg/Boojy-Audio-mac.dmg
+            windows-installer/Boojy-Audio-win.exe
           body: |
             ## Boojy Audio ${{ github.ref_name }}
 
             ### Downloads
-            - **macOS** (11.0+): [Boojy-Audio-${{ github.ref_name }}-mac.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-mac.dmg)
-            - **Windows** (10+): [Boojy-Audio-${{ github.ref_name }}-win.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/Boojy-Audio-${{ github.ref_name }}-win.exe)
+            - **macOS** (11.0+): [Boojy-Audio-mac.dmg](https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-mac.dmg)
+            - **Windows** (10+): [Boojy-Audio-win.exe](https://github.com/${{ github.repository }}/releases/latest/download/Boojy-Audio-win.exe)
 
             ### What's New
             <!-- Add release notes here before publishing -->
