@@ -390,7 +390,11 @@ class _DAWScreenState extends State<DAWScreen> {
       debugPrint('DawScreen: initAudioEngine done');
 
       // Initialize audio graph
-      _audioEngine!.initAudioGraph();
+      final graphResult = _audioEngine!.initAudioGraph();
+      debugPrint('DawScreen: initAudioGraph result: $graphResult');
+      if (graphResult.startsWith('Error')) {
+        throw Exception(graphResult);
+      }
 
       // Initialize recording settings
       try {

@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -38,7 +40,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   List<Map<String, dynamic>> _inputDevices = [];
   String? _selectedOutputDevice;
   String? _selectedInputDevice;
-  String _selectedDriver = 'wasapi';
+  String _selectedDriver = Platform.isMacOS ? 'coreaudio' : 'wasapi';
   bool _asioGuideExpanded = false;
   bool _autoCheckUpdates = true;
   String _appVersion = '';
@@ -401,8 +403,23 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     }
   }
 
-  /// Get list of available audio drivers
+  /// Get list of available audio drivers based on platform
   List<Map<String, String>> _getAvailableDrivers() {
+    // macOS uses CoreAudio
+    if (Platform.isMacOS) {
+      return [
+        {'id': 'coreaudio', 'name': 'CoreAudio', 'latency': '5-15ms'},
+      ];
+    }
+
+    // Linux uses ALSA
+    if (Platform.isLinux) {
+      return [
+        {'id': 'alsa', 'name': 'ALSA', 'latency': '10-30ms'},
+      ];
+    }
+
+    // Windows uses WASAPI + optional ASIO
     final drivers = <Map<String, String>>[
       {'id': 'wasapi', 'name': 'Windows Audio (WASAPI)', 'latency': '15-30ms'},
     ];
@@ -414,8 +431,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       return name.contains('asio');
     }).toList();
 
-    // Add ASIO4ALL if any ASIO device is detected (user likely has it installed)
-    // In a real implementation, we'd enumerate actual ASIO drivers
+    // Add ASIO devices if detected
     if (asioDevices.isNotEmpty) {
       for (final device in asioDevices) {
         final name = device['name'] as String;
