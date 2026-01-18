@@ -1,27 +1,128 @@
-# Boojy Audio - Development Roadmap
+# Boojy Audio Roadmap
 
-**Last Updated:** December 30, 2025
-**Current Status:** M7 Complete, working on M8 (Stock Instruments)
-
-**Related Documentation:**
-
-- [FEATURES.md](FEATURES.md) — Complete feature specification with progress checkboxes
-- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks
-- [UI_DESIGN.md](UI_DESIGN.md) — UI specifications and component details
+**Current Version:** v0.1.1 (Alpha)
 
 ---
 
-## Version Progress
+## What's Next
 
-| Version | Status | Target | Progress |
-|---------|--------|--------|----------|
-| **v1.0** | In Progress | Jan 2026 | ████████░░ ~55% |
-| **v1.1** | Planned | Q1 2026 | ░░░░░░░░░░ 0% |
-| **v1.2** | Planned | Q2 2026 | ░░░░░░░░░░ 0% |
-| **v1.3** | Planned | Q3 2026 | ░░░░░░░░░░ 0% |
-| **v2.0** | Planned | 2027 | ░░░░░░░░░░ 0% |
+### v0.2.0 — Core Workflow
+- MIDI controller recording
+- Audio clip operations (slice, copy, move)
+- Loop toggle button
+- Capture MIDI (retroactive recording)
 
-> See [FEATURES.md](FEATURES.md) for detailed feature checklists per version.
+---
+
+## Version Plan
+
+### v0.1.x — Stability & Polish (Current)
+
+Focus: Fix bugs, stabilize existing features
+
+**Done:**
+
+- [x] Audio engine loading fix
+- [x] Window sizing (1280x800, centered)
+- [x] Code signing and notarization
+- [x] Panel auto-expand on resize
+- [x] MIDI clip looping visualization
+- [x] MIDI loop playback (note-off timing)
+- [x] Library panel refresh fix
+- [x] Mixer track alignment
+
+**Remaining:**
+
+- [ ] Undo/redo reliability
+- [ ] Clip name overflow in arrangement
+- [ ] Duplicate button behavior
+
+---
+
+### v0.2.0 — Core Workflow Complete
+
+Focus: Make the basic workflow reliable end-to-end
+
+**Recording:**
+
+- [ ] MIDI controller recording
+- [ ] Capture MIDI (retroactive)
+
+**Editing:**
+
+- [ ] Audio clip operations (slice, copy, move)
+- [ ] Piano roll button audit (verify all work)
+
+**Arrangement:**
+
+- [ ] Loop toggle button
+- [ ] Playhead indicator improvements
+- [ ] Horizontal scroll/zoom polish
+
+**Mixing:**
+
+- [ ] Verify pan controls work correctly
+- [ ] Verify mute/solo work correctly
+
+---
+
+### v0.3.0 — Essential Features
+
+Focus: Features users expect from any DAW
+
+**Library:**
+
+- [ ] Search functionality
+- [ ] Preview/audition sounds
+
+**Effects:**
+
+- [ ] Chorus effect
+- [ ] Verify EQ/Compressor/Reverb/Delay work well
+
+**Piano Roll:**
+
+- [ ] Velocity lane improvements
+- [ ] Quantize options
+
+**Quality of Life:**
+
+- [ ] Auto-update mechanism
+- [ ] Virtual piano (re-enable)
+
+---
+
+### v0.4.0 — Stock Instruments
+
+Focus: Built-in instruments that sound good
+
+- [ ] Boojy Synth (wavetable, Serum-style)
+- [ ] Boojy Drums (pad grid + step sequencer)
+- [ ] Boojy Sampler (drag audio, map to keys)
+
+---
+
+### v0.5.0 — Polish & UX
+
+Focus: Make it feel professional
+
+- [ ] Tooltips on all buttons
+- [ ] Built-in tutorial
+- [ ] Dark theme
+- [ ] Undo history panel
+- [ ] Start screen
+
+---
+
+### v1.0.0 — Public Release
+
+Focus: Ready for real users
+
+- [ ] All known bugs fixed
+- [ ] VST2/AU support
+- [ ] Linux support
+- [ ] Version history
+- [ ] Import/export MIDI
 
 ---
 
@@ -38,16 +139,6 @@ Part of the larger **Boojy creative software suite**, it aims to be the first DA
 - **Progressive disclosure** — Simple by default, powerful when needed
 - **Cross-platform** — Same experience on Mac, Windows, Linux, and Web
 - **Ecosystem thinking** — Designed as part of the Boojy suite from day one
-
-### Boojy Suite Branding
-
-Each app in the Boojy suite uses a letter in its name as a cloud connection status indicator:
-
-| App | Status Letter | Connected | Offline | Error |
-|-----|---------------|-----------|---------|-------|
-| Boojy Audio | O (outline) | Blue | Yellow | Red |
-| Boojy Video | O (filled) | Blue | Yellow | Red |
-| Boojy Design | D | Blue | Yellow | Red |
 
 ---
 
@@ -70,352 +161,57 @@ Each major feature draws inspiration from the best existing implementation:
 
 ---
 
-## Timeline Overview
+## Future Versions (Post-1.0)
 
-```
-Week 0    Week 10   Week 15   Week 22
-  │         │         │         │
-  M0 ─ M5 ─┤         │         │
-           M6 ─ M8 ──┤         │
-                    M9 ── M10 ─┤
-                             Beta: Dec 1
-```
+### v1.1 — iPad & Accessibility
 
-**Weeks 0-10:** Foundation (audio, recording, mixing) ✅
-**Weeks 11-15:** MIDI, VST3, Instruments 🚧
-**Weeks 16-22:** Polish, Beta Launch 📋
-**Target Beta:** December 1, 2025
+- Touch-optimized UI
+- Apple Pencil support
+- Screen reader support
+- CLAP plugin support
 
----
+### v1.2 — Advanced Features
 
-## Current Status
+- Pitch correction (Melodyne-style)
+- Stem separation (ML-based)
+- MIDI effects (arpeggiator, chord, scale)
+- Dolby Atmos
 
-**✅ Complete:**
-- M0: Project Setup
-- M1: Core Playback
-- M2: Recording
-- M3: Editing
-- M4: Mixing
-- M5: Save & Export
-- M5.5: UI Redesign & Polish (3-panel layout, light grey theme)
-- M5.8: Advanced Export (MP3/WAV, stems, metadata, LUFS, progress tracking)
-- M6: MIDI & Instruments (piano roll, synthesizer, drag-and-drop)
-- M6.1: MIDI Playback Fixes (clip playback, track cleanup, stuck notes)
-- M6.2: Toolbar Reorganization (grouped controls, enhanced File menu)
-- M6.3: Native Menu Bar & Editor Panel (macOS menu integration, keyboard shortcuts)
-- M6.4: Bug Fixes & Synth Refinements (virtual piano fix, MIDI bar-snapping, simplified synth)
-- M6.5: MIDI & Arrangement Improvements (stereo meters, beat grid, pan fix)
-- M6.6: iOS/iPad Support (cross-platform, audio latency control)
-- M6.7: Piano Roll Improvements (FL Studio-style note preview)
-- M6.8: Track Height Resizing (mixer-controlled, synced with timeline)
-- M6.9: Piano Roll Gesture Improvements (5-gesture philosophy, multi-note duplicate, keyboard shortcuts)
-- M7: VST3 Plugin Support (scanning, loading, UI, state persistence, FX chain, preferences)
+### v1.3 — Collaboration
 
-**📋 Upcoming:**
-- M8: Stock Instruments
-- M9: Polish & UX
-- M10: Beta Testing & Launch
+- Cloud sync (Boojy Cloud)
+- Real-time collaboration
+- Video import for scoring
+- Notation view
 
----
+### v2.0 — Live Performance
 
-## Milestones
-
-### M6: MIDI & Instruments (Weeks 11-13) ✅
-
-**Completed:** October 29, 2025
-
-**Implemented:**
-- ✅ Piano roll with velocity lane (FL Studio-style)
-- ✅ Virtual piano (bottom panel, polyphonic)
-- ✅ Note editing (draw, move, resize, delete, undo/redo)
-- ✅ Computer keyboard mapping (ASDF keys)
-- ✅ Polyphonic synthesizer (8 voices, ADSR, filter)
-- ✅ Instrument browser with drag-and-drop
-- ✅ Ableton-style workflow (drag from library → timeline)
-- ✅ Auto-create MIDI tracks on instrument drop
-- ✅ App branding update (Boojy Audio logo)
-- ✅ MIDI clip playback during transport (M6.1)
-- ✅ Proper track deletion cleanup (M6.1)
-
-**Deferred to Future:**
-- MIDI recording (planned for M7/M8)
-- Quantize options (planned for M7/M8)
-
----
-
-### M6.2: Toolbar Reorganization ✅
-
-**Completed:** October 30, 2025
-
-**Implemented:**
-- ✅ Reorganized transport bar with logical grouping
-- ✅ New layout: [Logo] [File] | [Transport] | [Tools & Time] | [Mixer]
-- ✅ Enhanced File menu with 10 actions:
-  - New Project, Open Project
-  - Save, Save As, Make a Copy
-  - Export Audio, Export MIDI
-  - Project Settings, Close Project
-- ✅ Visual dividers between control groups
-- ✅ Material icons throughout menu (no emojis)
-- ✅ Placeholder dialogs for future features (MIDI export, settings)
-
----
-
-### M6.3: Native Menu Bar & Editor Panel ✅
-
-**Completed:** October 30, 2025
-
-**Implemented:**
-- ✅ Native macOS menu bar integration using PlatformMenuBar
-- ✅ Complete menu structure with keyboard shortcuts:
-  - **Audio menu**: About, Services, Hide (⌘H), Hide Others (⌥⌘H), Show All, Quit (⌘Q)
-  - **File menu**: New (⌘N), Open (⌘O), Save (⌘S), Save As (⇧⌘S), Make Copy, Export Audio/MIDI, Settings (⌘,), Close (⌘W)
-  - **Edit menu**: Undo (⌘Z), Redo (⇧⌘Z), Cut (⌘X), Copy (⌘C), Paste (⌘V), Delete (Del), Select All (⌘A) - all disabled for now
-  - **View menu**: Toggle Library (⌘L), Mixer (⌘M), Editor (⌘E), Piano (⌘P), Reset Layout, Zoom In/Out/Fit (disabled for now)
-- ✅ Renamed "Bottom Panel" to "Editor Panel" throughout codebase
-- ✅ Added View dropdown to toolbar with checkmarks for panel visibility
-- ✅ Panel toggle methods: Library, Mixer, Editor, Virtual Piano
-- ✅ Reset Panel Layout functionality (restores default sizes and visibility)
-- ✅ All keyboard shortcuts working natively through macOS system
-- ✅ Updated AppDelegate.swift for proper menu bar integration
-
----
-
-### M6.4: Bug Fixes & Synth Refinements ✅
-
-**Completed:** December 20, 2025
-
-**Implemented:**
-
-- ✅ Virtual piano works during pause/stop (audio stream stays active for live playing)
-- ✅ MIDI clip bar-snapping (Ableton-style: clips align to bar boundaries)
-- ✅ Simplified synthesizer architecture:
-  - Single oscillator (sine, saw, square, triangle)
-  - One-pole lowpass filter with cutoff control
-  - ADSR envelope (attack, decay, sustain, release)
-  - 8-voice polyphony with voice stealing
-- ✅ Synth UI updated to match minimal architecture
-
----
-
-### M6.5: MIDI & Arrangement Improvements ✅
-
-**Completed:** December 2025
-
-**Implemented:**
-
-- ✅ Fixed MIDI clips rendering in timeline
-- ✅ MIDI clip move and delete functionality
-- ✅ Fixed note-off triggering at exact clip boundary
-- ✅ Piano roll note audition while editing
-- ✅ Beat-based grid display with transparency
-- ✅ Fixed pan implementation with proper stereo imaging
-- ✅ Stereo level meters in mixer
-- ✅ Refactored daw_screen.dart: extracted service managers
-- ✅ Fixed audio file routing to correct tracks
-- ✅ Fixed library path resolution for different working directories
-- ✅ Improved error handling throughout
-
----
-
-### M6.6: iOS/iPad Support ✅
-
-**Completed:** December 2025
-
-**Implemented:**
-
-- ✅ iOS support with FFI linking and proper audio initialization
-- ✅ iPad/touch compatibility improvements
-- ✅ Configurable audio latency control (buffer size settings)
-- ✅ Optimized audio callback for mobile performance
-
----
-
-### M6.7: Piano Roll Improvements ✅
-
-**Completed:** December 2025
-
-**Implemented:**
-
-- ✅ FL Studio-style note preview (click and drag to preview before placing)
-- ✅ Real-time pitch audition while moving notes
-- ✅ Improved note movement with horizontal constraints
-- ✅ Delete notes with right-click or delete key
-
----
-
-### M6.8: Track Height Resizing ✅
-
-**Completed:** December 2025
-
-**Implemented:**
-
-- ✅ Drag bottom edge of mixer strips to resize track heights
-- ✅ Master track: drag TOP edge (opposite direction)
-- ✅ Heights sync between mixer panel and timeline view
-- ✅ Range: 50px min to 300px max, 100px default (60px for master)
-
----
-
-### M7: VST3 Plugin Support (Weeks 14-15) ✅
-
-**Completed:** December 25, 2025
-
-**Implemented:**
-- ✅ Scan installed VST3 plugins (Serum, Serum 2, Serum 2 FX detected)
-- ✅ Re-enable plugin loading backend (C++ vst3_host)
-- ✅ Audio processing implementation (ProcessData, buffer setup)
-- ✅ MIDI event handling (Note On/Off)
-- ✅ Plugin UI embedded in bottom panel (docked mode)
-- ✅ Floating window support with position persistence
-- ✅ Native NSView hosting via AppKitView on macOS
-- ✅ Plugin state save/load with projects (base64-encoded state blobs)
-- ✅ Horizontal FX Chain view (signal flow IN → effects → OUT)
-- ✅ Effect bypass toggle (per-effect green/grey indicator)
-- ✅ Drag-to-reorder effects in chain
-- ✅ Per-plugin preferences (embed vs float mode persistence)
-- ✅ Plugin preset management (get/set VST3 state)
-
----
-
-### M7.5: Arrangement View & Clip Editing ✅
-
-**Completed:** December 25, 2025
-
-**Implemented:**
-
-- ✅ Default zoom changed from 50 to 25 pixels/beat (better overview)
-- ✅ Split clips at playhead (Cmd+E) - works for both MIDI and audio clips
-- ✅ Quantize clips to grid (Q key) - snaps clip start to nearest beat
-- ✅ Audio clip selection with visual feedback (white border)
-- ✅ Non-destructive audio trimming using offset field
-- ✅ MIDI clip left edge trim (crops notes, adjusts timing)
-- ✅ Audio clip left/right edge trim handles
-- ✅ Grid snapping for all clip operations
-- ✅ Multi-selection for clips (Shift+click to add, Cmd+click to toggle)
-- ✅ Consolidate clips (Cmd+J) - merge multiple MIDI clips into one
-- ✅ Bounce MIDI to Audio (Cmd+B) - placeholder UI (full implementation planned)
-
-**Keyboard Shortcuts:**
-
-- `Cmd+E` - Split selected clip at playhead
-- `Q` - Quantize selected clip to grid
-- `Cmd+J` - Consolidate selected clips (2+ MIDI clips on same track)
-- `Cmd+B` - Bounce MIDI to Audio (coming soon)
-- `Shift+Click` - Add clip to selection
-- `Cmd+Click` - Toggle clip selection
-
----
-
-### M8: Stock Instruments (Weeks 16-18)
-
-Build 5 high-quality instruments:
-- Piano (sampled grand)
-- Synth (2-oscillator subtractive)
-- Sampler (drag audio, map to keys)
-- Drums (16-pad machine, 808/909 kits)
-- Bass (808-style sub bass)
-
-**Target:** Mid-December 2025
-
----
-
-### M9: Polish & UX (Weeks 19-20)
-
-- Tooltips on all buttons
-- Built-in tips system
-- Error handling (toast notifications + banners)
-- Preferences window (Audio, MIDI, File, Appearance)
-- Track colors (auto-assign from palette)
-- Keyboard shortcuts (Ableton-style)
-- Bug fixes and optimization
-
-**Target:** Late December 2025
-
----
-
-### M10: Beta Testing & Launch (Weeks 21-22)
-
-**Week 1: Private Beta**
-- Invite small group of testers
-- Collect feedback
-- Fix critical bugs
-
-**Week 2: Public Beta & Launch**
-- Public beta on GitHub
-- Tutorial videos and documentation
-- v1.0 launch announcement
-- Reddit, Hacker News, YouTube
-
-**Target Beta Launch:** December 1, 2025
-
----
-
-## Version Summary
-
-> For detailed feature checklists with progress tracking, see [FEATURES.md](FEATURES.md).
-
-| Version | Focus | Key Features |
-|---------|-------|--------------|
-| **v1.0** | Core DAW | Recording, editing, mixing, MIDI, VST3, stock instruments |
-| **v1.1** | Polish & iPad | Touch UI, Apple Pencil, accessibility, CLAP |
-| **v1.2** | Advanced | Pitch correction, stem separation, MIDI effects |
-| **v1.3** | Collaboration | Cloud sync, real-time collab, notation, video |
-| **v2.0** | Live Performance | DJ Mode, Session View, clip launcher |
-
----
-
-## Launch Plan
-
-### Phase 1: Private Beta
-
-- Small group of trusted testers
-- Focus on bug finding and UX feedback
-- Iterate quickly on issues
-
-### Phase 2: Public Beta
-
-- Open beta on GitHub
-- Announce on Reddit, Twitter
-- Gather wider feedback
-- Final bug fixes
-
-### Phase 3: v1.0 Launch
-
-- Official release on GitHub
-- Tutorial videos on YouTube
-- Launch posts on Reddit, Hacker News
-- Update website and documentation
-
-### Phase 4: Post-Launch
-
-- Monitor feedback and issues
-- Fix critical bugs
-- Plan v1.1 based on user requests
+- DJ Mode (two decks, crossfader)
+- Session View (Ableton-style clip launcher)
+- Live audio looping
 
 ---
 
 ## Technology
 
 **Core:**
-- Frontend: Flutter (Dart) + SwiftUI
+
+- Frontend: Flutter (Dart)
 - Backend: Rust (audio engine)
 - FFI: C bindings (Rust ↔ Dart)
 
 **Audio:**
+
 - CPAL (cross-platform audio)
 - Symphonia (audio decoding)
 - VST3 plugin hosting
 
-**Platform:**
-- macOS 12+ (Monterey or later)
-- Windows 10+ (v1.0 release alongside macOS)
-- Intel + Apple Silicon (M1/M2/M3/M4)
+**Platform Support:**
 
-**Future:**
-- iPad/iPhone (v1.1 - shared codebase)
-- Linux (TBD)
-- Web (Flutter Web + WebAssembly - TBD)
+- [x] macOS (Intel + Apple Silicon)
+- [x] iOS/iPad (basic)
+- [ ] Windows
+- [ ] Linux
 
 ---
 
@@ -423,91 +219,12 @@ Build 5 high-quality instruments:
 
 Boojy Audio is open-source (GPL v3). Contributions welcome!
 
-**How to help:**
-- Report bugs (GitHub Issues)
-- Suggest features (GitHub Discussions)
-- Contribute code (Pull Requests)
-- Create sample packs and presets
-- Write tutorials and documentation
+- Report bugs: [GitHub Issues](https://github.com/tyrbujac/boojy-audio/issues)
+- Suggest features: [GitHub Discussions](https://github.com/tyrbujac/boojy-audio/discussions)
+- Contribute code: Pull Requests
 
 ---
 
-## Communication
+## Historical Milestones
 
-**Monthly Dev Vlogs/Blogs:**
-- YouTube dev vlogs OR blog posts
-- Behind-the-scenes development
-- Demos and progress updates
-- Posted once per month during development
-
-**Launch Updates:**
-- GitHub Discussions for announcements
-- Twitter/X (@boojyaudio)
-- Reddit posts for major milestones
-
----
-
-## Technical Debt
-
-Items identified for future cleanup (not blocking current development):
-
-**TODO Placeholders:**
-- CPU usage monitoring display
-- Stereo meters (currently mono)
-- Piano roll playhead sync with transport
-
-**Code Organization:**
-- `ui/lib/screens/daw_screen.dart` (2600+ lines) - candidate for refactoring into smaller widget files
-
----
-
-## Next Steps
-
-**Current Focus (M8):**
-
-- Stock instruments (Piano, Drums, Sampler, Bass)
-- Expand instrument library
-
-**Beta Target:**
-
-- Complete M8-M9
-- Private beta testing
-- Public beta launch
-
-**Recent Accomplishments (M5.8 - Export Feature):**
-
-- Comprehensive export dialog with format/quality options
-- MP3 export via ffmpeg (128/192/320 kbps)
-- WAV export with bit depth options (16/24/32-bit)
-- Sample rate conversion (48kHz → 44.1kHz)
-- TPDF dithering for bit depth reduction
-- Stem export (per-track rendering)
-- ID3 metadata embedding for MP3 files
-- LUFS normalization with platform presets
-- Real-time progress tracking with cancel support
-- Export settings persistence via SharedPreferences
-
-**Recent Accomplishments (M7):**
-
-- VST3 plugin scanning and loading (Serum, Serum 2, etc.)
-- Embedded and floating plugin UI windows
-- Plugin state persistence with projects
-- Horizontal FX Chain view in Editor Panel
-- Signal flow visualization (IN → effects → OUT)
-- Effect bypass toggle with visual feedback
-- Drag-to-reorder effects
-- Per-plugin display preferences (embed/float)
-- Reverb crash fix (L/R buffer position separation)
-
-**Recent Accomplishments (M6.5-M6.8):**
-
-- iOS/iPad support with proper audio initialization
-- FL Studio-style piano roll note preview
-- Track height resizing from mixer panel
-- Stereo level meters and proper pan implementation
-- MIDI clip editing improvements (move, delete, audition)
-- Code refactoring and improved error handling
-
----
-
-**Let's build the future of music production!**
+For the original milestone-based development history (M0-M10), see [docs/archive/MILESTONES.md](archive/MILESTONES.md).
