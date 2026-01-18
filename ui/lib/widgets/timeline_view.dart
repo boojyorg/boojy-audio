@@ -2624,14 +2624,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Clear pending tap selection - user is dragging, not clicking
           pendingAudioClipTapSelection = null;
 
+          // Check modifier keys at drag start (more reliable than effectiveToolMode)
+          final modifiers = ModifierKeyState.current();
+          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+
           // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          final tool = effectiveToolMode;
           if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedAudioClipIds.contains(clip.clipId);
-          // Duplicate mode = copy drag
-          final isDuplicate = tool == ToolMode.duplicate;
+          // Duplicate mode = copy drag (from tool OR Cmd/Ctrl modifier)
+          final isDuplicate = tool == ToolMode.duplicate || modifiers.isCtrlOrCmd;
 
           setState(() {
             // If not in multi-selection, select just this clip
@@ -2644,7 +2647,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             dragStartTime = clip.startTime;
             dragStartX = details.globalPosition.dx;
             dragCurrentX = details.globalPosition.dx;
-            isCopyDrag = isDuplicate; // Store for drag end
+            isCopyDrag = isDuplicate; // Duplicate tool or Cmd/Ctrl = copy drag
           });
         },
         onHorizontalDragUpdate: (details) {
@@ -3252,14 +3255,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Clear pending tap selection - user is dragging, not clicking
           pendingMidiClipTapSelection = null;
 
+          // Check modifier keys at drag start (more reliable than effectiveToolMode)
+          final modifiers = ModifierKeyState.current();
+          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+
           // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          final tool = effectiveToolMode;
           if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedMidiClipIds.contains(midiClip.clipId);
-          // Duplicate mode = copy drag (from tool or Cmd/Ctrl modifier)
-          final isDuplicate = tool == ToolMode.duplicate;
+          // Duplicate mode = copy drag (from tool OR Cmd/Ctrl modifier)
+          final isDuplicate = tool == ToolMode.duplicate || modifiers.isCtrlOrCmd;
           setState(() {
             // If not in multi-selection, select just this clip
             if (!isInMultiSelection) {
@@ -3270,7 +3276,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             midiDragStartTime = midiClip.startTime;
             midiDragStartX = details.globalPosition.dx;
             midiDragCurrentX = details.globalPosition.dx;
-            isCopyDrag = isDuplicate; // Duplicate tool = copy drag
+            isCopyDrag = isDuplicate; // Duplicate tool or Cmd/Ctrl = copy drag
           });
         },
         onHorizontalDragUpdate: (details) {
