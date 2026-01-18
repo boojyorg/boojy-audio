@@ -55,6 +55,10 @@ jobs:
           cd ui
           flutter build macos --release
 
+      - name: Copy libengine.dylib to app bundle
+        run: |
+          cp engine/target/release/libengine.dylib "ui/build/macos/Build/Products/Release/Boojy Audio.app/Contents/Frameworks/"
+
       - name: Import code signing certificate
         if: ${{ env.HAS_CERTIFICATE == 'true' }}
         env:
