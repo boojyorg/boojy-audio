@@ -234,6 +234,18 @@ impl Recorder {
         // beat-alignment detection here instead.
         self.seek_cooldown.store(0, Ordering::SeqCst);
     }
+
+    /// Set time signature (beats per bar)
+    pub fn set_time_signature(&self, beats_per_bar: u32) {
+        let mut ts = self.time_signature.lock().expect("mutex poisoned");
+        *ts = beats_per_bar;
+        eprintln!("⏱️  [Recorder] Time signature set to {}/4", beats_per_bar);
+    }
+
+    /// Get time signature (beats per bar)
+    pub fn get_time_signature(&self) -> u32 {
+        *self.time_signature.lock().expect("mutex poisoned")
+    }
 }
 
 /// References for use in audio callback

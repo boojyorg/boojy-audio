@@ -102,6 +102,11 @@ class AudioEngine implements AudioEngineInterface {
   @override
   void setCountInBars(int bars) => throw UnsupportedError('stub');
 
+  // Audio file operations (not in interface but used directly)
+  int loadAudioFile(String path) => throw UnsupportedError('stub');
+
+  List<int> getAllTrackIds() => throw UnsupportedError('stub');
+
   // Project operations (not in interface but used by ProjectManager)
   String saveProject(String projectName, String projectPath) =>
       throw UnsupportedError('stub');
@@ -109,6 +114,11 @@ class AudioEngine implements AudioEngineInterface {
   String loadProject(String projectPath) => throw UnsupportedError('stub');
 
   String loadProjectFromJson(String json) => throw UnsupportedError('stub');
+
+  // Time signature
+  String setTimeSignature(int beatsPerBar) => throw UnsupportedError('stub');
+
+  int getTimeSignature() => throw UnsupportedError('stub');
 
   // Buffer size presets
   static const Map<int, String> bufferSizePresets = {};

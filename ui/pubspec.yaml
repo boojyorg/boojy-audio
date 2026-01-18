@@ -67,6 +67,9 @@ dependencies:
   # Web APIs for IndexedDB storage (web platform only)
   web: ^1.1.0
 
+  # App version info
+  package_info_plus: ^8.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

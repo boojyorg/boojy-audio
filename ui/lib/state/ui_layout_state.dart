@@ -74,6 +74,10 @@ class UILayoutState extends ChangeNotifier {
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
 
+  // Auto-follow: loop region automatically tracks longest clip
+  // Set to false when user manually adjusts loop region
+  bool _loopAutoFollow = true;
+
   // Fixed minimums (usability floor)
   static const double libraryMinWidth = 150.0;
   static const double mixerMinWidth = 200.0;
@@ -343,9 +347,24 @@ class UILayoutState extends ChangeNotifier {
   }
 
   /// Set loop region (start and end in beats)
-  void setLoopRegion(double startBeats, double endBeats) {
+  /// If manual is true, disables auto-follow (user explicitly set the loop)
+  void setLoopRegion(double startBeats, double endBeats, {bool manual = false}) {
+    if (manual) {
+      _loopAutoFollow = false; // User override - disable auto-follow
+    }
     _loopStartBeats = startBeats;
     _loopEndBeats = endBeats;
+    notifyListeners();
+  }
+
+  /// Whether the loop region auto-follows the longest clip
+  bool get loopAutoFollow => _loopAutoFollow;
+
+  /// Reset loop auto-follow (called on new project)
+  void resetLoopAutoFollow() {
+    _loopAutoFollow = true;
+    _loopStartBeats = 0.0;
+    _loopEndBeats = 4.0;
     notifyListeners();
   }
 

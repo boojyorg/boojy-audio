@@ -12,6 +12,7 @@ class UnifiedNavBarPainter extends CustomPainter {
   final double? playheadPosition; // in beats (null = not shown)
   final double? hoverBeat; // For loop edge hover feedback
   final bool isHoveringPlayhead; // For expanded hover state
+  final int beatsPerBar;
 
   UnifiedNavBarPainter({
     required this.pixelsPerBeat,
@@ -23,12 +24,13 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.playheadPosition,
     this.hoverBeat,
     this.isHoveringPlayhead = false,
+    this.beatsPerBar = 4,
   });
 
   /// Get adaptive grid division based on zoom level
   /// Must match TimelineGridPainter._getGridDivision() for alignment
   double _getGridDivision() {
-    if (pixelsPerBeat < 10) return 4.0;   // Only bars
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble();   // Only bars
     if (pixelsPerBeat < 20) return 1.0;   // Bars + beats
     if (pixelsPerBeat < 40) return 0.5;   // + half beats
     if (pixelsPerBeat < 80) return 0.25;  // + quarter beats
@@ -133,7 +135,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       final x = beat * pixelsPerBeat;
       if (x > size.width) break;
 
-      final isBar = (beat % 4.0).abs() < 0.001;
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
       final isBeat = (beat % 1.0).abs() < 0.001;
 
       // Draw tick lines at bottom (adjusted for 24px height)
@@ -150,7 +152,7 @@ class UnifiedNavBarPainter extends CustomPainter {
 
         // Bar number (y-offset adjusted for 24px)
         // Only show at interval to prevent overlap when zoomed out
-        final barNumber = (beat / 4).floor() + 1;
+        final barNumber = (beat / beatsPerBar).floor() + 1;
         final barInterval = _getBarNumberInterval();
         if (barNumber % barInterval == 1 || barInterval == 1) {
           textPainter.text = TextSpan(
@@ -177,8 +179,8 @@ class UnifiedNavBarPainter extends CustomPainter {
 
         // Show beat subdivision number when zoomed in (e.g., 1.2, 1.3)
         if (pixelsPerBeat >= 30) {
-          final barNumber = (beat / 4).floor() + 1;
-          final beatInBar = (beat % 4).floor() + 1;
+          final barNumber = (beat / beatsPerBar).floor() + 1;
+          final beatInBar = (beat % beatsPerBar).floor() + 1;
           if (beatInBar > 1) {
             final textX = x + 2;
             // Check if text position is over the loop region
@@ -277,6 +279,7 @@ class UnifiedNavBarPainter extends CustomPainter {
         insertMarkerPosition != oldDelegate.insertMarkerPosition ||
         playheadPosition != oldDelegate.playheadPosition ||
         hoverBeat != oldDelegate.hoverBeat ||
-        isHoveringPlayhead != oldDelegate.isHoveringPlayhead;
+        isHoveringPlayhead != oldDelegate.isHoveringPlayhead ||
+        beatsPerBar != oldDelegate.beatsPerBar;
   }
 }

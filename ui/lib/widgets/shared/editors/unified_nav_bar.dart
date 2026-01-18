@@ -93,6 +93,8 @@ class UnifiedNavBar extends StatefulWidget {
 class _UnifiedNavBarState extends State<UnifiedNavBar> {
   // Hit zone size for loop edges (in pixels)
   static const double _edgeHitZone = 10.0;
+  // Larger hit zone for playhead (easier to grab)
+  static const double _playheadHitZone = 15.0;
 
   // Drag state
   _DragMode _dragMode = _DragMode.none;
@@ -185,12 +187,11 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   bool _isNearPlayhead(double beat) {
     if (widget.config.playheadPosition == null) return false;
-    final playheadX = _xAtBeat(widget.config.playheadPosition!);
-    final beatX = _xAtBeat(beat);
-    final scrollOffset = widget.scrollController.hasClients
-        ? widget.scrollController.offset
-        : 0.0;
-    return (beatX - playheadX + scrollOffset).abs() < _edgeHitZone;
+    // Compare beat positions directly (both are in the same coordinate space)
+    final playheadBeat = widget.config.playheadPosition!;
+    final distanceInBeats = (beat - playheadBeat).abs();
+    final distanceInPixels = distanceInBeats * widget.config.pixelsPerBeat;
+    return distanceInPixels < _playheadHitZone;
   }
 
   // ============================================
@@ -242,7 +243,10 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   void _handleTapUp(TapUpDetails details) {
     final beat = _beatAtX(details.localPosition.dx);
-    widget.callbacks.onPlayheadSet?.call(beat);
+    // Don't set playhead when tapping directly on it (allow drag instead)
+    if (!_isNearPlayhead(beat)) {
+      widget.callbacks.onPlayheadSet?.call(beat);
+    }
   }
 
   // ============================================
@@ -326,11 +330,9 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
 
   void _handlePlayheadDrag(DragUpdateDetails details) {
     final beat = _beatAtX(details.localPosition.dx);
-    // Clamp to valid range (0 to totalBeats)
+    // Clamp to valid range (0 to totalBeats), no snapping for precise scrubbing
     final newPosition = beat.clamp(0.0, widget.config.totalBeats);
-    // Snap to grid (quarter beats)
-    final snappedPosition = (newPosition * 4).round() / 4;
-    widget.callbacks.onPlayheadDrag?.call(snappedPosition);
+    widget.callbacks.onPlayheadDrag?.call(newPosition);
   }
 
   void _handleNavigationDrag(DragUpdateDetails details) {

@@ -405,6 +405,21 @@ pub extern "C" fn is_metronome_enabled_ffi() -> i32 {
     if api::is_metronome_enabled().unwrap_or(true) { 1 } else { 0 }
 }
 
+/// Set time signature (beats per bar)
+#[no_mangle]
+pub extern "C" fn set_time_signature_ffi(beats_per_bar: u32) -> *mut c_char {
+    match api::set_time_signature(beats_per_bar) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get time signature (beats per bar)
+#[no_mangle]
+pub extern "C" fn get_time_signature_ffi() -> u32 {
+    api::get_time_signature().unwrap_or(4)
+}
+
 // ============================================================================
 // M3: MIDI FFI
 // ============================================================================

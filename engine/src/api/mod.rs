@@ -69,7 +69,7 @@ pub use synthesizer::{
     get_synth_parameters, send_track_midi_note_off, send_track_midi_note_on, set_synth_parameter,
     set_track_instrument,
 };
-pub use timing::{get_tempo, is_metronome_enabled, set_metronome_enabled, set_tempo};
+pub use timing::{get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo, set_time_signature};
 pub use tracks::{
     create_track, get_all_track_ids, get_track_count, get_track_info, get_track_peak_levels,
     move_clip_to_track, set_track_armed, set_track_mute, set_track_name, set_track_pan,

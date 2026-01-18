@@ -122,18 +122,14 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// True when Alt/Option held during drag (bypasses snap).
   bool snapBypassActive = false;
 
-  /// True when Alt held at drag start (copy mode).
+  /// True when Cmd/Ctrl held at drag start (copy mode).
   bool isCopyDrag = false;
 
-  // ============================================
-  // STAMP COPY STATE
-  // ============================================
-
-  /// Duration of source clip for stamp copy.
-  double stampCopySourceDuration = 0.0;
-
-  /// Number of stamp copies to create.
+  /// Number of stamp copies to create during Alt+drag.
   int stampCopyCount = 0;
+
+  /// Source clip duration for calculating stamp copy positions.
+  double stampCopySourceDuration = 0.0;
 
   // ============================================
   // MIDI CLIP RESIZE STATE
@@ -251,11 +247,17 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Whether eraser mode is active.
   bool isErasing = false;
 
-  /// Set of erased audio clip IDs.
+  /// Set of erased audio clip IDs (to prevent double-erasing).
   final Set<int> erasedAudioClipIds = {};
 
-  /// Set of erased MIDI clip IDs.
+  /// Set of erased MIDI clip IDs (to prevent double-erasing).
   final Set<int> erasedMidiClipIds = {};
+
+  /// Audio clips to delete when erasing stops (for batch undo).
+  final List<ClipData> pendingAudioClipDeletions = [];
+
+  /// MIDI clips to delete when erasing stops (for batch undo).
+  final List<(int clipId, int trackId)> pendingMidiClipDeletions = [];
 
   // ============================================
   // SPLIT PREVIEW STATE
@@ -362,5 +364,23 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Set pixels per beat (zoom level).
   void setPixelsPerBeat(double zoom) {
     pixelsPerBeat = zoom; // Uses setter which calls setState
+  }
+
+  /// Adjust audio clip positions when tempo changes to maintain beat position.
+  /// Audio clips store startTime in seconds, so when tempo changes we need to
+  /// recalculate their positions to keep them at the same beat.
+  void adjustAudioClipPositionsForTempoChange(double oldTempo, double newTempo) {
+    if (oldTempo == newTempo || clips.isEmpty) return;
+
+    setState(() {
+      for (int i = 0; i < clips.length; i++) {
+        final clip = clips[i];
+        // Convert current time (seconds) to beats using old tempo
+        final beatPosition = clip.startTime * oldTempo / 60.0;
+        // Convert beats back to seconds using new tempo
+        final newStartTime = beatPosition * 60.0 / newTempo;
+        clips[i] = clip.copyWith(startTime: newStartTime);
+      }
+    });
   }
 }

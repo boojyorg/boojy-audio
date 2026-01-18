@@ -332,8 +332,15 @@ pub fn duplicate_audio_clip(
 
     // Add a new timeline clip with the same audio data at new position
     let new_clip_id = graph
-        .add_clip_to_track(track_id, clip_arc, new_start_time)
+        .add_clip_to_track(track_id, clip_arc.clone(), new_start_time)
         .ok_or("Failed to add duplicated clip to track")?;
+
+    // Also add to global clips map so it can be saved to project
+    {
+        let clips_mutex = clips()?;
+        let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+        clips_map.insert(new_clip_id, clip_arc);
+    }
 
     // Copy offset and duration settings to the new clip
     {

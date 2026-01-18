@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../services/updater_service.dart';
@@ -40,6 +41,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   String _selectedDriver = 'wasapi';
   bool _asioGuideExpanded = false;
   bool _autoCheckUpdates = true;
+  String _appVersion = '';
+  DateTime? _lastUpdateCheck;
 
   // Sidebar navigation state
   String _selectedSection = 'appearance';
@@ -62,11 +65,21 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Future<void> _loadUpdaterSettings() async {
+    // Load app version
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = packageInfo.version;
+      });
+    }
+
     if (!UpdaterService.isSupported) return;
     final autoCheck = await UpdaterService.getAutoCheck();
+    final lastCheck = await UpdaterService.getLastCheckDate();
     if (mounted) {
       setState(() {
         _autoCheckUpdates = autoCheck;
+        _lastUpdateCheck = lastCheck;
       });
     }
   }
@@ -1085,12 +1098,82 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         ),
         const SizedBox(height: 16),
 
+        // Divider
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Divider(color: context.colors.divider, height: 1),
+        ),
+        const SizedBox(height: 16),
+
+        // Version info
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(
+                  'Current version',
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Text(
+                _appVersion.isNotEmpty ? _appVersion : '...',
+                style: TextStyle(
+                  color: context.colors.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Last checked info
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 120,
+                child: Text(
+                  'Last checked',
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Text(
+                _formatLastCheckDate(_lastUpdateCheck),
+                style: TextStyle(
+                  color: context.colors.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Manual check button
         Row(
           children: [
             const SizedBox(width: 32), // Align with checkbox labels
             TextButton.icon(
-              onPressed: () => UpdaterService.checkForUpdates(),
+              onPressed: () async {
+                await UpdaterService.checkForUpdates();
+                // Refresh last check date after checking
+                final lastCheck = await UpdaterService.getLastCheckDate();
+                if (mounted) {
+                  setState(() {
+                    _lastUpdateCheck = lastCheck;
+                  });
+                }
+              },
               icon: Icon(
                 Icons.refresh,
                 size: 16,
@@ -1111,6 +1194,35 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         ),
       ],
     );
+  }
+
+  /// Format the last update check date for display
+  String _formatLastCheckDate(DateTime? date) {
+    if (date == null) return 'Never';
+
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      // Today
+      final hour = date.hour;
+      final minute = date.minute.toString().padLeft(2, '0');
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      return 'Today at $hour12:$minute $period';
+    } else if (difference.inDays == 1) {
+      // Yesterday
+      final hour = date.hour;
+      final minute = date.minute.toString().padLeft(2, '0');
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      return 'Yesterday at $hour12:$minute $period';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      // More than a week ago - show date
+      return '${date.month}/${date.day}/${date.year}';
+    }
   }
 
   Widget _buildCheckboxSetting({

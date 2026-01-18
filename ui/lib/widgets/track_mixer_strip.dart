@@ -418,30 +418,31 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         ? context.colors.accent.withValues(alpha: 0.3)
                         : _getTintedBackgroundColor(),
                     // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
+                    // When selected, border changes to white
                     border: isHovered
                         ? Border.all(color: context.colors.accent, width: 2)
                         : Border(
                             left: BorderSide(
                               color: widget.isSelected
-                                  ? _getSelectedBorderColor()
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : (widget.trackColor ?? context.colors.textSecondary),
                               width: 4,
                             ),
                             top: BorderSide(
                               color: widget.isSelected
-                                  ? _getSelectedBorderColor()
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : (widget.trackColor ?? context.colors.textSecondary),
                               width: 2,
                             ),
                             right: BorderSide(
                               color: widget.isSelected
-                                  ? _getSelectedBorderColor()
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : (widget.trackColor ?? context.colors.textSecondary),
                               width: 2,
                             ),
                             bottom: BorderSide(
                               color: widget.isSelected
-                                  ? _getSelectedBorderColor()
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : (widget.trackColor ?? context.colors.textSecondary),
                               width: 2,
                             ),
@@ -777,19 +778,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       trackColor.withValues(alpha: 0.2),
       context.colors.standard,
     );
-  }
-
-  /// Get selected border color - darker/stronger version of track color
-  Color _getSelectedBorderColor() {
-    final trackColor = widget.trackColor;
-    if (trackColor == null) return context.colors.textPrimary;
-
-    final hsl = HSLColor.fromColor(trackColor);
-    // Darker, more saturated version for selected border
-    return hsl
-        .withSaturation((hsl.saturation * 1.0).clamp(0.5, 1.0))
-        .withLightness((hsl.lightness * 0.5).clamp(0.2, 0.4))
-        .toColor();
   }
 
   /// Get text colour - use the regular track color for text

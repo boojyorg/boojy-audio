@@ -84,6 +84,11 @@ class TransportBar extends StatefulWidget {
   final bool loopPlaybackEnabled;
   final VoidCallback? onLoopPlaybackToggle;
 
+  // Time signature
+  final int beatsPerBar;
+  final int beatUnit;
+  final Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
+
   final bool isLoading;
 
   const TransportBar({
@@ -143,6 +148,9 @@ class TransportBar extends StatefulWidget {
     this.onSnapChanged,
     this.loopPlaybackEnabled = false,
     this.onLoopPlaybackToggle,
+    this.beatsPerBar = 4,
+    this.beatUnit = 4,
+    this.onTimeSignatureChanged,
     this.isLoading = false,
   });
 
@@ -419,9 +427,9 @@ class _TransportBarState extends State<TransportBar> {
               // Signature display/dropdown - hide on very compact
               if (!isVeryCompact)
                 _SignatureDropdown(
-                  beatsPerBar: 4, // TODO: Wire up to state
-                  beatUnit: 4,   // TODO: Wire up to state
-                  onChanged: null, // TODO: Wire up callback
+                  beatsPerBar: widget.beatsPerBar,
+                  beatUnit: widget.beatUnit,
+                  onChanged: widget.onTimeSignatureChanged,
                 ),
 
               // Use Spacer to push Help to the right edge
@@ -451,8 +459,8 @@ class _TransportBarState extends State<TransportBar> {
     final beatsPerSecond = bpm / 60.0;
     final totalBeats = seconds * beatsPerSecond;
 
-    // Assuming 4/4 time signature
-    const beatsPerBar = 4;
+    // Use project time signature
+    final beatsPerBar = widget.beatsPerBar;
     const subdivisionsPerBeat = 4; // 16th notes
 
     final bar = (totalBeats / beatsPerBar).floor() + 1; // 1-indexed

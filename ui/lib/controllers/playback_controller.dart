@@ -124,12 +124,17 @@ class PlaybackController extends ChangeNotifier {
 
       // Convert beats to seconds for engine (which works in seconds)
       final loopStartSeconds = loopStartBeats * 60.0 / tempo;
+      final loopEndSeconds = loopEndBeats * 60.0 / tempo;
 
-      // Seek to loop start and play
-      _audioEngine!.transportSeek(loopStartSeconds);
+      // Only seek to loop start if playhead is outside loop bounds
+      // This allows resuming from current position within the loop
+      if (_playheadPosition < loopStartSeconds || _playheadPosition >= loopEndSeconds) {
+        _audioEngine!.transportSeek(loopStartSeconds);
+        _playheadPosition = loopStartSeconds;
+      }
+
       _audioEngine!.transportPlay();
       _isPlaying = true;
-      _playheadPosition = loopStartSeconds;
       _statusMessage = 'Playing loop...';
       notifyListeners();
       _startPlayheadTimer();

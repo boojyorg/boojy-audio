@@ -55,6 +55,10 @@ class EditorPanel extends StatefulWidget {
   final ToolMode toolMode;
   final Function(ToolMode)? onToolModeChanged;
 
+  // Time signature (from project settings)
+  final int beatsPerBar;
+  final int beatUnit;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -82,6 +86,8 @@ class EditorPanel extends StatefulWidget {
     this.onInstrumentDropped,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
+    this.beatsPerBar = 4,
+    this.beatUnit = 4,
   });
 
   @override
@@ -769,6 +775,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       highlightedNote: _highlightedNote,
       virtualPianoVisible: widget.virtualPianoEnabled,
       onVirtualPianoToggle: widget.onVirtualPianoToggle,
+      beatsPerBar: widget.beatsPerBar,
+      beatUnit: widget.beatUnit,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

@@ -75,6 +75,10 @@ class TimelineView extends StatefulWidget {
   final int Function(int dartClipId)? getRustClipId;
   final Function(int clipId, int trackId)? onMidiClipDeleted;
 
+  // Batch delete callbacks (for eraser tool)
+  final Function(List<(int clipId, int trackId)>)? onMidiClipsBatchDeleted;
+  final Function(List<ClipData>)? onAudioClipsBatchDeleted;
+
   // Instrument drag-and-drop
   final Function(int trackId, Instrument instrument)? onInstrumentDropped;
   final Function(Instrument instrument)? onInstrumentDroppedOnEmpty;
@@ -135,6 +139,8 @@ class TimelineView extends StatefulWidget {
     this.onMidiClipCopied,
     this.getRustClipId,
     this.onMidiClipDeleted,
+    this.onMidiClipsBatchDeleted,
+    this.onAudioClipsBatchDeleted,
     this.onInstrumentDropped,
     this.onInstrumentDroppedOnEmpty,
     this.onVst3InstrumentDropped,
@@ -1687,6 +1693,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 onHorizontalScroll: _handleNavBarScroll,
                 onZoom: _handleNavBarZoom,
                 onPlayheadSet: _handleNavBarPlayheadSet,
+                onPlayheadDrag: _handleNavBarPlayheadSet, // Same handler for drag
                 onLoopRegionChanged: widget.onLoopRegionChanged,
               ),
               scrollController: navBarScrollController,
@@ -1769,8 +1776,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                               ],
                             ),
 
-                            // Playhead - spans full height including Master
-                            _buildPlayhead(),
+                            // Playhead line (vertical line spanning full height)
+                            _buildPlayheadLine(),
 
                             // Box selection overlay
                             _buildBoxSelectionOverlay(),
@@ -2180,29 +2187,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
         },
         onTapUp: (details) {
+          // Draw tool: single click on empty space just deselects (handled in onTapDown)
+          // Use click+drag to create new clips, or double-click for quick creation
+          // DUPLICATE TOOL: Copy selected clip to clicked position
           final beatPosition = _calculateBeatPosition(details.localPosition);
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
           final tool = effectiveToolMode;
 
-          // Click on empty space handling - additional actions after deselect
-          if (!isOnClip) {
-            // DRAW TOOL on MIDI track: Create new clip
-            if (tool == ToolMode.draw && isMidiTrack) {
+          if (!isOnClip && tool == ToolMode.duplicate && isMidiTrack) {
+            if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
               final startBeats = _snapToGrid(beatPosition);
-              const durationBeats = 4.0; // 1 bar
-              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
-              // Select track after creating clip (clip creation will handle clip selection)
-              widget.onMidiTrackSelected?.call(track.id);
+              widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
             }
-            // DUPLICATE TOOL: Copy selected clip to clicked position
-            else if (tool == ToolMode.duplicate && isMidiTrack) {
-              if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
-                final startBeats = _snapToGrid(beatPosition);
-                widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
-              }
-            }
-            // For other tools (Select, Eraser, Slice), don't select track
-            // to avoid auto-selecting a clip
           }
         },
         onDoubleTapDown: isMidiTrack
@@ -3446,61 +3442,19 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
-  Widget _buildPlayhead() {
+  /// Build the playhead vertical line (spans full arrangement height)
+  Widget _buildPlayheadLine() {
     final playheadX = widget.playheadPosition * pixelsPerSecond;
-    // Playhead color: blue per spec (#3B82F6)
     const playheadColor = Color(0xFF3B82F6);
 
     return Positioned(
-      left: playheadX - 10, // Center the 20px wide handle on the playhead position
+      left: playheadX - 1, // Center the 2px line
       top: 0,
       bottom: 0,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: (details) {
-          // Calculate new position from drag delta
-          final newX = (playheadX + details.delta.dx).clamp(0.0, double.infinity);
-          final newPosition = newX / pixelsPerSecond;
-
-          // Clamp to valid range (0 to project duration)
-          final maxDuration = widget.clipDuration ?? 300.0; // Default to 5 minutes if no clip
-          final clampedPosition = newPosition.clamp(0.0, maxDuration);
-
-          widget.onSeek?.call(clampedPosition);
-        },
-        child: MouseRegion(
-          cursor: SystemMouseCursors.resizeColumn,
-          child: SizedBox(
-            width: 20, // Hit area width
-            child: Column(
-              children: [
-                // Playhead handle
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: playheadColor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: context.colors.textPrimary, width: 2),
-                  ),
-                  child: Icon(
-                    Icons.play_arrow,
-                    size: 12,
-                    color: context.colors.textPrimary,
-                  ),
-                ),
-                // Playhead line
-                Expanded(
-                  child: Center(
-                    child: Container(
-                      width: 2,
-                      color: playheadColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+      child: IgnorePointer(
+        child: Container(
+          width: 2,
+          color: playheadColor,
         ),
       ),
     );

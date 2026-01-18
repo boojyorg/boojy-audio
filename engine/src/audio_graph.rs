@@ -391,6 +391,13 @@ impl AudioGraph {
 
     /// Seek to a specific position in seconds
     pub fn seek(&self, position_seconds: f64) {
+        // Silence all synthesizers to prevent stuck notes/drone when loop wraps
+        // This ensures notes that were playing at the old position don't continue
+        // droning after we jump to a new position
+        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+            synth_manager.all_notes_off_all_tracks();
+        }
+
         // Simple conversion: seconds to samples (no tempo scaling)
         let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
         self.playhead_samples.store(samples, Ordering::SeqCst);
@@ -1543,17 +1550,24 @@ impl AudioGraph {
             }
         }).collect();
 
-        // Collect audio files (simplified - get from global timeline for now)
-        let clips_lock = self.clips.lock().expect("mutex poisoned");
-        let audio_files: Vec<AudioFileData> = clips_lock.iter().map(|timeline_clip| {
-            AudioFileData {
-                id: timeline_clip.id,
-                original_name: timeline_clip.clip.file_path.clone(),
-                relative_path: format!("audio/{:03}-{}", timeline_clip.id, timeline_clip.clip.file_path),
-                duration: timeline_clip.clip.duration_seconds,
-                sample_rate: timeline_clip.clip.sample_rate,
-                channels: timeline_clip.clip.channels as u32,
-            }
+        // Collect audio files from all tracks' audio clips (not the legacy self.clips)
+        let audio_files: Vec<AudioFileData> = all_tracks.iter().flat_map(|track_arc| {
+            let track = track_arc.lock().expect("mutex poisoned");
+            track.audio_clips.iter().map(|timeline_clip| {
+                // Extract just the filename from the path for cleaner storage
+                let filename = std::path::Path::new(&timeline_clip.clip.file_path)
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_else(|| timeline_clip.clip.file_path.clone());
+                AudioFileData {
+                    id: timeline_clip.id,
+                    original_name: filename.clone(),
+                    relative_path: format!("audio/{:03}-{}", timeline_clip.id, filename),
+                    duration: timeline_clip.clip.duration_seconds,
+                    sample_rate: timeline_clip.clip.sample_rate,
+                    channels: timeline_clip.clip.channels as u32,
+                }
+            }).collect::<Vec<_>>()
         }).collect();
 
         eprintln!("   - {} tracks", tracks_data.len());

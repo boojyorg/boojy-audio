@@ -55,6 +55,12 @@ class PianoRoll extends StatefulWidget {
   /// Callback to toggle virtual piano visibility
   final VoidCallback? onVirtualPianoToggle;
 
+  /// Time signature - beats per bar (numerator)
+  final int beatsPerBar;
+
+  /// Time signature - beat unit (denominator)
+  final int beatUnit;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -67,6 +73,8 @@ class PianoRoll extends StatefulWidget {
     this.highlightedNote,
     this.virtualPianoVisible = false,
     this.onVirtualPianoToggle,
+    this.beatsPerBar = 4,
+    this.beatUnit = 4,
   });
 
   @override
@@ -96,6 +104,10 @@ class _PianoRollState extends State<PianoRoll>
     if (currentClip != null) {
       loopStartBeats = currentClip!.contentStartOffset;
     }
+
+    // Initialize time signature from widget
+    beatsPerBar = widget.beatsPerBar;
+    beatUnit = widget.beatUnit;
 
     // Listen for undo/redo changes to update our state
     undoRedoManager.addListener(_onUndoRedoChanged);
@@ -171,6 +183,14 @@ class _PianoRollState extends State<PianoRoll>
     if (widget.toolMode != oldWidget.toolMode && tempModeOverride == null) {
       setState(() {
         currentCursor = ToolModeResolver.getCursor(widget.toolMode);
+      });
+    }
+    // Update time signature when project settings change
+    if (widget.beatsPerBar != oldWidget.beatsPerBar ||
+        widget.beatUnit != oldWidget.beatUnit) {
+      setState(() {
+        beatsPerBar = widget.beatsPerBar;
+        beatUnit = widget.beatUnit;
       });
     }
   }
@@ -553,11 +573,11 @@ class _PianoRollState extends State<PianoRoll>
                                           // Middle mouse button: start drag zoom (Ableton-style)
                                           startDragZoom(event.localPosition.dx, event.position.dy);
                                         } else if (event.buttons == kPrimaryMouseButton) {
-                                          if (ModifierKeyState.current().isAltPressed) {
-                                            final note = _findNoteAtPosition(event.localPosition);
-                                            if (note != null) {
-                                              deleteNote(note);
-                                            }
+                                          // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
+                                          final modifiers = ModifierKeyState.current();
+                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                                          if (tool == ToolMode.eraser) {
+                                            _startErasing(event.localPosition);
                                           }
                                         }
                                       },
@@ -568,7 +588,10 @@ class _PianoRollState extends State<PianoRoll>
                                           return;
                                         }
                                         if (event.buttons == kPrimaryMouseButton) {
-                                          if (ModifierKeyState.current().isAltPressed) {
+                                          // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
+                                          final modifiers = ModifierKeyState.current();
+                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                                          if (tool == ToolMode.eraser) {
                                             if (!isErasing) {
                                               _startErasing(event.localPosition);
                                             } else {
@@ -2214,13 +2237,16 @@ class _PianoRollState extends State<PianoRoll>
           notes: currentClip!.notes.where((n) => n.id != note.id).toList(),
         );
       });
-      notifyClipUpdated();
+      // Don't call notifyClipUpdated() here - batch all deletions
+      // and notify once in _stopErasing()
     }
   }
 
   /// Stop eraser mode
   void _stopErasing() {
     if (erasedNoteIds.isNotEmpty) {
+      // Notify parent once with all deletions batched together
+      notifyClipUpdated();
       commitToHistory('Delete ${erasedNoteIds.length} notes');
     }
     isErasing = false;

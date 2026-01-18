@@ -333,13 +333,16 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
           notes: currentClip!.notes.where((n) => n.id != note.id).toList(),
         );
       });
-      notifyClipUpdated();
+      // Don't call notifyClipUpdated() here - batch all deletions
+      // and notify once in stopErasing() for single undo action
     }
   }
 
   /// Stop eraser mode.
   void stopErasing() {
     if (erasedNoteIds.isNotEmpty) {
+      // Notify parent once with all deletions batched together
+      notifyClipUpdated();
       commitToHistory('Delete ${erasedNoteIds.length} notes');
     }
     isErasing = false;

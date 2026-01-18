@@ -6,11 +6,13 @@ class BarRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
   final double totalBeats;
   final double playheadPosition; // in beats
+  final int beatsPerBar;
 
   BarRulerPainter({
     required this.pixelsPerBeat,
     required this.totalBeats,
     this.playheadPosition = 0.0,
+    this.beatsPerBar = 4,
   });
 
   @override
@@ -20,10 +22,10 @@ class BarRulerPainter extends CustomPainter {
       textAlign: TextAlign.center,
     );
 
-    // Draw bar numbers (every 4 beats)
-    final totalBars = (totalBeats / 4).ceil();
+    // Draw bar numbers (every beatsPerBar beats)
+    final totalBars = (totalBeats / beatsPerBar).ceil();
     for (int bar = 0; bar < totalBars; bar++) {
-      final barStartBeat = bar * 4.0;
+      final barStartBeat = bar * beatsPerBar.toDouble();
       final x = barStartBeat * pixelsPerBeat;
 
       // Bar number
@@ -45,7 +47,7 @@ class BarRulerPainter extends CustomPainter {
       );
 
       // Draw beat ticks
-      for (int beat = 0; beat < 4; beat++) {
+      for (int beat = 0; beat < beatsPerBar; beat++) {
         final beatX = (barStartBeat + beat) * pixelsPerBeat;
         final tickPaint = Paint()
           ..color = const Color(0xFF606060) // Dark grey ticks
@@ -89,6 +91,7 @@ class BarRulerPainter extends CustomPainter {
   bool shouldRepaint(BarRulerPainter oldDelegate) {
     return playheadPosition != oldDelegate.playheadPosition ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
-        totalBeats != oldDelegate.totalBeats;
+        totalBeats != oldDelegate.totalBeats ||
+        beatsPerBar != oldDelegate.beatsPerBar;
   }
 }

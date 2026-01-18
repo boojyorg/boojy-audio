@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 /// Note: Loop region is now drawn separately by LoopBarPainter in a dedicated row
 class TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
+  final int beatsPerBar;
 
   TimeRulerPainter({
     required this.pixelsPerBeat,
+    this.beatsPerBar = 4,
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
   double _getGridDivision() {
-    if (pixelsPerBeat < 10) return 4.0;     // Only bars
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble();     // Only bars
     if (pixelsPerBeat < 20) return 1.0;     // Bars + beats
     if (pixelsPerBeat < 40) return 0.5;     // + half beats
     return 0.25;                             // + quarter beats
@@ -40,7 +42,7 @@ class TimeRulerPainter extends CustomPainter {
       if (x > size.width) break;
 
       // Determine tick style based on beat position
-      final isBar = (beat % 4.0).abs() < 0.001;
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
       final isBeat = (beat % 1.0).abs() < 0.001;
 
       double tickHeight;
@@ -63,7 +65,7 @@ class TimeRulerPainter extends CustomPainter {
 
       // Draw bar numbers at bar lines
       if (isBar) {
-        final barNumber = (beat / 4.0).round() + 1; // Bars are 1-indexed
+        final barNumber = (beat / beatsPerBar).round() + 1; // Bars are 1-indexed
 
         textPainter.text = TextSpan(
           text: '$barNumber',
@@ -82,8 +84,8 @@ class TimeRulerPainter extends CustomPainter {
         );
       } else if (isBeat && pixelsPerBeat >= 30) {
         // Show beat subdivisions (1.2, 1.3, 1.4) when zoomed in enough
-        final barNumber = (beat / 4.0).floor() + 1;
-        final beatInBar = ((beat % 4.0) + 1).round();
+        final barNumber = (beat / beatsPerBar).floor() + 1;
+        final beatInBar = ((beat % beatsPerBar) + 1).round();
 
         if (beatInBar > 1) {
           textPainter.text = TextSpan(
@@ -107,6 +109,7 @@ class TimeRulerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(TimeRulerPainter oldDelegate) {
-    return oldDelegate.pixelsPerBeat != pixelsPerBeat;
+    return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
+           oldDelegate.beatsPerBar != beatsPerBar;
   }
 }

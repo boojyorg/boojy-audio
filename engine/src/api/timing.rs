@@ -62,3 +62,24 @@ pub fn is_metronome_enabled() -> Result<bool, String> {
 
     Ok(graph.recorder.is_metronome_enabled())
 }
+
+// ============================================================================
+// TIME SIGNATURE CONTROL
+// ============================================================================
+
+/// Set time signature (beats per bar)
+pub fn set_time_signature(beats_per_bar: u32) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    graph.recorder.set_time_signature(beats_per_bar);
+    Ok(format!("Time signature set to {}/4", beats_per_bar))
+}
+
+/// Get time signature (beats per bar)
+pub fn get_time_signature() -> Result<u32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    Ok(graph.recorder.get_time_signature())
+}

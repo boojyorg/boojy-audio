@@ -54,6 +54,8 @@ class AudioEngine implements AudioEngineInterface {
   late final _GetTempoFfi _getTempo;
   late final _SetMetronomeEnabledFfi _setMetronomeEnabled;
   late final _IsMetronomeEnabledFfi _isMetronomeEnabled;
+  late final _SetTimeSignatureFfi _setTimeSignature;
+  late final _GetTimeSignatureFfi _getTimeSignature;
 
   // M3 functions - MIDI
   late final _StartMidiInputFfi _startMidiInput;
@@ -409,6 +411,16 @@ class AudioEngine implements AudioEngineInterface {
       _isMetronomeEnabled = _lib
           .lookup<ffi.NativeFunction<_IsMetronomeEnabledFfiNative>>(
               'is_metronome_enabled_ffi')
+          .asFunction();
+
+      _setTimeSignature = _lib
+          .lookup<ffi.NativeFunction<_SetTimeSignatureFfiNative>>(
+              'set_time_signature_ffi')
+          .asFunction();
+
+      _getTimeSignature = _lib
+          .lookup<ffi.NativeFunction<_GetTimeSignatureFfiNative>>(
+              'get_time_signature_ffi')
           .asFunction();
 
       // Bind M3 functions
@@ -1330,6 +1342,27 @@ class AudioEngine implements AudioEngineInterface {
       return _isMetronomeEnabled() != 0;
     } catch (e) {
       return true;
+    }
+  }
+
+  /// Set time signature (beats per bar)
+  String setTimeSignature(int beatsPerBar) {
+    try {
+      final resultPtr = _setTimeSignature(beatsPerBar);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get time signature (beats per bar)
+  int getTimeSignature() {
+    try {
+      return _getTimeSignature();
+    } catch (e) {
+      return 4;
     }
   }
 
@@ -2757,6 +2790,12 @@ typedef _SetMetronomeEnabledFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _IsMetronomeEnabledFfiNative = ffi.Int32 Function();
 typedef _IsMetronomeEnabledFfi = int Function();
+
+typedef _SetTimeSignatureFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
+typedef _SetTimeSignatureFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetTimeSignatureFfiNative = ffi.Uint32 Function();
+typedef _GetTimeSignatureFfi = int Function();
 
 // M3 types - MIDI
 typedef _StartMidiInputFfiNative = ffi.Pointer<Utf8> Function();

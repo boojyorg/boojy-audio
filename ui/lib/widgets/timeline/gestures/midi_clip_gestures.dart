@@ -54,17 +54,11 @@ class MidiClipDragState {
   /// Current X position during drag.
   double dragCurrentX = 0.0;
 
-  /// True when Alt/Option held at drag start (copy mode).
+  /// True when Cmd/Ctrl held at drag start (copy mode).
   bool isCopyDrag = false;
 
   /// True when Shift held (bypasses snap).
   bool snapBypassActive = false;
-
-  /// Duration of source clip for stamp copies.
-  double stampCopySourceDuration = 0.0;
-
-  /// Number of stamp copies to create.
-  int stampCopyCount = 0;
 
   /// Whether a drag is currently active.
   bool get isDragging => draggingClipId != null;
@@ -77,8 +71,6 @@ class MidiClipDragState {
     dragCurrentX = 0.0;
     isCopyDrag = false;
     snapBypassActive = false;
-    stampCopySourceDuration = 0.0;
-    stampCopyCount = 0;
   }
 }
 

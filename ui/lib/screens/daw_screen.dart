@@ -23,6 +23,7 @@ import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
 import '../services/undo_redo_manager.dart';
+import '../services/commands/command.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../services/commands/clip_commands.dart';
@@ -651,13 +652,31 @@ class _DAWScreenState extends State<DAWScreen> {
       newBpm: bpm,
       oldBpm: oldBpm,
       onTempoChanged: (newBpm) {
+        // Get the current (old) tempo before we change it
+        final currentTempo = _recordingController.tempo;
+
         _recordingController.setTempo(newBpm);
         _midiClipController.setTempo(newBpm);
         _midiCaptureBuffer.updateBpm(newBpm);
         _midiPlaybackManager?.rescheduleAllClips(newBpm);
+
+        // Adjust audio clip positions to maintain their beat position
+        // This prevents audio clips from visually shifting when tempo changes
+        _timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(currentTempo, newBpm);
       },
     );
     await _undoRedoManager.execute(command);
+  }
+
+  void _onTimeSignatureChanged(int beatsPerBar, int beatUnit) {
+    setState(() {
+      _projectMetadata = _projectMetadata.copyWith(
+        timeSignatureNumerator: beatsPerBar,
+        timeSignatureDenominator: beatUnit,
+      );
+    });
+    // Update engine time signature
+    _audioEngine?.setTimeSignature(beatsPerBar);
   }
 
   // M3: Virtual piano methods
@@ -794,6 +813,9 @@ class _DAWScreenState extends State<DAWScreen> {
       _selectedAudioClip = clip;
     });
     // TODO: Persist changes to audio engine when audio clip editing is implemented
+
+    // Auto-update arrangement loop region to follow content
+    _updateArrangementLoopToContent();
   }
 
   // M9: Instrument methods
@@ -1841,6 +1863,41 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Propagate changes to all linked clips (same patternId)
     _midiPlaybackManager?.updateLinkedClips(updatedClip, _tempo);
+
+    // Auto-update arrangement loop region to follow content
+    _updateArrangementLoopToContent();
+  }
+
+  /// Auto-update arrangement loop region to follow the longest clip.
+  /// Only active when loopAutoFollow is true (disabled when user manually drags loop).
+  void _updateArrangementLoopToContent() {
+    if (!_uiLayout.loopAutoFollow) return;
+
+    double longestEnd = 4.0; // Minimum 1 bar (4 beats)
+
+    // Check all MIDI clips
+    final midiClips = _midiPlaybackManager?.midiClips ?? [];
+    for (final clip in midiClips) {
+      final clipEnd = clip.startTime + clip.duration;
+      if (clipEnd > longestEnd) longestEnd = clipEnd;
+    }
+
+    // Check all audio clips (stored in timeline state)
+    final audioClips = _timelineKey.currentState?.clips ?? [];
+    for (final clip in audioClips) {
+      // Audio clips use seconds, convert to beats
+      final beatsPerSecond = _tempo / 60.0;
+      final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
+      if (clipEndBeats > longestEnd) longestEnd = clipEndBeats;
+    }
+
+    // Round to next bar (4 beats)
+    final newLoopEnd = (longestEnd / 4).ceil() * 4.0;
+
+    // Only update if changed (avoids unnecessary rebuilds)
+    if (newLoopEnd != _uiLayout.loopEndBeats) {
+      _uiLayout.setLoopRegion(_uiLayout.loopStartBeats, newLoopEnd);
+    }
   }
 
   void _onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
@@ -2112,6 +2169,78 @@ class _DAWScreenState extends State<DAWScreen> {
     _undoRedoManager.execute(command);
   }
 
+  /// Batch delete multiple MIDI clips (eraser tool - single undo action)
+  void _deleteMidiClipsBatch(List<(int clipId, int trackId)> clipsToDelete) {
+    if (clipsToDelete.isEmpty) return;
+
+    // Build individual delete commands for each clip
+    final commands = <Command>[];
+    for (final (clipId, trackId) in clipsToDelete) {
+      final clip = _midiPlaybackManager?.midiClips.firstWhere(
+        (c) => c.clipId == clipId,
+        orElse: () => MidiClipData(
+          clipId: clipId,
+          trackId: trackId,
+          startTime: 0,
+          duration: 4,
+          name: 'Deleted Clip',
+        ),
+      );
+
+      if (clip != null) {
+        commands.add(DeleteMidiClipFromArrangementCommand(
+          clipData: clip,
+          onClipRemoved: (cId, tId) {
+            _midiClipController.deleteClip(cId, tId);
+          },
+          onClipRestored: (restoredClip) {
+            _midiPlaybackManager?.addRecordedClip(restoredClip);
+            _midiClipController.updateClip(restoredClip, _playheadPosition);
+          },
+        ));
+      }
+    }
+
+    if (commands.isEmpty) return;
+
+    // Wrap in CompositeCommand for single undo action
+    final compositeCommand = CompositeCommand(
+      commands,
+      'Delete ${clipsToDelete.length} MIDI clip${clipsToDelete.length > 1 ? 's' : ''}',
+    );
+    _undoRedoManager.execute(compositeCommand);
+    if (mounted) setState(() {});
+  }
+
+  /// Batch delete multiple audio clips (eraser tool - single undo action)
+  void _deleteAudioClipsBatch(List<ClipData> clipsToDelete) {
+    if (clipsToDelete.isEmpty) return;
+
+    // Build individual delete commands for each clip
+    final commands = <Command>[];
+    for (final clip in clipsToDelete) {
+      commands.add(DeleteAudioClipCommand(
+        clipData: clip,
+        onClipRemoved: (clipId) {
+          // Timeline handles its own clip removal via the callback
+        },
+        onClipRestored: (restoredClip) {
+          // Timeline handles restoration via callback
+        },
+      ));
+    }
+
+    if (commands.isEmpty) return;
+
+    // Wrap in CompositeCommand for single undo action
+    final compositeCommand = CompositeCommand(
+      commands,
+      'Delete ${clipsToDelete.length} audio clip${clipsToDelete.length > 1 ? 's' : ''}',
+    );
+    _undoRedoManager.execute(compositeCommand);
+    if (mounted) setState(() {});
+  }
+
   // ========================================================================
   // Undo/Redo methods
   // ========================================================================
@@ -2180,6 +2309,9 @@ class _DAWScreenState extends State<DAWScreen> {
               _projectManager?.newProject();
               _midiPlaybackManager?.clear();
               _undoRedoManager.clear();
+
+              // Reset loop auto-follow for new project
+              _uiLayout.resetLoopAutoFollow();
 
               // Clear window title (back to just "Boojy Audio")
               WindowTitleService.clearProjectName();
@@ -3224,6 +3356,10 @@ class _DAWScreenState extends State<DAWScreen> {
             // Loop playback control
             loopPlaybackEnabled: _uiLayout.loopPlaybackEnabled,
             onLoopPlaybackToggle: _uiLayout.toggleLoopPlayback,
+            // Time signature
+            beatsPerBar: _projectMetadata.timeSignatureNumerator,
+            beatUnit: _projectMetadata.timeSignatureDenominator,
+            onTimeSignatureChanged: _onTimeSignatureChanged,
             isLoading: _isLoading,
           ),
           ),
@@ -3303,6 +3439,8 @@ class _DAWScreenState extends State<DAWScreen> {
                           onMidiClipCopied: _onMidiClipCopied,
                           getRustClipId: (dartClipId) => _midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
                           onMidiClipDeleted: _deleteMidiClip,
+                          onMidiClipsBatchDeleted: _deleteMidiClipsBatch,
+                          onAudioClipsBatchDeleted: _deleteAudioClipsBatch,
                           onInstrumentDropped: _onInstrumentDropped,
                           onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
                           onVst3InstrumentDropped: _onVst3InstrumentDropped,
@@ -3317,16 +3455,17 @@ class _DAWScreenState extends State<DAWScreen> {
                           getTrackColor: _getTrackColor,
                           onSeek: (position) {
                             _audioEngine?.transportSeek(position);
-                            setState(() {
-                              _playheadPosition = position;
-                            });
+                            _playheadPosition = position;
+                            // Update the notifier so ValueListenableBuilder rebuilds immediately
+                            _playbackController.playheadNotifier.value = position;
                           },
                           // Loop playback state
                           loopPlaybackEnabled: _uiLayout.loopPlaybackEnabled,
                           loopStartBeats: _uiLayout.loopStartBeats,
                           loopEndBeats: _uiLayout.loopEndBeats,
                           onLoopRegionChanged: (start, end) {
-                            _uiLayout.setLoopRegion(start, end);
+                            // Mark as manual adjustment - disables auto-follow
+                            _uiLayout.setLoopRegion(start, end, manual: true);
                             // Update playback controller in real-time during playback
                             _playbackController.updateLoopBounds(
                               loopStartBeats: start,
@@ -3501,6 +3640,8 @@ class _DAWScreenState extends State<DAWScreen> {
                       isCollapsed: false,
                       toolMode: _currentToolMode,
                       onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+                      beatsPerBar: _projectMetadata.timeSignatureNumerator,
+                      beatUnit: _projectMetadata.timeSignatureDenominator,
                     ),
                   ),
                 ],
