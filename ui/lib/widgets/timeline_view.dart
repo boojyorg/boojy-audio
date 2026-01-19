@@ -2226,6 +2226,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           child: GestureDetector(
         onTapDown: (details) {
           // Handle deselection on tap down (before drag can intercept)
+          // But DON'T deselect if modifier keys are held (user might be Cmd+clicking to drag duplicate)
+          final modifiers = ModifierKeyState.current();
+          if (modifiers.isCtrlOrCmd || modifiers.isAltPressed) {
+            // Don't clear selection when modifier keys are held - let clip gesture handle it
+            return;
+          }
+
           final beatPosition = _calculateBeatPosition(details.localPosition);
           final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
 
