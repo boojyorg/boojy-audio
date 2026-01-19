@@ -209,6 +209,15 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Y offset of the track where selection started (for proper vertical positioning).
   double boxSelectionTrackYOffset = 0.0;
 
+  /// Whether shift was held when box selection started (for additive selection).
+  bool boxSelectionShiftHeld = false;
+
+  /// Initial MIDI selection when box selection started (preserved for shift+drag).
+  Set<int> boxSelectionInitialMidiIds = {};
+
+  /// Initial audio selection when box selection started (preserved for shift+drag).
+  Set<int> boxSelectionInitialAudioIds = {};
+
   // ============================================
   // AUDIO CLIP TRIM STATE
   // ============================================

@@ -72,6 +72,7 @@ class TimelineView extends StatefulWidget {
   final Function(int?, ClipData?)? onAudioClipSelected;
   final Function(MidiClipData)? onMidiClipUpdated;
   final Function(MidiClipData sourceClip, double newStartTime)? onMidiClipCopied;
+  final Function(ClipData sourceClip, double newStartTime)? onAudioClipCopied;
   final int Function(int dartClipId)? getRustClipId;
   final Function(int clipId, int trackId)? onMidiClipDeleted;
 
@@ -137,6 +138,7 @@ class TimelineView extends StatefulWidget {
     this.onAudioClipSelected,
     this.onMidiClipUpdated,
     this.onMidiClipCopied,
+    this.onAudioClipCopied,
     this.getRustClipId,
     this.onMidiClipDeleted,
     this.onMidiClipsBatchDeleted,
@@ -473,9 +475,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         selectedMidiClipIds.add(clipId);
       }
       // If clip is already selected and not forceSelect, keep multi-selection (for drag)
-      // Clear audio selection when selecting MIDI
-      selectedAudioClipIds.clear();
-      selectedAudioClipId = null;
+      // Only clear audio selection on regular clicks, not shift+click (cross-type selection)
+      if (!toggleSelection) {
+        selectedAudioClipIds.clear();
+        selectedAudioClipId = null;
+      }
     });
   }
 
@@ -508,8 +512,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         selectedAudioClipId = clipId;
       }
       // If clip is already selected and not forceSelect, keep multi-selection (for drag)
-      // Clear MIDI selection when selecting audio
-      selectedMidiClipIds.clear();
+      // Only clear MIDI selection on regular clicks, not shift+click (cross-type selection)
+      if (!toggleSelection) {
+        selectedMidiClipIds.clear();
+      }
     });
 
     // Notify parent about audio clip selection
@@ -921,28 +927,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   }
 
   /// Duplicate an audio clip (place copy at specified position or after original)
-  Future<void> _duplicateAudioClip(ClipData clip, {double? atPosition}) async {
+  void _duplicateAudioClip(ClipData clip, {double? atPosition}) {
     final newStartTime = atPosition ?? clip.startTime + clip.duration;
-
-    final command = DuplicateAudioClipCommand(
-      originalClip: clip,
-      newStartTime: newStartTime,
-      onClipDuplicated: (newClip) {
-        if (mounted) {
-          setState(() {
-            clips.add(newClip);
-          });
-        }
-      },
-      onClipRemoved: (clipId) {
-        if (mounted) {
-          setState(() {
-            clips.removeWhere((c) => c.clipId == clipId);
-          });
-        }
-      },
-    );
-    await UndoRedoManager().execute(command);
+    widget.onAudioClipCopied?.call(clip, newStartTime);
   }
 
   /// Duplicate a MIDI clip
@@ -1151,6 +1138,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         : 0.0;
     final trackAreaY = localPosition.dy - navBarHeight + verticalScrollOffset;
 
+    // Use regularTracks (non-Master) for Y position calculations to match visual layout
+    final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+
     // Check audio clips
     for (final clip in clips) {
       if (erasedAudioClipIds.contains(clip.clipId)) continue;
@@ -1160,15 +1150,15 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       final clipStartBeats = clip.startTime * beatsPerSecond;
       final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
 
-      // Find track Y position using actual track heights
-      final trackIndex = tracks.indexWhere((t) => t.id == clip.trackId);
+      // Find track Y position using actual track heights (regularTracks matches rendering order)
+      final trackIndex = regularTracks.indexWhere((t) => t.id == clip.trackId);
       if (trackIndex < 0) continue;
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeights[tracks[i].id] ?? 80.0;
+        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
       }
-      final trackHeight = widget.trackHeights[tracks[trackIndex].id] ?? 80.0;
+      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -1190,15 +1180,15 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       final clipStartBeats = midiClip.startTime;
       final clipEndBeats = midiClip.startTime + midiClip.duration;
 
-      // Find track Y position using actual track heights
-      final trackIndex = tracks.indexWhere((t) => t.id == midiClip.trackId);
+      // Find track Y position using actual track heights (regularTracks matches rendering order)
+      final trackIndex = regularTracks.indexWhere((t) => t.id == midiClip.trackId);
       if (trackIndex < 0) continue;
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeights[tracks[i].id] ?? 80.0;
+        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
       }
-      final trackHeight = widget.trackHeights[tracks[trackIndex].id] ?? 80.0;
+      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -2293,26 +2283,43 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
           // SELECT TOOL: Start box selection on empty space
           if (tool == ToolMode.select && !isOnClip) {
-            // Calculate the track's Y offset in the timeline
-            final trackIndex = tracks.indexWhere((t) => t.id == track.id);
-            double yOffset = 0.0;
+            // Calculate this track's Y offset within the content area
+            // (localPosition.dy is relative to this track widget, not the whole timeline)
+            final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+            final trackIndex = regularTracks.indexWhere((t) => t.id == track.id);
+            double trackYOffset = 0.0;
             for (int i = 0; i < trackIndex; i++) {
-              yOffset += widget.trackHeights[tracks[i].id] ?? 100.0;
+              trackYOffset += widget.trackHeights[regularTracks[i].id] ?? 100.0;
             }
+
             final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+            final verticalOffset = widget.verticalScrollController?.hasClients == true
+                ? widget.verticalScrollController!.offset
+                : 0.0;
+
+            // Calculate visible Y position (for overlay rendering)
+            // localPosition.dy is relative to the track, trackYOffset is the track's position in content
+            // Subtract verticalOffset to get visible position
+            final visibleY = details.localPosition.dy + trackYOffset - verticalOffset;
+
+            // Capture shift state at drag START for proper additive behavior
+            final shiftHeld = ModifierKeyState.current().isShiftPressed;
 
             setState(() {
               isBoxSelecting = true;
-              // Store position including scroll offset (absolute content position)
+              // Store position in VISIBLE coordinates (for overlay rendering)
+              // Selection logic will convert back to content coordinates
               boxSelectionStart = Offset(
                 details.localPosition.dx + scrollOffset,
-                details.localPosition.dy + yOffset,
+                visibleY,
               );
               boxSelectionEnd = boxSelectionStart;
               boxSelectionScrollOffset = scrollOffset;
-              boxSelectionTrackYOffset = yOffset;
-              // Note: Selection already cleared in onTapDown, only clear again here
-              // if Shift is NOT held (onTapDown preserves selection when Shift is held)
+              boxSelectionTrackYOffset = trackYOffset;
+              // Capture shift state and initial selection for proper additive behavior
+              boxSelectionShiftHeld = shiftHeld;
+              boxSelectionInitialMidiIds = shiftHeld ? Set.from(selectedMidiClipIds) : {};
+              boxSelectionInitialAudioIds = shiftHeld ? Set.from(selectedAudioClipIds) : {};
             });
             return;
           }
@@ -2331,11 +2338,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Box selection update
           if (isBoxSelecting) {
             final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+            final verticalOffset = widget.verticalScrollController?.hasClients == true
+                ? widget.verticalScrollController!.offset
+                : 0.0;
+
+            // Calculate visible Y position (for overlay rendering)
+            final visibleY = details.localPosition.dy + boxSelectionTrackYOffset - verticalOffset;
+
             setState(() {
-              // Update end position in absolute content coordinates
+              // Update end position in VISIBLE coordinates (for overlay rendering)
               boxSelectionEnd = Offset(
                 details.localPosition.dx + scrollOffset,
-                details.localPosition.dy + boxSelectionTrackYOffset,
+                visibleY,
               );
             });
             // Live selection update - select clips within the box
@@ -2434,6 +2448,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .where((clip) => isCopyDrag && draggingClipId != null && selectedAudioClipIds.contains(clip.clipId))
                 .expand((clip) => _buildAudioCopyDragPreviews(clip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
 
+            // Ghost preview for audio clips during MIDI drag (cross-type)
+            ...trackClips
+                .where((clip) => isCopyDrag && draggingMidiClipId != null && selectedAudioClipIds.contains(clip.clipId))
+                .expand((clip) => _buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+
             // Render MIDI clips for this track (hide clips being erased)
             ...trackMidiClips
                 .where((midiClip) => !erasedMidiClipIds.contains(midiClip.clipId))
@@ -2447,6 +2466,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingMidiClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
                 .expand((midiClip) => _buildCopyDragPreviews(midiClip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+
+            // Ghost preview for MIDI clips during audio drag (cross-type)
+            ...trackMidiClips
+                .where((midiClip) => isCopyDrag && draggingClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
+                .expand((midiClip) => _buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
 
             // Show preview clip if hovering over this track
             if (previewClip != null && previewClip!.trackId == track.id)
@@ -2668,9 +2692,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Slice mode: block drag (slicing is handled by onTapDown)
           if (tool == ToolMode.slice) return;
 
-          // Use the CAPTURED copy modifier state from tap down
-          // This fixes the issue where Cmd is detected at tap down but lost by drag start
-          final isDuplicate = audioPointerDownWasCopyModifier;
+          // Check copy modifier: use captured state from tap down, OR check current state
+          // (onTapDown might not fire if drag starts immediately)
+          final isDuplicate = audioPointerDownWasCopyModifier ||
+              modifiers.isCtrlOrCmd ||
+              tool == ToolMode.duplicate;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedAudioClipIds.contains(clip.clipId);
@@ -2686,7 +2712,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
 
           setState(() {
-            // Update selection to match what we're processing
+            // Update audio selection to match what we're processing
+            // NOTE: Don't clear MIDI selection - we want to drag both types together
             selectedAudioClipIds.clear();
             selectedAudioClipIds.addAll(clipIdsToProcess);
 
@@ -2734,45 +2761,80 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
           if (isCopyDrag) {
             // Get all selected clips BEFORE clearing selection
-            final clipsToCopy = clips
+            final audioClipsToCopy = clips
                 .where((c) => selectedAudioClipIds.contains(c.clipId))
                 .toList();
+            final midiClipsToCopy = widget.midiClips
+                .where((c) => selectedMidiClipIds.contains(c.clipId))
+                .toList();
+
+            // Convert delta to beats for MIDI clips
+            final snappedDeltaBeats = snappedDeltaSeconds * beatsPerSecond;
 
             // Clear internal selection - we'll select new clips after duplication
             selectedAudioClipIds.clear();
+            selectedMidiClipIds.clear();
 
-            // Duplicate ALL selected clips with same offset delta
-            for (final selectedClip in clipsToCopy) {
+            // Duplicate ALL selected audio clips with same offset delta
+            for (final selectedClip in audioClipsToCopy) {
               final newStartTime = (selectedClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
-              await _duplicateAudioClip(selectedClip, atPosition: newStartTime);
+              _duplicateAudioClip(selectedClip, atPosition: newStartTime);
+            }
+
+            // Duplicate ALL selected MIDI clips with same offset delta (in beats)
+            for (final midiClip in midiClipsToCopy) {
+              final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+              widget.onMidiClipCopied?.call(midiClip, newStartBeats);
             }
 
             // After all copies are made, select the new clips
-            // The new clips should be at the expected new positions
-            if (mounted) {
+            // Use addPostFrameCallback to wait for the widget tree to rebuild
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
               // Store original clip IDs for exclusion
-              final originalClipIds = clipsToCopy.map((c) => c.clipId).toSet();
+              final originalAudioClipIds = audioClipsToCopy.map((c) => c.clipId).toSet();
+              final originalMidiClipIds = midiClipsToCopy.map((c) => c.clipId).toSet();
 
               setState(() {
-                for (final originalClip in clipsToCopy) {
+                // Select new audio clips
+                for (final originalClip in audioClipsToCopy) {
                   final expectedNewStart = (originalClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
                   // Find a clip at this position that wasn't an original
                   final newClip = clips.where((c) =>
                     (c.startTime - expectedNewStart).abs() < 0.01 && // Slightly larger tolerance
                     c.trackId == originalClip.trackId &&
-                    !originalClipIds.contains(c.clipId)
+                    !originalAudioClipIds.contains(c.clipId)
                   ).firstOrNull;
                   if (newClip != null) {
                     selectedAudioClipIds.add(newClip.clipId);
                   }
                 }
+
+                // Select new MIDI clips
+                for (final originalClip in midiClipsToCopy) {
+                  final expectedNewStart = (originalClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+                  // Find a clip at this position that wasn't an original
+                  final newClip = widget.midiClips.where((c) =>
+                    (c.startTime - expectedNewStart).abs() < 0.01 &&
+                    c.trackId == originalClip.trackId &&
+                    !originalMidiClipIds.contains(c.clipId)
+                  ).firstOrNull;
+                  if (newClip != null) {
+                    selectedMidiClipIds.add(newClip.clipId);
+                  }
+                }
               });
-            }
+            });
           } else {
             // Move: update ALL selected clips by the same delta
-            final selectedClips = clips.where((c) => selectedAudioClipIds.contains(c.clipId)).toList();
 
-            for (final selectedClip in selectedClips) {
+            // Convert delta to beats for MIDI clips
+            final snappedDeltaBeats = snappedDeltaSeconds * beatsPerSecond;
+
+            // Move audio clips
+            final selectedAudioClips = clips.where((c) => selectedAudioClipIds.contains(c.clipId)).toList();
+
+            for (final selectedClip in selectedAudioClips) {
               final newStartTime = (selectedClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
 
               // Only create command if position actually changed
@@ -2794,6 +2856,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   clips[index] = clips[index].copyWith(startTime: newStartTime);
                 }
               });
+            }
+
+            // Move MIDI clips
+            final selectedMidiClips = widget.midiClips.where((c) => selectedMidiClipIds.contains(c.clipId)).toList();
+
+            for (final midiClip in selectedMidiClips) {
+              final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+              final newStartTimeSeconds = newStartBeats / beatsPerSecond;
+              final rustClipId = widget.getRustClipId?.call(midiClip.clipId) ?? midiClip.clipId;
+              widget.audioEngine?.setClipStartTime(midiClip.trackId, rustClipId, newStartTimeSeconds);
+              final updatedClip = midiClip.copyWith(startTime: newStartBeats);
+              widget.onMidiClipUpdated?.call(updatedClip);
             }
           }
 
@@ -3230,6 +3304,228 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     ];
   }
 
+  /// Build ghost preview for audio clip during MIDI drag (cross-type)
+  /// Uses MIDI drag state and converts delta from beats to seconds
+  List<Widget> _buildAudioCopyDragPreviewsForMidiDrag(ClipData sourceClip, Color trackColor, double trackHeight) {
+    final clipWidth = sourceClip.duration * pixelsPerSecond;
+    final totalHeight = trackHeight - 3.0;
+    const headerHeight = 20.0;
+
+    // Calculate delta from MIDI drag state (in beats), convert to seconds
+    final beatsPerSecond = widget.tempo / 60.0;
+    final dragDeltaBeats = (midiDragCurrentX - midiDragStartX) / pixelsPerBeat;
+
+    // Calculate snapped delta based on MIDI drag
+    var snappedDeltaBeats = dragDeltaBeats;
+    if (!snapBypassActive) {
+      final snapResolution = _getGridSnapResolution();
+      final draggedClipNewPos = midiDragStartTime + dragDeltaBeats;
+      final snappedPos = (draggedClipNewPos / snapResolution).round() * snapResolution;
+      snappedDeltaBeats = snappedPos - midiDragStartTime;
+    }
+
+    // Convert delta to seconds for audio clip positioning
+    final snappedDeltaSeconds = snappedDeltaBeats / beatsPerSecond;
+
+    // Apply the snapped delta to this source clip
+    final newStartTime = (sourceClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+    final copyX = newStartTime * pixelsPerSecond;
+
+    return [
+      Positioned(
+        key: ValueKey('audio_clip_ghost_cross_${sourceClip.clipId}'),
+        left: copyX,
+        top: 0,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: 0.5,
+            child: SizedBox(
+              width: clipWidth,
+              height: totalHeight,
+              child: Stack(
+                children: [
+                  // Background and border
+                  Container(
+                    decoration: BoxDecoration(
+                      color: trackColor.withValues(alpha: 0.3),
+                      border: Border.all(
+                        color: trackColor.withValues(alpha: 0.8),
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  // Content
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Column(
+                      children: [
+                        // Header
+                        Container(
+                          height: headerHeight,
+                          decoration: BoxDecoration(color: trackColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.audiotrack,
+                                size: 12,
+                                color: context.colors.textPrimary,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  sourceClip.fileName,
+                                  style: TextStyle(
+                                    color: context.colors.textPrimary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Waveform content
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return CustomPaint(
+                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                painter: _WaveformPainter(
+                                  peaks: sourceClip.waveformPeaks,
+                                  color: TrackColors.getLighterShade(trackColor),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// Build ghost preview for MIDI clip during audio drag (cross-type)
+  /// Uses audio drag state and converts delta from seconds to beats
+  List<Widget> _buildMidiCopyDragPreviewsForAudioDrag(MidiClipData sourceClip, Color trackColor, double trackHeight) {
+    final clipWidth = sourceClip.duration * pixelsPerBeat;
+    final totalHeight = trackHeight - 3.0;
+    const headerHeight = 18.0;
+
+    // Calculate delta from audio drag state (in seconds), convert to beats
+    final beatsPerSecond = widget.tempo / 60.0;
+    final dragDeltaSeconds = (dragCurrentX - dragStartX) / pixelsPerSecond;
+
+    // Snap the delta: convert to beats, snap based on audio drag position
+    final rawBeats = (dragStartTime + dragDeltaSeconds) * beatsPerSecond;
+    final snappedBeats = _snapToGrid(rawBeats);
+    final snappedNewStartTime = snappedBeats / beatsPerSecond;
+    final snappedDeltaSeconds = snappedNewStartTime - dragStartTime;
+
+    // Convert delta to beats for MIDI clip positioning
+    final snappedDeltaBeats = snappedDeltaSeconds * beatsPerSecond;
+
+    // Apply the snapped delta to this source clip
+    final newStartBeats = (sourceClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+    final copyX = newStartBeats * pixelsPerBeat;
+
+    return [
+      Positioned(
+        key: ValueKey('midi_clip_ghost_cross_${sourceClip.clipId}'),
+        left: copyX,
+        top: 0,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: 0.5,
+            child: SizedBox(
+              width: clipWidth,
+              height: totalHeight,
+              child: Stack(
+                children: [
+                  // Background and border
+                  Container(
+                    decoration: BoxDecoration(
+                      color: trackColor.withValues(alpha: 0.3),
+                      border: Border.all(
+                        color: trackColor.withValues(alpha: 0.8),
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  // Content
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Column(
+                      children: [
+                        // Header
+                        Container(
+                          height: headerHeight,
+                          decoration: BoxDecoration(color: trackColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.piano,
+                                size: 10,
+                                color: context.colors.textPrimary,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  sourceClip.name,
+                                  style: TextStyle(
+                                    color: context.colors.textPrimary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Notes content
+                        Expanded(
+                          child: sourceClip.notes.isNotEmpty
+                              ? LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return CustomPaint(
+                                      size: Size(constraints.maxWidth, constraints.maxHeight),
+                                      painter: _MidiClipPainter(
+                                        notes: sourceClip.notes,
+                                        clipDuration: sourceClip.duration,
+                                        loopLength: sourceClip.loopLength,
+                                        trackColor: trackColor,
+                                        contentStartOffset: sourceClip.contentStartOffset,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
   Widget _buildMidiClip(MidiClipData midiClip, Color trackColor, double trackHeight) {
     // MIDI clips use beat-based positioning (tempo-independent visual layout)
     final clipStartBeats = midiClip.startTime;
@@ -3377,9 +3673,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Slice mode: block drag (slicing is handled by onPointerDown)
           if (tool == ToolMode.slice) return;
 
-          // Use the CAPTURED copy modifier state from pointer down
-          // This fixes the issue where Cmd is detected at pointer down but lost by drag start
-          final isDuplicate = midiPointerDownWasCopyModifier;
+          // Check copy modifier: use captured state from pointer down, OR check current state
+          // (ensures duplicate works even if pointer down didn't capture the state)
+          final isDuplicate = midiPointerDownWasCopyModifier ||
+              modifiers.isCtrlOrCmd ||
+              tool == ToolMode.duplicate;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedMidiClipIds.contains(midiClip.clipId);
@@ -3396,7 +3694,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
 
           setState(() {
-            // Update selection to match what we're processing
+            // Update MIDI selection to match what we're processing
+            // NOTE: Don't clear audio selection - we want to drag both types together
             selectedMidiClipIds.clear();
             selectedMidiClipIds.addAll(clipIdsToProcess);
 
@@ -3447,20 +3746,34 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             snappedDeltaBeats = newStartBeats - midiDragStartTime;
           }
 
+          // Convert delta to seconds for audio clips
+          final beatsPerSecond = widget.tempo / 60.0;
+          final snappedDeltaSeconds = snappedDeltaBeats / beatsPerSecond;
+
           if (isCopyDrag) {
             // Get all selected clips BEFORE clearing selection
-            final clipsToCopy = widget.midiClips
+            final midiClipsToCopy = widget.midiClips
                 .where((c) => selectedMidiClipIds.contains(c.clipId))
+                .toList();
+            final audioClipsToCopy = clips
+                .where((c) => selectedAudioClipIds.contains(c.clipId))
                 .toList();
 
             // Clear internal selection - new copies will be selected after creation
             selectedMidiClipIds.clear();
+            selectedAudioClipIds.clear();
 
-            // Copy ALL selected clips with same offset delta
+            // Copy ALL selected MIDI clips with same offset delta
             // The parent will handle selecting the new clips via onMidiClipCopied callback
-            for (final clip in clipsToCopy) {
+            for (final clip in midiClipsToCopy) {
               final newStartBeats = (clip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
               widget.onMidiClipCopied?.call(clip, newStartBeats);
+            }
+
+            // Copy ALL selected audio clips with same offset delta (in seconds)
+            for (final audioClip in audioClipsToCopy) {
+              final newStartTime = (audioClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+              _duplicateAudioClip(audioClip, atPosition: newStartTime);
             }
 
             // After all copies are made, we need to select the new clips
@@ -3472,35 +3785,77 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               if (!mounted) return;
               setState(() {
                 // Store original clip IDs for exclusion
-                final originalClipIds = clipsToCopy.map((c) => c.clipId).toSet();
+                final originalMidiClipIds = midiClipsToCopy.map((c) => c.clipId).toSet();
+                final originalAudioClipIds = audioClipsToCopy.map((c) => c.clipId).toSet();
 
-                // Find newly created clips by their positions (they should match clipsToCopy positions + delta)
-                for (final originalClip in clipsToCopy) {
+                // Find newly created MIDI clips by their positions
+                for (final originalClip in midiClipsToCopy) {
                   final expectedNewStart = (originalClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
                   // Find a clip at this position that wasn't an original
                   final newClip = widget.midiClips.where((c) =>
                     (c.startTime - expectedNewStart).abs() < 0.01 && // Slightly larger tolerance
                     c.trackId == originalClip.trackId &&
-                    !originalClipIds.contains(c.clipId)
+                    !originalMidiClipIds.contains(c.clipId)
                   ).firstOrNull;
                   if (newClip != null) {
                     selectedMidiClipIds.add(newClip.clipId);
+                  }
+                }
+
+                // Find newly created audio clips by their positions
+                for (final originalClip in audioClipsToCopy) {
+                  final expectedNewStart = (originalClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+                  final newClip = clips.where((c) =>
+                    (c.startTime - expectedNewStart).abs() < 0.01 &&
+                    c.trackId == originalClip.trackId &&
+                    !originalAudioClipIds.contains(c.clipId)
+                  ).firstOrNull;
+                  if (newClip != null) {
+                    selectedAudioClipIds.add(newClip.clipId);
                   }
                 }
               });
             });
           } else {
             // Move: update ALL selected clips by the same delta
-            final beatsPerSecond = widget.tempo / 60.0;
-            final selectedClips = widget.midiClips.where((c) => selectedMidiClipIds.contains(c.clipId)).toList();
 
-            for (final clip in selectedClips) {
+            // Move MIDI clips
+            final selectedMidiClips = widget.midiClips.where((c) => selectedMidiClipIds.contains(c.clipId)).toList();
+
+            for (final clip in selectedMidiClips) {
               final newStartBeats = (clip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
               final newStartTimeSeconds = newStartBeats / beatsPerSecond;
               final rustClipId = widget.getRustClipId?.call(clip.clipId) ?? clip.clipId;
               widget.audioEngine?.setClipStartTime(clip.trackId, rustClipId, newStartTimeSeconds);
               final updatedClip = clip.copyWith(startTime: newStartBeats);
               widget.onMidiClipUpdated?.call(updatedClip);
+            }
+
+            // Move audio clips
+            final selectedAudioClips = clips.where((c) => selectedAudioClipIds.contains(c.clipId)).toList();
+
+            for (final audioClip in selectedAudioClips) {
+              final newStartTime = (audioClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+
+              // Only create command if position actually changed
+              if ((newStartTime - audioClip.startTime).abs() > 0.001) {
+                final command = MoveAudioClipCommand(
+                  trackId: audioClip.trackId,
+                  clipId: audioClip.clipId,
+                  clipName: audioClip.fileName,
+                  newStartTime: newStartTime,
+                  oldStartTime: audioClip.startTime,
+                );
+                UndoRedoManager().execute(command);
+              }
+
+              // Update local state
+              setState(() {
+                final index = clips.indexWhere((c) => c.clipId == audioClip.clipId);
+                if (index >= 0) {
+                  clips[index] = clips[index].copyWith(startTime: newStartTime);
+                }
+              });
             }
           }
 
@@ -3954,47 +4309,82 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     if (boxWidth < 10 && boxHeight < 10) return;
 
     // Box selection coordinates are already in absolute content space (pixels)
-    // Convert to beat range
+    // Convert to beat range (X axis)
     final minX = math.min(boxSelectionStart!.dx, boxSelectionEnd!.dx);
     final maxX = math.max(boxSelectionStart!.dx, boxSelectionEnd!.dx);
 
     final minBeats = minX / pixelsPerBeat;
     final maxBeats = maxX / pixelsPerBeat;
 
+    // Calculate Y bounds of selection rectangle in CONTENT coordinates
+    // (stored Y is in visible space, add vertical scroll offset to get content space)
+    final verticalOffset = widget.verticalScrollController?.hasClients == true
+        ? widget.verticalScrollController!.offset
+        : 0.0;
+    final minY = math.min(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
+    final maxY = math.max(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
+
+    // Use regularTracks (non-Master) to match visual layout
+    final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+
+    // Helper to check if a track is within Y bounds
+    bool isTrackInYRange(int trackId) {
+      final trackIndex = regularTracks.indexWhere((t) => t.id == trackId);
+      if (trackIndex < 0) return false;
+
+      double trackTop = 0.0;
+      for (int i = 0; i < trackIndex; i++) {
+        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
+      }
+      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
+      final trackBottom = trackTop + trackHeight;
+
+      // Check if track overlaps with selection Y range
+      return trackTop < maxY && trackBottom > minY;
+    }
+
     // Clear and rebuild selection (preserve shift behavior handled at start)
     final newMidiSelection = <int>{};
     final newAudioSelection = <int>{};
 
-    // Check all MIDI clips
+    // Check all MIDI clips (both X and Y overlap)
     for (final clip in widget.midiClips) {
       final clipStart = clip.startTime;
       final clipEnd = clip.startTime + clip.duration;
 
-      // Check if clip overlaps with selection rectangle (horizontal only for now)
-      if (clipStart < maxBeats && clipEnd > minBeats) {
+      // Check if clip overlaps with selection rectangle (both X and Y)
+      if (clipStart < maxBeats && clipEnd > minBeats && isTrackInYRange(clip.trackId)) {
         newMidiSelection.add(clip.clipId);
       }
     }
 
-    // Check all audio clips
+    // Check all audio clips (both X and Y overlap)
     final beatsPerSecond = widget.tempo / 60.0;
     for (final clip in clips) {
       final clipStartBeats = clip.startTime * beatsPerSecond;
       final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
 
-      if (clipStartBeats < maxBeats && clipEndBeats > minBeats) {
+      if (clipStartBeats < maxBeats && clipEndBeats > minBeats && isTrackInYRange(clip.trackId)) {
         newAudioSelection.add(clip.clipId);
       }
     }
 
     // Update selection state
     setState(() {
-      // If shift was held at start, we already preserved existing selection
-      // Just add newly selected items
-      if (ModifierKeyState.current().isShiftPressed) {
-        selectedMidiClipIds.addAll(newMidiSelection);
-        selectedAudioClipIds.addAll(newAudioSelection);
+      // If shift was held at START, merge initial selection with current box intersection
+      // Otherwise, replace selection with current box intersection
+      if (boxSelectionShiftHeld) {
+        // Additive mode: initial selection + current box intersection
+        selectedMidiClipIds
+          ..clear()
+          ..addAll(boxSelectionInitialMidiIds)
+          ..addAll(newMidiSelection);
+        selectedAudioClipIds
+          ..clear()
+          ..addAll(boxSelectionInitialAudioIds)
+          ..addAll(newAudioSelection);
       } else {
+        // Replace mode: only clips in current box intersection
         selectedMidiClipIds
           ..clear()
           ..addAll(newMidiSelection);
@@ -4011,17 +4401,21 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       return const SizedBox.shrink();
     }
 
-    // Get current scroll offset to convert absolute to visible coordinates
+    // Get horizontal scroll offset to convert X from content to visible coordinates
     final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
 
-    // Convert from absolute content coordinates to visible coordinates
+    // X coordinates are in content space, convert to visible
     final visibleStartX = boxSelectionStart!.dx - scrollOffset;
     final visibleEndX = boxSelectionEnd!.dx - scrollOffset;
 
+    // Y coordinates are already in visible space
+    final visibleStartY = boxSelectionStart!.dy;
+    final visibleEndY = boxSelectionEnd!.dy;
+
     final left = math.min(visibleStartX, visibleEndX);
-    final top = math.min(boxSelectionStart!.dy, boxSelectionEnd!.dy);
+    final top = math.min(visibleStartY, visibleEndY);
     final width = (visibleStartX - visibleEndX).abs();
-    final height = (boxSelectionStart!.dy - boxSelectionEnd!.dy).abs();
+    final height = (visibleStartY - visibleEndY).abs();
 
     return Positioned(
       left: left,

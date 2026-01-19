@@ -1941,6 +1941,24 @@ class _DAWScreenState extends State<DAWScreen> {
     _undoRedoManager.execute(command);
   }
 
+  void _onAudioClipCopied(ClipData sourceClip, double newStartTime) {
+    final command = DuplicateAudioClipCommand(
+      originalClip: sourceClip,
+      newStartTime: newStartTime,
+      onClipDuplicated: (newClip) {
+        // Add to timeline view's clip list
+        _timelineKey.currentState?.addClip(newClip);
+        if (mounted) setState(() {});
+      },
+      onClipRemoved: (clipId) {
+        // Remove from timeline view's clip list
+        _timelineKey.currentState?.removeClip(clipId);
+        if (mounted) setState(() {});
+      },
+    );
+    _undoRedoManager.execute(command);
+  }
+
   void _duplicateSelectedClip() {
     final clip = _midiPlaybackManager?.currentEditingClip;
     if (clip == null) return;
@@ -2231,10 +2249,14 @@ class _DAWScreenState extends State<DAWScreen> {
       commands.add(DeleteAudioClipCommand(
         clipData: clip,
         onClipRemoved: (clipId) {
-          // Timeline handles its own clip removal via the callback
+          // Remove from timeline view's clip list
+          // (Engine removal is handled by the command's execute method)
+          _timelineKey.currentState?.removeClip(clipId);
         },
         onClipRestored: (restoredClip) {
-          // Timeline handles restoration via callback
+          // Restore to timeline view's clip list
+          // (Engine restoration is handled by the command's undo method)
+          _timelineKey.currentState?.addClip(restoredClip);
         },
       ));
     }
@@ -3446,6 +3468,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           onAudioClipSelected: _onAudioClipSelected,
                           onMidiClipUpdated: _onMidiClipUpdated,
                           onMidiClipCopied: _onMidiClipCopied,
+                          onAudioClipCopied: _onAudioClipCopied,
                           getRustClipId: (dartClipId) => _midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
                           onMidiClipDeleted: _deleteMidiClip,
                           onMidiClipsBatchDeleted: _deleteMidiClipsBatch,

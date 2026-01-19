@@ -4,6 +4,21 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- Multi-type clip dragging: dragging/duplicating now moves ALL selected clips (both audio and MIDI) together, regardless of which clip type you drag from
+- Cross-type ghost previews: when duplicating mixed selections, ghost previews now show for both audio and MIDI clips during drag
+- Cross-type shift+click selection: shift+click now adds to selection across clip types (audio + MIDI together)
+
+### Bug Fixes
+
+- Fixed audio clip batch delete (eraser tool) not actually deleting clips (they disappeared during drag but reappeared on release)
+- Fixed audio clip duplicate not working (Cmd+drag and duplicate tool now work like MIDI clips)
+- Fixed eraser tool not detecting clips correctly on multiple audio tracks (Y coordinate calculation excluded non-Master tracks)
+- Fixed selection rectangle selecting clips on all tracks instead of only tracks within the rectangle bounds
+- Fixed selection rectangle Y offset on lower tracks (cumulative ~20px offset per track due to inconsistent default track height values)
+- Fixed modifier-key box selection (Shift+drag) not deselecting clips when rectangle no longer touches them
+
 ---
 
 ## v0.1.1 — 2026-01-19

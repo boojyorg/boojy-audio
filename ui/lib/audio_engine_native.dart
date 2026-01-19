@@ -1965,9 +1965,12 @@ class AudioEngine implements AudioEngineInterface {
   /// Returns true if removed, false if not found
   bool removeAudioClip(int trackId, int clipId) {
     try {
+      debugPrint('🗑️ [Engine] removeAudioClip called: trackId=$trackId, clipId=$clipId');
       final result = _removeAudioClip(trackId, clipId);
+      debugPrint('🗑️ [Engine] removeAudioClip result: $result (${result > 0 ? "removed" : "not found"})');
       return result > 0;
     } catch (e) {
+      debugPrint('🗑️ [Engine] removeAudioClip error: $e');
       return false;
     }
   }
