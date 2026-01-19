@@ -3,6 +3,15 @@ import '../../models/midi_note_data.dart';
 import 'audio_engine_interface.dart';
 import 'command.dart';
 
+/// Counter for generating unique clip IDs
+int _clipIdCounter = 0;
+
+/// Generate a unique clip ID that won't collide even in rapid succession
+int _generateUniqueClipId() {
+  _clipIdCounter++;
+  return DateTime.now().microsecondsSinceEpoch + _clipIdCounter;
+}
+
 /// Command to move a MIDI clip on the timeline
 class MoveMidiClipCommand extends Command {
   final int clipId;
@@ -254,8 +263,8 @@ class SplitMidiClipCommand extends Command {
     this.onSplit,
     this.onUndo,
   }) {
-    leftClipId = DateTime.now().millisecondsSinceEpoch;
-    rightClipId = leftClipId + 1;
+    leftClipId = _generateUniqueClipId();
+    rightClipId = _generateUniqueClipId();
   }
 
   @override
@@ -345,8 +354,8 @@ class SplitAudioClipCommand extends Command {
     this.onSplit,
     this.onUndo,
   }) {
-    leftClipId = DateTime.now().millisecondsSinceEpoch;
-    rightClipId = leftClipId + 1;
+    leftClipId = _generateUniqueClipId();
+    rightClipId = _generateUniqueClipId();
   }
 
   @override
@@ -500,7 +509,7 @@ class DuplicateAudioClipCommand extends Command {
 
     if (newClipId < 0) {
       // Fallback to local-only ID if engine call fails
-      _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+      _duplicatedClipId = _generateUniqueClipId();
     } else {
       _duplicatedClipId = newClipId;
     }
@@ -625,7 +634,7 @@ class DuplicateMidiClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    _duplicatedClipId = DateTime.now().millisecondsSinceEpoch;
+    _duplicatedClipId = _generateUniqueClipId();
 
     // Generate patternId if original doesn't have one
     // This creates a shared pattern ID for linking clips together

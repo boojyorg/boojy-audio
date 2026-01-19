@@ -125,6 +125,13 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// True when Cmd/Ctrl held at drag start (copy mode).
   bool isCopyDrag = false;
 
+  /// Modifier state captured at pointer down (for MIDI clips).
+  /// Used to preserve modifier state between onPointerDown and onHorizontalDragStart.
+  bool midiPointerDownWasCopyModifier = false;
+
+  /// Modifier state captured at pointer down (for audio clips).
+  bool audioPointerDownWasCopyModifier = false;
+
   /// Number of stamp copies to create during Alt+drag.
   int stampCopyCount = 0;
 

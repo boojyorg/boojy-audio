@@ -4,8 +4,9 @@ import '../utils/track_colors.dart';
 
 /// Manages track state including heights, colors, selection, and instruments.
 class TrackController extends ChangeNotifier {
-  // Track selection
+  // Track selection (single and multi)
   int? _selectedTrackId;
+  final Set<int> _selectedTrackIds = {};
 
   // Track height state (synced between mixer and timeline)
   final Map<int, double> _trackHeights = {};
@@ -30,6 +31,7 @@ class TrackController extends ChangeNotifier {
 
   // Getters
   int? get selectedTrackId => _selectedTrackId;
+  Set<int> get selectedTrackIds => Set.unmodifiable(_selectedTrackIds);
   List<int> get trackOrder => List.unmodifiable(_trackOrder);
   Map<int, double> get trackHeights => Map.unmodifiable(_trackHeights);
   double get masterTrackHeight => _masterTrackHeight;
@@ -103,9 +105,32 @@ class TrackController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Select a track
-  void selectTrack(int? trackId) {
-    _selectedTrackId = trackId;
+  /// Select a track (with optional multi-select via shift key)
+  void selectTrack(int? trackId, {bool isShiftHeld = false}) {
+    if (trackId == null) {
+      _selectedTrackId = null;
+      _selectedTrackIds.clear();
+      notifyListeners();
+      return;
+    }
+
+    if (isShiftHeld) {
+      // Multi-select: toggle this track in the selection set
+      if (_selectedTrackIds.contains(trackId)) {
+        _selectedTrackIds.remove(trackId);
+        // Update primary selection to another selected track, or null
+        _selectedTrackId = _selectedTrackIds.isNotEmpty ? _selectedTrackIds.first : null;
+      } else {
+        _selectedTrackIds.add(trackId);
+        // If no primary selection, make this the primary
+        _selectedTrackId ??= trackId;
+      }
+    } else {
+      // Single select: clear multi-selection and select only this track
+      _selectedTrackIds.clear();
+      _selectedTrackIds.add(trackId);
+      _selectedTrackId = trackId;
+    }
     notifyListeners();
   }
 
@@ -177,9 +202,10 @@ class TrackController extends ChangeNotifier {
     _trackHeights.remove(trackId);
     _trackColorOverrides.remove(trackId);
     _trackNameUserEdited.remove(trackId);
+    _selectedTrackIds.remove(trackId);
 
     if (_selectedTrackId == trackId) {
-      _selectedTrackId = null;
+      _selectedTrackId = _selectedTrackIds.isNotEmpty ? _selectedTrackIds.first : null;
     }
     notifyListeners();
   }
@@ -217,6 +243,7 @@ class TrackController extends ChangeNotifier {
   /// Clear all track state (for new project)
   void clear() {
     _selectedTrackId = null;
+    _selectedTrackIds.clear();
     _trackHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();
@@ -229,6 +256,7 @@ class TrackController extends ChangeNotifier {
   @override
   void dispose() {
     // Clear all state before disposing
+    _selectedTrackIds.clear();
     _trackHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();

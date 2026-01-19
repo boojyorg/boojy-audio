@@ -2,6 +2,20 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Improvements
+
+- Multi-track selection with Shift+click in mixer panel (Ableton-style)
+
+### Bug Fixes
+
+- Fixed duplicate key error when dragging clips (ghost previews now have unique keys)
+- Fixed clip ID collision when duplicating multiple clips in rapid succession (could cause clips to overwrite each other)
+- Fixed Cmd+drag duplicate incorrectly triggering eraser mode on clips dragged over (timeline background used wrong modifier key)
+
+---
+
 ## v0.1.1 — 2026-01-18
 
 ### Improvements

@@ -142,6 +142,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // Convenience getters/setters that delegate to _trackController
   int? get _selectedTrackId => _trackController.selectedTrackId;
+  Set<int> get _selectedTrackIds => _trackController.selectedTrackIds;
+  void _selectTrack(int? trackId, {bool isShiftHeld = false}) =>
+      _trackController.selectTrack(trackId, isShiftHeld: isShiftHeld);
   set _selectedTrackId(int? value) => _trackController.selectTrack(value);
 
   Map<int, InstrumentData> get _trackInstruments => _trackController.trackInstruments;
@@ -737,33 +740,35 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Unified track selection method - handles both timeline and mixer clicks
-  void _onTrackSelected(int? trackId) {
+  void _onTrackSelected(int? trackId, {bool isShiftHeld = false}) {
     if (trackId == null) {
       setState(() {
-        _selectedTrackId = null;
+        _selectTrack(null);
         _uiLayout.isEditorPanelVisible = false;
       });
       return;
     }
 
     setState(() {
-      _selectedTrackId = trackId;
+      _selectTrack(trackId, isShiftHeld: isShiftHeld);
       _uiLayout.isEditorPanelVisible = true;
     });
 
     // Try to find an existing clip for this track and select it
-    // instead of clearing the clip selection
-    final clipsForTrack = _midiPlaybackManager?.midiClips
-        .where((c) => c.trackId == trackId)
-        .toList();
+    // instead of clearing the clip selection (only for single selection)
+    if (!isShiftHeld) {
+      final clipsForTrack = _midiPlaybackManager?.midiClips
+          .where((c) => c.trackId == trackId)
+          .toList();
 
-    if (clipsForTrack != null && clipsForTrack.isNotEmpty) {
-      // Select the first clip for this track
-      final clip = clipsForTrack.first;
-      _midiPlaybackManager?.selectClip(clip.clipId, clip);
-    } else {
-      // No clips for this track - clear selection
-      _midiPlaybackManager?.selectClip(null, null);
+      if (clipsForTrack != null && clipsForTrack.isNotEmpty) {
+        // Select the first clip for this track
+        final clip = clipsForTrack.first;
+        _midiPlaybackManager?.selectClip(clip.clipId, clip);
+      } else {
+        // No clips for this track - clear selection
+        _midiPlaybackManager?.selectClip(null, null);
+      }
     }
   }
 
@@ -3525,6 +3530,7 @@ class _DAWScreenState extends State<DAWScreen> {
                             isEngineReady: _isAudioGraphInitialized,
                             scrollController: _mixerVerticalScrollController,
                             selectedTrackId: _selectedTrackId,
+                            selectedTrackIds: _selectedTrackIds,
                             onTrackSelected: _onTrackSelected,
                             onInstrumentSelected: _onInstrumentSelected,
                             onTrackDuplicated: _onTrackDuplicated,

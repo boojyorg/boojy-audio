@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
+import '../services/tool_mode_resolver.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
 import '../utils/track_colors.dart';
@@ -37,7 +38,7 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
   final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
-  final VoidCallback? onTap; // Unified track selection callback
+  final Function(bool isShiftHeld)? onTap; // Unified track selection callback (with shift state for multi-select)
   final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
   final VoidCallback? onDuplicatePressed;
@@ -398,7 +399,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             final isHovered = candidateVst3.isNotEmpty || candidateInstrument.isNotEmpty;
 
         return GestureDetector(
-          onTap: widget.onTap,
+          onTap: () {
+            final isShiftHeld = ModifierKeyState.current().isShiftPressed;
+            widget.onTap?.call(isShiftHeld);
+          },
           onDoubleTap: widget.onDoubleTap,
           onSecondaryTapDown: (TapDownDetails details) {
             _showContextMenu(context, details.globalPosition);

@@ -19,7 +19,8 @@ class TrackMixerPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final ScrollController? scrollController; // For syncing with timeline
   final int? selectedTrackId; // Unified track selection
-  final Function(int?)? onTrackSelected; // Unified selection callback
+  final Set<int>? selectedTrackIds; // Multi-track selection
+  final Function(int?, {bool isShiftHeld})? onTrackSelected; // Unified selection callback with shift state
   final Function(int, String)? onInstrumentSelected; // (trackId, instrumentId)
   final Function(int, int)? onTrackDuplicated; // (sourceTrackId, newTrackId)
   final Function(int)? onTrackDeleted; // (trackId)
@@ -79,6 +80,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.isEngineReady = false,
     this.scrollController,
     this.selectedTrackId,
+    this.selectedTrackIds,
     this.onTrackSelected,
     this.onInstrumentSelected,
     this.onTrackDuplicated,
@@ -936,7 +938,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
       trackColor: trackColor,
       audioEngine: widget.audioEngine,
-      isSelected: widget.selectedTrackId == track.id,
+      isSelected: widget.selectedTrackIds?.contains(track.id) ?? widget.selectedTrackId == track.id,
       instrumentData: widget.trackInstruments?[track.id],
       onInstrumentSelect: (instrumentId) {
         widget.onInstrumentSelected?.call(track.id, instrumentId);
@@ -951,8 +953,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onHeightChanged: (height) {
         widget.onTrackHeightChanged?.call(track.id, height);
       },
-      onTap: () {
-        widget.onTrackSelected?.call(track.id);
+      onTap: (isShiftHeld) {
+        widget.onTrackSelected?.call(track.id, isShiftHeld: isShiftHeld);
       },
       onDoubleTap: () {
         widget.onTrackDoubleClick?.call(track.id);

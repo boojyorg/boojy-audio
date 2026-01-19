@@ -1792,9 +1792,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                         // Ctrl/Cmd+click on empty space - no action needed
                                       },
                                       onPointerMove: (event) {
-                                        // Ctrl/Cmd+drag = eraser mode
+                                        // Alt+drag = eraser mode (matches tool_mode_resolver: Alt → Eraser)
                                         if (event.buttons == kPrimaryButton) {
-                                          if (ModifierKeyState.current().isCtrlOrCmd) {
+                                          if (ModifierKeyState.current().isAltPressed) {
                                             if (!isErasing) {
                                               _startErasing(event.position);
                                             } else {
@@ -2555,14 +2555,21 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         : 0.0;
 
     return Positioned(
+      key: ValueKey('audio_clip_${clip.clipId}'),
       left: clipX,
       top: 0,
       child: GestureDetector(
         onTapDown: (details) {
-          // Tool-based behavior (effectiveToolMode includes modifier key overrides)
-          final tool = effectiveToolMode;
+          // Check modifier keys directly at click time (more reliable than cached tempToolMode)
+          final modifiers = ModifierKeyState.current();
+          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
-          // Eraser tool: delete clip immediately
+          // IMPORTANT: Capture copy modifier state at tap down
+          // This is needed because by the time onHorizontalDragStart fires,
+          // the modifier key state may have changed (widget rebuild, etc.)
+          audioPointerDownWasCopyModifier = modifiers.isCtrlOrCmd || tool == ToolMode.duplicate;
+
+          // Eraser tool: delete clip immediately (but NOT if Cmd is pressed - that's duplicate)
           if (tool == ToolMode.eraser) {
             _deleteAudioClip(clip);
             return;
@@ -2587,7 +2594,6 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
           // DRAW, SELECT, or DUPLICATE TOOL: Handle selection on tap down
           // (Duplicate only creates copy on drag-end, not click)
-          final modifiers = ModifierKeyState.current();
           final wasAlreadySelected = selectedAudioClipIds.contains(clip.clipId);
 
           // If clicking on already-selected clip without Shift, defer single-selection to tap-up
@@ -2621,24 +2627,39 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Clear pending tap selection - user is dragging, not clicking
           pendingAudioClipTapSelection = null;
 
-          // Check modifier keys at drag start (more reliable than effectiveToolMode)
+          // Check modifier keys at drag start
           final modifiers = ModifierKeyState.current();
           final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
           // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
+          // But check the CAPTURED state from tap down, not current state
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) {
+            // Only block if we didn't capture copy modifier at tap down
+            if (!audioPointerDownWasCopyModifier) return;
+          }
+
+          // Use the CAPTURED copy modifier state from tap down
+          // This fixes the issue where Cmd is detected at tap down but lost by drag start
+          final isDuplicate = audioPointerDownWasCopyModifier;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedAudioClipIds.contains(clip.clipId);
-          // Duplicate mode = copy drag (from tool OR Cmd/Ctrl modifier)
-          final isDuplicate = tool == ToolMode.duplicate || modifiers.isCtrlOrCmd;
+
+          // Capture the clips to drag/copy at drag START (before any state changes)
+          final Set<int> clipIdsToProcess;
+          if (isInMultiSelection) {
+            // Dragging a selected clip - process all selected clips
+            clipIdsToProcess = Set.from(selectedAudioClipIds);
+          } else {
+            // Dragging an unselected clip - only process this clip
+            clipIdsToProcess = {clip.clipId};
+          }
 
           setState(() {
-            // If not in multi-selection, select just this clip
-            if (!isInMultiSelection) {
-              selectedAudioClipIds.clear();
-              selectedAudioClipIds.add(clip.clipId);
-            }
+            // Update selection to match what we're processing
+            selectedAudioClipIds.clear();
+            selectedAudioClipIds.addAll(clipIdsToProcess);
+
             selectedAudioClipId = clip.clipId;
             draggingClipId = clip.clipId;
             dragStartTime = clip.startTime;
@@ -2675,13 +2696,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .where((c) => selectedAudioClipIds.contains(c.clipId))
                 .toList();
 
-            // Clear internal selection - the callback will select the new clips
+            // Clear internal selection - we'll select new clips after duplication
             selectedAudioClipIds.clear();
 
             // Duplicate ALL selected clips with same offset delta
             for (final selectedClip in clipsToCopy) {
               final newStartTime = (selectedClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
               await _duplicateAudioClip(selectedClip, atPosition: newStartTime);
+            }
+
+            // After all copies are made, select the new clips
+            // The new clips should be at the expected new positions
+            if (mounted) {
+              setState(() {
+                for (final originalClip in clipsToCopy) {
+                  final expectedNewStart = (originalClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+                  // Find a clip at this position that wasn't in the original selection
+                  final newClip = clips.where((c) =>
+                    (c.startTime - expectedNewStart).abs() < 0.001 &&
+                    c.trackId == originalClip.trackId &&
+                    !clipsToCopy.any((orig) => orig.clipId == c.clipId)
+                  ).firstOrNull;
+                  if (newClip != null) {
+                    selectedAudioClipIds.add(newClip.clipId);
+                  }
+                }
+              });
             }
           } else {
             // Move: update ALL selected clips by the same delta
@@ -2934,21 +2974,28 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final totalHeight = trackHeight - 3.0;
     const headerHeight = 18.0;
 
-    // Calculate ghost position
+    // Calculate ghost position using snapped delta from the primary dragged clip
+    // This keeps all selected clips moving together with consistent relative spacing
     final dragDeltaBeats = (midiDragCurrentX - midiDragStartX) / pixelsPerBeat;
-    var newStartBeats = sourceClip.startTime + dragDeltaBeats;
 
-    // Apply snapping
+    // Calculate snapped delta based on the primary dragged clip
+    var snappedDeltaBeats = dragDeltaBeats;
     if (!snapBypassActive) {
       final snapResolution = _getGridSnapResolution();
-      newStartBeats = (newStartBeats / snapResolution).round() * snapResolution;
+      // Snap based on the primary dragged clip's new position
+      final draggedClipNewPos = midiDragStartTime + dragDeltaBeats;
+      final snappedPos = (draggedClipNewPos / snapResolution).round() * snapResolution;
+      snappedDeltaBeats = snappedPos - midiDragStartTime;
     }
-    newStartBeats = newStartBeats.clamp(0.0, double.infinity);
+
+    // Apply the snapped delta to this source clip
+    final newStartBeats = (sourceClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
 
     final copyX = newStartBeats * pixelsPerBeat;
 
     return [
       Positioned(
+        key: ValueKey('midi_clip_ghost_${sourceClip.clipId}'),
         left: copyX,
         top: 0,
         child: IgnorePointer(
@@ -3040,19 +3087,24 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final totalHeight = trackHeight - 3.0;
     const headerHeight = 20.0;
 
-    // Calculate ghost position
+    // Calculate ghost position using snapped delta from the primary dragged clip
+    // This keeps all selected clips moving together with consistent relative spacing
     final dragDeltaSeconds = (dragCurrentX - dragStartX) / pixelsPerSecond;
 
-    // Snap the delta: convert to beats, snap, convert back
+    // Snap the delta: convert to beats, snap dragged clip's new position, derive delta
     final beatsPerSecond = widget.tempo / 60.0;
     final rawBeats = (dragStartTime + dragDeltaSeconds) * beatsPerSecond;
     final snappedBeats = _snapToGrid(rawBeats);
     final snappedNewStartTime = snappedBeats / beatsPerSecond;
+    final snappedDeltaSeconds = snappedNewStartTime - dragStartTime;
 
-    final copyX = snappedNewStartTime * pixelsPerSecond;
+    // Apply the snapped delta to this source clip
+    final newStartTime = (sourceClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+    final copyX = newStartTime * pixelsPerSecond;
 
     return [
       Positioned(
+        key: ValueKey('audio_clip_ghost_${sourceClip.clipId}'),
         left: copyX,
         top: 0,
         child: IgnorePointer(
@@ -3181,15 +3233,23 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         : 0.0;
 
     return Positioned(
+      key: ValueKey('midi_clip_${midiClip.clipId}'),
       left: clipX,
       top: 0,
       child: Listener(
         onPointerDown: (event) {
           // Immediate selection feedback on pointer down (no gesture delay)
           if (event.buttons == kPrimaryButton) {
-            final tool = effectiveToolMode;
+            // Check modifier keys directly at click time (more reliable than cached tempToolMode)
+            final modifiers = ModifierKeyState.current();
+            final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
-            // Eraser tool: delete clip immediately
+            // IMPORTANT: Capture copy modifier state at pointer down
+            // This is needed because by the time onHorizontalDragStart fires,
+            // the modifier key state may have changed (widget rebuild, etc.)
+            midiPointerDownWasCopyModifier = modifiers.isCtrlOrCmd || tool == ToolMode.duplicate;
+
+            // Eraser tool: delete clip immediately (but NOT if Cmd is pressed - that's duplicate)
             if (tool == ToolMode.eraser) {
               widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
               return;
@@ -3211,7 +3271,6 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // DRAW, SELECT, or DUPLICATE TOOL: Handle selection
             // (Duplicate only creates copy on drag-end, not click)
-            final modifiers = ModifierKeyState.current();
             final wasAlreadySelected = selectedMidiClipIds.contains(midiClip.clipId);
 
             // If clicking on already-selected clip without Shift, defer single-selection to tap-up
@@ -3252,28 +3311,46 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Clear pending tap selection - user is dragging, not clicking
           pendingMidiClipTapSelection = null;
 
-          // Check modifier keys at drag start (more reliable than effectiveToolMode)
+          // Check modifier keys at drag start
           final modifiers = ModifierKeyState.current();
           final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
           // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
+          // But check the CAPTURED state from pointer down, not current state
+          // (modifier state can change between pointer down and drag start due to widget rebuild)
+          if (tool == ToolMode.eraser || tool == ToolMode.slice) {
+            // Only block if we didn't capture copy modifier at pointer down
+            if (!midiPointerDownWasCopyModifier) return;
+          }
+
+          // Use the CAPTURED copy modifier state from pointer down
+          // This fixes the issue where Cmd is detected at pointer down but lost by drag start
+          final isDuplicate = midiPointerDownWasCopyModifier;
 
           // Check if this clip is in the multi-selection
           final isInMultiSelection = selectedMidiClipIds.contains(midiClip.clipId);
-          // Duplicate mode = copy drag (from tool OR Cmd/Ctrl modifier)
-          final isDuplicate = tool == ToolMode.duplicate || modifiers.isCtrlOrCmd;
+
+          // Capture the clips to drag/copy at drag START (before any state changes)
+          // This ensures we have a stable list even if selection changes during drag
+          final Set<int> clipIdsToProcess;
+          if (isInMultiSelection) {
+            // Dragging a selected clip - process all selected clips
+            clipIdsToProcess = Set.from(selectedMidiClipIds);
+          } else {
+            // Dragging an unselected clip - only process this clip
+            clipIdsToProcess = {midiClip.clipId};
+          }
+
           setState(() {
-            // If not in multi-selection, select just this clip
-            if (!isInMultiSelection) {
-              selectedMidiClipIds.clear();
-              selectedMidiClipIds.add(midiClip.clipId);
-            }
+            // Update selection to match what we're processing
+            selectedMidiClipIds.clear();
+            selectedMidiClipIds.addAll(clipIdsToProcess);
+
             draggingMidiClipId = midiClip.clipId;
             midiDragStartTime = midiClip.startTime;
             midiDragStartX = details.globalPosition.dx;
             midiDragCurrentX = details.globalPosition.dx;
-            isCopyDrag = isDuplicate; // Duplicate tool or Cmd/Ctrl = copy drag
+            isCopyDrag = isDuplicate; // Use captured state from pointer down
           });
         },
         onHorizontalDragUpdate: (details) {
@@ -3310,14 +3387,37 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .where((c) => selectedMidiClipIds.contains(c.clipId))
                 .toList();
 
-            // Clear internal selection - the callback will select the new clips
+            // Clear internal selection - new copies will be selected after creation
             selectedMidiClipIds.clear();
 
             // Copy ALL selected clips with same offset delta
+            // The parent will handle selecting the new clips via onMidiClipCopied callback
             for (final clip in clipsToCopy) {
               final newStartBeats = (clip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
               widget.onMidiClipCopied?.call(clip, newStartBeats);
             }
+
+            // After all copies are made, we need to select the new clips
+            // The new clips should now be at the end of widget.midiClips
+            // Select them by finding clips that match the expected new positions
+            Future.microtask(() {
+              if (!mounted) return;
+              setState(() {
+                // Find newly created clips by their positions (they should match clipsToCopy positions + delta)
+                for (final originalClip in clipsToCopy) {
+                  final expectedNewStart = (originalClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+                  // Find a clip at this position that wasn't in the original selection
+                  final newClip = widget.midiClips.where((c) =>
+                    (c.startTime - expectedNewStart).abs() < 0.001 &&
+                    c.trackId == originalClip.trackId &&
+                    !clipsToCopy.any((orig) => orig.clipId == c.clipId)
+                  ).firstOrNull;
+                  if (newClip != null) {
+                    selectedMidiClipIds.add(newClip.clipId);
+                  }
+                }
+              });
+            });
           } else {
             // Move: update ALL selected clips by the same delta
             final beatsPerSecond = widget.tempo / 60.0;
