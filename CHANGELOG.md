@@ -2,7 +2,7 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
-## Unreleased
+## v0.1.2 — 2026-01-19
 
 ### Improvements
 
