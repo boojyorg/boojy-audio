@@ -7,12 +7,17 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Improvements
 
 - Multi-track selection with Shift+click in mixer panel (Ableton-style)
+- Eraser tool now supports drag-to-delete on clips in arrangement view (click+drag over clips to delete, like piano roll)
 
 ### Bug Fixes
 
 - Fixed duplicate key error when dragging clips (ghost previews now have unique keys)
 - Fixed clip ID collision when duplicating multiple clips in rapid succession (could cause clips to overwrite each other)
 - Fixed Cmd+drag duplicate incorrectly triggering eraser mode on clips dragged over (timeline background used wrong modifier key)
+- Fixed eraser drag-over-clips not detecting clips due to incorrect Y coordinate calculation (now accounts for nav bar and vertical scroll)
+- Fixed multi-clip duplicate only selecting one clip after drop (all duplicated clips now selected)
+- Fixed eraser tool allowing move/resize on clips instead of only erasing (now blocks all drag operations like piano roll)
+- Fixed toolbar eraser tool not working on empty timeline space (only Alt modifier worked before)
 
 ---
 

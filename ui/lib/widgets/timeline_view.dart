@@ -1136,9 +1136,20 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     if (box == null) return;
     final localPosition = box.globalToLocal(globalPosition);
 
-    // Calculate beat position from mouse X
+    // Calculate beat position from mouse X (accounting for horizontal scroll)
     final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
     final beatPosition = (localPosition.dx + scrollOffset) / pixelsPerBeat;
+
+    // Calculate Y position in track coordinate space
+    // localPosition.dy is relative to TimelineView top
+    // We need to account for:
+    // 1. Nav bar height (24px) - subtract this to get position relative to tracks area
+    // 2. Vertical scroll offset - add this to convert from visible to content coordinates
+    const navBarHeight = 24.0;
+    final verticalScrollOffset = widget.verticalScrollController?.hasClients == true
+        ? widget.verticalScrollController!.offset
+        : 0.0;
+    final trackAreaY = localPosition.dy - navBarHeight + verticalScrollOffset;
 
     // Check audio clips
     for (final clip in clips) {
@@ -1163,8 +1174,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       // Check if mouse is within clip bounds
       if (beatPosition >= clipStartBeats &&
           beatPosition <= clipEndBeats &&
-          localPosition.dy >= trackTop &&
-          localPosition.dy <= trackBottom) {
+          trackAreaY >= trackTop &&
+          trackAreaY <= trackBottom) {
         erasedAudioClipIds.add(clip.clipId);
         _pendingAudioClipsToErase.add(clip);
         // Update UI immediately to show clip as "erased" (visual feedback)
@@ -1193,8 +1204,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       // Check if mouse is within clip bounds
       if (beatPosition >= clipStartBeats &&
           beatPosition <= clipEndBeats &&
-          localPosition.dy >= trackTop &&
-          localPosition.dy <= trackBottom) {
+          trackAreaY >= trackTop &&
+          trackAreaY <= trackBottom) {
         erasedMidiClipIds.add(midiClip.clipId);
         _pendingMidiClipsToErase.add((midiClip.clipId, midiClip.trackId));
         // Update UI immediately to show clip as "erased" (visual feedback)
@@ -1789,12 +1800,21 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                     scrollDirection: Axis.vertical,
                                     child: Listener(
                                       onPointerDown: (event) {
-                                        // Ctrl/Cmd+click on empty space - no action needed
+                                        // Eraser tool (toolbar OR Alt modifier) = start erasing on pointer down
+                                        if (event.buttons == kPrimaryButton) {
+                                          final modifiers = ModifierKeyState.current();
+                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                                          if (tool == ToolMode.eraser) {
+                                            _startErasing(event.position);
+                                          }
+                                        }
                                       },
                                       onPointerMove: (event) {
-                                        // Alt+drag = eraser mode (matches tool_mode_resolver: Alt → Eraser)
+                                        // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
                                         if (event.buttons == kPrimaryButton) {
-                                          if (ModifierKeyState.current().isAltPressed) {
+                                          final modifiers = ModifierKeyState.current();
+                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                                          if (tool == ToolMode.eraser) {
                                             if (!isErasing) {
                                               _startErasing(event.position);
                                             } else {
@@ -2569,9 +2589,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // the modifier key state may have changed (widget rebuild, etc.)
           audioPointerDownWasCopyModifier = modifiers.isCtrlOrCmd || tool == ToolMode.duplicate;
 
-          // Eraser tool: delete clip immediately (but NOT if Cmd is pressed - that's duplicate)
+          // Eraser tool: start batched erasing (supports drag-to-delete like piano roll)
           if (tool == ToolMode.eraser) {
-            _deleteAudioClip(clip);
+            // Convert local click position to global for eraser system
+            final RenderBox? box = context.findRenderObject() as RenderBox?;
+            if (box != null) {
+              final globalPos = box.localToGlobal(details.localPosition);
+              _startErasing(globalPos);
+            }
             return;
           }
 
@@ -2612,6 +2637,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           widget.onMidiClipSelected?.call(null, null);
         },
         onTapUp: (details) {
+          // Stop erasing if in eraser mode (single click delete)
+          if (isErasing) {
+            _stopErasing();
+            return;
+          }
+
           // If we had a pending tap selection (clicked on already-selected clip),
           // now reduce to single selection since no drag occurred
           if (pendingAudioClipTapSelection == clip.clipId) {
@@ -2631,12 +2662,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           final modifiers = ModifierKeyState.current();
           final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
-          // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          // But check the CAPTURED state from tap down, not current state
-          if (tool == ToolMode.eraser || tool == ToolMode.slice) {
-            // Only block if we didn't capture copy modifier at tap down
-            if (!audioPointerDownWasCopyModifier) return;
-          }
+          // Eraser mode: block all drag operations (erasing handled by onTapDown + onHorizontalDragUpdate)
+          if (tool == ToolMode.eraser) return;
+
+          // Slice mode: block drag (slicing is handled by onTapDown)
+          if (tool == ToolMode.slice) return;
 
           // Use the CAPTURED copy modifier state from tap down
           // This fixes the issue where Cmd is detected at tap down but lost by drag start
@@ -2669,6 +2699,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           });
         },
         onHorizontalDragUpdate: (details) {
+          // Continue erasing if in eraser mode
+          if (isErasing) {
+            _eraseClipsAt(details.globalPosition);
+            return;
+          }
+
           // Skip in eraser/slice mode (Draw mode allows moving)
           final tool = effectiveToolMode;
           if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
@@ -2678,6 +2714,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           });
         },
         onHorizontalDragEnd: (details) async {
+          // Stop erasing if in eraser mode
+          if (isErasing) {
+            _stopErasing();
+            return;
+          }
+
           if (draggingClipId == null) return;
 
           // Calculate delta in seconds
@@ -2708,14 +2750,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // After all copies are made, select the new clips
             // The new clips should be at the expected new positions
             if (mounted) {
+              // Store original clip IDs for exclusion
+              final originalClipIds = clipsToCopy.map((c) => c.clipId).toSet();
+
               setState(() {
                 for (final originalClip in clipsToCopy) {
                   final expectedNewStart = (originalClip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
-                  // Find a clip at this position that wasn't in the original selection
+                  // Find a clip at this position that wasn't an original
                   final newClip = clips.where((c) =>
-                    (c.startTime - expectedNewStart).abs() < 0.001 &&
+                    (c.startTime - expectedNewStart).abs() < 0.01 && // Slightly larger tolerance
                     c.trackId == originalClip.trackId &&
-                    !clipsToCopy.any((orig) => orig.clipId == c.clipId)
+                    !originalClipIds.contains(c.clipId)
                   ).firstOrNull;
                   if (newClip != null) {
                     selectedAudioClipIds.add(newClip.clipId);
@@ -3249,9 +3294,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // the modifier key state may have changed (widget rebuild, etc.)
             midiPointerDownWasCopyModifier = modifiers.isCtrlOrCmd || tool == ToolMode.duplicate;
 
-            // Eraser tool: delete clip immediately (but NOT if Cmd is pressed - that's duplicate)
+            // Eraser tool: start batched erasing (supports drag-to-delete like piano roll)
             if (tool == ToolMode.eraser) {
-              widget.onMidiClipDeleted?.call(midiClip.clipId, midiClip.trackId);
+              // Convert local click position to global for eraser system
+              final RenderBox? box = context.findRenderObject() as RenderBox?;
+              if (box != null) {
+                final globalPos = box.localToGlobal(event.localPosition);
+                _startErasing(globalPos);
+              }
               return;
             }
 
@@ -3299,6 +3349,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           _showMidiClipContextMenu(details.globalPosition, midiClip);
         },
         onTapUp: (details) {
+          // Stop erasing if in eraser mode (single click delete)
+          if (isErasing) {
+            _stopErasing();
+            return;
+          }
+
           // If we had a pending tap selection (clicked on already-selected clip),
           // now reduce to single selection since no drag occurred
           if (pendingMidiClipTapSelection == midiClip.clipId) {
@@ -3315,13 +3371,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           final modifiers = ModifierKeyState.current();
           final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
 
-          // Don't start drag in eraser/slice mode (Draw mode allows moving)
-          // But check the CAPTURED state from pointer down, not current state
-          // (modifier state can change between pointer down and drag start due to widget rebuild)
-          if (tool == ToolMode.eraser || tool == ToolMode.slice) {
-            // Only block if we didn't capture copy modifier at pointer down
-            if (!midiPointerDownWasCopyModifier) return;
-          }
+          // Eraser mode: block all drag operations (erasing handled by onPointerDown + onHorizontalDragUpdate)
+          if (tool == ToolMode.eraser) return;
+
+          // Slice mode: block drag (slicing is handled by onPointerDown)
+          if (tool == ToolMode.slice) return;
 
           // Use the CAPTURED copy modifier state from pointer down
           // This fixes the issue where Cmd is detected at pointer down but lost by drag start
@@ -3354,6 +3408,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           });
         },
         onHorizontalDragUpdate: (details) {
+          // Continue erasing if in eraser mode
+          if (isErasing) {
+            _eraseClipsAt(details.globalPosition);
+            return;
+          }
+
           // Skip in eraser/slice mode (Draw mode allows moving)
           final tool = effectiveToolMode;
           if (tool == ToolMode.eraser || tool == ToolMode.slice) return;
@@ -3367,6 +3427,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           });
         },
         onHorizontalDragEnd: (details) {
+          // Stop erasing if in eraser mode
+          if (isErasing) {
+            _stopErasing();
+            return;
+          }
+
           if (draggingMidiClipId == null) return;
 
           // Calculate delta in beats
@@ -3400,17 +3466,22 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // After all copies are made, we need to select the new clips
             // The new clips should now be at the end of widget.midiClips
             // Select them by finding clips that match the expected new positions
-            Future.microtask(() {
+            // Use addPostFrameCallback to wait for the widget tree to rebuild after all
+            // duplicate commands have executed (they're async via undo/redo manager)
+            WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               setState(() {
+                // Store original clip IDs for exclusion
+                final originalClipIds = clipsToCopy.map((c) => c.clipId).toSet();
+
                 // Find newly created clips by their positions (they should match clipsToCopy positions + delta)
                 for (final originalClip in clipsToCopy) {
                   final expectedNewStart = (originalClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
-                  // Find a clip at this position that wasn't in the original selection
+                  // Find a clip at this position that wasn't an original
                   final newClip = widget.midiClips.where((c) =>
-                    (c.startTime - expectedNewStart).abs() < 0.001 &&
+                    (c.startTime - expectedNewStart).abs() < 0.01 && // Slightly larger tolerance
                     c.trackId == originalClip.trackId &&
-                    !clipsToCopy.any((orig) => orig.clipId == c.clipId)
+                    !originalClipIds.contains(c.clipId)
                   ).firstOrNull;
                   if (newClip != null) {
                     selectedMidiClipIds.add(newClip.clipId);
