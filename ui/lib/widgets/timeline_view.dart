@@ -2250,17 +2250,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         onTapUp: (details) {
           // Draw tool: single click on empty space just deselects (handled in onTapDown)
           // Use click+drag to create new clips, or double-click for quick creation
-          // DUPLICATE TOOL: Copy selected clip to clicked position
-          final beatPosition = _calculateBeatPosition(details.localPosition);
-          final isOnClip = _isPositionOnClip(beatPosition, track.id, trackClips, trackMidiClips);
-          final tool = effectiveToolMode;
-
-          if (!isOnClip && tool == ToolMode.duplicate && isMidiTrack) {
-            if (widget.selectedMidiClipId != null && widget.currentEditingClip != null) {
-              final startBeats = _snapToGrid(beatPosition);
-              widget.onMidiClipCopied?.call(widget.currentEditingClip!, startBeats);
-            }
-          }
+          // Note: Duplicate tool only works via drag, not click (Ableton-style)
         },
         onDoubleTapDown: isMidiTrack
             ? (details) {
