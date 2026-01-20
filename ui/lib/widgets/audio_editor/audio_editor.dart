@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/clip_data.dart';
@@ -264,29 +265,37 @@ class _AudioEditorState extends State<AudioEditor>
               // Capture height before entering SingleChildScrollView
               final availableHeight = constraints.maxHeight;
 
-              return SingleChildScrollView(
-                controller: horizontalScroll,
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: SizedBox(
-                  width: totalBeats * pixelsPerBeat,
-                  height: availableHeight,
-                  child: CustomPaint(
-                    size: Size(totalBeats * pixelsPerBeat, availableHeight),
-                    painter: WaveformEditorPainter(
-                      peaks: waveformPeaks,
-                      pixelsPerBeat: pixelsPerBeat,
-                      totalBeats: totalBeats,
-                      activeBeats: getLoopLength(),
-                      loopEnabled: loopEnabled,
-                      loopStart: loopStartBeats,
-                      loopEnd: loopEndBeats,
-                      beatsPerBar: beatsPerBar,
-                      waveformColor: colors.accent,
-                      gridLineColor: colors.divider,
-                      barLineColor: colors.textMuted,
-                      reversed: editData.reversed,
-                      normalizeGain: _calculateNormalizeGain(),
+              return Listener(
+                onPointerSignal: (event) {
+                  // Scroll wheel/trackpad = horizontal scroll
+                  if (event is PointerScrollEvent) {
+                    _handleNavBarScroll(event.scrollDelta.dy);
+                  }
+                },
+                child: SingleChildScrollView(
+                  controller: horizontalScroll,
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: SizedBox(
+                    width: totalBeats * pixelsPerBeat,
+                    height: availableHeight,
+                    child: CustomPaint(
+                      size: Size(totalBeats * pixelsPerBeat, availableHeight),
+                      painter: WaveformEditorPainter(
+                        peaks: waveformPeaks,
+                        pixelsPerBeat: pixelsPerBeat,
+                        totalBeats: totalBeats,
+                        activeBeats: getLoopLength(),
+                        loopEnabled: loopEnabled,
+                        loopStart: loopStartBeats,
+                        loopEnd: loopEndBeats,
+                        beatsPerBar: beatsPerBar,
+                        waveformColor: colors.accent,
+                        gridLineColor: colors.divider,
+                        barLineColor: colors.textMuted,
+                        reversed: editData.reversed,
+                        normalizeGain: _calculateNormalizeGain(),
+                      ),
                     ),
                   ),
                 ),

@@ -30,6 +30,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - Fixed multi-track drag state sync: dragging mixed MIDI+audio selections now updates all clip positions in real-time during drag (previously only updated on drag end)
 - Fixed library panel scroll jumping to top when expanding/collapsing folders (cached folder contents to avoid FutureBuilder rebuild issues)
+- Fixed scroll in nav bar (loop/bar numbers section) bubbling up to parent tabs (was scrolling to Effects section instead of scrolling the timeline)
 
 ---
 

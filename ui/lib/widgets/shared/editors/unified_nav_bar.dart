@@ -121,7 +121,16 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
         onPanUpdate: _handlePanUpdate,
         onPanEnd: _handlePanEnd,
         child: Listener(
-          onPointerSignal: _handlePointerSignal,
+          behavior: HitTestBehavior.opaque,
+          onPointerSignal: (event) {
+            // Consume the scroll event to prevent bubbling to parent
+            if (event is PointerScrollEvent) {
+              GestureBinding.instance.pointerSignalResolver.register(
+                event,
+                (event) => _handlePointerSignal(event),
+              );
+            }
+          },
           child: MouseRegion(
             cursor: _getCurrentCursor(),
             onHover: _handleHover,

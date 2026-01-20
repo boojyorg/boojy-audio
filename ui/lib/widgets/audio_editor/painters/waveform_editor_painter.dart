@@ -239,22 +239,7 @@ class WaveformEditorPainter extends CustomPainter {
         dimPaint,
       );
     }
-
-    // Draw loop boundary lines
-    final boundaryPaint = Paint()
-      ..color = const Color(0xFFFF9800) // Orange
-      ..strokeWidth = 2.0;
-
-    canvas.drawLine(
-      Offset(loopStartX, 0),
-      Offset(loopStartX, size.height),
-      boundaryPaint,
-    );
-    canvas.drawLine(
-      Offset(loopEndX, 0),
-      Offset(loopEndX, size.height),
-      boundaryPaint,
-    );
+    // Note: Loop boundary lines are shown in the nav bar above, not here
   }
 
   @override
