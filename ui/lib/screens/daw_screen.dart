@@ -1436,6 +1436,155 @@ class _DAWScreenState extends State<DAWScreen> {
     }
   }
 
+  /// Open an audio file in a new Sampler track
+  void _handleOpenInSampler(LibraryItem item) {
+    if (_audioEngine == null) return;
+
+    // Get the file path
+    String? filePath;
+    if (item is SampleItem) {
+      filePath = item.filePath;
+    } else if (item is AudioFileItem) {
+      filePath = item.filePath;
+    }
+
+    if (filePath == null || filePath.isEmpty) {
+      _showSnackBar('Cannot open in sampler: no file path');
+      return;
+    }
+
+    // Create a new Sampler track
+    _createSamplerTrackWithSample(filePath, item.name);
+  }
+
+  /// Create a new Sampler track and load a sample into it
+  void _createSamplerTrackWithSample(String filePath, String sampleName) {
+    if (_audioEngine == null) return;
+
+    // Generate track name based on sample name
+    final trackName = 'Sampler: ${_truncateName(sampleName, 20)}';
+
+    // Create Sampler track type
+    final trackId = _audioEngine!.createTrack('sampler', trackName);
+    if (trackId < 0) {
+      _showSnackBar('Failed to create sampler track');
+      return;
+    }
+
+    // Create sampler instrument for the track
+    final samplerId = _audioEngine!.createSamplerForTrack(trackId);
+    if (samplerId < 0) {
+      _showSnackBar('Failed to create sampler instrument');
+      return;
+    }
+
+    // Load the sample (root note C4 = 60)
+    final success = _audioEngine!.loadSampleForTrack(trackId, filePath, 60);
+    if (!success) {
+      _showSnackBar('Failed to load sample');
+      return;
+    }
+
+    // Refresh track list and select the new track
+    _refreshTrackWidgets();
+    _selectTrack(trackId);
+
+    _showSnackBar('Created sampler with "${_truncateName(sampleName, 30)}"');
+  }
+
+  /// Convert an Audio track to a Sampler track
+  /// Takes the first audio clip on the track and uses it as the sample
+  /// Creates MIDI notes at the position/duration of each audio clip
+  void _convertAudioTrackToSampler(int trackId) {
+    if (_audioEngine == null) return;
+
+    // Get audio clips on this track
+    final audioClips = _timelineKey.currentState?.getAudioClipsOnTrack(trackId);
+    if (audioClips == null || audioClips.isEmpty) {
+      _showSnackBar('No audio clips on track to convert');
+      return;
+    }
+
+    // Get the first clip's file path (we'll use this as the sample)
+    final firstClip = audioClips.first;
+    final samplePath = firstClip.filePath;
+    if (samplePath == null || samplePath.isEmpty) {
+      _showSnackBar('Audio clip has no file path');
+      return;
+    }
+
+    // Get track name for the new sampler track
+    final trackName = _getTrackName(trackId) ?? 'Sampler';
+    final samplerTrackName = trackName.startsWith('Sampler:')
+        ? trackName
+        : 'Sampler: $trackName';
+
+    // Create Sampler track
+    final samplerTrackId = _audioEngine!.createTrack('sampler', samplerTrackName);
+    if (samplerTrackId < 0) {
+      _showSnackBar('Failed to create sampler track');
+      return;
+    }
+
+    // Create sampler instrument for the track
+    final samplerId = _audioEngine!.createSamplerForTrack(samplerTrackId);
+    if (samplerId < 0) {
+      _showSnackBar('Failed to create sampler instrument');
+      return;
+    }
+
+    // Load the sample (root note C4 = 60)
+    final success = _audioEngine!.loadSampleForTrack(samplerTrackId, samplePath, 60);
+    if (!success) {
+      _showSnackBar('Failed to load sample');
+      return;
+    }
+
+    // Create MIDI clips for each audio clip position
+    // Each audio clip becomes a MIDI note at the same position
+    for (final clip in audioClips) {
+      final startTime = clip.startTime;
+      final duration = clip.duration;
+
+      // Calculate MIDI note based on transpose (if any)
+      // Default root note is 60 (C4), transpose shifts it
+      final transpose = clip.editData?.transposeSemitones ?? 0;
+      final midiNote = (60 + transpose).clamp(0, 127);
+
+      // Create an empty MIDI clip
+      final clipId = _audioEngine!.createMidiClip();
+      if (clipId < 0) continue;
+
+      // Add the MIDI note to the clip
+      // Note: note starts at 0.0 relative to the clip, duration = clip duration
+      _audioEngine!.addMidiNoteToClip(
+        clipId,
+        midiNote,
+        100, // velocity
+        0.0, // note starts at beginning of clip
+        duration, // note duration = clip duration
+      );
+
+      // Add the clip to the sampler track at the correct position
+      _audioEngine!.addMidiClipToTrack(samplerTrackId, clipId, startTime);
+    }
+
+    // Refresh tracks and select the new sampler track
+    _refreshTrackWidgets();
+    _selectTrack(samplerTrackId);
+
+    // Optionally delete the original audio track (ask user?)
+    // For now, keep both tracks so user can compare
+
+    _showSnackBar('Converted to Sampler track');
+  }
+
+  /// Truncate a name to max length with ellipsis
+  String _truncateName(String name, int maxLength) {
+    if (name.length <= maxLength) return name;
+    return '${name.substring(0, maxLength - 3)}...';
+  }
+
   // Helper: Check if track is a MIDI track
   bool _isMidiTrack(int trackId) {
     final info = _audioEngine?.getTrackInfo(trackId) ?? '';
@@ -3573,6 +3722,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           libraryService: _libraryService,
                           onItemDoubleClick: _handleLibraryItemDoubleClick,
                           onVst3DoubleClick: _handleVst3DoubleClick,
+                          onOpenInSampler: _handleOpenInSampler,
                         ),
                       ),
 
@@ -3718,6 +3868,7 @@ class _DAWScreenState extends State<DAWScreen> {
                             onInstrumentSelected: _onInstrumentSelected,
                             onTrackDuplicated: _onTrackDuplicated,
                             onTrackDeleted: _onTrackDeleted,
+                            onConvertToSampler: _convertAudioTrackToSampler,
                             trackInstruments: _trackInstruments,
                             trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                             onFxButtonPressed: _showVst3PluginBrowser, // M10

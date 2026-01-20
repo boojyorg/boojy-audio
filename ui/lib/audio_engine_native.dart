@@ -77,6 +77,12 @@ class AudioEngine implements AudioEngineInterface {
   late final _SendTrackMidiNoteOnFfi _sendTrackMidiNoteOn;
   late final _SendTrackMidiNoteOffFfi _sendTrackMidiNoteOff;
 
+  // Sampler functions
+  late final _CreateSamplerForTrackFfi _createSamplerForTrack;
+  late final _LoadSampleForTrackFfi _loadSampleForTrack;
+  late final _SetSamplerParameterFfi _setSamplerParameter;
+  late final _IsSamplerTrackFfi _isSamplerTrack;
+
   // M4 functions - Tracks & Mixer
   late final _CreateTrackFfi _createTrack;
   late final _SetTrackVolumeFfi _setTrackVolume;
@@ -693,6 +699,27 @@ class AudioEngine implements AudioEngineInterface {
       _sendTrackMidiNoteOff = _lib
           .lookup<ffi.NativeFunction<_SendTrackMidiNoteOffFfiNative>>(
               'send_track_midi_note_off_ffi')
+          .asFunction();
+
+      // Bind Sampler functions
+      _createSamplerForTrack = _lib
+          .lookup<ffi.NativeFunction<_CreateSamplerForTrackFfiNative>>(
+              'create_sampler_for_track_ffi')
+          .asFunction();
+
+      _loadSampleForTrack = _lib
+          .lookup<ffi.NativeFunction<_LoadSampleForTrackFfiNative>>(
+              'load_sample_for_track_ffi')
+          .asFunction();
+
+      _setSamplerParameter = _lib
+          .lookup<ffi.NativeFunction<_SetSamplerParameterFfiNative>>(
+              'set_sampler_parameter_ffi')
+          .asFunction();
+
+      _isSamplerTrack = _lib
+          .lookup<ffi.NativeFunction<_IsSamplerTrackFfiNative>>(
+              'is_sampler_track_ffi')
           .asFunction();
 
       // Bind M7 functions - VST3 Plugin Hosting
@@ -1444,6 +1471,7 @@ class AudioEngine implements AudioEngineInterface {
 
   /// Create a new empty MIDI clip in Rust
   /// Returns clip ID or -1 on error
+  @override
   int createMidiClip() {
     try {
       return _createMidiClip();
@@ -1454,6 +1482,7 @@ class AudioEngine implements AudioEngineInterface {
 
   /// Add a MIDI note to a clip
   /// Returns success message or error
+  @override
   String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) {
     try {
       final resultPtr = _addMidiNoteToClip(clipId, note, velocity, startTime, duration);
@@ -1467,6 +1496,7 @@ class AudioEngine implements AudioEngineInterface {
 
   /// Add a MIDI clip to a track's timeline for playback
   /// Returns 0 on success, -1 on error
+  @override
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) {
     try {
       return _addMidiClipToTrack(trackId, clipId, startTimeSeconds);
@@ -2451,6 +2481,67 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   // ========================================================================
+  // SAMPLER API
+  // ========================================================================
+
+  /// Create a sampler instrument for a track
+  /// Returns instrument ID on success, or -1 on error
+  @override
+  int createSamplerForTrack(int trackId) {
+    try {
+      return _createSamplerForTrack(trackId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Load a sample file into a sampler track
+  /// trackId: the sampler track to load the sample into
+  /// path: path to the audio file
+  /// rootNote: MIDI note that plays sample at original pitch (default 60 = C4)
+  /// Returns true on success
+  @override
+  bool loadSampleForTrack(int trackId, String path, int rootNote) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final result = _loadSampleForTrack(trackId, pathPtr.cast(), rootNote);
+      return result == 1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Set sampler parameter for a track
+  /// param: "root_note", "attack", "attack_ms", "release", "release_ms"
+  /// value: parameter value as string
+  @override
+  String setSamplerParameter(int trackId, String param, String value) {
+    final paramPtr = param.toNativeUtf8();
+    final valuePtr = value.toNativeUtf8();
+    try {
+      final resultPtr = _setSamplerParameter(trackId, paramPtr.cast(), valuePtr.cast());
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } finally {
+      calloc.free(paramPtr);
+      calloc.free(valuePtr);
+    }
+  }
+
+  /// Check if a track has a sampler instrument
+  /// Returns true if track is a sampler, false otherwise
+  @override
+  bool isSamplerTrack(int trackId) {
+    try {
+      final result = _isSamplerTrack(trackId);
+      return result == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ========================================================================
   // M7 API - VST3 Plugin Hosting
   // ========================================================================
 
@@ -2972,6 +3063,19 @@ typedef _SendTrackMidiNoteOnFfi = ffi.Pointer<Utf8> Function(int, int, int);
 
 typedef _SendTrackMidiNoteOffFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint8, ffi.Uint8);
 typedef _SendTrackMidiNoteOffFfi = ffi.Pointer<Utf8> Function(int, int, int);
+
+// Sampler types
+typedef _CreateSamplerForTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
+typedef _CreateSamplerForTrackFfi = int Function(int);
+
+typedef _LoadSampleForTrackFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Pointer<ffi.Char>, ffi.Uint8);
+typedef _LoadSampleForTrackFfi = int Function(int, ffi.Pointer<ffi.Char>, int);
+
+typedef _SetSamplerParameterFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+typedef _SetSamplerParameterFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+
+typedef _IsSamplerTrackFfiNative = ffi.Int32 Function(ffi.Uint64);
+typedef _IsSamplerTrackFfi = int Function(int);
 
 // M7 types - VST3 Plugin Hosting
 typedef _ScanVst3PluginsStandardFfiNative = ffi.Pointer<Utf8> Function();

@@ -19,6 +19,7 @@ class TrackHeader extends StatefulWidget {
   final VoidCallback? onDuplicatePressed;
   final VoidCallback? onDeletePressed;
   final VoidCallback? onRenamePressed;
+  final VoidCallback? onConvertToSampler; // Convert Audio track to Sampler
   final VoidCallback? onDoubleClick; // Double-click to open editor
 
   // Drag navigation callbacks
@@ -39,6 +40,7 @@ class TrackHeader extends StatefulWidget {
     this.onDuplicatePressed,
     this.onDeletePressed,
     this.onRenamePressed,
+    this.onConvertToSampler,
     this.onDoubleClick,
     this.onVerticalScroll,
     this.onTrackHeightZoom,
@@ -219,6 +221,54 @@ class _TrackHeaderState extends State<TrackHeader> {
       return;
     }
 
+    final isAudioTrack = widget.trackType.toLowerCase() == 'audio';
+
+    final menuItems = <PopupMenuEntry<String>>[
+      PopupMenuItem<String>(
+        value: 'rename',
+        child: Row(
+          children: [
+            Icon(Icons.edit, size: 16, color: context.colors.darkest),
+            const SizedBox(width: 8),
+            Text('Rename', style: TextStyle(color: context.colors.darkest)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'duplicate',
+        child: Row(
+          children: [
+            Icon(Icons.content_copy, size: 16, color: context.colors.darkest),
+            const SizedBox(width: 8),
+            Text('Duplicate', style: TextStyle(color: context.colors.darkest)),
+          ],
+        ),
+      ),
+      // Show "Convert to Sampler" only for Audio tracks
+      if (isAudioTrack && widget.onConvertToSampler != null)
+        PopupMenuItem<String>(
+          value: 'convert_to_sampler',
+          child: Row(
+            children: [
+              Icon(Icons.music_note, size: 16, color: context.colors.darkest),
+              const SizedBox(width: 8),
+              Text('Convert to Sampler', style: TextStyle(color: context.colors.darkest)),
+            ],
+          ),
+        ),
+      const PopupMenuDivider(),
+      PopupMenuItem<String>(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 16, color: context.colors.error),
+            const SizedBox(width: 8),
+            Text('Delete', style: TextStyle(color: context.colors.error)),
+          ],
+        ),
+      ),
+    ];
+
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -227,43 +277,14 @@ class _TrackHeaderState extends State<TrackHeader> {
         position.dx,
         position.dy,
       ),
-      items: [
-        PopupMenuItem<String>(
-          value: 'rename',
-          child: Row(
-            children: [
-              Icon(Icons.edit, size: 16, color: context.colors.darkest),
-              const SizedBox(width: 8),
-              Text('Rename', style: TextStyle(color: context.colors.darkest)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'duplicate',
-          child: Row(
-            children: [
-              Icon(Icons.content_copy, size: 16, color: context.colors.darkest),
-              const SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: context.colors.darkest)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete, size: 16, color: context.colors.error),
-              const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: context.colors.error)),
-            ],
-          ),
-        ),
-      ],
+      items: menuItems,
     ).then((value) {
       if (value == 'rename' && widget.onRenamePressed != null) {
         widget.onRenamePressed!();
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
+      } else if (value == 'convert_to_sampler' && widget.onConvertToSampler != null) {
+        widget.onConvertToSampler!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
         widget.onDeletePressed!();
       }

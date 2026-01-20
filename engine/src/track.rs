@@ -48,6 +48,8 @@ pub enum TrackType {
     Audio,
     /// MIDI track: holds MIDI clips, routed to instruments
     Midi,
+    /// Sampler track: MIDI track with sampler instrument for sample playback
+    Sampler,
     /// Return track: receives audio from send buses (no clips)
     Return,
     /// Group track: combines multiple tracks (folder/bus)
@@ -119,8 +121,8 @@ pub struct Track {
 impl Track {
     /// Create a new track
     pub fn new(id: TrackId, track_type: TrackType, name: String) -> Self {
-        // Audio and MIDI tracks are armed by default (ready to record)
-        let armed = matches!(track_type, TrackType::Audio | TrackType::Midi);
+        // Audio, MIDI, and Sampler tracks are armed by default (ready to record)
+        let armed = matches!(track_type, TrackType::Audio | TrackType::Midi | TrackType::Sampler);
 
         Self {
             id,

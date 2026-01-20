@@ -1,8 +1,10 @@
 //! Per-track synthesizer API functions
 //!
-//! Functions for managing synthesizers on MIDI tracks.
+//! Functions for managing synthesizers and samplers on MIDI/Sampler tracks.
 
+use std::sync::Arc;
 use super::helpers::get_audio_graph;
+use crate::audio_file::load_audio_file;
 use crate::effects::EffectType;
 
 // ============================================================================
@@ -163,4 +165,76 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
     }
 
     Ok(format!("Track {} note off: {}", track_id, note))
+}
+
+// ============================================================================
+// SAMPLER API
+// ============================================================================
+
+/// Create a sampler instrument for a track
+/// Returns instrument ID or -1 on error
+pub fn create_sampler_for_track(track_id: u64) -> Result<i64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    let instrument_id = synth_manager.create_sampler(track_id);
+    println!("✅ Created sampler for track {}", track_id);
+    Ok(instrument_id as i64)
+}
+
+/// Load a sample file into a sampler track
+/// root_note: MIDI note that plays sample at original pitch (default 60 = C4)
+pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Result<String, String> {
+    // Load the audio file
+    let audio_clip = load_audio_file(&path)
+        .map_err(|e| format!("Failed to load sample '{}': {}", path, e))?;
+
+    let duration = audio_clip.duration_seconds;
+    let clip_arc = Arc::new(audio_clip);
+
+    // Get the audio graph and load into sampler
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    if synth_manager.load_sample(track_id, clip_arc, root_note) {
+        Ok(format!(
+            "Loaded sample '{}' ({:.2}s) to track {} with root note {}",
+            path, duration, track_id, root_note
+        ))
+    } else {
+        Err(format!("Track {} is not a sampler track", track_id))
+    }
+}
+
+/// Set sampler parameter for a track (root_note, attack_ms, release_ms)
+pub fn set_sampler_parameter(
+    track_id: u64,
+    param_name: String,
+    value: String,
+) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    // Check if this is a sampler track
+    if !synth_manager.has_sampler(track_id) {
+        return Err(format!("Track {} is not a sampler track", track_id));
+    }
+
+    synth_manager.set_parameter(track_id, &param_name, &value);
+    Ok(format!(
+        "Set sampler {} = {} for track {}",
+        param_name, value, track_id
+    ))
+}
+
+/// Check if a track has a sampler instrument
+pub fn is_sampler_track(track_id: u64) -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    Ok(synth_manager.has_sampler(track_id))
 }

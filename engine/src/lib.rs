@@ -23,6 +23,7 @@ mod audio_file;
 mod audio_graph;
 mod midi;
 mod synth;
+mod sampler;    // Sampler instrument (plays samples via MIDI)
 mod track;      // M4: Track system
 mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
@@ -65,6 +66,7 @@ pub use audio_file::*;
 pub use audio_graph::*;
 pub use midi::*;
 pub use synth::*;
+pub use sampler::*;
 pub use track::*;
 pub use effects::*;
 pub use project::*;

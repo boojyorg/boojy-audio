@@ -16,6 +16,7 @@ class LibraryPanel extends StatefulWidget {
   final LibraryService libraryService;
   final void Function(LibraryItem)? onItemDoubleClick;
   final void Function(Vst3Plugin)? onVst3DoubleClick;
+  final void Function(LibraryItem)? onOpenInSampler;
 
   const LibraryPanel({
     super.key,
@@ -25,6 +26,7 @@ class LibraryPanel extends StatefulWidget {
     required this.libraryService,
     this.onItemDoubleClick,
     this.onVst3DoubleClick,
+    this.onOpenInSampler,
   });
 
   @override
@@ -809,6 +811,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
 
+    // Check if this is an audio file (for "Open in Sampler" option)
+    final isAudioFile = item.type == LibraryItemType.audioFile ||
+        item.type == LibraryItemType.sample;
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
@@ -816,6 +822,18 @@ class _LibraryPanelState extends State<LibraryPanel> {
         Offset.zero & overlay.size,
       ),
       items: [
+        // Open in Sampler - only for audio files
+        if (isAudioFile && widget.onOpenInSampler != null)
+          PopupMenuItem(
+            child: const Row(
+              children: [
+                Icon(Icons.music_note, size: 16),
+                SizedBox(width: 8),
+                Text('Open in Sampler'),
+              ],
+            ),
+            onTap: () => widget.onOpenInSampler?.call(item),
+          ),
         PopupMenuItem(
           child: Row(
             children: [

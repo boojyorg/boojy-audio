@@ -408,4 +408,10 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
       clips.addAll(savedClips);
     });
   }
+
+  /// Get all audio clips on a specific track.
+  /// Returns a list of ClipData for the given track ID.
+  List<ClipData> getAudioClipsOnTrack(int trackId) {
+    return clips.where((clip) => clip.trackId == trackId).toList();
+  }
 }

@@ -66,7 +66,8 @@ pub use recording::{
     start_recording, stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
-    get_synth_parameters, send_track_midi_note_off, send_track_midi_note_on, set_synth_parameter,
+    create_sampler_for_track, get_synth_parameters, is_sampler_track, load_sample_for_track,
+    send_track_midi_note_off, send_track_midi_note_on, set_sampler_parameter, set_synth_parameter,
     set_track_instrument,
 };
 pub use timing::{get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo, set_time_signature};

@@ -30,6 +30,17 @@ abstract class AudioEngineInterface {
   void reorderTrackEffects(int trackId, List<int> order);
   void setVst3ParameterValue(int effectId, int paramIndex, double value);
 
+  // Sampler operations
+  int createSamplerForTrack(int trackId);
+  bool loadSampleForTrack(int trackId, String path, int rootNote);
+  String setSamplerParameter(int trackId, String param, String value);
+  bool isSamplerTrack(int trackId);
+
+  // MIDI clip operations
+  int createMidiClip();
+  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration);
+  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds);
+
   // Project operations
   void setTempo(double bpm);
   void setCountInBars(int bars);

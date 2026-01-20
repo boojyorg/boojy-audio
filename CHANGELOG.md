@@ -6,6 +6,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Added Sampler track type with pitch-shifted sample playback triggered by MIDI notes
+- Added Sampler Editor with Attack/Release envelope controls and Root Note selection
+- Added "Open in Sampler" context menu option in Library panel for audio files
+- Added "Convert to Sampler" context menu option on Audio tracks (creates Sampler track with MIDI notes at original clip positions)
 - Added "Rename Project..." menu item in File menu (only shown for saved projects)
 - Added "Save New Version..." to create versioned copies with symlinked samples (e.g., My Song_v2.audio)
 - Rename now updates recent projects list (removes old path, adds new path)

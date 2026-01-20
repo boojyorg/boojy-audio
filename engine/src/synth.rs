@@ -3,7 +3,10 @@
 
 use std::collections::HashMap;
 use std::f32::consts::PI;
+use std::sync::Arc;
+use crate::audio_file::AudioClip;
 use crate::project::SynthData;
+use crate::sampler::{Sampler, SamplerData};
 
 const MAX_VOICES: usize = 8;
 
@@ -360,92 +363,219 @@ impl Synth {
 }
 
 // ============================================================================
-// TRACK SYNTH MANAGER
+// TRACK INSTRUMENT (unified enum for Synth and Sampler)
+// ============================================================================
+
+/// Unified instrument type for tracks
+pub enum TrackInstrument {
+    Synth(Synth),
+    Sampler(Sampler),
+}
+
+impl TrackInstrument {
+    pub fn note_on(&mut self, note: u8, velocity: u8) {
+        match self {
+            TrackInstrument::Synth(s) => s.note_on(note, velocity),
+            TrackInstrument::Sampler(s) => s.note_on(note, velocity),
+        }
+    }
+
+    pub fn note_off(&mut self, note: u8) {
+        match self {
+            TrackInstrument::Synth(s) => s.note_off(note),
+            TrackInstrument::Sampler(s) => s.note_off(note),
+        }
+    }
+
+    pub fn all_notes_off(&mut self) {
+        match self {
+            TrackInstrument::Synth(s) => s.all_notes_off(),
+            TrackInstrument::Sampler(s) => s.all_notes_off(),
+        }
+    }
+
+    /// Process and return mono sample (for backwards compatibility)
+    pub fn process_sample(&mut self) -> f32 {
+        match self {
+            TrackInstrument::Synth(s) => s.process_sample(),
+            TrackInstrument::Sampler(s) => s.process_sample_mono(),
+        }
+    }
+
+    /// Process and return stereo sample
+    pub fn process_sample_stereo(&mut self) -> (f32, f32) {
+        match self {
+            TrackInstrument::Synth(s) => {
+                let mono = s.process_sample();
+                (mono, mono)
+            }
+            TrackInstrument::Sampler(s) => s.process_sample(),
+        }
+    }
+
+    pub fn set_parameter(&mut self, key: &str, value: &str) {
+        match self {
+            TrackInstrument::Synth(s) => s.set_parameter(key, value),
+            TrackInstrument::Sampler(s) => s.set_parameter(key, value),
+        }
+    }
+
+    pub fn is_synth(&self) -> bool {
+        matches!(self, TrackInstrument::Synth(_))
+    }
+
+    pub fn is_sampler(&self) -> bool {
+        matches!(self, TrackInstrument::Sampler(_))
+    }
+
+    pub fn as_synth(&self) -> Option<&Synth> {
+        match self {
+            TrackInstrument::Synth(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_sampler(&self) -> Option<&Sampler> {
+        match self {
+            TrackInstrument::Sampler(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_sampler_mut(&mut self) -> Option<&mut Sampler> {
+        match self {
+            TrackInstrument::Sampler(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+// ============================================================================
+// TRACK SYNTH MANAGER (manages both Synths and Samplers)
 // ============================================================================
 
 pub struct TrackSynthManager {
-    synths: HashMap<u64, Synth>,
+    instruments: HashMap<u64, TrackInstrument>,
     sample_rate: f32,
 }
 
 impl TrackSynthManager {
     pub fn new(sample_rate: f32) -> Self {
         Self {
-            synths: HashMap::new(),
+            instruments: HashMap::new(),
             sample_rate,
         }
     }
 
+    /// Create a synthesizer for a track
     pub fn create_synth(&mut self, track_id: u64) -> u64 {
         let synth = Synth::new(self.sample_rate);
-        self.synths.insert(track_id, synth);
+        self.instruments.insert(track_id, TrackInstrument::Synth(synth));
         println!("✅ Created synth for track {}", track_id);
         track_id
     }
 
-    pub fn set_parameter(&mut self, track_id: u64, key: &str, value: &str) {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
-            synth.set_parameter(key, value);
+    /// Create a sampler for a track
+    pub fn create_sampler(&mut self, track_id: u64) -> u64 {
+        let sampler = Sampler::new(self.sample_rate);
+        self.instruments.insert(track_id, TrackInstrument::Sampler(sampler));
+        println!("✅ Created sampler for track {}", track_id);
+        track_id
+    }
+
+    /// Load a sample into a sampler track
+    pub fn load_sample(&mut self, track_id: u64, clip: Arc<AudioClip>, root_note: u8) -> bool {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get_mut(&track_id) {
+            sampler.load_sample_with_root(clip, root_note);
+            true
         } else {
-            println!("⚠️ No synth for track {} (available: {:?})", track_id, self.synths.keys().collect::<Vec<_>>());
+            println!("⚠️ load_sample: Track {} is not a sampler", track_id);
+            false
+        }
+    }
+
+    pub fn set_parameter(&mut self, track_id: u64, key: &str, value: &str) {
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.set_parameter(key, value);
+        } else {
+            println!("⚠️ No instrument for track {} (available: {:?})", track_id, self.instruments.keys().collect::<Vec<_>>());
         }
     }
 
     pub fn note_on(&mut self, track_id: u64, note: u8, velocity: u8) {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
-            synth.note_on(note, velocity);
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.note_on(note, velocity);
         } else {
-            eprintln!("⚠️ note_on: No synth for track {}. Available tracks: {:?}", track_id, self.synths.keys().collect::<Vec<_>>());
+            eprintln!("⚠️ note_on: No instrument for track {}. Available tracks: {:?}", track_id, self.instruments.keys().collect::<Vec<_>>());
         }
     }
 
     pub fn note_off(&mut self, track_id: u64, note: u8) {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
-            synth.note_off(note);
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.note_off(note);
         }
     }
 
     pub fn process_sample(&mut self, track_id: u64) -> f32 {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
-            synth.process_sample()
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.process_sample()
         } else {
             0.0
         }
     }
 
+    /// Process and return stereo output
+    pub fn process_sample_stereo(&mut self, track_id: u64) -> (f32, f32) {
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.process_sample_stereo()
+        } else {
+            (0.0, 0.0)
+        }
+    }
+
     pub fn has_synth(&self, track_id: u64) -> bool {
-        self.synths.contains_key(&track_id)
+        self.instruments.contains_key(&track_id)
+    }
+
+    /// Check if track has a sampler specifically
+    pub fn has_sampler(&self, track_id: u64) -> bool {
+        self.instruments.get(&track_id).map_or(false, |i| i.is_sampler())
+    }
+
+    /// Check if track has a synthesizer specifically
+    pub fn is_synth(&self, track_id: u64) -> bool {
+        self.instruments.get(&track_id).map_or(false, |i| i.is_synth())
     }
 
     pub fn all_notes_off(&mut self, track_id: u64) {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
-            synth.all_notes_off();
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.all_notes_off();
         }
     }
 
     pub fn all_notes_off_all_tracks(&mut self) {
-        for synth in self.synths.values_mut() {
-            synth.all_notes_off();
+        for inst in self.instruments.values_mut() {
+            inst.all_notes_off();
         }
     }
 
-    /// Get all track IDs that have synths
+    /// Get all track IDs that have instruments
     pub fn track_ids(&self) -> Vec<u64> {
-        self.synths.keys().copied().collect()
+        self.instruments.keys().copied().collect()
     }
 
-    /// Process all synths and return combined output (for stopped state with virtual piano)
+    /// Process all instruments and return combined output (for stopped state with virtual piano)
     pub fn process_all_synths(&mut self) -> f32 {
-        // Debug: log synth count once
+        // Debug: log count once
         static LOGGED_COUNT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         if !LOGGED_COUNT.swap(true, std::sync::atomic::Ordering::Relaxed) {
-            eprintln!("🔊 process_all_synths: {} synths available, tracks: {:?}",
-                self.synths.len(), self.synths.keys().collect::<Vec<_>>());
+            eprintln!("🔊 process_all_synths: {} instruments available, tracks: {:?}",
+                self.instruments.len(), self.instruments.keys().collect::<Vec<_>>());
         }
 
         let mut output = 0.0;
-        for (track_id, synth) in self.synths.iter_mut() {
-            let sample = synth.process_sample();
+        for (track_id, inst) in self.instruments.iter_mut() {
+            let sample = inst.process_sample();
             if sample.abs() > 0.001 {
                 // Debug: only log once per note
                 static LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -459,16 +589,16 @@ impl TrackSynthManager {
     }
 
     pub fn remove_synth(&mut self, track_id: u64) -> bool {
-        self.synths.remove(&track_id).is_some()
+        self.instruments.remove(&track_id).is_some()
     }
 
     pub fn copy_synth(&mut self, source_id: u64, dest_id: u64) -> bool {
-        if let Some(source) = self.synths.get(&source_id) {
+        if let Some(TrackInstrument::Synth(source)) = self.instruments.get(&source_id) {
             let mut new_synth = Synth::new(self.sample_rate);
             new_synth.osc_type = source.osc_type;
             new_synth.filter_cutoff = source.filter_cutoff;
             new_synth.envelope = source.envelope;
-            self.synths.insert(dest_id, new_synth);
+            self.instruments.insert(dest_id, TrackInstrument::Synth(new_synth));
             println!("✅ Copied synth from track {} to {}", source_id, dest_id);
             true
         } else {
@@ -478,12 +608,25 @@ impl TrackSynthManager {
 
     /// Get synth parameters for serialization
     pub fn get_synth_parameters(&self, track_id: u64) -> Option<SynthData> {
-        self.synths.get(&track_id).map(|synth| synth.get_parameters())
+        if let Some(TrackInstrument::Synth(synth)) = self.instruments.get(&track_id) {
+            Some(synth.get_parameters())
+        } else {
+            None
+        }
+    }
+
+    /// Get sampler parameters for serialization
+    pub fn get_sampler_parameters(&self, track_id: u64) -> Option<SamplerData> {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
+            sampler.get_parameters()
+        } else {
+            None
+        }
     }
 
     /// Restore synth parameters from saved data
     pub fn restore_synth_parameters(&mut self, track_id: u64, data: &SynthData) {
-        if let Some(synth) = self.synths.get_mut(&track_id) {
+        if let Some(TrackInstrument::Synth(synth)) = self.instruments.get_mut(&track_id) {
             synth.set_parameter("osc_type", &data.osc_type);
             synth.set_parameter("filter_cutoff", &data.filter_cutoff.to_string());
             synth.set_parameter("attack", &data.attack.to_string());
@@ -491,6 +634,13 @@ impl TrackSynthManager {
             synth.set_parameter("sustain", &data.sustain.to_string());
             synth.set_parameter("release", &data.release.to_string());
             println!("✅ Restored synth parameters for track {}: osc={}", track_id, data.osc_type);
+        }
+    }
+
+    /// Restore sampler parameters from saved data (sample must be loaded separately)
+    pub fn restore_sampler_parameters(&mut self, track_id: u64, data: &SamplerData) {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get_mut(&track_id) {
+            sampler.restore_parameters(data);
         }
     }
 }

@@ -6,6 +6,7 @@ import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
+import 'sampler_editor/sampler_editor.dart';
 import 'synthesizer_panel.dart';
 import 'vst3_plugin_parameter_panel.dart';
 import 'fx_chain/fx_chain_view.dart';
@@ -107,8 +108,15 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   /// Whether the selected track is an audio track
   bool get _isAudioTrack => widget.selectedTrackType?.toLowerCase() == 'audio';
 
+  /// Whether the selected track is a sampler track
+  bool get _isSamplerTrack => widget.selectedTrackType?.toLowerCase() == 'sampler';
+
+  /// Whether the selected track is a MIDI track (not sampler)
+  bool get _isMidiTrack => widget.selectedTrackType?.toLowerCase() == 'midi';
+
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)
+  /// For sampler tracks, shows "Sampler" or sample filename
   /// For MIDI tracks, shows the pattern name (e.g., "Serum" or "Synthesizer")
   String get _firstTabLabel {
     if (_isAudioTrack) {
@@ -117,6 +125,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         return clipName.length > 20 ? '${clipName.substring(0, 17)}...' : clipName;
       }
       return 'Audio Editor';
+    }
+
+    if (_isSamplerTrack) {
+      return 'Sampler';
     }
 
     // MIDI track: show pattern name from clip
@@ -133,14 +145,26 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   }
 
   /// Get the first tab icon based on track type
-  IconData get _firstTabIcon => _isAudioTrack ? Icons.audio_file : Icons.piano;
+  IconData get _firstTabIcon {
+    if (_isAudioTrack) return Icons.audio_file;
+    if (_isSamplerTrack) return Icons.music_note;
+    return Icons.piano;
+  }
+
+  /// Get the number of tabs based on track type
+  /// Audio: 2 tabs (Editor, Effects)
+  /// MIDI: 3 tabs (Piano Roll, Effects, Instrument)
+  /// Sampler: 3 tabs (Sampler, Piano Roll, Effects)
+  int get _tabCount {
+    if (_isAudioTrack) return 2;
+    if (_isSamplerTrack) return 3;
+    return 3; // MIDI
+  }
 
   @override
   void initState() {
     super.initState();
-    // Audio tracks have 2 tabs (Editor, Effects), MIDI tracks have 3 (Piano Roll, Effects, Instrument)
-    final tabCount = _isAudioTrack ? 2 : 3;
-    _tabController = TabController(length: tabCount, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _selectedTabIndex = _tabController.index;
@@ -154,15 +178,14 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   void didUpdateWidget(EditorPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Check if track type changed (switching between audio and MIDI tracks)
-    final oldIsAudio = oldWidget.selectedTrackType?.toLowerCase() == 'audio';
-    final newIsAudio = _isAudioTrack;
-    if (oldIsAudio != newIsAudio) {
+    // Check if track type changed (switching between audio, MIDI, or sampler tracks)
+    final oldType = oldWidget.selectedTrackType?.toLowerCase();
+    final newType = widget.selectedTrackType?.toLowerCase();
+    if (oldType != newType) {
       // Recreate tab controller with new length - wrap in setState to ensure rebuild
       setState(() {
-        final newTabCount = newIsAudio ? 2 : 3;
         _tabController.dispose();
-        _tabController = TabController(length: newTabCount, vsync: this);
+        _tabController = TabController(length: _tabCount, vsync: this);
         _tabController.addListener(() {
           setState(() {
             _selectedTabIndex = _tabController.index;
@@ -178,10 +201,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     if (widget.selectedTrackId != oldWidget.selectedTrackId) {
       if (oldWidget.selectedTrackId == null && widget.selectedTrackId != null) {
         // First selection: auto-switch to appropriate tab
-        if (!_isAudioTrack && widget.currentInstrumentData != null) {
+        if (_isMidiTrack && widget.currentInstrumentData != null) {
           _tabController.index = 2; // Instrument tab (only for MIDI tracks)
         } else {
-          _tabController.index = 0; // Piano Roll/Audio Editor tab
+          _tabController.index = 0; // Piano Roll/Audio Editor/Sampler tab
         }
       }
       // If switching from one track to another, preserve current tab
@@ -189,16 +212,17 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
     // Auto-switch to Piano Roll tab when MIDI clip selected
     if (widget.currentEditingClip != null && oldWidget.currentEditingClip == null) {
-      _tabController.index = 0;
+      // For sampler tracks, Piano Roll is tab 1
+      _tabController.index = _isSamplerTrack ? 1 : 0;
     }
 
-    // Auto-switch to Audio Editor tab when audio clip selected
+    // Auto-switch to Audio Editor/Sampler tab when audio clip selected
     if (widget.currentEditingAudioClip != null && oldWidget.currentEditingAudioClip == null) {
       _tabController.index = 0;
     }
 
     // Auto-switch to Instrument tab when instrument data first appears (MIDI tracks only)
-    if (!_isAudioTrack && widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
+    if (_isMidiTrack && widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
       _tabController.index = 2;
     }
   }
@@ -281,16 +305,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                   bottom: 0,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTabButton(0, _firstTabIcon, _firstTabLabel),
-                      const SizedBox(width: 4),
-                      _buildTabButton(1, Icons.equalizer, 'Effects'),
-                      // Instrument tab only shown for MIDI tracks
-                      if (!_isAudioTrack) ...[
-                        const SizedBox(width: 4),
-                        _buildTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
-                      ],
-                    ],
+                    children: _buildTabButtons(),
                   ),
                 ),
                 // Center: Tool buttons (truly centered)
@@ -318,7 +333,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Virtual Piano toggle - only for MIDI tracks
+                      // Virtual Piano toggle - for MIDI and Sampler tracks
                       if (!_isAudioTrack) ...[
                         _buildPianoToggle(),
                         const SizedBox(width: 8),
@@ -355,12 +370,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _buildEditorTab(), // Context-sensitive: Audio Editor or Piano Roll
-                _buildFXChainTab(),
-                // Instrument tab only for MIDI tracks
-                if (!_isAudioTrack) _buildInstrumentTab(),
-              ],
+              children: _buildTabContent(),
             ),
           ),
         ],
@@ -391,16 +401,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
             bottom: 0,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
-                const SizedBox(width: 4),
-                _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
-                // Instrument tab only shown for MIDI tracks
-                if (!_isAudioTrack) ...[
-                  const SizedBox(width: 4),
-                  _buildCollapsedTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
-                ],
-              ],
+              children: _buildCollapsedTabButtons(),
             ),
           ),
           // Center: Tool buttons (truly centered)
@@ -428,7 +429,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Virtual Piano toggle - only for MIDI tracks
+                // Virtual Piano toggle - for MIDI and Sampler tracks
                 if (!_isAudioTrack) ...[
                   _buildPianoToggle(),
                   const SizedBox(width: 8),
@@ -460,6 +461,36 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         ],
       ),
     );
+  }
+
+  /// Build the collapsed tab buttons based on track type
+  List<Widget> _buildCollapsedTabButtons() {
+    if (_isAudioTrack) {
+      return [
+        _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
+        const SizedBox(width: 4),
+        _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
+      ];
+    }
+
+    if (_isSamplerTrack) {
+      return [
+        _buildCollapsedTabButton(0, Icons.music_note, 'Sampler'),
+        const SizedBox(width: 4),
+        _buildCollapsedTabButton(1, Icons.piano, 'Piano Roll'),
+        const SizedBox(width: 4),
+        _buildCollapsedTabButton(2, Icons.equalizer, 'Effects'),
+      ];
+    }
+
+    // MIDI track
+    return [
+      _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
+      const SizedBox(width: 4),
+      _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
+      const SizedBox(width: 4),
+      _buildCollapsedTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+    ];
   }
 
   /// Build collapsed tab button - clicking expands panel and switches to tab
@@ -515,6 +546,77 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       return name.length > 15 ? '${name.substring(0, 12)}...' : name;
     }
     return 'Synthesizer';
+  }
+
+  /// Build the tab buttons based on track type
+  /// Audio: [Editor, Effects]
+  /// MIDI: [Piano Roll, Effects, Instrument]
+  /// Sampler: [Sampler, Piano Roll, Effects]
+  List<Widget> _buildTabButtons() {
+    if (_isAudioTrack) {
+      return [
+        _buildTabButton(0, _firstTabIcon, _firstTabLabel),
+        const SizedBox(width: 4),
+        _buildTabButton(1, Icons.equalizer, 'Effects'),
+      ];
+    }
+
+    if (_isSamplerTrack) {
+      return [
+        _buildTabButton(0, Icons.music_note, 'Sampler'),
+        const SizedBox(width: 4),
+        _buildTabButton(1, Icons.piano, 'Piano Roll'),
+        const SizedBox(width: 4),
+        _buildTabButton(2, Icons.equalizer, 'Effects'),
+      ];
+    }
+
+    // MIDI track
+    return [
+      _buildTabButton(0, _firstTabIcon, _firstTabLabel),
+      const SizedBox(width: 4),
+      _buildTabButton(1, Icons.equalizer, 'Effects'),
+      const SizedBox(width: 4),
+      _buildTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+    ];
+  }
+
+  /// Build the tab content based on track type
+  /// Audio: [AudioEditor, FXChain]
+  /// MIDI: [PianoRoll, FXChain, Instrument]
+  /// Sampler: [SamplerEditor, PianoRoll, FXChain]
+  List<Widget> _buildTabContent() {
+    if (_isAudioTrack) {
+      return [
+        _buildEditorTab(),
+        _buildFXChainTab(),
+      ];
+    }
+
+    if (_isSamplerTrack) {
+      return [
+        _buildSamplerEditorTab(),
+        _buildPianoRollTab(),
+        _buildFXChainTab(),
+      ];
+    }
+
+    // MIDI track
+    return [
+      _buildEditorTab(),
+      _buildFXChainTab(),
+      _buildInstrumentTab(),
+    ];
+  }
+
+  /// Build the Sampler Editor tab
+  /// Shows audio waveform with sampler-specific controls (Attack, Release, Root Note)
+  Widget _buildSamplerEditorTab() {
+    return SamplerEditor(
+      audioEngine: widget.audioEngine,
+      trackId: widget.selectedTrackId,
+      onClose: widget.onClosePanel,
+    );
   }
 
   Widget _buildTabButton(int index, IconData icon, String label) {

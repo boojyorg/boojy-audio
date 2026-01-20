@@ -13,7 +13,7 @@ use crate::track::{ClipId, TrackId, TrackType};
 /// Create a new track
 ///
 /// # Arguments
-/// * `track_type_str` - Track type: "audio", "midi", "return", "group", "master"
+/// * `track_type_str` - Track type: "audio", "midi", "sampler", "return", "group", "master"
 /// * `name` - Display name for the track
 ///
 /// # Returns
@@ -22,6 +22,7 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
     let track_type = match track_type_str.to_lowercase().as_str() {
         "audio" => TrackType::Audio,
         "midi" => TrackType::Midi,
+        "sampler" => TrackType::Sampler,
         "return" => TrackType::Return,
         "group" => TrackType::Group,
         "master" => return Err("Cannot create additional master tracks".to_string()),
@@ -187,6 +188,7 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
         let type_str = match track.track_type {
             TrackType::Audio => "Audio",
             TrackType::Midi => "MIDI",
+            TrackType::Sampler => "Sampler",
             TrackType::Return => "Return",
             TrackType::Group => "Group",
             TrackType::Master => "Master",

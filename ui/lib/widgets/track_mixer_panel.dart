@@ -24,6 +24,7 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(int, String)? onInstrumentSelected; // (trackId, instrumentId)
   final Function(int, int)? onTrackDuplicated; // (sourceTrackId, newTrackId)
   final Function(int)? onTrackDeleted; // (trackId)
+  final Function(int)? onConvertToSampler; // (trackId) - Convert Audio track to Sampler
   final Map<int, InstrumentData>? trackInstruments;
 
   // M10: VST3 Plugin support
@@ -85,6 +86,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.onInstrumentSelected,
     this.onTrackDuplicated,
     this.onTrackDeleted,
+    this.onConvertToSampler,
     this.trackInstruments,
     this.trackVst3PluginCounts,
     this.onFxButtonPressed,
@@ -988,6 +990,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onArmShiftClick: () => _handleArmShiftClick(track),
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
+      onConvertToSampler: track.type.toLowerCase() == 'audio' && widget.onConvertToSampler != null
+          ? () => widget.onConvertToSampler!(track.id)
+          : null,
       onNameChanged: (newName) async {
         final oldName = track.name;
         if (oldName == newName) return;

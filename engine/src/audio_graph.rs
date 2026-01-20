@@ -1664,6 +1664,7 @@ impl AudioGraph {
             let track_type = match track_data.track_type.as_str() {
                 "Audio" => TrackType::Audio,
                 "Midi" => TrackType::Midi,
+                "Sampler" => TrackType::Sampler,
                 "Return" => TrackType::Return,
                 "Group" => TrackType::Group,
                 "Master" => TrackType::Master,
@@ -2393,6 +2394,7 @@ impl AudioGraph {
                     let type_str = match track.track_type {
                         crate::track::TrackType::Audio => "audio",
                         crate::track::TrackType::Midi => "midi",
+                        crate::track::TrackType::Sampler => "sampler",
                         crate::track::TrackType::Return => "return",
                         crate::track::TrackType::Group => "group",
                         crate::track::TrackType::Master => "master",

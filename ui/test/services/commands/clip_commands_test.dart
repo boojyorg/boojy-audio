@@ -77,6 +77,19 @@ class MockAudioEngine implements AudioEngineInterface {
 
   @override
   void setCountInBars(int bars) {}
+
+  // Sampler operations
+  @override
+  int createSamplerForTrack(int trackId) => 1;
+
+  @override
+  bool loadSampleForTrack(int trackId, String path, int rootNote) => true;
+
+  @override
+  String setSamplerParameter(int trackId, String param, String value) => 'OK';
+
+  @override
+  bool isSamplerTrack(int trackId) => false;
 }
 
 void main() {

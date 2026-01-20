@@ -416,12 +416,15 @@ class AudioEngine implements AudioEngineInterface {
     return 'OK';
   }
 
+  @override
   int createMidiClip() => -1;
 
+  @override
   String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) {
     return 'OK';
   }
 
+  @override
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) => -1;
   int removeMidiClip(int trackId, int clipId) => 0;
   String clearMidiClip(int clipId) => 'OK';
@@ -577,6 +580,23 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void setVst3ParameterValue(int effectId, int paramIndex, double value) {}
+
+  // ============================================================================
+  // Sampler API (stubs for web - not yet implemented)
+  // ============================================================================
+
+  @override
+  int createSamplerForTrack(int trackId) => -1;
+
+  @override
+  bool loadSampleForTrack(int trackId, String path, int rootNote) => false;
+
+  @override
+  String setSamplerParameter(int trackId, String param, String value) =>
+      'Not supported on web';
+
+  @override
+  bool isSamplerTrack(int trackId) => false;
 
   bool vst3HasEditor(int effectId) => false;
   String vst3OpenEditor(int effectId) => 'Not supported';

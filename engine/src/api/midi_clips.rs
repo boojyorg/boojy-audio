@@ -189,7 +189,7 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
     }
 
     // Send to per-track synthesizer for live playback
-    // Route to first armed MIDI track (or first MIDI track if none armed)
+    // Route to first armed MIDI/Sampler track (or first one if none armed)
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
     let tracks = track_manager.get_all_tracks();
 
@@ -198,7 +198,8 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
 
     for track_arc in tracks {
         if let Ok(track) = track_arc.lock() {
-            if track.track_type == TrackType::Midi {
+            // Both MIDI and Sampler tracks can receive MIDI notes
+            if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
                     first_midi_track_id = Some(track.id);
                 }
@@ -211,7 +212,7 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
     }
     drop(track_manager);
 
-    // Use armed track, or fallback to first MIDI track
+    // Use armed track, or fallback to first MIDI/Sampler track
     let target = target_track_id.or(first_midi_track_id);
 
     if let Some(track_id) = target {
@@ -245,7 +246,7 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
     }
 
     // Send to per-track synthesizer for live playback
-    // Route to first armed MIDI track (or first MIDI track if none armed)
+    // Route to first armed MIDI/Sampler track (or first one if none armed)
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
     let tracks = track_manager.get_all_tracks();
 
@@ -254,7 +255,8 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
 
     for track_arc in tracks {
         if let Ok(track) = track_arc.lock() {
-            if track.track_type == TrackType::Midi {
+            // Both MIDI and Sampler tracks can receive MIDI notes
+            if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
                     first_midi_track_id = Some(track.id);
                 }
@@ -267,7 +269,7 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
     }
     drop(track_manager);
 
-    // Use armed track, or fallback to first MIDI track
+    // Use armed track, or fallback to first MIDI/Sampler track
     let target = target_track_id.or(first_midi_track_id);
 
     if let Some(track_id) = target {

@@ -82,14 +82,14 @@ pub fn start_midi_input() -> Result<String, String> {
         }
 
         // 2. Route to all armed MIDI track synthesizers and VST3 instruments
-        // Collect armed tracks with their FX chains
+        // Collect armed tracks with their FX chains (MIDI and Sampler tracks can receive MIDI)
         let armed_tracks_with_fx: Vec<(TrackId, Vec<u64>)> = {
             if let Ok(tm) = track_manager.lock() {
                 tm.get_all_tracks()
                     .iter()
                     .filter_map(|track_arc| {
                         if let Ok(track) = track_arc.lock() {
-                            if track.track_type == TrackType::Midi && track.armed {
+                            if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
                                 Some((track.id, track.fx_chain.clone()))
                             } else {
                                 None
@@ -200,14 +200,14 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
         // Get playhead position for clip placement
         let playhead_seconds = graph.get_playhead_position();
 
-        // Find all armed MIDI tracks
+        // Find all armed MIDI/Sampler tracks
         let armed_midi_track_ids: Vec<TrackId> = {
             let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
             track_manager.get_all_tracks()
                 .iter()
                 .filter_map(|track_arc| {
                     if let Ok(track) = track_arc.lock() {
-                        if track.track_type == TrackType::Midi && track.armed {
+                        if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
                             Some(track.id)
                         } else {
                             None
@@ -219,7 +219,7 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
                 .collect()
         };
 
-        // If no MIDI tracks are armed, add clip to global storage
+        // If no MIDI/Sampler tracks are armed, add clip to global storage
         // First add clip to global storage to get an ID
         let clip_id = graph.add_midi_clip(clip_arc.clone(), playhead_seconds);
 

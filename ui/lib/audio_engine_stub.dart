@@ -96,6 +96,33 @@ class AudioEngine implements AudioEngineInterface {
   void setVst3ParameterValue(int effectId, int paramIndex, double value) =>
       throw UnsupportedError('stub');
 
+  // Sampler operations
+  @override
+  int createSamplerForTrack(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  bool loadSampleForTrack(int trackId, String path, int rootNote) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String setSamplerParameter(int trackId, String param, String value) =>
+      throw UnsupportedError('stub');
+
+  @override
+  bool isSamplerTrack(int trackId) => throw UnsupportedError('stub');
+
+  // MIDI clip operations
+  @override
+  int createMidiClip() => throw UnsupportedError('stub');
+
+  @override
+  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) =>
+      throw UnsupportedError('stub');
+
+  @override
+  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) =>
+      throw UnsupportedError('stub');
+
   @override
   void setTempo(double bpm) => throw UnsupportedError('stub');
 

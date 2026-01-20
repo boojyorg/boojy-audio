@@ -1197,6 +1197,103 @@ pub extern "C" fn send_track_midi_note_off_ffi(track_id: u64, note: u8, velocity
 }
 
 // ============================================================================
+// SAMPLER FFI
+// ============================================================================
+
+/// Create a sampler instrument for a track
+/// Returns instrument ID on success, or -1 on error
+#[no_mangle]
+pub extern "C" fn create_sampler_for_track_ffi(track_id: u64) -> i64 {
+    println!("🎹 [FFI] Creating sampler for track {}", track_id);
+
+    match api::create_sampler_for_track(track_id) {
+        Ok(id) => {
+            println!("✅ [FFI] Sampler created with ID: {}", id);
+            id
+        }
+        Err(e) => {
+            eprintln!("❌ [FFI] Failed to create sampler: {}", e);
+            -1
+        }
+    }
+}
+
+/// Load a sample file into a sampler track
+/// root_note: MIDI note that plays sample at original pitch (default 60 = C4)
+/// Returns 1 on success, 0 on failure
+#[no_mangle]
+pub extern "C" fn load_sample_for_track_ffi(
+    track_id: u64,
+    path: *const c_char,
+    root_note: u8,
+) -> i32 {
+    let path_str = unsafe {
+        match CStr::from_ptr(path).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return 0,
+        }
+    };
+
+    println!("🎹 [FFI] Loading sample for track {}: {} (root={})", track_id, path_str, root_note);
+
+    match api::load_sample_for_track(track_id, path_str, root_note) {
+        Ok(msg) => {
+            println!("✅ [FFI] {}", msg);
+            1
+        }
+        Err(e) => {
+            eprintln!("❌ [FFI] Failed to load sample: {}", e);
+            0
+        }
+    }
+}
+
+/// Set sampler parameter for a track
+/// param_name: "root_note", "attack", "attack_ms", "release", "release_ms"
+/// Returns success message or error
+#[no_mangle]
+pub extern "C" fn set_sampler_parameter_ffi(
+    track_id: u64,
+    param_name: *const c_char,
+    value: *const c_char,
+) -> *mut c_char {
+    let param_name_str = unsafe {
+        match CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return safe_cstring("Error: Invalid parameter name".to_string()).into_raw(),
+        }
+    };
+
+    let value_str = unsafe {
+        match CStr::from_ptr(value).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return safe_cstring("Error: Invalid value".to_string()).into_raw(),
+        }
+    };
+
+    println!("🎹 [FFI] Set sampler param for track {}: {}={}", track_id, param_name_str, value_str);
+
+    match api::set_sampler_parameter(track_id, param_name_str, value_str) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Check if a track has a sampler instrument
+/// Returns 1 if sampler, 0 if not, -1 on error
+#[no_mangle]
+pub extern "C" fn is_sampler_track_ffi(track_id: u64) -> i32 {
+    match api::is_sampler_track(track_id) {
+        Ok(true) => 1,
+        Ok(false) => 0,
+        Err(e) => {
+            eprintln!("❌ [FFI] Failed to check sampler track: {}", e);
+            -1
+        }
+    }
+}
+
+// ============================================================================
 // M7: VST3 Plugin Hosting FFI
 // ============================================================================
 

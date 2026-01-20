@@ -42,6 +42,7 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
   final VoidCallback? onDuplicatePressed;
+  final VoidCallback? onConvertToSampler; // Convert Audio track to Sampler
   final Function(String)? onNameChanged; // Inline rename callback
   final bool isSelected; // Track selection state
   final bool isArmed; // Recording arm state
@@ -89,6 +90,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onDoubleTap,
     this.onDeletePressed,
     this.onDuplicatePressed,
+    this.onConvertToSampler,
     this.onNameChanged,
     this.isSelected = false,
     this.isArmed = false,
@@ -509,6 +511,71 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     // Use listen: false to avoid provider error in callback context
     final colors = Provider.of<ThemeProvider>(context, listen: false).colors;
     final trackColor = widget.trackColor;
+    final isAudioTrack = widget.trackType.toLowerCase() == 'audio';
+
+    final menuItems = <PopupMenuEntry<String>>[
+      PopupMenuItem<String>(
+        value: 'rename',
+        child: Row(
+          children: [
+            Icon(Icons.edit, size: 16, color: colors.textPrimary),
+            const SizedBox(width: 8),
+            Text('Rename', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'color',
+        child: Row(
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: trackColor ?? colors.textSecondary,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: colors.hover),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('Change Color', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'duplicate',
+        child: Row(
+          children: [
+            Icon(Icons.content_copy, size: 16, color: colors.textPrimary),
+            const SizedBox(width: 8),
+            Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+      // Show "Convert to Sampler" only for Audio tracks
+      if (isAudioTrack && widget.onConvertToSampler != null)
+        PopupMenuItem<String>(
+          value: 'convert_to_sampler',
+          child: Row(
+            children: [
+              Icon(Icons.music_note, size: 16, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text('Convert to Sampler', style: TextStyle(color: colors.textPrimary)),
+            ],
+          ),
+        ),
+      const PopupMenuDivider(),
+      PopupMenuItem<String>(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 16, color: colors.error),
+            const SizedBox(width: 8),
+            Text('Delete', style: TextStyle(color: colors.error)),
+          ],
+        ),
+      ),
+    ];
 
     showMenu(
       context: context,
@@ -518,56 +585,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         position.dx,
         position.dy,
       ),
-      items: [
-        PopupMenuItem<String>(
-          value: 'rename',
-          child: Row(
-            children: [
-              Icon(Icons.edit, size: 16, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Rename', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'color',
-          child: Row(
-            children: [
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: trackColor ?? colors.textSecondary,
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: colors.hover),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text('Change Color', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'duplicate',
-          child: Row(
-            children: [
-              Icon(Icons.content_copy, size: 16, color: colors.textPrimary),
-              const SizedBox(width: 8),
-              Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete, size: 16, color: colors.error),
-              const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: colors.error)),
-            ],
-          ),
-        ),
-      ],
+      items: menuItems,
     ).then((value) {
       if (!mounted) return;
       if (value == 'rename') {
@@ -577,6 +595,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         _showColorPicker(this.context, position);
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
+      } else if (value == 'convert_to_sampler' && widget.onConvertToSampler != null) {
+        widget.onConvertToSampler!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
         widget.onDeletePressed!();
       }
