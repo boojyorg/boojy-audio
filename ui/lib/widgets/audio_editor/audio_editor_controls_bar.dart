@@ -167,33 +167,29 @@ class AudioEditorControlsBar extends StatelessWidget {
   Widget _buildVolumeControl(BuildContext context) {
     final colors = context.colors;
 
-    // Convert dB to slider position (0.0 to 1.0)
+    // Volume curve: 0 dB at exactly 50%, -70 dB at 0%, +24 dB at 100%
+    // Using piecewise linear: 0-50% = -70 to 0 dB, 50-100% = 0 to +24 dB
     double dbToSlider(double db) {
       if (db <= -70) return 0.0;
-      if (db <= -10) {
-        // -70 to -10 dB maps to 0.0 to 0.5
-        return (db + 70) / 120; // 60 dB range over 0.5 slider
-      } else if (db <= 0) {
-        // -10 to 0 dB maps to 0.5 to 0.7
-        return 0.5 + (db + 10) / 50; // 10 dB range over 0.2 slider
+      if (db >= 24) return 1.0;
+      if (db <= 0) {
+        // -70 to 0 dB maps to 0.0 to 0.5
+        return (db + 70) / 140; // 70 dB range over 0.5 slider
       } else {
-        // 0 to +24 dB maps to 0.7 to 1.0
-        return 0.7 + db / 80; // 24 dB range over 0.3 slider
+        // 0 to +24 dB maps to 0.5 to 1.0
+        return 0.5 + db / 48; // 24 dB range over 0.5 slider
       }
     }
 
-    // Convert slider position to dB
     double sliderToDb(double slider) {
       if (slider <= 0.0) return -70.0;
+      if (slider >= 1.0) return 24.0;
       if (slider <= 0.5) {
-        // 0.0 to 0.5 maps to -70 to -10 dB
-        return -70 + slider * 120;
-      } else if (slider <= 0.7) {
-        // 0.5 to 0.7 maps to -10 to 0 dB
-        return -10 + (slider - 0.5) * 50;
+        // 0.0 to 0.5 maps to -70 to 0 dB
+        return -70 + slider * 140;
       } else {
-        // 0.7 to 1.0 maps to 0 to +24 dB
-        return (slider - 0.7) * 80;
+        // 0.5 to 1.0 maps to 0 to +24 dB
+        return (slider - 0.5) * 48;
       }
     }
 
@@ -204,55 +200,39 @@ class AudioEditorControlsBar extends StatelessWidget {
       children: [
         Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
         const SizedBox(width: 4),
+        // dB display box (matches track mixer style)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          width: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           decoration: BoxDecoration(
             color: colors.dark,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(color: colors.surface, width: 1),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 100,
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 6,
-                    trackShape: const RoundedRectSliderTrackShape(),
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                    activeTrackColor: colors.accent,
-                    inactiveTrackColor: colors.surface,
-                    thumbColor: colors.textPrimary,
-                    overlayColor: colors.accent.withAlpha(30),
-                  ),
-                  child: Slider(
-                    value: sliderValue,
-                    min: 0.0,
-                    max: 1.0,
-                    onChanged: (value) {
-                      final db = sliderToDb(value);
-                      onGainChanged?.call(db);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 50,
-                child: Text(
-                  gainDb <= -70
-                      ? '-∞ dB'
-                      : '${gainDb >= 0 ? '+' : ''}${gainDb.toStringAsFixed(1)} dB',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: colors.textPrimary,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
+          child: Text(
+            gainDb <= -70
+                ? '-∞ dB'
+                : '${gainDb >= 0 ? '+' : ''}${gainDb.toStringAsFixed(1)}dB',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 9,
+              color: colors.textPrimary,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Capsule slider (matches track mixer style)
+        SizedBox(
+          width: 100,
+          height: 16,
+          child: _VolumeCapsuleSlider(
+            value: sliderValue,
+            onChanged: (value) {
+              final db = sliderToDb(value);
+              onGainChanged?.call(db);
+            },
+            onDoubleTap: () => onGainChanged?.call(0.0), // Reset to 0 dB
           ),
         ),
       ],
@@ -345,5 +325,101 @@ class _NumberInputBox extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Capsule-style volume slider matching track mixer fader appearance.
+/// Has a pill-shaped track with a circular handle.
+class _VolumeCapsuleSlider extends StatelessWidget {
+  final double value; // 0.0 to 1.0
+  final Function(double)? onChanged;
+  final VoidCallback? onDoubleTap;
+
+  const _VolumeCapsuleSlider({
+    required this.value,
+    this.onChanged,
+    this.onDoubleTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onDoubleTap: onDoubleTap,
+          onHorizontalDragUpdate: (details) {
+            if (onChanged == null) return;
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            onChanged!(sliderValue);
+          },
+          onTapDown: (details) {
+            if (onChanged == null) return;
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            onChanged!(sliderValue);
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: CustomPaint(
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+              painter: _VolumeCapsulePainter(sliderValue: value),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VolumeCapsulePainter extends CustomPainter {
+  final double sliderValue; // 0.0 to 1.0
+
+  _VolumeCapsulePainter({required this.sliderValue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final capsuleRadius = size.height / 2;
+    final capsuleRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(capsuleRadius),
+    );
+
+    // Draw capsule background
+    final bgPaint = Paint()
+      ..color = const Color(0xFF1A1A1A)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(capsuleRect, bgPaint);
+
+    // Draw capsule border
+    final borderPaint = Paint()
+      ..color = const Color(0xFF3A3A3A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRRect(capsuleRect, borderPaint);
+
+    // Draw volume handle/thumb
+    final handleRadius = size.height / 2 - 1;
+    final usableWidth = size.width - handleRadius * 2;
+    final handleX = handleRadius + sliderValue * usableWidth;
+    final handleY = size.height / 2;
+
+    // Draw semi-transparent grey circle (Logic Pro style)
+    final handlePaint = Paint()
+      ..color = const Color(0xFF808080).withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(handleX, handleY), handleRadius, handlePaint);
+
+    // Draw subtle border on handle
+    final handleBorderPaint = Paint()
+      ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawCircle(Offset(handleX, handleY), handleRadius, handleBorderPaint);
+  }
+
+  @override
+  bool shouldRepaint(_VolumeCapsulePainter oldDelegate) {
+    return oldDelegate.sliderValue != sliderValue;
   }
 }
