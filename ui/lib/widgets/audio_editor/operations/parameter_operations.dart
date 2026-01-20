@@ -111,7 +111,7 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     saveToHistory();
     setState(() {
       editData = editData.copyWith(
-        gainDb: db.clamp(-96.0, 12.0),
+        gainDb: db.clamp(-70.0, 24.0),
       );
     });
     notifyClipUpdated();
