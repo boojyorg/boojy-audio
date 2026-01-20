@@ -116,18 +116,22 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   }
 
   /// Calculate total visible beats (extends beyond loop for scrolling).
+  /// Matches Piano Roll behavior: adds 16 bars buffer beyond content.
   double calculateTotalBeats() {
     final loopLength = getLoopLength();
 
     if (currentClip == null) {
-      return loopLength + 4.0;
+      // Default: 8 bars when no clip loaded
+      return 8 * beatsPerBar.toDouble();
     }
 
     // Calculate based on clip duration in beats
     final clipDurationBeats = editData.lengthBeats;
     final maxBeat = clipDurationBeats > loopLength ? clipDurationBeats : loopLength;
-    final requiredBars = (maxBeat / beatsPerBar).ceil();
-    return (requiredBars + 1) * beatsPerBar.toDouble();
+
+    // Add 16 bars (64 beats at 4/4) buffer for scrolling, matching Piano Roll
+    final scrollBufferBeats = 16 * beatsPerBar.toDouble();
+    return maxBeat + scrollBufferBeats;
   }
 
   // ============================================
@@ -244,12 +248,31 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     currentClip = clip;
     editData = clip.editData ?? const AudioClipEditData();
 
-    // Sync loop settings from edit data
-    loopEnabled = editData.loopEnabled;
-    loopStartBeats = editData.loopStartBeats;
-    loopEndBeats = editData.loopEndBeats;
+    // Get BPM and time signature from edit data
     beatsPerBar = editData.beatsPerBar;
     beatUnit = editData.beatUnit;
+
+    // Calculate clip duration in beats from seconds
+    // duration (seconds) * (bpm / 60) = beats
+    final clipDurationBeats = clip.duration * (editData.bpm / 60.0);
+
+    // If edit data has default loop end (4.0) but clip is longer, use clip duration
+    // Otherwise use the saved loop end from edit data
+    final savedLoopEnd = editData.loopEndBeats;
+    final useClipDuration = savedLoopEnd == 4.0 && clipDurationBeats > 4.0;
+
+    // Sync loop settings
+    loopEnabled = editData.loopEnabled;
+    loopStartBeats = editData.loopStartBeats;
+    loopEndBeats = useClipDuration ? clipDurationBeats : savedLoopEnd;
+
+    // Also update editData.lengthBeats if using clip duration
+    if (useClipDuration) {
+      editData = editData.copyWith(
+        lengthBeats: clipDurationBeats,
+        loopEndBeats: clipDurationBeats,
+      );
+    }
   }
 
   /// Update clip when widget changes.

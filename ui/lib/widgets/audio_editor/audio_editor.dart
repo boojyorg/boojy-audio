@@ -5,8 +5,8 @@ import '../../models/tool_mode.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/app_colors.dart';
-import '../../utils/grid_utils.dart';
-import '../painters/painters.dart';
+import '../shared/editors/unified_nav_bar.dart';
+import '../shared/editors/nav_bar_with_zoom.dart';
 import 'audio_editor_state.dart';
 import 'audio_editor_controls_bar.dart';
 import 'painters/waveform_editor_painter.dart';
@@ -94,59 +94,36 @@ class _AudioEditorState extends State<AudioEditor>
       onKeyEvent: _handleKeyEvent,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Capture view width for zoom calculations
-          viewWidth = constraints.maxWidth - 80 - 48; // Subtract corners
+          // Capture view width for zoom calculations (full width, no margins)
+          viewWidth = constraints.maxWidth;
 
           return ColoredBox(
             color: colors.dark,
             child: Column(
               children: [
-                // Row 2: Controls Bar
+                // Row 2: Controls Bar (5 essential controls)
                 AudioEditorControlsBar(
-                  loopEnabled: loopEnabled,
                   startOffsetBeats: editData.startOffsetBeats,
                   lengthBeats: editData.lengthBeats,
                   beatsPerBar: beatsPerBar,
-                  beatUnit: beatUnit,
-                  onLoopToggle: _onLoopToggle,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
-                  onBeatsPerBarChanged: _onBeatsPerBarChanged,
-                  onBeatUnitChanged: _onBeatUnitChanged,
-                  // Tempo
-                  bpm: editData.bpm,
-                  syncEnabled: editData.syncEnabled,
-                  stretchFactor: editData.stretchFactor,
-                  onBpmChanged: _onBpmChanged,
-                  onSyncToggle: _onSyncToggle,
-                  onStretchChanged: _onStretchChanged,
-                  // Pitch
                   transposeSemitones: editData.transposeSemitones,
-                  fineCents: editData.fineCents,
                   onTransposeChanged: setTranspose,
-                  onFineChanged: setFineCents,
-                  // Level
                   gainDb: editData.gainDb,
-                  isStereo: editData.isStereo,
                   onGainChanged: setGain,
-                  // Actions
-                  reversed: editData.reversed,
-                  normalizeTargetDb: editData.normalizeTargetDb,
-                  onReverseToggle: toggleReverse,
-                  onNormalizeChanged: setNormalize,
+                  bpm: editData.bpm,
+                  onBpmChanged: _onBpmChanged,
                 ),
 
                 // Main content area
                 Expanded(
                   child: Column(
                     children: [
-                      // Row 3: Loop Region Bar
-                      _buildLoopBarRow(colors),
+                      // Unified navigation bar (loop region + bar numbers + zoom controls)
+                      _buildNavBar(colors),
 
-                      // Row 4: Timeline/Ruler
-                      _buildRulerRow(colors),
-
-                      // Row 5: Waveform Area
+                      // Waveform Area
                       Expanded(child: _buildWaveformArea(colors)),
                     ],
                   ),
@@ -195,134 +172,82 @@ class _AudioEditorState extends State<AudioEditor>
     );
   }
 
-  /// Row 3: Loop Region Bar
-  Widget _buildLoopBarRow(BoojyColors colors) {
+  /// Unified navigation bar (loop region + bar numbers + zoom controls)
+  /// Matches Piano Roll's UnifiedNavBar exactly
+  Widget _buildNavBar(BoojyColors colors) {
     final totalBeats = calculateTotalBeats();
 
-    return SizedBox(
-      height: 20,
-      child: Row(
-        children: [
-          // Left corner (aligned with waveform left margin)
-          SizedBox(
-            width: 80,
-            child: Container(color: colors.dark),
-          ),
-
-          // Loop bar (scrollable, synced)
-          Expanded(
-            child: GestureDetector(
-              onHorizontalDragStart: _onLoopBarDragStart,
-              onHorizontalDragUpdate: _onLoopBarDragUpdate,
-              onHorizontalDragEnd: _onLoopBarDragEnd,
-              child: MouseRegion(
-                onHover: _onLoopBarHover,
-                onExit: (_) => setState(() => loopBarHoverBeat = null),
-                cursor: _getLoopBarCursor(),
-                child: SingleChildScrollView(
-                  controller: loopBarScroll,
-                  scrollDirection: Axis.horizontal,
-                  physics: const ClampingScrollPhysics(),
-                  child: SizedBox(
-                    width: totalBeats * pixelsPerBeat,
-                    child: CustomPaint(
-                      painter: LoopBarPainter(
-                        pixelsPerBeat: pixelsPerBeat,
-                        totalBeats: totalBeats,
-                        loopEnabled: loopEnabled,
-                        loopStart: loopStartBeats,
-                        loopEnd: loopEndBeats,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Right corner (aligned with zoom controls)
-          SizedBox(
-            width: 48,
-            child: Container(color: colors.dark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Row 4: Timeline/Ruler
-  Widget _buildRulerRow(BoojyColors colors) {
-    final totalBeats = calculateTotalBeats();
-
-    return SizedBox(
-      height: 20,
-      child: Row(
-        children: [
-          // Left corner
-          SizedBox(
-            width: 80,
-            child: Container(color: colors.dark),
-          ),
-
-          // Ruler (scrollable, synced)
-          Expanded(
-            child: GestureDetector(
-              onVerticalDragStart: _onZoomDragStart,
-              onVerticalDragUpdate: _onZoomDragUpdate,
-              child: SingleChildScrollView(
-                controller: rulerScroll,
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: SizedBox(
-                  width: totalBeats * pixelsPerBeat,
-                  child: CustomPaint(
-                    painter: BarRulerPainter(
-                      pixelsPerBeat: pixelsPerBeat,
-                      totalBeats: totalBeats,
-                      playheadPosition: 0, // TODO: Connect to actual playhead
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Zoom controls
-          SizedBox(
-            width: 48,
-            child: Container(
-              color: colors.dark,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildZoomButton(Icons.remove, zoomOut, colors),
-                  _buildZoomButton(Icons.add, zoomIn, colors),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildZoomButton(IconData icon, VoidCallback onTap, BoojyColors colors) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: 20,
-          height: 20,
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: 14,
-            color: colors.textSecondary,
-          ),
+    return NavBarWithZoom(
+      scrollController: loopBarScroll,
+      onZoomIn: zoomIn,
+      onZoomOut: zoomOut,
+      height: 24.0,
+      child: UnifiedNavBar(
+        config: UnifiedNavBarConfig(
+          pixelsPerBeat: pixelsPerBeat,
+          totalBeats: totalBeats,
+          loopEnabled: loopEnabled,
+          loopStart: loopStartBeats,
+          loopEnd: loopEndBeats,
+          insertMarkerPosition: null, // No insert marker for audio editor
+          playheadPosition: null, // TODO: Connect to actual playhead
         ),
+        callbacks: UnifiedNavBarCallbacks(
+          onHorizontalScroll: _handleNavBarScroll,
+          onZoom: _handleNavBarZoom,
+          onPlayheadSet: null, // No playhead control for audio editor
+          onPlayheadDrag: null,
+          onLoopRegionChanged: _handleLoopRegionChanged,
+        ),
+        scrollController: loopBarScroll,
+        height: 24.0,
       ),
     );
+  }
+
+  void _handleNavBarScroll(double delta) {
+    if (!horizontalScroll.hasClients) return;
+    final newOffset = (horizontalScroll.offset + delta).clamp(
+      0.0,
+      horizontalScroll.position.maxScrollExtent,
+    );
+    horizontalScroll.jumpTo(newOffset);
+  }
+
+  void _handleNavBarZoom(double factor, double anchorBeat) {
+    final maxZoom = calculateMaxPixelsPerBeat();
+    final minZoom = calculateMinPixelsPerBeat();
+    final newPixelsPerBeat = (pixelsPerBeat * factor).clamp(minZoom, maxZoom);
+
+    if (newPixelsPerBeat == pixelsPerBeat) return;
+
+    setState(() {
+      pixelsPerBeat = newPixelsPerBeat;
+    });
+
+    // Adjust scroll to keep anchor beat in place
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!horizontalScroll.hasClients) return;
+      final newAnchorX = anchorBeat * newPixelsPerBeat;
+      final viewportCenter = viewWidth / 2;
+      final newScroll = (newAnchorX - viewportCenter).clamp(
+        0.0,
+        horizontalScroll.position.maxScrollExtent,
+      );
+      horizontalScroll.jumpTo(newScroll);
+    });
+  }
+
+  void _handleLoopRegionChanged(double start, double end) {
+    setState(() {
+      loopStartBeats = start;
+      loopEndBeats = end;
+      editData = editData.copyWith(
+        loopStartBeats: start,
+        loopEndBeats: end,
+      );
+    });
+    notifyClipUpdated();
   }
 
   /// Row 5: Waveform Area
@@ -332,15 +257,7 @@ class _AudioEditorState extends State<AudioEditor>
 
     return Row(
       children: [
-        // Left margin (placeholder for future controls)
-        SizedBox(
-          width: 80,
-          child: Container(
-            color: colors.dark,
-          ),
-        ),
-
-        // Waveform area (scrollable)
+        // Waveform area (scrollable, full width - zoom controls overlay the nav bar)
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -377,12 +294,6 @@ class _AudioEditorState extends State<AudioEditor>
             },
           ),
         ),
-
-        // Right margin
-        SizedBox(
-          width: 48,
-          child: Container(color: colors.dark),
-        ),
       ],
     );
   }
@@ -410,148 +321,8 @@ class _AudioEditorState extends State<AudioEditor>
   }
 
   // ============================================
-  // LOOP BAR INTERACTION
-  // ============================================
-
-  MouseCursor _getLoopBarCursor() {
-    if (loopBarHoverBeat == null) return SystemMouseCursors.basic;
-
-    const handleWidth = 8.0;
-    final handleWidthBeats = handleWidth / pixelsPerBeat;
-
-    if ((loopBarHoverBeat! - loopStartBeats).abs() < handleWidthBeats) {
-      return SystemMouseCursors.resizeLeftRight;
-    }
-    if ((loopBarHoverBeat! - loopEndBeats).abs() < handleWidthBeats) {
-      return SystemMouseCursors.resizeLeftRight;
-    }
-    if (loopBarHoverBeat! > loopStartBeats && loopBarHoverBeat! < loopEndBeats) {
-      return SystemMouseCursors.move;
-    }
-
-    return SystemMouseCursors.basic;
-  }
-
-  void _onLoopBarHover(PointerHoverEvent event) {
-    final beat = (event.localPosition.dx + loopBarScroll.offset) / pixelsPerBeat;
-    setState(() {
-      loopBarHoverBeat = beat;
-    });
-  }
-
-  void _onLoopBarDragStart(DragStartDetails details) {
-    final beat = (details.localPosition.dx + loopBarScroll.offset) / pixelsPerBeat;
-    const handleWidth = 8.0;
-    final handleWidthBeats = handleWidth / pixelsPerBeat;
-
-    if ((beat - loopStartBeats).abs() < handleWidthBeats) {
-      loopMarkerDrag = LoopMarkerDrag.start;
-    } else if ((beat - loopEndBeats).abs() < handleWidthBeats) {
-      loopMarkerDrag = LoopMarkerDrag.end;
-    } else if (beat > loopStartBeats && beat < loopEndBeats) {
-      loopMarkerDrag = LoopMarkerDrag.middle;
-      loopDragStartBeat = beat;
-    } else {
-      // Click outside loop: create new loop
-      isCreatingLoop = true;
-      loopMarkerDrag = LoopMarkerDrag.end;
-      setState(() {
-        loopStartBeats = _snapToGrid(beat);
-        loopEndBeats = loopStartBeats;
-      });
-    }
-  }
-
-  void _onLoopBarDragUpdate(DragUpdateDetails details) {
-    final beat = (details.localPosition.dx + loopBarScroll.offset) / pixelsPerBeat;
-    final snappedBeat = _snapToGrid(beat);
-
-    setState(() {
-      switch (loopMarkerDrag) {
-        case LoopMarkerDrag.start:
-          loopStartBeats = snappedBeat.clamp(0, loopEndBeats - 0.25);
-          break;
-        case LoopMarkerDrag.end:
-          loopEndBeats = snappedBeat.clamp(loopStartBeats + 0.25, calculateTotalBeats());
-          break;
-        case LoopMarkerDrag.middle:
-          final delta = beat - loopDragStartBeat;
-          final length = loopEndBeats - loopStartBeats;
-          var newStart = _snapToGrid(loopStartBeats + delta);
-          newStart = newStart.clamp(0, calculateTotalBeats() - length);
-          loopStartBeats = newStart;
-          loopEndBeats = newStart + length;
-          loopDragStartBeat = beat;
-          break;
-        case null:
-          break;
-      }
-    });
-  }
-
-  void _onLoopBarDragEnd(DragEndDetails details) {
-    loopMarkerDrag = null;
-    isCreatingLoop = false;
-
-    // Update edit data with new loop region
-    _updateLoopRegion();
-  }
-
-  void _updateLoopRegion() {
-    setState(() {
-      editData = editData.copyWith(
-        loopStartBeats: loopStartBeats,
-        loopEndBeats: loopEndBeats,
-        loopEnabled: loopEnabled,
-      );
-    });
-    notifyClipUpdated();
-  }
-
-  double _snapToGrid(double beat) {
-    const gridDivision = 0.25; // 1/16th note
-    return GridUtils.snapToGridRound(beat, gridDivision);
-  }
-
-  // ============================================
-  // ZOOM DRAG (Ableton-style)
-  // ============================================
-
-  void _onZoomDragStart(DragStartDetails details) {
-    zoomDragStartY = details.localPosition.dy;
-    zoomStartPixelsPerBeat = pixelsPerBeat;
-    zoomAnchorBeat = (details.localPosition.dx + rulerScroll.offset) / pixelsPerBeat;
-    zoomAnchorLocalX = details.localPosition.dx;
-  }
-
-  void _onZoomDragUpdate(DragUpdateDetails details) {
-    final deltaY = details.localPosition.dy - zoomDragStartY;
-    final zoomFactor = 1.0 + (deltaY / 100);
-
-    setState(() {
-      final maxZoom = calculateMaxPixelsPerBeat();
-      final minZoom = calculateMinPixelsPerBeat();
-      pixelsPerBeat = (zoomStartPixelsPerBeat * zoomFactor).clamp(minZoom, maxZoom);
-
-      // Adjust scroll to keep anchor beat under cursor
-      if (horizontalScroll.hasClients) {
-        final newOffset = zoomAnchorBeat * pixelsPerBeat - zoomAnchorLocalX;
-        horizontalScroll.jumpTo(newOffset.clamp(0, horizontalScroll.position.maxScrollExtent));
-      }
-    });
-  }
-
-  // ============================================
   // CONTROLS BAR CALLBACKS
   // ============================================
-
-  void _onLoopToggle(bool enabled) {
-    setState(() {
-      loopEnabled = enabled;
-      editData = editData.copyWith(loopEnabled: enabled);
-    });
-    notifyClipUpdated();
-  }
 
   void _onStartChanged(double beats) {
     setState(() {
@@ -567,41 +338,9 @@ class _AudioEditorState extends State<AudioEditor>
     notifyClipUpdated();
   }
 
-  void _onBeatsPerBarChanged(int value) {
-    setState(() {
-      beatsPerBar = value;
-      editData = editData.copyWith(beatsPerBar: value);
-    });
-    notifyClipUpdated();
-  }
-
-  void _onBeatUnitChanged(int value) {
-    setState(() {
-      beatUnit = value;
-      editData = editData.copyWith(beatUnit: value);
-    });
-    notifyClipUpdated();
-  }
-
   void _onBpmChanged(double value) {
     setState(() {
       editData = editData.copyWith(bpm: value);
-    });
-    notifyClipUpdated();
-    sendToAudioEngine();
-  }
-
-  void _onSyncToggle(bool enabled) {
-    setState(() {
-      editData = editData.copyWith(syncEnabled: enabled);
-    });
-    notifyClipUpdated();
-    sendToAudioEngine();
-  }
-
-  void _onStretchChanged(double value) {
-    setState(() {
-      editData = editData.copyWith(stretchFactor: value);
     });
     notifyClipUpdated();
     sendToAudioEngine();

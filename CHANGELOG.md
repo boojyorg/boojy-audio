@@ -16,6 +16,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Audio Editor now uses UnifiedNavBar matching Piano Roll exactly: single 24px nav bar with loop region, bar numbers, and zoom controls overlaid at right
+- Audio Editor removed all margins (no piano keys needed) for full-width waveform display
+- Audio Editor total beats calculation now shows 16 bars buffer beyond clip content (matches Piano Roll)
+- Audio Editor loop region now initializes to actual clip duration in beats (was always 4 beats)
+- Simplified Audio Editor controls to 5 essentials: Start, Length, Pitch, Volume, BPM. Styled to match Piano Roll layout with consistent button/input styling and orange loop bar for start/length visualization.
 - Simplified default project name from "Untitled Project" to "Untitled"
 - Replaced "Make a Copy..." with "Save New Version..." in File menu
 - Save As now shows keyboard shortcut ⇧⌘S in menu
