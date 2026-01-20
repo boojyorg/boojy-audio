@@ -84,6 +84,34 @@ class _LibraryPanelState extends State<LibraryPanel> {
     return null;
   }
 
+  /// Toggle a category expanded/collapsed while preserving scroll position.
+  /// This prevents the scroll from jumping when the list changes size.
+  void _toggleCategory(String categoryId, {VoidCallback? onExpand}) {
+    final isExpanded = _expandedCategories.contains(categoryId);
+
+    // Save current scroll position before state change
+    final savedOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+
+    setState(() {
+      if (isExpanded) {
+        _expandedCategories.remove(categoryId);
+      } else {
+        _expandWithAccordion(categoryId);
+        onExpand?.call();
+      }
+    });
+
+    // Restore scroll position after the frame rebuilds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients && mounted) {
+        // Clamp to valid range in case content is now shorter
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final targetOffset = savedOffset.clamp(0.0, maxScroll);
+        _scrollController.jumpTo(targetOffset);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -278,15 +306,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             title: title,
             isExpanded: isExpanded,
             showAddButton: showAddButton,
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedCategories.remove(id);
-                } else {
-                  _expandWithAccordion(id);
-                }
-              });
-            },
+            onTap: () => _toggleCategory(id),
             onAddPressed: onAddPressed,
           ),
           if (isExpanded)
@@ -332,15 +352,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             icon: category.icon,
             title: category.name,
             isExpanded: isExpanded,
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedCategories.remove(category.id);
-                } else {
-                  _expandWithAccordion(category.id);
-                }
-              });
-            },
+            onTap: () => _toggleCategory(category.id),
           ),
           if (isExpanded)
             ColoredBox(
@@ -363,15 +375,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                         icon: sub.icon,
                         title: sub.name,
                         isExpanded: isSubExpanded,
-                        onTap: () {
-                          setState(() {
-                            if (isSubExpanded) {
-                              _expandedCategories.remove(subId);
-                            } else {
-                              _expandWithAccordion(subId);
-                            }
-                          });
-                        },
+                        onTap: () => _toggleCategory(subId),
                       ),
                       if (isSubExpanded)
                         Container(
@@ -416,15 +420,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             icon: Icons.extension,
             title: 'Plugins',
             isExpanded: isExpanded,
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedCategories.remove('plugins');
-                } else {
-                  _expandWithAccordion('plugins');
-                }
-              });
-            },
+            onTap: () => _toggleCategory('plugins'),
           ),
           if (isExpanded)
             ColoredBox(
@@ -482,15 +478,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           icon: icon,
           title: title,
           isExpanded: isExpanded,
-          onTap: () {
-            setState(() {
-              if (isExpanded) {
-                _expandedCategories.remove(id);
-              } else {
-                _expandWithAccordion(id);
-              }
-            });
-          },
+          onTap: () => _toggleCategory(id),
         ),
         if (isExpanded)
           Container(
@@ -535,15 +523,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             title: 'Folders',
             isExpanded: isExpanded,
             showAddButton: true,
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedCategories.remove('folders');
-                } else {
-                  _expandWithAccordion('folders');
-                }
-              });
-            },
+            onTap: () => _toggleCategory('folders'),
             onAddPressed: _addUserFolder,
           ),
           if (isExpanded)
@@ -587,17 +567,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
             icon: Icons.folder,
             title: folderName,
             isExpanded: isExpanded,
-            onTap: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedCategories.remove(folderId);
-                } else {
-                  _expandWithAccordion(folderId);
-                  // Scan folder when expanded
-                  widget.libraryService.scanFolder(path);
-                }
-              });
-            },
+            onTap: () => _toggleCategory(
+              folderId,
+              onExpand: () => widget.libraryService.scanFolder(path),
+            ),
           ),
         ),
         if (isExpanded)
@@ -733,15 +706,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           icon: Icons.folder,
           title: folder.name,
           isExpanded: isExpanded,
-          onTap: () {
-            setState(() {
-              if (isExpanded) {
-                _expandedCategories.remove(folderId);
-              } else {
-                _expandWithAccordion(folderId);
-              }
-            });
-          },
+          onTap: () => _toggleCategory(folderId),
         ),
         if (isExpanded)
           FutureBuilder<List<LibraryItem>>(
