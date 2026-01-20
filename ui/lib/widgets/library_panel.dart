@@ -40,6 +40,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
 
+  /// Cache for folder contents to avoid FutureBuilder rebuilds causing scroll jumps
+  final Map<String, List<LibraryItem>> _folderContentsCache = {};
+
   /// Expand a category with accordion behavior
   /// - For top-level: close other top-level categories but KEEP their children
   ///   (children won't render since parent is collapsed, but will restore when parent reopens)
@@ -86,18 +89,25 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   /// Toggle a category expanded/collapsed while preserving scroll position.
   /// This prevents the scroll from jumping when the list changes size.
-  void _toggleCategory(String categoryId, {VoidCallback? onExpand}) {
+  Future<void> _toggleCategory(String categoryId, {Future<List<LibraryItem>>? loadContents}) async {
     final isExpanded = _expandedCategories.contains(categoryId);
 
     // Save current scroll position before state change
     final savedOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+
+    // If expanding a folder, load contents first and cache them
+    if (!isExpanded && loadContents != null) {
+      final contents = await loadContents;
+      _folderContentsCache[categoryId] = contents;
+    }
+
+    if (!mounted) return;
 
     setState(() {
       if (isExpanded) {
         _expandedCategories.remove(categoryId);
       } else {
         _expandWithAccordion(categoryId);
-        onExpand?.call();
       }
     });
 
@@ -110,6 +120,47 @@ class _LibraryPanelState extends State<LibraryPanel> {
         _scrollController.jumpTo(targetOffset);
       }
     });
+  }
+
+  /// Build folder contents from cache (avoids FutureBuilder rebuild issues)
+  Widget _buildFolderContents(String folderId) {
+    final items = _folderContentsCache[folderId];
+
+    if (items == null) {
+      // Still loading - show spinner
+      return const Padding(
+        padding: EdgeInsets.all(8),
+        child: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 6),
+        child: Text(
+          'Empty folder',
+          style: TextStyle(
+            color: context.colors.textMuted,
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.only(left: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: items.map((item) => _buildLibraryItem(item)).toList(),
+      ),
+    );
   }
 
   @override
@@ -151,6 +202,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           _buildSearchBar(),
           Expanded(
             child: ListView(
+              key: const ValueKey('library_list'),
               controller: _scrollController,
               padding: EdgeInsets.zero,
               children: _buildCategoryList(),
@@ -569,51 +621,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
             isExpanded: isExpanded,
             onTap: () => _toggleCategory(
               folderId,
-              onExpand: () => widget.libraryService.scanFolder(path),
+              loadContents: widget.libraryService.scanFolder(path),
             ),
           ),
         ),
         if (isExpanded)
-          FutureBuilder<List<LibraryItem>>(
-            future: widget.libraryService.scanFolder(path),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                );
-              }
-
-              final items = snapshot.data ?? [];
-              if (items.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 6),
-                  child: Text(
-                    'Empty folder',
-                    style: TextStyle(
-                      color: context.colors.textMuted,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                );
-              }
-
-              return Container(
-                padding: const EdgeInsets.only(left: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: items.map((item) => _buildLibraryItem(item)).toList(),
-                ),
-              );
-            },
-          ),
+          _buildFolderContents(folderId),
       ],
     );
   }
@@ -706,36 +719,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
           icon: Icons.folder,
           title: folder.name,
           isExpanded: isExpanded,
-          onTap: () => _toggleCategory(folderId),
+          onTap: () => _toggleCategory(
+            folderId,
+            loadContents: widget.libraryService.scanFolder(folder.folderPath),
+          ),
         ),
         if (isExpanded)
-          FutureBuilder<List<LibraryItem>>(
-            future: widget.libraryService.scanFolder(folder.folderPath),
-            builder: (context, snapshot) {
-              final items = snapshot.data ?? [];
-              if (items.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 6),
-                  child: Text(
-                    'Empty',
-                    style: TextStyle(
-                      color: context.colors.textMuted,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                );
-              }
-
-              return Container(
-                padding: const EdgeInsets.only(left: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: items.map((item) => _buildLibraryItem(item)).toList(),
-                ),
-              );
-            },
-          ),
+          _buildFolderContents(folderId),
       ],
     );
   }
