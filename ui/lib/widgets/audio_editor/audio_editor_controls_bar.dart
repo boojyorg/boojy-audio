@@ -167,26 +167,32 @@ class AudioEditorControlsBar extends StatelessWidget {
   Widget _buildVolumeControl(BuildContext context) {
     final colors = context.colors;
 
-    // Volume curve: 0 dB at exactly 50%, -70 dB at 0%, +24 dB at 100%
-    // Using piecewise linear: 0-50% = -70 to 0 dB, 50-100% = 0 to +24 dB
+    // Volume curve: 0 dB at exactly 50%, more sensitivity near 0 dB
+    // Piecewise: 0-30% = -70 to -12 dB, 30-50% = -12 to 0 dB, 50-100% = 0 to +24 dB
     double dbToSlider(double db) {
       if (db <= -70) return 0.0;
       if (db >= 24) return 1.0;
-      if (db <= 0) {
-        // -70 to 0 dB maps to 0.0 to 0.5
-        return (db + 70) / 140; // 70 dB range over 0.5 slider
+      if (db <= -12) {
+        // -70 to -12 dB maps to 0.0 to 0.3 (58 dB over 30% = less sensitive)
+        return (db + 70) / 193.33; // (70-12) / 0.3
+      } else if (db <= 0) {
+        // -12 to 0 dB maps to 0.3 to 0.5 (12 dB over 20% = more sensitive)
+        return 0.3 + (db + 12) / 60; // 12 / 0.2
       } else {
         // 0 to +24 dB maps to 0.5 to 1.0
-        return 0.5 + db / 48; // 24 dB range over 0.5 slider
+        return 0.5 + db / 48; // 24 dB over 0.5
       }
     }
 
     double sliderToDb(double slider) {
       if (slider <= 0.0) return -70.0;
       if (slider >= 1.0) return 24.0;
-      if (slider <= 0.5) {
-        // 0.0 to 0.5 maps to -70 to 0 dB
-        return -70 + slider * 140;
+      if (slider <= 0.3) {
+        // 0.0 to 0.3 maps to -70 to -12 dB
+        return -70 + slider * 193.33;
+      } else if (slider <= 0.5) {
+        // 0.3 to 0.5 maps to -12 to 0 dB
+        return -12 + (slider - 0.3) * 60;
       } else {
         // 0.5 to 1.0 maps to 0 to +24 dB
         return (slider - 0.5) * 48;
@@ -198,11 +204,9 @@ class AudioEditorControlsBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
-        const SizedBox(width: 4),
         // dB display box (matches track mixer style)
         Container(
-          width: 50,
+          width: 52,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           decoration: BoxDecoration(
             color: colors.dark,
@@ -212,7 +216,7 @@ class AudioEditorControlsBar extends StatelessWidget {
           child: Text(
             gainDb <= -70
                 ? '-∞ dB'
-                : '${gainDb >= 0 ? '+' : ''}${gainDb.toStringAsFixed(1)}dB',
+                : '${gainDb.toStringAsFixed(1)} dB',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 9,
@@ -224,8 +228,8 @@ class AudioEditorControlsBar extends StatelessWidget {
         const SizedBox(width: 4),
         // Capsule slider (matches track mixer style)
         SizedBox(
-          width: 100,
-          height: 16,
+          width: 120,
+          height: 20,
           child: _VolumeCapsuleSlider(
             value: sliderValue,
             onChanged: (value) {
