@@ -122,7 +122,13 @@ All notable changes to Boojy Audio will be documented in this file.
 - Windows build not yet tested
 - ~~Undo/redo can be unreliable~~ → Fixed in v0.1.1
 - Audio clip context menu items (cut/copy/paste, split, mute, rename, color) not yet functional (planned for v0.2)
-- Duplicate and delete tools may behave unexpectedly in some cases (under investigation)
+- ~~Duplicate and delete tools may behave unexpectedly in some cases~~ → Fixed in v0.1.2
+- Multi-track drag: dragging selection with both MIDI and audio clips may only update one type until refresh
+- Undo not working for audio clip stretch/trim operations
+- Keyboard shortcuts override text input when renaming tracks in mixer (e.g., "L" triggers loop toggle)
+- Editor panel toggle hides toolbar row (Piano Roll/Effects/Synthesizer tabs, tools, virtual piano toggle)
+- Audio clips not persisting on project save/load
+- Library folder expand/collapse resets scroll position to top
 
 ---
 
