@@ -17,6 +17,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   /// View width for dynamic zoom limits (captured from LayoutBuilder).
   double viewWidth = 800.0;
 
+  /// Flag to zoom-to-fit content on next build (after loading new clip).
+  bool shouldZoomToFit = false;
+
   // ============================================
   // SCROLL CONTROLLERS
   // ============================================
@@ -246,32 +249,34 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     if (clip == null) return;
 
     currentClip = clip;
+    final hasEditData = clip.editData != null;
     editData = clip.editData ?? const AudioClipEditData();
 
     // Get BPM and time signature from edit data
     beatsPerBar = editData.beatsPerBar;
     beatUnit = editData.beatUnit;
 
-    // Calculate clip duration in beats from seconds
-    // duration (seconds) * (bpm / 60) = beats
-    final clipDurationBeats = clip.duration * (editData.bpm / 60.0);
+    // Calculate clip's timeline duration in beats (what's visible on arrangement)
+    // clip.duration is the trimmed/visible duration on the timeline
+    final clipTimelineBeats = clip.duration * (editData.bpm / 60.0);
 
-    // If edit data has default loop end (4.0) but clip is longer, use clip duration
-    // Otherwise use the saved loop end from edit data
-    final savedLoopEnd = editData.loopEndBeats;
-    final useClipDuration = savedLoopEnd == 4.0 && clipDurationBeats > 4.0;
-
-    // Sync loop settings
-    loopEnabled = editData.loopEnabled;
-    loopStartBeats = editData.loopStartBeats;
-    loopEndBeats = useClipDuration ? clipDurationBeats : savedLoopEnd;
-
-    // Also update editData.lengthBeats if using clip duration
-    if (useClipDuration) {
+    // If clip has no saved edit data, use clip's timeline duration
+    if (!hasEditData) {
+      loopEnabled = true;
+      loopStartBeats = 0.0;
+      loopEndBeats = clipTimelineBeats;
       editData = editData.copyWith(
-        lengthBeats: clipDurationBeats,
-        loopEndBeats: clipDurationBeats,
+        lengthBeats: clipTimelineBeats,
+        loopStartBeats: 0.0,
+        loopEndBeats: clipTimelineBeats,
       );
+      // Zoom to fit content on first load
+      shouldZoomToFit = true;
+    } else {
+      // Use saved values from edit data
+      loopEnabled = editData.loopEnabled;
+      loopStartBeats = editData.loopStartBeats;
+      loopEndBeats = editData.loopEndBeats;
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
 import '../piano_roll/loop_time_display.dart';
+import '../shared/mini_knob.dart';
 
 /// Simplified horizontal controls bar for Audio Editor.
 /// Matches Piano Roll styling with 5 essential controls.
@@ -139,50 +140,26 @@ class AudioEditorControlsBar extends StatelessWidget {
   // ============ PITCH CONTROL ============
   Widget _buildPitchControl(BuildContext context) {
     final colors = context.colors;
-    final displayValue = transposeSemitones > 0 ? '+$transposeSemitones' : '$transposeSemitones';
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('Pitch', style: TextStyle(color: colors.textMuted, fontSize: 9)),
         const SizedBox(width: 4),
-        _NumberInputBox(
-          displayText: '$displayValue st',
-          onTap: () => _showPitchDialog(context),
+        MiniKnob(
+          value: transposeSemitones.toDouble(),
+          min: -48.0,
+          max: 48.0,
+          size: 28,
+          valueFormatter: (v) {
+            final st = v.round();
+            return st > 0 ? '+$st' : '$st';
+          },
+          onChanged: (value) => onTransposeChanged?.call(value.round()),
         ),
+        const SizedBox(width: 2),
+        Text('st', style: TextStyle(color: colors.textMuted, fontSize: 9)),
       ],
-    );
-  }
-
-  void _showPitchDialog(BuildContext context) {
-    final controller = TextEditingController(text: '$transposeSemitones');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Transpose'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(signed: true),
-          decoration: const InputDecoration(
-            labelText: 'Semitones (-48 to +48)',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text) ?? 0;
-              onTransposeChanged?.call(value.clamp(-48, 48));
-              Navigator.pop(ctx);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -190,10 +167,42 @@ class AudioEditorControlsBar extends StatelessWidget {
   Widget _buildVolumeControl(BuildContext context) {
     final colors = context.colors;
 
+    // Convert dB to slider position (0.0 to 1.0)
+    double dbToSlider(double db) {
+      if (db <= -70) return 0.0;
+      if (db <= -10) {
+        // -70 to -10 dB maps to 0.0 to 0.5
+        return (db + 70) / 120; // 60 dB range over 0.5 slider
+      } else if (db <= 0) {
+        // -10 to 0 dB maps to 0.5 to 0.7
+        return 0.5 + (db + 10) / 50; // 10 dB range over 0.2 slider
+      } else {
+        // 0 to +24 dB maps to 0.7 to 1.0
+        return 0.7 + db / 80; // 24 dB range over 0.3 slider
+      }
+    }
+
+    // Convert slider position to dB
+    double sliderToDb(double slider) {
+      if (slider <= 0.0) return -70.0;
+      if (slider <= 0.5) {
+        // 0.0 to 0.5 maps to -70 to -10 dB
+        return -70 + slider * 120;
+      } else if (slider <= 0.7) {
+        // 0.5 to 0.7 maps to -10 to 0 dB
+        return -10 + (slider - 0.5) * 50;
+      } else {
+        // 0.7 to 1.0 maps to 0 to +24 dB
+        return (slider - 0.7) * 80;
+      }
+    }
+
+    final sliderValue = dbToSlider(gainDb);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Vol', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -205,35 +214,42 @@ class AudioEditorControlsBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Gain slider
               SizedBox(
-                width: 60,
+                width: 100,
                 child: SliderTheme(
                   data: SliderThemeData(
-                    trackHeight: 2,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                    trackHeight: 6,
+                    trackShape: const RoundedRectSliderTrackShape(),
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
                     activeTrackColor: colors.accent,
                     inactiveTrackColor: colors.surface,
-                    thumbColor: colors.accent,
+                    thumbColor: colors.textPrimary,
                     overlayColor: colors.accent.withAlpha(30),
                   ),
                   child: Slider(
-                    value: gainDb.clamp(-24.0, 12.0),
-                    min: -24.0,
-                    max: 12.0,
-                    onChanged: (value) => onGainChanged?.call(value),
+                    value: sliderValue,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) {
+                      final db = sliderToDb(value);
+                      onGainChanged?.call(db);
+                    },
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              // dB display
-              Text(
-                '${gainDb >= 0 ? '+' : ''}${gainDb.toStringAsFixed(1)} dB',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: colors.textPrimary,
-                  fontFamily: 'monospace',
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 50,
+                child: Text(
+                  gainDb <= -70
+                      ? '-∞ dB'
+                      : '${gainDb >= 0 ? '+' : ''}${gainDb.toStringAsFixed(1)} dB',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: colors.textPrimary,
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ),
             ],

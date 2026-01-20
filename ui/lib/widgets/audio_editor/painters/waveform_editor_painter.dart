@@ -9,8 +9,11 @@ class WaveformEditorPainter extends CustomPainter {
   /// Pixels per beat for horizontal scaling
   final double pixelsPerBeat;
 
-  /// Total beats to render
+  /// Total beats to render (includes scroll buffer)
   final double totalBeats;
+
+  /// Audio content duration in beats (for correct waveform scaling)
+  final double contentBeats;
 
   /// Active beats (loop length)
   final double activeBeats;
@@ -46,6 +49,7 @@ class WaveformEditorPainter extends CustomPainter {
     required this.peaks,
     required this.pixelsPerBeat,
     required this.totalBeats,
+    required this.contentBeats,
     required this.activeBeats,
     required this.loopEnabled,
     required this.loopStart,
@@ -126,9 +130,10 @@ class WaveformEditorPainter extends CustomPainter {
     final centerY = size.height / 2;
     final maxAmplitude = size.height / 2 * 0.9; // Leave some padding
 
-    // Calculate how many samples per pixel
-    final totalWidth = totalBeats * pixelsPerBeat;
-    final samplesPerPixel = peaks.length / 2 / totalWidth;
+    // Calculate how many samples per pixel based on content duration (not total with buffer)
+    // The waveform only spans contentBeats, not the full scrollable area
+    final contentWidth = contentBeats * pixelsPerBeat;
+    final samplesPerPixel = peaks.length / 2 / contentWidth;
 
     // Draw waveform as filled path
     final path = Path();
@@ -249,6 +254,7 @@ class WaveformEditorPainter extends CustomPainter {
     return !identical(peaks, oldDelegate.peaks) ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         totalBeats != oldDelegate.totalBeats ||
+        contentBeats != oldDelegate.contentBeats ||
         loopEnabled != oldDelegate.loopEnabled ||
         loopStart != oldDelegate.loopStart ||
         loopEnd != oldDelegate.loopEnd ||

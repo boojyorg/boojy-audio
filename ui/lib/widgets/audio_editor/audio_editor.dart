@@ -98,6 +98,15 @@ class _AudioEditorState extends State<AudioEditor>
           // Capture view width for zoom calculations (full width, no margins)
           viewWidth = constraints.maxWidth;
 
+          // Auto-zoom to fit content on first load
+          if (shouldZoomToFit && editData.lengthBeats > 0) {
+            // Calculate pixelsPerBeat so content fills the view
+            // Leave a small margin (subtract 48px for zoom buttons area)
+            final effectiveWidth = viewWidth - 48;
+            pixelsPerBeat = effectiveWidth / editData.lengthBeats;
+            shouldZoomToFit = false;
+          }
+
           return ColoredBox(
             color: colors.dark,
             child: Column(
@@ -285,6 +294,7 @@ class _AudioEditorState extends State<AudioEditor>
                         peaks: waveformPeaks,
                         pixelsPerBeat: pixelsPerBeat,
                         totalBeats: totalBeats,
+                        contentBeats: editData.lengthBeats,
                         activeBeats: getLoopLength(),
                         loopEnabled: loopEnabled,
                         loopStart: loopStartBeats,

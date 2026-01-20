@@ -20,7 +20,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - Audio Editor removed all margins (no piano keys needed) for full-width waveform display
 - Audio Editor total beats calculation now shows 16 bars buffer beyond clip content (matches Piano Roll)
 - Audio Editor loop region now initializes to actual clip duration in beats (was always 4 beats)
+- Audio Editor auto-zooms to fit clip content when first opened
 - Simplified Audio Editor controls to 5 essentials: Start, Length, Pitch, Volume, BPM. Styled to match Piano Roll layout with consistent button/input styling and orange loop bar for start/length visualization.
+- Audio Editor Pitch control is now a draggable knob (-48 to +48 semitones, double-tap to reset to 0)
+- Audio Editor Volume control now uses a piecewise dB curve slider (0 dB default, +24 dB max, -∞ min) matching track mixer behavior
 - Simplified default project name from "Untitled Project" to "Untitled"
 - Replaced "Make a Copy..." with "Save New Version..." in File menu
 - Save As now shows keyboard shortcut ⇧⌘S in menu
@@ -31,6 +34,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - Fixed multi-track drag state sync: dragging mixed MIDI+audio selections now updates all clip positions in real-time during drag (previously only updated on drag end)
 - Fixed library panel scroll jumping to top when expanding/collapsing folders (cached folder contents to avoid FutureBuilder rebuild issues)
 - Fixed scroll in nav bar (loop/bar numbers section) bubbling up to parent tabs (was scrolling to Effects section instead of scrolling the timeline)
+- Fixed Audio Editor waveform scaling: now correctly uses clip's timeline duration for both waveform display and loop region initialization
 
 ---
 
