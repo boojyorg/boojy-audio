@@ -123,102 +123,126 @@ class WaveformEditorPainter extends CustomPainter {
   void _drawWaveform(Canvas canvas, Size size) {
     if (peaks.isEmpty) return;
 
-    final waveformPaint = Paint()
-      ..color = waveformColor
-      ..style = PaintingStyle.fill;
-
     final centerY = size.height / 2;
-    final maxAmplitude = size.height / 2 * 0.9; // Leave some padding
 
-    // Calculate how many samples per pixel based on content duration (not total with buffer)
-    // The waveform only spans contentBeats, not the full scrollable area
+    // Calculate waveform width based on content duration
     final contentWidth = contentBeats * pixelsPerBeat;
-    final samplesPerPixel = peaks.length / 2 / contentWidth;
+    if (contentWidth <= 0) return;
 
-    // Draw waveform as filled path
-    final path = Path();
-    var started = false;
+    final originalPeakCount = peaks.length ~/ 2;
+    if (originalPeakCount == 0) return;
 
-    for (double x = 0; x < size.width; x += 1) {
-      // Calculate which peak samples correspond to this x position
-      final actualX = reversed ? (size.width - x - 1) : x;
-      final sampleIndex = (actualX * samplesPerPixel * 2).floor();
+    // LOD: Calculate optimal peak count for visible width
+    // Target ~1 pixel per peak for crisp detail (like Ableton/arrangement view)
+    final targetPeakCount = contentWidth.clamp(100, originalPeakCount.toDouble()).toInt();
 
-      if (sampleIndex >= peaks.length - 1) continue;
-
-      // Get min/max from peaks (peaks are stored as alternating min/max)
-      double minVal = peaks[sampleIndex];
-      double maxVal = peaks[sampleIndex + 1];
-
-      // Apply normalize gain for visual preview
-      minVal *= normalizeGain;
-      maxVal *= normalizeGain;
-
-      // Clamp to valid range
-      minVal = minVal.clamp(-1.0, 1.0);
-      maxVal = maxVal.clamp(-1.0, 1.0);
-
-      final yMin = centerY - (maxVal * maxAmplitude);
-
-      if (!started) {
-        path.moveTo(x, yMin);
-        started = true;
-      } else {
-        path.lineTo(x, yMin);
-      }
-
-      // Store for bottom path
+    // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
+    List<double> renderPeaks;
+    if (originalPeakCount > targetPeakCount * 2) {
+      final groupSize = originalPeakCount ~/ targetPeakCount;
+      renderPeaks = _downsamplePeaks(peaks, groupSize);
+    } else {
+      renderPeaks = peaks;
     }
 
-    // Draw bottom half (going backwards)
-    for (double x = size.width - 1; x >= 0; x -= 1) {
-      final actualX = reversed ? (size.width - x - 1) : x;
-      final sampleIndex = (actualX * samplesPerPixel * 2).floor();
+    final peakCount = renderPeaks.length ~/ 2;
+    if (peakCount == 0) return;
 
-      if (sampleIndex >= peaks.length - 1) continue;
+    final step = contentWidth / peakCount;
 
-      double minVal = peaks[sampleIndex];
-      minVal *= normalizeGain;
+    // Create closed polygon path for continuous waveform shape
+    final path = Path();
+
+    // Handle reversed playback
+    int getIndex(int i) => reversed ? (peakCount - 1 - i) : i;
+
+    // Start at first peak's top
+    final firstIdx = getIndex(0);
+    double firstMax = renderPeaks[firstIdx * 2 + 1] * normalizeGain;
+    firstMax = firstMax.clamp(-1.0, 1.0);
+    final firstTopY = centerY - (firstMax * centerY * 0.9);
+    path.moveTo(step / 2, firstTopY);
+
+    // Trace TOP edge (max values) left to right
+    for (int i = 1; i < peakCount; i++) {
+      final idx = getIndex(i);
+      final x = i * step + step / 2;
+      double maxVal = renderPeaks[idx * 2 + 1] * normalizeGain;
+      maxVal = maxVal.clamp(-1.0, 1.0);
+      final topY = centerY - (maxVal * centerY * 0.9);
+      path.lineTo(x, topY);
+    }
+
+    // Trace BOTTOM edge (min values) right to left
+    for (int i = peakCount - 1; i >= 0; i--) {
+      final idx = getIndex(i);
+      final x = i * step + step / 2;
+      double minVal = renderPeaks[idx * 2] * normalizeGain;
       minVal = minVal.clamp(-1.0, 1.0);
-
-      final yMax = centerY - (minVal * maxAmplitude);
-      path.lineTo(x, yMax);
+      final bottomY = centerY - (minVal * centerY * 0.9);
+      path.lineTo(x, bottomY);
     }
 
     path.close();
-    canvas.drawPath(path, waveformPaint);
 
-    // Draw waveform outline for better visibility
-    final outlinePaint = Paint()
-      ..color = waveformColor.withValues(alpha: 0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+    // Use opaque color for both fill and stroke so they match exactly
+    final waveColor = waveformColor.withValues(alpha: 0.85);
 
-    // Draw top outline
-    final outlinePath = Path();
-    started = false;
+    // Fill the waveform
+    final fillPaint = Paint()
+      ..color = waveColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
 
-    for (double x = 0; x < size.width; x += 1) {
-      final actualX = reversed ? (size.width - x - 1) : x;
-      final sampleIndex = (actualX * samplesPerPixel * 2).floor();
+    // Add stroke to give waveform body (dynamic based on zoom)
+    double strokeWidth = 0;
+    if (step < 1.0) {
+      // Zoomed out: scale stroke to compensate for sub-pixel peaks
+      strokeWidth = (1.0 / step).clamp(1.0, 1.5);
+    } else {
+      // Normal/zoomed in: minimum stroke for visual continuity
+      strokeWidth = 0.5;
+    }
 
-      if (sampleIndex >= peaks.length - 1) continue;
+    if (strokeWidth > 0) {
+      final strokePaint = Paint()
+        ..color = waveColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..blendMode = BlendMode.src;
+      canvas.drawPath(path, strokePaint);
+    }
+  }
 
-      double maxVal = peaks[sampleIndex + 1];
-      maxVal *= normalizeGain;
-      maxVal = maxVal.clamp(-1.0, 1.0);
+  /// Downsample peaks by grouping and taking min/max of each group.
+  /// This preserves waveform amplitude while reducing point count.
+  List<double> _downsamplePeaks(List<double> peaks, int groupSize) {
+    if (groupSize <= 1) return peaks;
 
-      final y = centerY - (maxVal * maxAmplitude);
+    final result = <double>[];
+    final pairCount = peaks.length ~/ 2;
 
-      if (!started) {
-        outlinePath.moveTo(x, y);
-        started = true;
-      } else {
-        outlinePath.lineTo(x, y);
+    for (int i = 0; i < pairCount; i += groupSize) {
+      double groupMin = double.infinity;
+      double groupMax = double.negativeInfinity;
+
+      final end = (i + groupSize).clamp(0, pairCount);
+      for (int j = i; j < end; j++) {
+        final min = peaks[j * 2];
+        final max = peaks[j * 2 + 1];
+        if (min < groupMin) groupMin = min;
+        if (max > groupMax) groupMax = max;
+      }
+
+      if (groupMin != double.infinity) {
+        result.add(groupMin);
+        result.add(groupMax);
       }
     }
 
-    canvas.drawPath(outlinePath, outlinePaint);
+    return result;
   }
 
   void _drawLoopOverlay(Canvas canvas, Size size) {
