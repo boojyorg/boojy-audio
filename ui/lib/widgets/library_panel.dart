@@ -43,6 +43,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// Cache for folder contents to avoid FutureBuilder rebuilds causing scroll jumps
   final Map<String, List<LibraryItem>> _folderContentsCache = {};
 
+  /// Maps folder ID to its parent folder ID (for accordion behavior)
+  final Map<String, String> _folderParents = {};
+
   /// Expand a category with accordion behavior
   /// - For top-level: close other top-level categories but KEEP their children
   ///   (children won't render since parent is collapsed, but will restore when parent reopens)
@@ -59,8 +62,21 @@ class _LibraryPanelState extends State<LibraryPanel> {
       });
       _expandedCategories.add(categoryId);
     } else if (categoryId.startsWith('folder_') || categoryId.startsWith('nested_folder_')) {
-      // User folders and nested folders: NO accordion behavior
-      // Allow multiple folders to be open simultaneously (like a file browser)
+      // User folders: Accordion behavior - close siblings, keep children
+      // Get this folder's parent (top-level folders have parent 'folders')
+      final myParent = _folderParents[categoryId] ?? 'folders';
+
+      // Remove sibling folders (same parent) but NOT their children
+      // Children stay in set so they restore when parent is reopened (Ableton-style)
+      _expandedCategories.removeWhere((id) {
+        if (!id.startsWith('folder_') && !id.startsWith('nested_folder_')) return false;
+        if (id == categoryId) return false;
+
+        final theirParent = _folderParents[id] ?? 'folders';
+        // Same parent = siblings → close them
+        return theirParent == myParent;
+      });
+
       _expandedCategories.add(categoryId);
     } else {
       // This is a subcategory - find its parent and close siblings
@@ -99,6 +115,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (!isExpanded && loadContents != null) {
       final contents = await loadContents;
       _folderContentsCache[categoryId] = contents;
+
+      // Record parent relationships for nested folders (for accordion behavior)
+      for (final item in contents) {
+        if (item is FolderItem) {
+          final childId = 'nested_folder_${item.folderPath.hashCode}';
+          _folderParents[childId] = categoryId;
+        }
+      }
     }
 
     if (!mounted) return;
