@@ -2,6 +2,26 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- Added "Rename Project..." menu item in File menu (only shown for saved projects)
+- Added "Save New Version..." to create versioned copies with symlinked samples (e.g., My Song_v2.audio)
+- Rename now updates recent projects list (removes old path, adds new path)
+
+### Improvements
+
+- Simplified default project name from "Untitled Project" to "Untitled"
+- Replaced "Make a Copy..." with "Save New Version..." in File menu
+- Save As now shows keyboard shortcut ⇧⌘S in menu
+
+### Bug Fixes
+
+- Fixed multi-track drag state sync: dragging mixed MIDI+audio selections now updates all clip positions in real-time during drag (previously only updated on drag end)
+
+---
+
 ## v0.1.2 — 2026-01-19
 
 ### Improvements
@@ -18,6 +38,12 @@ All notable changes to Boojy Audio will be documented in this file.
 - Fixed selection rectangle selecting clips on all tracks instead of only tracks within the rectangle bounds
 - Fixed selection rectangle Y offset on lower tracks (cumulative ~20px offset per track due to inconsistent default track height values)
 - Fixed modifier-key box selection (Shift+drag) not deselecting clips when rectangle no longer touches them
+- Fixed library folder expand/collapse resetting scroll position to top
+- Fixed keyboard shortcuts (L, M, Q, Space) triggering when typing in text fields (e.g., renaming tracks)
+- Fixed multi-track drag only updating one clip type (MIDI updates now trigger UI refresh)
+- Fixed audio clip stretch/trim not registering in undo history
+- Fixed editor panel toggle hiding toolbar row (toolbar now always visible in collapsed bar)
+- Fixed audio clips not persisting on project save/load (now saved to ui_layout.json)
 
 ---
 
@@ -123,12 +149,12 @@ All notable changes to Boojy Audio will be documented in this file.
 - ~~Undo/redo can be unreliable~~ → Fixed in v0.1.1
 - Audio clip context menu items (cut/copy/paste, split, mute, rename, color) not yet functional (planned for v0.2)
 - ~~Duplicate and delete tools may behave unexpectedly in some cases~~ → Fixed in v0.1.2
-- Multi-track drag: dragging selection with both MIDI and audio clips may only update one type until refresh
-- Undo not working for audio clip stretch/trim operations
-- Keyboard shortcuts override text input when renaming tracks in mixer (e.g., "L" triggers loop toggle)
-- Editor panel toggle hides toolbar row (Piano Roll/Effects/Synthesizer tabs, tools, virtual piano toggle)
-- Audio clips not persisting on project save/load
-- Library folder expand/collapse resets scroll position to top
+- ~~Multi-track drag: dragging selection with both MIDI and audio clips may only update one type until refresh~~ → Fixed in v0.1.2
+- ~~Undo not working for audio clip stretch/trim operations~~ → Fixed in v0.1.2
+- ~~Keyboard shortcuts override text input when renaming tracks in mixer (e.g., "L" triggers loop toggle)~~ → Fixed in v0.1.2
+- ~~Editor panel toggle hides toolbar row (Piano Roll/Effects/Synthesizer tabs, tools, virtual piano toggle)~~ → Fixed in v0.1.2
+- ~~Audio clips not persisting on project save/load~~ → Fixed in v0.1.2
+- ~~Library folder expand/collapse resets scroll position to top~~ → Fixed in v0.1.2
 
 ---
 

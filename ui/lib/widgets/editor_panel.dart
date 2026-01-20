@@ -463,29 +463,41 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   }
 
   /// Build collapsed tab button - clicking expands panel and switches to tab
+  /// Shows both icon and label text for clarity when panel is collapsed
   Widget _buildCollapsedTabButton(int index, IconData icon, String label) {
     final isSelected = _selectedTabIndex == index;
-    return Tooltip(
-      message: label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _tabController.index = index;
-            widget.onTabAndExpand?.call(index);
-          },
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isSelected ? context.colors.accent.withValues(alpha: 0.3) : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: isSelected ? context.colors.accent : context.colors.textSecondary,
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _tabController.index = index;
+          widget.onTabAndExpand?.call(index);
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? context.colors.accent.withValues(alpha: 0.3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? context.colors.accent : context.colors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? context.colors.accent : context.colors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ),

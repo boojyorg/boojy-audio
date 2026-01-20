@@ -115,7 +115,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // Project metadata
   ProjectMetadata _projectMetadata = const ProjectMetadata(
-    name: 'Untitled Project',
+    name: 'Untitled',
     bpm: 120.0,
   );
 
@@ -509,6 +509,45 @@ class _DAWScreenState extends State<DAWScreen> {
     _playbackController.stop();
     // Reset mixer meters when playback stops
     _mixerKey.currentState?.resetMeters();
+  }
+
+  /// Check if a text input field currently has focus.
+  /// Used to suppress single-key shortcuts when typing in text fields.
+  bool _isTextFieldFocused() {
+    final focusedWidget = FocusManager.instance.primaryFocus;
+    if (focusedWidget == null) return false;
+    final context = focusedWidget.context;
+    if (context == null) return false;
+    // Check if any ancestor is an EditableText (text input widget)
+    return context.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  /// Handle single-key shortcuts that should be suppressed when text field is focused.
+  /// Returns true if the key was handled, false to let it propagate to text fields.
+  KeyEventResult _handleSingleKeyShortcut(KeyEvent event) {
+    // Only handle KeyDownEvent, not KeyUpEvent or KeyRepeatEvent
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // If a text field is focused, don't intercept any single-key shortcuts
+    if (_isTextFieldFocused()) return KeyEventResult.ignored;
+
+    // Handle single-key shortcuts
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.space:
+        _togglePlayPause();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyQ:
+        _quantizeSelectedClip();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyL:
+        _uiLayout.toggleLoopPlayback();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyM:
+        _toggleMetronome();
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
+    }
   }
 
   /// Context-aware play/pause toggle (Space bar)
@@ -2420,10 +2459,11 @@ class _DAWScreenState extends State<DAWScreen> {
         // Add to recent projects
         _userSettings.addRecentProject(path, _projectManager!.currentName);
 
-        // Update window title with project name
+        // Update window title and metadata with project name
         WindowTitleService.setProjectName(_projectManager!.currentName);
 
         setState(() {
+          _projectMetadata = _projectMetadata.copyWith(name: _projectManager!.currentName);
           _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
           _isLoading = false;
         });
@@ -2479,10 +2519,11 @@ class _DAWScreenState extends State<DAWScreen> {
       // Update recent projects (moves to top)
       _userSettings.addRecentProject(path, _projectManager!.currentName);
 
-      // Update window title with project name
+      // Update window title and metadata with project name
       WindowTitleService.setProjectName(_projectManager!.currentName);
 
       setState(() {
+        _projectMetadata = _projectMetadata.copyWith(name: _projectManager!.currentName);
         _statusMessage = 'Project loaded: ${_projectManager!.currentName}';
         _isLoading = false;
       });
@@ -2542,7 +2583,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
   Future<void> _saveProjectAs() async {
     // Show dialog to enter project name
-    final nameController = TextEditingController(text: _projectManager?.currentName ?? 'Untitled Project');
+    final nameController = TextEditingController(text: _projectManager?.currentName ?? 'Untitled');
 
     final projectName = await showDialog<String>(
       context: context,
@@ -2570,9 +2611,12 @@ class _DAWScreenState extends State<DAWScreen> {
 
     if (projectName == null || projectName.isEmpty) return;
 
-    // Update project name in manager and window title
+    // Update project name in manager, metadata, and window title
     _projectManager?.setProjectName(projectName);
     WindowTitleService.setProjectName(projectName);
+    setState(() {
+      _projectMetadata = _projectMetadata.copyWith(name: projectName);
+    });
 
     try {
       // Get default projects folder
@@ -2640,6 +2684,16 @@ class _DAWScreenState extends State<DAWScreen> {
     if (_userSettings.continueWhereLeftOff && layout.viewState != null) {
       _restoreViewState(layout.viewState!);
     }
+
+    // Restore audio clips if available
+    if (layout.audioClips != null && layout.audioClips!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final timelineState = _timelineKey.currentState;
+        if (timelineState != null) {
+          timelineState.restoreAudioClips(layout.audioClips!);
+        }
+      });
+    }
   }
 
   /// Restore view state (zoom, scroll, panels, playhead)
@@ -2693,6 +2747,10 @@ class _DAWScreenState extends State<DAWScreen> {
       );
     }
 
+    // Get audio clips from timeline for persistence
+    final timelineState = _timelineKey.currentState;
+    final audioClips = timelineState?.clips.toList();
+
     return UILayoutData(
       libraryWidth: _uiLayout.libraryPanelWidth,
       mixerWidth: _uiLayout.mixerPanelWidth,
@@ -2701,6 +2759,7 @@ class _DAWScreenState extends State<DAWScreen> {
       mixerCollapsed: !_uiLayout.isMixerVisible,
       bottomCollapsed: !(_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoEnabled),
       viewState: viewState,
+      audioClips: audioClips,
     );
   }
 
@@ -2916,29 +2975,117 @@ class _DAWScreenState extends State<DAWScreen> {
     );
   }
 
-  Future<void> _makeCopy() async {
+  Future<void> _saveNewVersion() async {
     if (_projectManager?.currentPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No project to copy')),
+          const SnackBar(content: Text('Save project first before creating a new version')),
         );
       }
       return;
     }
 
-    // Show dialog to enter copy name
-    final nameController = TextEditingController(text: '${_projectManager!.currentName} Copy');
+    try {
+      final currentPath = _projectManager!.currentPath!;
+      final currentName = _projectManager!.currentName;
+      final parentDir = Directory(currentPath).parent.path;
 
-    final copyName = await showDialog<String>(
+      // Find the next version number by scanning for existing versions
+      int nextVersion = 2;
+      final baseName = currentName.replaceAll(RegExp(r'_v\d+$'), ''); // Remove existing _vN suffix
+
+      while (true) {
+        final versionPath = '$parentDir/${baseName}_v$nextVersion.audio';
+        if (!await Directory(versionPath).exists()) {
+          break;
+        }
+        nextVersion++;
+      }
+
+      final newVersionName = '${baseName}_v$nextVersion';
+      final newVersionPath = '$parentDir/$newVersionName.audio';
+
+      setState(() => _isLoading = true);
+
+      // Create new version folder
+      final newVersionDir = Directory(newVersionPath);
+      await newVersionDir.create(recursive: true);
+
+      // Copy project.json
+      final sourceProjectFile = File('$currentPath/project.json');
+      if (await sourceProjectFile.exists()) {
+        await sourceProjectFile.copy('$newVersionPath/project.json');
+      }
+
+      // Copy ui_layout.json
+      final sourceLayoutFile = File('$currentPath/ui_layout.json');
+      if (await sourceLayoutFile.exists()) {
+        await sourceLayoutFile.copy('$newVersionPath/ui_layout.json');
+      }
+
+      // Create symlink for Samples folder (shares samples to save space)
+      final sourceSamplesDir = Directory('$currentPath/Samples');
+      if (await sourceSamplesDir.exists()) {
+        // Use Process.run to create symlink since dart:io Link may have issues
+        await Process.run('ln', ['-s', '$currentPath/Samples', '$newVersionPath/Samples']);
+      }
+
+      // Update project manager to point to new version
+      _projectManager!.setProjectName(newVersionName);
+      await _projectManager!.saveProjectToPath(newVersionPath, _getCurrentUILayout());
+
+      // Update UI
+      setState(() {
+        _projectMetadata = _projectMetadata.copyWith(name: newVersionName);
+        _isLoading = false;
+      });
+
+      // Update window title
+      WindowTitleService.setProjectName(newVersionName);
+
+      // Add to recent projects
+      await _userSettings?.addRecentProject(newVersionPath, newVersionName);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Created new version: $newVersionName')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create new version: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _renameProject() async {
+    if (_projectManager?.currentPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Save project first before renaming')),
+        );
+      }
+      return;
+    }
+
+    final currentName = _projectManager!.currentName;
+    final nameController = TextEditingController(text: currentName);
+
+    final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Make a Copy'),
+        title: const Text('Rename Project'),
         content: TextField(
           controller: nameController,
+          autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Copy Name',
-            hintText: 'Enter name for the copy',
+            labelText: 'Project Name',
+            hintText: 'Enter new project name',
           ),
+          onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
           TextButton(
@@ -2947,49 +3094,64 @@ class _DAWScreenState extends State<DAWScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, nameController.text),
-            child: const Text('Create Copy'),
+            child: const Text('Rename'),
           ),
         ],
       ),
     );
 
-    if (copyName == null || copyName.isEmpty) return;
+    if (newName == null || newName.isEmpty || newName == currentName) return;
 
     try {
-      // Get default projects folder
-      final defaultFolder = await _getDefaultProjectsFolder();
+      final currentPath = _projectManager!.currentPath!;
 
-      // Use macOS native file picker for save location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Choose location for copy" default location POSIX file "$defaultFolder")'
-      ]);
+      // Rename the .audio folder on disk
+      final currentDir = Directory(currentPath);
+      if (await currentDir.exists()) {
+        final parentDir = currentDir.parent.path;
+        final newPath = '$parentDir/$newName.audio';
 
-      if (result.exitCode == 0) {
-        final parentPath = result.stdout.toString().trim();
-        if (parentPath.isNotEmpty) {
-          setState(() => _isLoading = true);
-
-          final copyResult = await _projectManager!.makeCopy(
-            copyName,
-            parentPath,
-            _getCurrentUILayout(),
-          );
-
-          setState(() => _isLoading = false);
-
+        // Check if target already exists
+        if (await Directory(newPath).exists()) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(copyResult.message)),
+              SnackBar(content: Text('A project named "$newName" already exists in this location')),
             );
           }
+          return;
+        }
+
+        // Rename the directory
+        await currentDir.rename(newPath);
+
+        // Update project manager state
+        _projectManager!.setProjectName(newName);
+
+        // Save project to update internal metadata with new name
+        await _projectManager!.saveProjectToPath(newPath, _getCurrentUILayout());
+
+        // Update UI
+        setState(() {
+          _projectMetadata = _projectMetadata.copyWith(name: newName);
+        });
+
+        // Update window title
+        WindowTitleService.setProjectName(newName);
+
+        // Update recent projects: remove old path, add new path
+        await _userSettings.removeRecentProject(currentPath);
+        await _userSettings.addRecentProject(newPath, newName);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Project renamed to "$newName"')),
+          );
         }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create copy: $e')),
+          SnackBar(content: Text('Failed to rename project: $e')),
         );
       }
     }
@@ -3245,7 +3407,8 @@ class _DAWScreenState extends State<DAWScreen> {
         onOpenProject: _openProject,
         onSaveProject: _saveProject,
         onSaveProjectAs: _saveProjectAs,
-        onMakeCopy: _makeCopy,
+        onSaveNewVersion: _saveNewVersion,
+        onRenameProject: _renameProject,
         onExportAudio: _exportAudio,
         onExportMidi: _exportMidi,
         onProjectSettings: _openProjectSettings,
@@ -3294,14 +3457,10 @@ class _DAWScreenState extends State<DAWScreen> {
       )),
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-          // Space bar to play/pause (context-aware: Piano Roll = loop, Timeline = arrangement)
-          const SingleActivator(LogicalKeyboardKey.space): _togglePlayPause,
           // ? key (Shift + /) to show keyboard shortcuts
           const SingleActivator(LogicalKeyboardKey.slash, shift: true): _showKeyboardShortcuts,
           // Cmd+E to split clip at insert marker (or playhead if no marker)
           const SingleActivator(LogicalKeyboardKey.keyE, meta: true): _splitSelectedClipAtPlayhead,
-          // Q to quantize clip (context-aware: works for clips in arrangement)
-          const SingleActivator(LogicalKeyboardKey.keyQ): _quantizeSelectedClip,
           // Cmd+D to duplicate clip
           const SingleActivator(LogicalKeyboardKey.keyD, meta: true): _duplicateSelectedClip,
           // Cmd+A to select all clips (in timeline view)
@@ -3310,13 +3469,12 @@ class _DAWScreenState extends State<DAWScreen> {
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true): _consolidateSelectedClips,
           // Cmd+B to bounce MIDI to audio
           const SingleActivator(LogicalKeyboardKey.keyB, meta: true): _bounceMidiToAudio,
-          // L to toggle loop playback
-          const SingleActivator(LogicalKeyboardKey.keyL): _uiLayout.toggleLoopPlayback,
-          // M to toggle metronome
-          const SingleActivator(LogicalKeyboardKey.keyM): _toggleMetronome,
         },
+        // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
+        // so they don't interfere with text input fields
         child: Focus(
           autofocus: true,
+          onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
         backgroundColor: context.colors.standard,
         body: Column(
@@ -3354,7 +3512,8 @@ class _DAWScreenState extends State<DAWScreen> {
             onOpenProject: _openProject,
             onSaveProject: _saveProject,
             onSaveProjectAs: _saveProjectAs,
-            onMakeCopy: _makeCopy,
+            onSaveNewVersion: _saveNewVersion,
+            onRenameProject: _renameProject,
             onExportAudio: _exportAudio,
             onExportMp3: _quickExportMp3,
             onExportWav: _quickExportWav,
@@ -3363,6 +3522,7 @@ class _DAWScreenState extends State<DAWScreen> {
             onProjectSettings: _openProjectSettings, // Project-specific settings (song name click)
             onCloseProject: _closeProject,
             projectName: _projectMetadata.name,
+            hasProject: _projectManager?.hasProject ?? false,
             // View menu parameters
             onToggleLibrary: _toggleLibraryPanel,
             onToggleMixer: _toggleMixer,
@@ -3600,9 +3760,9 @@ class _DAWScreenState extends State<DAWScreen> {
                 ),
 
                 // Editor panel: Piano Roll / Effects / Instrument
-                // Only show when editor is enabled in View menu
+                // Always render - shows collapsed toolbar bar when not visible
                 if (_uiLayout.isEditorPanelVisible) ...[
-                  // Resizable divider above editor
+                  // Resizable divider above editor (only when expanded)
                   ResizableDivider(
                     orientation: DividerOrientation.horizontal,
                     isCollapsed: false,
@@ -3631,53 +3791,59 @@ class _DAWScreenState extends State<DAWScreen> {
                       });
                     },
                   ),
-
-                  SizedBox(
-                    height: _uiLayout.editorPanelHeight,
-                    child: EditorPanel(
-                      audioEngine: _audioEngine,
-                      virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
-                      selectedTrackId: _selectedTrackId,
-                      selectedTrackName: _getSelectedTrackName(),
-                      selectedTrackType: _getSelectedTrackType(),
-                      currentInstrumentData: _selectedTrackId != null
-                          ? _trackInstruments[_selectedTrackId]
-                          : null,
-                      onVirtualPianoClose: _toggleVirtualPiano,
-                      onVirtualPianoToggle: _toggleVirtualPiano,
-                      onClosePanel: () {
-                        setState(() {
-                          _uiLayout.isEditorPanelVisible = false;
-                        });
-                      },
-                      currentEditingClip: _midiPlaybackManager?.currentEditingClip,
-                      onMidiClipUpdated: _onMidiClipUpdated,
-                      onInstrumentParameterChanged: _onInstrumentParameterChanged,
-                      currentEditingAudioClip: _selectedAudioClip,
-                      onAudioClipUpdated: _onAudioClipUpdated,
-                      currentTrackPlugins: _selectedTrackId != null // M10
-                          ? _getTrackVst3Plugins(_selectedTrackId!)
-                          : null,
-                      onVst3ParameterChanged: _onVst3ParameterChanged, // M10
-                      onVst3PluginRemoved: _removeVst3Plugin, // M10
-                      onVst3InstrumentDropped: (plugin) {
-                        if (_selectedTrackId != null) {
-                          _onVst3InstrumentDropped(_selectedTrackId!, plugin);
-                        }
-                      },
-                      onInstrumentDropped: (instrument) {
-                        if (_selectedTrackId != null) {
-                          _onInstrumentDropped(_selectedTrackId!, instrument);
-                        }
-                      },
-                      isCollapsed: false,
-                      toolMode: _currentToolMode,
-                      onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
-                      beatsPerBar: _projectMetadata.timeSignatureNumerator,
-                      beatUnit: _projectMetadata.timeSignatureDenominator,
-                    ),
-                  ),
                 ],
+
+                // Editor panel content (full when visible, collapsed bar when hidden)
+                SizedBox(
+                  height: _uiLayout.isEditorPanelVisible ? _uiLayout.editorPanelHeight : 40,
+                  child: EditorPanel(
+                    audioEngine: _audioEngine,
+                    virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
+                    selectedTrackId: _selectedTrackId,
+                    selectedTrackName: _getSelectedTrackName(),
+                    selectedTrackType: _getSelectedTrackType(),
+                    currentInstrumentData: _selectedTrackId != null
+                        ? _trackInstruments[_selectedTrackId]
+                        : null,
+                    onVirtualPianoClose: _toggleVirtualPiano,
+                    onVirtualPianoToggle: _toggleVirtualPiano,
+                    onClosePanel: () {
+                      setState(() {
+                        _uiLayout.isEditorPanelVisible = false;
+                      });
+                    },
+                    onExpandPanel: () {
+                      setState(() {
+                        _uiLayout.isEditorPanelVisible = true;
+                      });
+                    },
+                    currentEditingClip: _midiPlaybackManager?.currentEditingClip,
+                    onMidiClipUpdated: _onMidiClipUpdated,
+                    onInstrumentParameterChanged: _onInstrumentParameterChanged,
+                    currentEditingAudioClip: _selectedAudioClip,
+                    onAudioClipUpdated: _onAudioClipUpdated,
+                    currentTrackPlugins: _selectedTrackId != null // M10
+                        ? _getTrackVst3Plugins(_selectedTrackId!)
+                        : null,
+                    onVst3ParameterChanged: _onVst3ParameterChanged, // M10
+                    onVst3PluginRemoved: _removeVst3Plugin, // M10
+                    onVst3InstrumentDropped: (plugin) {
+                      if (_selectedTrackId != null) {
+                        _onVst3InstrumentDropped(_selectedTrackId!, plugin);
+                      }
+                    },
+                    onInstrumentDropped: (instrument) {
+                      if (_selectedTrackId != null) {
+                        _onInstrumentDropped(_selectedTrackId!, instrument);
+                      }
+                    },
+                    isCollapsed: !_uiLayout.isEditorPanelVisible,
+                    toolMode: _currentToolMode,
+                    onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+                    beatsPerBar: _projectMetadata.timeSignatureNumerator,
+                    beatUnit: _projectMetadata.timeSignatureDenominator,
+                  ),
+                ),
 
                 // Virtual Piano - independent panel, always below editor
                 if (_uiLayout.isVirtualPianoEnabled)

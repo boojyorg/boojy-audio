@@ -40,7 +40,8 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
-  final VoidCallback? onMakeCopy;
+  final VoidCallback? onRenameProject;
+  final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
   final VoidCallback? onExportMp3;
   final VoidCallback? onExportWav;
@@ -51,6 +52,7 @@ class TransportBar extends StatefulWidget {
 
   // Project name for clickable song name
   final String projectName;
+  final bool hasProject; // Whether project has been saved (for showing Rename option)
 
   // View menu callbacks
   final VoidCallback? onToggleLibrary;
@@ -119,7 +121,8 @@ class TransportBar extends StatefulWidget {
     this.onOpenProject,
     this.onSaveProject,
     this.onSaveProjectAs,
-    this.onMakeCopy,
+    this.onRenameProject,
+    this.onSaveNewVersion,
     this.onExportAudio,
     this.onExportMp3,
     this.onExportWav,
@@ -128,6 +131,7 @@ class TransportBar extends StatefulWidget {
     this.onProjectSettings,
     this.onCloseProject,
     this.projectName = 'Untitled',
+    this.hasProject = false,
     this.onToggleLibrary,
     this.onToggleMixer,
     this.onToggleEditor,
@@ -216,12 +220,14 @@ class _TransportBarState extends State<TransportBar> {
               // Plan: Project name doubles as File menu (always visible, helpful in fullscreen)
               _FileMenuButton(
                 projectName: widget.projectName,
+                hasProject: widget.hasProject,
                 mode: mode,
                 onNewProject: widget.onNewProject,
                 onOpenProject: widget.onOpenProject,
                 onSaveProject: widget.onSaveProject,
                 onSaveProjectAs: widget.onSaveProjectAs,
-                onMakeCopy: widget.onMakeCopy,
+                onRenameProject: widget.onRenameProject,
+                onSaveNewVersion: widget.onSaveNewVersion,
                 onExportAudio: widget.onExportAudio,
                 onExportMp3: widget.onExportMp3,
                 onExportWav: widget.onExportWav,
@@ -476,12 +482,14 @@ class _TransportBarState extends State<TransportBar> {
 /// According to plan: Project name doubles as File menu (always visible, helpful in fullscreen)
 class _FileMenuButton extends StatefulWidget {
   final String projectName;
+  final bool hasProject;
   final _ButtonDisplayMode mode;
   final VoidCallback? onNewProject;
   final VoidCallback? onOpenProject;
   final VoidCallback? onSaveProject;
   final VoidCallback? onSaveProjectAs;
-  final VoidCallback? onMakeCopy;
+  final VoidCallback? onRenameProject;
+  final VoidCallback? onSaveNewVersion;
   final VoidCallback? onExportAudio;
   final VoidCallback? onExportMp3;
   final VoidCallback? onExportWav;
@@ -490,12 +498,14 @@ class _FileMenuButton extends StatefulWidget {
 
   const _FileMenuButton({
     required this.projectName,
+    this.hasProject = false,
     required this.mode,
     this.onNewProject,
     this.onOpenProject,
     this.onSaveProject,
     this.onSaveProjectAs,
-    this.onMakeCopy,
+    this.onRenameProject,
+    this.onSaveNewVersion,
     this.onExportAudio,
     this.onExportMp3,
     this.onExportWav,
@@ -535,8 +545,11 @@ class _FileMenuButtonState extends State<_FileMenuButton> {
           case 'save_as':
             widget.onSaveProjectAs?.call();
             break;
-          case 'make_copy':
-            widget.onMakeCopy?.call();
+          case 'rename':
+            widget.onRenameProject?.call();
+            break;
+          case 'save_new_version':
+            widget.onSaveNewVersion?.call();
             break;
           case 'export_audio':
             widget.onExportAudio?.call();
@@ -595,20 +608,37 @@ class _FileMenuButtonState extends State<_FileMenuButton> {
               Icon(Icons.save_as, size: 18),
               SizedBox(width: 8),
               Text('Save As...'),
-            ],
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'make_copy',
-          child: Row(
-            children: [
-              Icon(Icons.file_copy, size: 18),
-              SizedBox(width: 8),
-              Text('Make a Copy...'),
+              Spacer(),
+              Text('⇧⌘S', style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ),
         const PopupMenuDivider(),
+        // Only show Rename and Save New Version when project has been saved
+        if (widget.hasProject)
+          const PopupMenuItem<String>(
+            value: 'rename',
+            child: Row(
+              children: [
+                Icon(Icons.drive_file_rename_outline, size: 18),
+                SizedBox(width: 8),
+                Text('Rename...'),
+              ],
+            ),
+          ),
+        if (widget.hasProject)
+          const PopupMenuItem<String>(
+            value: 'save_new_version',
+            child: Row(
+              children: [
+                Icon(Icons.history, size: 18),
+                SizedBox(width: 8),
+                Text('Save New Version...'),
+              ],
+            ),
+          ),
+        if (widget.hasProject)
+          const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'export_mp3',
           child: Row(

@@ -24,7 +24,7 @@ class ProjectOperationsController extends ChangeNotifier {
   String? get currentPath => _projectManager?.currentPath;
 
   /// Current project name.
-  String get currentName => _projectManager?.currentName ?? 'Untitled Project';
+  String get currentName => _projectManager?.currentName ?? 'Untitled';
 
   /// Initialize with project manager.
   void initialize({

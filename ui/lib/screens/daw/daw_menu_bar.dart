@@ -24,7 +24,8 @@ class DawMenuConfig {
   final VoidCallback onOpenProject;
   final VoidCallback onSaveProject;
   final VoidCallback onSaveProjectAs;
-  final VoidCallback onMakeCopy;
+  final VoidCallback? onSaveNewVersion;
+  final VoidCallback? onRenameProject;
   final VoidCallback onExportAudio;
   final VoidCallback onExportMidi;
   final VoidCallback onProjectSettings;
@@ -61,7 +62,8 @@ class DawMenuConfig {
     required this.onOpenProject,
     required this.onSaveProject,
     required this.onSaveProjectAs,
-    required this.onMakeCopy,
+    this.onSaveNewVersion,
+    this.onRenameProject,
     required this.onExportAudio,
     required this.onExportMidi,
     required this.onProjectSettings,
@@ -158,10 +160,16 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           shortcut: const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true),
           onSelected: config.onSaveProjectAs,
         ),
-        PlatformMenuItem(
-          label: 'Make a Copy...',
-          onSelected: config.onMakeCopy,
-        ),
+        if (config.onRenameProject != null)
+          PlatformMenuItem(
+            label: 'Rename...',
+            onSelected: config.onRenameProject,
+          ),
+        if (config.onSaveNewVersion != null)
+          PlatformMenuItem(
+            label: 'Save New Version...',
+            onSelected: config.onSaveNewVersion,
+          ),
         PlatformMenuItem(
           label: 'Export Audio...',
           onSelected: config.onExportAudio,

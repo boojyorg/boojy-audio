@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import '../models/clip_data.dart';
 import '../models/project_view_state.dart';
 import 'web_storage_service.dart';
 
@@ -31,6 +32,7 @@ class UILayoutData {
   final bool mixerCollapsed;
   final bool bottomCollapsed;
   final ProjectViewState? viewState;
+  final List<ClipData>? audioClips;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -40,10 +42,11 @@ class UILayoutData {
     this.mixerCollapsed = false,
     this.bottomCollapsed = true,
     this.viewState,
+    this.audioClips,
   });
 
   Map<String, dynamic> toJson() => {
-    'version': '1.0',
+    'version': '1.1',
     'panel_sizes': {
       'library_width': libraryWidth,
       'mixer_width': mixerWidth,
@@ -55,12 +58,15 @@ class UILayoutData {
       'bottom': bottomCollapsed,
     },
     if (viewState != null) 'view_state': viewState!.toJson(),
+    if (audioClips != null && audioClips!.isNotEmpty)
+      'audio_clips': audioClips!.map((c) => c.toJson()).toList(),
   };
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
     final panelSizes = json['panel_sizes'] as Map<String, dynamic>? ?? {};
     final panelCollapsed = json['panel_collapsed'] as Map<String, dynamic>? ?? {};
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
+    final audioClipsJson = json['audio_clips'] as List<dynamic>?;
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
@@ -70,6 +76,9 @@ class UILayoutData {
       mixerCollapsed: panelCollapsed['mixer'] as bool? ?? false,
       bottomCollapsed: panelCollapsed['bottom'] as bool? ?? true,
       viewState: viewStateJson != null ? ProjectViewState.fromJson(viewStateJson) : null,
+      audioClips: audioClipsJson
+          ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -81,7 +90,7 @@ class ProjectManager extends ChangeNotifier {
 
   // Project state
   String? _currentProjectId;
-  String _currentProjectName = 'Untitled Project';
+  String _currentProjectName = 'Untitled';
   bool _isLoading = false;
   bool _isInitialized = false;
 
@@ -126,7 +135,7 @@ class ProjectManager extends ChangeNotifier {
   /// Reset project state for a new project
   void newProject() {
     _currentProjectId = null;
-    _currentProjectName = 'Untitled Project';
+    _currentProjectName = 'Untitled';
     notifyListeners();
   }
 
@@ -323,7 +332,7 @@ class ProjectManager extends ChangeNotifier {
       // If we deleted the current project, clear state
       if (_currentProjectId == projectId) {
         _currentProjectId = null;
-        _currentProjectName = 'Untitled Project';
+        _currentProjectName = 'Untitled';
       }
 
       notifyListeners();
@@ -367,7 +376,7 @@ class ProjectManager extends ChangeNotifier {
   /// Clear all state
   void clear() {
     _currentProjectId = null;
-    _currentProjectName = 'Untitled Project';
+    _currentProjectName = 'Untitled';
     _isLoading = false;
     notifyListeners();
   }

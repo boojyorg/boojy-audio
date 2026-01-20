@@ -2565,12 +2565,19 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // Use dragged position if this clip is being dragged OR is part of the selection being dragged
     // BUT NOT for copy drags - the original stays in place, only the ghost moves
     double displayStartTime;
-    final isBeingDragged = draggingClipId != null &&
-        (draggingClipId == clip.clipId || selectedAudioClipIds.contains(clip.clipId)) &&
-        !isCopyDrag; // Don't move original during copy drag
 
-    if (isBeingDragged) {
-      // Calculate delta in seconds
+    // Check if being dragged via audio clip drag
+    final isBeingDraggedViaAudio = draggingClipId != null &&
+        (draggingClipId == clip.clipId || selectedAudioClipIds.contains(clip.clipId)) &&
+        !isCopyDrag;
+
+    // Check if being dragged via MIDI clip drag (cross-type multi-track selection)
+    final isBeingDraggedViaMidi = draggingMidiClipId != null &&
+        selectedAudioClipIds.contains(clip.clipId) &&
+        !isCopyDrag;
+
+    if (isBeingDraggedViaAudio) {
+      // Calculate delta in seconds from audio drag
       final dragDeltaSeconds = (dragCurrentX - dragStartX) / pixelsPerSecond;
 
       // Snap the delta: convert to beats, snap dragged clip's new position, derive delta
@@ -2579,6 +2586,25 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       final snappedBeats = _snapToGrid(rawBeats);
       final snappedNewStartTime = snappedBeats / beatsPerSecond;
       final snappedDeltaSeconds = snappedNewStartTime - dragStartTime;
+
+      // Apply the same delta to this clip
+      displayStartTime = (clip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
+    } else if (isBeingDraggedViaMidi) {
+      // Calculate delta from MIDI drag (beats) and convert to seconds
+      final dragDeltaBeats = (midiDragCurrentX - midiDragStartX) / pixelsPerBeat;
+
+      // Snap the delta based on the MIDI drag position
+      var snappedDeltaBeats = dragDeltaBeats;
+      if (!snapBypassActive) {
+        final snapResolution = _getGridSnapResolution();
+        final draggedClipNewPos = midiDragStartTime + dragDeltaBeats;
+        final snappedPos = (draggedClipNewPos / snapResolution).round() * snapResolution;
+        snappedDeltaBeats = snappedPos - midiDragStartTime;
+      }
+
+      // Convert beats delta to seconds delta
+      final beatsPerSecond = widget.tempo / 60.0;
+      final snappedDeltaSeconds = snappedDeltaBeats / beatsPerSecond;
 
       // Apply the same delta to this clip
       displayStartTime = (clip.startTime + snappedDeltaSeconds).clamp(0.0, double.infinity);
@@ -2869,6 +2895,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               final updatedClip = midiClip.copyWith(startTime: newStartBeats);
               widget.onMidiClipUpdated?.call(updatedClip);
             }
+
+            // Force UI refresh after parent processes MIDI updates
+            if (selectedMidiClips.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
+            }
           }
 
           setState(() {
@@ -3005,10 +3038,39 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       }
                     });
                   },
-                  onHorizontalDragEnd: (details) {
-                    // Persist to engine
+                  onHorizontalDragEnd: (details) async {
+                    // Get the trimmed clip values
                     final trimmedClip = clips.firstWhere((c) => c.clipId == clip.clipId, orElse: () => clip);
-                    widget.audioEngine?.setClipStartTime(trimmedClip.trackId, trimmedClip.clipId, trimmedClip.startTime);
+
+                    // Only create command if values actually changed
+                    if ((trimmedClip.startTime - audioTrimStartTime).abs() > 0.001 ||
+                        (trimmedClip.duration - audioTrimStartDuration).abs() > 0.001) {
+                      final command = ResizeAudioClipCommand(
+                        trackId: trimmedClip.trackId,
+                        clipId: trimmedClip.clipId,
+                        clipName: trimmedClip.fileName,
+                        oldDuration: audioTrimStartDuration,
+                        newDuration: trimmedClip.duration,
+                        oldOffset: audioTrimStartOffset,
+                        newOffset: trimmedClip.offset,
+                        oldStartTime: audioTrimStartTime,
+                        newStartTime: trimmedClip.startTime,
+                        onClipResized: (clipId, duration, offset, startTime) {
+                          setState(() {
+                            final index = clips.indexWhere((c) => c.clipId == clipId);
+                            if (index >= 0) {
+                              clips[index] = clips[index].copyWith(
+                                duration: duration,
+                                offset: offset,
+                                startTime: startTime,
+                              );
+                            }
+                          });
+                        },
+                      );
+                      await UndoRedoManager().execute(command);
+                    }
+
                     setState(() {
                       trimmingAudioClipId = null;
                       isTrimmingLeftEdge = false;
@@ -3054,7 +3116,30 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       }
                     });
                   },
-                  onHorizontalDragEnd: (details) {
+                  onHorizontalDragEnd: (details) async {
+                    // Get the trimmed clip values
+                    final trimmedClip = clips.firstWhere((c) => c.clipId == clip.clipId, orElse: () => clip);
+
+                    // Only create command if duration actually changed
+                    if ((trimmedClip.duration - audioTrimStartDuration).abs() > 0.001) {
+                      final command = ResizeAudioClipCommand(
+                        trackId: trimmedClip.trackId,
+                        clipId: trimmedClip.clipId,
+                        clipName: trimmedClip.fileName,
+                        oldDuration: audioTrimStartDuration,
+                        newDuration: trimmedClip.duration,
+                        onClipResized: (clipId, duration, offset, startTime) {
+                          setState(() {
+                            final index = clips.indexWhere((c) => c.clipId == clipId);
+                            if (index >= 0) {
+                              clips[index] = clips[index].copyWith(duration: duration);
+                            }
+                          });
+                        },
+                      );
+                      await UndoRedoManager().execute(command);
+                    }
+
                     setState(() {
                       trimmingAudioClipId = null;
                     });
@@ -3536,11 +3621,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // Use dragged position if this clip is being dragged OR is part of the selection being dragged
     // BUT NOT for copy drags - the original stays in place, only the ghost moves
     double displayStartBeats;
-    final isBeingDragged = draggingMidiClipId != null &&
-        (draggingMidiClipId == midiClip.clipId || selectedMidiClipIds.contains(midiClip.clipId)) &&
-        !isCopyDrag; // Don't move original during copy drag
 
-    if (isBeingDragged) {
+    // Check if being dragged via MIDI clip drag
+    final isBeingDraggedViaMidi = draggingMidiClipId != null &&
+        (draggingMidiClipId == midiClip.clipId || selectedMidiClipIds.contains(midiClip.clipId)) &&
+        !isCopyDrag;
+
+    // Check if being dragged via audio clip drag (cross-type multi-track selection)
+    final isBeingDraggedViaAudio = draggingClipId != null &&
+        selectedMidiClipIds.contains(midiClip.clipId) &&
+        !isCopyDrag;
+
+    if (isBeingDraggedViaMidi) {
       final dragDeltaBeats = (midiDragCurrentX - midiDragStartX) / pixelsPerBeat;
 
       // Calculate snapped delta based on the primary dragged clip
@@ -3552,6 +3644,22 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         final snappedPos = (draggedClipNewPos / snapResolution).round() * snapResolution;
         snappedDeltaBeats = snappedPos - midiDragStartTime;
       }
+
+      // Apply the same delta to this clip
+      displayStartBeats = (clipStartBeats + snappedDeltaBeats).clamp(0.0, double.infinity);
+    } else if (isBeingDraggedViaAudio) {
+      // Calculate delta from audio drag (seconds) and convert to beats
+      final dragDeltaSeconds = (dragCurrentX - dragStartX) / pixelsPerSecond;
+
+      // Snap the delta: convert to beats, snap dragged clip's new position, derive delta
+      final beatsPerSecond = widget.tempo / 60.0;
+      final rawBeats = (dragStartTime + dragDeltaSeconds) * beatsPerSecond;
+      final snappedBeats = _snapToGrid(rawBeats);
+      final snappedNewStartTime = snappedBeats / beatsPerSecond;
+      final snappedDeltaSeconds = snappedNewStartTime - dragStartTime;
+
+      // Convert seconds delta to beats delta
+      final snappedDeltaBeats = snappedDeltaSeconds * beatsPerSecond;
 
       // Apply the same delta to this clip
       displayStartBeats = (clipStartBeats + snappedDeltaBeats).clamp(0.0, double.infinity);
@@ -3829,6 +3937,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               widget.audioEngine?.setClipStartTime(clip.trackId, rustClipId, newStartTimeSeconds);
               final updatedClip = clip.copyWith(startTime: newStartBeats);
               widget.onMidiClipUpdated?.call(updatedClip);
+            }
+
+            // Force UI refresh after parent processes MIDI updates
+            if (selectedMidiClips.isNotEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
             }
 
             // Move audio clips

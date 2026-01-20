@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import '../models/clip_data.dart';
 import '../models/project_view_state.dart';
 
 /// Result of a project operation
@@ -27,6 +28,7 @@ class UILayoutData {
   final bool mixerCollapsed;
   final bool bottomCollapsed;
   final ProjectViewState? viewState;
+  final List<ClipData>? audioClips;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -36,6 +38,7 @@ class UILayoutData {
     this.mixerCollapsed = false,
     this.bottomCollapsed = true,
     this.viewState,
+    this.audioClips,
   });
 
   Map<String, dynamic> toJson() => throw UnsupportedError('stub');

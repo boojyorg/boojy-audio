@@ -37,6 +37,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   final Set<String> _expandedCategories = {};
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
 
   /// Expand a category with accordion behavior
@@ -93,6 +94,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   void dispose() {
     widget.libraryService.removeListener(_onLibraryChanged);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -121,6 +123,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           _buildSearchBar(),
           Expanded(
             child: ListView(
+              controller: _scrollController,
               padding: EdgeInsets.zero,
               children: _buildCategoryList(),
             ),

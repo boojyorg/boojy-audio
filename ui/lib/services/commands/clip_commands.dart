@@ -538,7 +538,7 @@ class DuplicateAudioClipCommand extends Command {
   String get description => 'Duplicate Clip: ${originalClip.fileName}';
 }
 
-/// Command to resize an audio clip (change duration)
+/// Command to resize/trim an audio clip (change duration, offset, and optionally startTime for left edge trim)
 class ResizeAudioClipCommand extends Command {
   final int trackId;
   final int clipId;
@@ -547,9 +547,11 @@ class ResizeAudioClipCommand extends Command {
   final double newDuration;
   final double? oldOffset;
   final double? newOffset;
+  final double? oldStartTime;
+  final double? newStartTime;
 
   /// Callback to update clip in UI state
-  final void Function(int clipId, double duration, double? offset)? onClipResized;
+  final void Function(int clipId, double duration, double? offset, double? startTime)? onClipResized;
 
   ResizeAudioClipCommand({
     required this.trackId,
@@ -559,17 +561,27 @@ class ResizeAudioClipCommand extends Command {
     required this.newDuration,
     this.oldOffset,
     this.newOffset,
+    this.oldStartTime,
+    this.newStartTime,
     this.onClipResized,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    onClipResized?.call(clipId, newDuration, newOffset);
+    // Update engine position if startTime changed (left edge trim)
+    if (newStartTime != null) {
+      engine.setClipStartTime(trackId, clipId, newStartTime!);
+    }
+    onClipResized?.call(clipId, newDuration, newOffset, newStartTime);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    onClipResized?.call(clipId, oldDuration, oldOffset);
+    // Restore engine position if startTime changed
+    if (oldStartTime != null) {
+      engine.setClipStartTime(trackId, clipId, oldStartTime!);
+    }
+    onClipResized?.call(clipId, oldDuration, oldOffset, oldStartTime);
   }
 
   @override

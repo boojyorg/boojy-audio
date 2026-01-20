@@ -27,6 +27,41 @@ class ClipData {
     this.editData,
   });
 
+  /// Convert ClipData to JSON for project persistence
+  Map<String, dynamic> toJson() {
+    return {
+      'clipId': clipId,
+      'trackId': trackId,
+      'filePath': filePath,
+      'startTime': startTime,
+      'duration': duration,
+      'offset': offset,
+      'waveformPeaks': waveformPeaks,
+      if (color != null) 'color': color!.toARGB32(),
+      if (editData != null) 'editData': editData!.toJson(),
+    };
+  }
+
+  /// Create ClipData from JSON
+  factory ClipData.fromJson(Map<String, dynamic> json) {
+    return ClipData(
+      clipId: json['clipId'] as int,
+      trackId: json['trackId'] as int,
+      filePath: json['filePath'] as String,
+      startTime: (json['startTime'] as num).toDouble(),
+      duration: (json['duration'] as num).toDouble(),
+      offset: (json['offset'] as num?)?.toDouble() ?? 0.0,
+      waveformPeaks: (json['waveformPeaks'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      color: json['color'] != null ? Color(json['color'] as int) : null,
+      editData: json['editData'] != null
+          ? AudioClipEditData.fromJson(json['editData'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
   String get fileName {
     return filePath.split('/').last;
   }

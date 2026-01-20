@@ -399,4 +399,13 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
       }
     });
   }
+
+  /// Restore audio clips from saved project data.
+  /// Called after project load to restore UI state for audio clips.
+  void restoreAudioClips(List<ClipData> savedClips) {
+    setState(() {
+      clips.clear();
+      clips.addAll(savedClips);
+    });
+  }
 }
