@@ -341,7 +341,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Split button: [↻ Warp/Re-Pitch ▼]
-        Container(
+        // Use DecoratedBox like Piano Roll's snap button
+        DecoratedBox(
           key: _warpButtonKey,
           decoration: BoxDecoration(
             color: isEnabled ? colors.accent : colors.dark,
@@ -351,43 +352,42 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Left part: icon + label (toggles warp on/off)
-              Tooltip(
-                message: isEnabled ? 'Disable tempo sync' : 'Enable tempo sync',
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => setState(() => _isHoveringWarpLabel = true),
-                  onExit: (_) => setState(() => _isHoveringWarpLabel = false),
-                  child: GestureDetector(
-                    onTap: widget.onWarpToggle,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: _isHoveringWarpLabel
-                            ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
-                            : Colors.transparent,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(2),
-                          bottomLeft: Radius.circular(2),
-                        ),
+              // Must match Piano Roll pattern: MouseRegion outside, GestureDetector inside with HitTestBehavior.opaque
+              MouseRegion(
+                onEnter: (_) => setState(() => _isHoveringWarpLabel = true),
+                onExit: (_) => setState(() => _isHoveringWarpLabel = false),
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: widget.onWarpToggle,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _isHoveringWarpLabel
+                          ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(2),
+                        bottomLeft: Radius.circular(2),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.sync,
-                            size: 13,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sync,
+                          size: 13,
+                          color: isEnabled ? colors.elevated : colors.textPrimary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          modeLabel,
+                          style: TextStyle(
+                            fontSize: 10,
                             color: isEnabled ? colors.elevated : colors.textPrimary,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            modeLabel,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isEnabled ? colors.elevated : colors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -401,30 +401,29 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     : colors.surface,
               ),
               // Right part: dropdown arrow (opens mode menu)
-              Tooltip(
-                message: 'Select warp mode',
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => setState(() => _isHoveringWarpDropdown = true),
-                  onExit: (_) => setState(() => _isHoveringWarpDropdown = false),
-                  child: GestureDetector(
-                    onTap: _showWarpModeMenu,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: _isHoveringWarpDropdown
-                            ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
-                            : Colors.transparent,
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(2),
-                          bottomRight: Radius.circular(2),
-                        ),
+              // Order must match Piano Roll: MouseRegion outside, GestureDetector inside
+              MouseRegion(
+                onEnter: (_) => setState(() => _isHoveringWarpDropdown = true),
+                onExit: (_) => setState(() => _isHoveringWarpDropdown = false),
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _showWarpModeMenu(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _isHoveringWarpDropdown
+                          ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(2),
+                        bottomRight: Radius.circular(2),
                       ),
-                      child: Icon(
-                        Icons.arrow_drop_down,
-                        size: 14,
-                        color: isEnabled ? colors.elevated : colors.textPrimary,
-                      ),
+                    ),
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      size: 14,
+                      color: isEnabled ? colors.elevated : colors.textPrimary,
                     ),
                   ),
                 ),
@@ -442,7 +441,12 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     );
   }
 
-  void _showWarpModeMenu() {
+  void _showWarpModeMenu(BuildContext context) {
+    if (_warpModeOverlay != null) {
+      _removeWarpModeOverlay();
+      return;
+    }
+
     final RenderBox? renderBox = _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
@@ -450,7 +454,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     final size = renderBox.size;
 
     _warpModeOverlay = OverlayEntry(
-      builder: (context) => _WarpModeMenuOverlay(
+      builder: (ctx) => _WarpModeMenuOverlay(
         position: Offset(position.dx, position.dy + size.height + 4),
         currentMode: widget.warpMode,
         onModeSelected: (mode) {
@@ -550,9 +554,9 @@ class _WarpModeMenuOverlay extends StatelessWidget {
     return InkWell(
       onTap: () => onModeSelected(mode),
       child: Container(
-        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: 18,
@@ -561,27 +565,26 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                   : null,
             ),
             const SizedBox(width: 4),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isSelected ? colors.accent : colors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? colors.accent : colors.textPrimary,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: colors.textMuted,
-                    ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: colors.textMuted,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
