@@ -177,13 +177,15 @@ class UnifiedNavBarPainter extends CustomPainter {
           tickPaint,
         );
 
-        // Show beat subdivision number when zoomed in (e.g., 1.2, 1.3)
+        // Show beat number when zoomed in (e.g., 1.2, 1.3, 1.4)
+        // Beat 1 is skipped since bar number is already shown
+        // Same size as bar numbers for visual consistency
         if (pixelsPerBeat >= 30) {
           final barNumber = (beat / beatsPerBar).floor() + 1;
           final beatInBar = (beat % beatsPerBar).floor() + 1;
+
           if (beatInBar > 1) {
-            final textX = x + 2;
-            // Check if text position is over the loop region
+            final textX = x + 4;
             final loopStartX = loopStart * pixelsPerBeat;
             final loopEndX = loopEnd * pixelsPerBeat;
             final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
@@ -191,12 +193,13 @@ class UnifiedNavBarPainter extends CustomPainter {
             textPainter.text = TextSpan(
               text: '$barNumber.$beatInBar',
               style: TextStyle(
-                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
-                fontSize: 9,
+                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             );
             textPainter.layout();
-            textPainter.paint(canvas, Offset(textX, 3));
+            textPainter.paint(canvas, Offset(textX, 2));
           }
         }
       } else {
@@ -209,6 +212,40 @@ class UnifiedNavBarPainter extends CustomPainter {
           Offset(x, size.height),
           tickPaint,
         );
+
+        // Show 16th note subdivision labels when very zoomed in
+        // Only show at quarter-beat positions (0.25, 0.5, 0.75)
+        // Format: 1.1.2, 1.1.3, 1.1.4 (bar.beat.subdivision)
+        // Same size as bar/beat labels for visual consistency
+        if (pixelsPerBeat >= 100) {
+          final beatFraction = beat % 1.0;
+          // Check if this is a quarter-beat position (16th note)
+          final isQuarterBeat = (beatFraction - 0.25).abs() < 0.01 ||
+                                (beatFraction - 0.5).abs() < 0.01 ||
+                                (beatFraction - 0.75).abs() < 0.01;
+
+          if (isQuarterBeat) {
+            final barNumber = (beat / beatsPerBar).floor() + 1;
+            final beatInBar = (beat % beatsPerBar).floor() + 1;
+            final subInBeat = (beatFraction * 4).round() + 1; // 1-indexed: .25→2, .5→3, .75→4
+
+            final textX = x + 4;
+            final loopStartX = loopStart * pixelsPerBeat;
+            final loopEndX = loopEnd * pixelsPerBeat;
+            final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+
+            textPainter.text = TextSpan(
+              text: '$barNumber.$beatInBar.$subInBeat',
+              style: TextStyle(
+                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            );
+            textPainter.layout();
+            textPainter.paint(canvas, Offset(textX, 2));
+          }
+        }
       }
     }
   }

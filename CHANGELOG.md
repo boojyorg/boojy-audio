@@ -28,6 +28,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - Replaced "Make a Copy..." with "Save New Version..." in File menu
 - Save As now shows keyboard shortcut ⇧⌘S in menu
 - Library folders now use accordion behavior (Ableton-style): clicking a folder closes siblings, but remembers nested folder states for when parent reopens
+- Nav bar shows 16th-note subdivision labels (1.1.2, 1.1.3, 1.1.4) when very zoomed in (pixelsPerBeat >= 100) in arrangement view, piano roll, and audio editor
 
 ### Bug Fixes
 
