@@ -62,6 +62,16 @@ class WaveformEditorPainter extends CustomPainter {
     this.normalizeGain = 1.0,
   });
 
+  /// Get adaptive grid division based on zoom level
+  /// Must match UnifiedNavBarPainter._getGridDivision() for alignment
+  double _getGridDivision() {
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble(); // Only bars
+    if (pixelsPerBeat < 20) return 1.0; // Bars + beats
+    if (pixelsPerBeat < 40) return 0.5; // + half beats
+    if (pixelsPerBeat < 80) return 0.25; // + quarter beats
+    return 0.125; // + eighth beats
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Draw grid background
@@ -85,19 +95,17 @@ class WaveformEditorPainter extends CustomPainter {
       ..color = barLineColor
       ..strokeWidth = 1.5;
 
-    // Draw vertical grid lines
-    const gridDivision = 0.25; // 1/16th note
-    final totalGridLines = (totalBeats / gridDivision).ceil();
+    // Draw vertical grid lines using adaptive grid division
+    final gridDivision = _getGridDivision();
 
-    for (int i = 0; i <= totalGridLines; i++) {
-      final beat = i * gridDivision;
+    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
       final x = beat * pixelsPerBeat;
 
       if (x > size.width) break;
 
-      // Determine line weight based on hierarchy
-      final isBar = (beat % beatsPerBar) < 0.001;
-      final isBeat = (beat % 1.0) < 0.001;
+      // Determine line weight based on hierarchy (use .abs() for floating point safety)
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
+      final isBeat = (beat % 1.0).abs() < 0.001;
 
       if (isBar) {
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), barPaint);
