@@ -4,10 +4,10 @@ import '../piano_roll/loop_time_display.dart';
 import '../shared/mini_knob.dart';
 
 /// Simplified horizontal controls bar for Audio Editor.
-/// Matches Piano Roll styling with 5 essential controls.
+/// Matches Piano Roll styling with essential controls.
 ///
-/// Layout format (matches Piano Roll):
-/// Start [1.1.1] Length [4.0.0] | Pitch [+0 st] | Vol [━━●━━ +0.0 dB] | BPM [120.0]
+/// Layout format:
+/// [Loop] Start [1.1.1] Length [4.0.0] | [Warp] [120 BPM] | Pitch [+0 st] | Vol [+0.0 dB]
 class AudioEditorControlsBar extends StatelessWidget {
   // === Loop Toggle ===
   final bool loopEnabled;
@@ -20,6 +20,14 @@ class AudioEditorControlsBar extends StatelessWidget {
   final Function(double)? onStartChanged;
   final Function(double)? onLengthChanged;
 
+  // === Warp/Tempo ===
+  final bool warpEnabled;
+  final VoidCallback? onWarpToggle;
+  final double originalBpm; // Clip's original tempo
+  final Function(double)? onOriginalBpmChanged;
+  final double projectBpm; // Project tempo (read-only display or editable)
+  final Function(double)? onProjectBpmChanged;
+
   // === Pitch ===
   final int transposeSemitones;
   final Function(int)? onTransposeChanged;
@@ -27,10 +35,6 @@ class AudioEditorControlsBar extends StatelessWidget {
   // === Volume ===
   final double gainDb;
   final Function(double)? onGainChanged;
-
-  // === BPM ===
-  final double bpm;
-  final Function(double)? onBpmChanged;
 
   const AudioEditorControlsBar({
     super.key,
@@ -41,12 +45,16 @@ class AudioEditorControlsBar extends StatelessWidget {
     this.beatsPerBar = 4,
     this.onStartChanged,
     this.onLengthChanged,
+    this.warpEnabled = true,
+    this.onWarpToggle,
+    this.originalBpm = 120.0,
+    this.onOriginalBpmChanged,
+    this.projectBpm = 120.0,
+    this.onProjectBpmChanged,
     this.transposeSemitones = 0,
     this.onTransposeChanged,
     this.gainDb = 0.0,
     this.onGainChanged,
-    this.bpm = 120.0,
-    this.onBpmChanged,
   });
 
   @override
@@ -71,16 +79,16 @@ class AudioEditorControlsBar extends StatelessWidget {
           _buildClipGroup(context),
           _buildSeparator(context),
 
+          // === WARP GROUP (Warp toggle + Original BPM) ===
+          _buildWarpGroup(context),
+          _buildSeparator(context),
+
           // === PITCH ===
           _buildPitchControl(context),
           _buildSeparator(context),
 
           // === VOLUME ===
           _buildVolumeControl(context),
-          _buildSeparator(context),
-
-          // === BPM ===
-          _buildBpmControl(context),
 
           // Spacer to push everything left
           const Spacer(),
@@ -293,36 +301,113 @@ class AudioEditorControlsBar extends StatelessWidget {
     );
   }
 
-  // ============ BPM CONTROL ============
-  Widget _buildBpmControl(BuildContext context) {
+  // ============ WARP GROUP (Warp toggle + Original BPM) ============
+  Widget _buildWarpGroup(BuildContext context) {
     final colors = context.colors;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('BPM', style: TextStyle(color: colors.textMuted, fontSize: 9)),
-        const SizedBox(width: 4),
-        _NumberInputBox(
-          displayText: bpm.toStringAsFixed(1),
-          onTap: () => _showBpmDialog(context),
+        // Warp toggle button
+        Tooltip(
+          message: 'Warp: sync clip to project tempo',
+          child: GestureDetector(
+            onTap: onWarpToggle,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                decoration: BoxDecoration(
+                  color: warpEnabled ? colors.accent : colors.dark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.sync,
+                      size: 13,
+                      color: warpEnabled ? colors.elevated : colors.textPrimary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Warp',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: warpEnabled ? colors.elevated : colors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Original BPM - draggable display like transport bar
+        _OriginalBpmDisplay(
+          bpm: originalBpm,
+          onBpmChanged: onOriginalBpmChanged,
         ),
       ],
     );
   }
 
+}
+
+/// Draggable BPM display for clip's original tempo.
+/// Similar to _TempoDisplay in transport_bar.dart.
+class _OriginalBpmDisplay extends StatefulWidget {
+  final double bpm;
+  final Function(double)? onBpmChanged;
+
+  const _OriginalBpmDisplay({
+    required this.bpm,
+    this.onBpmChanged,
+  });
+
+  @override
+  State<_OriginalBpmDisplay> createState() => _OriginalBpmDisplayState();
+}
+
+class _OriginalBpmDisplayState extends State<_OriginalBpmDisplay> {
+  bool _isDragging = false;
+  double _dragStartY = 0.0;
+  double _dragStartBpm = 120.0;
+
+  /// Format BPM for display:
+  /// - If whole number (110.0), show as "110 BPM"
+  /// - If has decimal (110.5), show as "110.50 BPM"
+  String _formatBpm(double bpm) {
+    if (bpm == bpm.roundToDouble()) {
+      return '${bpm.round()} BPM';
+    } else {
+      return '${bpm.toStringAsFixed(2)} BPM';
+    }
+  }
+
   void _showBpmDialog(BuildContext context) {
-    final controller = TextEditingController(text: bpm.toStringAsFixed(1));
+    // Show current value - if whole number, show without decimal
+    final initialText = widget.bpm == widget.bpm.roundToDouble()
+        ? widget.bpm.round().toString()
+        : widget.bpm.toStringAsFixed(2);
+    final controller = TextEditingController(text: initialText);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('BPM'),
+        title: const Text('Original BPM'),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
-            labelText: 'BPM (20 - 999)',
+            labelText: "Clip's original tempo (20 - 999)",
           ),
           autofocus: true,
+          onSubmitted: (_) {
+            final value = double.tryParse(controller.text) ?? 120.0;
+            widget.onBpmChanged?.call(value.clamp(20, 999));
+            Navigator.pop(ctx);
+          },
         ),
         actions: [
           TextButton(
@@ -332,7 +417,7 @@ class AudioEditorControlsBar extends StatelessWidget {
           TextButton(
             onPressed: () {
               final value = double.tryParse(controller.text) ?? 120.0;
-              onBpmChanged?.call(value.clamp(20, 999));
+              widget.onBpmChanged?.call(value.clamp(20, 999));
               Navigator.pop(ctx);
             },
             child: const Text('OK'),
@@ -341,39 +426,59 @@ class AudioEditorControlsBar extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Simple clickable input box matching Piano Roll styling
-class _NumberInputBox extends StatelessWidget {
-  final String displayText;
-  final VoidCallback? onTap;
-
-  const _NumberInputBox({
-    required this.displayText,
-    this.onTap,
-  });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final bpmText = _formatBpm(widget.bpm);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-            border: Border.all(color: colors.surface, width: 1),
-          ),
-          child: Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 9,
-              color: colors.textPrimary,
-              fontFamily: 'monospace',
+    return Tooltip(
+      message: 'Original clip tempo (drag to adjust, double-click for precise input)',
+      child: GestureDetector(
+        onVerticalDragStart: (details) {
+          setState(() {
+            _isDragging = true;
+            _dragStartY = details.globalPosition.dy;
+            // Snap start position to whole BPM for cleaner dragging
+            _dragStartBpm = widget.bpm.roundToDouble();
+          });
+        },
+        onVerticalDragUpdate: (details) {
+          if (widget.onBpmChanged != null) {
+            // Drag up = increase BPM, drag down = decrease BPM
+            final deltaY = _dragStartY - details.globalPosition.dy;
+            // ~0.5 BPM per pixel, then round to whole BPM
+            final deltaBpm = (deltaY * 0.5).roundToDouble();
+            final newBpm = (_dragStartBpm + deltaBpm).clamp(20.0, 999.0);
+            widget.onBpmChanged!(newBpm);
+          }
+        },
+        onVerticalDragEnd: (details) {
+          setState(() {
+            _isDragging = false;
+          });
+        },
+        onDoubleTap: () => _showBpmDialog(context),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.resizeUpDown,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: _isDragging
+                  ? colors.accent.withValues(alpha: 0.2)
+                  : colors.dark,
+              borderRadius: BorderRadius.circular(2),
+              border: _isDragging
+                  ? Border.all(color: colors.accent, width: 1.5)
+                  : Border.all(color: colors.surface, width: 1.5),
+            ),
+            child: Text(
+              bpmText,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 10,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
         ),

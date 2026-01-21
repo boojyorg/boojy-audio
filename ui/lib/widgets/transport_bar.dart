@@ -1242,6 +1242,7 @@ class _TapTempoPillState extends State<_TapTempoPill> {
 }
 
 /// Tempo display with drag-to-adjust functionality - shows [120 BPM] format
+/// Dragging snaps to whole BPM values; double-tap opens dialog for decimal input.
 class _TempoDisplay extends StatefulWidget {
   final double tempo;
   final Function(double)? onTempoChanged;
@@ -1260,27 +1261,80 @@ class _TempoDisplayState extends State<_TempoDisplay> {
   double _dragStartY = 0.0;
   double _dragStartTempo = 120.0;
 
+  /// Format tempo for display:
+  /// - If whole number (120.0), show as "120 BPM"
+  /// - If has decimal (120.5), show as "120.50 BPM"
+  String _formatTempo(double tempo) {
+    if (tempo == tempo.roundToDouble()) {
+      return '${tempo.round()} BPM';
+    } else {
+      return '${tempo.toStringAsFixed(2)} BPM';
+    }
+  }
+
+  void _showTempoDialog(BuildContext context) {
+    // Show current value - if whole number, show without decimal
+    final initialText = widget.tempo == widget.tempo.roundToDouble()
+        ? widget.tempo.round().toString()
+        : widget.tempo.toStringAsFixed(2);
+    final controller = TextEditingController(text: initialText);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Project Tempo'),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'BPM (20 - 300)',
+          ),
+          autofocus: true,
+          onSubmitted: (_) {
+            final value = double.tryParse(controller.text) ?? 120.0;
+            widget.onTempoChanged?.call(value.clamp(20, 300));
+            Navigator.pop(ctx);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text) ?? 120.0;
+              widget.onTempoChanged?.call(value.clamp(20, 300));
+              Navigator.pop(ctx);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tempoText = '${widget.tempo.toStringAsFixed(0)} BPM';
+    final tempoText = _formatTempo(widget.tempo);
 
     return Tooltip(
-      message: 'Tempo (drag to adjust)',
+      message: 'Tempo (drag to adjust, double-click for precise input)',
       child: GestureDetector(
         onVerticalDragStart: (details) {
           setState(() {
             _isDragging = true;
             _dragStartY = details.globalPosition.dy;
-            _dragStartTempo = widget.tempo;
+            // Snap start position to whole BPM for cleaner dragging
+            _dragStartTempo = widget.tempo.roundToDouble();
           });
         },
         onVerticalDragUpdate: (details) {
           if (widget.onTempoChanged != null) {
             // Drag up = increase tempo, drag down = decrease tempo
             final deltaY = _dragStartY - details.globalPosition.dy;
-            // ~0.5 BPM per pixel (like Ableton)
-            final deltaTempo = deltaY * 0.5;
-            final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0).roundToDouble();
+            // ~0.5 BPM per pixel, then round to whole BPM
+            final deltaTempo = (deltaY * 0.5).roundToDouble();
+            final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0);
             widget.onTempoChanged!(newTempo);
           }
         },
@@ -1289,6 +1343,7 @@ class _TempoDisplayState extends State<_TempoDisplay> {
             _isDragging = false;
           });
         },
+        onDoubleTap: () => _showTempoDialog(context),
         child: MouseRegion(
           cursor: SystemMouseCursors.resizeUpDown,
           child: Container(

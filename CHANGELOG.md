@@ -6,6 +6,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Added audio clip Warp feature: sync audio clips to project tempo via time-stretching
+  - Warp toggle in Audio Editor controls bar enables/disables tempo sync
+  - Original BPM field to set clip's source tempo (auto-detect coming in future)
+  - Project BPM display shows current project tempo
+  - Stretch factor calculated as project_bpm / clip_bpm (e.g., 110 BPM loop in 120 BPM project = 1.09x)
+  - Works in real-time playback and offline export
+  - Warp ON: clip visual width stays fixed (beat-based) regardless of tempo changes
+  - Warp OFF: clip visual width stretches/squishes with tempo (time-based), consistent between Audio Editor and Arrangement View
 - Added Sampler track type with pitch-shifted sample playback triggered by MIDI notes
 - Added Sampler Editor with Attack/Release envelope controls and Root Note selection
 - Added "Open in Sampler" context menu option in Library panel for audio files
@@ -16,6 +24,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Audio Editor controls bar simplified: removed duplicate "Project BPM" display (already shown in transport bar), removed stretch factor display ("→ 1.09x"), original BPM now shows as draggable "[120 BPM]" display matching transport bar style
+- Audio Editor waveform now stretches/squeezes when adjusting original BPM (warp ON), matching the behavior in arrangement view
+- BPM controls now snap to whole values while dragging; double-click to enter precise decimal values (e.g., 110.50 BPM). Display shows "120 BPM" for whole numbers, "120.50 BPM" for decimals. Applies to both transport bar tempo and Audio Editor original BPM
 - Dragging Sampler from Library now correctly creates a Sampler track (was incorrectly creating Synthesizer track)
 - Changed MIDI track editor tabs order to [Synthesizer] [Piano Roll] [Effects] (instrument first for quicker access)
 - Audio Editor now has Loop toggle button matching Piano Roll (click to enable/disable loop region dimming)
@@ -40,6 +51,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed audio playback not following project tempo: audio now plays at the correct speed relative to the visual timeline at any tempo (was always playing at 120 BPM regardless of tempo setting). Applies to real-time playback and export
+- Fixed audio clip warp playback timing: warped clips now end at the correct time matching visual representation (was using original duration instead of stretched duration)
 - Fixed multi-track drag state sync: dragging mixed MIDI+audio selections now updates all clip positions in real-time during drag (previously only updated on drag end)
 - Fixed library panel scroll jumping to top when expanding/collapsing folders (cached folder contents to avoid FutureBuilder rebuild issues)
 - Fixed scroll in nav bar (loop/bar numbers section) bubbling up to parent tabs (was scrolling to Effects section instead of scrolling the timeline)

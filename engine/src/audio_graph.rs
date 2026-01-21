@@ -235,6 +235,8 @@ impl AudioGraph {
             offset: 0.0,
             duration: None,
             gain_db: 0.0,
+            warp_enabled: false,
+            stretch_factor: 1.0,
         });
 
         id
@@ -292,6 +294,8 @@ impl AudioGraph {
                 offset,
                 duration,
                 gain_db: 0.0,
+                warp_enabled: false,
+                stretch_factor: 1.0,
             });
             Some(id)
         } else {
@@ -952,9 +956,11 @@ impl AudioGraph {
                     midi_clips_lock.clone()
                 };
 
-                // Get current tempo for MIDI playback scaling
+                // Get current tempo for playback scaling
+                // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
+                // At other tempos, the playhead must advance faster/slower through the timeline
                 let current_tempo = *recorder_refs.tempo.lock().expect("mutex poisoned");
-                let _tempo_ratio = current_tempo / 120.0;
+                let tempo_ratio = current_tempo / 120.0;
 
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
 
@@ -1024,7 +1030,11 @@ impl AudioGraph {
                 // Process each frame (using snapshots - NO LOCKS in hot path!)
                 for frame_idx in 0..frames {
                     let playhead_frame = current_playhead + frame_idx as u64;
-                    let playhead_seconds = playhead_frame as f64 / TARGET_SAMPLE_RATE as f64;
+                    // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
+                    // At 100 BPM, playhead advances slower (0.833x) through timeline
+                    // At 140 BPM, playhead advances faster (1.167x) through timeline
+                    let real_seconds = playhead_frame as f64 / TARGET_SAMPLE_RATE as f64;
+                    let playhead_seconds = real_seconds * tempo_ratio;
 
                     let mut mix_left = 0.0;
                     let mut mix_right = 0.0;
@@ -1046,13 +1056,28 @@ impl AudioGraph {
                         for timeline_clip in &track_snap.audio_clips {
                             let clip_duration = timeline_clip.duration
                                 .unwrap_or(timeline_clip.clip.duration_seconds);
-                            let clip_end = timeline_clip.start_time + clip_duration;
+                            // When warp is enabled, the clip's timeline duration changes:
+                            // stretch > 1 = faster playback = clip ends sooner
+                            // stretch < 1 = slower playback = clip ends later
+                            let effective_duration = if timeline_clip.warp_enabled {
+                                clip_duration / timeline_clip.stretch_factor as f64
+                            } else {
+                                clip_duration
+                            };
+                            let clip_end = timeline_clip.start_time + effective_duration;
 
                             if playhead_seconds >= timeline_clip.start_time
                                 && playhead_seconds < clip_end
                             {
                                 let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                                let frame_in_clip = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
+                                // Apply stretch factor when warp is enabled
+                                // stretch > 1 = faster playback = advance through clip faster
+                                let stretched_time = if timeline_clip.warp_enabled {
+                                    time_in_clip * timeline_clip.stretch_factor as f64
+                                } else {
+                                    time_in_clip
+                                };
+                                let frame_in_clip = (stretched_time * TARGET_SAMPLE_RATE as f64) as usize;
                                 let clip_gain = timeline_clip.get_gain();
 
                                 if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
@@ -1931,6 +1956,12 @@ impl AudioGraph {
 
         eprintln!("🎵 [AudioGraph] Starting offline render: {:.2}s ({} frames)", duration_seconds, total_frames);
 
+        // Get tempo for timeline positioning
+        // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
+        let current_tempo = self.recorder.get_tempo();
+        let tempo_ratio = current_tempo / 120.0;
+        eprintln!("🎵 [AudioGraph] Using tempo {} BPM (ratio: {:.3})", current_tempo, tempo_ratio);
+
         // Create track snapshots (same as real-time rendering)
         struct TrackSnapshot {
             id: u64,
@@ -1980,7 +2011,9 @@ impl AudioGraph {
 
         // Process each frame
         for frame_idx in 0..total_frames {
-            let playhead_seconds = frame_idx as f64 / sample_rate as f64;
+            // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
+            let real_seconds = frame_idx as f64 / sample_rate as f64;
+            let playhead_seconds = real_seconds * tempo_ratio;
 
             let mut mix_left = 0.0f32;
             let mut mix_right = 0.0f32;
@@ -2002,13 +2035,27 @@ impl AudioGraph {
                 for timeline_clip in &track_snap.audio_clips {
                     let clip_duration = timeline_clip.duration
                         .unwrap_or(timeline_clip.clip.duration_seconds);
-                    let clip_end = timeline_clip.start_time + clip_duration;
+                    // When warp is enabled, the clip's timeline duration changes:
+                    // stretch > 1 = faster playback = clip ends sooner
+                    // stretch < 1 = slower playback = clip ends later
+                    let effective_duration = if timeline_clip.warp_enabled {
+                        clip_duration / timeline_clip.stretch_factor as f64
+                    } else {
+                        clip_duration
+                    };
+                    let clip_end = timeline_clip.start_time + effective_duration;
 
                     if playhead_seconds >= timeline_clip.start_time
                         && playhead_seconds < clip_end
                     {
                         let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                        let frame_in_clip = (time_in_clip * sample_rate as f64) as usize;
+                        // Apply stretch factor when warp is enabled
+                        let stretched_time = if timeline_clip.warp_enabled {
+                            time_in_clip * timeline_clip.stretch_factor as f64
+                        } else {
+                            time_in_clip
+                        };
+                        let frame_in_clip = (stretched_time * sample_rate as f64) as usize;
                         let clip_gain = timeline_clip.get_gain();
 
                         if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
@@ -2194,6 +2241,10 @@ impl AudioGraph {
             track_id, duration_seconds, total_frames
         );
 
+        // Get tempo for timeline positioning
+        let current_tempo = self.recorder.get_tempo();
+        let tempo_ratio = current_tempo / 120.0;
+
         // Get track snapshot
         struct TrackSnapshot {
             audio_clips: Vec<TimelineClip>,
@@ -2234,7 +2285,9 @@ impl AudioGraph {
 
         // Process each frame
         for frame_idx in 0..total_frames {
-            let playhead_seconds = frame_idx as f64 / sample_rate as f64;
+            // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
+            let real_seconds = frame_idx as f64 / sample_rate as f64;
+            let playhead_seconds = real_seconds * tempo_ratio;
 
             let mut track_left = 0.0f32;
             let mut track_right = 0.0f32;
@@ -2244,12 +2297,26 @@ impl AudioGraph {
                 let clip_duration = timeline_clip
                     .duration
                     .unwrap_or(timeline_clip.clip.duration_seconds);
-                let clip_end = timeline_clip.start_time + clip_duration;
+                // When warp is enabled, the clip's timeline duration changes:
+                // stretch > 1 = faster playback = clip ends sooner
+                // stretch < 1 = slower playback = clip ends later
+                let effective_duration = if timeline_clip.warp_enabled {
+                    clip_duration / timeline_clip.stretch_factor as f64
+                } else {
+                    clip_duration
+                };
+                let clip_end = timeline_clip.start_time + effective_duration;
 
                 if playhead_seconds >= timeline_clip.start_time && playhead_seconds < clip_end {
                     let time_in_clip =
                         playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                    let frame_in_clip = (time_in_clip * sample_rate as f64) as usize;
+                    // Apply stretch factor when warp is enabled
+                    let stretched_time = if timeline_clip.warp_enabled {
+                        time_in_clip * timeline_clip.stretch_factor as f64
+                    } else {
+                        time_in_clip
+                    };
+                    let frame_in_clip = (stretched_time * sample_rate as f64) as usize;
                     let clip_gain = timeline_clip.get_gain();
 
                     if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {

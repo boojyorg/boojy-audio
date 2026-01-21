@@ -60,6 +60,10 @@ class EditorPanel extends StatefulWidget {
   final int beatsPerBar;
   final int beatUnit;
 
+  // Project tempo (for warp calculations in Audio Editor)
+  final double projectTempo;
+  final Function(double)? onProjectTempoChanged;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -89,6 +93,8 @@ class EditorPanel extends StatefulWidget {
     this.onToolModeChanged,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
+    this.projectTempo = 120.0,
+    this.onProjectTempoChanged,
   });
 
   @override
@@ -811,6 +817,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       onClipUpdated: widget.onAudioClipUpdated,
       toolMode: widget.toolMode,
       onToolModeChanged: widget.onToolModeChanged,
+      projectTempo: widget.projectTempo,
+      onProjectTempoChanged: widget.onProjectTempoChanged,
     );
   }
 

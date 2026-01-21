@@ -249,7 +249,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   }
 
   /// Initialize state from clip data.
-  void initFromClip(ClipData? clip) {
+  /// [projectTempo] is the current project BPM, used to calculate visual beat duration
+  /// when warp is OFF (clip is fixed-length in seconds).
+  void initFromClip(ClipData? clip, {double projectTempo = 120.0}) {
     if (clip == null) return;
 
     currentClip = clip;
@@ -260,9 +262,11 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     beatsPerBar = editData.beatsPerBar;
     beatUnit = editData.beatUnit;
 
-    // Calculate clip's timeline duration in beats (what's visible on arrangement)
-    // clip.duration is the trimmed/visible duration on the timeline
-    final clipTimelineBeats = clip.duration * (editData.bpm / 60.0);
+    // Calculate clip's visual duration in beats
+    // - Warp ON: clip syncs to project tempo, so use original BPM (fixed beats)
+    // - Warp OFF: clip is fixed-length in seconds, convert using project tempo
+    final bpmForConversion = editData.syncEnabled ? editData.bpm : projectTempo;
+    final clipTimelineBeats = clip.duration * (bpmForConversion / 60.0);
 
     // Store the full audio content duration (waveform always shows this)
     contentDurationBeats = clipTimelineBeats;
@@ -288,9 +292,57 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   }
 
   /// Update clip when widget changes.
-  void updateFromClip(ClipData? clip) {
+  void updateFromClip(ClipData? clip, {double projectTempo = 120.0}) {
     if (clip == null || clip.clipId == currentClip?.clipId) return;
-    initFromClip(clip);
+    initFromClip(clip, projectTempo: projectTempo);
+  }
+
+  /// Recalculate contentDurationBeats when project tempo changes (only affects warp OFF clips).
+  void recalculateBeatsForTempo(double projectTempo) {
+    if (currentClip == null) return;
+
+    // Only recalculate if warp is OFF (clip uses time-based display)
+    if (!editData.syncEnabled) {
+      final clipTimelineBeats = currentClip!.duration * (projectTempo / 60.0);
+      contentDurationBeats = clipTimelineBeats;
+
+      // Also update loop region to match new beat scale
+      // This keeps the same proportion of the clip selected
+      final oldLoopLength = loopEndBeats - loopStartBeats;
+      final oldContentBeats = editData.lengthBeats > 0 ? editData.lengthBeats : 4.0;
+      final proportion = oldLoopLength / oldContentBeats;
+
+      loopEndBeats = loopStartBeats + (clipTimelineBeats * proportion);
+      editData = editData.copyWith(
+        lengthBeats: clipTimelineBeats,
+        loopEndBeats: loopEndBeats,
+      );
+    }
+  }
+
+  /// Recalculate contentDurationBeats when original BPM changes (only affects warp ON clips).
+  /// When warp is ON, the clip is beat-based, so changing original BPM changes how many
+  /// beats the clip represents: beats = duration_seconds * (bpm / 60)
+  void recalculateBeatsForOriginalBpm(double originalBpm) {
+    if (currentClip == null) return;
+
+    // Only recalculate if warp is ON (clip uses beat-based display)
+    if (editData.syncEnabled) {
+      final clipTimelineBeats = currentClip!.duration * (originalBpm / 60.0);
+      final oldContentBeats = contentDurationBeats > 0 ? contentDurationBeats : 4.0;
+      contentDurationBeats = clipTimelineBeats;
+
+      // Scale loop region proportionally to new beat length
+      final proportion = clipTimelineBeats / oldContentBeats;
+      loopStartBeats = loopStartBeats * proportion;
+      loopEndBeats = loopEndBeats * proportion;
+
+      editData = editData.copyWith(
+        lengthBeats: clipTimelineBeats,
+        loopStartBeats: loopStartBeats,
+        loopEndBeats: loopEndBeats,
+      );
+    }
   }
 }
 

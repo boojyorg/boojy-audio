@@ -4009,6 +4009,8 @@ class _DAWScreenState extends State<DAWScreen> {
                     onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
                     beatsPerBar: _projectMetadata.timeSignatureNumerator,
                     beatUnit: _projectMetadata.timeSignatureDenominator,
+                    projectTempo: _projectMetadata.bpm,
+                    onProjectTempoChanged: _onTempoChanged,
                   ),
                 ),
 

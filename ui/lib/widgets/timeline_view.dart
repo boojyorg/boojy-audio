@@ -2571,7 +2571,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   }
 
   Widget _buildClip(ClipData clip, Color trackColor, double trackHeight) {
-    final clipWidth = clip.duration * pixelsPerSecond;
+    // Calculate clip width based on warp state:
+    // - Warp ON: clip syncs to project tempo, so it covers a fixed number of beats
+    // - Warp OFF: clip is fixed-length in seconds, so width changes with tempo
+    final double clipWidth;
+    if (clip.editData?.syncEnabled ?? false) {
+      // Warp ON: use beat-based width (fixed visual size regardless of tempo)
+      final beatsInClip = clip.duration * ((clip.editData?.bpm ?? 120.0) / 60.0);
+      clipWidth = beatsInClip * pixelsPerBeat;
+    } else {
+      // Warp OFF: use time-based width (stretches with tempo)
+      clipWidth = clip.duration * pixelsPerSecond;
+    }
     // Use dragged position if this clip is being dragged OR is part of the selection being dragged
     // BUT NOT for copy drags - the original stays in place, only the ghost moves
     double displayStartTime;
@@ -3303,7 +3314,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
   /// Build ghost preview widget for audio clip copy drag (single copy with waveform content)
   List<Widget> _buildAudioCopyDragPreviews(ClipData sourceClip, Color trackColor, double trackHeight) {
-    final clipWidth = sourceClip.duration * pixelsPerSecond;
+    // Calculate width respecting warp state
+    final double clipWidth;
+    if (sourceClip.editData?.syncEnabled ?? false) {
+      final beatsInClip = sourceClip.duration * ((sourceClip.editData?.bpm ?? 120.0) / 60.0);
+      clipWidth = beatsInClip * pixelsPerBeat;
+    } else {
+      clipWidth = sourceClip.duration * pixelsPerSecond;
+    }
     final totalHeight = trackHeight - 3.0;
     const headerHeight = 20.0;
 
@@ -3414,7 +3432,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   /// Build ghost preview for audio clip during MIDI drag (cross-type)
   /// Uses MIDI drag state and converts delta from beats to seconds
   List<Widget> _buildAudioCopyDragPreviewsForMidiDrag(ClipData sourceClip, Color trackColor, double trackHeight) {
-    final clipWidth = sourceClip.duration * pixelsPerSecond;
+    // Calculate width respecting warp state
+    final double clipWidth;
+    if (sourceClip.editData?.syncEnabled ?? false) {
+      final beatsInClip = sourceClip.duration * ((sourceClip.editData?.bpm ?? 120.0) / 60.0);
+      clipWidth = beatsInClip * pixelsPerBeat;
+    } else {
+      clipWidth = sourceClip.duration * pixelsPerSecond;
+    }
     final totalHeight = trackHeight - 3.0;
     const headerHeight = 20.0;
 

@@ -70,11 +70,18 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     // Send clip gain to audio engine
     engine.setAudioClipGain(clip.trackId, clip.clipId, editData.gainDb);
 
+    // Send warp settings to audio engine
+    engine.setAudioClipWarp(
+      clip.trackId,
+      clip.clipId,
+      editData.syncEnabled,
+      editData.stretchFactor,
+    );
+
     // TODO: Future FFI calls for additional parameters:
     // - setAudioClipTranspose(trackId, clipId, semitones, cents)
     // - setAudioClipReverse(trackId, clipId, reversed)
     // - setAudioClipNormalize(trackId, clipId, targetDb)
-    // - setAudioClipStretch(trackId, clipId, factor)
   }
 
   // ============================================

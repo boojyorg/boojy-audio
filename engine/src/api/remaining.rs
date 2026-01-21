@@ -393,6 +393,47 @@ pub fn set_audio_clip_gain(track_id: TrackId, clip_id: u64, gain_db: f32) -> Res
     }
 }
 
+/// Set the warp (time-stretch) settings of an audio clip
+///
+/// # Arguments
+/// * `track_id` - Track containing the clip
+/// * `clip_id` - ID of the clip to modify
+/// * `warp_enabled` - Whether warp/tempo sync is enabled
+/// * `stretch_factor` - Stretch factor (project_bpm / clip_bpm), 1.0 = no stretch
+///
+/// # Returns
+/// Success message
+pub fn set_audio_clip_warp(
+    track_id: TrackId,
+    clip_id: u64,
+    warp_enabled: bool,
+    stretch_factor: f32,
+) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        // Find and update the clip
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.warp_enabled = warp_enabled;
+                clip.stretch_factor = stretch_factor.clamp(0.25, 4.0);
+                return Ok(format!(
+                    "Clip {} warp: {}, stretch: {:.2}x",
+                    clip_id, warp_enabled, clip.stretch_factor
+                ));
+            }
+        }
+
+        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
 /// Remove an audio clip from a track
 ///
 /// # Arguments

@@ -30,6 +30,11 @@ pub struct TimelineClip {
     pub duration: Option<f64>,
     /// Per-clip gain in dB (default 0.0 = unity)
     pub gain_db: f32,
+    /// Warp/tempo sync enabled (stretch to match project tempo)
+    pub warp_enabled: bool,
+    /// Stretch factor for time-stretching (1.0 = normal, 2.0 = double speed)
+    /// Calculated as: project_bpm / clip_original_bpm
+    pub stretch_factor: f32,
 }
 
 impl TimelineClip {

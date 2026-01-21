@@ -31,6 +31,12 @@ class AudioEditor extends StatefulWidget {
   /// Callback when tool mode changes
   final Function(ToolMode)? onToolModeChanged;
 
+  /// Project tempo (BPM) for warp calculations
+  final double projectTempo;
+
+  /// Callback when project tempo changes from Audio Editor
+  final Function(double)? onProjectTempoChanged;
+
   const AudioEditor({
     super.key,
     this.audioEngine,
@@ -39,6 +45,8 @@ class AudioEditor extends StatefulWidget {
     this.onClipUpdated,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
+    this.projectTempo = 120.0,
+    this.onProjectTempoChanged,
   });
 
   @override
@@ -51,7 +59,7 @@ class _AudioEditorState extends State<AudioEditor>
   @override
   void initState() {
     super.initState();
-    initFromClip(widget.clipData);
+    initFromClip(widget.clipData, projectTempo: widget.projectTempo);
     initScrollListeners();
 
     // Listen for undo/redo changes
@@ -74,8 +82,17 @@ class _AudioEditorState extends State<AudioEditor>
     super.didUpdateWidget(oldWidget);
     if (widget.clipData != oldWidget.clipData) {
       setState(() {
-        updateFromClip(widget.clipData);
+        updateFromClip(widget.clipData, projectTempo: widget.projectTempo);
       });
+    }
+    // Recalculate when project tempo changes
+    if (widget.projectTempo != oldWidget.projectTempo) {
+      setState(() {
+        _updateStretchFactor();
+        // Recalculate visual beat duration (only affects warp OFF clips)
+        recalculateBeatsForTempo(widget.projectTempo);
+      });
+      sendToAudioEngine();
     }
   }
 
@@ -113,21 +130,27 @@ class _AudioEditorState extends State<AudioEditor>
             color: colors.dark,
             child: Column(
               children: [
-                // Row 2: Controls Bar (5 essential controls)
+                // Row 2: Controls Bar (Loop, Warp, Pitch, Volume, Project BPM)
                 AudioEditorControlsBar(
                   loopEnabled: loopEnabled,
                   onLoopToggle: _toggleLoop,
-                  startOffsetBeats: loopStartBeats, // Use loop region start
-                  lengthBeats: loopEndBeats - loopStartBeats, // Use loop region length
+                  startOffsetBeats: loopStartBeats,
+                  lengthBeats: loopEndBeats - loopStartBeats,
                   beatsPerBar: beatsPerBar,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
+                  // Warp controls
+                  warpEnabled: editData.syncEnabled,
+                  onWarpToggle: _toggleWarp,
+                  originalBpm: editData.bpm,
+                  onOriginalBpmChanged: _onOriginalBpmChanged,
+                  projectBpm: widget.projectTempo,
+                  onProjectBpmChanged: widget.onProjectTempoChanged,
+                  // Pitch & Volume
                   transposeSemitones: editData.transposeSemitones,
                   onTransposeChanged: setTranspose,
                   gainDb: editData.gainDb,
                   onGainChanged: setGain,
-                  bpm: editData.bpm,
-                  onBpmChanged: _onBpmChanged,
                 ),
 
                 // Main content area
@@ -381,12 +404,48 @@ class _AudioEditorState extends State<AudioEditor>
     notifyClipUpdated();
   }
 
-  void _onBpmChanged(double value) {
+  void _toggleWarp() {
+    saveToHistory();
+    final newValue = !editData.syncEnabled;
     setState(() {
-      editData = editData.copyWith(bpm: value);
+      editData = editData.copyWith(syncEnabled: newValue);
+      // Recalculate stretch factor when warp is toggled
+      _updateStretchFactor();
     });
     notifyClipUpdated();
     sendToAudioEngine();
+    commitToHistory(newValue ? 'Enable warp' : 'Disable warp');
+  }
+
+  void _onOriginalBpmChanged(double value) {
+    saveToHistory();
+    final clampedBpm = value.clamp(20.0, 999.0);
+    setState(() {
+      editData = editData.copyWith(bpm: clampedBpm);
+      // Recalculate stretch factor when original BPM changes
+      _updateStretchFactor();
+      // Recalculate waveform beat duration (stretches/squeezes waveform display)
+      recalculateBeatsForOriginalBpm(clampedBpm);
+    });
+    notifyClipUpdated();
+    sendToAudioEngine();
+    commitToHistory('Set original BPM to ${clampedBpm.toStringAsFixed(1)}');
+  }
+
+  /// Recalculate stretch factor based on warp state and tempos
+  void _updateStretchFactor() {
+    if (!editData.syncEnabled) {
+      // Warp off - no stretching
+      editData = editData.copyWith(stretchFactor: 1.0);
+    } else {
+      // Warp on - stretch to project tempo
+      final projectBpm = widget.projectTempo;
+      final clipBpm = editData.bpm;
+      if (clipBpm > 0) {
+        final stretch = projectBpm / clipBpm;
+        editData = editData.copyWith(stretchFactor: stretch.clamp(0.25, 4.0));
+      }
+    }
   }
 
   // ============================================

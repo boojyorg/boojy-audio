@@ -271,6 +271,21 @@ pub extern "C" fn set_audio_clip_gain_ffi(track_id: u64, clip_id: u64, gain_db: 
     }
 }
 
+/// Set audio clip warp settings for tempo sync
+/// Used to enable/disable time-stretching in the Audio Editor
+#[no_mangle]
+pub extern "C" fn set_audio_clip_warp_ffi(
+    track_id: u64,
+    clip_id: u64,
+    warp_enabled: bool,
+    stretch_factor: f32,
+) -> *mut c_char {
+    match api::set_audio_clip_warp(track_id, clip_id, warp_enabled, stretch_factor) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Get waveform peaks
 /// Returns pointer to float array, and writes the length to out_length
 /// Caller must free the returned array with free_waveform_peaks_ffi
