@@ -362,6 +362,37 @@ pub fn duplicate_audio_clip(
     Ok(new_clip_id)
 }
 
+/// Set the gain of an audio clip
+///
+/// # Arguments
+/// * `track_id` - Track containing the clip
+/// * `clip_id` - ID of the clip to modify
+/// * `gain_db` - Gain in dB (-70.0 to +24.0)
+///
+/// # Returns
+/// Success message
+pub fn set_audio_clip_gain(track_id: TrackId, clip_id: u64, gain_db: f32) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        // Find and update the clip
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.gain_db = gain_db.clamp(-70.0, 24.0);
+                return Ok(format!("Clip {} gain set to {:.2} dB", clip_id, clip.gain_db));
+            }
+        }
+
+        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
 /// Remove an audio clip from a track
 ///
 /// # Arguments

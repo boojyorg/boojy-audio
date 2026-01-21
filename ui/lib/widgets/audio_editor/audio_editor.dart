@@ -1,3 +1,5 @@
+import 'dart:math' show pow;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -99,11 +101,11 @@ class _AudioEditorState extends State<AudioEditor>
           viewWidth = constraints.maxWidth;
 
           // Auto-zoom to fit content on first load
-          if (shouldZoomToFit && editData.lengthBeats > 0) {
+          if (shouldZoomToFit && contentDurationBeats > 0) {
             // Calculate pixelsPerBeat so content fills the view
             // Leave a small margin (subtract 48px for zoom buttons area)
             final effectiveWidth = viewWidth - 48;
-            pixelsPerBeat = effectiveWidth / editData.lengthBeats;
+            pixelsPerBeat = effectiveWidth / contentDurationBeats;
             shouldZoomToFit = false;
           }
 
@@ -113,8 +115,10 @@ class _AudioEditorState extends State<AudioEditor>
               children: [
                 // Row 2: Controls Bar (5 essential controls)
                 AudioEditorControlsBar(
-                  startOffsetBeats: editData.startOffsetBeats,
-                  lengthBeats: editData.lengthBeats,
+                  loopEnabled: loopEnabled,
+                  onLoopToggle: _toggleLoop,
+                  startOffsetBeats: loopStartBeats, // Use loop region start
+                  lengthBeats: loopEndBeats - loopStartBeats, // Use loop region length
                   beatsPerBar: beatsPerBar,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
@@ -294,7 +298,7 @@ class _AudioEditorState extends State<AudioEditor>
                         peaks: waveformPeaks,
                         pixelsPerBeat: pixelsPerBeat,
                         totalBeats: totalBeats,
-                        contentBeats: editData.lengthBeats,
+                        contentBeats: contentDurationBeats, // Use full audio duration, not loop length
                         activeBeats: getLoopLength(),
                         loopEnabled: loopEnabled,
                         loopStart: loopStartBeats,
@@ -304,7 +308,7 @@ class _AudioEditorState extends State<AudioEditor>
                         gridLineColor: colors.divider,
                         barLineColor: colors.textMuted,
                         reversed: editData.reversed,
-                        normalizeGain: _calculateNormalizeGain(),
+                        normalizeGain: _calculateVisualGain(),
                       ),
                     ),
                   ),
@@ -343,16 +347,36 @@ class _AudioEditorState extends State<AudioEditor>
   // CONTROLS BAR CALLBACKS
   // ============================================
 
-  void _onStartChanged(double beats) {
+  void _toggleLoop() {
     setState(() {
-      editData = editData.copyWith(startOffsetBeats: beats);
+      loopEnabled = !loopEnabled;
+    });
+  }
+
+  void _onStartChanged(double beats) {
+    // Start controls the loop region start (like Piano Roll contentStartOffset)
+    // The length stays the same, only the start position shifts
+    final loopLength = loopEndBeats - loopStartBeats;
+    setState(() {
+      loopStartBeats = beats;
+      loopEndBeats = beats + loopLength;
+      editData = editData.copyWith(
+        startOffsetBeats: beats,
+        loopStartBeats: beats,
+        loopEndBeats: beats + loopLength,
+      );
     });
     notifyClipUpdated();
   }
 
   void _onLengthChanged(double beats) {
+    // Length controls the loop region length (like Piano Roll loopLength)
+    // Waveform stays the same length - only loop region changes
     setState(() {
-      editData = editData.copyWith(lengthBeats: beats);
+      loopEndBeats = loopStartBeats + beats;
+      editData = editData.copyWith(
+        loopEndBeats: loopStartBeats + beats,
+      );
     });
     notifyClipUpdated();
   }
@@ -369,12 +393,24 @@ class _AudioEditorState extends State<AudioEditor>
   // HELPERS
   // ============================================
 
-  /// Calculate visual gain factor for normalize preview
-  double _calculateNormalizeGain() {
-    if (editData.normalizeTargetDb == null) return 1.0;
-    // Convert dB difference to linear gain for visual scaling
-    // This is a rough approximation for visual feedback
-    final targetDb = editData.normalizeTargetDb!;
-    return 1.0 + (targetDb + 12) / 12; // Range: 0.0 to 2.0
+  /// Calculate visual gain factor for waveform display.
+  /// Combines volume gain and normalize preview for real-time visual feedback.
+  double _calculateVisualGain() {
+    // Convert volume dB to linear gain: 10^(dB/20)
+    // gainDb range: -70 to +24 dB
+    double volumeGain = 1.0;
+    if (editData.gainDb > -70) {
+      volumeGain = pow(10, editData.gainDb / 20).toDouble();
+    } else {
+      volumeGain = 0.0; // -infinity = silent
+    }
+
+    // Apply normalize preview if set
+    double normalizeGain = 1.0;
+    if (editData.normalizeTargetDb != null) {
+      normalizeGain = 1.0 + (editData.normalizeTargetDb! + 12) / 12;
+    }
+
+    return volumeGain * normalizeGain;
   }
 }

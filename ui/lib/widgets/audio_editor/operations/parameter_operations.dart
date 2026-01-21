@@ -64,12 +64,17 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   void sendToAudioEngine() {
     if (currentClip == null || widget.audioEngine == null) return;
 
-    // TODO: Implement audio engine FFI calls for:
-    // - setAudioClipGain(clipId, gainDb)
-    // - setAudioClipTranspose(clipId, semitones, cents)
-    // - setAudioClipReverse(clipId, reversed)
-    // - setAudioClipNormalize(clipId, targetDb)
-    // - setAudioClipStretch(clipId, factor)
+    final clip = currentClip!;
+    final engine = widget.audioEngine!;
+
+    // Send clip gain to audio engine
+    engine.setAudioClipGain(clip.trackId, clip.clipId, editData.gainDb);
+
+    // TODO: Future FFI calls for additional parameters:
+    // - setAudioClipTranspose(trackId, clipId, semitones, cents)
+    // - setAudioClipReverse(trackId, clipId, reversed)
+    // - setAudioClipNormalize(trackId, clipId, targetDb)
+    // - setAudioClipStretch(trackId, clipId, factor)
   }
 
   // ============================================

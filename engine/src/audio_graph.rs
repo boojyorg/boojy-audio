@@ -234,6 +234,7 @@ impl AudioGraph {
             start_time,
             offset: 0.0,
             duration: None,
+            gain_db: 0.0,
         });
 
         id
@@ -290,6 +291,7 @@ impl AudioGraph {
                 start_time,
                 offset,
                 duration,
+                gain_db: 0.0,
             });
             Some(id)
         } else {
@@ -1051,18 +1053,19 @@ impl AudioGraph {
                             {
                                 let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                                 let frame_in_clip = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
+                                let clip_gain = timeline_clip.get_gain();
 
                                 if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                                    track_left += l;
+                                    track_left += l * clip_gain;
                                 }
                                 if timeline_clip.clip.channels > 1 {
                                     if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
-                                        track_right += r;
+                                        track_right += r * clip_gain;
                                     }
                                 } else {
                                     // Mono clip - duplicate to right
                                     if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                                        track_right += l;
+                                        track_right += l * clip_gain;
                                     }
                                 }
                             }
@@ -2006,18 +2009,19 @@ impl AudioGraph {
                     {
                         let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                         let frame_in_clip = (time_in_clip * sample_rate as f64) as usize;
+                        let clip_gain = timeline_clip.get_gain();
 
                         if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                            track_left += l;
+                            track_left += l * clip_gain;
                         }
                         if timeline_clip.clip.channels > 1 {
                             if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
-                                track_right += r;
+                                track_right += r * clip_gain;
                             }
                         } else {
                             // Mono clip - duplicate to right
                             if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                                track_right += l;
+                                track_right += l * clip_gain;
                             }
                         }
                     }
@@ -2246,18 +2250,19 @@ impl AudioGraph {
                     let time_in_clip =
                         playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                     let frame_in_clip = (time_in_clip * sample_rate as f64) as usize;
+                    let clip_gain = timeline_clip.get_gain();
 
                     if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                        track_left += l;
+                        track_left += l * clip_gain;
                     }
                     if timeline_clip.clip.channels > 1 {
                         if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
-                            track_right += r;
+                            track_right += r * clip_gain;
                         }
                     } else {
                         // Mono clip - duplicate to right
                         if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                            track_right += l;
+                            track_right += l * clip_gain;
                         }
                     }
                 }

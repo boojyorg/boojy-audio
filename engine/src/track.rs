@@ -28,6 +28,22 @@ pub struct TimelineClip {
     pub offset: f64,
     /// Duration to play (None = play entire clip)
     pub duration: Option<f64>,
+    /// Per-clip gain in dB (default 0.0 = unity)
+    pub gain_db: f32,
+}
+
+impl TimelineClip {
+    /// Convert clip gain from dB to linear
+    /// -70 dB → 0.0 (silent)
+    /// 0 dB → 1.0 (unity)
+    /// +24 dB → ~15.85
+    pub fn get_gain(&self) -> f32 {
+        if self.gain_db <= -70.0 {
+            0.0
+        } else {
+            10_f32.powf(self.gain_db / 20.0)
+        }
+    }
 }
 
 /// Represents a MIDI clip placed on a track's timeline

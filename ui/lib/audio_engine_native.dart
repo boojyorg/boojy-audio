@@ -39,6 +39,7 @@ class AudioEngine implements AudioEngineInterface {
   late final _GetLatencyTestStatusFfi _getLatencyTestStatus;
   late final _GetLatencyTestErrorFfi _getLatencyTestError;
   late final _SetClipStartTimeFfi _setClipStartTime;
+  late final _SetAudioClipGainFfi _setAudioClipGain;
   late final _GetWaveformPeaksFfi _getWaveformPeaks;
   late final _FreeWaveformPeaksFfi _freeWaveformPeaks;
   
@@ -351,6 +352,11 @@ class AudioEngine implements AudioEngineInterface {
       _setClipStartTime = _lib
           .lookup<ffi.NativeFunction<_SetClipStartTimeFfiNative>>(
               'set_clip_start_time_ffi')
+          .asFunction();
+
+      _setAudioClipGain = _lib
+          .lookup<ffi.NativeFunction<_SetAudioClipGainFfiNative>>(
+              'set_audio_clip_gain_ffi')
           .asFunction();
 
       _getWaveformPeaks = _lib
@@ -1210,6 +1216,20 @@ class AudioEngine implements AudioEngineInterface {
   String setClipStartTime(int trackId, int clipId, double startTime) {
     try {
       final result = _setClipStartTime(trackId, clipId, startTime);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Set audio clip gain
+  /// Used to adjust per-clip volume in the Audio Editor
+  @override
+  String setAudioClipGain(int trackId, int clipId, double gainDb) {
+    try {
+      final result = _setAudioClipGain(trackId, clipId, gainDb);
       final str = result.toDartString();
       _freeRustString(result);
       return str;
@@ -2841,6 +2861,9 @@ typedef _GetClipDurationFfi = double Function(int);
 
 typedef _SetClipStartTimeFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double);
 typedef _SetClipStartTimeFfi = ffi.Pointer<Utf8> Function(int, int, double);
+
+typedef _SetAudioClipGainFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Float);
+typedef _SetAudioClipGainFfi = ffi.Pointer<Utf8> Function(int, int, double);
 
 typedef _GetWaveformPeaksFfiNative = ffi.Pointer<ffi.Float> Function(
     ffi.Uint64, ffi.Size, ffi.Pointer<ffi.Size>);

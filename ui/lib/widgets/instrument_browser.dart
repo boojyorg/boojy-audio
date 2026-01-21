@@ -16,7 +16,7 @@ class Instrument {
   });
 }
 
-/// Available instruments (only Synthesizer is implemented for now)
+/// Available instruments
 const List<Instrument> availableInstruments = [
   // Boojy's built-in Synthesizer
   Instrument(
@@ -24,6 +24,13 @@ const List<Instrument> availableInstruments = [
     name: 'Synthesizer',
     category: 'Instruments',
     icon: Icons.graphic_eq,
+  ),
+  // Sampler - pitch-shifted sample playback triggered by MIDI notes
+  Instrument(
+    id: 'sampler',
+    name: 'Sampler',
+    category: 'Instruments',
+    icon: Icons.waves,
   ),
 ];
 

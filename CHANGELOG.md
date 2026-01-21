@@ -16,6 +16,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Dragging Sampler from Library now correctly creates a Sampler track (was incorrectly creating Synthesizer track)
+- Changed MIDI track editor tabs order to [Synthesizer] [Piano Roll] [Effects] (instrument first for quicker access)
+- Audio Editor now has Loop toggle button matching Piano Roll (click to enable/disable loop region dimming)
+- Audio Editor Start/Length now work like Piano Roll: Start controls loop region start, Length controls loop region length (waveform stays full size)
+- Audio Editor waveform now visually scales with Volume slider in real-time (like Ableton): louder = larger waveform, quieter = smaller
+- Arrangement view waveforms now also scale with clip gain (matching Audio Editor visual feedback)
+- Audio clip gain now affects actual audio playback (per-clip volume control works end-to-end)
+- Added Sampler to Library panel under Instruments category (alongside Synthesizer)
 - Audio Editor now uses UnifiedNavBar matching Piano Roll exactly: single 24px nav bar with loop region, bar numbers, and zoom controls overlaid at right
 - Audio Editor removed all margins (no piano keys needed) for full-width waveform display
 - Audio Editor total beats calculation now shows 16 bars buffer beyond clip content (matches Piano Roll)

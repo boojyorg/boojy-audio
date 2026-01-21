@@ -419,6 +419,16 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     });
   }
 
+  /// Public method to update a clip in the timeline (for Audio Editor changes)
+  void updateClip(ClipData updatedClip) {
+    setState(() {
+      final index = clips.indexWhere((c) => c.clipId == updatedClip.clipId);
+      if (index != -1) {
+        clips[index] = updatedClip;
+      }
+    });
+  }
+
   /// Check if a track has any audio clips
   bool hasClipsOnTrack(int trackId) {
     return clips.any((clip) => clip.trackId == trackId);
@@ -2981,11 +2991,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         ),
                         child: LayoutBuilder(
                           builder: (context, constraints) {
+                            // Calculate visual gain from clip's editData
+                            final clipGainDb = clip.editData?.gainDb ?? 0.0;
+                            final clipVisualGain = clipGainDb > -70
+                                ? math.pow(10, clipGainDb / 20).toDouble()
+                                : 0.0;
                             return CustomPaint(
                               size: Size(constraints.maxWidth, constraints.maxHeight),
                               painter: _WaveformPainter(
                                 peaks: clip.waveformPeaks,
                                 color: TrackColors.getLighterShade(trackColor),
+                                visualGain: clipVisualGain,
                               ),
                             );
                           },
@@ -3367,11 +3383,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         Expanded(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
+                              // Calculate visual gain from clip's editData
+                              final clipGainDb = sourceClip.editData?.gainDb ?? 0.0;
+                              final clipVisualGain = clipGainDb > -70
+                                  ? math.pow(10, clipGainDb / 20).toDouble()
+                                  : 0.0;
                               return CustomPaint(
                                 size: Size(constraints.maxWidth, constraints.maxHeight),
                                 painter: _WaveformPainter(
                                   peaks: sourceClip.waveformPeaks,
                                   color: TrackColors.getLighterShade(trackColor),
+                                  visualGain: clipVisualGain,
                                 ),
                               );
                             },
@@ -3477,11 +3499,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         Expanded(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
+                              // Calculate visual gain from clip's editData
+                              final clipGainDb = sourceClip.editData?.gainDb ?? 0.0;
+                              final clipVisualGain = clipGainDb > -70
+                                  ? math.pow(10, clipGainDb / 20).toDouble()
+                                  : 0.0;
                               return CustomPaint(
                                 size: Size(constraints.maxWidth, constraints.maxHeight),
                                 painter: _WaveformPainter(
                                   peaks: sourceClip.waveformPeaks,
                                   color: TrackColors.getLighterShade(trackColor),
+                                  visualGain: clipVisualGain,
                                 ),
                               );
                             },
@@ -4642,10 +4670,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 class _WaveformPainter extends CustomPainter {
   final List<double> peaks;
   final Color color;
+  final double visualGain;
 
   _WaveformPainter({
     required this.peaks,
     required this.color,
+    this.visualGain = 1.0,
   });
 
   @override
@@ -4677,15 +4707,15 @@ class _WaveformPainter extends CustomPainter {
     // Create closed polygon path for continuous waveform shape
     final path = Path();
 
-    // Start at first peak's top
-    final firstMax = renderPeaks[1];
+    // Start at first peak's top (apply visual gain)
+    final firstMax = (renderPeaks[1] * visualGain).clamp(-1.0, 1.0);
     final firstTopY = centerY - (firstMax * centerY);
     path.moveTo(step / 2, firstTopY);
 
     // Trace TOP edge (max values) left to right
     for (int i = 2; i < renderPeaks.length; i += 2) {
       final x = (i ~/ 2) * step + step / 2;
-      final max = renderPeaks[i + 1];
+      final max = (renderPeaks[i + 1] * visualGain).clamp(-1.0, 1.0);
       final topY = centerY - (max * centerY);
       path.lineTo(x, topY);
     }
@@ -4693,7 +4723,7 @@ class _WaveformPainter extends CustomPainter {
     // Trace BOTTOM edge (min values) right to left
     for (int i = renderPeaks.length - 2; i >= 0; i -= 2) {
       final x = (i ~/ 2) * step + step / 2;
-      final min = renderPeaks[i];
+      final min = (renderPeaks[i] * visualGain).clamp(-1.0, 1.0);
       final bottomY = centerY - (min * centerY);
       path.lineTo(x, bottomY);
     }
@@ -4767,7 +4797,9 @@ class _WaveformPainter extends CustomPainter {
   @override
   bool shouldRepaint(_WaveformPainter oldDelegate) {
     // O(1) reference checks - downsampling happens fresh each paint
-    return !identical(peaks, oldDelegate.peaks) || color != oldDelegate.color;
+    return !identical(peaks, oldDelegate.peaks) ||
+        color != oldDelegate.color ||
+        visualGain != oldDelegate.visualGain;
   }
 }
 

@@ -47,6 +47,10 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
   /// Current edit parameters for the clip.
   AudioClipEditData editData = const AudioClipEditData();
 
+  /// Full audio content duration in beats (does not change when Length field changes).
+  /// This is used for waveform rendering - the waveform always shows the full audio.
+  double contentDurationBeats = 4.0;
+
   // ============================================
   // LOOP SETTINGS
   // ============================================
@@ -259,6 +263,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     // Calculate clip's timeline duration in beats (what's visible on arrangement)
     // clip.duration is the trimmed/visible duration on the timeline
     final clipTimelineBeats = clip.duration * (editData.bpm / 60.0);
+
+    // Store the full audio content duration (waveform always shows this)
+    contentDurationBeats = clipTimelineBeats;
 
     // If clip has no saved edit data, use clip's timeline duration
     if (!hasEditData) {

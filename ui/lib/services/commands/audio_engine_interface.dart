@@ -4,6 +4,7 @@
 abstract class AudioEngineInterface {
   // Clip operations
   void setClipStartTime(int trackId, int clipId, double startTime);
+  String setAudioClipGain(int trackId, int clipId, double gainDb);
   int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0});
   double getClipDuration(int clipId);
   List<double> getWaveformPeaks(int clipId, int resolution);

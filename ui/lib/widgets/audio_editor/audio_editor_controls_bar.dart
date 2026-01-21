@@ -9,6 +9,10 @@ import '../shared/mini_knob.dart';
 /// Layout format (matches Piano Roll):
 /// Start [1.1.1] Length [4.0.0] | Pitch [+0 st] | Vol [━━●━━ +0.0 dB] | BPM [120.0]
 class AudioEditorControlsBar extends StatelessWidget {
+  // === Loop Toggle ===
+  final bool loopEnabled;
+  final VoidCallback? onLoopToggle;
+
   // === Start/Length ===
   final double startOffsetBeats;
   final double lengthBeats;
@@ -30,6 +34,8 @@ class AudioEditorControlsBar extends StatelessWidget {
 
   const AudioEditorControlsBar({
     super.key,
+    this.loopEnabled = true,
+    this.onLoopToggle,
     this.startOffsetBeats = 0.0,
     this.lengthBeats = 4.0,
     this.beatsPerBar = 4,
@@ -57,6 +63,10 @@ class AudioEditorControlsBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // === LOOP TOGGLE ===
+          _buildLoopToggle(context),
+          const SizedBox(width: 8),
+
           // === CLIP GROUP (Start + Length) ===
           _buildClipGroup(context),
           _buildSeparator(context),
@@ -85,6 +95,46 @@ class AudioEditorControlsBar extends StatelessWidget {
       height: 20,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       color: context.colors.surface,
+    );
+  }
+
+  // ============ LOOP TOGGLE ============
+  Widget _buildLoopToggle(BuildContext context) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: 'Loop (L)',
+      child: GestureDetector(
+        onTap: onLoopToggle,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: loopEnabled ? colors.accent : colors.dark,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.loop,
+                  size: 13,
+                  color: loopEnabled ? colors.elevated : colors.textPrimary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Loop',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: loopEnabled ? colors.elevated : colors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

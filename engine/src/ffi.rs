@@ -261,6 +261,16 @@ pub extern "C" fn set_clip_start_time_ffi(track_id: u64, clip_id: u64, start_tim
     }
 }
 
+/// Set audio clip gain
+/// Used to adjust per-clip volume in the Audio Editor
+#[no_mangle]
+pub extern "C" fn set_audio_clip_gain_ffi(track_id: u64, clip_id: u64, gain_db: f32) -> *mut c_char {
+    match api::set_audio_clip_gain(track_id, clip_id, gain_db) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Get waveform peaks
 /// Returns pointer to float array, and writes the length to out_length
 /// Caller must free the returned array with free_waveform_peaks_ffi

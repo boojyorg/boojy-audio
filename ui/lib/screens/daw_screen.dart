@@ -860,7 +860,9 @@ class _DAWScreenState extends State<DAWScreen> {
     setState(() {
       _selectedAudioClip = clip;
     });
-    // TODO: Persist changes to audio engine when audio clip editing is implemented
+
+    // Update the clip in the timeline view so waveform reflects gain changes
+    _timelineKey.currentState?.updateClip(clip);
 
     // Auto-update arrangement loop region to follow content
     _updateArrangementLoopToContent();
@@ -940,7 +942,21 @@ class _DAWScreenState extends State<DAWScreen> {
   Future<void> _onInstrumentDroppedOnEmpty(Instrument instrument) async {
     if (_audioEngine == null) return;
 
-    // Create a new MIDI track using UndoRedoManager
+    // Handle Sampler instrument separately
+    if (instrument.id == 'sampler') {
+      // Create empty sampler track (no sample loaded yet)
+      final trackId = _audioEngine!.createTrack('sampler', 'Sampler');
+      if (trackId < 0) return;
+
+      // Initialize sampler for the track
+      _audioEngine!.createSamplerForTrack(trackId);
+
+      _refreshTrackWidgets();
+      _selectTrack(trackId);
+      return;
+    }
+
+    // Create a new MIDI track for Synthesizer (and other instruments)
     final command = CreateTrackCommand(
       trackType: 'midi',
       trackName: 'MIDI',

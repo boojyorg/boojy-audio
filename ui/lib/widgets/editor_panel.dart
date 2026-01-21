@@ -201,10 +201,13 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     if (widget.selectedTrackId != oldWidget.selectedTrackId) {
       if (oldWidget.selectedTrackId == null && widget.selectedTrackId != null) {
         // First selection: auto-switch to appropriate tab
+        // MIDI: [Synthesizer=0, PianoRoll=1, Effects=2]
+        // Sampler: [Sampler=0, PianoRoll=1, Effects=2]
+        // Audio: [AudioEditor=0, Effects=1]
         if (_isMidiTrack && widget.currentInstrumentData != null) {
-          _tabController.index = 2; // Instrument tab (only for MIDI tracks)
+          _tabController.index = 0; // Instrument tab (MIDI tracks)
         } else {
-          _tabController.index = 0; // Piano Roll/Audio Editor/Sampler tab
+          _tabController.index = 0; // First tab for all track types
         }
       }
       // If switching from one track to another, preserve current tab
@@ -212,8 +215,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
     // Auto-switch to Piano Roll tab when MIDI clip selected
     if (widget.currentEditingClip != null && oldWidget.currentEditingClip == null) {
-      // For sampler tracks, Piano Roll is tab 1
-      _tabController.index = _isSamplerTrack ? 1 : 0;
+      // MIDI: Piano Roll is tab 1. Sampler: Piano Roll is also tab 1
+      _tabController.index = 1;
     }
 
     // Auto-switch to Audio Editor/Sampler tab when audio clip selected
@@ -223,7 +226,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
     // Auto-switch to Instrument tab when instrument data first appears (MIDI tracks only)
     if (_isMidiTrack && widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
-      _tabController.index = 2;
+      _tabController.index = 0; // Instrument is now tab 0 for MIDI tracks
     }
   }
 
@@ -483,13 +486,13 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       ];
     }
 
-    // MIDI track
+    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
     return [
-      _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
+      _buildCollapsedTabButton(0, Icons.music_note, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
-      _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
+      _buildCollapsedTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
-      _buildCollapsedTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+      _buildCollapsedTabButton(2, Icons.equalizer, 'Effects'),
     ];
   }
 
@@ -571,13 +574,13 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       ];
     }
 
-    // MIDI track
+    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
     return [
-      _buildTabButton(0, _firstTabIcon, _firstTabLabel),
+      _buildTabButton(0, Icons.music_note, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
-      _buildTabButton(1, Icons.equalizer, 'Effects'),
+      _buildTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
-      _buildTabButton(2, Icons.music_note, _getInstrumentTabLabel()),
+      _buildTabButton(2, Icons.equalizer, 'Effects'),
     ];
   }
 
@@ -601,11 +604,11 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       ];
     }
 
-    // MIDI track
+    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
     return [
+      _buildInstrumentTab(),
       _buildEditorTab(),
       _buildFXChainTab(),
-      _buildInstrumentTab(),
     ];
   }
 
