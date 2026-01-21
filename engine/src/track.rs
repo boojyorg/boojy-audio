@@ -35,6 +35,8 @@ pub struct TimelineClip {
     /// Stretch factor for time-stretching (1.0 = normal, 2.0 = double speed)
     /// Calculated as: project_bpm / clip_original_bpm
     pub stretch_factor: f32,
+    /// Warp algorithm mode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
+    pub warp_mode: u8,
 }
 
 impl TimelineClip {

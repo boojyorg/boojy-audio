@@ -90,6 +90,23 @@ class MockAudioEngine implements AudioEngineInterface {
 
   @override
   bool isSamplerTrack(int trackId) => false;
+
+  // MIDI clip operations
+  @override
+  int createMidiClip() => 1;
+
+  @override
+  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) => 'OK';
+
+  @override
+  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) => 1;
+
+  // Audio clip operations
+  @override
+  String setAudioClipGain(int trackId, int clipId, double gainDb) => 'OK';
+
+  @override
+  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) => 'OK';
 }
 
 void main() {

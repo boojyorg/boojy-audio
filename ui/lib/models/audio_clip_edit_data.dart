@@ -1,5 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+/// Warp algorithm mode for audio clips.
+/// - warp: Time-stretch with pitch preserved (like Ableton's Complex mode)
+/// - repitch: Speed change affects pitch (like vinyl/tape)
+enum WarpMode { warp, repitch }
+
 /// Non-destructive editing parameters for audio clips.
 /// These parameters are stored in the UI and sent to the audio engine
 /// for real-time processing during playback.
@@ -30,6 +35,9 @@ class AudioClipEditData {
 
   /// Time stretch factor (0.5 = half speed, 1.0 = normal, 2.0 = double speed)
   final double stretchFactor;
+
+  /// Warp algorithm mode (warp = pitch preserved, repitch = pitch follows speed)
+  final WarpMode warpMode;
 
   // === Pitch ===
   /// Transpose amount in semitones (-48 to +48)
@@ -68,6 +76,7 @@ class AudioClipEditData {
     this.bpm = 120.0,
     this.syncEnabled = false,
     this.stretchFactor = 1.0,
+    this.warpMode = WarpMode.warp,
     this.transposeSemitones = 0,
     this.fineCents = 0,
     this.gainDb = 0.0,
@@ -88,6 +97,7 @@ class AudioClipEditData {
     double? bpm,
     bool? syncEnabled,
     double? stretchFactor,
+    WarpMode? warpMode,
     int? transposeSemitones,
     int? fineCents,
     double? gainDb,
@@ -107,6 +117,7 @@ class AudioClipEditData {
       bpm: bpm ?? this.bpm,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       stretchFactor: stretchFactor ?? this.stretchFactor,
+      warpMode: warpMode ?? this.warpMode,
       transposeSemitones: transposeSemitones ?? this.transposeSemitones,
       fineCents: fineCents ?? this.fineCents,
       gainDb: gainDb ?? this.gainDb,
@@ -144,6 +155,7 @@ class AudioClipEditData {
       'bpm': bpm,
       'syncEnabled': syncEnabled,
       'stretchFactor': stretchFactor,
+      'warpMode': warpMode.name,
       'transposeSemitones': transposeSemitones,
       'fineCents': fineCents,
       'gainDb': gainDb,
@@ -166,6 +178,10 @@ class AudioClipEditData {
       bpm: (json['bpm'] as num?)?.toDouble() ?? 120.0,
       syncEnabled: json['syncEnabled'] as bool? ?? false,
       stretchFactor: (json['stretchFactor'] as num?)?.toDouble() ?? 1.0,
+      warpMode: WarpMode.values.firstWhere(
+        (m) => m.name == json['warpMode'],
+        orElse: () => WarpMode.warp,
+      ),
       transposeSemitones: json['transposeSemitones'] as int? ?? 0,
       fineCents: json['fineCents'] as int? ?? 0,
       gainDb: (json['gainDb'] as num?)?.toDouble() ?? 0.0,
@@ -189,6 +205,7 @@ class AudioClipEditData {
         other.bpm == bpm &&
         other.syncEnabled == syncEnabled &&
         other.stretchFactor == stretchFactor &&
+        other.warpMode == warpMode &&
         other.transposeSemitones == transposeSemitones &&
         other.fineCents == fineCents &&
         other.gainDb == gainDb &&
@@ -210,6 +227,7 @@ class AudioClipEditData {
       bpm,
       syncEnabled,
       stretchFactor,
+      warpMode,
       transposeSemitones,
       fineCents,
       gainDb,

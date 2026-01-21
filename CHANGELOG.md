@@ -14,6 +14,10 @@ All notable changes to Boojy Audio will be documented in this file.
   - Works in real-time playback and offline export
   - Warp ON: clip visual width stays fixed (beat-based) regardless of tempo changes
   - Warp OFF: clip visual width stretches/squishes with tempo (time-based), consistent between Audio Editor and Arrangement View
+- Added Warp Mode selection to Audio Editor: Warp (time-stretch with pitch preserved) vs Re-Pitch (speed changes pitch like vinyl/tape)
+  - Split button UI: click icon/text to toggle warp on/off, click dropdown arrow to select mode
+  - Warp mode (default): Time-stretching preserves pitch while changing tempo
+  - Re-Pitch mode: Speed change affects pitch (classic varispeed behavior)
 - Added Sampler track type with pitch-shifted sample playback triggered by MIDI notes
 - Added Sampler Editor with Attack/Release envelope controls and Root Note selection
 - Added "Open in Sampler" context menu option in Library panel for audio files

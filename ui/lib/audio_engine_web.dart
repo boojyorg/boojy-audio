@@ -342,6 +342,12 @@ class AudioEngine implements AudioEngineInterface {
   void setClipStartTime(int trackId, int clipId, double startTime) {}
 
   @override
+  String setAudioClipGain(int trackId, int clipId, double gainDb) => 'OK';
+
+  @override
+  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) => 'OK';
+
+  @override
   void removeAudioClip(int trackId, int clipId) {}
 
   @override

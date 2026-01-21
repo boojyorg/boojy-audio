@@ -400,6 +400,7 @@ pub fn set_audio_clip_gain(track_id: TrackId, clip_id: u64, gain_db: f32) -> Res
 /// * `clip_id` - ID of the clip to modify
 /// * `warp_enabled` - Whether warp/tempo sync is enabled
 /// * `stretch_factor` - Stretch factor (project_bpm / clip_bpm), 1.0 = no stretch
+/// * `warp_mode` - Warp algorithm: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
 ///
 /// # Returns
 /// Success message
@@ -408,6 +409,7 @@ pub fn set_audio_clip_warp(
     clip_id: u64,
     warp_enabled: bool,
     stretch_factor: f32,
+    warp_mode: u8,
 ) -> Result<String, String> {
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -421,9 +423,11 @@ pub fn set_audio_clip_warp(
             if clip.id == clip_id {
                 clip.warp_enabled = warp_enabled;
                 clip.stretch_factor = stretch_factor.clamp(0.25, 4.0);
+                clip.warp_mode = warp_mode;
+                let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
                 return Ok(format!(
-                    "Clip {} warp: {}, stretch: {:.2}x",
-                    clip_id, warp_enabled, clip.stretch_factor
+                    "Clip {} warp: {}, stretch: {:.2}x, mode: {}",
+                    clip_id, warp_enabled, clip.stretch_factor, mode_str
                 ));
             }
         }

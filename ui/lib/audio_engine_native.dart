@@ -1246,10 +1246,11 @@ class AudioEngine implements AudioEngineInterface {
 
   /// Set audio clip warp settings for tempo sync
   /// Used to enable/disable time-stretching in the Audio Editor
+  /// warpMode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
   @override
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor) {
+  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) {
     try {
-      final result = _setAudioClipWarp(trackId, clipId, warpEnabled, stretchFactor);
+      final result = _setAudioClipWarp(trackId, clipId, warpEnabled, stretchFactor, warpMode);
       final str = result.toDartString();
       _freeRustString(result);
       return str;
@@ -2885,8 +2886,8 @@ typedef _SetClipStartTimeFfi = ffi.Pointer<Utf8> Function(int, int, double);
 typedef _SetAudioClipGainFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Float);
 typedef _SetAudioClipGainFfi = ffi.Pointer<Utf8> Function(int, int, double);
 
-typedef _SetAudioClipWarpFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Bool, ffi.Float);
-typedef _SetAudioClipWarpFfi = ffi.Pointer<Utf8> Function(int, int, bool, double);
+typedef _SetAudioClipWarpFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Bool, ffi.Float, ffi.Int32);
+typedef _SetAudioClipWarpFfi = ffi.Pointer<Utf8> Function(int, int, bool, double, int);
 
 typedef _GetWaveformPeaksFfiNative = ffi.Pointer<ffi.Float> Function(
     ffi.Uint64, ffi.Size, ffi.Pointer<ffi.Size>);

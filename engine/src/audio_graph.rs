@@ -237,6 +237,7 @@ impl AudioGraph {
             gain_db: 0.0,
             warp_enabled: false,
             stretch_factor: 1.0,
+            warp_mode: 0,
         });
 
         id
@@ -296,6 +297,7 @@ impl AudioGraph {
                 gain_db: 0.0,
                 warp_enabled: false,
                 stretch_factor: 1.0,
+                warp_mode: 0,
             });
             Some(id)
         } else {

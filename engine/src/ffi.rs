@@ -273,14 +273,16 @@ pub extern "C" fn set_audio_clip_gain_ffi(track_id: u64, clip_id: u64, gain_db: 
 
 /// Set audio clip warp settings for tempo sync
 /// Used to enable/disable time-stretching in the Audio Editor
+/// warp_mode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
 #[no_mangle]
 pub extern "C" fn set_audio_clip_warp_ffi(
     track_id: u64,
     clip_id: u64,
     warp_enabled: bool,
     stretch_factor: f32,
+    warp_mode: i32,
 ) -> *mut c_char {
-    match api::set_audio_clip_warp(track_id, clip_id, warp_enabled, stretch_factor) {
+    match api::set_audio_clip_warp(track_id, clip_id, warp_enabled, stretch_factor, warp_mode as u8) {
         Ok(msg) => safe_cstring(msg).into_raw(),
         Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
     }

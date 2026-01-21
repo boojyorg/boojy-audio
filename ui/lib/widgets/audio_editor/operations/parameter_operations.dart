@@ -76,6 +76,7 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       clip.clipId,
       editData.syncEnabled,
       editData.stretchFactor,
+      editData.warpMode.index,
     );
 
     // TODO: Future FFI calls for additional parameters:

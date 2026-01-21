@@ -18,6 +18,14 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
+  String setAudioClipGain(int trackId, int clipId, double gainDb) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) =>
+      throw UnsupportedError('stub');
+
+  @override
   int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0}) =>
       throw UnsupportedError('stub');
 
