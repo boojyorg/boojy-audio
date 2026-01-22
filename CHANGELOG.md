@@ -16,8 +16,9 @@ All notable changes to Boojy Audio will be documented in this file.
   - Warp OFF: clip visual width stretches/squishes with tempo (time-based), consistent between Audio Editor and Arrangement View
 - Added Warp Mode selection to Audio Editor: Warp (time-stretch with pitch preserved) vs Re-Pitch (speed changes pitch like vinyl/tape)
   - Split button UI: click icon/text to toggle warp on/off, click dropdown arrow to select mode
-  - Warp mode (default): Time-stretching preserves pitch while changing tempo
+  - Warp mode (default): Time-stretching preserves pitch while changing tempo using signalsmith-stretch algorithm
   - Re-Pitch mode: Speed change affects pitch (classic varispeed behavior)
+  - Warp mode now actually works: pitch-preserved time-stretching using pre-computed cached audio
 - Added Sampler track type with pitch-shifted sample playback triggered by MIDI notes
 - Added Sampler Editor with Attack/Release envelope controls and Root Note selection
 - Added "Open in Sampler" context menu option in Library panel for audio files
@@ -55,6 +56,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed Warp mode not actually preserving pitch: was using signalsmith-stretch's streaming `process()` method which doesn't work correctly for batch offline processing. Now uses `exact()` for complete buffer processing with fallback to `process()` for edge cases
 - Fixed audio playback not following project tempo: audio now plays at the correct speed relative to the visual timeline at any tempo (was always playing at 120 BPM regardless of tempo setting). Applies to real-time playback and export
 - Fixed audio clip warp playback timing: warped clips now end at the correct time matching visual representation (was using original duration instead of stretched duration)
 - Fixed multi-track drag state sync: dragging mixed MIDI+audio selections now updates all clip positions in real-time during drag (previously only updated on drag end)

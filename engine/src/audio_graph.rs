@@ -238,6 +238,8 @@ impl AudioGraph {
             warp_enabled: false,
             stretch_factor: 1.0,
             warp_mode: 0,
+            stretched_cache: None,
+            cached_stretch_factor: 0.0,
         });
 
         id
@@ -298,6 +300,8 @@ impl AudioGraph {
                 warp_enabled: false,
                 stretch_factor: 1.0,
                 warp_mode: 0,
+                stretched_cache: None,
+                cached_stretch_factor: 0.0,
             });
             Some(id)
         } else {
@@ -1072,26 +1076,54 @@ impl AudioGraph {
                                 && playhead_seconds < clip_end
                             {
                                 let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                                // Apply stretch factor when warp is enabled
-                                // stretch > 1 = faster playback = advance through clip faster
-                                let stretched_time = if timeline_clip.warp_enabled {
-                                    time_in_clip * timeline_clip.stretch_factor as f64
-                                } else {
-                                    time_in_clip
-                                };
-                                let frame_in_clip = (stretched_time * TARGET_SAMPLE_RATE as f64) as usize;
                                 let clip_gain = timeline_clip.get_gain();
 
-                                if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                                // Determine which audio source to use and calculate frame index
+                                let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
+                                    if timeline_clip.warp_mode == 0 {
+                                        // Warp mode: use pre-stretched cached audio (pitch preserved)
+                                        // Play at normal speed from stretched cache
+                                        if let Some(ref stretched) = timeline_clip.stretched_cache {
+                                            // Log once per playback start
+                                            if frame_idx == 0 {
+                                                eprintln!("✅ [Playback] Using STRETCHED CACHE! clip_id={}, cache_frames={}, stretch_factor={:.3}",
+                                                    timeline_clip.id, stretched.frame_count(), timeline_clip.stretch_factor);
+                                            }
+                                            let frame = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
+                                            (frame, stretched.as_ref())
+                                        } else {
+                                            // Fallback to Re-Pitch if cache not ready
+                                            // Log once per playback start (frame 0)
+                                            if frame_idx == 0 {
+                                                eprintln!("❌ [Playback] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
+                                            }
+                                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                            ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                        }
+                                    } else {
+                                        // Re-Pitch mode: sample-rate shift (pitch follows speed)
+                                        if frame_idx == 0 {
+                                            eprintln!("🔄 [Playback] Using RE-PITCH mode! clip_id={}, stretch_factor={:.3}",
+                                                timeline_clip.id, timeline_clip.stretch_factor);
+                                        }
+                                        let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                        ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                    }
+                                } else {
+                                    // No warp - play at normal speed
+                                    ((time_in_clip * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                };
+
+                                if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                                     track_left += l * clip_gain;
                                 }
-                                if timeline_clip.clip.channels > 1 {
-                                    if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
+                                if source_clip.channels > 1 {
+                                    if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
                                         track_right += r * clip_gain;
                                     }
                                 } else {
                                     // Mono clip - duplicate to right
-                                    if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                                    if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                                         track_right += l * clip_gain;
                                     }
                                 }
@@ -2051,25 +2083,44 @@ impl AudioGraph {
                         && playhead_seconds < clip_end
                     {
                         let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                        // Apply stretch factor when warp is enabled
-                        let stretched_time = if timeline_clip.warp_enabled {
-                            time_in_clip * timeline_clip.stretch_factor as f64
-                        } else {
-                            time_in_clip
-                        };
-                        let frame_in_clip = (stretched_time * sample_rate as f64) as usize;
                         let clip_gain = timeline_clip.get_gain();
 
-                        if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                        // Determine which audio source to use and calculate frame index
+                        let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
+                            if timeline_clip.warp_mode == 0 {
+                                // Warp mode: use pre-stretched cached audio (pitch preserved)
+                                if let Some(ref stretched) = timeline_clip.stretched_cache {
+                                    let frame = (time_in_clip * sample_rate as f64) as usize;
+                                    (frame, stretched.as_ref())
+                                } else {
+                                    // Fallback to Re-Pitch if cache not ready
+                                    // Log once per playback start (frame 0)
+                                    if frame_idx == 0 {
+                                        eprintln!("❌ [Playback-2] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
+                                    }
+                                    let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                    ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                                }
+                            } else {
+                                // Re-Pitch mode: sample-rate shift (pitch follows speed)
+                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                            }
+                        } else {
+                            // No warp - play at normal speed
+                            ((time_in_clip * sample_rate as f64) as usize, &*timeline_clip.clip)
+                        };
+
+                        if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                             track_left += l * clip_gain;
                         }
-                        if timeline_clip.clip.channels > 1 {
-                            if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
+                        if source_clip.channels > 1 {
+                            if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
                                 track_right += r * clip_gain;
                             }
                         } else {
                             // Mono clip - duplicate to right
-                            if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                            if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                                 track_right += l * clip_gain;
                             }
                         }
@@ -2312,25 +2363,44 @@ impl AudioGraph {
                 if playhead_seconds >= timeline_clip.start_time && playhead_seconds < clip_end {
                     let time_in_clip =
                         playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                    // Apply stretch factor when warp is enabled
-                    let stretched_time = if timeline_clip.warp_enabled {
-                        time_in_clip * timeline_clip.stretch_factor as f64
-                    } else {
-                        time_in_clip
-                    };
-                    let frame_in_clip = (stretched_time * sample_rate as f64) as usize;
                     let clip_gain = timeline_clip.get_gain();
 
-                    if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                    // Determine which audio source to use and calculate frame index
+                    let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
+                        if timeline_clip.warp_mode == 0 {
+                            // Warp mode: use pre-stretched cached audio (pitch preserved)
+                            if let Some(ref stretched) = timeline_clip.stretched_cache {
+                                let frame = (time_in_clip * sample_rate as f64) as usize;
+                                (frame, stretched.as_ref())
+                            } else {
+                                // Fallback to Re-Pitch if cache not ready
+                                // Log once per playback start (frame 0)
+                                if frame_idx == 0 {
+                                    eprintln!("❌ [Playback-3] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
+                                }
+                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                            }
+                        } else {
+                            // Re-Pitch mode: sample-rate shift (pitch follows speed)
+                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                            ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                        }
+                    } else {
+                        // No warp - play at normal speed
+                        ((time_in_clip * sample_rate as f64) as usize, &*timeline_clip.clip)
+                    };
+
+                    if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                         track_left += l * clip_gain;
                     }
-                    if timeline_clip.clip.channels > 1 {
-                        if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
+                    if source_clip.channels > 1 {
+                        if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
                             track_right += r * clip_gain;
                         }
                     } else {
                         // Mono clip - duplicate to right
-                        if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
+                        if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                             track_right += l * clip_gain;
                         }
                     }
