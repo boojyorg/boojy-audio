@@ -18,8 +18,10 @@ class AudioEditorControlsBar extends StatefulWidget {
   final double startOffsetBeats;
   final double lengthBeats;
   final int beatsPerBar; // Needed for LoopTimeDisplay formatting
+  final int beatUnit; // Time signature denominator (e.g., 4 for 4/4)
   final Function(double)? onStartChanged;
   final Function(double)? onLengthChanged;
+  final Function(int, int)? onSignatureChanged; // (numerator, denominator)
 
   // === Warp/Tempo ===
   final bool warpEnabled;
@@ -37,6 +39,10 @@ class AudioEditorControlsBar extends StatefulWidget {
   final int fineCents;
   final Function(int)? onFineCentsChanged;
 
+  // === Reverse ===
+  final bool reversed;
+  final VoidCallback? onReverseToggle;
+
   // === Volume ===
   final double gainDb;
   final Function(double)? onGainChanged;
@@ -48,8 +54,10 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.startOffsetBeats = 0.0,
     this.lengthBeats = 4.0,
     this.beatsPerBar = 4,
+    this.beatUnit = 4,
     this.onStartChanged,
     this.onLengthChanged,
+    this.onSignatureChanged,
     this.warpEnabled = true,
     this.onWarpToggle,
     this.warpMode = WarpMode.warp,
@@ -62,6 +70,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onTransposeChanged,
     this.fineCents = 0,
     this.onFineCentsChanged,
+    this.reversed = false,
+    this.onReverseToggle,
     this.gainDb = 0.0,
     this.onGainChanged,
   });
@@ -71,7 +81,7 @@ class AudioEditorControlsBar extends StatefulWidget {
 }
 
 class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
-  // Hover states for split button
+  // Hover states for warp split button
   bool _isHoveringWarpLabel = false;
   bool _isHoveringWarpDropdown = false;
 
@@ -224,8 +234,106 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             isPosition: false, // 0-indexed length (1.0.0 = 1 bar)
           ),
         ),
+        const SizedBox(width: 8),
+
+        // Signature label + dropdown
+        Text('Signature', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        const SizedBox(width: 4),
+        _buildSignatureDropdown(context),
       ],
     );
+  }
+
+  // ============ SIGNATURE DROPDOWN ============
+  Widget _buildSignatureDropdown(BuildContext context) {
+    final colors = context.colors;
+    final signature = '${widget.beatsPerBar}/${widget.beatUnit}';
+
+    return GestureDetector(
+      onTap: () => _showSignatureMenu(context),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: colors.dark,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: colors.surface, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                signature,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 14,
+                color: colors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSignatureMenu(BuildContext context) {
+    final colors = context.colors;
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final signatures = [
+      (2, 4),
+      (3, 4),
+      (4, 4),
+      (5, 4),
+      (6, 8),
+      (7, 8),
+    ];
+
+    showMenu<(int, int)>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        renderBox.localToGlobal(Offset.zero).dx,
+        renderBox.localToGlobal(Offset.zero).dy + renderBox.size.height,
+        0,
+        0,
+      ),
+      items: signatures.map((sig) {
+        final isSelected = sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
+        return PopupMenuItem<(int, int)>(
+          value: sig,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 18,
+                child: isSelected
+                    ? Icon(Icons.check, size: 14, color: colors.accent)
+                    : null,
+              ),
+              Text(
+                '${sig.$1}/${sig.$2}',
+                style: TextStyle(
+                  color: isSelected ? colors.accent : colors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null) {
+        widget.onSignatureChanged?.call(value.$1, value.$2);
+      }
+    });
   }
 
   // ============ PITCH CONTROL ============
@@ -296,6 +404,9 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Volume label
+        Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        const SizedBox(width: 4),
         // dB display box (matches track mixer style)
         Container(
           width: 52,
@@ -335,29 +446,32 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     );
   }
 
-  // ============ WARP GROUP (Split button + Original BPM) ============
+  // ============ WARP GROUP (Warp label + split button + BPM + tempo buttons + Reverse) ============
   Widget _buildWarpGroup(BuildContext context) {
     final colors = context.colors;
     final isEnabled = widget.warpEnabled;
     final mode = widget.warpMode;
-    final modeLabel = mode == WarpMode.warp ? 'Warp' : 'Re-Pitch';
+    final modeLabel = mode == WarpMode.warp ? 'Stretch' : 'Re-Pitch';
+    final bgColor = isEnabled ? colors.accent : colors.dark;
+    final textColor = isEnabled ? colors.elevated : colors.textPrimary;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Split button: [↻ Warp/Re-Pitch ▼]
-        // Use DecoratedBox like Piano Roll's snap button
+        // Warp label
+        Text('Warp', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        const SizedBox(width: 4),
+        // Split button: [icon + Stretch | ▼] - like Piano Roll's Snap button
         DecoratedBox(
           key: _warpButtonKey,
           decoration: BoxDecoration(
-            color: isEnabled ? colors.accent : colors.dark,
+            color: bgColor,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Left part: icon + label (toggles warp on/off)
-              // Must match Piano Roll pattern: MouseRegion outside, GestureDetector inside with HitTestBehavior.opaque
+              // Left side: Icon + Label (clickable to toggle warp on/off)
               MouseRegion(
                 onEnter: (_) => setState(() => _isHoveringWarpLabel = true),
                 onExit: (_) => setState(() => _isHoveringWarpLabel = false),
@@ -369,7 +483,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpLabel
-                          ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
+                          ? colors.textPrimary.withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(2),
@@ -382,14 +496,14 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                         Icon(
                           Icons.sync,
                           size: 13,
-                          color: isEnabled ? colors.elevated : colors.textPrimary,
+                          color: textColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           modeLabel,
                           style: TextStyle(
+                            color: textColor,
                             fontSize: 10,
-                            color: isEnabled ? colors.elevated : colors.textPrimary,
                           ),
                         ),
                       ],
@@ -397,16 +511,13 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                   ),
                 ),
               ),
-              // Divider
+              // Divider line
               Container(
                 width: 1,
-                height: 16,
-                color: isEnabled
-                    ? colors.elevated.withValues(alpha: 0.3)
-                    : colors.surface,
+                height: 15,
+                color: colors.textPrimary.withValues(alpha: 0.2),
               ),
-              // Right part: dropdown arrow (opens mode menu)
-              // Order must match Piano Roll: MouseRegion outside, GestureDetector inside
+              // Right side: Dropdown arrow (opens mode menu)
               MouseRegion(
                 onEnter: (_) => setState(() => _isHoveringWarpDropdown = true),
                 onExit: (_) => setState(() => _isHoveringWarpDropdown = false),
@@ -418,7 +529,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpDropdown
-                          ? (isEnabled ? colors.accent.withValues(alpha: 0.8) : colors.surface)
+                          ? colors.textPrimary.withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(2),
@@ -428,7 +539,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     child: Icon(
                       Icons.arrow_drop_down,
                       size: 14,
-                      color: isEnabled ? colors.elevated : colors.textPrimary,
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -438,11 +549,57 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         ),
         const SizedBox(width: 8),
         // Original BPM - draggable display like transport bar
+        // Disabled (greyed out) when Warp is OFF
         _OriginalBpmDisplay(
           bpm: widget.originalBpm,
-          onBpmChanged: widget.onOriginalBpmChanged,
+          onBpmChanged: isEnabled ? widget.onOriginalBpmChanged : null,
+          enabled: isEnabled,
         ),
+        const SizedBox(width: 4),
+        // ÷2 button - halves BPM (same style as Reverse toggle)
+        _buildActionButton(context, '÷2', false, isEnabled, () {
+          widget.onOriginalBpmChanged?.call((widget.originalBpm / 2).clamp(20, 999));
+        }),
+        const SizedBox(width: 2),
+        // ×2 button - doubles BPM (same style as Reverse toggle)
+        _buildActionButton(context, '×2', false, isEnabled, () {
+          widget.onOriginalBpmChanged?.call((widget.originalBpm * 2).clamp(20, 999));
+        }),
+        const SizedBox(width: 4),
+        // Reverse toggle
+        _buildActionButton(context, 'Reverse', widget.reversed, true, widget.onReverseToggle),
       ],
+    );
+  }
+
+  // ============ ACTION BUTTON (÷2 / ×2 / Reverse - unified style) ============
+  Widget _buildActionButton(BuildContext context, String label, bool isActive, bool enabled, VoidCallback? onTap) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: label == 'Reverse' ? 'Reverse (R)' : label,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: MouseRegion(
+          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+            decoration: BoxDecoration(
+              color: isActive ? colors.accent : colors.dark,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isActive
+                    ? colors.elevated
+                    : (enabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5)),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -603,10 +760,12 @@ class _WarpModeMenuOverlay extends StatelessWidget {
 class _OriginalBpmDisplay extends StatefulWidget {
   final double bpm;
   final Function(double)? onBpmChanged;
+  final bool enabled;
 
   const _OriginalBpmDisplay({
     required this.bpm,
     this.onBpmChanged,
+    this.enabled = true,
   });
 
   @override
@@ -674,36 +833,45 @@ class _OriginalBpmDisplayState extends State<_OriginalBpmDisplay> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final bpmText = _formatBpm(widget.bpm);
+    final isEnabled = widget.enabled;
 
     return Tooltip(
-      message: 'Original clip tempo (drag to adjust, double-click for precise input)',
+      message: isEnabled
+          ? 'Original clip tempo (drag to adjust, double-click for precise input)'
+          : 'Enable Warp to adjust BPM',
       child: GestureDetector(
-        onVerticalDragStart: (details) {
-          setState(() {
-            _isDragging = true;
-            _dragStartY = details.globalPosition.dy;
-            // Snap start position to whole BPM for cleaner dragging
-            _dragStartBpm = widget.bpm.roundToDouble();
-          });
-        },
-        onVerticalDragUpdate: (details) {
-          if (widget.onBpmChanged != null) {
-            // Drag up = increase BPM, drag down = decrease BPM
-            final deltaY = _dragStartY - details.globalPosition.dy;
-            // ~0.5 BPM per pixel, then round to whole BPM
-            final deltaBpm = (deltaY * 0.5).roundToDouble();
-            final newBpm = (_dragStartBpm + deltaBpm).clamp(20.0, 999.0);
-            widget.onBpmChanged!(newBpm);
-          }
-        },
-        onVerticalDragEnd: (details) {
-          setState(() {
-            _isDragging = false;
-          });
-        },
-        onDoubleTap: () => _showBpmDialog(context),
+        onVerticalDragStart: isEnabled
+            ? (details) {
+                setState(() {
+                  _isDragging = true;
+                  _dragStartY = details.globalPosition.dy;
+                  // Snap start position to whole BPM for cleaner dragging
+                  _dragStartBpm = widget.bpm.roundToDouble();
+                });
+              }
+            : null,
+        onVerticalDragUpdate: isEnabled
+            ? (details) {
+                if (widget.onBpmChanged != null) {
+                  // Drag up = increase BPM, drag down = decrease BPM
+                  final deltaY = _dragStartY - details.globalPosition.dy;
+                  // ~0.5 BPM per pixel, then round to whole BPM
+                  final deltaBpm = (deltaY * 0.5).roundToDouble();
+                  final newBpm = (_dragStartBpm + deltaBpm).clamp(20.0, 999.0);
+                  widget.onBpmChanged!(newBpm);
+                }
+              }
+            : null,
+        onVerticalDragEnd: isEnabled
+            ? (details) {
+                setState(() {
+                  _isDragging = false;
+                });
+              }
+            : null,
+        onDoubleTap: isEnabled ? () => _showBpmDialog(context) : null,
         child: MouseRegion(
-          cursor: SystemMouseCursors.resizeUpDown,
+          cursor: isEnabled ? SystemMouseCursors.resizeUpDown : SystemMouseCursors.forbidden,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
             decoration: BoxDecoration(
@@ -713,12 +881,15 @@ class _OriginalBpmDisplayState extends State<_OriginalBpmDisplay> {
               borderRadius: BorderRadius.circular(2),
               border: _isDragging
                   ? Border.all(color: colors.accent, width: 1.5)
-                  : Border.all(color: colors.surface, width: 1.5),
+                  : Border.all(
+                      color: isEnabled ? colors.surface : colors.surface.withValues(alpha: 0.5),
+                      width: 1.5,
+                    ),
             ),
             child: Text(
               bpmText,
               style: TextStyle(
-                color: colors.textPrimary,
+                color: isEnabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5),
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),

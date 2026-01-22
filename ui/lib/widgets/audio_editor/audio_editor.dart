@@ -138,8 +138,10 @@ class _AudioEditorState extends State<AudioEditor>
                   startOffsetBeats: loopStartBeats,
                   lengthBeats: loopEndBeats - loopStartBeats,
                   beatsPerBar: beatsPerBar,
+                  beatUnit: beatUnit,
                   onStartChanged: _onStartChanged,
                   onLengthChanged: _onLengthChanged,
+                  onSignatureChanged: _onSignatureChanged,
                   // Warp controls
                   warpEnabled: editData.syncEnabled,
                   onWarpToggle: _toggleWarp,
@@ -149,6 +151,9 @@ class _AudioEditorState extends State<AudioEditor>
                   onOriginalBpmChanged: _onOriginalBpmChanged,
                   projectBpm: widget.projectTempo,
                   onProjectBpmChanged: widget.onProjectTempoChanged,
+                  // Reverse
+                  reversed: editData.reversed,
+                  onReverseToggle: toggleReverse,
                   // Pitch & Volume
                   transposeSemitones: editData.transposeSemitones,
                   onTransposeChanged: setTranspose,
@@ -407,6 +412,20 @@ class _AudioEditorState extends State<AudioEditor>
       );
     });
     notifyClipUpdated();
+  }
+
+  void _onSignatureChanged(int numerator, int denominator) {
+    saveToHistory();
+    setState(() {
+      beatsPerBar = numerator;
+      beatUnit = denominator;
+      editData = editData.copyWith(
+        beatsPerBar: numerator,
+        beatUnit: denominator,
+      );
+    });
+    notifyClipUpdated();
+    commitToHistory('Set time signature to $numerator/$denominator');
   }
 
   void _toggleWarp() {

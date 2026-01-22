@@ -6,6 +6,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Audio Editor toolbar improvements:
+  - Added time Signature dropdown (2/4, 3/4, 4/4, 5/4, 6/8, 7/8) for clip time signature
+  - Added ÷2 and ×2 tempo buttons to quickly halve/double BPM
+  - Added Reverse toggle button with visual waveform flip when enabled
+  - BPM and tempo buttons are greyed out and disabled when Warp is OFF
+
 - Added audio clip Warp feature: sync audio clips to project tempo via time-stretching
   - Warp toggle in Audio Editor controls bar enables/disables tempo sync
   - Original BPM field to set clip's source tempo (auto-detect coming in future)
