@@ -288,6 +288,22 @@ pub extern "C" fn set_audio_clip_warp_ffi(
     }
 }
 
+/// Set audio clip transpose (pitch shift)
+/// semitones: -48 to +48
+/// cents: -50 to +50
+#[no_mangle]
+pub extern "C" fn set_audio_clip_transpose_ffi(
+    track_id: u64,
+    clip_id: u64,
+    semitones: i32,
+    cents: i32,
+) -> *mut c_char {
+    match api::set_audio_clip_transpose(track_id, clip_id, semitones, cents) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Get waveform peaks
 /// Returns pointer to float array, and writes the length to out_length
 /// Caller must free the returned array with free_waveform_peaks_ffi

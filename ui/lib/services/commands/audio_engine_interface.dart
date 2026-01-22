@@ -6,6 +6,7 @@ abstract class AudioEngineInterface {
   void setClipStartTime(int trackId, int clipId, double startTime);
   String setAudioClipGain(int trackId, int clipId, double gainDb);
   String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode);
+  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents);
   int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0});
   double getClipDuration(int clipId);
   List<double> getWaveformPeaks(int clipId, int resolution);

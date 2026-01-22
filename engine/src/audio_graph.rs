@@ -240,6 +240,8 @@ impl AudioGraph {
             warp_mode: 0,
             stretched_cache: None,
             cached_stretch_factor: 0.0,
+            transpose_semitones: 0,
+            transpose_cents: 0,
         });
 
         id
@@ -302,6 +304,8 @@ impl AudioGraph {
                 warp_mode: 0,
                 stretched_cache: None,
                 cached_stretch_factor: 0.0,
+                transpose_semitones: 0,
+                transpose_cents: 0,
             });
             Some(id)
         } else {
@@ -1078,26 +1082,31 @@ impl AudioGraph {
                                 let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                                 let clip_gain = timeline_clip.get_gain();
 
+                                // Get pitch ratio for transpose (1.0 = no change)
+                                let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
+
                                 // Determine which audio source to use and calculate frame index
                                 let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
                                     if timeline_clip.warp_mode == 0 {
                                         // Warp mode: use pre-stretched cached audio (pitch preserved)
+                                        // Apply pitch ratio to playback rate for transpose
                                         if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                            let frame = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
+                                            let frame = (time_in_clip * pitch_ratio * TARGET_SAMPLE_RATE as f64) as usize;
                                             (frame, stretched.as_ref())
                                         } else {
                                             // Fallback to Re-Pitch if cache not ready
-                                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                                             ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
                                         }
                                     } else {
                                         // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                        let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                        // Also apply any additional transpose
+                                        let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                                         ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
                                     }
                                 } else {
-                                    // No warp - play at normal speed
-                                    ((time_in_clip * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                    // No warp - apply pitch ratio for transpose
+                                    ((time_in_clip * pitch_ratio * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
                                 };
 
                                 if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -2070,27 +2079,30 @@ impl AudioGraph {
                     {
                         let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                         let clip_gain = timeline_clip.get_gain();
+                        let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
 
                         // Determine which audio source to use and calculate frame index
                         let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
                             if timeline_clip.warp_mode == 0 {
                                 // Warp mode: use pre-stretched cached audio (pitch preserved)
+                                // Apply pitch ratio for transpose
                                 if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                    let frame = (time_in_clip * sample_rate as f64) as usize;
+                                    let frame = (time_in_clip * pitch_ratio * sample_rate as f64) as usize;
                                     (frame, stretched.as_ref())
                                 } else {
                                     // Fallback to Re-Pitch if cache not ready
-                                    let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                    let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                                     ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                                 }
                             } else {
                                 // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                // Also apply any additional transpose
+                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                                 ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                             }
                         } else {
-                            // No warp - play at normal speed
-                            ((time_in_clip * sample_rate as f64) as usize, &*timeline_clip.clip)
+                            // No warp - apply pitch ratio for transpose
+                            ((time_in_clip * pitch_ratio * sample_rate as f64) as usize, &*timeline_clip.clip)
                         };
 
                         if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -2346,27 +2358,30 @@ impl AudioGraph {
                     let time_in_clip =
                         playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                     let clip_gain = timeline_clip.get_gain();
+                    let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
 
                     // Determine which audio source to use and calculate frame index
                     let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
                         if timeline_clip.warp_mode == 0 {
                             // Warp mode: use pre-stretched cached audio (pitch preserved)
+                            // Apply pitch ratio for transpose
                             if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                let frame = (time_in_clip * sample_rate as f64) as usize;
+                                let frame = (time_in_clip * pitch_ratio * sample_rate as f64) as usize;
                                 (frame, stretched.as_ref())
                             } else {
                                 // Fallback to Re-Pitch if cache not ready
-                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                                 ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                             }
                         } else {
                             // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
+                            // Also apply any additional transpose
+                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
                             ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                         }
                     } else {
-                        // No warp - play at normal speed
-                        ((time_in_clip * sample_rate as f64) as usize, &*timeline_clip.clip)
+                        // No warp - apply pitch ratio for transpose
+                        ((time_in_clip * pitch_ratio * sample_rate as f64) as usize, &*timeline_clip.clip)
                     };
 
                     if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {

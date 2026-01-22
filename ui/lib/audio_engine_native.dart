@@ -40,6 +40,7 @@ class AudioEngine implements AudioEngineInterface {
   late final _SetClipStartTimeFfi _setClipStartTime;
   late final _SetAudioClipGainFfi _setAudioClipGain;
   late final _SetAudioClipWarpFfi _setAudioClipWarp;
+  late final _SetAudioClipTransposeFfi _setAudioClipTranspose;
   late final _GetWaveformPeaksFfi _getWaveformPeaks;
   late final _FreeWaveformPeaksFfi _freeWaveformPeaks;
   
@@ -362,6 +363,11 @@ class AudioEngine implements AudioEngineInterface {
       _setAudioClipWarp = _lib
           .lookup<ffi.NativeFunction<_SetAudioClipWarpFfiNative>>(
               'set_audio_clip_warp_ffi')
+          .asFunction();
+
+      _setAudioClipTranspose = _lib
+          .lookup<ffi.NativeFunction<_SetAudioClipTransposeFfiNative>>(
+              'set_audio_clip_transpose_ffi')
           .asFunction();
 
       _getWaveformPeaks = _lib
@@ -1248,6 +1254,20 @@ class AudioEngine implements AudioEngineInterface {
   String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) {
     try {
       final result = _setAudioClipWarp(trackId, clipId, warpEnabled, stretchFactor, warpMode);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Set audio clip transpose (pitch shift)
+  /// semitones: -48 to +48
+  /// cents: -50 to +50
+  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) {
+    try {
+      final result = _setAudioClipTranspose(trackId, clipId, semitones, cents);
       final str = result.toDartString();
       _freeRustString(result);
       return str;
@@ -2882,6 +2902,9 @@ typedef _SetAudioClipGainFfi = ffi.Pointer<Utf8> Function(int, int, double);
 
 typedef _SetAudioClipWarpFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Bool, ffi.Float, ffi.Int32);
 typedef _SetAudioClipWarpFfi = ffi.Pointer<Utf8> Function(int, int, bool, double, int);
+
+typedef _SetAudioClipTransposeFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Int32, ffi.Int32);
+typedef _SetAudioClipTransposeFfi = ffi.Pointer<Utf8> Function(int, int, int, int);
 
 typedef _GetWaveformPeaksFfiNative = ffi.Pointer<ffi.Float> Function(
     ffi.Uint64, ffi.Size, ffi.Pointer<ffi.Size>);

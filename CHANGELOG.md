@@ -34,6 +34,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Audio Editor pitch control now shows combined `[0 st. 0 ct]` display with separate semitones (-48 to +48) and cents (-50 to +50) segments, each draggable/scrollable/editable (double-click to type exact value)
+- Audio clip pitch shifting now actually works: transpose affects playback pitch in real-time (note: changes playback speed like Re-Pitch mode)
 - Auto-select audio clip after drag-and-drop creation (matches MIDI track behavior, opens Audio Editor immediately)
 - Added error logging for previously silent catch blocks (helps debugging)
 - Codebase cleanup: removed debug logging from Rust engine (Warp implementation) and Flutter UI

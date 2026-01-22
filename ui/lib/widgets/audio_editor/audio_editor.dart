@@ -152,6 +152,8 @@ class _AudioEditorState extends State<AudioEditor>
                   // Pitch & Volume
                   transposeSemitones: editData.transposeSemitones,
                   onTransposeChanged: setTranspose,
+                  fineCents: editData.fineCents,
+                  onFineCentsChanged: setFineCents,
                   gainDb: editData.gainDb,
                   onGainChanged: setGain,
                 ),

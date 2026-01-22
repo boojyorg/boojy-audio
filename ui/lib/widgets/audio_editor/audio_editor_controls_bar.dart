@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/audio_clip_edit_data.dart';
 import '../../theme/theme_extension.dart';
 import '../piano_roll/loop_time_display.dart';
-import '../shared/mini_knob.dart';
+import 'draggable_pitch_display.dart';
 
 /// Simplified horizontal controls bar for Audio Editor.
 /// Matches Piano Roll styling with essential controls.
@@ -34,6 +34,8 @@ class AudioEditorControlsBar extends StatefulWidget {
   // === Pitch ===
   final int transposeSemitones;
   final Function(int)? onTransposeChanged;
+  final int fineCents;
+  final Function(int)? onFineCentsChanged;
 
   // === Volume ===
   final double gainDb;
@@ -58,6 +60,8 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onProjectBpmChanged,
     this.transposeSemitones = 0,
     this.onTransposeChanged,
+    this.fineCents = 0,
+    this.onFineCentsChanged,
     this.gainDb = 0.0,
     this.onGainChanged,
   });
@@ -233,19 +237,20 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       children: [
         Text('Pitch', style: TextStyle(color: colors.textMuted, fontSize: 9)),
         const SizedBox(width: 4),
-        MiniKnob(
-          value: widget.transposeSemitones.toDouble(),
-          min: -48.0,
-          max: 48.0,
-          size: 28,
-          valueFormatter: (v) {
-            final st = v.round();
-            return st > 0 ? '+$st' : '$st';
-          },
-          onChanged: (value) => widget.onTransposeChanged?.call(value.round()),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          decoration: BoxDecoration(
+            color: colors.dark,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: colors.surface, width: 1),
+          ),
+          child: DraggablePitchDisplay(
+            semitones: widget.transposeSemitones,
+            cents: widget.fineCents,
+            onSemitonesChanged: widget.onTransposeChanged,
+            onCentsChanged: widget.onFineCentsChanged,
+          ),
         ),
-        const SizedBox(width: 2),
-        Text('st', style: TextStyle(color: colors.textMuted, fontSize: 9)),
       ],
     );
   }

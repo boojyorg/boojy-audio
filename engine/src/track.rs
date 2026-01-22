@@ -42,6 +42,10 @@ pub struct TimelineClip {
     pub stretched_cache: Option<Arc<AudioClip>>,
     /// Stretch factor used when the cache was built (to detect when rebuild is needed)
     pub cached_stretch_factor: f32,
+    /// Transpose in semitones (-48 to +48)
+    pub transpose_semitones: i32,
+    /// Fine pitch adjustment in cents (-50 to +50)
+    pub transpose_cents: i32,
 }
 
 impl TimelineClip {
@@ -55,6 +59,13 @@ impl TimelineClip {
         } else {
             10_f32.powf(self.gain_db / 20.0)
         }
+    }
+
+    /// Get pitch shift ratio for playback
+    /// Combines semitones and cents: ratio = 2^((semitones + cents/100) / 12)
+    pub fn get_pitch_ratio(&self) -> f32 {
+        let total_semitones = self.transpose_semitones as f32 + (self.transpose_cents as f32 / 100.0);
+        2_f32.powf(total_semitones / 12.0)
     }
 
     /// Rebuild the stretched audio cache for Warp mode (pitch-preserved time-stretching).

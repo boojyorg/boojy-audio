@@ -442,6 +442,48 @@ pub fn set_audio_clip_warp(
     }
 }
 
+/// Set the transpose/pitch shift of an audio clip
+///
+/// # Arguments
+/// * `track_id` - Track containing the clip
+/// * `clip_id` - ID of the clip to modify
+/// * `semitones` - Transpose in semitones (-48 to +48)
+/// * `cents` - Fine pitch adjustment in cents (-50 to +50)
+///
+/// # Returns
+/// Success message
+pub fn set_audio_clip_transpose(
+    track_id: TrackId,
+    clip_id: u64,
+    semitones: i32,
+    cents: i32,
+) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        // Find and update the clip
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.transpose_semitones = semitones.clamp(-48, 48);
+                clip.transpose_cents = cents.clamp(-50, 50);
+
+                return Ok(format!(
+                    "Clip {} transpose: {} st, {} ct",
+                    clip_id, clip.transpose_semitones, clip.transpose_cents
+                ));
+            }
+        }
+
+        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
 /// Remove an audio clip from a track
 ///
 /// # Arguments

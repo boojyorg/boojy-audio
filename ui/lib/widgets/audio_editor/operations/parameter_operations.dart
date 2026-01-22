@@ -79,8 +79,15 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       editData.warpMode.index,
     );
 
+    // Send transpose/pitch shift to audio engine
+    engine.setAudioClipTranspose(
+      clip.trackId,
+      clip.clipId,
+      editData.transposeSemitones,
+      editData.fineCents,
+    );
+
     // TODO: Future FFI calls for additional parameters:
-    // - setAudioClipTranspose(trackId, clipId, semitones, cents)
     // - setAudioClipReverse(trackId, clipId, reversed)
     // - setAudioClipNormalize(trackId, clipId, targetDb)
   }
@@ -102,12 +109,12 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
     commitToHistory('Set transpose to $semitones semitones');
   }
 
-  /// Set fine pitch adjustment in cents (-100 to +100).
+  /// Set fine pitch adjustment in cents (-50 to +50).
   void setFineCents(int cents) {
     saveToHistory();
     setState(() {
       editData = editData.copyWith(
-        fineCents: cents.clamp(-100, 100),
+        fineCents: cents.clamp(-50, 50),
       );
     });
     notifyClipUpdated();

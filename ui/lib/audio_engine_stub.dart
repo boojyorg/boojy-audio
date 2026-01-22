@@ -26,6 +26,10 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
+  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) =>
+      throw UnsupportedError('stub');
+
+  @override
   int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0}) =>
       throw UnsupportedError('stub');
 
