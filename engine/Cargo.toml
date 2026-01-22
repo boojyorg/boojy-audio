@@ -6,10 +6,6 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "staticlib"]
 
-[[bin]]
-name = "stretch_test"
-path = "src/bin/stretch_test.rs"
-
 [features]
 default = ["desktop"]
 desktop = ["vst3", "midi", "native-audio"]  # Native platforms with full features
