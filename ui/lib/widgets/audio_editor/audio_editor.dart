@@ -383,7 +383,9 @@ class _AudioEditorState extends State<AudioEditor>
   void _toggleLoop() {
     setState(() {
       loopEnabled = !loopEnabled;
+      editData = editData.copyWith(loopEnabled: loopEnabled);
     });
+    notifyClipUpdated();
   }
 
   void _onStartChanged(double beats) {

@@ -2940,85 +2940,119 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               _clearSplitPreview();
             }
           },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Main clip container
-              Container(
-                width: clipWidth,
-                height: totalHeight,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isSelected
-                        ? context.colors.textPrimary
-                        : trackColor.withValues(alpha: 0.7),
-                    width: isSelected || isDragging ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
-                  children: [
-                    // Header with track color
-                    Container(
-                      height: headerHeight,
-                      decoration: BoxDecoration(
-                        color: trackColor,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(3),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Row(
+          child: Builder(
+            builder: (context) {
+              // Calculate loop boundary positions for audio clips (like MIDI clips)
+              // loopLength is in seconds, need to calculate loop boundary X positions in pixels
+              final loopWidthPixels = clip.loopLength * pixelsPerSecond;
+              final isLooped = clip.canRepeat && clip.duration > clip.loopLength;
+              final loopBoundaryPositions = isLooped
+                  ? _calculateLoopBoundaryPositions(
+                      loopWidthPixels, // loopLength in pixels
+                      clipWidth, // clipDuration in pixels
+                      clipWidth,
+                    )
+                  : <double>[];
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Main clip container with notched border (like MIDI clips)
+                  ClipPath(
+                    clipper: ClipPathClipper(
+                      cornerRadius: 4,
+                      notchRadius: 4,
+                      loopBoundaryXPositions: loopBoundaryPositions,
+                    ),
+                    child: Container(
+                      width: clipWidth,
+                      height: totalHeight,
+                      child: Column(
                         children: [
-                          Icon(
-                            Icons.audiotrack,
-                            size: 12,
-                            color: context.colors.textPrimary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              clip.fileName,
-                              style: TextStyle(
-                                color: context.colors.textPrimary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                          // Header with track color
+                          Container(
+                            height: headerHeight,
+                            decoration: BoxDecoration(
+                              color: trackColor,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(3),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.audiotrack,
+                                  size: 12,
+                                  color: context.colors.textPrimary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    clip.fileName,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Content area with waveform (transparent background)
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(3),
+                              ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  // Calculate visual gain from clip's editData
+                                  final clipGainDb = clip.editData?.gainDb ?? 0.0;
+                                  final clipVisualGain = clipGainDb > -70
+                                      ? math.pow(10, clipGainDb / 20).toDouble()
+                                      : 0.0;
+                                  // Calculate visible duration for non-looped clips
+                                  // For looped: each iteration shows full loopLength
+                                  // For non-looped: show only clip.duration (may be trimmed)
+                                  final visibleDuration = isLooped ? clip.loopLength : clip.duration;
+                                  return CustomPaint(
+                                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                                    painter: WaveformPainter(
+                                      peaks: clip.waveformPeaks,
+                                      color: TrackColors.getLighterShade(trackColor),
+                                      visualGain: clipVisualGain,
+                                      loopWidth: isLooped ? loopWidthPixels : null,
+                                      contentDuration: clip.loopLength, // Full content duration
+                                      startOffset: clip.offset, // Left trim offset
+                                      visibleDuration: visibleDuration, // How much is actually visible
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    // Content area with waveform (transparent background)
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(3),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            // Calculate visual gain from clip's editData
-                            final clipGainDb = clip.editData?.gainDb ?? 0.0;
-                            final clipVisualGain = clipGainDb > -70
-                                ? math.pow(10, clipGainDb / 20).toDouble()
-                                : 0.0;
-                            return CustomPaint(
-                              size: Size(constraints.maxWidth, constraints.maxHeight),
-                              painter: WaveformPainter(
-                                peaks: clip.waveformPeaks,
-                                color: TrackColors.getLighterShade(trackColor),
-                                visualGain: clipVisualGain,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                  ),
+                  // Border with integrated notches (like MIDI clips)
+                  CustomPaint(
+                    size: Size(clipWidth, totalHeight),
+                    painter: ClipBorderPainter(
+                      borderColor: isSelected
+                          ? context.colors.textPrimary
+                          : trackColor.withValues(alpha: 0.7),
+                      trackColor: trackColor,
+                      headerHeight: headerHeight,
+                      borderWidth: isDragging || isSelected ? 2 : 1,
+                      cornerRadius: 4,
+                      loopBoundaryXPositions: loopBoundaryPositions,
                     ),
-                  ],
-                ),
-              ),
+                  ),
               // Left edge trim handle
               Positioned(
                 left: 0,
@@ -3111,71 +3145,94 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 ),
               ),
               // Right edge trim handle
+              // Audio clips: canRepeat=false limits to loopLength, canRepeat=true allows looping
               Positioned(
                 right: 0,
                 top: 0,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragStart: (details) {
-                    setState(() {
-                      trimmingAudioClipId = clip.clipId;
-                      isTrimmingLeftEdge = false;
-                      audioTrimStartDuration = clip.duration;
-                      audioTrimStartX = details.globalPosition.dx;
-                    });
+                child: Builder(
+                  builder: (context) {
+                    // Determine if clip can be extended (looping enabled)
+                    final canExtend = clip.canRepeat;
+                    // Check if we're at or beyond the loop limit
+                    final atLoopLimit = !canExtend && clip.duration >= clip.loopLength - 0.001;
+
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragStart: (details) {
+                        setState(() {
+                          trimmingAudioClipId = clip.clipId;
+                          isTrimmingLeftEdge = false;
+                          audioTrimStartDuration = clip.duration;
+                          audioTrimStartX = details.globalPosition.dx;
+                        });
+                      },
+                      onHorizontalDragUpdate: (details) {
+                        if (trimmingAudioClipId != clip.clipId || isTrimmingLeftEdge) return;
+                        final deltaX = details.globalPosition.dx - audioTrimStartX;
+                        final deltaSeconds = deltaX / pixelsPerSecond;
+
+                        // Calculate new duration
+                        var newDuration = audioTrimStartDuration + deltaSeconds;
+
+                        // Audio clips: limit based on canRepeat
+                        if (clip.canRepeat) {
+                          // Loop enabled: can extend beyond loopLength (content tiles)
+                          newDuration = newDuration.clamp(0.1, double.infinity);
+                        } else {
+                          // Loop disabled: cannot extend beyond loopLength
+                          newDuration = newDuration.clamp(0.1, clip.loopLength);
+                        }
+
+                        setState(() {
+                          final index = clips.indexWhere((c) => c.clipId == clip.clipId);
+                          if (index >= 0) {
+                            clips[index] = clips[index].copyWith(duration: newDuration);
+                          }
+                        });
+                      },
+                      onHorizontalDragEnd: (details) async {
+                        // Get the trimmed clip values
+                        final trimmedClip = clips.firstWhere((c) => c.clipId == clip.clipId, orElse: () => clip);
+
+                        // Only create command if duration actually changed
+                        if ((trimmedClip.duration - audioTrimStartDuration).abs() > 0.001) {
+                          final command = ResizeAudioClipCommand(
+                            trackId: trimmedClip.trackId,
+                            clipId: trimmedClip.clipId,
+                            clipName: trimmedClip.fileName,
+                            oldDuration: audioTrimStartDuration,
+                            newDuration: trimmedClip.duration,
+                            onClipResized: (clipId, duration, offset, startTime) {
+                              setState(() {
+                                final index = clips.indexWhere((c) => c.clipId == clipId);
+                                if (index >= 0) {
+                                  clips[index] = clips[index].copyWith(duration: duration);
+                                }
+                              });
+                            },
+                          );
+                          await UndoRedoManager().execute(command);
+                        }
+
+                        setState(() {
+                          trimmingAudioClipId = null;
+                        });
+                      },
+                      child: Tooltip(
+                        message: atLoopLimit
+                            ? 'Drag left to trim, or enable Loop to extend'
+                            : 'Drag to resize',
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.resizeRight,
+                          child: Container(
+                            width: 8,
+                            height: totalHeight,
+                            color: Colors.transparent,
+                          ),
+                        ),
+                      ),
+                    );
                   },
-                  onHorizontalDragUpdate: (details) {
-                    if (trimmingAudioClipId != clip.clipId || isTrimmingLeftEdge) return;
-                    final deltaX = details.globalPosition.dx - audioTrimStartX;
-                    final deltaSeconds = deltaX / pixelsPerSecond;
-
-                    // Calculate new duration
-                    var newDuration = audioTrimStartDuration + deltaSeconds;
-                    newDuration = newDuration.clamp(0.1, double.infinity);
-
-                    setState(() {
-                      final index = clips.indexWhere((c) => c.clipId == clip.clipId);
-                      if (index >= 0) {
-                        clips[index] = clips[index].copyWith(duration: newDuration);
-                      }
-                    });
-                  },
-                  onHorizontalDragEnd: (details) async {
-                    // Get the trimmed clip values
-                    final trimmedClip = clips.firstWhere((c) => c.clipId == clip.clipId, orElse: () => clip);
-
-                    // Only create command if duration actually changed
-                    if ((trimmedClip.duration - audioTrimStartDuration).abs() > 0.001) {
-                      final command = ResizeAudioClipCommand(
-                        trackId: trimmedClip.trackId,
-                        clipId: trimmedClip.clipId,
-                        clipName: trimmedClip.fileName,
-                        oldDuration: audioTrimStartDuration,
-                        newDuration: trimmedClip.duration,
-                        onClipResized: (clipId, duration, offset, startTime) {
-                          setState(() {
-                            final index = clips.indexWhere((c) => c.clipId == clipId);
-                            if (index >= 0) {
-                              clips[index] = clips[index].copyWith(duration: duration);
-                            }
-                          });
-                        },
-                      );
-                      await UndoRedoManager().execute(command);
-                    }
-
-                    setState(() {
-                      trimmingAudioClipId = null;
-                    });
-                  },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeRight,
-                    child: Container(
-                      width: 8,
-                      height: totalHeight,
-                      color: Colors.transparent,
-                    ),
-                  ),
                 ),
               ),
               // Split preview line (shown when Alt is pressed and hovering)
@@ -3189,7 +3246,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     color: context.colors.textPrimary.withValues(alpha: 0.8),
                   ),
                 ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),

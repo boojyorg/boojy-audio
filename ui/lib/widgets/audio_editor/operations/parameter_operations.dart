@@ -56,7 +56,18 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   /// Notify parent that clip was updated.
   void notifyClipUpdated() {
     if (currentClip == null) return;
-    final updatedClip = currentClip!.copyWith(editData: editData);
+
+    // Calculate loop length in seconds from beats
+    // loopLengthBeats = loopEndBeats - loopStartBeats (from editData)
+    final loopLengthBeats = editData.loopEndBeats - editData.loopStartBeats;
+    final beatsPerSecond = widget.projectTempo / 60.0;
+    final loopLengthSeconds = loopLengthBeats / beatsPerSecond;
+
+    final updatedClip = currentClip!.copyWith(
+      editData: editData,
+      canRepeat: editData.loopEnabled,
+      loopLength: loopLengthSeconds,
+    );
     widget.onClipUpdated?.call(updatedClip);
   }
 

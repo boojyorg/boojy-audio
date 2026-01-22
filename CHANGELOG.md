@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Audio clip looping in arrangement view (like MIDI clips):
+  - When Loop is enabled in Audio Editor, audio clips can be extended beyond their loop region
+  - Waveform tiles/repeats when clip duration exceeds loop length
+  - Visual notches on clip border show loop boundaries (matching MIDI clip style)
+  - When Loop is disabled, right edge is locked to content length (no stretching)
+  - Tooltip shows "Enable Loop in Audio Editor to extend" when at limit
+  - Loop region (Start/Length from Audio Editor) is what loops, not entire clip
+  - Works with or without Warp enabled (unlike Ableton which requires Warp)
+
 - Audio Editor toolbar improvements:
   - Added time Signature dropdown (2/4, 3/4, 4/4, 5/4, 6/8, 7/8) for clip time signature
   - Added ÷2 and ×2 tempo buttons to quickly halve/double BPM
@@ -35,6 +44,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed waveform squishing when trimming audio clip right edge (waveform now properly truncates instead of compressing all peaks into smaller width)
+- Fixed right edge drag cursor showing forbidden incorrectly (now always shows resize cursor since you can always reduce clip duration)
 - Fixed potential crash when widget disposes during VST3 MIDI note-off delay (added mounted check)
 - Audio clip selection now clears previous MIDI/audio selections (consistent behavior)
 
