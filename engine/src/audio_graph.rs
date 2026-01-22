@@ -1082,30 +1082,16 @@ impl AudioGraph {
                                 let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
                                     if timeline_clip.warp_mode == 0 {
                                         // Warp mode: use pre-stretched cached audio (pitch preserved)
-                                        // Play at normal speed from stretched cache
                                         if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                            // Log once per playback start
-                                            if frame_idx == 0 {
-                                                eprintln!("✅ [Playback] Using STRETCHED CACHE! clip_id={}, cache_frames={}, stretch_factor={:.3}",
-                                                    timeline_clip.id, stretched.frame_count(), timeline_clip.stretch_factor);
-                                            }
                                             let frame = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
                                             (frame, stretched.as_ref())
                                         } else {
                                             // Fallback to Re-Pitch if cache not ready
-                                            // Log once per playback start (frame 0)
-                                            if frame_idx == 0 {
-                                                eprintln!("❌ [Playback] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
-                                            }
                                             let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
                                             ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
                                         }
                                     } else {
                                         // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                        if frame_idx == 0 {
-                                            eprintln!("🔄 [Playback] Using RE-PITCH mode! clip_id={}, stretch_factor={:.3}",
-                                                timeline_clip.id, timeline_clip.stretch_factor);
-                                        }
                                         let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
                                         ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
                                     }
@@ -2094,10 +2080,6 @@ impl AudioGraph {
                                     (frame, stretched.as_ref())
                                 } else {
                                     // Fallback to Re-Pitch if cache not ready
-                                    // Log once per playback start (frame 0)
-                                    if frame_idx == 0 {
-                                        eprintln!("❌ [Playback-2] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
-                                    }
                                     let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
                                     ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                                 }
@@ -2374,10 +2356,6 @@ impl AudioGraph {
                                 (frame, stretched.as_ref())
                             } else {
                                 // Fallback to Re-Pitch if cache not ready
-                                // Log once per playback start (frame 0)
-                                if frame_idx == 0 {
-                                    eprintln!("❌ [Playback-3] CACHE IS NONE! clip_id={}, warp_mode=0, falling back to Re-Pitch", timeline_clip.id);
-                                }
                                 let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64;
                                 ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
                             }

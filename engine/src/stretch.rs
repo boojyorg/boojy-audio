@@ -27,11 +27,8 @@ pub fn stretch_audio_preserve_pitch(
     clip: &AudioClip,
     stretch_factor: f32,
 ) -> Arc<AudioClip> {
-    eprintln!("🎵 [Stretch] stretch_audio_preserve_pitch called: stretch_factor={:.3}", stretch_factor);
-
     // If stretch factor is effectively 1.0, return a clone wrapped in Arc
     if (stretch_factor - 1.0).abs() < 0.001 {
-        eprintln!("🎵 [Stretch] stretch_factor ~= 1.0, returning clone");
         return Arc::new(clip.clone());
     }
 
@@ -45,9 +42,6 @@ pub fn stretch_audio_preserve_pitch(
     // So output_frames = input_frames / stretch_factor
     let output_frames = (input_frames as f64 / stretch_factor as f64).ceil() as usize;
 
-    eprintln!("🎵 [Stretch] input_frames={}, output_frames={}, channels={}, sample_rate={}",
-        input_frames, output_frames, channels, sample_rate);
-
     // Create stretcher instance
     let mut stretcher = Stretch::preset_default(channels, sample_rate);
 
@@ -59,7 +53,6 @@ pub fn stretch_audio_preserve_pitch(
     let success = stretcher.exact(&clip.samples, &mut output_samples);
 
     if !success {
-        eprintln!("⚠️  [Stretch] exact() failed, falling back to process()");
         // exact() can fail for certain stretch ratios (especially compression)
         // Fall back to process() which always works but may need flushing
         stretcher.reset();
@@ -70,17 +63,11 @@ pub fn stretch_audio_preserve_pitch(
         if latency > 0 {
             let mut flush_buffer = vec![0.0f32; latency * clip.channels];
             stretcher.flush(&mut flush_buffer);
-            // Note: We could append this but for now the main output is sufficient
         }
-    } else {
-        eprintln!("✅ [Stretch] exact() succeeded");
     }
 
     // Calculate new duration
     let duration_seconds = output_frames as f64 / sample_rate as f64;
-
-    eprintln!("🎵 [Stretch] Output ready: {} samples, {:.3}s duration",
-        output_samples.len(), duration_seconds);
 
     Arc::new(AudioClip {
         samples: output_samples,

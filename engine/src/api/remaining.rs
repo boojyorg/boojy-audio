@@ -411,9 +411,6 @@ pub fn set_audio_clip_warp(
     stretch_factor: f32,
     warp_mode: u8,
 ) -> Result<String, String> {
-    eprintln!("🎯 [API] set_audio_clip_warp: track={}, clip={}, enabled={}, stretch={:.3}, mode={}",
-        track_id, clip_id, warp_enabled, stretch_factor, warp_mode);
-
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
@@ -430,9 +427,6 @@ pub fn set_audio_clip_warp(
 
                 // Rebuild stretched audio cache for Warp mode (pitch-preserved)
                 clip.rebuild_stretched_cache();
-
-                eprintln!("📊 [API] After rebuild: cache is {}",
-                    if clip.stretched_cache.is_some() { "SOME" } else { "NONE" });
 
                 let mode_str = if warp_mode == 0 { "warp" } else { "repitch" };
                 return Ok(format!(

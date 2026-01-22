@@ -2,6 +2,18 @@
 //!
 //! This module provides wasm-bindgen exports that mirror the native FFI functions,
 //! allowing the Rust audio engine to be called from JavaScript in browser environments.
+//!
+//! # Status: Incomplete / Experimental
+//!
+//! Web/WASM support is currently incomplete and not production-ready.
+//! The following features are NOT yet implemented for web:
+//! - Audio file loading and playback
+//! - MIDI playback and recording
+//! - VST3 plugin hosting (not possible in browser)
+//! - Project save/load
+//! - Most mixer and effects functionality
+//!
+//! This module exists as a foundation for future web support.
 
 use wasm_bindgen::prelude::*;
 use crate::web_audio::{console_log, console_error};

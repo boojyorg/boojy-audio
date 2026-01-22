@@ -380,21 +380,16 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   Future<void> _initAudioEngine() async {
-    debugPrint('DawScreen: Starting audio engine initialization...');
     try {
       // Load plugin preferences early (before any plugin operations)
       await PluginPreferencesService.load();
 
       // Called after 800ms delay from initState, so UI has rendered
-      debugPrint('DawScreen: Creating AudioEngine...');
       _audioEngine = AudioEngine();
-      debugPrint('DawScreen: AudioEngine created, calling initAudioEngine...');
       _audioEngine!.initAudioEngine();
-      debugPrint('DawScreen: initAudioEngine done');
 
       // Initialize audio graph
       final graphResult = _audioEngine!.initAudioGraph();
-      debugPrint('DawScreen: initAudioGraph result: $graphResult');
       if (graphResult.startsWith('Error')) {
         throw Exception(graphResult);
       }
@@ -404,26 +399,24 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.setCountInBars(_userSettings.countInBars); // Use saved setting
         _audioEngine!.setTempo(120.0);   // Default: 120 BPM
         _audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
-      } catch (e) {
-        debugPrint('DawScreen: Failed to initialize recording settings: $e');
+      } catch (_) {
+        // Recording settings initialization failed, continue with defaults
       }
 
       // Initialize buffer size from user settings
       try {
         final bufferPreset = _bufferSizeToPreset(_userSettings.bufferSize);
         _audioEngine!.setBufferSize(bufferPreset);
-        debugPrint('DawScreen: Buffer size set to ${_userSettings.bufferSize} samples (preset $bufferPreset)');
-      } catch (e) {
-        debugPrint('DawScreen: Failed to set buffer size: $e');
+      } catch (_) {
+        // Buffer size setting failed, continue with default
       }
 
       // Initialize output device from user settings
       if (_userSettings.preferredOutputDevice != null) {
         try {
           _audioEngine!.setAudioOutputDevice(_userSettings.preferredOutputDevice!);
-          debugPrint('DawScreen: Output device set to ${_userSettings.preferredOutputDevice}');
-        } catch (e) {
-          debugPrint('DawScreen: Failed to set output device: $e');
+        } catch (_) {
+          // Output device setting failed, continue with default
         }
       }
 
@@ -477,9 +470,7 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Check for crash recovery
       _checkForCrashRecovery();
-    } catch (e, stackTrace) {
-      debugPrint('DawScreen: FAILED to initialize audio engine: $e');
-      debugPrint('DawScreen: Stack trace: $stackTrace');
+    } catch (e, _) {
       if (mounted) {
         setState(() {
           _statusMessage = 'Failed to initialize: $e';
@@ -1016,13 +1007,10 @@ class _DAWScreenState extends State<DAWScreen> {
       }
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
-        final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
-        if (noteOffResult.isNotEmpty) {
-          debugPrint('DawScreen: Note off result: $noteOffResult');
-        }
+        _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
-    } catch (e) {
-      debugPrint('DawScreen: Failed to preview VST3 instrument: $e');
+    } catch (_) {
+      // Failed to preview VST3 instrument
     }
   }
 
@@ -1083,8 +1071,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Disarm other MIDI tracks (exclusive arm for new track)
       _disarmOtherMidiTracks(trackId);
-    } catch (e) {
-      debugPrint('DawScreen: Failed to create VST3 instrument track: $e');
+    } catch (_) {
+      // Failed to create VST3 instrument track
     }
   }
 
@@ -1221,8 +1209,8 @@ class _DAWScreenState extends State<DAWScreen> {
       if (trackType == 'midi') {
         _disarmOtherMidiTracks(trackId);
       }
-    } catch (e) {
-      debugPrint('DawScreen: Failed to create audio track: $e');
+    } catch (_) {
+      // Failed to create track
     }
   }
 
@@ -1754,11 +1742,9 @@ class _DAWScreenState extends State<DAWScreen> {
         setState(() {
           _statusMessage = 'Added $effectType to track';
         });
-      } else {
-        debugPrint('DawScreen: Failed to add effect (returned $effectId)');
       }
-    } catch (e) {
-      debugPrint('DawScreen: Exception adding effect to track: $e');
+    } catch (_) {
+      // Failed to add effect to track
     }
   }
 
@@ -2972,8 +2958,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Clear the recovery marker regardless of choice
       await _autoSaveService.clearRecoveryMarker();
-    } catch (e) {
-      debugPrint('DawScreen: Failed to check for crash recovery: $e');
+    } catch (_) {
+      // Failed to check for crash recovery
     }
   }
 
@@ -3327,16 +3313,12 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Wait for audio engine if not yet initialized (up to 2 seconds)
     if (_audioEngine == null) {
-      debugPrint('DawScreen._appSettings: Waiting for audio engine...');
       for (int i = 0; i < 20 && _audioEngine == null && mounted; i++) {
         await Future.delayed(const Duration(milliseconds: 100));
       }
     }
 
     if (!mounted) return;
-
-    final engineStatus = _audioEngine != null ? 'available' : 'NULL';
-    debugPrint('DawScreen._appSettings: audioEngine is $engineStatus');
 
     await AppSettingsDialog.show(context, _userSettings, audioEngine: _audioEngine);
   }

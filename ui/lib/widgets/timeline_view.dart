@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
@@ -25,6 +24,7 @@ import 'shared/editors/zoomable_editor_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
 import 'timeline/timeline_state.dart';
+import 'timeline/painters/painters.dart';
 
 /// Track data model for timeline
 class TimelineTrackData {
@@ -2445,7 +2445,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           children: [
             // Grid pattern
             CustomPaint(
-              painter: _GridPatternPainter(),
+              painter: GridPatternPainter(),
             ),
 
             // Render audio clips for this track (hide clips being erased)
@@ -3009,7 +3009,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                 : 0.0;
                             return CustomPaint(
                               size: Size(constraints.maxWidth, constraints.maxHeight),
-                              painter: _WaveformPainter(
+                              painter: WaveformPainter(
                                 peaks: clip.waveformPeaks,
                                 color: TrackColors.getLighterShade(trackColor),
                                 visualGain: clipVisualGain,
@@ -3288,7 +3288,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                   builder: (context, constraints) {
                                     return CustomPaint(
                                       size: Size(constraints.maxWidth, constraints.maxHeight),
-                                      painter: _MidiClipPainter(
+                                      painter: MidiClipPainter(
                                         notes: sourceClip.notes,
                                         clipDuration: sourceClip.duration,
                                         loopLength: sourceClip.loopLength,
@@ -3408,7 +3408,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                   : 0.0;
                               return CustomPaint(
                                 size: Size(constraints.maxWidth, constraints.maxHeight),
-                                painter: _WaveformPainter(
+                                painter: WaveformPainter(
                                   peaks: sourceClip.waveformPeaks,
                                   color: TrackColors.getLighterShade(trackColor),
                                   visualGain: clipVisualGain,
@@ -3531,7 +3531,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                   : 0.0;
                               return CustomPaint(
                                 size: Size(constraints.maxWidth, constraints.maxHeight),
-                                painter: _WaveformPainter(
+                                painter: WaveformPainter(
                                   peaks: sourceClip.waveformPeaks,
                                   color: TrackColors.getLighterShade(trackColor),
                                   visualGain: clipVisualGain,
@@ -3640,7 +3640,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                   builder: (context, constraints) {
                                     return CustomPaint(
                                       size: Size(constraints.maxWidth, constraints.maxHeight),
-                                      painter: _MidiClipPainter(
+                                      painter: MidiClipPainter(
                                         notes: sourceClip.notes,
                                         clipDuration: sourceClip.duration,
                                         loopLength: sourceClip.loopLength,
@@ -4061,7 +4061,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   children: [
                     // Content clipped to notched shape
                     ClipPath(
-                      clipper: _ClipPathClipper(
+                      clipper: ClipPathClipper(
                         cornerRadius: 4,
                         notchRadius: 4,
                         loopBoundaryXPositions: _calculateLoopBoundaryPositions(
@@ -4109,7 +4109,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                     builder: (context, constraints) {
                                       return CustomPaint(
                                         size: Size(constraints.maxWidth, constraints.maxHeight),
-                                        painter: _MidiClipPainter(
+                                        painter: MidiClipPainter(
                                           notes: midiClip.notes,
                                           clipDuration: clipDurationBeats,
                                           loopLength: midiClip.loopLength,
@@ -4127,7 +4127,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     // Border with integrated notches
                     CustomPaint(
                       size: Size(clipWidth, totalHeight),
-                      painter: _ClipBorderPainter(
+                      painter: ClipBorderPainter(
                         borderColor: isSelected
                             ? context.colors.textPrimary
                             : trackColor.withValues(alpha: 0.7),
@@ -4690,477 +4690,3 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   }
 
 }
-
-/// Painter for the waveform with LOD (Level-of-Detail) downsampling
-class _WaveformPainter extends CustomPainter {
-  final List<double> peaks;
-  final Color color;
-  final double visualGain;
-
-  _WaveformPainter({
-    required this.peaks,
-    required this.color,
-    this.visualGain = 1.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (peaks.isEmpty) return;
-
-    final centerY = size.height / 2;
-    final originalPeakCount = peaks.length ~/ 2;
-    if (originalPeakCount == 0) return;
-
-    // LOD: Calculate optimal peak count for visible width
-    // Target ~1 pixel per peak for crisp detail (like Ableton)
-    final targetPeakCount = size.width.clamp(100, originalPeakCount.toDouble()).toInt();
-
-    // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
-    List<double> renderPeaks;
-    if (originalPeakCount > targetPeakCount * 2) {
-      final groupSize = originalPeakCount ~/ targetPeakCount;
-      renderPeaks = _downsamplePeaks(peaks, groupSize);
-    } else {
-      renderPeaks = peaks;
-    }
-
-    final peakCount = renderPeaks.length ~/ 2;
-    if (peakCount == 0) return;
-
-    final step = size.width / peakCount;
-
-    // Create closed polygon path for continuous waveform shape
-    final path = Path();
-
-    // Start at first peak's top (apply visual gain)
-    final firstMax = (renderPeaks[1] * visualGain).clamp(-1.0, 1.0);
-    final firstTopY = centerY - (firstMax * centerY);
-    path.moveTo(step / 2, firstTopY);
-
-    // Trace TOP edge (max values) left to right
-    for (int i = 2; i < renderPeaks.length; i += 2) {
-      final x = (i ~/ 2) * step + step / 2;
-      final max = (renderPeaks[i + 1] * visualGain).clamp(-1.0, 1.0);
-      final topY = centerY - (max * centerY);
-      path.lineTo(x, topY);
-    }
-
-    // Trace BOTTOM edge (min values) right to left
-    for (int i = renderPeaks.length - 2; i >= 0; i -= 2) {
-      final x = (i ~/ 2) * step + step / 2;
-      final min = (renderPeaks[i] * visualGain).clamp(-1.0, 1.0);
-      final bottomY = centerY - (min * centerY);
-      path.lineTo(x, bottomY);
-    }
-
-    path.close();
-
-    // Use opaque color for both fill and stroke so they match exactly
-    final waveformColor = color.withValues(alpha: 0.85);
-
-    // Fill the waveform
-    final fillPaint = Paint()
-      ..color = waveformColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, fillPaint);
-
-    // Add stroke to give waveform body
-    double strokeWidth = 0;
-    if (step < 1.0) {
-      // Zoomed out: scale stroke to compensate for sub-pixel peaks
-      strokeWidth = (1.0 / step).clamp(1.0, 1.5);
-    } else {
-      // Normal/zoomed in: minimum stroke for visual continuity
-      strokeWidth = 0.5;
-    }
-
-    if (strokeWidth > 0) {
-      final strokePaint = Paint()
-        ..color = waveformColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round
-        ..blendMode = BlendMode.src;
-      canvas.drawPath(path, strokePaint);
-    }
-
-    // Center line for visual continuity through silent parts
-    final centerLinePaint = Paint()
-      ..color = color.withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerLinePaint);
-  }
-
-  /// Downsample peaks by grouping and taking min/max of each group.
-  /// This preserves waveform amplitude while reducing point count.
-  List<double> _downsamplePeaks(List<double> peaks, int groupSize) {
-    if (groupSize <= 1) return peaks;
-
-    final result = <double>[];
-    final pairCount = peaks.length ~/ 2;
-
-    for (int i = 0; i < pairCount; i += groupSize) {
-      double groupMin = double.infinity;
-      double groupMax = double.negativeInfinity;
-
-      final end = (i + groupSize).clamp(0, pairCount);
-      for (int j = i; j < end; j++) {
-        final min = peaks[j * 2];
-        final max = peaks[j * 2 + 1];
-        if (min < groupMin) groupMin = min;
-        if (max > groupMax) groupMax = max;
-      }
-
-      result.add(groupMin);
-      result.add(groupMax);
-    }
-
-    return result;
-  }
-
-  @override
-  bool shouldRepaint(_WaveformPainter oldDelegate) {
-    // O(1) reference checks - downsampling happens fresh each paint
-    return !identical(peaks, oldDelegate.peaks) ||
-        color != oldDelegate.color ||
-        visualGain != oldDelegate.visualGain;
-  }
-}
-
-/// Painter for grid pattern in track background
-class _GridPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Empty - grid lines are drawn by the main grid painter
-  }
-
-  @override
-  bool shouldRepaint(_GridPatternPainter oldDelegate) => false;
-}
-
-/// Painter for mini MIDI clip preview with dynamic height based on note range
-/// Height formula:
-/// - Range 1-8 semitones: height = range × 12.5% of content area
-/// - Range 9+: Full height (100%), notes compress to fit
-class _MidiClipPainter extends CustomPainter {
-  final List<MidiNoteData> notes;
-  final double clipDuration; // Total clip duration in beats (arrangement length)
-  final double loopLength; // Loop length in beats
-  final double contentStartOffset; // Which beat of content to start from (Piano Roll Start field)
-  final Color trackColor;
-
-  _MidiClipPainter({
-    required this.notes,
-    required this.clipDuration,
-    required this.loopLength,
-    required this.trackColor,
-    this.contentStartOffset = 0.0,
-  });
-
-  /// Get lighter shade of track color for notes
-  Color _getLighterColor(Color base) {
-    final hsl = HSLColor.fromColor(base);
-    return hsl.withLightness((hsl.lightness + 0.3).clamp(0.0, 0.85)).toColor();
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (notes.isEmpty || clipDuration == 0) return;
-
-    // Filter notes that are visible (within loopLength, accounting for contentStartOffset)
-    final visibleNotes = notes.where((n) {
-      final relativeStart = n.startTime - contentStartOffset;
-      // Include notes that are within the loop boundary
-      return relativeStart < loopLength && relativeStart + n.duration > 0;
-    }).toList();
-
-    if (visibleNotes.isEmpty) return;
-
-    // Find note range for vertical scaling (using visible notes only)
-    final minNote = visibleNotes.map((n) => n.note).reduce(math.min);
-    final maxNote = visibleNotes.map((n) => n.note).reduce(math.max);
-    final noteRange = maxNote - minNote + 1;
-
-    // Calculate dynamic height based on note range
-    // Range 1-8: 12.5% per semitone, Range 9+: full height with compression
-    final double heightPercentage;
-    final double noteSlotHeight;
-
-    if (noteRange <= 8) {
-      heightPercentage = noteRange * 0.125;
-      noteSlotHeight = size.height * 0.125;
-    } else {
-      heightPercentage = 1.0;
-      noteSlotHeight = size.height / noteRange;
-    }
-
-    final usedHeight = size.height * heightPercentage;
-    final topOffset = size.height - usedHeight; // Anchor notes to bottom
-
-    // Calculate pixels per beat from actual content area width
-    final pixelsPerBeat = size.width / clipDuration;
-
-    // Use lighter shade of track color for notes
-    final noteColor = _getLighterColor(trackColor);
-    final notePaint = Paint()
-      ..color = noteColor
-      ..style = PaintingStyle.fill;
-
-    // Calculate number of loop iterations to draw
-    // Notes repeat every loopLength beats until clipDuration is reached
-    final numLoops = loopLength > 0 ? (clipDuration / loopLength).ceil() : 1;
-
-    // Draw notes for each loop iteration
-    for (int loop = 0; loop < numLoops; loop++) {
-      final loopOffsetBeats = loop * loopLength;
-
-      for (final note in visibleNotes) {
-        // Shift note position by contentStartOffset
-        final noteRelativeStart = note.startTime - contentStartOffset;
-        final noteDurationBeats = note.duration;
-
-        // Skip notes that start before the content offset (for first loop)
-        if (noteRelativeStart < 0 && loop == 0) continue;
-
-        // Skip notes that are beyond loopLength
-        if (noteRelativeStart >= loopLength) continue;
-
-        // Calculate absolute position in the clip
-        final noteAbsoluteStart = loopOffsetBeats + math.max(0.0, noteRelativeStart);
-
-        // Skip notes that start beyond the clip duration
-        if (noteAbsoluteStart >= clipDuration) continue;
-
-        // Handle notes that start before contentStartOffset but extend past it
-        double x;
-        double width;
-        if (noteRelativeStart < 0 && loop == 0) {
-          // Note starts before offset - clip the beginning
-          x = loopOffsetBeats * pixelsPerBeat;
-          width = (noteDurationBeats + noteRelativeStart) * pixelsPerBeat;
-        } else {
-          x = noteAbsoluteStart * pixelsPerBeat;
-          width = noteDurationBeats * pixelsPerBeat;
-        }
-
-        // Truncate width if note extends beyond loop boundary or clip duration
-        final noteEndBeats = noteAbsoluteStart + noteDurationBeats;
-        final loopEndBeats = loopOffsetBeats + loopLength;
-        final maxEndBeats = math.min(loopEndBeats, clipDuration);
-        if (noteEndBeats > maxEndBeats) {
-          width = (maxEndBeats - noteAbsoluteStart) * pixelsPerBeat;
-        }
-
-        // Calculate Y position based on note's position in range
-        final notePosition = note.note - minNote;
-        final y = topOffset + (usedHeight - (notePosition + 1) * noteSlotHeight);
-        final height = noteSlotHeight - 1; // 1px gap between notes
-
-        // Skip notes that would start beyond the clip
-        if (x >= size.width) continue;
-
-        // Clip width to not exceed the clip boundary
-        if (x + width > size.width) {
-          width = size.width - x;
-        }
-
-        // Skip if width is too small
-        if (width <= 0) continue;
-
-        // Draw note rectangle with slight rounding
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, math.max(width, 2.0), math.max(height, 2.0)),
-          const Radius.circular(2),
-        );
-
-        canvas.drawRRect(rect, notePaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MidiClipPainter oldDelegate) {
-    return !listEquals(notes, oldDelegate.notes) ||
-           clipDuration != oldDelegate.clipDuration ||
-           loopLength != oldDelegate.loopLength ||
-           contentStartOffset != oldDelegate.contentStartOffset ||
-           trackColor != oldDelegate.trackColor;
-  }
-}
-
-/// Painter for clip border with integrated loop boundary notches
-class _ClipBorderPainter extends CustomPainter {
-  final Color borderColor;
-  final Color trackColor;
-  final double borderWidth;
-  final double cornerRadius;
-  final double headerHeight;
-  final List<double> loopBoundaryXPositions;
-  final double notchRadius;
-
-  _ClipBorderPainter({
-    required this.borderColor,
-    required this.trackColor,
-    required this.borderWidth,
-    required this.cornerRadius,
-    required this.headerHeight,
-    required this.loopBoundaryXPositions,
-    this.notchRadius = 4.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
-
-    final paint = Paint()
-      ..color = borderColor
-      ..strokeWidth = borderWidth
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawPath(path, paint);
-
-    // Draw vertical lines at loop boundaries (from header bottom to bottom notch tip)
-    if (loopBoundaryXPositions.isNotEmpty) {
-      final linePaint = Paint()
-        ..color = trackColor.withValues(alpha: 0.25)
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke;
-
-      for (final x in loopBoundaryXPositions) {
-        canvas.drawLine(
-          Offset(x, headerHeight),
-          Offset(x, size.height - notchRadius),
-          linePaint,
-        );
-      }
-    }
-  }
-
-  static Path buildClipPath(Size size, double cornerRadius, double notchRadius, List<double> loopBoundaryXPositions) {
-    final path = Path();
-    final r = cornerRadius;
-    final nr = notchRadius;
-
-    // Start at top-left, after corner arc
-    path.moveTo(r, 0);
-
-    // Top edge with notches
-    for (final notchX in loopBoundaryXPositions) {
-      // Line to just before notch
-      path.lineTo(notchX - nr, 0);
-      // Notch: ╮╭ (curve down-right, then down-left back up)
-      path.arcToPoint(
-        Offset(notchX, nr),
-        radius: Radius.circular(nr),
-        clockwise: true,
-      );
-      path.arcToPoint(
-        Offset(notchX + nr, 0),
-        radius: Radius.circular(nr),
-        clockwise: true,
-      );
-    }
-    // Line to top-right corner
-    path.lineTo(size.width - r, 0);
-
-    // Top-right corner
-    path.arcToPoint(
-      Offset(size.width, r),
-      radius: Radius.circular(r),
-      clockwise: true,
-    );
-
-    // Right edge (straight down)
-    path.lineTo(size.width, size.height - r);
-
-    // Bottom-right corner
-    path.arcToPoint(
-      Offset(size.width - r, size.height),
-      radius: Radius.circular(r),
-      clockwise: true,
-    );
-
-    // Bottom edge with notches (in reverse order)
-    for (final notchX in loopBoundaryXPositions.reversed) {
-      // Line to just after notch
-      path.lineTo(notchX + nr, size.height);
-      // Notch: ╯╰ (curve up-left, then up-right back down)
-      path.arcToPoint(
-        Offset(notchX, size.height - nr),
-        radius: Radius.circular(nr),
-        clockwise: true,
-      );
-      path.arcToPoint(
-        Offset(notchX - nr, size.height),
-        radius: Radius.circular(nr),
-        clockwise: true,
-      );
-    }
-    // Line to bottom-left corner
-    path.lineTo(r, size.height);
-
-    // Bottom-left corner
-    path.arcToPoint(
-      Offset(0, size.height - r),
-      radius: Radius.circular(r),
-      clockwise: true,
-    );
-
-    // Left edge (straight up)
-    path.lineTo(0, r);
-
-    // Top-left corner
-    path.arcToPoint(
-      Offset(r, 0),
-      radius: Radius.circular(r),
-      clockwise: true,
-    );
-
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldRepaint(_ClipBorderPainter oldDelegate) {
-    return borderColor != oldDelegate.borderColor ||
-        borderWidth != oldDelegate.borderWidth ||
-        cornerRadius != oldDelegate.cornerRadius ||
-        notchRadius != oldDelegate.notchRadius ||
-        !_listEquals(loopBoundaryXPositions, oldDelegate.loopBoundaryXPositions);
-  }
-
-  static bool _listEquals(List<double> a, List<double> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-}
-
-/// Clipper for clip content to match the notched border shape
-class _ClipPathClipper extends CustomClipper<Path> {
-  final double cornerRadius;
-  final double notchRadius;
-  final List<double> loopBoundaryXPositions;
-
-  _ClipPathClipper({
-    required this.cornerRadius,
-    required this.notchRadius,
-    required this.loopBoundaryXPositions,
-  });
-
-  @override
-  Path getClip(Size size) {
-    return _ClipBorderPainter.buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
-  }
-
-  @override
-  bool shouldReclip(_ClipPathClipper oldClipper) {
-    return cornerRadius != oldClipper.cornerRadius ||
-        notchRadius != oldClipper.notchRadius ||
-        !_ClipBorderPainter._listEquals(loopBoundaryXPositions, oldClipper.loopBoundaryXPositions);
-  }
-}
-

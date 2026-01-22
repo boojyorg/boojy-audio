@@ -29,6 +29,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Codebase cleanup: removed debug logging from Rust engine (Warp implementation) and Flutter UI
+- Extracted timeline painters to separate files (WaveformPainter, MidiClipPainter, ClipBorderPainter, GridPatternPainter) reducing timeline_view.dart from 5,166 to 4,692 lines
+- Added documentation to web_bindings.rs noting incomplete/experimental status of web support
 - Audio Editor controls bar simplified: removed duplicate "Project BPM" display (already shown in transport bar), removed stretch factor display ("→ 1.09x"), original BPM now shows as draggable "[120 BPM]" display matching transport bar style
 - Audio Editor waveform now stretches/squeezes when adjusting original BPM (warp ON), matching the behavior in arrangement view
 - BPM controls now snap to whole values while dragging; double-click to enter precise decimal values (e.g., 110.50 BPM). Display shows "120 BPM" for whole numbers, "120.50 BPM" for decimals. Applies to both transport bar tempo and Audio Editor original BPM

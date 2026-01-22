@@ -62,26 +62,16 @@ impl TimelineClip {
     pub fn rebuild_stretched_cache(&mut self) {
         use crate::stretch::stretch_audio_preserve_pitch;
 
-        eprintln!("🔧 [Stretch] rebuild_stretched_cache: warp_enabled={}, warp_mode={}, stretch_factor={:.3}",
-            self.warp_enabled, self.warp_mode, self.stretch_factor);
-
         // Only build cache for Warp mode (warp_mode=0) when warp is enabled
         if self.warp_enabled && self.warp_mode == 0 {
             // Check if we need to rebuild (stretch factor changed)
             if self.stretched_cache.is_none()
                 || (self.cached_stretch_factor - self.stretch_factor).abs() > 0.001
             {
-                eprintln!("🔧 [Stretch] Building cache with stretch_factor={:.3}...", self.stretch_factor);
                 self.stretched_cache = Some(stretch_audio_preserve_pitch(&self.clip, self.stretch_factor));
                 self.cached_stretch_factor = self.stretch_factor;
-                eprintln!("✅ [Stretch] Cache built! frames={}",
-                    self.stretched_cache.as_ref().unwrap().frame_count());
-            } else {
-                eprintln!("⏭️  [Stretch] Cache already valid, skipping rebuild");
             }
         } else {
-            eprintln!("⚠️  [Stretch] Clearing cache (warp_enabled={}, warp_mode={})",
-                self.warp_enabled, self.warp_mode);
             // Clear cache for Re-Pitch mode or when warp is disabled
             self.stretched_cache = None;
             self.cached_stretch_factor = 0.0;
