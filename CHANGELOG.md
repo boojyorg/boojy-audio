@@ -27,8 +27,15 @@ All notable changes to Boojy Audio will be documented in this file.
 - Added "Save New Version..." to create versioned copies with symlinked samples (e.g., My Song_v2.audio)
 - Rename now updates recent projects list (removes old path, adds new path)
 
+### Bug Fixes
+
+- Fixed potential crash when widget disposes during VST3 MIDI note-off delay (added mounted check)
+- Audio clip selection now clears previous MIDI/audio selections (consistent behavior)
+
 ### Improvements
 
+- Auto-select audio clip after drag-and-drop creation (matches MIDI track behavior, opens Audio Editor immediately)
+- Added error logging for previously silent catch blocks (helps debugging)
 - Codebase cleanup: removed debug logging from Rust engine (Warp implementation) and Flutter UI
 - Extracted timeline painters to separate files (WaveformPainter, MidiClipPainter, ClipBorderPainter, GridPatternPainter) reducing timeline_view.dart from 5,166 to 4,692 lines
 - Added documentation to web_bindings.rs noting incomplete/experimental status of web support

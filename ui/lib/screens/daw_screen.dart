@@ -399,24 +399,24 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.setCountInBars(_userSettings.countInBars); // Use saved setting
         _audioEngine!.setTempo(120.0);   // Default: 120 BPM
         _audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
-      } catch (_) {
-        // Recording settings initialization failed, continue with defaults
+      } catch (e) {
+        debugPrint('Recording settings initialization failed: $e');
       }
 
       // Initialize buffer size from user settings
       try {
         final bufferPreset = _bufferSizeToPreset(_userSettings.bufferSize);
         _audioEngine!.setBufferSize(bufferPreset);
-      } catch (_) {
-        // Buffer size setting failed, continue with default
+      } catch (e) {
+        debugPrint('Buffer size setting failed: $e');
       }
 
       // Initialize output device from user settings
       if (_userSettings.preferredOutputDevice != null) {
         try {
           _audioEngine!.setAudioOutputDevice(_userSettings.preferredOutputDevice!);
-        } catch (_) {
-          // Output device setting failed, continue with default
+        } catch (e) {
+          debugPrint('Output device setting failed: $e');
         }
       }
 
@@ -1007,10 +1007,11 @@ class _DAWScreenState extends State<DAWScreen> {
       }
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
+        if (!mounted || _audioEngine == null) return;
         _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
-    } catch (_) {
-      // Failed to preview VST3 instrument
+    } catch (e) {
+      debugPrint('Failed to preview VST3 instrument: $e');
     }
   }
 
@@ -1058,9 +1059,8 @@ class _DAWScreenState extends State<DAWScreen> {
       }
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
-        final noteOffResult = _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
-        if (noteOffResult.isNotEmpty) {
-        }
+        if (!mounted || _audioEngine == null) return;
+        _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
 
       // Select the newly created track and its clip
@@ -1071,8 +1071,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Disarm other MIDI tracks (exclusive arm for new track)
       _disarmOtherMidiTracks(trackId);
-    } catch (_) {
-      // Failed to create VST3 instrument track
+    } catch (e) {
+      debugPrint('Failed to create VST3 instrument track: $e');
     }
   }
 
@@ -1119,10 +1119,13 @@ class _DAWScreenState extends State<DAWScreen> {
         waveformPeaks: peaks,
       ));
 
-      // 6. Refresh track widgets
+      // 6. Select the newly created clip (opens Audio Editor)
+      _timelineKey.currentState?.selectAudioClip(clipId);
+
+      // 7. Refresh track widgets
       _refreshTrackWidgets();
     } catch (e) {
-      // Silently fail
+      debugPrint('Failed to add audio file to new track: $e');
     }
   }
 
@@ -1159,6 +1162,8 @@ class _DAWScreenState extends State<DAWScreen> {
             duration: duration,
             waveformPeaks: peaks,
           ));
+          // Select the newly created clip (opens Audio Editor)
+          _timelineKey.currentState?.selectAudioClip(clipId);
         },
         onClipRemoved: (clipId) {
           // Remove from timeline view (undo)
@@ -1171,7 +1176,7 @@ class _DAWScreenState extends State<DAWScreen> {
       // 5. Refresh track widgets
       _refreshTrackWidgets();
     } catch (e) {
-      // Silently fail
+      debugPrint('Failed to add audio file to track: $e');
     }
   }
 
@@ -1209,8 +1214,8 @@ class _DAWScreenState extends State<DAWScreen> {
       if (trackType == 'midi') {
         _disarmOtherMidiTracks(trackId);
       }
-    } catch (_) {
-      // Failed to create track
+    } catch (e) {
+      debugPrint('Failed to create track with clip: $e');
     }
   }
 
@@ -1743,8 +1748,8 @@ class _DAWScreenState extends State<DAWScreen> {
           _statusMessage = 'Added $effectType to track';
         });
       }
-    } catch (_) {
-      // Failed to add effect to track
+    } catch (e) {
+      debugPrint('Failed to add effect to track: $e');
     }
   }
 
@@ -2958,8 +2963,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
       // Clear the recovery marker regardless of choice
       await _autoSaveService.clearRecoveryMarker();
-    } catch (_) {
-      // Failed to check for crash recovery
+    } catch (e) {
+      debugPrint('Failed to check for crash recovery: $e');
     }
   }
 

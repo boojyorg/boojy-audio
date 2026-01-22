@@ -453,7 +453,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       if (clipId != null) {
         selectedAudioClipIds.add(clipId);
       }
+      // Clear MIDI selection when selecting audio clip
+      selectedMidiClipIds.clear();
     });
+
+    // Notify parent about audio clip selection
+    final selectedClip = selectedAudioClip;
+    widget.onAudioClipSelected?.call(selectedAudioClipId, selectedClip);
   }
 
   /// Check if a MIDI clip is selected
@@ -1598,11 +1604,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             if (selectedMidiClipIds.isNotEmpty) {
               final clipsToDelete = <(int, int)>[];
               for (final clipId in selectedMidiClipIds) {
-                final clip = widget.midiClips.firstWhere(
-                  (c) => c.clipId == clipId,
-                  orElse: () => MidiClipData(clipId: -1, trackId: -1, startTime: 0, duration: 0),
-                );
-                if (clip.clipId != -1) {
+                final clip = widget.midiClips.where((c) => c.clipId == clipId).firstOrNull;
+                if (clip != null) {
                   clipsToDelete.add((clip.clipId, clip.trackId));
                 }
               }
@@ -1645,11 +1648,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           if (event.logicalKey == LogicalKeyboardKey.keyD &&
               ModifierKeyState.current().isCtrlOrCmd) {
             if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.firstWhere(
-                (c) => c.clipId == widget.selectedMidiClipId,
-                orElse: () => MidiClipData(clipId: -1, trackId: -1, startTime: 0, duration: 0),
-              );
-              if (clip.clipId != -1) {
+              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+              if (clip != null) {
                 _duplicateMidiClip(clip);
                 return KeyEventResult.handled;
               }
@@ -1666,11 +1666,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Q to quantize selected clip (spec v2.0)
           if (event.logicalKey == LogicalKeyboardKey.keyQ) {
             if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.firstWhere(
-                (c) => c.clipId == widget.selectedMidiClipId,
-                orElse: () => MidiClipData(clipId: -1, trackId: -1, startTime: 0, duration: 0),
-              );
-              if (clip.clipId != -1) {
+              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+              if (clip != null) {
                 _quantizeMidiClip(clip);
                 return KeyEventResult.handled;
               }
