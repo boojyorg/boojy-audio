@@ -33,6 +33,7 @@ class UILayoutData {
   final bool bottomCollapsed;
   final ProjectViewState? viewState;
   final List<ClipData>? audioClips;
+  final Map<String, dynamic>? automationData;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -43,10 +44,11 @@ class UILayoutData {
     this.bottomCollapsed = true,
     this.viewState,
     this.audioClips,
+    this.automationData,
   });
 
   Map<String, dynamic> toJson() => {
-    'version': '1.1',
+    'version': '1.2',
     'panel_sizes': {
       'library_width': libraryWidth,
       'mixer_width': mixerWidth,
@@ -60,6 +62,8 @@ class UILayoutData {
     if (viewState != null) 'view_state': viewState!.toJson(),
     if (audioClips != null && audioClips!.isNotEmpty)
       'audio_clips': audioClips!.map((c) => c.toJson()).toList(),
+    if (automationData != null && automationData!.isNotEmpty)
+      'automation': automationData,
   };
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
@@ -67,6 +71,7 @@ class UILayoutData {
     final panelCollapsed = json['panel_collapsed'] as Map<String, dynamic>? ?? {};
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
     final audioClipsJson = json['audio_clips'] as List<dynamic>?;
+    final automationJson = json['automation'] as Map<String, dynamic>?;
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
@@ -79,6 +84,7 @@ class UILayoutData {
       audioClips: audioClipsJson
           ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
           .toList(),
+      automationData: automationJson,
     );
   }
 }

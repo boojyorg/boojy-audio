@@ -6,6 +6,7 @@ import 'track_mixer_strip.dart';
 import 'instrument_browser.dart';
 import '../utils/track_colors.dart';
 import '../models/instrument_data.dart';
+import '../models/track_automation_data.dart';
 import '../models/track_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/undo_redo_manager.dart';
@@ -57,10 +58,15 @@ class TrackMixerPanel extends StatefulWidget {
   final bool isEngineReady;
 
   // Track height management (synced with timeline)
-  final Map<int, double> trackHeights; // trackId -> height
+  final Map<int, double> clipHeights; // trackId -> clip area height
+  final Map<int, double> automationHeights; // trackId -> automation lane height
   final double masterTrackHeight;
-  final Function(int trackId, double height)? onTrackHeightChanged;
+  final Function(int trackId, double height)? onClipHeightChanged;
+  final Function(int trackId, double height)? onAutomationHeightChanged;
   final Function(double height)? onMasterTrackHeightChanged;
+
+  // Panel width (for responsive layout)
+  final double panelWidth;
 
   // Panel toggle callback (clicking header hides panel)
   final VoidCallback? onTogglePanel;
@@ -74,6 +80,22 @@ class TrackMixerPanel extends StatefulWidget {
 
   // Double-click track to open editor
   final Function(int trackId)? onTrackDoubleClick;
+
+  // Automation state
+  final int? automationVisibleTrackId;
+  final Function(int trackId)? onAutomationToggle;
+  final TrackAutomationLane? Function(int trackId)? getAutomationLane;
+  final double pixelsPerBeat;
+  final double totalBeats;
+  final Function(int trackId, AutomationPoint point)? onAutomationPointAdded;
+  final Function(int trackId, String pointId, AutomationPoint point)? onAutomationPointUpdated;
+  final Function(int trackId, String pointId)? onAutomationPointDeleted;
+
+  // Automation parameter controls
+  final AutomationParameter Function(int trackId)? getSelectedParameter;
+  final Function(int trackId, AutomationParameter param)? onParameterChanged;
+  final Function(int trackId)? onResetParameter;
+  final Function(int trackId)? onAddParameter;
 
   const TrackMixerPanel({
     super.key,
@@ -100,15 +122,30 @@ class TrackMixerPanel extends StatefulWidget {
     this.onTrackReordered,
     this.trackOrder = const [],
     this.onTrackOrderSync,
-    this.trackHeights = const {},
+    this.clipHeights = const {},
+    this.automationHeights = const {},
     this.masterTrackHeight = 60.0,
-    this.onTrackHeightChanged,
+    this.onClipHeightChanged,
+    this.onAutomationHeightChanged,
     this.onMasterTrackHeightChanged,
+    this.panelWidth = 380.0,
     this.onTogglePanel,
     this.getTrackColor,
     this.onTrackColorChanged,
     this.onTrackNameChanged,
     this.onTrackDoubleClick,
+    this.automationVisibleTrackId,
+    this.onAutomationToggle,
+    this.getAutomationLane,
+    this.pixelsPerBeat = 20.0,
+    this.totalBeats = 256.0,
+    this.onAutomationPointAdded,
+    this.onAutomationPointUpdated,
+    this.onAutomationPointDeleted,
+    this.getSelectedParameter,
+    this.onParameterChanged,
+    this.onResetParameter,
+    this.onAddParameter,
   });
 
   @override
@@ -466,7 +503,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
       },
       child: Container(
-        width: 380,
+        width: widget.panelWidth,
         decoration: BoxDecoration(
           color: context.colors.standard,
           border: Border(
@@ -747,6 +784,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             peakLevelRight: _peakLevels[masterTrack.id]?.$2 ?? 0.0,
             trackHeight: widget.masterTrackHeight,
             onHeightChanged: widget.onMasterTrackHeightChanged,
+            stripWidth: widget.panelWidth,
             onVolumeChanged: (volumeDb) {
               setState(() {
                 masterTrack.volumeDb = volumeDb;
@@ -766,7 +804,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
   /// Build a draggable track wrapper - live reordering (no gap animation needed)
   Widget _buildDraggableTrackWrapper(TrackData track, int index, List<TrackData> allTracks) {
-    final trackHeight = widget.trackHeights[track.id] ?? 100.0;
+    final trackHeight = widget.clipHeights[track.id] ?? 100.0;
     final isDragging = _draggingIndex == index;
 
     return KeyedSubtree(
@@ -817,10 +855,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final newOffsetY = details.globalPosition.dy - _dragStartPosition!.dy;
 
     // Calculate gap index based on dragged track center position
-    final draggedHeight = widget.trackHeights[tracks[_draggingIndex!].id] ?? 100.0;
+    final draggedHeight = widget.clipHeights[tracks[_draggingIndex!].id] ?? 100.0;
     double originalTop = 0;
     for (int i = 0; i < _draggingIndex!; i++) {
-      originalTop += widget.trackHeights[tracks[i].id] ?? 100.0;
+      originalTop += widget.clipHeights[tracks[i].id] ?? 100.0;
     }
     final draggedCenter = originalTop + newOffsetY + (draggedHeight / 2);
 
@@ -828,7 +866,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     int newGapIndex = _draggingIndex!;
     double cumulativeHeight = 0;
     for (int i = 0; i < tracks.length; i++) {
-      final itemHeight = widget.trackHeights[tracks[i].id] ?? 100.0;
+      final itemHeight = widget.clipHeights[tracks[i].id] ?? 100.0;
       final itemMidpoint = cumulativeHeight + (itemHeight / 2);
 
       if (i < _draggingIndex! && draggedCenter < itemMidpoint) {
@@ -862,11 +900,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       // When moving up, we need to subtract the heights of tracks we passed
       if (toIndex > fromIndex) {
         // Moved down - adjust start position up by the height of the track we passed
-        final passedTrackHeight = widget.trackHeights[tracks[fromIndex].id] ?? 100.0;
+        final passedTrackHeight = widget.clipHeights[tracks[fromIndex].id] ?? 100.0;
         _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy + passedTrackHeight);
       } else {
         // Moved up - adjust start position down by the height of the track we passed
-        final passedTrackHeight = widget.trackHeights[tracks[toIndex].id] ?? 100.0;
+        final passedTrackHeight = widget.clipHeights[tracks[toIndex].id] ?? 100.0;
         _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy - passedTrackHeight);
       }
     }
@@ -917,7 +955,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     if (_draggingIndex == null) return 0;
     double top = 0;
     for (int i = 0; i < _draggingIndex!; i++) {
-      top += widget.trackHeights[tracks[i].id] ?? 100.0;
+      top += widget.clipHeights[tracks[i].id] ?? 100.0;
     }
     return top + _dragOffsetY;
   }
@@ -951,9 +989,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onVst3InstrumentDropped: (plugin) => widget.onVst3InstrumentDropped?.call(track.id, plugin),
       onInstrumentDropped: (instrument) => widget.onInstrumentDropped?.call(track.id, instrument),
       onEditPluginsPressed: () => widget.onEditPluginsPressed?.call(track.id),
-      trackHeight: widget.trackHeights[track.id] ?? 100.0,
-      onHeightChanged: (height) {
-        widget.onTrackHeightChanged?.call(track.id, height);
+      clipHeight: widget.clipHeights[track.id] ?? 100.0,
+      automationHeight: widget.automationHeights[track.id] ?? 60.0,
+      stripWidth: widget.panelWidth,
+      onClipHeightChanged: (height) {
+        widget.onClipHeightChanged?.call(track.id, height);
+      },
+      onAutomationHeightChanged: (height) {
+        widget.onAutomationHeightChanged?.call(track.id, height);
       },
       onTap: (isShiftHeld) {
         widget.onTrackSelected?.call(track.id, isShiftHeld: isShiftHeld);
@@ -988,6 +1031,18 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       isArmed: track.armed,
       onArmToggle: () => _handleArmToggle(track, allTracks),
       onArmShiftClick: () => _handleArmShiftClick(track),
+      showAutomation: widget.automationVisibleTrackId == track.id,
+      onAutomationToggle: () => widget.onAutomationToggle?.call(track.id),
+      selectedParameter: widget.getSelectedParameter?.call(track.id) ?? AutomationParameter.volume,
+      onParameterChanged: (param) => widget.onParameterChanged?.call(track.id, param),
+      onResetParameter: () => widget.onResetParameter?.call(track.id),
+      onAddParameter: () => widget.onAddParameter?.call(track.id),
+      automationLane: widget.getAutomationLane?.call(track.id),
+      pixelsPerBeat: widget.pixelsPerBeat,
+      totalBeats: widget.totalBeats,
+      onAutomationPointAdded: (point) => widget.onAutomationPointAdded?.call(track.id, point),
+      onAutomationPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(track.id, pointId, point),
+      onAutomationPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(track.id, pointId),
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
       onConvertToSampler: track.type.toLowerCase() == 'audio' && widget.onConvertToSampler != null

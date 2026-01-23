@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
+import '../models/track_automation_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/tool_mode_resolver.dart';
 import '../theme/theme_extension.dart';
@@ -38,6 +39,23 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
   final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
+  final VoidCallback? onAutomationToggle; // Toggle automation lane visibility
+  final bool showAutomation; // Whether automation lane is visible
+
+  // Automation parameter controls
+  final AutomationParameter selectedParameter; // Currently selected parameter
+  final Function(AutomationParameter)? onParameterChanged; // Parameter dropdown changed
+  final VoidCallback? onResetParameter; // Reset parameter to default
+  final VoidCallback? onAddParameter; // Add another parameter lane
+
+  // Automation lane data (for inline lane in mixer)
+  final TrackAutomationLane? automationLane;
+  final double pixelsPerBeat;
+  final double totalBeats;
+  final Function(AutomationPoint)? onAutomationPointAdded;
+  final Function(String pointId, AutomationPoint)? onAutomationPointUpdated;
+  final Function(String pointId)? onAutomationPointDeleted;
+
   final Function(bool isShiftHeld)? onTap; // Unified track selection callback (with shift state for multi-select)
   final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
@@ -59,9 +77,14 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(Instrument)? onInstrumentDropped; // Built-in instrument swap
   final VoidCallback? onEditPluginsPressed; // New: Edit active plugins
 
-  // Track height resizing
-  final double trackHeight;
-  final Function(double)? onHeightChanged;
+  // Track height management (synced with timeline)
+  final double clipHeight; // Clip area height
+  final double automationHeight; // Automation lane height (when visible)
+  final Function(double)? onClipHeightChanged;
+  final Function(double)? onAutomationHeightChanged;
+
+  // Strip width (for responsive layout)
+  final double stripWidth;
 
   // Track color change callback
   final Function(Color)? onColorChanged;
@@ -86,6 +109,18 @@ class TrackMixerStrip extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onArmShiftClick,
+    this.onAutomationToggle,
+    this.showAutomation = false,
+    this.selectedParameter = AutomationParameter.volume,
+    this.onParameterChanged,
+    this.onResetParameter,
+    this.onAddParameter,
+    this.automationLane,
+    this.pixelsPerBeat = 20.0,
+    this.totalBeats = 256.0,
+    this.onAutomationPointAdded,
+    this.onAutomationPointUpdated,
+    this.onAutomationPointDeleted,
     this.onTap,
     this.onDoubleTap,
     this.onDeletePressed,
@@ -102,8 +137,11 @@ class TrackMixerStrip extends StatefulWidget {
     this.onVst3InstrumentDropped,
     this.onInstrumentDropped,
     this.onEditPluginsPressed,
-    this.trackHeight = 100.0,
-    this.onHeightChanged,
+    this.clipHeight = 100.0,
+    this.automationHeight = 60.0,
+    this.onClipHeightChanged,
+    this.onAutomationHeightChanged,
+    this.stripWidth = 380.0,
     this.onColorChanged,
   });
 
@@ -180,7 +218,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   double get _scaleFactor {
     const minHeight = 40.0;
     const standardHeight = 76.0;
-    return ((widget.trackHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
+    return ((widget.clipHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
   }
 
   /// Lerp helper for scaling values
@@ -205,7 +243,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     // Available height for content
     // Border: 4px left, 2px top/right/bottom - vertical offset is top + bottom = 4px
     const double borderOffset = 4.0;
-    final availableHeight = widget.trackHeight - borderOffset;
+    final availableHeight = widget.clipHeight - borderOffset;
 
     // Calculate layout dimensions
     // Top padding: 0 at compact for row 1 at very top, 6 at standard
@@ -258,11 +296,14 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ),
             ],
           ),
-          // Row 2: dB + Volume Slider
+          // Row 2: Automation SplitButton + dB + Volume Slider
           SizedBox(
             height: rowHeight,
             child: Row(
               children: [
+                // Automation SplitButton (Icon+Auto | dropdown)
+                _buildAutomationButton(context, rowHeight),
+                const SizedBox(width: 4),
                 // dB value display (fixed size and width)
                 SizedBox(
                   width: dbContainerWidth,
@@ -297,7 +338,170 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ],
             ),
           ),
+          // Row 3-4: Automation Controls (only when visible)
+          if (widget.showAutomation)
+            _buildAutomationControlsSection(context),
         ],
+      ),
+    );
+  }
+
+  /// Build automation controls section (parameter row)
+  /// Row 3: [ + ] + [Volume ▼] dropdown + [value] + [↺] reset
+  Widget _buildAutomationControlsSection(BuildContext context) {
+    final scale = _scaleFactor;
+    final rowHeight = _lerp(20, 24, scale);
+    final fontSize = _lerp(9, 10, scale);
+    final param = widget.selectedParameter;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: SizedBox(
+        height: rowHeight,
+        child: Row(
+          children: [
+            // [ + ] add parameter button (shorter, wider)
+            _buildAddParameterButton(context, fontSize, rowHeight),
+            const SizedBox(width: 4),
+            // [Volume ▼] dropdown
+            _buildParameterDropdown(context, fontSize, rowHeight),
+            const SizedBox(width: 4),
+            // [value] display
+            _buildParameterValueDisplay(context, param, fontSize),
+            const SizedBox(width: 4),
+            // [↺] reset button
+            _buildResetButton(context, rowHeight),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build parameter dropdown (Volume, Pan, etc.)
+  Widget _buildParameterDropdown(BuildContext context, double fontSize, double rowHeight) {
+    final colors = context.colors;
+    final param = widget.selectedParameter;
+
+    return Container(
+      height: rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: colors.dark,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AutomationParameter>(
+          value: param,
+          isDense: true,
+          dropdownColor: colors.elevated,
+          icon: Icon(Icons.arrow_drop_down, size: 14, color: colors.textSecondary),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: fontSize,
+          ),
+          items: AutomationParameter.values.map((p) {
+            return DropdownMenuItem<AutomationParameter>(
+              value: p,
+              child: Text(p.displayName),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              widget.onParameterChanged?.call(value);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Build parameter value display
+  Widget _buildParameterValueDisplay(BuildContext context, AutomationParameter param, double fontSize) {
+    final colors = context.colors;
+
+    // Get current value based on parameter type
+    final String valueText;
+    if (param == AutomationParameter.volume) {
+      valueText = widget.volumeDb <= -60.0 ? '-∞' : '${widget.volumeDb.toStringAsFixed(1)}dB';
+    } else if (param == AutomationParameter.pan) {
+      final panValue = widget.pan;
+      if (panValue == 0) {
+        valueText = 'C';
+      } else if (panValue < 0) {
+        valueText = '${(panValue * 100).abs().toInt()}L';
+      } else {
+        valueText = '${(panValue * 100).toInt()}R';
+      }
+    } else {
+      valueText = '0';
+    }
+
+    return Container(
+      width: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.darkest,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Text(
+        valueText,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: colors.textSecondary,
+          fontSize: fontSize,
+          fontFamily: 'monospace',
+        ),
+      ),
+    );
+  }
+
+  /// Build reset button
+  Widget _buildResetButton(BuildContext context, double rowHeight) {
+    final colors = context.colors;
+
+    return GestureDetector(
+      onTap: widget.onResetParameter,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: rowHeight,
+          height: rowHeight,
+          decoration: BoxDecoration(
+            color: colors.dark,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Icon(
+            Icons.refresh,
+            size: rowHeight * 0.6,
+            color: colors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build add parameter button (shorter and wider)
+  Widget _buildAddParameterButton(BuildContext context, double fontSize, double rowHeight) {
+    final colors = context.colors;
+    final buttonHeight = rowHeight * 0.75; // Shorter than row height
+
+    return GestureDetector(
+      onTap: widget.onAddParameter,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: buttonHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 10), // Wider padding
+          decoration: BoxDecoration(
+            color: colors.dark,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Icon(
+            Icons.add,
+            size: fontSize + 2,
+            color: colors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -375,6 +579,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     // Note: trackType from engine is 'MIDI', 'Audio', 'Master' (uppercase)
     final isMidiTrack = widget.trackType.toLowerCase() == 'midi';
 
+    // Calculate total height: clipHeight + automationHeight when automation is visible
+    final totalHeight = widget.showAutomation
+        ? widget.clipHeight + widget.automationHeight
+        : widget.clipHeight;
+
     // Nested DragTargets: VST3 (instruments + effects) -> Built-in Instruments
     return DragTarget<Vst3Plugin>(
       onWillAcceptWithDetails: (details) {
@@ -410,14 +619,14 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             _showContextMenu(context, details.globalPosition);
           },
           child: SizedBox(
-            width: 380,
-            height: widget.trackHeight,
+            width: widget.stripWidth,
+            height: totalHeight,
             child: Stack(
               children: [
                 // Main content container
                 Container(
-                  width: 380,
-                  height: widget.trackHeight,
+                  width: widget.stripWidth,
+                  height: totalHeight,
                   decoration: BoxDecoration(
                     // Track color at 20% opacity (like Master track left section)
                     color: isHovered
@@ -468,7 +677,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       onVerticalDragStart: (details) {
                         _isResizing = true;
                         _resizeStartY = details.globalPosition.dy;
-                        _resizeStartHeight = widget.trackHeight;
+                        _resizeStartHeight = widget.clipHeight;
                       },
                       onVerticalDragUpdate: (details) {
                         if (_isResizing) {
@@ -477,7 +686,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                             TrackMixerStrip.kMinHeight,
                             TrackMixerStrip.kMaxHeight,
                           );
-                          widget.onHeightChanged?.call(newHeight);
+                          widget.onClipHeightChanged?.call(newHeight);
                         }
                       },
                       onVerticalDragEnd: (details) {
@@ -792,6 +1001,62 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
+  /// Build automation toggle button (grey when off, blue when on)
+  /// Shows text only if volume slider would still be >= 80px wide
+  Widget _buildAutomationButton(BuildContext context, double rowHeight) {
+    final colors = context.colors;
+    final isActive = widget.showAutomation;
+    final buttonHeight = (rowHeight * 0.85).clamp(16.0, 22.0);
+    final fontSize = (rowHeight * 0.4).clamp(8.0, 10.0);
+    final iconSize = (rowHeight * 0.5).clamp(10.0, 14.0);
+
+    // Calculate if showing text would leave enough room for volume slider
+    // Strip width - horizontal padding (12) - dB container (56) - gaps (12) = available
+    // Button with text: ~80px, icon only: ~28px
+    // Show text if slider would be >= 80px
+    final availableForButtonAndSlider = widget.stripWidth - 12 - 56 - 12;
+    const buttonWithTextWidth = 80.0;
+    const minSliderWidth = 80.0;
+    final showText = (availableForButtonAndSlider - buttonWithTextWidth) >= minSliderWidth;
+
+    return GestureDetector(
+      onTap: widget.onAutomationToggle,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: buttonHeight,
+          padding: EdgeInsets.symmetric(horizontal: showText ? 6 : 4),
+          decoration: BoxDecoration(
+            // Same style as piano roll toggle buttons (Legato, Reverse, etc.)
+            color: isActive ? colors.accent : colors.dark,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.timeline,
+                size: iconSize,
+                color: isActive ? colors.elevated : colors.textPrimary,
+              ),
+              if (showText) ...[
+                const SizedBox(width: 4),
+                Text(
+                  'Automation',
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w500,
+                    color: isActive ? colors.elevated : colors.textPrimary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Get tinted background color (track color at 30% opacity over standard background)
   Color _getTintedBackgroundColor() {
     final trackColor = widget.trackColor;
@@ -852,6 +1117,9 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final double trackHeight;
   final Function(double)? onHeightChanged;
 
+  // Strip width (for responsive layout)
+  final double stripWidth;
+
   const MasterTrackMixerStrip({
     super.key,
     required this.volumeDb,
@@ -862,6 +1130,7 @@ class MasterTrackMixerStrip extends StatefulWidget {
     this.onPanChanged,
     this.trackHeight = kDefaultHeight,
     this.onHeightChanged,
+    this.stripWidth = 380.0,
   });
 
   @override
@@ -916,13 +1185,13 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
     const double dbContainerWidth = 56.0;
 
     return SizedBox(
-      width: 380,
+      width: widget.stripWidth,
       height: widget.trackHeight,
       child: Stack(
         children: [
           // Main content container
           Container(
-            width: 380,
+            width: widget.stripWidth,
             height: widget.trackHeight,
             decoration: BoxDecoration(
               color: _getTintedBackgroundColor(context),

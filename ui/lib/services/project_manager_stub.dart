@@ -29,6 +29,7 @@ class UILayoutData {
   final bool bottomCollapsed;
   final ProjectViewState? viewState;
   final List<ClipData>? audioClips;
+  final Map<String, dynamic>? automationData;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -39,6 +40,7 @@ class UILayoutData {
     this.bottomCollapsed = true,
     this.viewState,
     this.audioClips,
+    this.automationData,
   });
 
   Map<String, dynamic> toJson() => throw UnsupportedError('stub');

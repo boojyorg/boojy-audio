@@ -8,14 +8,22 @@ class TrackController extends ChangeNotifier {
   int? _selectedTrackId;
   final Set<int> _selectedTrackIds = {};
 
-  // Track height state (synced between mixer and timeline)
-  final Map<int, double> _trackHeights = {};
+  // Clip area height state (synced between mixer and timeline)
+  final Map<int, double> _clipHeights = {};
   double _masterTrackHeight = 50.0;
 
-  // Height constraints
-  static const double defaultTrackHeight = 100.0;
-  static const double minTrackHeight = 40.0;
-  static const double maxTrackHeight = 400.0;
+  // Automation lane height state (per-track, when automation is visible)
+  final Map<int, double> _automationHeights = {};
+
+  // Clip height constraints
+  static const double defaultClipHeight = 100.0;
+  static const double minClipHeight = 40.0;
+  static const double maxClipHeight = 400.0;
+
+  // Automation height constraints
+  static const double defaultAutomationHeight = 60.0;
+  static const double minAutomationHeight = 40.0;
+  static const double maxAutomationHeight = 200.0;
 
   // Track color state (auto-detected with manual override)
   final Map<int, Color> _trackColorOverrides = {};
@@ -33,7 +41,8 @@ class TrackController extends ChangeNotifier {
   int? get selectedTrackId => _selectedTrackId;
   Set<int> get selectedTrackIds => Set.unmodifiable(_selectedTrackIds);
   List<int> get trackOrder => List.unmodifiable(_trackOrder);
-  Map<int, double> get trackHeights => Map.unmodifiable(_trackHeights);
+  Map<int, double> get clipHeights => Map.unmodifiable(_clipHeights);
+  Map<int, double> get automationHeights => Map.unmodifiable(_automationHeights);
   double get masterTrackHeight => _masterTrackHeight;
   Map<int, InstrumentData> get trackInstruments => Map.unmodifiable(_trackInstruments);
 
@@ -53,20 +62,31 @@ class TrackController extends ChangeNotifier {
     _trackNameUserEdited[trackId] = false;
   }
 
-  /// Get track height, returning default if not set
-  double getTrackHeight(int trackId) {
-    return _trackHeights[trackId] ?? defaultTrackHeight;
+  /// Get clip area height, returning default if not set
+  double getClipHeight(int trackId) {
+    return _clipHeights[trackId] ?? defaultClipHeight;
   }
 
-  /// Set track height
-  void setTrackHeight(int trackId, double height) {
-    _trackHeights[trackId] = height.clamp(minTrackHeight, maxTrackHeight);
+  /// Set clip area height
+  void setClipHeight(int trackId, double height) {
+    _clipHeights[trackId] = height.clamp(minClipHeight, maxClipHeight);
+    notifyListeners();
+  }
+
+  /// Get automation lane height, returning default if not set
+  double getAutomationHeight(int trackId) {
+    return _automationHeights[trackId] ?? defaultAutomationHeight;
+  }
+
+  /// Set automation lane height
+  void setAutomationHeight(int trackId, double height) {
+    _automationHeights[trackId] = height.clamp(minAutomationHeight, maxAutomationHeight);
     notifyListeners();
   }
 
   /// Set master track height
   void setMasterTrackHeight(double height) {
-    _masterTrackHeight = height.clamp(minTrackHeight, maxTrackHeight);
+    _masterTrackHeight = height.clamp(minClipHeight, maxClipHeight);
     notifyListeners();
   }
 
@@ -199,7 +219,8 @@ class TrackController extends ChangeNotifier {
   /// Handle track deletion - clean up all related state
   void onTrackDeleted(int trackId) {
     _trackInstruments.remove(trackId);
-    _trackHeights.remove(trackId);
+    _clipHeights.remove(trackId);
+    _automationHeights.remove(trackId);
     _trackColorOverrides.remove(trackId);
     _trackNameUserEdited.remove(trackId);
     _selectedTrackIds.remove(trackId);
@@ -222,9 +243,14 @@ class TrackController extends ChangeNotifier {
       );
     }
 
-    // Copy track height
-    if (_trackHeights.containsKey(sourceTrackId)) {
-      _trackHeights[newTrackId] = _trackHeights[sourceTrackId]!;
+    // Copy clip height
+    if (_clipHeights.containsKey(sourceTrackId)) {
+      _clipHeights[newTrackId] = _clipHeights[sourceTrackId]!;
+    }
+
+    // Copy automation height
+    if (_automationHeights.containsKey(sourceTrackId)) {
+      _automationHeights[newTrackId] = _automationHeights[sourceTrackId]!;
     }
 
     // Copy color override if present
@@ -244,7 +270,8 @@ class TrackController extends ChangeNotifier {
   void clear() {
     _selectedTrackId = null;
     _selectedTrackIds.clear();
-    _trackHeights.clear();
+    _clipHeights.clear();
+    _automationHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();
@@ -257,7 +284,8 @@ class TrackController extends ChangeNotifier {
   void dispose() {
     // Clear all state before disposing
     _selectedTrackIds.clear();
-    _trackHeights.clear();
+    _clipHeights.clear();
+    _automationHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();
     _trackNameUserEdited.clear();

@@ -45,6 +45,7 @@ import '../models/version_type.dart';
 import '../models/project_view_state.dart';
 import '../models/midi_event.dart';
 import '../models/tool_mode.dart';
+import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/midi_capture_buffer.dart';
 import '../services/clip_naming_service.dart';
@@ -72,6 +73,7 @@ class _DAWScreenState extends State<DAWScreen> {
   final RecordingController _recordingController = RecordingController();
   final TrackController _trackController = TrackController();
   final MidiClipController _midiClipController = MidiClipController();
+  final AutomationController _automationController = AutomationController();
   final UILayoutState _uiLayout = UILayoutState();
 
   // Undo/Redo manager
@@ -148,11 +150,16 @@ class _DAWScreenState extends State<DAWScreen> {
   set _selectedTrackId(int? value) => _trackController.selectTrack(value);
 
   Map<int, InstrumentData> get _trackInstruments => _trackController.trackInstruments;
-  Map<int, double> get _trackHeights => _trackController.trackHeights;
+  Map<int, double> get _clipHeights => _trackController.clipHeights;
+  Map<int, double> get _automationHeights => _trackController.automationHeights;
   double get _masterTrackHeight => _trackController.masterTrackHeight;
 
-  void _setTrackHeight(int trackId, double height) {
-    _trackController.setTrackHeight(trackId, height);
+  void _setClipHeight(int trackId, double height) {
+    _trackController.setClipHeight(trackId, height);
+  }
+
+  void _setAutomationHeight(int trackId, double height) {
+    _trackController.setAutomationHeight(trackId, height);
   }
 
   void _setMasterTrackHeight(double height) {
@@ -351,6 +358,7 @@ class _DAWScreenState extends State<DAWScreen> {
     _recordingController.dispose();
     _trackController.dispose();
     _midiClipController.dispose();
+    _automationController.dispose();
     _uiLayout.dispose();
 
     // Dispose scroll controllers
@@ -2557,6 +2565,9 @@ class _DAWScreenState extends State<DAWScreen> {
               // Reset loop auto-follow for new project
               _uiLayout.resetLoopAutoFollow();
 
+              // Clear automation data
+              _automationController.clear();
+
               // Clear window title (back to just "Boojy Audio")
               WindowTitleService.clearProjectName();
 
@@ -2868,6 +2879,9 @@ class _DAWScreenState extends State<DAWScreen> {
         }
       });
     }
+
+    // Restore automation data if available
+    _automationController.loadFromJson(layout.automationData);
   }
 
   /// Restore view state (zoom, scroll, panels, playhead)
@@ -2934,6 +2948,7 @@ class _DAWScreenState extends State<DAWScreen> {
       bottomCollapsed: !(_uiLayout.isEditorPanelVisible || _uiLayout.isVirtualPianoEnabled),
       viewState: viewState,
       audioClips: audioClips,
+      automationData: _automationController.toJson(),
     );
   }
 
@@ -3790,10 +3805,13 @@ class _DAWScreenState extends State<DAWScreen> {
                           onAudioFileDroppedOnTrack: _onAudioFileDroppedOnTrack,
                           onCreateTrackWithClip: _onCreateTrackWithClip,
                           onCreateClipOnTrack: _onCreateClipOnTrack,
-                          trackHeights: _trackHeights,
+                          clipHeights: _clipHeights,
+                          automationHeights: _automationHeights,
                           masterTrackHeight: _masterTrackHeight,
                           trackOrder: _trackController.trackOrder,
                           getTrackColor: _getTrackColor,
+                          onClipHeightChanged: _setClipHeight,
+                          onAutomationHeightChanged: _setAutomationHeight,
                           onSeek: (position) {
                             _audioEngine?.transportSeek(position);
                             _playheadPosition = position;
@@ -3818,6 +3836,19 @@ class _DAWScreenState extends State<DAWScreen> {
                           // Tool mode (shared with piano roll)
                           toolMode: _currentToolMode,
                           onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+                          // Automation state
+                          automationVisibleTrackId: _automationController.visibleTrackId,
+                          getAutomationLane: (trackId) => _automationController.getLane(trackId, _automationController.visibleParameter),
+                          onAutomationPointAdded: (trackId, point) {
+                            _automationController.addPoint(trackId, _automationController.visibleParameter, point);
+                          },
+                          onAutomationPointUpdated: (trackId, pointId, point) {
+                            _automationController.updatePoint(trackId, _automationController.visibleParameter, pointId, point);
+                          },
+                          onAutomationPointDeleted: (trackId, pointId) {
+                            _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
+                          },
+                          automationScrollController: _timelineKey.currentState?.scrollController,
                         ),
                         ),
                       ),
@@ -3881,10 +3912,13 @@ class _DAWScreenState extends State<DAWScreen> {
                             onTrackReordered: _onTrackReordered,
                             trackOrder: _trackController.trackOrder,
                             onTrackOrderSync: _trackController.syncTrackOrder,
-                            trackHeights: _trackHeights,
+                            clipHeights: _clipHeights,
+                            automationHeights: _automationHeights,
                             masterTrackHeight: _masterTrackHeight,
-                            onTrackHeightChanged: _setTrackHeight,
+                            onClipHeightChanged: _setClipHeight,
+                            onAutomationHeightChanged: _setAutomationHeight,
                             onMasterTrackHeightChanged: _setMasterTrackHeight,
+                            panelWidth: _uiLayout.mixerPanelWidth,
                             onTogglePanel: _toggleMixer,
                             getTrackColor: _getTrackColor,
                             onTrackColorChanged: _setTrackColor,
@@ -3898,6 +3932,42 @@ class _DAWScreenState extends State<DAWScreen> {
                               if (!_uiLayout.isEditorPanelVisible) {
                                 _toggleEditor();
                               }
+                            },
+                            automationVisibleTrackId: _automationController.visibleTrackId,
+                            onAutomationToggle: (trackId) {
+                              setState(() {
+                                _automationController.toggleAutomationForTrack(trackId);
+                              });
+                            },
+                            getAutomationLane: (trackId) => _automationController.getLane(trackId, _automationController.visibleParameter),
+                            pixelsPerBeat: _timelineKey.currentState?.pixelsPerBeat ?? 20.0,
+                            totalBeats: 256.0,
+                            onAutomationPointAdded: (trackId, point) {
+                              _automationController.addPoint(trackId, _automationController.visibleParameter, point);
+                            },
+                            onAutomationPointUpdated: (trackId, pointId, point) {
+                              _automationController.updatePoint(trackId, _automationController.visibleParameter, pointId, point);
+                            },
+                            onAutomationPointDeleted: (trackId, pointId) {
+                              _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
+                            },
+                            getSelectedParameter: (trackId) => _automationController.visibleParameter,
+                            onParameterChanged: (trackId, param) {
+                              setState(() {
+                                _automationController.setVisibleParameter(param);
+                              });
+                            },
+                            onResetParameter: (trackId) {
+                              // Reset the parameter to its default value
+                              final param = _automationController.visibleParameter;
+                              if (param == AutomationParameter.volume) {
+                                _audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
+                              } else if (param == AutomationParameter.pan) {
+                                _audioEngine?.setTrackPan(trackId, 0.0); // Center
+                              }
+                            },
+                            onAddParameter: (trackId) {
+                              // TODO: Future feature - add another automation parameter lane
                             },
                           ),
                         ),

@@ -11,6 +11,7 @@ import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
 import '../models/midi_note_data.dart';
 import '../models/tool_mode.dart';
+import '../models/track_automation_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../models/library_item.dart';
 import '../services/tool_mode_resolver.dart';
@@ -25,6 +26,7 @@ import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
 import 'timeline/timeline_state.dart';
 import 'timeline/painters/painters.dart';
+import 'timeline/track_automation_lane_widget.dart';
 
 /// Track data model for timeline
 class TimelineTrackData {
@@ -99,8 +101,11 @@ class TimelineView extends StatefulWidget {
   final Function(int trackId, double startBeats, double durationBeats)? onCreateClipOnTrack;
 
   // Track heights (synced from mixer panel)
-  final Map<int, double> trackHeights; // trackId -> height
+  final Map<int, double> clipHeights; // trackId -> clip area height
+  final Map<int, double> automationHeights; // trackId -> automation lane height
   final double masterTrackHeight;
+  final Function(int trackId, double height)? onClipHeightChanged;
+  final Function(int trackId, double height)? onAutomationHeightChanged;
 
   // Track order (synced from TrackController for drag-and-drop reordering)
   final List<int> trackOrder;
@@ -120,6 +125,14 @@ class TimelineView extends StatefulWidget {
   // Tool mode (shared with piano roll)
   final ToolMode toolMode;
   final Function(ToolMode)? onToolModeChanged;
+
+  // Automation state
+  final int? automationVisibleTrackId;
+  final TrackAutomationLane? Function(int trackId)? getAutomationLane;
+  final Function(int trackId, AutomationPoint point)? onAutomationPointAdded;
+  final Function(int trackId, String pointId, AutomationPoint point)? onAutomationPointUpdated;
+  final Function(int trackId, String pointId)? onAutomationPointDeleted;
+  final ScrollController? automationScrollController; // For syncing automation lane scroll
 
   const TimelineView({
     super.key,
@@ -151,8 +164,11 @@ class TimelineView extends StatefulWidget {
     this.onAudioFileDroppedOnTrack,
     this.onCreateTrackWithClip,
     this.onCreateClipOnTrack,
-    this.trackHeights = const {},
+    this.clipHeights = const {},
+    this.automationHeights = const {},
     this.masterTrackHeight = 60.0,
+    this.onClipHeightChanged,
+    this.onAutomationHeightChanged,
     this.trackOrder = const [],
     this.getTrackColor,
     this.loopPlaybackEnabled = false,
@@ -162,6 +178,12 @@ class TimelineView extends StatefulWidget {
     this.verticalScrollController,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
+    this.automationVisibleTrackId,
+    this.getAutomationLane,
+    this.onAutomationPointAdded,
+    this.onAutomationPointUpdated,
+    this.onAutomationPointDeleted,
+    this.automationScrollController,
   });
 
   @override
@@ -1172,9 +1194,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        // Include automation height if visible for this track
+        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+        }
       }
-      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
+      // Only use clip height for hit testing (clips are in clip area only)
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -1202,9 +1229,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        // Include automation height if visible for this track
+        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+        }
       }
-      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
+      // Only use clip height for hit testing (clips are in clip area only)
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -1585,7 +1617,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
     double totalTracksHeight = 0.0;
     for (final track in regularTracks) {
-      totalTracksHeight += widget.trackHeights[track.id] ?? 100.0;
+      totalTracksHeight += widget.clipHeights[track.id] ?? 100.0;
+      // Add automation lane height if visible for this track
+      if (widget.automationVisibleTrackId == track.id) {
+        totalTracksHeight += widget.automationHeights[track.id] ?? 60.0;
+      }
     }
     totalTracksHeight += 160.0; // Empty drop target area + buffer before Master
 
@@ -1834,7 +1870,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                           ),
 
                                           // Tracks (regular tracks only, Master is pinned below)
-                                          _buildTracks(totalWidth),
+                                          _buildTracks(totalWidth, totalBeats.toDouble()),
                                         ],
                                       ),
                                     ),
@@ -1868,7 +1904,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
-  Widget _buildTracks(double width) {
+  Widget _buildTracks(double width, double totalBeats) {
     // Only show empty state if audio engine is not initialized
     // Master track should always exist, so empty tracks means audio engine issue
     if (tracks.isEmpty && widget.audioEngine == null) {
@@ -1895,7 +1931,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     return Column(
       mainAxisSize: MainAxisSize.min, // Don't expand, use actual content size
       children: [
-        // Regular tracks
+        // Regular tracks (with automation lanes inside when visible)
         ...regularTracks.asMap().entries.map((entry) {
           final index = entry.key;
           final track = entry.value;
@@ -1913,12 +1949,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           final currentAudioCount = track.type.toLowerCase() == 'audio' ? audioCount : 0;
           final currentMidiCount = track.type.toLowerCase() == 'midi' ? midiCount : 0;
 
+          // Check if automation is visible for this track
+          final showAutomation = widget.automationVisibleTrackId == track.id;
+
           return _buildTrack(
             width,
             track,
             trackColor,
             currentAudioCount,
             currentMidiCount,
+            showAutomation: showAutomation,
+            totalBeats: totalBeats,
           );
         }),
 
@@ -2132,21 +2173,51 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
+  /// Build automation lane for a track in the timeline
+  Widget _buildAutomationLane(int trackId, Color trackColor, double width, double totalBeats) {
+    final lane = widget.getAutomationLane?.call(trackId);
+    final automationHeight = widget.automationHeights[trackId] ?? 60.0;
+
+    // Create empty lane if none provided
+    final automationLane = lane ??
+        TrackAutomationLane(
+          trackId: trackId,
+          parameter: AutomationParameter.volume,
+          points: const [],
+        );
+
+    return TrackAutomationLaneWidget(
+      lane: automationLane,
+      pixelsPerBeat: pixelsPerBeat,
+      totalBeats: totalBeats,
+      laneHeight: automationHeight,
+      horizontalScrollController: scrollController,
+      trackColor: trackColor,
+      onPointAdded: (point) => widget.onAutomationPointAdded?.call(trackId, point),
+      onPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(trackId, pointId, point),
+      onPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(trackId, pointId),
+      onHeightChanged: (newHeight) => widget.onAutomationHeightChanged?.call(trackId, newHeight),
+    );
+  }
+
   Widget _buildTrack(
     double width,
     TimelineTrackData track,
     Color trackColor,
     int audioCount,
-    int midiCount,
-  ) {
+    int midiCount, {
+    bool showAutomation = false,
+    double totalBeats = 0.0,
+  }) {
     // Find clips for this track
     final trackClips = clips.where((c) => c.trackId == track.id).toList();
     final trackMidiClips = widget.midiClips.where((c) => c.trackId == track.id).toList();
     final isHovered = dragHoveredTrackId == track.id;
     final isMidiTrack = track.type.toLowerCase() == 'midi';
+    final clipHeight = widget.clipHeights[track.id] ?? 100.0;
 
-    // Wrap with AudioFileItem drag target first (for library panel drags)
-    return DragTarget<AudioFileItem>(
+    // Build the clip area widget
+    final clipAreaWidget = DragTarget<AudioFileItem>(
       onWillAcceptWithDetails: (details) {
         // Only accept on Audio tracks, reject on MIDI tracks
         return !isMidiTrack;
@@ -2296,7 +2367,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             final trackIndex = regularTracks.indexWhere((t) => t.id == track.id);
             double trackYOffset = 0.0;
             for (int i = 0; i < trackIndex; i++) {
-              trackYOffset += widget.trackHeights[regularTracks[i].id] ?? 100.0;
+              trackYOffset += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+              // Include automation height if visible for this track
+              if (widget.automationVisibleTrackId == regularTracks[i].id) {
+                trackYOffset += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+              }
             }
 
             final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
@@ -2423,7 +2498,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
         },
         child: Container(
-        height: widget.trackHeights[track.id] ?? 100.0,
+        height: widget.clipHeights[track.id] ?? 100.0,
         decoration: BoxDecoration(
           // Transparent background to show grid through
           color: isHovered
@@ -2448,17 +2523,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Render audio clips for this track (hide clips being erased)
             ...trackClips
                 .where((clip) => !erasedAudioClipIds.contains(clip.clipId))
-                .map((clip) => _buildClip(clip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
 
             // Ghost preview for audio clip copy drag (all selected clips)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => _buildAudioCopyDragPreviews(clip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+                .expand((clip) => _buildAudioCopyDragPreviews(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
 
             // Ghost preview for audio clips during MIDI drag (cross-type)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingMidiClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => _buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+                .expand((clip) => _buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
 
             // Render MIDI clips for this track (hide clips being erased)
             ...trackMidiClips
@@ -2466,18 +2541,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .map((midiClip) => _buildMidiClip(
                   midiClip,
                   trackColor,
-                  widget.trackHeights[track.id] ?? 100.0,
+                  widget.clipHeights[track.id] ?? 100.0,
                 )),
 
             // Ghost preview for MIDI clip copy drag (all selected clips)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingMidiClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => _buildCopyDragPreviews(midiClip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+                .expand((midiClip) => _buildCopyDragPreviews(midiClip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
 
             // Ghost preview for MIDI clips during audio drag (cross-type)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => _buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.trackHeights[track.id] ?? 100.0)),
+                .expand((midiClip) => _buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
 
             // Show preview clip if hovering over this track
             if (previewClip != null && previewClip!.trackId == track.id)
@@ -2485,7 +2560,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // Drag-to-create preview for this track
             if (isDraggingNewClip && newClipTrackId == track.id)
-              _buildDragToCreatePreviewOnTrack(trackColor, widget.trackHeights[track.id] ?? 100.0),
+              _buildDragToCreatePreviewOnTrack(trackColor, widget.clipHeights[track.id] ?? 100.0),
 
             // Red rejection overlay when dragging audio onto MIDI track
             if (isAudioFileRejected || platformDragOverMidiTrackId == track.id)
@@ -2511,6 +2586,43 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           },
         );
       },
+    );
+
+    // If automation is not visible, return just the clip area
+    if (!showAutomation) {
+      return clipAreaWidget;
+    }
+
+    // When automation is visible, wrap clip and automation in a Column
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Clip area with resize handle at bottom
+        Stack(
+          children: [
+            clipAreaWidget,
+            // Resize handle between clip and automation
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 6,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeRow,
+                child: GestureDetector(
+                  onVerticalDragUpdate: (details) {
+                    final newHeight = (clipHeight + details.delta.dy).clamp(40.0, 400.0);
+                    widget.onClipHeightChanged?.call(track.id, newHeight);
+                  },
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Automation lane (includes its own resize handle at bottom)
+        _buildAutomationLane(track.id, trackColor, width, totalBeats),
+      ],
     );
   }
 
@@ -4558,9 +4670,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        // Include automation height if visible for this track
+        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+        }
       }
-      final trackHeight = widget.trackHeights[regularTracks[trackIndex].id] ?? 100.0;
+      // Only use clip height for hit testing (clips are in clip area only)
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
       final trackBottom = trackTop + trackHeight;
 
       // Check if track overlaps with selection Y range
