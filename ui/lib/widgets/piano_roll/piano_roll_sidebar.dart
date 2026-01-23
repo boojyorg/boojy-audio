@@ -32,7 +32,7 @@ enum SidebarView {
 /// - GRID: Snap, Quantize, Fold, Ghost
 /// - SCALE: Root, Type, Highlight, Lock
 /// - NOTES: Legato, Stretch, Humanize, Reverse
-/// - VELOCITY: Lane toggle, Randomize
+/// - VELOCITY: Lane toggle
 /// - MIDI CC: Lane toggle, CC type selector
 class PianoRollSidebar extends StatelessWidget {
   // Track info
@@ -117,9 +117,6 @@ class PianoRollSidebar extends StatelessWidget {
   // Velocity section
   final bool velocityLaneVisible;
   final VoidCallback? onVelocityLaneToggle;
-  final double velocityRandomize;
-  final Function(double)? onVelocityRandomizeChanged;
-  final VoidCallback? onVelocityRandomizeApply;
 
   // MIDI CC section
   final bool ccLaneVisible;
@@ -199,9 +196,6 @@ class PianoRollSidebar extends StatelessWidget {
     // Velocity section
     this.velocityLaneVisible = false,
     this.onVelocityLaneToggle,
-    this.velocityRandomize = 0.0,
-    this.onVelocityRandomizeChanged,
-    this.onVelocityRandomizeApply,
     // MIDI CC section
     this.ccLaneVisible = false,
     this.onCCLaneToggle,
@@ -896,27 +890,14 @@ class PianoRollSidebar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Row 1: [👁 Velocity] + (0%) [Randomize] - responsive row
-        _buildResponsiveRow([
-          _buildToggleRow(
-            context,
-            icon: Icons.visibility,
-            label: 'Velocity',
-            isActive: velocityLaneVisible,
-            onTap: onVelocityLaneToggle,
-          ),
-          _buildKnobRow(
-            context,
-            icon: Icons.casino,
-            label: 'Randomize',
-            value: velocityRandomize,
-            min: 0.0,
-            max: 1.0,
-            onChanged: onVelocityRandomizeChanged,
-            onApply: onVelocityRandomizeApply,
-            valueFormatter: (v) => '${(v * 100).round()}%',
-          ),
-        ]),
+        // Row 1: [👁 Velocity] toggle
+        _buildToggleRow(
+          context,
+          icon: Icons.visibility,
+          label: 'Velocity',
+          isActive: velocityLaneVisible,
+          onTap: onVelocityLaneToggle,
+        ),
         const SizedBox(height: 4),
         // Row 2: [👁 MIDI CC] + [Mod Wheel ▾] - responsive row
         _buildResponsiveRow([

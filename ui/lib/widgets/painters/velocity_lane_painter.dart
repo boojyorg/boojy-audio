@@ -7,12 +7,14 @@ class VelocityLanePainter extends CustomPainter {
   final double pixelsPerBeat;
   final double laneHeight;
   final double totalBeats;
+  final Color noteColor;
 
   VelocityLanePainter({
     required this.notes,
     required this.pixelsPerBeat,
     required this.laneHeight,
     required this.totalBeats,
+    this.noteColor = const Color(0xFF00BCD4), // Cyan to match notes
   });
 
   @override
@@ -41,15 +43,28 @@ class VelocityLanePainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), barPaint);
     }
 
-    // Draw velocity bars for each note
-    final barFillPaint = Paint()
-      ..color = const Color(0xFF00BCD4) // Cyan to match notes
+    // Draw velocity indicators for each note
+    // Style: vertical line (velocity height) + horizontal line (note duration) + circle at corner
+    const circleRadius = 3.5;
+
+    // Derive darker border color from note color
+    final borderColor = HSLColor.fromColor(noteColor)
+        .withLightness((HSLColor.fromColor(noteColor).lightness * 0.7).clamp(0.0, 1.0))
+        .toColor();
+
+    final linePaint = Paint()
+      ..color = noteColor
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final circleFillPaint = Paint()
+      ..color = noteColor
       ..style = PaintingStyle.fill;
 
-    final barBorderPaint = Paint()
-      ..color = const Color(0xFF00838F) // Darker cyan border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    final circleBorderPaint = Paint()
+      ..color = borderColor
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
 
     for (final note in notes) {
       final x = note.startTime * pixelsPerBeat;
@@ -57,39 +72,24 @@ class VelocityLanePainter extends CustomPainter {
       final barHeight = (note.velocity / 127) * laneHeight;
       final y = laneHeight - barHeight;
 
-      // Draw velocity bar
-      final barRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + 1, y, width - 2, barHeight),
-        const Radius.circular(2),
+      // Draw vertical line (from bottom to velocity height)
+      canvas.drawLine(
+        Offset(x + 1, laneHeight),
+        Offset(x + 1, y),
+        linePaint,
       );
 
-      canvas.drawRRect(barRect, barFillPaint);
-      canvas.drawRRect(barRect, barBorderPaint);
+      // Draw horizontal line at top (note duration)
+      canvas.drawLine(
+        Offset(x + 1, y),
+        Offset(x + width - 1, y),
+        linePaint,
+      );
 
-      // Draw velocity value text for wider notes
-      if (width > 25) {
-        final textPainter = TextPainter(
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-        );
-
-        textPainter.text = TextSpan(
-          text: '${note.velocity}',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
-          ),
-        );
-
-        textPainter.layout();
-        final textX = x + (width - textPainter.width) / 2;
-        final textY = y + 2;
-
-        if (barHeight > 14) {
-          textPainter.paint(canvas, Offset(textX, textY));
-        }
-      }
+      // Draw circle at top-left corner
+      final circleCenter = Offset(x + 1, y);
+      canvas.drawCircle(circleCenter, circleRadius, circleFillPaint);
+      canvas.drawCircle(circleCenter, circleRadius, circleBorderPaint);
     }
   }
 
@@ -98,6 +98,7 @@ class VelocityLanePainter extends CustomPainter {
     return notes != oldDelegate.notes ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         laneHeight != oldDelegate.laneHeight ||
-        totalBeats != oldDelegate.totalBeats;
+        totalBeats != oldDelegate.totalBeats ||
+        noteColor != oldDelegate.noteColor;
   }
 }

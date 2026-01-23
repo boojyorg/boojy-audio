@@ -2,6 +2,18 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Improvements
+
+- Piano roll velocity now affects note brightness instead of transparency (vel 100 = standard cyan, lower = darker, higher = brighter)
+- Removed darker border from piano roll notes (cleaner look)
+- Selected notes now have 2px white interior border (same shape as unselected notes)
+- Removed resize handles from selected notes (cleaner selection appearance)
+- Velocity lane redesigned: vertical line + horizontal line + circle at corner (matches note start/duration/velocity more clearly)
+- Velocity lane color now matches note color (cyan)
+- Removed [Rand] button from piano roll sidebar
+
 ## v0.1.3 - 2025-01-22
 
 ### Features

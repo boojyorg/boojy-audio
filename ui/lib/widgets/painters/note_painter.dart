@@ -116,32 +116,56 @@ class NotePainter extends CustomPainter {
     final width = note.duration * pixelsPerBeat;
     final height = pixelsPerNote - 2; // Small gap between notes
 
-    final rect = RRect.fromRectAndRadius(
+    // Calculate velocity-based brightness (not transparency)
+    // vel 100 = standard cyan, < 100 = darker, > 100 = brighter
+    const baseColor = Color(0xFF00BCD4);
+    final baseHsl = HSLColor.fromColor(baseColor);
+    final baseLightness = baseHsl.lightness; // ~0.42
+
+    double lightness;
+    if (note.velocity <= 100) {
+      // 0-100: scale from 0.28 (dim) to baseLightness
+      lightness = 0.28 + (note.velocity / 100.0) * (baseLightness - 0.28);
+    } else {
+      // 100-127: scale from baseLightness to 0.54 (brighter)
+      final extra = (note.velocity - 100) / 27.0;
+      lightness = baseLightness + extra * (0.54 - baseLightness);
+    }
+
+    final noteColor = baseHsl.withLightness(lightness).toColor();
+
+    // Note rect - same size for all notes (rounded corners)
+    final noteRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x, y + 1, width, height),
-      const Radius.circular(4), // Slightly rounded corners
+      const Radius.circular(4),
     );
 
-    // Calculate velocity-based opacity: min 30%, max 100%
-    // Higher velocity = more opaque, lower velocity = more transparent
-    final velocityOpacity = 0.30 + (note.velocity / 127.0) * 0.70;
-
-    // Note fill - cyan theme with velocity-based opacity
+    // Note fill - velocity-based brightness (no transparency)
     final fillPaint = Paint()
       ..color = isPreview
-          ? const Color(0xFF00BCD4).withValues(alpha: 0.5) // Cyan preview (fixed opacity)
-          : const Color(0xFF00BCD4).withValues(alpha: velocityOpacity); // Velocity-based opacity
+          ? baseColor.withValues(alpha: 0.5) // Preview: semi-transparent
+          : noteColor; // Regular: velocity brightness
 
-    canvas.drawRRect(rect, fillPaint);
+    canvas.drawRRect(noteRect, fillPaint);
 
-    // Note border
-    final borderPaint = Paint()
-      ..color = isSelected
-          ? Colors.white // White border when selected (visible on dark bg)
-          : const Color(0xFF00838F) // Darker cyan border normally
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isSelected ? 2.5 : 1.5;
-
-    canvas.drawRRect(rect, borderPaint);
+    // Selected notes get interior white border (2px inset)
+    if (isSelected) {
+      const borderWidth = 2.0;
+      final borderRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          x + borderWidth / 2,
+          y + 1 + borderWidth / 2,
+          width - borderWidth,
+          height - borderWidth,
+        ),
+        const Radius.circular(3),
+      );
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = borderWidth;
+      canvas.drawRRect(borderRect, borderPaint);
+    }
 
     // Draw note name inside
     if (width > 30) {
@@ -170,35 +194,6 @@ class NotePainter extends CustomPainter {
       textPainter.paint(canvas, Offset(textX, textY));
     }
 
-    // Draw resize handles on selected notes (touch-friendly)
-    if (isSelected && !isPreview) {
-      final handlePaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.fill;
-
-      const handleWidth = 6.0;
-      final noteRect = Rect.fromLTWH(x, y + 1, width, height);
-
-      // Left handle
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              noteRect.left - 1, noteRect.top, handleWidth, noteRect.height),
-          const Radius.circular(2),
-        ),
-        handlePaint,
-      );
-
-      // Right handle
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(noteRect.right - handleWidth + 1, noteRect.top,
-              handleWidth, noteRect.height),
-          const Radius.circular(2),
-        ),
-        handlePaint,
-      );
-    }
   }
 
   /// Compare two lists for equality (used for foldedPitches)
