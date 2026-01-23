@@ -467,10 +467,38 @@ class _PianoRollState extends State<PianoRoll>
           ),
           // Main content area
           Expanded(
-            child: Column(
-              children: [
-                // Unified navigation bar (loop region + bar numbers + playhead)
-                Row(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate max velocity available (grid can shrink to 0)
+                const navBarHeight = 24.0;
+                const resizeHandleHeight = 6.0;
+                final ccHeight = ccLaneExpanded ? PianoRollStateMixin.ccLaneHeight : 0.0;
+                final maxVelocityAvailable = constraints.maxHeight - navBarHeight - ccHeight - resizeHandleHeight;
+
+                // If velocity exceeds available space, permanently reduce it
+                // (grid shrinks first, then velocity shrinks when grid is at 0)
+                if (velocityLaneExpanded && velocityLaneHeight > maxVelocityAvailable) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && velocityLaneHeight > maxVelocityAvailable) {
+                      setState(() {
+                        velocityLaneHeight = maxVelocityAvailable.clamp(
+                          PianoRollStateMixin.velocityLaneMinHeight,
+                          double.infinity,
+                        );
+                      });
+                    }
+                  });
+                }
+
+                // Calculate effective height for display
+                final effectiveVelocityHeight = velocityLaneExpanded
+                    ? velocityLaneHeight.clamp(PianoRollStateMixin.velocityLaneMinHeight, maxVelocityAvailable)
+                    : 0.0;
+
+                return Column(
+                  children: [
+                    // Unified navigation bar (loop region + bar numbers + playhead)
+                    Row(
                   children: [
                     // Audition button (aligned with piano keys width)
                     _buildAuditionCorner(context),
@@ -699,12 +727,14 @@ class _PianoRollState extends State<PianoRoll>
                 ),
                 // Velocity editing lane (Ableton-style)
                 if (velocityLaneExpanded)
-                  _buildVelocityLane(totalBeats, canvasWidth),
+                  _buildVelocityLane(totalBeats, canvasWidth, effectiveVelocityHeight),
                 // CC automation lane
                 if (ccLaneExpanded)
                   _buildCCLane(totalBeats, canvasWidth),
               ],
-            ),
+            );
+            },
+          ),
           ),
         ],
       ),
@@ -759,78 +789,104 @@ class _PianoRollState extends State<PianoRoll>
   }
 
   /// Build the velocity editing lane
-  Widget _buildVelocityLane(double totalBeats, double canvasWidth) {
-    return Container(
-      height: PianoRollStateMixin.velocityLaneHeight,
-      decoration: BoxDecoration(
-        color: context.colors.darkest,
-        border: Border(
-          top: BorderSide(color: context.colors.surface, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Label area (same width as piano keys)
-          Container(
-            width: 80,
-            height: PianoRollStateMixin.velocityLaneHeight,
-            decoration: BoxDecoration(
-              color: context.colors.standard,
-              border: Border(
-                right: BorderSide(color: context.colors.surface, width: 1),
-              ),
-            ),
-            child: Center(
-              child: Text(
-                'Velocity',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+  Widget _buildVelocityLane(double totalBeats, double canvasWidth, double effectiveHeight) {
+    // effectiveHeight is already clamped by caller
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Resize handle at top
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeRow,
+          child: GestureDetector(
+            onVerticalDragUpdate: onVelocityLaneResizeUpdate,
+            child: Container(
+              height: 6,
+              color: Colors.transparent,
+              child: Center(
+                child: Container(
+                  height: 2,
+                  width: double.infinity,
+                  color: const Color(0xFF404040),
                 ),
               ),
             ),
           ),
-          // Velocity bars area (synced with note grid scroll via AnimatedBuilder)
-          Expanded(
-            child: ClipRect(
-              child: AnimatedBuilder(
-                animation: horizontalScroll,
-                builder: (context, child) {
-                  final scrollOffset = horizontalScroll.hasClients
-                      ? horizontalScroll.offset
-                      : 0.0;
-                  return Transform.translate(
-                    offset: Offset(-scrollOffset, 0),
-                    child: child,
-                  );
-                },
-                child: MouseRegion(
-                  onHover: onVelocityHover,
-                  onExit: onVelocityHoverExit,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onPanStart: onVelocityPanStart,
-                    onPanUpdate: onVelocityPanUpdate,
-                    onPanEnd: onVelocityPanEnd,
-                    child: CustomPaint(
-                      size: Size(canvasWidth, PianoRollStateMixin.velocityLaneHeight),
-                      painter: VelocityLanePainter(
-                        notes: currentClip?.notes ?? [],
-                        pixelsPerBeat: pixelsPerBeat,
-                        laneHeight: PianoRollStateMixin.velocityLaneHeight,
-                        totalBeats: totalBeats,
-                        draggedNoteId: velocityDraggedNoteId,
-                        hoveredNoteId: velocityHoveredNoteId,
+        ),
+        // Velocity lane content
+        Container(
+          height: effectiveHeight,
+          decoration: BoxDecoration(
+            color: context.colors.darkest,
+            border: Border(
+              top: BorderSide(color: context.colors.surface, width: 1),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Label area (same width as piano keys)
+              Container(
+                width: 80,
+                height: effectiveHeight,
+                decoration: BoxDecoration(
+                  color: context.colors.standard,
+                  border: Border(
+                    right: BorderSide(color: context.colors.surface, width: 1),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    'Velocity',
+                    style: TextStyle(
+                      color: context.colors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              // Velocity bars area (synced with note grid scroll via AnimatedBuilder)
+              Expanded(
+                child: ClipRect(
+                  child: AnimatedBuilder(
+                    animation: horizontalScroll,
+                    builder: (context, child) {
+                      final scrollOffset = horizontalScroll.hasClients
+                          ? horizontalScroll.offset
+                          : 0.0;
+                      return Transform.translate(
+                        offset: Offset(-scrollOffset, 0),
+                        child: child,
+                      );
+                    },
+                    child: MouseRegion(
+                      onHover: onVelocityHover,
+                      onExit: onVelocityHoverExit,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onPanStart: onVelocityPanStart,
+                        onPanUpdate: onVelocityPanUpdate,
+                        onPanEnd: onVelocityPanEnd,
+                        child: CustomPaint(
+                          size: Size(canvasWidth, effectiveHeight),
+                          painter: VelocityLanePainter(
+                            notes: currentClip?.notes ?? [],
+                            pixelsPerBeat: pixelsPerBeat,
+                            laneHeight: effectiveHeight,
+                            totalBeats: totalBeats,
+                            draggedNoteId: velocityDraggedNoteId,
+                            hoveredNoteId: velocityHoveredNoteId,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

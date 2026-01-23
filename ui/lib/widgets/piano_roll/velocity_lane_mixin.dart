@@ -47,7 +47,7 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
     velocityDraggedNoteId = note.id;
 
     // Calculate new velocity based on Y position (inverted - top = high velocity)
-    final newVelocity = ((1 - (position.dy / PianoRollStateMixin.velocityLaneHeight)) * 127)
+    final newVelocity = ((1 - (position.dy / velocityLaneHeight)) * 127)
         .round()
         .clamp(1, 127);
 
@@ -91,5 +91,19 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
         velocityHoveredNoteId = null;
       });
     }
+  }
+
+  // ============================================
+  // VELOCITY LANE RESIZE
+  // ============================================
+
+  /// Handle velocity lane resize drag
+  void onVelocityLaneResizeUpdate(DragUpdateDetails details) {
+    setState(() {
+      // Dragging up (negative dy) = increase height
+      // Allow any height - display will clamp to available space
+      velocityLaneHeight = (velocityLaneHeight - details.delta.dy)
+          .clamp(PianoRollStateMixin.velocityLaneMinHeight, 10000.0);
+    });
   }
 }

@@ -183,8 +183,10 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Whether velocity lane is expanded.
   bool velocityLaneExpanded = false;
 
-  /// Velocity lane height in pixels.
-  static const double velocityLaneHeight = 80.0;
+  /// Velocity lane height in pixels (resizable).
+  double velocityLaneHeight = 80.0;
+  static const double velocityLaneMinHeight = 30.0;
+  // Max height is calculated dynamically from available layout space
 
   /// Whether velocity drag is active.
   bool velocityDragActive = false;
