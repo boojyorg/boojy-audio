@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import '../../models/midi_note_data.dart';
 
 /// Painter for velocity editing lane (Ableton-style)
+/// Each note's velocity indicator uses brightness matching the note color in piano roll.
 class VelocityLanePainter extends CustomPainter {
   final List<MidiNoteData> notes;
   final double pixelsPerBeat;
   final double laneHeight;
   final double totalBeats;
-  final Color noteColor;
 
   VelocityLanePainter({
     required this.notes,
     required this.pixelsPerBeat,
     required this.laneHeight,
     required this.totalBeats,
-    this.noteColor = const Color(0xFF00BCD4), // Cyan to match notes
   });
 
   @override
@@ -45,32 +44,50 @@ class VelocityLanePainter extends CustomPainter {
 
     // Draw velocity indicators for each note
     // Style: vertical line (velocity height) + horizontal line (note duration) + circle at corner
+    // Color varies by velocity brightness (matching note_painter.dart)
     const circleRadius = 3.5;
 
-    // Derive darker border color from note color
-    final borderColor = HSLColor.fromColor(noteColor)
-        .withLightness((HSLColor.fromColor(noteColor).lightness * 0.7).clamp(0.0, 1.0))
-        .toColor();
-
-    final linePaint = Paint()
-      ..color = noteColor
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final circleFillPaint = Paint()
-      ..color = noteColor
-      ..style = PaintingStyle.fill;
-
-    final circleBorderPaint = Paint()
-      ..color = borderColor
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
+    // Base color for velocity calculation (same as notes)
+    const baseColor = Color(0xFF00BCD4);
+    final baseHsl = HSLColor.fromColor(baseColor);
+    final baseLightness = baseHsl.lightness; // ~0.42
 
     for (final note in notes) {
       final x = note.startTime * pixelsPerBeat;
       final width = (note.duration * pixelsPerBeat).clamp(4.0, double.infinity);
       final barHeight = (note.velocity / 127) * laneHeight;
       final y = laneHeight - barHeight;
+
+      // Calculate velocity-based brightness (matching note_painter.dart)
+      double lightness;
+      if (note.velocity <= 100) {
+        // 0-100: scale from 0.28 (dim) to baseLightness
+        lightness = 0.28 + (note.velocity / 100.0) * (baseLightness - 0.28);
+      } else {
+        // 100-127: scale from baseLightness to 0.54 (brighter)
+        final extra = (note.velocity - 100) / 27.0;
+        lightness = baseLightness + extra * (0.54 - baseLightness);
+      }
+      final velocityColor = baseHsl.withLightness(lightness).toColor();
+
+      // Derive darker border color from velocity color
+      final borderColor = HSLColor.fromColor(velocityColor)
+          .withLightness((lightness * 0.7).clamp(0.0, 1.0))
+          .toColor();
+
+      final linePaint = Paint()
+        ..color = velocityColor
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+
+      final circleFillPaint = Paint()
+        ..color = velocityColor
+        ..style = PaintingStyle.fill;
+
+      final circleBorderPaint = Paint()
+        ..color = borderColor
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
 
       // Draw vertical line (from bottom to velocity height)
       canvas.drawLine(
@@ -98,7 +115,6 @@ class VelocityLanePainter extends CustomPainter {
     return notes != oldDelegate.notes ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         laneHeight != oldDelegate.laneHeight ||
-        totalBeats != oldDelegate.totalBeats ||
-        noteColor != oldDelegate.noteColor;
+        totalBeats != oldDelegate.totalBeats;
   }
 }

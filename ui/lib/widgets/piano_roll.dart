@@ -21,7 +21,6 @@ import 'piano_roll/utilities/piano_roll_coordinates.dart';
 import 'piano_roll/audition_mixin.dart';
 import 'piano_roll/velocity_lane_mixin.dart';
 import 'piano_roll/zoom_mixin.dart';
-import 'shared/mini_knob.dart';
 import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/interactive_gutter.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
@@ -771,7 +770,7 @@ class _PianoRollState extends State<PianoRoll>
       ),
       child: Row(
         children: [
-          // Label area with randomize control (same width as piano keys)
+          // Label area (same width as piano keys)
           Container(
             width: 80,
             height: PianoRollStateMixin.velocityLaneHeight,
@@ -781,22 +780,15 @@ class _PianoRollState extends State<PianoRoll>
                 right: BorderSide(color: context.colors.surface, width: 1),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                Text(
-                  'Velocity',
-                  style: TextStyle(
-                    color: context.colors.textMuted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
+            child: Center(
+              child: Text(
+                'Velocity',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(height: 8),
-                // Randomize button with dropdown - opens knob popup
-                _buildVelocityRandomizeButton(context),
-              ],
+              ),
             ),
           ),
           // Velocity bars area (synced with note grid scroll via AnimatedBuilder)
@@ -864,118 +856,6 @@ class _PianoRollState extends State<PianoRoll>
         ),
       ),
     );
-  }
-
-  /// Build the Randomize button with dropdown for velocity lane header
-  Widget _buildVelocityRandomizeButton(BuildContext context) {
-    final colors = context.colors;
-    final displayValue = '${(velocityRandomizeAmount * 100).round()}%';
-
-    return GestureDetector(
-      onTap: () => _showVelocityRandomizePopup(context),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Rand $displayValue',
-                style: TextStyle(color: colors.textPrimary, fontSize: 9),
-              ),
-              const SizedBox(width: 2),
-              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Show popup with knob for randomize amount
-  void _showVelocityRandomizePopup(BuildContext context) {
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    late OverlayEntry overlayEntry;
-
-    overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          // Tap outside to close
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => overlayEntry.remove(),
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          // Popup
-          Positioned(
-            left: buttonPosition.dx,
-            top: buttonPosition.dy + button.size.height + 4,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: this.context.colors.elevated,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: this.context.colors.surface),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Randomize',
-                      style: TextStyle(
-                        color: this.context.colors.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    StatefulBuilder(
-                      builder: (context, setPopupState) => MiniKnob(
-                        value: velocityRandomizeAmount,
-                        min: 0.0,
-                        max: 1.0,
-                        size: 48,
-                        valueFormatter: (v) => '${(v * 100).round()}%',
-                        arcColor: this.context.colors.accent,
-                        onChanged: (v) {
-                          setState(() => velocityRandomizeAmount = v);
-                          setPopupState(() {});
-                        },
-                        onChangeEnd: () {
-                          applyVelocityRandomize();
-                          overlayEntry.remove();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    Overlay.of(context).insert(overlayEntry);
   }
 
   Widget _buildPianoKey(int midiNote) {

@@ -11,8 +11,8 @@ All notable changes to Boojy Audio will be documented in this file.
 - Selected notes now have 2px white interior border (same shape as unselected notes)
 - Removed resize handles from selected notes (cleaner selection appearance)
 - Velocity lane redesigned: vertical line + horizontal line + circle at corner (matches note start/duration/velocity more clearly)
-- Velocity lane color now matches note color (cyan)
-- Removed [Rand] button from piano roll sidebar
+- Velocity lane indicators now use per-note brightness matching the piano roll notes
+- Removed [Rand] button from velocity lane header
 
 ## v0.1.3 - 2025-01-22
 
