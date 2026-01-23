@@ -20,26 +20,36 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
 
   /// Handle velocity lane pan start
   void onVelocityPanStart(DragStartDetails details) {
+    // Check if starting on a note - if so, begin drag
     final note = findNoteAtVelocityPosition(details.localPosition);
     if (note != null) {
       saveToHistory();
-      velocityDragNoteId = note.id;
+      velocityDragActive = true;
+      // Update the note at start position immediately
+      _updateVelocityAtPosition(details.localPosition);
     }
   }
 
   /// Handle velocity lane pan update
   void onVelocityPanUpdate(DragUpdateDetails details) {
-    if (velocityDragNoteId == null) return;
+    if (!velocityDragActive) return;
+    _updateVelocityAtPosition(details.localPosition);
+  }
+
+  /// Update velocity for note at given position (position-aware)
+  void _updateVelocityAtPosition(Offset position) {
+    final note = findNoteAtVelocityPosition(position);
+    if (note == null) return; // No note at this X position
 
     // Calculate new velocity based on Y position (inverted - top = high velocity)
-    final newVelocity = ((1 - (details.localPosition.dy / PianoRollStateMixin.velocityLaneHeight)) * 127)
+    final newVelocity = ((1 - (position.dy / PianoRollStateMixin.velocityLaneHeight)) * 127)
         .round()
         .clamp(1, 127);
 
     setState(() {
       currentClip = currentClip?.copyWith(
         notes: currentClip!.notes.map((n) {
-          if (n.id == velocityDragNoteId) {
+          if (n.id == note.id) {
             return n.copyWith(velocity: newVelocity);
           }
           return n;
@@ -51,9 +61,9 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
 
   /// Handle velocity lane pan end
   void onVelocityPanEnd(DragEndDetails details) {
-    if (velocityDragNoteId != null) {
+    if (velocityDragActive) {
       commitToHistory('Change velocity');
-      velocityDragNoteId = null;
+      velocityDragActive = false;
     }
   }
 }

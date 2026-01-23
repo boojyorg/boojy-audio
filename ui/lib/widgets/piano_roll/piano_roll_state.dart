@@ -186,8 +186,8 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Velocity lane height in pixels.
   static const double velocityLaneHeight = 80.0;
 
-  /// ID of note being velocity-edited.
-  String? velocityDragNoteId;
+  /// Whether velocity drag is active.
+  bool velocityDragActive = false;
 
   /// Velocity randomization amount (0-100%).
   double velocityRandomizeAmount = 0.0;
