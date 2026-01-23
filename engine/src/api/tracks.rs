@@ -147,6 +147,31 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
     }
 }
 
+/// Set track volume automation curve
+///
+/// # Arguments
+/// * `track_id` - Track ID
+/// * `csv` - Automation curve as CSV: "time_seconds,db;time_seconds,db;..."
+///           Empty string clears the automation curve
+///
+/// When automation is set, it overrides the static volume_db during playback
+pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<String, String> {
+    eprintln!("🎚️ set_track_volume_automation: track={}, csv_len={}", track_id, csv.len());
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        track.set_volume_automation_csv(csv);
+        let point_count = track.volume_automation.len();
+        eprintln!("🎚️ Track {} automation set: {} points", track_id, point_count);
+        Ok(format!("Track {} volume automation set ({} points)", track_id, point_count))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
 // ============================================================================
 // TRACK QUERIES
 // ============================================================================

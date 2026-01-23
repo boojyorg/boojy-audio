@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -26,26 +25,49 @@ enum AutomationParameter {
   bool get isBipolar => minValue < 0;
 }
 
-/// Volume conversion utilities
+/// Volume conversion utilities using Boojy curve (matches CapsuleFader)
+/// Piecewise linear interpolation: 0.0 = -60 dB, 0.7 = 0 dB, 1.0 = +6 dB
 class VolumeConversion {
-  /// Convert normalized (0-1) to dB
-  /// 0.0 = -∞ dB, 0.833 = 0 dB, 1.0 = +6 dB
+  // Boojy volume curve points (same as CapsuleFader)
+  static const List<double> _sliderPoints = [0.01, 0.05, 0.10, 0.30, 0.50, 0.70, 0.85, 1.00];
+  static const List<double> _dbPoints = [-60.0, -52.0, -45.0, -24.0, -10.0, 0.0, 3.0, 6.0];
+
+  /// Convert normalized (0-1) to dB using Boojy curve
+  /// 0.0 = -60 dB (treated as -∞), 0.7 = 0 dB, 1.0 = +6 dB
   static double normalizedToDb(double normalized) {
-    if (normalized <= 0.0001) return -96.0; // Treat as -∞
-    // Logarithmic mapping: 0 dB at ~0.833 (1/1.2), +6 dB at 1.0
-    return 20 * math.log(normalized * 1.2) / math.ln10;
+    if (normalized <= 0.0) return -96.0; // Treat as -∞
+    if (normalized <= 0.01) return -60.0;
+    if (normalized >= 1.0) return 6.0;
+
+    // Find segment and interpolate
+    for (int i = 0; i < _sliderPoints.length - 1; i++) {
+      if (normalized <= _sliderPoints[i + 1]) {
+        final t = (normalized - _sliderPoints[i]) / (_sliderPoints[i + 1] - _sliderPoints[i]);
+        return _dbPoints[i] + t * (_dbPoints[i + 1] - _dbPoints[i]);
+      }
+    }
+    return 6.0; // fallback to max
   }
 
-  /// Convert dB to normalized (0-1)
+  /// Convert dB to normalized (0-1) using Boojy curve
   static double dbToNormalized(double db) {
-    if (db <= -96.0) return 0.0;
-    return math.pow(10, db / 20) / 1.2;
+    if (db <= -60.0) return 0.0;
+    if (db >= 6.0) return 1.0;
+
+    // Find segment and interpolate
+    for (int i = 0; i < _dbPoints.length - 1; i++) {
+      if (db <= _dbPoints[i + 1]) {
+        final t = (db - _dbPoints[i]) / (_dbPoints[i + 1] - _dbPoints[i]);
+        return _sliderPoints[i] + t * (_sliderPoints[i + 1] - _sliderPoints[i]);
+      }
+    }
+    return 0.7; // fallback to unity
   }
 
   /// Convert normalized to display string
   static String normalizedToDisplayString(double normalized) {
     final db = normalizedToDb(normalized);
-    if (db <= -96.0) return '-∞ dB';
+    if (db <= -60.0) return '-∞ dB';
     return '${db.toStringAsFixed(1)} dB';
   }
 }
@@ -303,5 +325,21 @@ class TrackAutomationLane {
   String toEngineCsv() {
     final sorted = sortedPoints;
     return sorted.map((p) => '${p.time},${p.value}').join(';');
+  }
+
+  /// Convert points to engine CSV format with time in seconds and value in dB
+  /// Format: "time_seconds,db;time_seconds,db;..."
+  /// This is what the Rust engine expects for volume automation
+  String toEngineDbCsv(double tempo) {
+    if (points.isEmpty) return '';
+
+    final sorted = sortedPoints;
+    return sorted.map((p) {
+      // Convert beats to seconds: seconds = beats * 60 / tempo
+      final timeSeconds = p.time * 60.0 / tempo;
+      // Convert normalized (0-1) to dB
+      final db = VolumeConversion.normalizedToDb(p.value);
+      return '${timeSeconds.toStringAsFixed(6)},${db.toStringAsFixed(2)}';
+    }).join(';');
   }
 }

@@ -74,7 +74,7 @@ pub use timing::{get_tempo, get_time_signature, is_metronome_enabled, set_metron
 pub use tracks::{
     create_track, get_all_track_ids, get_track_count, get_track_info, get_track_peak_levels,
     move_clip_to_track, set_track_armed, set_track_mute, set_track_name, set_track_pan,
-    set_track_solo, set_track_volume,
+    set_track_solo, set_track_volume, set_track_volume_automation,
 };
 pub use transport::{
     get_playhead_position, get_transport_state, transport_pause, transport_play, transport_seek,

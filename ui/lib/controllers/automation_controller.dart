@@ -16,6 +16,9 @@ class AutomationController extends ChangeNotifier {
   AutomationParameter get visibleParameter => _visibleParameter;
   bool get hasVisibleAutomation => _visibleTrackId != null;
 
+  /// Get all track IDs that have automation data
+  Iterable<int> get allTrackIds => _trackAutomation.keys;
+
   /// Get automation lane for a track/parameter
   TrackAutomationLane? getLane(int trackId, AutomationParameter param) {
     return _trackAutomation[trackId]?[param];

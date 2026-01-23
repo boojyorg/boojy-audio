@@ -801,6 +801,27 @@ pub extern "C" fn set_track_volume_ffi(track_id: u64, volume_db: f32) -> *mut c_
     }
 }
 
+/// Set track volume automation curve
+/// csv_data format: "time_seconds,db;time_seconds,db;..." or empty to clear
+#[no_mangle]
+pub extern "C" fn set_track_volume_automation_ffi(track_id: u64, csv_data: *const c_char) -> *mut c_char {
+    let csv = if csv_data.is_null() {
+        String::new()
+    } else {
+        unsafe {
+            match std::ffi::CStr::from_ptr(csv_data).to_str() {
+                Ok(s) => s.to_string(),
+                Err(_) => return safe_cstring("Error: Invalid UTF-8 in csv_data".to_string()).into_raw(),
+            }
+        }
+    };
+
+    match api::set_track_volume_automation(track_id, &csv) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Set track pan
 #[no_mangle]
 pub extern "C" fn set_track_pan_ffi(track_id: u64, pan: f32) -> *mut c_char {

@@ -2,7 +2,7 @@
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::midi::MidiClip;
 use crate::synth::TrackSynthManager;
-use crate::track::{ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager};  // Import from track module
+use crate::track::{AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager};  // Import from track module
 use crate::effects::{Effect, EffectManager, Limiter};  // Import from effects module
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -75,6 +75,48 @@ impl BufferSizePreset {
             _ => BufferSizePreset::HighStability,
         }
     }
+}
+
+/// Interpolate volume gain from automation curve at a specific time
+/// Uses binary search and linear interpolation for efficient per-frame lookup
+fn interpolate_automation_gain(automation: &[AutomationPoint], time_seconds: f64) -> f32 {
+    if automation.is_empty() {
+        return 1.0; // Unity gain fallback
+    }
+
+    // Before first point - use first point's value
+    if time_seconds <= automation[0].time_seconds {
+        let db = automation[0].value_db;
+        return if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) };
+    }
+
+    // After last point - use last point's value
+    let last_idx = automation.len() - 1;
+    if time_seconds >= automation[last_idx].time_seconds {
+        let db = automation[last_idx].value_db;
+        return if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) };
+    }
+
+    // Binary search for surrounding points
+    let mut low = 0usize;
+    let mut high = automation.len() - 1;
+
+    while low < high - 1 {
+        let mid = (low + high) / 2;
+        if automation[mid].time_seconds <= time_seconds {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    // Linear interpolation between automation[low] and automation[high]
+    let p1 = &automation[low];
+    let p2 = &automation[high];
+    let t = (time_seconds - p1.time_seconds) / (p2.time_seconds - p1.time_seconds);
+    let db = p1.value_db + (p2.value_db - p1.value_db) * t as f32;
+
+    if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) }
 }
 
 /// The main audio graph that manages playback
@@ -983,12 +1025,13 @@ impl AudioGraph {
                     id: u64,
                     audio_clips: Vec<TimelineClip>,
                     midi_clips: Vec<TimelineMidiClip>,
-                    volume_gain: f32,
+                    volume_gain: f32, // Static volume (used when no automation)
                     pan_left: f32,
                     pan_right: f32,
                     muted: bool,
                     soloed: bool,
                     fx_chain: Vec<u64>,
+                    volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
                 }
 
                 let track_data_option = if let Ok(tm) = track_manager.lock() {
@@ -1010,6 +1053,7 @@ impl AudioGraph {
                                 muted: track.mute,
                                 soloed: track.solo,
                                 fx_chain: track.fx_chain.clone(),
+                                volume_automation: track.volume_automation.clone(),
                             };
 
                             if track.track_type == crate::track::TrackType::Master {
@@ -1224,8 +1268,15 @@ impl AudioGraph {
 
                         // Apply track volume AFTER FX chain (from snapshot)
                         // This ensures VST3 instrument output is also affected by the fader
-                        fx_left *= track_snap.volume_gain;
-                        fx_right *= track_snap.volume_gain;
+                        // Use automation curve if available, otherwise static volume_gain
+                        let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
+                            // Interpolate volume from automation curve
+                            interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+                        } else {
+                            track_snap.volume_gain
+                        };
+                        fx_left *= frame_volume_gain;
+                        fx_right *= frame_volume_gain;
 
                         // Apply track pan AFTER FX chain (from snapshot)
                         fx_left *= track_snap.pan_left;
@@ -1996,12 +2047,13 @@ impl AudioGraph {
             id: u64,
             audio_clips: Vec<TimelineClip>,
             midi_clips: Vec<TimelineMidiClip>,
-            volume_gain: f32,
+            volume_gain: f32, // Static volume (used when no automation)
             pan_left: f32,
             pan_right: f32,
             muted: bool,
             soloed: bool,
             fx_chain: Vec<u64>,
+            volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
         }
 
         let (track_snapshots, has_solo, master_snapshot) = {
@@ -2023,6 +2075,7 @@ impl AudioGraph {
                         muted: track.mute,
                         soloed: track.solo,
                         fx_chain: track.fx_chain.clone(),
+                        volume_automation: track.volume_automation.clone(),
                     };
 
                     if track.track_type == crate::track::TrackType::Master {
@@ -2195,9 +2248,14 @@ impl AudioGraph {
                     track_right += synth_sample;
                 }
 
-                // Apply track volume
-                track_left *= track_snap.volume_gain;
-                track_right *= track_snap.volume_gain;
+                // Apply track volume (use automation if available)
+                let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
+                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+                } else {
+                    track_snap.volume_gain
+                };
+                track_left *= frame_volume_gain;
+                track_right *= frame_volume_gain;
 
                 // Apply track pan
                 track_left *= track_snap.pan_left;
@@ -2300,6 +2358,7 @@ impl AudioGraph {
             pan_left: f32,
             pan_right: f32,
             fx_chain: Vec<u64>,
+            volume_automation: Vec<AutomationPoint>,
         }
 
         let track_snapshot = {
@@ -2316,6 +2375,7 @@ impl AudioGraph {
                             pan_left: track.get_pan_gains().0,
                             pan_right: track.get_pan_gains().1,
                             fx_chain: track.fx_chain.clone(),
+                            volume_automation: track.volume_automation.clone(),
                         });
                         break;
                     }
@@ -2473,9 +2533,14 @@ impl AudioGraph {
                 track_right += synth_sample;
             }
 
-            // Apply track volume
-            track_left *= track_snap.volume_gain;
-            track_right *= track_snap.volume_gain;
+            // Apply track volume (use automation if available)
+            let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
+                interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+            } else {
+                track_snap.volume_gain
+            };
+            track_left *= frame_volume_gain;
+            track_right *= frame_volume_gain;
 
             // Apply track pan
             track_left *= track_snap.pan_left;

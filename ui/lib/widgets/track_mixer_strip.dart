@@ -301,46 +301,58 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ],
           ),
           // Row 2: Automation SplitButton + dB + Volume Slider
-          SizedBox(
-            height: rowHeight,
-            child: Row(
-              children: [
-                // Automation SplitButton (Icon+Auto | dropdown)
-                _buildAutomationButton(context, rowHeight),
-                const SizedBox(width: 4),
-                // dB value display (fixed size and width)
-                SizedBox(
-                  width: dbContainerWidth,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: context.colors.darkest,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      widget.volumeDb <= -60.0 ? '-∞ dB' : '${widget.volumeDb.toStringAsFixed(1)} dB',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: context.colors.textSecondary,
-                        fontSize: dbFontSize,
-                        fontFamily: 'monospace',
+          // Check for volume preview during automation drag
+          Builder(
+            builder: (context) {
+              // Use preview value if dragging volume automation
+              final hasVolumePreview = widget.previewParameterValue != null &&
+                  widget.selectedParameter == AutomationParameter.volume;
+              final displayVolumeDb = hasVolumePreview
+                  ? VolumeConversion.normalizedToDb(widget.previewParameterValue!)
+                  : widget.volumeDb;
+
+              return SizedBox(
+                height: rowHeight,
+                child: Row(
+                  children: [
+                    // Automation SplitButton (Icon+Auto | dropdown)
+                    _buildAutomationButton(context, rowHeight),
+                    const SizedBox(width: 4),
+                    // dB value display (fixed size and width)
+                    SizedBox(
+                      width: dbContainerWidth,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: context.colors.darkest,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          displayVolumeDb <= -60.0 ? '-∞ dB' : '${displayVolumeDb.toStringAsFixed(1)} dB',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: hasVolumePreview ? context.colors.textPrimary : context.colors.textSecondary,
+                            fontSize: dbFontSize,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // Volume Slider (height scales, X position fixed)
+                    Expanded(
+                      child: CapsuleFader(
+                        leftLevel: widget.peakLevelLeft,
+                        rightLevel: widget.peakLevelRight,
+                        volumeDb: displayVolumeDb,
+                        onVolumeChanged: widget.onVolumeChanged,
+                        onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                // Volume Slider (height scales, X position fixed)
-                Expanded(
-                  child: CapsuleFader(
-                    leftLevel: widget.peakLevelLeft,
-                    rightLevel: widget.peakLevelRight,
-                    volumeDb: widget.volumeDb,
-                    onVolumeChanged: widget.onVolumeChanged,
-                    onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
           // Row 3-4: Automation Controls (only when visible)
           if (widget.showAutomation)

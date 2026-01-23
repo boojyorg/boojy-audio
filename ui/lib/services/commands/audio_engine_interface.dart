@@ -20,6 +20,7 @@ abstract class AudioEngineInterface {
   String getTrackInfo(int trackId);
   void setTrackName(int trackId, String name);
   void setTrackVolume(int trackId, double volumeDb);
+  void setTrackVolumeAutomation(int trackId, String csvData);
   void setTrackPan(int trackId, double pan);
   void setTrackMute(int trackId, {required bool mute});
   void setTrackSolo(int trackId, {required bool solo});

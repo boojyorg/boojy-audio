@@ -175,6 +175,16 @@ class _DAWScreenState extends State<DAWScreen> {
     });
   }
 
+  /// Sync volume automation to engine for a specific track
+  /// Called after automation points are added, updated, or deleted
+  void _syncVolumeAutomationToEngine(int trackId) {
+    final lane = _automationController.getLane(trackId, AutomationParameter.volume);
+    if (lane != null && _audioEngine != null) {
+      final csv = lane.toEngineDbCsv(_tempo);
+      _audioEngine!.setTrackVolumeAutomation(trackId, csv);
+    }
+  }
+
   void _setMasterTrackHeight(double height) {
     _trackController.setMasterTrackHeight(height);
   }
@@ -2907,6 +2917,17 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Restore automation data if available
     _automationController.loadFromJson(layout.automationData);
+
+    // Sync all volume automation lanes to engine
+    _syncAllVolumeAutomationToEngine();
+  }
+
+  /// Sync all volume automation lanes to engine (called on project load)
+  void _syncAllVolumeAutomationToEngine() {
+    if (_audioEngine == null) return;
+    for (final trackId in _automationController.allTrackIds) {
+      _syncVolumeAutomationToEngine(trackId);
+    }
   }
 
   /// Restore view state (zoom, scroll, panels, playhead)
@@ -3866,12 +3887,21 @@ class _DAWScreenState extends State<DAWScreen> {
                           getAutomationLane: (trackId) => _automationController.getLane(trackId, _automationController.visibleParameter),
                           onAutomationPointAdded: (trackId, point) {
                             _automationController.addPoint(trackId, _automationController.visibleParameter, point);
+                            if (_automationController.visibleParameter == AutomationParameter.volume) {
+                              _syncVolumeAutomationToEngine(trackId);
+                            }
                           },
                           onAutomationPointUpdated: (trackId, pointId, point) {
                             _automationController.updatePoint(trackId, _automationController.visibleParameter, pointId, point);
+                            if (_automationController.visibleParameter == AutomationParameter.volume) {
+                              _syncVolumeAutomationToEngine(trackId);
+                            }
                           },
                           onAutomationPointDeleted: (trackId, pointId) {
                             _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
+                            if (_automationController.visibleParameter == AutomationParameter.volume) {
+                              _syncVolumeAutomationToEngine(trackId);
+                            }
                           },
                           onAutomationPreviewValue: _onAutomationPreviewValue,
                           automationScrollController: _timelineKey.currentState?.scrollController,
@@ -3970,12 +4000,21 @@ class _DAWScreenState extends State<DAWScreen> {
                             totalBeats: 256.0,
                             onAutomationPointAdded: (trackId, point) {
                               _automationController.addPoint(trackId, _automationController.visibleParameter, point);
+                              if (_automationController.visibleParameter == AutomationParameter.volume) {
+                                _syncVolumeAutomationToEngine(trackId);
+                              }
                             },
                             onAutomationPointUpdated: (trackId, pointId, point) {
                               _automationController.updatePoint(trackId, _automationController.visibleParameter, pointId, point);
+                              if (_automationController.visibleParameter == AutomationParameter.volume) {
+                                _syncVolumeAutomationToEngine(trackId);
+                              }
                             },
                             onAutomationPointDeleted: (trackId, pointId) {
                               _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
+                              if (_automationController.visibleParameter == AutomationParameter.volume) {
+                                _syncVolumeAutomationToEngine(trackId);
+                              }
                             },
                             automationPreviewValues: _automationPreviewValues,
                             onAutomationPreviewValue: _onAutomationPreviewValue,

@@ -135,6 +135,22 @@ pub struct Send {
     pub pre_fader: bool,
 }
 
+/// Automation point: a single point in an automation curve
+#[derive(Debug, Clone, Copy)]
+pub struct AutomationPoint {
+    /// Time position in seconds
+    pub time_seconds: f64,
+    /// Value in dB (for volume automation)
+    pub value_db: f32,
+}
+
+impl AutomationPoint {
+    /// Create a new automation point
+    pub fn new(time_seconds: f64, value_db: f32) -> Self {
+        Self { time_seconds, value_db }
+    }
+}
+
 /// A track in the DAW
 pub struct Track {
     /// Unique ID
@@ -182,6 +198,11 @@ pub struct Track {
     pub peak_left: f32,
     /// Peak level for right channel
     pub peak_right: f32,
+
+    // --- Automation ---
+    /// Volume automation curve (sorted by time_seconds)
+    /// When not empty, overrides static volume_db during playback
+    pub volume_automation: Vec<AutomationPoint>,
 }
 
 impl Track {
@@ -207,6 +228,7 @@ impl Track {
             input_monitoring: false,
             peak_left: 0.0,
             peak_right: 0.0,
+            volume_automation: Vec::new(),
         }
     }
 
@@ -260,6 +282,87 @@ impl Track {
         };
 
         (left_db, right_db)
+    }
+
+    /// Get interpolated volume at a specific time (in seconds)
+    /// Uses linear interpolation between automation points
+    /// Returns static volume_db if no automation exists
+    pub fn get_volume_at(&self, time_seconds: f64) -> f32 {
+        if self.volume_automation.is_empty() {
+            return self.volume_db;
+        }
+
+        let points = &self.volume_automation;
+
+        // Before first point - use first point's value
+        if time_seconds <= points[0].time_seconds {
+            return points[0].value_db;
+        }
+
+        // After last point - use last point's value
+        if time_seconds >= points[points.len() - 1].time_seconds {
+            return points[points.len() - 1].value_db;
+        }
+
+        // Find surrounding points and interpolate (binary search for efficiency)
+        let mut low = 0usize;
+        let mut high = points.len() - 1;
+
+        while low < high - 1 {
+            let mid = (low + high) / 2;
+            if points[mid].time_seconds <= time_seconds {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        // Linear interpolation between points[low] and points[high]
+        let p1 = &points[low];
+        let p2 = &points[high];
+        let t = (time_seconds - p1.time_seconds) / (p2.time_seconds - p1.time_seconds);
+        p1.value_db + (p2.value_db - p1.value_db) * t as f32
+    }
+
+    /// Get interpolated gain (linear) at a specific time
+    /// Converts the dB value from get_volume_at() to linear gain
+    pub fn get_gain_at(&self, time_seconds: f64) -> f32 {
+        let db = self.get_volume_at(time_seconds);
+        if db <= -96.0 {
+            0.0
+        } else {
+            10_f32.powf(db / 20.0)
+        }
+    }
+
+    /// Set volume automation curve from a CSV string
+    /// Format: "time,db;time,db;..." where time is in seconds
+    /// Empty string clears the automation
+    pub fn set_volume_automation_csv(&mut self, csv: &str) {
+        self.volume_automation.clear();
+
+        if csv.is_empty() {
+            return;
+        }
+
+        for pair in csv.split(';') {
+            let parts: Vec<&str> = pair.split(',').collect();
+            if parts.len() == 2 {
+                if let (Ok(time), Ok(db)) = (parts[0].parse::<f64>(), parts[1].parse::<f32>()) {
+                    self.volume_automation.push(AutomationPoint::new(time, db));
+                }
+            }
+        }
+
+        // Sort by time (should already be sorted, but ensure it)
+        self.volume_automation.sort_by(|a, b| {
+            a.time_seconds.partial_cmp(&b.time_seconds).unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+
+    /// Check if track has volume automation
+    pub fn has_volume_automation(&self) -> bool {
+        !self.volume_automation.is_empty()
     }
 }
 

@@ -4,14 +4,24 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- Volume automation now affects playback! Automation curves are sent to the Rust engine and applied per-frame
+  - Engine interpolates volume at sample-accurate resolution using binary search
+  - Works with both real-time playback and offline export
+  - Automation syncs to engine whenever points are added, updated, or deleted
+  - Project save/load correctly restores automation to engine
+
 ### Bug Fixes
 
+- Fix volume automation max being +1.6 dB instead of +6 dB (now uses Boojy curve matching CapsuleFader)
 - Fix reset button in automation lane not updating UI (missing setState)
 - Revert automation lane resize from 16px footer to invisible 6px top handle
 - Fix automation lane real-time updates when dragging points (uses local preview state like velocity lane, persists until parent updates)
 
 ### Improvements
 
+- Row 2 volume slider and dB display now update live during automation drag
 - Automation lane value display now updates live when dragging points (e.g., "0.0 dB" → "3.5 dB" → "6.0 dB")
 - Automation value display now matches volume display styling (larger font, same width)
 - Dragged automation value persists when paused; clears when playback starts to show actual values

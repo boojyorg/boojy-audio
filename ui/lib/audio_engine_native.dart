@@ -88,6 +88,7 @@ class AudioEngine implements AudioEngineInterface {
   // M4 functions - Tracks & Mixer
   late final _CreateTrackFfi _createTrack;
   late final _SetTrackVolumeFfi _setTrackVolume;
+  late final _SetTrackVolumeAutomationFfi _setTrackVolumeAutomation;
   late final _SetTrackPanFfi _setTrackPan;
   late final _SetTrackMuteFfi _setTrackMute;
   late final _SetTrackSoloFfi _setTrackSolo;
@@ -511,6 +512,11 @@ class AudioEngine implements AudioEngineInterface {
       _setTrackVolume = _lib
           .lookup<ffi.NativeFunction<_SetTrackVolumeFfiNative>>(
               'set_track_volume_ffi')
+          .asFunction();
+
+      _setTrackVolumeAutomation = _lib
+          .lookup<ffi.NativeFunction<_SetTrackVolumeAutomationFfiNative>>(
+              'set_track_volume_automation_ffi')
           .asFunction();
 
       _setTrackPan = _lib
@@ -1894,6 +1900,22 @@ class AudioEngine implements AudioEngineInterface {
     }
   }
 
+  /// Set volume automation curve for a track
+  /// csvData format: "time_seconds,db;time_seconds,db;..." or empty to clear
+  @override
+  String setTrackVolumeAutomation(int trackId, String csvData) {
+    try {
+      final csvPtr = csvData.toNativeUtf8();
+      final resultPtr = _setTrackVolumeAutomation(trackId, csvPtr);
+      calloc.free(csvPtr);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Set track pan (-1.0 = full left, 0.0 = center, 1.0 = full right)
   String setTrackPan(int trackId, double pan) {
     try {
@@ -2996,6 +3018,9 @@ typedef _CreateTrackFfi = int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Ch
 
 typedef _SetTrackVolumeFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Float);
 typedef _SetTrackVolumeFfi = ffi.Pointer<Utf8> Function(int, double);
+
+typedef _SetTrackVolumeAutomationFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<Utf8>);
+typedef _SetTrackVolumeAutomationFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<Utf8>);
 
 typedef _SetTrackPanFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Float);
 typedef _SetTrackPanFfi = ffi.Pointer<Utf8> Function(int, double);
