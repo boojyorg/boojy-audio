@@ -82,11 +82,15 @@ class AutomationPoint {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is AutomationPoint && other.id == id;
+    return other is AutomationPoint &&
+        other.id == id &&
+        other.time == time &&
+        other.value == value &&
+        other.isSelected == isSelected;
   }
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => Object.hash(id, time, value, isSelected);
 
   Map<String, dynamic> toJson() {
     return {
@@ -106,6 +110,7 @@ class AutomationPoint {
 }
 
 /// A track automation lane containing points for a specific parameter
+@immutable
 class TrackAutomationLane {
   final String id;
   final int trackId;
@@ -130,11 +135,8 @@ class TrackAutomationLane {
     );
   }
 
-  /// Get sorted points by time
-  List<AutomationPoint> get sortedPoints {
-    return List<AutomationPoint>.from(points)
-      ..sort((a, b) => a.time.compareTo(b.time));
-  }
+  /// Get points sorted by time (points are kept sorted on insert)
+  List<AutomationPoint> get sortedPoints => points;
 
   /// Get value at a specific time (linear interpolation between points)
   double getValueAtTime(double time) {
@@ -166,13 +168,23 @@ class TrackAutomationLane {
   /// Check if there are any automation points
   bool get hasAutomation => points.isNotEmpty;
 
-  /// Add a point to the lane
+  /// Add a point to the lane (inserted in sorted order by time)
   TrackAutomationLane addPoint(AutomationPoint point) {
     // Clamp value to parameter range
     final clampedPoint = point.copyWith(
       value: point.value.clamp(parameter.minValue, parameter.maxValue),
     );
-    return copyWith(points: [...points, clampedPoint]);
+    // Insert in sorted order by time
+    final newPoints = List<AutomationPoint>.from(points);
+    int insertIndex = newPoints.length;
+    for (int i = 0; i < newPoints.length; i++) {
+      if (newPoints[i].time > clampedPoint.time) {
+        insertIndex = i;
+        break;
+      }
+    }
+    newPoints.insert(insertIndex, clampedPoint);
+    return copyWith(points: newPoints);
   }
 
   /// Remove a point from the lane
@@ -180,15 +192,23 @@ class TrackAutomationLane {
     return copyWith(points: points.where((p) => p.id != pointId).toList());
   }
 
-  /// Update a point in the lane
+  /// Update a point in the lane (maintains sorted order if time changes)
   TrackAutomationLane updatePoint(String pointId, AutomationPoint newPoint) {
     // Clamp value to parameter range
     final clampedPoint = newPoint.copyWith(
       value: newPoint.value.clamp(parameter.minValue, parameter.maxValue),
     );
-    return copyWith(
-      points: points.map((p) => p.id == pointId ? clampedPoint : p).toList(),
-    );
+    // Remove old point and re-insert to maintain sorted order
+    final withoutOld = points.where((p) => p.id != pointId).toList();
+    int insertIndex = withoutOld.length;
+    for (int i = 0; i < withoutOld.length; i++) {
+      if (withoutOld[i].time > clampedPoint.time) {
+        insertIndex = i;
+        break;
+      }
+    }
+    withoutOld.insert(insertIndex, clampedPoint);
+    return copyWith(points: withoutOld);
   }
 
   /// Get selected points
@@ -234,6 +254,20 @@ class TrackAutomationLane {
       isExpanded: isExpanded ?? this.isExpanded,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! TrackAutomationLane) return false;
+    return id == other.id &&
+        trackId == other.trackId &&
+        parameter == other.parameter &&
+        listEquals(points, other.points) &&
+        isExpanded == other.isExpanded;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, trackId, parameter, Object.hashAll(points), isExpanded);
 
   /// Convert to JSON for serialization
   Map<String, dynamic> toJson() {

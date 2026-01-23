@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/track_automation_data.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 import '../painters/track_automation_painter.dart';
 
@@ -61,10 +62,13 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;
 
+  static const double _footerHeight = 16.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final canvasWidth = widget.totalBeats * widget.pixelsPerBeat;
+    final canvasHeight = widget.laneHeight - _footerHeight;
 
     return Container(
       height: widget.laneHeight,
@@ -74,86 +78,99 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
           top: BorderSide(color: colors.surface, width: 1),
         ),
       ),
-      child: Stack(
+      child: Column(
         children: [
           // Automation curve area (full width, synced with timeline scroll)
-          ClipRect(
-            child: AnimatedBuilder(
-              animation: widget.horizontalScrollController,
-              builder: (context, child) {
-                final scrollOffset =
-                    widget.horizontalScrollController.hasClients
-                        ? widget.horizontalScrollController.offset
-                        : 0.0;
-                return Transform.translate(
-                  offset: Offset(-scrollOffset, 0),
-                  child: child,
-                );
-              },
-              child: MouseRegion(
-                cursor: _getCursor(),
-                onHover: _onHover,
-                onExit: (_) => setState(() => _hoveredPointId = null),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTapDown: _onTapDown,
-                  onSecondaryTapDown: _onRightClick,
-                  onPanStart: _onPanStart,
-                  onPanUpdate: _onPanUpdate,
-                  onPanEnd: _onPanEnd,
-                  child: CustomPaint(
-                    size: Size(canvasWidth, widget.laneHeight),
-                    painter: TrackAutomationPainter(
-                      lane: widget.lane,
-                      pixelsPerBeat: widget.pixelsPerBeat,
-                      laneHeight: widget.laneHeight,
-                      totalBeats: widget.totalBeats,
-                      lineColor: widget.trackColor,
-                      fillColor: widget.trackColor.withValues(alpha: 0.15),
-                      pointColor: colors.textPrimary,
-                      selectedPointColor: widget.trackColor,
-                      gridLineColor: colors.surface,
-                      hoveredPointId: _hoveredPointId,
-                      draggedPointId: _draggingPointId,
+          Expanded(
+            child: ClipRect(
+              child: AnimatedBuilder(
+                animation: widget.horizontalScrollController,
+                builder: (context, child) {
+                  final scrollOffset =
+                      widget.horizontalScrollController.hasClients
+                          ? widget.horizontalScrollController.offset
+                          : 0.0;
+                  return Transform.translate(
+                    offset: Offset(-scrollOffset, 0),
+                    child: child,
+                  );
+                },
+                child: MouseRegion(
+                  cursor: _getCursor(),
+                  onHover: _onHover,
+                  onExit: (_) => setState(() => _hoveredPointId = null),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapDown: _onTapDown,
+                    onSecondaryTapDown: _onRightClick,
+                    onPanStart: _onPanStart,
+                    onPanUpdate: _onPanUpdate,
+                    onPanEnd: _onPanEnd,
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        size: Size(canvasWidth, canvasHeight),
+                        painter: TrackAutomationPainter(
+                          lane: widget.lane,
+                          pixelsPerBeat: widget.pixelsPerBeat,
+                          laneHeight: canvasHeight,
+                          totalBeats: widget.totalBeats,
+                          lineColor: widget.trackColor,
+                          fillColor: widget.trackColor.withValues(alpha: 0.15),
+                          pointColor: colors.textPrimary,
+                          selectedPointColor: widget.trackColor,
+                          gridLineColor: colors.surface,
+                          hoveredPointId: _hoveredPointId,
+                          draggedPointId: _draggingPointId,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-          // Resize handle at top
-          Positioned(
-            left: 0, // Full width (no label area)
-            right: 0,
-            top: 0,
-            height: 6,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: GestureDetector(
-                onVerticalDragStart: (details) {
-                  _isResizing = true;
-                  _resizeStartY = details.globalPosition.dy;
-                  _resizeStartHeight = widget.laneHeight;
-                },
-                onVerticalDragUpdate: (details) {
-                  if (_isResizing && widget.onHeightChanged != null) {
-                    // Dragging up = increase height (negative delta)
-                    final delta = _resizeStartY - details.globalPosition.dy;
-                    final newHeight = (_resizeStartHeight + delta).clamp(
-                      40.0,
-                      200.0,
-                    );
-                    widget.onHeightChanged!(newHeight);
-                  }
-                },
-                onVerticalDragEnd: (_) {
-                  _isResizing = false;
-                },
-                child: Container(color: Colors.transparent),
+          // Visible resize footer panel
+          _buildResizeFooter(colors),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResizeFooter(BoojyColors colors) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeRow,
+      child: GestureDetector(
+        onVerticalDragStart: (details) {
+          _isResizing = true;
+          _resizeStartY = details.globalPosition.dy;
+          _resizeStartHeight = widget.laneHeight;
+        },
+        onVerticalDragUpdate: (details) {
+          if (_isResizing && widget.onHeightChanged != null) {
+            // Dragging down = increase height
+            final delta = details.globalPosition.dy - _resizeStartY;
+            final newHeight = (_resizeStartHeight + delta).clamp(40.0, 200.0);
+            widget.onHeightChanged!(newHeight);
+          }
+        },
+        onVerticalDragEnd: (_) => _isResizing = false,
+        child: Container(
+          height: _footerHeight,
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: 0.3),
+            border: Border(top: BorderSide(color: colors.surface, width: 1)),
+          ),
+          child: Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.textSecondary.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -269,6 +286,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
     return null;
   }
 
+  double get _canvasHeight => widget.laneHeight - _footerHeight;
+
   double _yToValue(double y) {
     final param = widget.lane.parameter;
     final minValue = param.minValue;
@@ -276,7 +295,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
     final range = maxValue - minValue;
 
     // Invert Y so higher values are at top
-    final normalized = 1 - (y / widget.laneHeight);
+    final normalized = 1 - (y / _canvasHeight);
     return minValue + normalized * range;
   }
 
@@ -287,6 +306,6 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
     final range = maxValue - minValue;
 
     final normalized = (value - minValue) / range;
-    return widget.laneHeight * (1 - normalized);
+    return _canvasHeight * (1 - normalized);
   }
 }
