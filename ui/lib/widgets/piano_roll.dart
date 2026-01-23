@@ -805,19 +805,24 @@ class _PianoRollState extends State<PianoRoll>
                     child: child,
                   );
                 },
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onPanStart: onVelocityPanStart,
-                  onPanUpdate: onVelocityPanUpdate,
-                  onPanEnd: onVelocityPanEnd,
-                  child: CustomPaint(
-                    size: Size(canvasWidth, PianoRollStateMixin.velocityLaneHeight),
-                    painter: VelocityLanePainter(
-                      notes: currentClip?.notes ?? [],
-                      pixelsPerBeat: pixelsPerBeat,
-                      laneHeight: PianoRollStateMixin.velocityLaneHeight,
-                      totalBeats: totalBeats,
-                      draggedNoteId: velocityDraggedNoteId,
+                child: MouseRegion(
+                  onHover: onVelocityHover,
+                  onExit: onVelocityHoverExit,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onPanStart: onVelocityPanStart,
+                    onPanUpdate: onVelocityPanUpdate,
+                    onPanEnd: onVelocityPanEnd,
+                    child: CustomPaint(
+                      size: Size(canvasWidth, PianoRollStateMixin.velocityLaneHeight),
+                      painter: VelocityLanePainter(
+                        notes: currentClip?.notes ?? [],
+                        pixelsPerBeat: pixelsPerBeat,
+                        laneHeight: PianoRollStateMixin.velocityLaneHeight,
+                        totalBeats: totalBeats,
+                        draggedNoteId: velocityDraggedNoteId,
+                        hoveredNoteId: velocityHoveredNoteId,
+                      ),
                     ),
                   ),
                 ),

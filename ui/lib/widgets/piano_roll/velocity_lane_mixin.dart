@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../piano_roll.dart';
 import 'piano_roll_state.dart';
@@ -69,6 +70,26 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
       commitToHistory('Change velocity');
       velocityDragActive = false;
       velocityDraggedNoteId = null;
+    }
+  }
+
+  /// Handle velocity lane hover
+  void onVelocityHover(PointerHoverEvent event) {
+    final note = findNoteAtVelocityPosition(event.localPosition);
+    final newHoveredId = note?.id;
+    if (newHoveredId != velocityHoveredNoteId) {
+      setState(() {
+        velocityHoveredNoteId = newHoveredId;
+      });
+    }
+  }
+
+  /// Handle velocity lane hover exit
+  void onVelocityHoverExit(PointerExitEvent event) {
+    if (velocityHoveredNoteId != null) {
+      setState(() {
+        velocityHoveredNoteId = null;
+      });
     }
   }
 }

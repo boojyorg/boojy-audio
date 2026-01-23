@@ -9,6 +9,7 @@ class VelocityLanePainter extends CustomPainter {
   final double laneHeight;
   final double totalBeats;
   final String? draggedNoteId;
+  final String? hoveredNoteId;
 
   VelocityLanePainter({
     required this.notes,
@@ -16,6 +17,7 @@ class VelocityLanePainter extends CustomPainter {
     required this.laneHeight,
     required this.totalBeats,
     this.draggedNoteId,
+    this.hoveredNoteId,
   });
 
   @override
@@ -70,24 +72,28 @@ class VelocityLanePainter extends CustomPainter {
         final extra = (note.velocity - 100) / 27.0;
         lightness = baseLightness + extra * (0.54 - baseLightness);
       }
-      final velocityColor = baseHsl.withLightness(lightness).toColor();
-
-      // Check if highlighted (selected or being dragged)
+      // Check if highlighted (selected or being dragged) or hovered
       final isHighlighted = note.isSelected || note.id == draggedNoteId;
+      final isHovered = note.id == hoveredNoteId && !isHighlighted;
 
-      // Derive border color - white if highlighted, else darker velocity color
-      final borderColor = isHighlighted
-          ? Colors.white
-          : HSLColor.fromColor(velocityColor)
-              .withLightness((lightness * 0.7).clamp(0.0, 1.0))
-              .toColor();
+      // Brighten color on hover (increase lightness by ~20%)
+      final hoverLightness = (lightness + 0.15).clamp(0.0, 0.7);
+      final displayLightness = isHovered ? hoverLightness : lightness;
+      final velocityColor = baseHsl.withLightness(displayLightness).toColor();
+
+      // Derive border color - white if highlighted, brighter if hovered, else darker velocity color
+      Color borderColor;
+      if (isHighlighted) {
+        borderColor = Colors.white;
+      } else if (isHovered) {
+        borderColor = baseHsl.withLightness((hoverLightness + 0.1).clamp(0.0, 0.8)).toColor();
+      } else {
+        borderColor = HSLColor.fromColor(velocityColor)
+            .withLightness((lightness * 0.7).clamp(0.0, 1.0))
+            .toColor();
+      }
 
       final linePaint = Paint()
-        ..color = velocityColor
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-
-      final horizontalLinePaint = Paint()
         ..color = isHighlighted ? Colors.white : velocityColor
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
@@ -112,7 +118,7 @@ class VelocityLanePainter extends CustomPainter {
       canvas.drawLine(
         Offset(x + 1, y),
         Offset(x + width - 1, y),
-        horizontalLinePaint,
+        linePaint,
       );
 
       // Draw circle at top-left corner
@@ -128,6 +134,7 @@ class VelocityLanePainter extends CustomPainter {
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         laneHeight != oldDelegate.laneHeight ||
         totalBeats != oldDelegate.totalBeats ||
-        draggedNoteId != oldDelegate.draggedNoteId;
+        draggedNoteId != oldDelegate.draggedNoteId ||
+        hoveredNoteId != oldDelegate.hoveredNoteId;
   }
 }
