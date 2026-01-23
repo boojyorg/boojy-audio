@@ -763,6 +763,15 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // M4: Mixer methods
   void _toggleMixer() {
+    final windowWidth = MediaQuery.of(context).size.width;
+
+    // If trying to show mixer, check if there's room
+    if (!_uiLayout.isMixerVisible) {
+      if (!_uiLayout.canShowMixer(windowWidth)) {
+        return; // Not enough room - do nothing
+      }
+    }
+
     setState(() {
       _uiLayout.isMixerVisible = !_uiLayout.isMixerVisible;
       _userSettings.mixerVisible = _uiLayout.isMixerVisible;
@@ -2011,6 +2020,15 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // M6: Panel toggle methods
   void _toggleLibraryPanel() {
+    final windowWidth = MediaQuery.of(context).size.width;
+
+    // If trying to expand library, check if there's room
+    if (_uiLayout.isLibraryPanelCollapsed) {
+      if (!_uiLayout.canShowLibrary(windowWidth)) {
+        return; // Not enough room - do nothing
+      }
+    }
+
     setState(() {
       _uiLayout.isLibraryPanelCollapsed = !_uiLayout.isLibraryPanelCollapsed;
       _userSettings.libraryCollapsed = _uiLayout.isLibraryPanelCollapsed;
@@ -3516,40 +3534,18 @@ class _DAWScreenState extends State<DAWScreen> {
       }
     }
 
-    // Auto-collapse/expand library based on window size
-    if (windowSize.width < UILayoutState.autoCollapseLibraryWidth) {
-      // Auto-collapse library if window is too narrow
-      if (!_uiLayout.isLibraryPanelCollapsed) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _uiLayout.collapseLibrary();
-          // Don't save to _userSettings - this is a temporary auto-collapse
-        });
-      }
-    } else {
-      // Auto-expand library when window is large enough (if user didn't manually collapse)
-      if (_uiLayout.isLibraryPanelCollapsed && !_userSettings.libraryCollapsed) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _uiLayout.expandLibrary();
-        });
-      }
-    }
-
-    // Auto-collapse/expand mixer based on window size
-    if (windowSize.width < UILayoutState.autoCollapseMixerWidth) {
-      // Auto-collapse mixer if window is too narrow
-      if (_uiLayout.isMixerVisible) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _uiLayout.collapseMixer();
-          // Don't save to _userSettings - this is a temporary auto-collapse
-        });
-      }
-    } else {
-      // Auto-expand mixer when window is large enough (if user didn't manually collapse)
-      if (!_uiLayout.isMixerVisible && _userSettings.mixerVisible) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _uiLayout.expandMixer();
-        });
-      }
+    // Auto-collapse panels if arrangement width falls below minimum
+    // Close mixer first (if visible), then library
+    final arrangementWidth = _uiLayout.getArrangementWidth(windowSize.width);
+    if (arrangementWidth < UILayoutState.minArrangementWidth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_uiLayout.isMixerVisible) {
+          _uiLayout.collapseMixer();
+        } else if (!_uiLayout.isLibraryPanelCollapsed) {
+          _uiLayout.collapseLibrary();
+        }
+      });
     }
 
     return PlatformMenuBar(

@@ -96,9 +96,11 @@ class UILayoutState extends ChangeNotifier {
   static const double editorDefaultPct = 0.35;
   static const double editorMaxPct = 0.55;
 
-  // Auto-collapse thresholds (window width triggers)
-  static const double autoCollapseLibraryWidth = 900.0;
-  static const double autoCollapseMixerWidth = 1000.0;
+  // Minimum arrangement view width (protects timeline visibility)
+  static const double minArrangementWidth = 200.0;
+
+  // Collapsed library width (icon strip)
+  static const double libraryCollapsedWidth = 40.0;
 
   // Collapse threshold = separate from min (requires dragging further to collapse)
   static double get libraryCollapseThreshold => libraryMinWidth - 50.0;
@@ -129,6 +131,33 @@ class UILayoutState extends ChangeNotifier {
 
   static double getEditorDefaultHeight(double windowHeight) {
     return max(editorMinHeight, min(windowHeight * editorDefaultPct, editorHardMax));
+  }
+
+  // ============================================
+  // ARRANGEMENT WIDTH HELPERS
+  // ============================================
+
+  /// Get current arrangement view width
+  double getArrangementWidth(double windowWidth) {
+    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : _libraryPanelWidth;
+    final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
+    return windowWidth - libraryWidth - mixerWidth;
+  }
+
+  /// Check if there's room to show library panel (when expanding from collapsed)
+  bool canShowLibrary(double windowWidth) {
+    final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
+    final libraryWidth = _libraryPanelWidth; // Width it would be if expanded
+    final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
+    return arrangementWidth >= minArrangementWidth;
+  }
+
+  /// Check if there's room to show mixer panel
+  bool canShowMixer(double windowWidth) {
+    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : _libraryPanelWidth;
+    final mixerWidth = _mixerPanelWidth; // Width it would be if expanded
+    final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
+    return arrangementWidth >= minArrangementWidth;
   }
 
   // Getters and Setters
