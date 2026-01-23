@@ -13,7 +13,8 @@ All notable changes to Boojy Audio will be documented in this file.
 - Velocity lane redesigned: vertical line + horizontal line + circle at corner (matches note start/duration/velocity more clearly)
 - Velocity lane indicators now use per-note brightness matching the piano roll notes
 - Removed [Rand] button from velocity lane header
-- Velocity lane uses FL Studio-style "nearest circle" editing with pixel threshold (30px left, 36px right)
+- Velocity lane uses FL Studio-style "nearest circle" editing with pixel threshold (45px left, 55px right)
+- Velocity circles now show white highlight when note is selected or being dragged
 
 ## v0.1.3 - 2025-01-22
 

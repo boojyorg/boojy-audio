@@ -817,6 +817,7 @@ class _PianoRollState extends State<PianoRoll>
                       pixelsPerBeat: pixelsPerBeat,
                       laneHeight: PianoRollStateMixin.velocityLaneHeight,
                       totalBeats: totalBeats,
+                      draggedNoteId: velocityDraggedNoteId,
                     ),
                   ),
                 ),

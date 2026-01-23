@@ -25,6 +25,7 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
     if (note != null) {
       saveToHistory();
       velocityDragActive = true;
+      velocityDraggedNoteId = note.id;
       // Update the note at start position immediately
       _updateVelocityAtPosition(details.localPosition);
     }
@@ -40,6 +41,9 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
   void _updateVelocityAtPosition(Offset position) {
     final note = findNoteAtVelocityPosition(position);
     if (note == null) return; // No note at this X position
+
+    // Update tracked note ID for highlight
+    velocityDraggedNoteId = note.id;
 
     // Calculate new velocity based on Y position (inverted - top = high velocity)
     final newVelocity = ((1 - (position.dy / PianoRollStateMixin.velocityLaneHeight)) * 127)
@@ -64,6 +68,7 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
     if (velocityDragActive) {
       commitToHistory('Change velocity');
       velocityDragActive = false;
+      velocityDraggedNoteId = null;
     }
   }
 }

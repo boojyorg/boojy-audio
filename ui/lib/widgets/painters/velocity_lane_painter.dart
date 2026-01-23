@@ -8,12 +8,14 @@ class VelocityLanePainter extends CustomPainter {
   final double pixelsPerBeat;
   final double laneHeight;
   final double totalBeats;
+  final String? draggedNoteId;
 
   VelocityLanePainter({
     required this.notes,
     required this.pixelsPerBeat,
     required this.laneHeight,
     required this.totalBeats,
+    this.draggedNoteId,
   });
 
   @override
@@ -70,13 +72,23 @@ class VelocityLanePainter extends CustomPainter {
       }
       final velocityColor = baseHsl.withLightness(lightness).toColor();
 
-      // Derive darker border color from velocity color
-      final borderColor = HSLColor.fromColor(velocityColor)
-          .withLightness((lightness * 0.7).clamp(0.0, 1.0))
-          .toColor();
+      // Check if highlighted (selected or being dragged)
+      final isHighlighted = note.isSelected || note.id == draggedNoteId;
+
+      // Derive border color - white if highlighted, else darker velocity color
+      final borderColor = isHighlighted
+          ? Colors.white
+          : HSLColor.fromColor(velocityColor)
+              .withLightness((lightness * 0.7).clamp(0.0, 1.0))
+              .toColor();
 
       final linePaint = Paint()
         ..color = velocityColor
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+
+      final horizontalLinePaint = Paint()
+        ..color = isHighlighted ? Colors.white : velocityColor
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
 
@@ -86,7 +98,7 @@ class VelocityLanePainter extends CustomPainter {
 
       final circleBorderPaint = Paint()
         ..color = borderColor
-        ..strokeWidth = 1.0
+        ..strokeWidth = isHighlighted ? 1.5 : 1.0
         ..style = PaintingStyle.stroke;
 
       // Draw vertical line (from bottom to velocity height)
@@ -100,7 +112,7 @@ class VelocityLanePainter extends CustomPainter {
       canvas.drawLine(
         Offset(x + 1, y),
         Offset(x + width - 1, y),
-        linePaint,
+        horizontalLinePaint,
       );
 
       // Draw circle at top-left corner
@@ -115,6 +127,7 @@ class VelocityLanePainter extends CustomPainter {
     return notes != oldDelegate.notes ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         laneHeight != oldDelegate.laneHeight ||
-        totalBeats != oldDelegate.totalBeats;
+        totalBeats != oldDelegate.totalBeats ||
+        draggedNoteId != oldDelegate.draggedNoteId;
   }
 }

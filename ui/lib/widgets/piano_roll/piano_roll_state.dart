@@ -189,6 +189,9 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Whether velocity drag is active.
   bool velocityDragActive = false;
 
+  /// ID of note currently being dragged in velocity lane.
+  String? velocityDraggedNoteId;
+
   /// Velocity randomization amount (0-100%).
   double velocityRandomizeAmount = 0.0;
 
