@@ -154,12 +154,25 @@ class _DAWScreenState extends State<DAWScreen> {
   Map<int, double> get _automationHeights => _trackController.automationHeights;
   double get _masterTrackHeight => _trackController.masterTrackHeight;
 
+  // Live preview values for automation drag (trackId -> normalized value)
+  Map<int, double?> _automationPreviewValues = {};
+
   void _setClipHeight(int trackId, double height) {
     _trackController.setClipHeight(trackId, height);
   }
 
   void _setAutomationHeight(int trackId, double height) {
     _trackController.setAutomationHeight(trackId, height);
+  }
+
+  void _onAutomationPreviewValue(int trackId, double? value) {
+    setState(() {
+      if (value == null) {
+        _automationPreviewValues.remove(trackId);
+      } else {
+        _automationPreviewValues[trackId] = value;
+      }
+    });
   }
 
   void _setMasterTrackHeight(double height) {
@@ -488,11 +501,23 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   void _play() {
+    // Clear automation preview values so display shows actual playback values
+    if (_automationPreviewValues.isNotEmpty) {
+      setState(() {
+        _automationPreviewValues.clear();
+      });
+    }
     _playbackController.play(loadedClipId: _loadedClipId);
   }
 
   /// Play with loop check - used by transport bar play button
   void _playWithLoopCheck() {
+    // Clear automation preview values so display shows actual playback values
+    if (_automationPreviewValues.isNotEmpty) {
+      setState(() {
+        _automationPreviewValues.clear();
+      });
+    }
     if (_uiLayout.loopPlaybackEnabled) {
       _playLoopRegion();
     } else {
@@ -3848,6 +3873,7 @@ class _DAWScreenState extends State<DAWScreen> {
                           onAutomationPointDeleted: (trackId, pointId) {
                             _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
                           },
+                          onAutomationPreviewValue: _onAutomationPreviewValue,
                           automationScrollController: _timelineKey.currentState?.scrollController,
                         ),
                         ),
@@ -3951,6 +3977,8 @@ class _DAWScreenState extends State<DAWScreen> {
                             onAutomationPointDeleted: (trackId, pointId) {
                               _automationController.removePoint(trackId, _automationController.visibleParameter, pointId);
                             },
+                            automationPreviewValues: _automationPreviewValues,
+                            onAutomationPreviewValue: _onAutomationPreviewValue,
                             getSelectedParameter: (trackId) => _automationController.visibleParameter,
                             onParameterChanged: (trackId, param) {
                               setState(() {
@@ -3962,8 +3990,10 @@ class _DAWScreenState extends State<DAWScreen> {
                               final param = _automationController.visibleParameter;
                               if (param == AutomationParameter.volume) {
                                 _audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
+                                setState(() {}); // Trigger UI update
                               } else if (param == AutomationParameter.pan) {
                                 _audioEngine?.setTrackPan(trackId, 0.0); // Center
+                                setState(() {}); // Trigger UI update
                               }
                             },
                             onAddParameter: (trackId) {

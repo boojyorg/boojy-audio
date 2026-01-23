@@ -97,6 +97,10 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(int trackId)? onResetParameter;
   final Function(int trackId)? onAddParameter;
 
+  // Automation preview values (for live value display during drag)
+  final Map<int, double?> automationPreviewValues;
+  final Function(int trackId, double? value)? onAutomationPreviewValue;
+
   const TrackMixerPanel({
     super.key,
     required this.audioEngine,
@@ -146,6 +150,8 @@ class TrackMixerPanel extends StatefulWidget {
     this.onParameterChanged,
     this.onResetParameter,
     this.onAddParameter,
+    this.automationPreviewValues = const {},
+    this.onAutomationPreviewValue,
   });
 
   @override
@@ -1043,6 +1049,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onAutomationPointAdded: (point) => widget.onAutomationPointAdded?.call(track.id, point),
       onAutomationPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(track.id, pointId, point),
       onAutomationPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(track.id, pointId),
+      onPreviewValue: (value) => widget.onAutomationPreviewValue?.call(track.id, value),
+      previewParameterValue: widget.automationPreviewValues[track.id],
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
       onConvertToSampler: track.type.toLowerCase() == 'audio' && widget.onConvertToSampler != null

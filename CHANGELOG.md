@@ -4,8 +4,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- Fix reset button in automation lane not updating UI (missing setState)
+- Revert automation lane resize from 16px footer to invisible 6px top handle
+- Fix automation lane real-time updates when dragging points (uses local preview state like velocity lane, persists until parent updates)
+
 ### Improvements
 
+- Automation lane value display now updates live when dragging points (e.g., "0.0 dB" → "3.5 dB" → "6.0 dB")
+- Automation value display now matches volume display styling (larger font, same width)
+- Dragged automation value persists when paused; clears when playback starts to show actual values
 - Piano roll velocity now affects note brightness instead of transparency (vel 100 = standard cyan, lower = darker, higher = brighter)
 - Removed darker border from piano roll notes (cleaner look)
 - Selected notes now have 2px white interior border (same shape as unselected notes)

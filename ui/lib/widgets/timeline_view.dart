@@ -132,6 +132,7 @@ class TimelineView extends StatefulWidget {
   final Function(int trackId, AutomationPoint point)? onAutomationPointAdded;
   final Function(int trackId, String pointId, AutomationPoint point)? onAutomationPointUpdated;
   final Function(int trackId, String pointId)? onAutomationPointDeleted;
+  final Function(int trackId, double? value)? onAutomationPreviewValue; // Callback for live value display during drag
   final ScrollController? automationScrollController; // For syncing automation lane scroll
 
   const TimelineView({
@@ -183,6 +184,7 @@ class TimelineView extends StatefulWidget {
     this.onAutomationPointAdded,
     this.onAutomationPointUpdated,
     this.onAutomationPointDeleted,
+    this.onAutomationPreviewValue,
     this.automationScrollController,
   });
 
@@ -2197,6 +2199,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       onPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(trackId, pointId, point),
       onPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(trackId, pointId),
       onHeightChanged: (newHeight) => widget.onAutomationHeightChanged?.call(trackId, newHeight),
+      onPreviewValue: (value) => widget.onAutomationPreviewValue?.call(trackId, value),
     );
   }
 

@@ -55,6 +55,8 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(AutomationPoint)? onAutomationPointAdded;
   final Function(String pointId, AutomationPoint)? onAutomationPointUpdated;
   final Function(String pointId)? onAutomationPointDeleted;
+  final Function(double? value)? onPreviewValue; // Callback for live value display during drag
+  final double? previewParameterValue; // Live preview value during drag
 
   final Function(bool isShiftHeld)? onTap; // Unified track selection callback (with shift state for multi-select)
   final VoidCallback? onDoubleTap; // Double-click to open editor
@@ -121,6 +123,8 @@ class TrackMixerStrip extends StatefulWidget {
     this.onAutomationPointAdded,
     this.onAutomationPointUpdated,
     this.onAutomationPointDeleted,
+    this.onPreviewValue,
+    this.previewParameterValue,
     this.onTap,
     this.onDoubleTap,
     this.onDeletePressed,
@@ -415,16 +419,25 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  /// Build parameter value display
+  /// Build parameter value display (matches volume display style above)
   Widget _buildParameterValueDisplay(BuildContext context, AutomationParameter param, double fontSize) {
     final colors = context.colors;
+    final hasPreview = widget.previewParameterValue != null;
+    const double dbFontSize = 10.0; // Match volume display
+    const double containerWidth = 56.0; // Match volume display width
 
     // Get current value based on parameter type
+    // Use preview value during drag if available
     final String valueText;
     if (param == AutomationParameter.volume) {
-      valueText = widget.volumeDb <= -60.0 ? '-∞' : '${widget.volumeDb.toStringAsFixed(1)}dB';
+      if (hasPreview) {
+        // Preview value is normalized (0-1), convert to dB
+        valueText = VolumeConversion.normalizedToDisplayString(widget.previewParameterValue!);
+      } else {
+        valueText = widget.volumeDb <= -60.0 ? '-∞ dB' : '${widget.volumeDb.toStringAsFixed(1)} dB';
+      }
     } else if (param == AutomationParameter.pan) {
-      final panValue = widget.pan;
+      final panValue = hasPreview ? widget.previewParameterValue! : widget.pan;
       if (panValue == 0) {
         valueText = 'C';
       } else if (panValue < 0) {
@@ -437,18 +450,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
 
     return Container(
-      width: 44,
+      width: containerWidth,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: colors.darkest,
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(3), // Match volume display
       ),
       child: Text(
         valueText,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: colors.textSecondary,
-          fontSize: fontSize,
+          color: hasPreview ? colors.textPrimary : colors.textSecondary, // Highlight during drag
+          fontSize: dbFontSize, // Match volume display
           fontFamily: 'monospace',
         ),
       ),
