@@ -55,16 +55,43 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     return null;
   }
 
-  /// Find note at velocity lane position.
+  /// Find note nearest to velocity lane position (by start time).
+  /// Returns the note whose circle is closest to cursor X,
+  /// but only if within pixel threshold (FL Studio style).
   MidiNoteData? findNoteAtVelocityPosition(Offset position) {
-    final beat = getBeatAtX(position.dx);
+    final notes = currentClip?.notes ?? <MidiNoteData>[];
+    if (notes.isEmpty) return null;
 
-    for (final note in currentClip?.notes ?? <MidiNoteData>[]) {
-      if (beat >= note.startTime && beat < note.endTime) {
-        return note;
+    const leftThreshold = 15.0;  // pixels to left of circle
+    const rightThreshold = 18.0; // pixels to right of circle (1.2x)
+
+    MidiNoteData? nearest;
+    double minDistance = double.infinity;
+
+    for (final note in notes) {
+      final circleX = note.startTime * pixelsPerBeat;
+      final dx = position.dx - circleX;
+
+      // Check if within threshold (asymmetric: left vs right)
+      bool withinThreshold;
+      if (dx < 0) {
+        // Cursor is to the left of circle
+        withinThreshold = dx.abs() <= leftThreshold;
+      } else {
+        // Cursor is to the right of circle
+        withinThreshold = dx <= rightThreshold;
+      }
+
+      if (withinThreshold) {
+        final distance = dx.abs();
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = note;
+        }
       }
     }
-    return null;
+
+    return nearest;
   }
 
   // ============================================
