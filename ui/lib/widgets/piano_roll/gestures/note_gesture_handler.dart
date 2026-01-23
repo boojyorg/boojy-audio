@@ -62,8 +62,8 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     final notes = currentClip?.notes ?? <MidiNoteData>[];
     if (notes.isEmpty) return null;
 
-    const leftThreshold = 15.0;  // pixels to left of circle
-    const rightThreshold = 18.0; // pixels to right of circle (1.2x)
+    const leftThreshold = 30.0;  // pixels to left of circle
+    const rightThreshold = 36.0; // pixels to right of circle (1.2x)
 
     MidiNoteData? nearest;
     double minDistance = double.infinity;
