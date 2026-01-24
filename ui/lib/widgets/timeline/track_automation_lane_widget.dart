@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/track_automation_data.dart';
+import '../../services/tool_mode_resolver.dart';
 import '../../theme/theme_extension.dart';
+import '../../utils/grid_utils.dart';
 import '../painters/track_automation_painter.dart';
 
 /// Track automation lane widget for the arrangement timeline.
@@ -13,6 +15,11 @@ class TrackAutomationLaneWidget extends StatefulWidget {
   final double laneHeight;
   final ScrollController horizontalScrollController;
   final Color trackColor;
+
+  /// Snap settings
+  final bool snapEnabled;
+  final double snapResolution;
+  final int beatsPerBar;
 
   /// Called when parameter is changed via dropdown
   final Function(AutomationParameter)? onParameterChanged;
@@ -43,6 +50,9 @@ class TrackAutomationLaneWidget extends StatefulWidget {
     this.laneHeight = 60.0,
     required this.horizontalScrollController,
     required this.trackColor,
+    this.snapEnabled = true,
+    this.snapResolution = 1.0,
+    this.beatsPerBar = 4,
     this.onParameterChanged,
     this.onPointAdded,
     this.onPointUpdated,
@@ -143,6 +153,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
                         gridLineColor: colors.surface,
                         hoveredPointId: _hoveredPointId,
                         draggedPointId: _draggingPointId,
+                        beatsPerBar: widget.beatsPerBar,
                       ),
                     ),
                   ),
@@ -199,7 +210,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   }
 
   void _onTapDown(TapDownDetails details) {
-    final time = details.localPosition.dx / widget.pixelsPerBeat;
+    double time = details.localPosition.dx / widget.pixelsPerBeat;
     final value = _yToValue(details.localPosition.dy);
 
     // Check if clicking on existing point
@@ -211,7 +222,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
         _draggingPointId = clickedPoint.id;
       });
     } else {
-      // Add new point
+      // Add new point (snap time if enabled)
+      time = _snapTime(time);
       final param = widget.lane.parameter;
       final newPoint = AutomationPoint(
         time: time.clamp(0.0, widget.totalBeats),
@@ -242,19 +254,23 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
         _isDrawing = true;
       });
 
-      // Draw initial point
-      final time = details.localPosition.dx / widget.pixelsPerBeat;
+      // Draw initial point (snap if enabled)
+      double time = details.localPosition.dx / widget.pixelsPerBeat;
+      time = _snapTime(time);
       final value = _yToValue(details.localPosition.dy);
       widget.onDrawValue?.call(time.clamp(0.0, widget.totalBeats), value);
     }
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
-    final time = details.localPosition.dx / widget.pixelsPerBeat;
+    double time = details.localPosition.dx / widget.pixelsPerBeat;
     final value = _yToValue(details.localPosition.dy);
     final param = widget.lane.parameter;
 
     if (_draggingPointId != null) {
+      // Snap time if enabled (Shift bypasses snap)
+      time = _snapTime(time);
+
       // Create preview point for immediate visual feedback
       final newPoint = AutomationPoint(
         id: _draggingPointId,
@@ -274,7 +290,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
       // Callback for persistence
       widget.onPointUpdated?.call(_draggingPointId!, newPoint);
     } else if (_isDrawing) {
-      // Draw automation values
+      // Draw automation values (time already snapped above)
       widget.onDrawValue?.call(
         time.clamp(0.0, widget.totalBeats),
         value.clamp(param.minValue, param.maxValue),
@@ -309,6 +325,15 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   }
 
   double get _canvasHeight => widget.laneHeight;
+
+  /// Snap time to grid if snap is enabled (Shift key bypasses snap)
+  double _snapTime(double time) {
+    final isShiftPressed = ModifierKeyState.current().isShiftPressed;
+    if (widget.snapEnabled && !isShiftPressed && widget.snapResolution > 0) {
+      return GridUtils.snapToGridRound(time, widget.snapResolution);
+    }
+    return time;
+  }
 
   double _yToValue(double y) {
     final param = widget.lane.parameter;

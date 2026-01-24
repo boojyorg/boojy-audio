@@ -15,6 +15,7 @@ class TrackAutomationPainter extends CustomPainter {
   final Color centerLineColor;
   final String? hoveredPointId;
   final String? draggedPointId;
+  final int beatsPerBar;
 
   TrackAutomationPainter({
     required this.lane,
@@ -29,6 +30,7 @@ class TrackAutomationPainter extends CustomPainter {
     this.centerLineColor = const Color(0x40FFFFFF),
     this.hoveredPointId,
     this.draggedPointId,
+    this.beatsPerBar = 4,
   });
 
   @override
@@ -167,6 +169,55 @@ class TrackAutomationPainter extends CustomPainter {
       final y = (laneHeight / 4) * i;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
+
+    // Draw vertical grid lines matching timeline (bars, beats, subdivisions)
+    _drawVerticalGridLines(canvas, size);
+  }
+
+  /// Get grid division based on zoom level (matches TimelineGridPainter)
+  double _getGridDivision() {
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble(); // Only bars
+    if (pixelsPerBeat < 20) return 1.0; // Bars + beats
+    if (pixelsPerBeat < 40) return 0.5; // + half beats
+    if (pixelsPerBeat < 80) return 0.25; // + quarter beats
+    return 0.125; // + eighth beats
+  }
+
+  void _drawVerticalGridLines(Canvas canvas, Size size) {
+    final gridDivision = _getGridDivision();
+
+    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
+      final x = beat * pixelsPerBeat;
+      if (x > size.width) break;
+
+      // Determine line type based on beat position
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
+      final isBeat = (beat % 1.0).abs() < 0.001;
+      final isHalfBeat = (beat % 0.5).abs() < 0.001;
+
+      Color lineColor;
+      double strokeWidth;
+
+      if (isBar) {
+        lineColor = const Color(0xFF505050);
+        strokeWidth = 2.0;
+      } else if (isBeat) {
+        lineColor = const Color(0xFF404040);
+        strokeWidth = 1.0;
+      } else if (isHalfBeat) {
+        lineColor = const Color(0xFF363636);
+        strokeWidth = 0.5;
+      } else {
+        lineColor = const Color(0xFF303030);
+        strokeWidth = 0.5;
+      }
+
+      final paint = Paint()
+        ..color = lineColor
+        ..strokeWidth = strokeWidth;
+
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
   }
 
   void _drawCenterLine(Canvas canvas, Size size, double minValue, double range) {
@@ -223,6 +274,7 @@ class TrackAutomationPainter extends CustomPainter {
         lineColor != oldDelegate.lineColor ||
         fillColor != oldDelegate.fillColor ||
         hoveredPointId != oldDelegate.hoveredPointId ||
-        draggedPointId != oldDelegate.draggedPointId;
+        draggedPointId != oldDelegate.draggedPointId ||
+        beatsPerBar != oldDelegate.beatsPerBar;
   }
 }
