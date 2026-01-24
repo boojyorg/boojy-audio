@@ -506,6 +506,11 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   @override
+  void setTrackVolumeAutomation(int trackId, String csvData) {
+    // Web implementation stub - automation not yet supported on web
+  }
+
+  @override
   void setTrackPan(int trackId, double pan) {
     _callEngineWith('set_track_pan', [_intToBigInt(trackId), pan.toJS]);
   }
