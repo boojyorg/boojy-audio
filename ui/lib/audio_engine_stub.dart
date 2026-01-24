@@ -146,6 +146,12 @@ class AudioEngine implements AudioEngineInterface {
 
   List<int> getAllTrackIds() => throw UnsupportedError('stub');
 
+  String getTrackPeakLevels(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  void setTrackVolumeAutomation(int trackId, String csvData) =>
+      throw UnsupportedError('stub');
+
   // Project operations (not in interface but used by ProjectManager)
   String saveProject(String projectName, String projectPath) =>
       throw UnsupportedError('stub');

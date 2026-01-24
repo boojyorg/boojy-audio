@@ -691,6 +691,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   Widget _buildEmptyState() {
     return Center(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
