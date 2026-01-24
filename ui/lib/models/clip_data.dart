@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'audio_clip_edit_data.dart';
+import 'clip_automation_data.dart';
 
 /// Represents an audio clip on the timeline
 class ClipData {
@@ -25,6 +26,10 @@ class ClipData {
   /// Defaults to true to match AudioClipEditData.loopEnabled default.
   final bool canRepeat;
 
+  /// Clip-based automation data. Automation lives inside the clip and moves,
+  /// copies, slices, and loops with the clip content.
+  final ClipAutomation automation;
+
   ClipData({
     required this.clipId,
     required this.trackId,
@@ -37,7 +42,9 @@ class ClipData {
     this.editData,
     double? loopLength,
     this.canRepeat = true, // Default to true to match AudioClipEditData.loopEnabled
-  }) : loopLength = loopLength ?? duration; // Default loopLength to duration if not specified
+    ClipAutomation? automation,
+  })  : loopLength = loopLength ?? duration, // Default loopLength to duration if not specified
+        automation = automation ?? ClipAutomation.empty();
 
   /// Convert ClipData to JSON for project persistence
   Map<String, dynamic> toJson() {
@@ -53,6 +60,7 @@ class ClipData {
       'canRepeat': canRepeat,
       if (color != null) 'color': color!.toARGB32(),
       if (editData != null) 'editData': editData!.toJson(),
+      if (automation.hasAutomation) 'automation': automation.toJson(),
     };
   }
 
@@ -76,6 +84,9 @@ class ClipData {
       editData: json['editData'] != null
           ? AudioClipEditData.fromJson(json['editData'] as Map<String, dynamic>)
           : null,
+      automation: json['automation'] != null
+          ? ClipAutomation.fromJson(json['automation'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -97,6 +108,7 @@ class ClipData {
     AudioClipEditData? editData,
     double? loopLength,
     bool? canRepeat,
+    ClipAutomation? automation,
   }) {
     return ClipData(
       clipId: clipId ?? this.clipId,
@@ -110,6 +122,7 @@ class ClipData {
       editData: editData ?? this.editData,
       loopLength: loopLength ?? this.loopLength,
       canRepeat: canRepeat ?? this.canRepeat,
+      automation: automation ?? this.automation,
     );
   }
 }

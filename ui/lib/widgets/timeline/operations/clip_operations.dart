@@ -6,23 +6,32 @@ import '../../../models/midi_note_data.dart';
 class ClipOperations {
   /// Split an audio clip at the given position.
   /// Returns a tuple of (leftClip, rightClip) or null if split is invalid.
-  static (ClipData, ClipData)? splitAudioClip(ClipData clip, double splitTimeSeconds) {
+  /// Automation is sliced at the split point with new edge nodes created.
+  static (ClipData, ClipData)? splitAudioClip(ClipData clip, double splitTimeSeconds, {double tempo = 120.0}) {
     // Check if split point is within clip bounds
     if (splitTimeSeconds <= clip.startTime || splitTimeSeconds >= clip.endTime) {
       return null;
     }
 
-    // Calculate split point relative to clip start
+    // Calculate split point relative to clip start (in seconds)
     final splitRelative = splitTimeSeconds - clip.startTime;
+
+    // Convert to beats for automation slicing: beats = seconds * tempo / 60
+    final splitBeat = splitRelative * tempo / 60.0;
 
     // Generate new clip IDs
     final leftClipId = DateTime.now().millisecondsSinceEpoch;
     final rightClipId = leftClipId + 1;
 
+    // Slice automation at the split beat
+    final leftAutomation = clip.automation.sliceLeft(splitBeat);
+    final rightAutomation = clip.automation.sliceRight(splitBeat);
+
     // Create left clip (same start, shorter duration)
     final leftClip = clip.copyWith(
       clipId: leftClipId,
       duration: splitRelative,
+      automation: leftAutomation,
     );
 
     // Create right clip (starts at split point, uses offset for audio position)
@@ -31,6 +40,7 @@ class ClipOperations {
       startTime: splitTimeSeconds,
       duration: clip.duration - splitRelative,
       offset: clip.offset + splitRelative,
+      automation: rightAutomation,
     );
 
     return (leftClip, rightClip);
@@ -38,6 +48,7 @@ class ClipOperations {
 
   /// Split a MIDI clip at the given beat position.
   /// Returns a tuple of (leftClip, rightClip) or null if split is invalid.
+  /// Notes and automation are sliced at the split point.
   static (MidiClipData, MidiClipData)? splitMidiClip(MidiClipData clip, double splitBeat) {
     // Check if split point is within clip bounds
     if (splitBeat <= clip.startTime || splitBeat >= clip.endTime) {
@@ -72,12 +83,17 @@ class ClipOperations {
     final leftClipId = DateTime.now().millisecondsSinceEpoch;
     final rightClipId = leftClipId + 1;
 
+    // Slice automation at the split beat (already in beats, relative to clip start)
+    final leftAutomation = clip.automation.sliceLeft(splitRelative);
+    final rightAutomation = clip.automation.sliceRight(splitRelative);
+
     // Create left clip
     final leftClip = clip.copyWith(
       clipId: leftClipId,
       duration: splitRelative,
       loopLength: splitRelative,
       notes: leftNotes,
+      automation: leftAutomation,
     );
 
     // Create right clip
@@ -87,24 +103,29 @@ class ClipOperations {
       duration: clip.duration - splitRelative,
       loopLength: clip.duration - splitRelative,
       notes: rightNotes,
+      automation: rightAutomation,
     );
 
     return (leftClip, rightClip);
   }
 
   /// Duplicate an audio clip with a new position.
+  /// Automation is deep-copied with new point IDs.
   static ClipData duplicateAudioClip(ClipData clip, double newStartTime) {
     return clip.copyWith(
       clipId: DateTime.now().millisecondsSinceEpoch,
       startTime: newStartTime,
+      automation: clip.automation.deepCopy(),
     );
   }
 
   /// Duplicate a MIDI clip with a new position.
+  /// Automation is deep-copied with new point IDs.
   static MidiClipData duplicateMidiClip(MidiClipData clip, double newStartTime) {
     return clip.copyWith(
       clipId: DateTime.now().millisecondsSinceEpoch,
       startTime: newStartTime,
+      automation: clip.automation.deepCopy(),
     );
   }
 

@@ -293,6 +293,10 @@ class SplitMidiClipCommand extends Command {
       }
     }
 
+    // Slice automation at the split point
+    final leftAutomation = originalClip.automation.sliceLeft(splitPointBeats);
+    final rightAutomation = originalClip.automation.sliceRight(splitPointBeats);
+
     // Create left clip (same start, shortened duration)
     final leftClip = originalClip.copyWith(
       clipId: leftClipId,
@@ -300,6 +304,7 @@ class SplitMidiClipCommand extends Command {
       loopLength: splitPointBeats.clamp(0.25, originalClip.loopLength),
       notes: leftNotes,
       name: '${originalClip.name} (L)',
+      automation: leftAutomation,
     );
 
     // Create right clip (starts at split point, remaining duration)
@@ -311,6 +316,7 @@ class SplitMidiClipCommand extends Command {
       loopLength: rightDuration.clamp(0.25, originalClip.loopLength),
       notes: rightNotes,
       name: '${originalClip.name} (R)',
+      automation: rightAutomation,
     );
 
     onSplit?.call(leftClip, rightClip);
@@ -517,9 +523,11 @@ class DuplicateAudioClipCommand extends Command {
       _duplicatedClipId = newClipId;
     }
 
+    // Deep copy automation so duplicated clip has independent automation
     final newClip = originalClip.copyWith(
       clipId: _duplicatedClipId,
       startTime: newStartTime,
+      automation: originalClip.automation.deepCopy(),
     );
     onClipDuplicated?.call(newClip);
   }
@@ -655,10 +663,12 @@ class DuplicateMidiClipCommand extends Command {
     // This creates a shared pattern ID for linking clips together
     _sharedPatternId = originalClip.patternId ?? 'pattern_${originalClip.clipId}';
 
+    // Deep copy automation so duplicated clip has independent automation
     final newClip = originalClip.copyWith(
       clipId: _duplicatedClipId,
       startTime: newStartTime,
       patternId: _sharedPatternId,
+      automation: originalClip.automation.deepCopy(),
     );
     onClipDuplicated?.call(newClip, _sharedPatternId!);
   }

@@ -46,6 +46,14 @@ pub struct TimelineClip {
     pub transpose_semitones: i32,
     /// Fine pitch adjustment in cents (-50 to +50)
     pub transpose_cents: i32,
+
+    // --- Clip-based Automation ---
+    /// Volume automation curve (time in beats relative to clip start)
+    /// When not empty, modulates the clip's gain during playback
+    pub volume_automation: Vec<ClipAutomationPoint>,
+    /// Pan automation curve (time in beats relative to clip start)
+    /// Values: 0.0 = full left, 0.5 = center, 1.0 = full right
+    pub pan_automation: Vec<ClipAutomationPoint>,
 }
 
 impl TimelineClip {
@@ -94,6 +102,110 @@ impl TimelineClip {
         self.stretched_cache = None;
         self.cached_stretch_factor = 0.0;
     }
+
+    /// Check if clip has volume automation
+    pub fn has_volume_automation(&self) -> bool {
+        !self.volume_automation.is_empty()
+    }
+
+    /// Check if clip has pan automation
+    pub fn has_pan_automation(&self) -> bool {
+        !self.pan_automation.is_empty()
+    }
+
+    /// Get interpolated volume value at a specific beat position (relative to clip start).
+    /// Returns normalized value 0-1.
+    /// Edge behavior: holds first/last point values outside automation range.
+    pub fn get_volume_at_beat(&self, beat: f64) -> f32 {
+        Self::interpolate_clip_automation(&self.volume_automation, beat, 0.833) // 0.833 ≈ 0 dB
+    }
+
+    /// Get interpolated pan value at a specific beat position (relative to clip start).
+    /// Returns normalized value 0-1 (0.0 = left, 0.5 = center, 1.0 = right).
+    /// Edge behavior: holds first/last point values outside automation range.
+    pub fn get_pan_at_beat(&self, beat: f64) -> f32 {
+        Self::interpolate_clip_automation(&self.pan_automation, beat, 0.5) // 0.5 = center
+    }
+
+    /// Generic automation interpolation with edge hold behavior.
+    /// Returns default_value if automation is empty.
+    /// Public so TimelineMidiClip can reuse it.
+    pub fn interpolate_clip_automation(points: &[ClipAutomationPoint], beat: f64, default_value: f32) -> f32 {
+        if points.is_empty() {
+            return default_value;
+        }
+
+        // Before first point - hold first point's value
+        if beat <= points[0].time_beats {
+            return points[0].value;
+        }
+
+        // After last point - hold last point's value
+        if beat >= points[points.len() - 1].time_beats {
+            return points[points.len() - 1].value;
+        }
+
+        // Binary search for surrounding points
+        let mut low = 0usize;
+        let mut high = points.len() - 1;
+
+        while low < high - 1 {
+            let mid = (low + high) / 2;
+            if points[mid].time_beats <= beat {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        // Linear interpolation between points[low] and points[high]
+        let p1 = &points[low];
+        let p2 = &points[high];
+        let t = (beat - p1.time_beats) / (p2.time_beats - p1.time_beats);
+        p1.value + (p2.value - p1.value) * t as f32
+    }
+
+    /// Set volume automation from CSV string.
+    /// Format: "beat,value;beat,value;..." where beat is relative to clip start
+    /// and value is normalized 0-1.
+    pub fn set_volume_automation_csv(&mut self, csv: &str) {
+        self.volume_automation = Self::parse_clip_automation_csv(csv);
+    }
+
+    /// Set pan automation from CSV string.
+    /// Format: "beat,value;beat,value;..." where beat is relative to clip start
+    /// and value is normalized 0-1 (0=left, 0.5=center, 1=right).
+    pub fn set_pan_automation_csv(&mut self, csv: &str) {
+        self.pan_automation = Self::parse_clip_automation_csv(csv);
+    }
+
+    /// Parse automation CSV into points, sorted by time.
+    /// Public so TimelineMidiClip can reuse it.
+    pub fn parse_clip_automation_csv(csv: &str) -> Vec<ClipAutomationPoint> {
+        if csv.is_empty() {
+            return Vec::new();
+        }
+
+        let mut points: Vec<ClipAutomationPoint> = csv
+            .split(';')
+            .filter_map(|pair| {
+                let parts: Vec<&str> = pair.split(',').collect();
+                if parts.len() == 2 {
+                    if let (Ok(beat), Ok(value)) = (parts[0].parse::<f64>(), parts[1].parse::<f32>()) {
+                        return Some(ClipAutomationPoint::new(beat, value.clamp(0.0, 1.0)));
+                    }
+                }
+                None
+            })
+            .collect();
+
+        // Sort by time
+        points.sort_by(|a, b| {
+            a.time_beats.partial_cmp(&b.time_beats).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        points
+    }
 }
 
 /// Represents a MIDI clip placed on a track's timeline
@@ -105,6 +217,46 @@ pub struct TimelineMidiClip {
     pub start_time: f64,
     /// Track ID this clip belongs to (for cleanup on track deletion)
     pub track_id: Option<TrackId>,
+
+    // --- Clip-based Automation ---
+    /// Volume automation curve (time in beats relative to clip start)
+    pub volume_automation: Vec<ClipAutomationPoint>,
+    /// Pan automation curve (time in beats relative to clip start)
+    pub pan_automation: Vec<ClipAutomationPoint>,
+}
+
+impl TimelineMidiClip {
+    /// Check if clip has volume automation
+    pub fn has_volume_automation(&self) -> bool {
+        !self.volume_automation.is_empty()
+    }
+
+    /// Check if clip has pan automation
+    pub fn has_pan_automation(&self) -> bool {
+        !self.pan_automation.is_empty()
+    }
+
+    /// Get interpolated volume value at a specific beat position (relative to clip start).
+    /// Returns normalized value 0-1.
+    pub fn get_volume_at_beat(&self, beat: f64) -> f32 {
+        TimelineClip::interpolate_clip_automation(&self.volume_automation, beat, 0.833)
+    }
+
+    /// Get interpolated pan value at a specific beat position (relative to clip start).
+    /// Returns normalized value 0-1.
+    pub fn get_pan_at_beat(&self, beat: f64) -> f32 {
+        TimelineClip::interpolate_clip_automation(&self.pan_automation, beat, 0.5)
+    }
+
+    /// Set volume automation from CSV string
+    pub fn set_volume_automation_csv(&mut self, csv: &str) {
+        self.volume_automation = TimelineClip::parse_clip_automation_csv(csv);
+    }
+
+    /// Set pan automation from CSV string
+    pub fn set_pan_automation_csv(&mut self, csv: &str) {
+        self.pan_automation = TimelineClip::parse_clip_automation_csv(csv);
+    }
 }
 
 /// Track types supported in Boojy Audio
@@ -148,6 +300,22 @@ impl AutomationPoint {
     /// Create a new automation point
     pub fn new(time_seconds: f64, value_db: f32) -> Self {
         Self { time_seconds, value_db }
+    }
+}
+
+/// Clip-level automation point: time is relative to clip start (in beats)
+#[derive(Debug, Clone, Copy)]
+pub struct ClipAutomationPoint {
+    /// Time position in beats, relative to clip start
+    pub time_beats: f64,
+    /// Value normalized 0-1
+    pub value: f32,
+}
+
+impl ClipAutomationPoint {
+    /// Create a new clip automation point
+    pub fn new(time_beats: f64, value: f32) -> Self {
+        Self { time_beats, value }
     }
 }
 

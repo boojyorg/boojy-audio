@@ -284,6 +284,8 @@ impl AudioGraph {
             cached_stretch_factor: 0.0,
             transpose_semitones: 0,
             transpose_cents: 0,
+            volume_automation: Vec::new(),
+            pan_automation: Vec::new(),
         });
 
         id
@@ -304,6 +306,8 @@ impl AudioGraph {
             clip,
             start_time,
             track_id: None, // Will be set when added to a track
+            volume_automation: Vec::new(),
+            pan_automation: Vec::new(),
         });
 
         id
@@ -348,6 +352,8 @@ impl AudioGraph {
                 cached_stretch_factor: 0.0,
                 transpose_semitones: 0,
                 transpose_cents: 0,
+                volume_automation: Vec::new(),
+                pan_automation: Vec::new(),
             });
             Some(id)
         } else {
@@ -366,6 +372,8 @@ impl AudioGraph {
                 clip,
                 start_time,
                 track_id: Some(track_id),
+                volume_automation: Vec::new(),
+                pan_automation: Vec::new(),
             });
             Some(clip_id)
         } else {
@@ -1995,6 +2003,8 @@ impl AudioGraph {
                             clip: clip_arc.clone(),
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            volume_automation: Vec::new(),
+                            pan_automation: Vec::new(),
                         });
                     }
 
@@ -2007,6 +2017,8 @@ impl AudioGraph {
                             clip: clip_arc,
                             start_time: clip_data.start_time,
                             track_id: Some(track_id),
+                            volume_automation: Vec::new(),
+                            pan_automation: Vec::new(),
                         });
                     }
 

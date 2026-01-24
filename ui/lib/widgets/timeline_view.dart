@@ -2195,6 +2195,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       laneHeight: automationHeight,
       horizontalScrollController: scrollController,
       trackColor: trackColor,
+      toolMode: widget.toolMode,
       snapEnabled: !snapBypassActive,
       snapResolution: _getGridSnapResolution(),
       beatsPerBar: 4,

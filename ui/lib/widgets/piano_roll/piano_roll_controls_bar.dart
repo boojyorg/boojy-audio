@@ -69,6 +69,8 @@ class PianoRollControlsBar extends StatefulWidget {
   final VoidCallback? onVelocityLaneToggle;
   final bool ccLaneVisible;
   final VoidCallback? onCCLaneToggle;
+  final bool clipAutomationLaneVisible;
+  final VoidCallback? onClipAutomationLaneToggle;
 
   // Virtual Piano toggle
   final bool virtualPianoVisible;
@@ -127,6 +129,8 @@ class PianoRollControlsBar extends StatefulWidget {
     this.onVelocityLaneToggle,
     this.ccLaneVisible = false,
     this.onCCLaneToggle,
+    this.clipAutomationLaneVisible = false,
+    this.onClipAutomationLaneToggle,
     // Virtual Piano toggle
     this.virtualPianoVisible = false,
     this.onVirtualPianoToggle,
@@ -717,6 +721,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           label: 'Velocity',
           isActive: widget.velocityLaneVisible,
           onTap: widget.onVelocityLaneToggle,
+        ),
+        const SizedBox(width: 4),
+        // Clip automation lane visibility toggle
+        _buildToggleButton(
+          context,
+          icon: Icons.show_chart,
+          label: 'Automation',
+          isActive: widget.clipAutomationLaneVisible,
+          onTap: widget.onClipAutomationLaneToggle,
         ),
       ],
     );

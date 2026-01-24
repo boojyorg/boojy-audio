@@ -6,6 +6,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Clip-based automation! Automation now lives inside clips (like MIDI notes) instead of on the track timeline
+  - Automation moves with clips when dragged
+  - Automation loops with ghost copies when clips are looped (edits to first loop sync to all copies)
+  - Automation slices when clips are cut (auto-creates edge node at cut point)
+  - Automation copies when clips are duplicated (deep copy with new point IDs)
+  - All 5 tools work for automation: draw, select, delete (via Delete/Backspace), duplicate, slice
+  - Piano Roll now has an "Automation" toggle button to show/hide clip automation lane
+  - Supports volume and pan parameters with live value display during drag
+  - Note: Per-clip automation playback requires additional engine work (UI complete, data persists)
+
 - Volume automation now affects playback! Automation curves are sent to the Rust engine and applied per-frame
   - Engine interpolates volume at sample-accurate resolution using binary search
   - Works with both real-time playback and offline export
@@ -14,10 +24,22 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Add tool mode support to track automation lane in arrangement view (eraser, select, duplicate, slice tools now work via toolbar, plus modifier key shortcuts: Alt=Eraser, Shift=Select, Cmd=Duplicate)
+- Add drag-to-erase for track automation lane (eraser tool now deletes points as you drag over them, not just on click)
+- Fix instant visual feedback when drawing new automation points in track automation lane (new points now appear immediately instead of after parent state update)
+- Fix clip automation lane selection/eraser modes not working in piano roll (CustomPaint was in AnimatedBuilder's child param which prevented setState from rebuilding the painter with updated selection state)
+- Fix automation point hit detection not working (eraser, select, hover) in piano roll automation lane (previous fix added scroll offset but that caused double-transformation; Flutter's Transform.translate already adjusts localPosition to content space)
+- Fix selection rectangle not rendering in clip automation lane (cyan box now appears during drag-select in both piano roll and arrangement view)
+- Fix automation points not appearing visually selected after box selection or click selection (points now properly highlight with larger size and track color)
+- Fix eraser mode in automation lane now deletes points on click (previously only worked via Delete/Backspace key)
+- Fix box selection in automation lane when clicking on unselected points (now selects and prepares for drag instead of starting box selection)
+- Add Shift+drag for box selection in automation lane in any tool mode (matches piano roll behavior)
 - Fix volume automation max being +1.6 dB instead of +6 dB (now uses Boojy curve matching CapsuleFader)
 - Fix reset button in automation lane not updating UI (missing setState)
 - Revert automation lane resize from 16px footer to invisible 6px top handle
 - Fix automation lane real-time updates when dragging points (uses local preview state like velocity lane, persists until parent updates)
+- Remove right-click delete from track automation lane (points should only be deleted via Delete/Backspace key, not right-click)
+- Add mutual exclusion for note and automation point selection in piano roll (selecting an automation point now deselects all notes)
 
 ### Improvements
 

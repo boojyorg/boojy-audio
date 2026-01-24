@@ -11,6 +11,7 @@ import '../theme/theme_extension.dart';
 import 'painters/painters.dart';
 import 'piano_roll/piano_roll_controls_bar.dart';
 import 'piano_roll/piano_roll_cc_lane.dart';
+import 'piano_roll/piano_roll_clip_automation_lane.dart';
 import 'piano_roll/chord_palette.dart';
 import 'piano_roll/piano_roll_state.dart';
 import 'piano_roll/operations/note_operations.dart';
@@ -461,6 +462,8 @@ class _PianoRollState extends State<PianoRoll>
             // Lane visibility toggles (Randomize/CC type are in lane headers)
             velocityLaneVisible: velocityLaneExpanded,
             onVelocityLaneToggle: toggleVelocityLane,
+            clipAutomationLaneVisible: clipAutomationLaneExpanded,
+            onClipAutomationLaneToggle: () => setState(() => clipAutomationLaneExpanded = !clipAutomationLaneExpanded),
             // Virtual Piano toggle
             virtualPianoVisible: widget.virtualPianoVisible,
             onVirtualPianoToggle: widget.onVirtualPianoToggle,
@@ -731,6 +734,9 @@ class _PianoRollState extends State<PianoRoll>
                 // CC automation lane
                 if (ccLaneExpanded)
                   _buildCCLane(totalBeats, canvasWidth),
+                // Clip automation lane
+                if (clipAutomationLaneExpanded)
+                  _buildClipAutomationLane(totalBeats, canvasWidth),
               ],
             );
             },
@@ -783,6 +789,98 @@ class _PianoRollState extends State<PianoRoll>
       onClose: () {
         setState(() {
           ccLaneExpanded = false;
+        });
+      },
+    );
+  }
+
+  /// Build the clip automation lane
+  Widget _buildClipAutomationLane(double totalBeats, double canvasWidth) {
+    if (currentClip == null) return const SizedBox.shrink();
+
+    final automationLane = currentClip!.automation.getLane(activeClipAutomationParameter);
+
+    return PianoRollClipAutomationLane(
+      lane: automationLane,
+      pixelsPerBeat: pixelsPerBeat,
+      loopLengthBeats: getLoopLength(),
+      canRepeat: currentClip!.canRepeat,
+      clipDurationBeats: totalBeats,
+      laneHeight: clipAutomationLaneHeight,
+      trackColor: currentClip!.color ?? const Color(0xFF4FC3F7),
+      toolMode: widget.toolMode,
+      horizontalScrollController: horizontalScroll,
+      snapEnabled: snapEnabled,
+      snapResolution: getEffectiveGridDivision(),
+      beatsPerBar: beatsPerBar,
+      onParameterChanged: (param) {
+        setState(() {
+          activeClipAutomationParameter = param;
+        });
+      },
+      onPointAdded: (point) {
+        if (currentClip == null) return;
+        saveToHistory();
+        final lane = currentClip!.automation.getLane(activeClipAutomationParameter);
+        final updatedLane = lane.addPoint(point);
+        final updatedAutomation = currentClip!.automation.updateLane(
+          activeClipAutomationParameter,
+          updatedLane,
+        );
+        setState(() {
+          currentClip = currentClip!.copyWith(automation: updatedAutomation);
+        });
+        commitToHistory('Add automation point');
+        notifyClipUpdated();
+      },
+      onPointUpdated: (pointId, newPoint) {
+        if (currentClip == null) return;
+        final lane = currentClip!.automation.getLane(activeClipAutomationParameter);
+        final updatedLane = lane.updatePoint(pointId, newPoint);
+        final updatedAutomation = currentClip!.automation.updateLane(
+          activeClipAutomationParameter,
+          updatedLane,
+        );
+        setState(() {
+          currentClip = currentClip!.copyWith(automation: updatedAutomation);
+        });
+        notifyClipUpdated();
+      },
+      onPointDeleted: (pointId) {
+        if (currentClip == null) return;
+        saveToHistory();
+        final lane = currentClip!.automation.getLane(activeClipAutomationParameter);
+        final updatedLane = lane.removePoint(pointId);
+        final updatedAutomation = currentClip!.automation.updateLane(
+          activeClipAutomationParameter,
+          updatedLane,
+        );
+        setState(() {
+          currentClip = currentClip!.copyWith(automation: updatedAutomation);
+        });
+        commitToHistory('Delete automation point');
+        notifyClipUpdated();
+      },
+      onSelectionChanged: (selectedIds) {
+        // When automation points are selected, deselect all notes
+        if (selectedIds.isNotEmpty && currentClip != null) {
+          final hasSelectedNotes = currentClip!.notes.any((n) => n.isSelected);
+          if (hasSelectedNotes) {
+            setState(() {
+              currentClip = currentClip!.copyWith(
+                notes: currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+              );
+            });
+            notifyClipUpdated();
+          }
+        }
+      },
+      onPreviewValue: (value) {
+        // Could show preview value in UI
+      },
+      onClose: () {
+        setState(() {
+          clipAutomationLaneExpanded = false;
         });
       },
     );
