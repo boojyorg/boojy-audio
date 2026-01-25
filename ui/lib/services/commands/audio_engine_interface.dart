@@ -48,4 +48,16 @@ abstract class AudioEngineInterface {
   // Project operations
   void setTempo(double bpm);
   void setCountInBars(int bars);
+
+  // Library preview operations
+  String previewLoadAudio(String path);
+  void previewPlay();
+  void previewStop();
+  void previewSeek(double positionSeconds);
+  double previewGetPosition();
+  double previewGetDuration();
+  bool previewIsPlaying();
+  void previewSetLooping(bool shouldLoop);
+  bool previewIsLooping();
+  List<double> previewGetWaveform(int resolution);
 }

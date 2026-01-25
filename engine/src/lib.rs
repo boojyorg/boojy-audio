@@ -29,6 +29,7 @@ mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
 mod export;     // M8: Audio export (WAV, MP3, stems)
 mod stretch;    // Pitch-preserved time-stretching
+mod preview;    // Library audio preview
 
 // ============================================
 // Native platform modules (non-WASM)

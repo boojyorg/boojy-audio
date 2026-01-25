@@ -715,4 +715,38 @@ class AudioEngine implements AudioEngineInterface {
 
   static bool get isSupported => true;
   static bool get isWebAudioAvailable => true;
+
+  // ============================================================================
+  // Library Preview (stubs - not yet implemented on web)
+  // ============================================================================
+
+  @override
+  String previewLoadAudio(String path) => 'Not available on web';
+
+  @override
+  void previewPlay() {}
+
+  @override
+  void previewStop() {}
+
+  @override
+  void previewSeek(double positionSeconds) {}
+
+  @override
+  double previewGetPosition() => 0.0;
+
+  @override
+  double previewGetDuration() => 0.0;
+
+  @override
+  bool previewIsPlaying() => false;
+
+  @override
+  void previewSetLooping(bool shouldLoop) {}
+
+  @override
+  bool previewIsLooping() => false;
+
+  @override
+  List<double> previewGetWaveform(int resolution) => List.filled(resolution, 0.0);
 }

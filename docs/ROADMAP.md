@@ -8,10 +8,10 @@
 
 ### v0.2.0 — Producer Workflow
 
-- Track automation (volume/pan curves)
-- Velocity UI improvements
-- Library sound preview
+- ~~Library sound preview~~ ✅
 - Sampler fixes
+- Clip automation playback (engine integration)
+- Synth preset preview (MIDI note audition)
 
 ---
 
@@ -38,6 +38,8 @@ Focus: Core functionality, stability, audio clip features
 - [x] Sampler track type (basic)
 - [x] Project rename and versioning
 - [x] Pitch control (semitones/cents)
+- [x] Track automation (volume/pan) — see v0.2.0 Details
+- [x] Velocity UI improvements — see v0.2.0 Details
 
 ---
 
@@ -45,32 +47,49 @@ Focus: Core functionality, stability, audio clip features
 
 Focus: Features that unblock beat-making and instrumental production
 
-**Track Automation:**
+**Track Automation:** ✅ Complete
 
-- [ ] Volume automation lanes on timeline
-- [ ] Pan automation lanes on timeline
-- [ ] Click to add points, drag to edit
-- [ ] Draw mode for freehand curves
-- [ ] Sample-accurate playback interpolation
+- [x] Volume automation lanes on timeline
+- [x] Pan automation lanes on timeline
+- [x] Click to add points, drag to edit
+- [x] All 5 tools work: draw, select, delete, duplicate, slice
+- [x] Sample-accurate playback interpolation (engine integration)
+- [x] Clip-based automation (moves/loops/slices/copies with clips)
+- [x] Piano Roll automation toggle button
+- [x] Live value display during drag
+- [x] Drag-to-erase, box selection, Shift+drag selection
+- [x] Mutual exclusion with note selection
 
-**Velocity Improvements:**
+**Velocity Improvements:** ✅ Complete
 
-- [ ] Tooltip showing velocity value on hover
-- [ ] Double-click to type exact value
-- [ ] Humanize button (expose existing randomize function)
-- [ ] Visual highlight for selected notes
+- [x] Velocity affects note brightness (not transparency)
+- [x] FL Studio-style "nearest circle" editing with pixel threshold
+- [x] Velocity lane redesigned (vertical + horizontal line + circle)
+- [x] Per-note brightness matching piano roll notes
+- [x] White highlight for selected/dragged notes
+- [x] Cleaner note appearance (no dark border, 2px white selection border)
+- [x] Removed resize handles from selected notes
+- [x] Removed [Rand] button from velocity lane
 
-**Library Preview:**
+**Library Preview:** ✅ Complete
 
-- [ ] Preview audio files before dragging (spacebar or button)
-- [ ] Visual indicator while previewing
-- [ ] Stop on selection change or drag start
+- [x] Preview audio files on click (audition mode)
+- [x] Preview bar with waveform visualization (48px)
+- [x] Visual indicator (speaker icon) on previewing item
+- [x] Stop on drag start, selection change, or audition toggle off
+- [x] Looping for short files (< 3 seconds)
+- [x] Audition toggle with persistence
+- [ ] Synth preset preview (play MIDI note) — stubbed, needs hidden track integration
 
 **Sampler Fixes:**
 
 - [ ] Fix stereo output (currently mono to both channels)
 - [ ] Show actual sample waveform in editor
 - [ ] Sample metadata display
+
+**Remaining:**
+
+- [ ] Clip automation playback (per-clip automation requires additional engine work)
 
 ---
 

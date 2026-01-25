@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Library audio preview! Click audio files in the library to audition them before adding to your project
+  - Preview bar at bottom of library with audition toggle, play/stop button, and waveform visualization
+  - Waveform shows playhead progress (played portion bright, unplayed dimmer)
+  - Speaker icon appears on currently previewing item in library list
+  - Files < 3 seconds loop automatically, longer files play once
+  - Preview stops on drag start, selection change, or audition toggle off
+  - Audition state persists between sessions
+  - Note: Synth preset preview (playing MIDI note) is stubbed but not yet implemented
+
 - Clip-based automation! Automation now lives inside clips (like MIDI notes) instead of on the track timeline
   - Automation moves with clips when dragged
   - Automation loops with ghost copies when clips are looped (edits to first loop sync to all copies)

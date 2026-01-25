@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:convert';
 // Conditional import for platform-specific code
@@ -28,6 +29,7 @@ import '../services/commands/track_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../services/commands/clip_commands.dart';
 import '../services/library_service.dart';
+import '../services/library_preview_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
 import '../services/midi_playback_manager.dart';
@@ -81,6 +83,9 @@ class _DAWScreenState extends State<DAWScreen> {
 
   // Library service
   final LibraryService _libraryService = LibraryService();
+
+  // Library preview service (lazy initialized when audio engine is ready)
+  LibraryPreviewService? _libraryPreviewService;
 
   // M10: VST3 Plugin manager (lazy initialized when audio engine is ready)
   Vst3PluginManager? _vst3PluginManager;
@@ -382,6 +387,7 @@ class _DAWScreenState extends State<DAWScreen> {
     _trackController.dispose();
     _midiClipController.dispose();
     _automationController.dispose();
+    _libraryPreviewService?.dispose();
     _uiLayout.dispose();
 
     // Dispose scroll controllers
@@ -479,6 +485,9 @@ class _DAWScreenState extends State<DAWScreen> {
       // Initialize MIDI playback manager
       _midiPlaybackManager = MidiPlaybackManager(_audioEngine!);
       _midiPlaybackManager!.addListener(_onMidiPlaybackManagerChanged);
+
+      // Initialize library preview service
+      _libraryPreviewService = LibraryPreviewService(_audioEngine!);
 
       // Initialize MIDI clip controller with engine and manager
       _midiClipController.initialize(_audioEngine!, _midiPlaybackManager!);
@@ -3775,15 +3784,28 @@ class _DAWScreenState extends State<DAWScreen> {
                       // Left: Library panel
                       SizedBox(
                         width: _uiLayout.isLibraryPanelCollapsed ? 40 : _uiLayout.libraryPanelWidth,
-                        child: LibraryPanel(
-                          isCollapsed: _uiLayout.isLibraryPanelCollapsed,
-                          onToggle: _toggleLibraryPanel,
-                          availableVst3Plugins: _vst3PluginManager?.availablePlugins ?? [],
-                          libraryService: _libraryService,
-                          onItemDoubleClick: _handleLibraryItemDoubleClick,
-                          onVst3DoubleClick: _handleVst3DoubleClick,
-                          onOpenInSampler: _handleOpenInSampler,
-                        ),
+                        child: _libraryPreviewService != null
+                          ? ChangeNotifierProvider<LibraryPreviewService>.value(
+                              value: _libraryPreviewService!,
+                              child: LibraryPanel(
+                                isCollapsed: _uiLayout.isLibraryPanelCollapsed,
+                                onToggle: _toggleLibraryPanel,
+                                availableVst3Plugins: _vst3PluginManager?.availablePlugins ?? [],
+                                libraryService: _libraryService,
+                                onItemDoubleClick: _handleLibraryItemDoubleClick,
+                                onVst3DoubleClick: _handleVst3DoubleClick,
+                                onOpenInSampler: _handleOpenInSampler,
+                              ),
+                            )
+                          : LibraryPanel(
+                              isCollapsed: _uiLayout.isLibraryPanelCollapsed,
+                              onToggle: _toggleLibraryPanel,
+                              availableVst3Plugins: _vst3PluginManager?.availablePlugins ?? [],
+                              libraryService: _libraryService,
+                              onItemDoubleClick: _handleLibraryItemDoubleClick,
+                              onVst3DoubleClick: _handleVst3DoubleClick,
+                              onOpenInSampler: _handleOpenInSampler,
+                            ),
                       ),
 
                       // Divider: Library/Timeline

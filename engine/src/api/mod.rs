@@ -22,6 +22,7 @@ pub mod init;
 pub mod latency;
 pub mod midi_clips;
 pub mod midi_input;
+pub mod preview;
 pub mod project;
 pub mod recording;
 pub mod synthesizer;
@@ -79,6 +80,11 @@ pub use tracks::{
 pub use transport::{
     get_playhead_position, get_transport_state, transport_pause, transport_play, transport_seek,
     transport_stop,
+};
+pub use preview::{
+    preview_get_duration, preview_get_position, preview_get_waveform, preview_is_looping,
+    preview_is_playing, preview_load_audio, preview_play, preview_process_sample, preview_seek,
+    preview_set_looping, preview_stop,
 };
 
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]

@@ -994,7 +994,12 @@ impl AudioGraph {
                         out_left += test_tone;
                         out_right += test_tone;
 
-                        // Output metronome + synths + VST3 when not playing
+                        // Mix library preview audio (independent of transport)
+                        let (preview_left, preview_right) = crate::api::preview::preview_process_sample();
+                        out_left += preview_left;
+                        out_right += preview_right;
+
+                        // Output metronome + synths + VST3 + preview when not playing
                         data[frame_idx * 2] = out_left;
                         data[frame_idx * 2 + 1] = out_right;
                     }
@@ -1411,6 +1416,11 @@ impl AudioGraph {
                     let test_tone = latency_test.generate_output(playhead_frame);
                     output_left += test_tone;
                     output_right += test_tone;
+
+                    // Mix library preview audio (independent of transport)
+                    let (preview_left, preview_right) = crate::api::preview::preview_process_sample();
+                    output_left += preview_left;
+                    output_right += preview_right;
 
                     // Write to output buffer (interleaved stereo)
                     data[frame_idx * 2] = output_left;

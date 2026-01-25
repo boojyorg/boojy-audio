@@ -169,6 +169,18 @@ class AudioEngine implements AudioEngineInterface {
   late final _GetSelectedAudioOutputDeviceFfi _getSelectedAudioOutputDevice;
   late final _GetSampleRateFfi _getSampleRate;
 
+  // Library Preview functions
+  late final _PreviewLoadAudioFfi _previewLoadAudio;
+  late final _PreviewPlayFfi _previewPlay;
+  late final _PreviewStopFfi _previewStop;
+  late final _PreviewSeekFfi _previewSeek;
+  late final _PreviewGetPositionFfi _previewGetPosition;
+  late final _PreviewGetDurationFfi _previewGetDuration;
+  late final _PreviewIsPlayingFfi _previewIsPlaying;
+  late final _PreviewSetLoopingFfi _previewSetLooping;
+  late final _PreviewIsLoopingFfi _previewIsLooping;
+  late final _PreviewGetWaveformFfi _previewGetWaveform;
+
   AudioEngine() {
     // Load the native library
     if (Platform.isMacOS) {
@@ -887,6 +899,57 @@ class AudioEngine implements AudioEngineInterface {
       _getSampleRate = _lib
           .lookup<ffi.NativeFunction<_GetSampleRateFfiNative>>(
               'get_sample_rate_ffi')
+          .asFunction();
+
+      // Bind Library Preview functions
+      _previewLoadAudio = _lib
+          .lookup<ffi.NativeFunction<_PreviewLoadAudioFfiNative>>(
+              'preview_load_audio_ffi')
+          .asFunction();
+
+      _previewPlay = _lib
+          .lookup<ffi.NativeFunction<_PreviewPlayFfiNative>>(
+              'preview_play_ffi')
+          .asFunction();
+
+      _previewStop = _lib
+          .lookup<ffi.NativeFunction<_PreviewStopFfiNative>>(
+              'preview_stop_ffi')
+          .asFunction();
+
+      _previewSeek = _lib
+          .lookup<ffi.NativeFunction<_PreviewSeekFfiNative>>(
+              'preview_seek_ffi')
+          .asFunction();
+
+      _previewGetPosition = _lib
+          .lookup<ffi.NativeFunction<_PreviewGetPositionFfiNative>>(
+              'preview_get_position_ffi')
+          .asFunction();
+
+      _previewGetDuration = _lib
+          .lookup<ffi.NativeFunction<_PreviewGetDurationFfiNative>>(
+              'preview_get_duration_ffi')
+          .asFunction();
+
+      _previewIsPlaying = _lib
+          .lookup<ffi.NativeFunction<_PreviewIsPlayingFfiNative>>(
+              'preview_is_playing_ffi')
+          .asFunction();
+
+      _previewSetLooping = _lib
+          .lookup<ffi.NativeFunction<_PreviewSetLoopingFfiNative>>(
+              'preview_set_looping_ffi')
+          .asFunction();
+
+      _previewIsLooping = _lib
+          .lookup<ffi.NativeFunction<_PreviewIsLoopingFfiNative>>(
+              'preview_is_looping_ffi')
+          .asFunction();
+
+      _previewGetWaveform = _lib
+          .lookup<ffi.NativeFunction<_PreviewGetWaveformFfiNative>>(
+              'preview_get_waveform_ffi')
           .asFunction();
 
     } catch (e) {
@@ -2837,6 +2900,125 @@ class AudioEngine implements AudioEngineInterface {
       return 'Failed to send MIDI note: $e';
     }
   }
+
+  // ========================================================================
+  // Library Preview API
+  // ========================================================================
+
+  /// Load an audio file for library preview
+  @override
+  String previewLoadAudio(String path) {
+    try {
+      final pathPtr = path.toNativeUtf8().cast<ffi.Char>();
+      final resultPtr = _previewLoadAudio(pathPtr);
+      final result = resultPtr.toDartString();
+      calloc.free(pathPtr);
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Start preview playback
+  @override
+  void previewPlay() {
+    try {
+      _previewPlay();
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  /// Stop preview playback (with fade out)
+  @override
+  void previewStop() {
+    try {
+      _previewStop();
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  /// Seek to position in seconds
+  @override
+  void previewSeek(double positionSeconds) {
+    try {
+      _previewSeek(positionSeconds);
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  /// Get current playback position in seconds
+  @override
+  double previewGetPosition() {
+    try {
+      return _previewGetPosition();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get total duration in seconds
+  @override
+  double previewGetDuration() {
+    try {
+      return _previewGetDuration();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Check if preview is currently playing
+  @override
+  bool previewIsPlaying() {
+    try {
+      return _previewIsPlaying();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set looping mode
+  @override
+  void previewSetLooping(bool shouldLoop) {
+    try {
+      _previewSetLooping(shouldLoop);
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  /// Get looping mode
+  @override
+  bool previewIsLooping() {
+    try {
+      return _previewIsLooping();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Get waveform peaks for UI display
+  @override
+  List<double> previewGetWaveform(int resolution) {
+    try {
+      final resultPtr = _previewGetWaveform(resolution);
+      final jsonString = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+
+      // Parse JSON array of floats
+      if (jsonString.startsWith('[') && jsonString.endsWith(']')) {
+        final content = jsonString.substring(1, jsonString.length - 1);
+        if (content.isEmpty) return List.filled(resolution, 0.0);
+        return content.split(',').map((s) => double.tryParse(s.trim()) ?? 0.0).toList();
+      }
+      return List.filled(resolution, 0.0);
+    } catch (e) {
+      return List.filled(resolution, 0.0);
+    }
+  }
 }
 
 // ==========================================================================
@@ -3253,3 +3435,34 @@ typedef _GetSelectedAudioOutputDeviceFfi = ffi.Pointer<Utf8> Function();
 
 typedef _GetSampleRateFfiNative = ffi.Uint32 Function();
 typedef _GetSampleRateFfi = int Function();
+
+// Library Preview types
+typedef _PreviewLoadAudioFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
+typedef _PreviewLoadAudioFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
+
+typedef _PreviewPlayFfiNative = ffi.Void Function();
+typedef _PreviewPlayFfi = void Function();
+
+typedef _PreviewStopFfiNative = ffi.Void Function();
+typedef _PreviewStopFfi = void Function();
+
+typedef _PreviewSeekFfiNative = ffi.Void Function(ffi.Double);
+typedef _PreviewSeekFfi = void Function(double);
+
+typedef _PreviewGetPositionFfiNative = ffi.Double Function();
+typedef _PreviewGetPositionFfi = double Function();
+
+typedef _PreviewGetDurationFfiNative = ffi.Double Function();
+typedef _PreviewGetDurationFfi = double Function();
+
+typedef _PreviewIsPlayingFfiNative = ffi.Bool Function();
+typedef _PreviewIsPlayingFfi = bool Function();
+
+typedef _PreviewSetLoopingFfiNative = ffi.Void Function(ffi.Bool);
+typedef _PreviewSetLoopingFfi = void Function(bool);
+
+typedef _PreviewIsLoopingFfiNative = ffi.Bool Function();
+typedef _PreviewIsLoopingFfi = bool Function();
+
+typedef _PreviewGetWaveformFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
+typedef _PreviewGetWaveformFfi = ffi.Pointer<Utf8> Function(int);

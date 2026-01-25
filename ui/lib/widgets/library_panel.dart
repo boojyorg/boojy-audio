@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
 import 'instrument_browser.dart';
+import 'library_preview_bar.dart';
 import 'shared/panel_header.dart';
 import 'shared/search_field.dart';
 import '../models/library_item.dart';
 import '../models/vst3_plugin_data.dart';
+import '../services/library_preview_service.dart';
 import '../services/library_service.dart';
 import '../theme/theme_extension.dart';
 
@@ -234,6 +237,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
               children: _buildCategoryList(),
             ),
           ),
+          // Preview bar at bottom
+          const LibraryPreviewBar(),
         ],
       ),
     );
@@ -691,13 +696,48 @@ class _LibraryPanelState extends State<LibraryPanel> {
     );
   }
 
+  /// Safely get the preview service (returns null if not available)
+  LibraryPreviewService? _tryGetPreviewService({bool listen = false}) {
+    try {
+      return Provider.of<LibraryPreviewService>(context, listen: listen);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Handle item click for preview
+  void _handleItemClick(LibraryItem item) {
+    final previewService = _tryGetPreviewService();
+    if (previewService == null) return;
+
+    if (item is AudioFileItem) {
+      previewService.loadAndPreviewAudio(item.filePath, item.name);
+    } else if (item is PresetItem) {
+      previewService.previewSynthPreset(item);
+    }
+    // Other item types don't trigger preview
+  }
+
+  /// Handle drag start - stop preview
+  void _handleDragStarted() {
+    _tryGetPreviewService()?.onDragStarted();
+  }
+
   Widget _buildLibraryItem(LibraryItem item, {bool isInstrumentCategory = false}) {
+    final previewService = _tryGetPreviewService(listen: true);
+    final isCurrentlyPreviewing = previewService != null &&
+        item is AudioFileItem &&
+        previewService.currentFilePath == item.filePath &&
+        previewService.isPlaying;
+
     Widget child = GestureDetector(
+      onTap: () => _handleItemClick(item),
       onDoubleTap: () => widget.onItemDoubleClick?.call(item),
       onSecondaryTapUp: (details) => _showItemContextMenu(details, item),
       child: _LibraryItemWidget(
         name: item.displayName,
         isFavorite: widget.libraryService.isFavorite(item.id),
+        isPreviewing: isCurrentlyPreviewing,
       ),
     );
 
@@ -710,6 +750,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           data: instrument,
           feedback: _buildDragFeedback(item.name, item.icon),
           childWhenDragging: Opacity(opacity: 0.5, child: child),
+          onDragStarted: _handleDragStarted,
           child: child,
         );
       }
@@ -718,6 +759,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         data: item,
         feedback: _buildDragFeedback(item.displayName, item.icon),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
+        onDragStarted: _handleDragStarted,
         child: child,
       );
     } else if (item.type == LibraryItemType.audioFile && item is AudioFileItem) {
@@ -725,6 +767,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         data: item,
         feedback: _buildDragFeedback(item.name, item.icon),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
+        onDragStarted: _handleDragStarted,
         child: child,
       );
     } else if (item.type == LibraryItemType.folder && item is FolderItem) {
@@ -1036,10 +1079,12 @@ class _SubcategoryHeaderState extends State<_SubcategoryHeader> {
 class _LibraryItemWidget extends StatefulWidget {
   final String name;
   final bool isFavorite;
+  final bool isPreviewing;
 
   const _LibraryItemWidget({
     required this.name,
     this.isFavorite = false,
+    this.isPreviewing = false,
   });
 
   @override
@@ -1069,11 +1114,22 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
         ),
         child: Row(
           children: [
+            // Speaker icon when previewing
+            if (widget.isPreviewing) ...[
+              Icon(
+                Icons.volume_up,
+                size: 12,
+                color: context.colors.accent,
+              ),
+              const SizedBox(width: 4),
+            ],
             Expanded(
               child: Text(
                 widget.name,
                 style: TextStyle(
-                  color: _isHovered ? context.colors.textPrimary : context.colors.textSecondary,
+                  color: widget.isPreviewing
+                      ? context.colors.accent
+                      : (_isHovered ? context.colors.textPrimary : context.colors.textSecondary),
                   fontSize: 12,
                 ),
               ),
