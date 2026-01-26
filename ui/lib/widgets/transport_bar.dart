@@ -164,18 +164,150 @@ class TransportBar extends StatefulWidget {
 
 class _TransportBarState extends State<TransportBar> {
   bool _logoHovered = false;
+  int _hidingLevel = 0;
+  final GlobalKey _lastElementKey = GlobalKey(); // Key for the last visible element
+  final GlobalKey _redLineKey = GlobalKey(); // Key for the red threshold line
+
+  // Store actual measured width deltas for each level transition (level -> delta)
+  final Map<int, double> _measuredWidthDeltas = {};
+  double? _lastElementRightBeforeHide;
+
+  /// Calculate expected content width based on hiding level
+  /// This avoids measuring the Row which doesn't work inside Expanded
+  double _calculateContentWidth(int level, bool isCompact) {
+    double width = 8; // left padding
+
+    // Always visible: logo (~100), file menu (~100), view (~32), undo/redo (~64)
+    width += 100 + 100 + 32 + 64;
+    // Spacing after undo/redo + divider
+    width += isCompact ? 16 : 24;
+
+    // Level 0-4: Loop & Snap visible
+    if (level < 5) {
+      width += (level >= 1) ? (36 + 50) : (70 + 90); // icon-only vs with labels
+      width += isCompact ? 12 : 24; // spacing
+    }
+
+    // Metronome always visible (~50)
+    width += 50;
+    width += isCompact ? 16 : 24; // spacing + divider
+
+    // Transport (play/stop/record) (~120) + position (~90)
+    width += 120 + 90;
+    width += isCompact ? 16 : 24; // spacing + divider
+
+    // Level 0-2: Tap Tempo visible (~40)
+    if (level < 3) {
+      width += 40;
+      width += isCompact ? 4 : 8;
+    }
+
+    // Tempo display always visible (~80)
+    width += 80;
+
+    // Level 0-3: Signature visible
+    if (level < 4) {
+      width += (level < 2) ? 100 : 50; // with label vs without
+      width += isCompact ? 8 : 12;
+    }
+
+    return width;
+  }
+
+  void _checkGapAndAdjust(double availableWidth) {
+    if (!mounted) return;
+
+    // Measure actual positions using GlobalKeys
+    final lastElementBox = _lastElementKey.currentContext?.findRenderObject() as RenderBox?;
+    final redLineBox = _redLineKey.currentContext?.findRenderObject() as RenderBox?;
+
+    if (lastElementBox == null || redLineBox == null) return;
+
+    // Get positions relative to the screen
+    final lastElementRight = lastElementBox.localToGlobal(Offset(lastElementBox.size.width, 0)).dx;
+    final redLineLeft = redLineBox.localToGlobal(Offset.zero).dx;
+    final actualGap = redLineLeft - lastElementRight;
+
+    // DEBUG
+    debugPrint('=== GAP CHECK ===');
+    debugPrint('lastElementRight: $lastElementRight, redLineLeft: $redLineLeft');
+    debugPrint('actualGap: $actualGap, hidingLevel: $_hidingLevel');
+    debugPrint('measuredDeltas: $_measuredWidthDeltas');
+
+    const minGap = 5.0; // Same threshold for both hide and show
+
+    if (actualGap < minGap && _hidingLevel < 5) {
+      // HIDE: Store lastElementRight before hiding so we can measure delta after
+      _lastElementRightBeforeHide = lastElementRight;
+      final levelBeforeHide = _hidingLevel;
+      debugPrint('ACTION: HIDE (gap $actualGap < $minGap)');
+      setState(() => _hidingLevel++);
+
+      // After setState completes, measure the new lastElementRight and calculate actual delta
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final newBox = _lastElementKey.currentContext?.findRenderObject() as RenderBox?;
+        if (newBox != null && _lastElementRightBeforeHide != null) {
+          final newRight = newBox.localToGlobal(Offset(newBox.size.width, 0)).dx;
+          final actualDelta = _lastElementRightBeforeHide! - newRight;
+          _measuredWidthDeltas[levelBeforeHide] = actualDelta;
+          debugPrint('MEASURED DELTA for level $levelBeforeHide: $actualDelta');
+          _lastElementRightBeforeHide = null;
+        }
+      });
+    } else if (_hidingLevel > 0) {
+      // SHOW: Use measured delta if available, otherwise use estimate as fallback
+      final prevLevel = _hidingLevel - 1;
+      final measuredDelta = _measuredWidthDeltas[prevLevel];
+
+      double widthIncrease;
+      if (measuredDelta != null) {
+        // Use the actual measured delta
+        widthIncrease = measuredDelta;
+        debugPrint('Using MEASURED delta: $widthIncrease');
+      } else {
+        // Fallback to estimate (only happens if we never hid from this level)
+        final currentIsCompact = _hidingLevel >= 2;
+        final prevIsCompact = prevLevel >= 2;
+        final currentWidth = _calculateContentWidth(_hidingLevel, currentIsCompact);
+        final prevWidth = _calculateContentWidth(prevLevel, prevIsCompact);
+        widthIncrease = prevWidth - currentWidth;
+        debugPrint('Using ESTIMATED delta: $widthIncrease (no measurement yet)');
+      }
+
+      final expectedGapAtPrevLevel = actualGap - widthIncrease;
+      debugPrint('expectedGapAtPrevLevel: $expectedGapAtPrevLevel (threshold: $minGap)');
+
+      // Same 5px threshold for show as for hide (no buffer needed with measured deltas)
+      if (expectedGapAtPrevLevel >= minGap) {
+        debugPrint('ACTION: SHOW (expectedGap $expectedGapAtPrevLevel >= $minGap)');
+        setState(() => _hidingLevel--);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Determine display mode based on available width
         final availableWidth = constraints.maxWidth;
-        final mode = availableWidth > 1300
-            ? _ButtonDisplayMode.wide
-            : _ButtonDisplayMode.narrow;
-        final isCompact = mode == _ButtonDisplayMode.narrow;
-        final isVeryCompact = availableWidth < 1150; // Hide more elements on narrow screens
+
+        // Check and adjust hiding level after layout
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkGapAndAdjust(availableWidth);
+        });
+
+        // Gap-based responsive: hiding level is adjusted based on calculated content width
+        // Hiding levels: 0=full, 1=icon-only, 2=no sig label, 3=no tap, 4=no sig, 5=minimal
+        final isIconOnly = _hidingLevel >= 1;
+        final showSignatureLabel = _hidingLevel < 2;
+        final showTapTempo = _hidingLevel < 3;
+        final showSignature = _hidingLevel < 4;
+        final showLoopSnap = _hidingLevel < 5;
+
+        // Spacing mode based on hiding level
+        final isCompact = _hidingLevel >= 2;
+        final mode = isCompact ? _ButtonDisplayMode.narrow : _ButtonDisplayMode.wide;
 
         return Container(
           height: 60,
@@ -187,34 +319,40 @@ class _TransportBarState extends State<TransportBar> {
           ),
           child: Row(
             children: [
-              SizedBox(width: isCompact ? 8 : 16),
+              // All content wrapped in Expanded so Help button stays fixed at right
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(), // Disable scrolling
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 8),
 
-              // Audio logo image - hide on very compact screens
-              // Clickable logo "O" opens settings (Boojy Suite pattern)
-              if (!isCompact)
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => setState(() => _logoHovered = true),
-                  onExit: (_) => setState(() => _logoHovered = false),
-                  child: Tooltip(
-                    message: 'Settings',
-                    child: GestureDetector(
-                      onTap: () => widget.onAppSettings?.call(),
-                      child: AnimatedScale(
-                        scale: _logoHovered ? 1.1 : 1.0,
-                        duration: const Duration(milliseconds: 150),
-                        curve: Curves.easeInOut,
-                        child: Image.asset(
-                          'assets/images/boojy_audio_text.png',
-                          height: 32,
-                          filterQuality: FilterQuality.high,
-                        ),
+                      // Audio logo image - always visible (never hidden)
+                      // Clickable logo "O" opens settings (Boojy Suite pattern)
+                      MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => setState(() => _logoHovered = true),
+                onExit: (_) => setState(() => _logoHovered = false),
+                child: Tooltip(
+                  message: 'Settings',
+                  child: GestureDetector(
+                    onTap: () => widget.onAppSettings?.call(),
+                    child: AnimatedScale(
+                      scale: _logoHovered ? 1.1 : 1.0,
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeInOut,
+                      child: Image.asset(
+                        'assets/images/boojy_audio_text.png',
+                        height: 32,
+                        filterQuality: FilterQuality.high,
                       ),
                     ),
                   ),
                 ),
+              ),
 
-              if (!isCompact) const SizedBox(width: 12),
+              SizedBox(width: isCompact ? 8 : 12),
 
               // Project name with File menu dropdown
               // Plan: Project name doubles as File menu (always visible, helpful in fullscreen)
@@ -287,11 +425,11 @@ class _TransportBarState extends State<TransportBar> {
 
               // === CENTER-LEFT: SETUP TOOLS ===
 
-              // Loop playback toggle button (Piano Roll style) - hide on very compact
-              if (!isVeryCompact)
+              // Loop playback toggle button (Piano Roll style) - hide at minimal width
+              if (showLoopSnap)
                 PillToggleButton(
                   icon: Icons.loop,
-                  label: 'Loop',
+                  label: isIconOnly ? '' : 'Loop', // Icon-only when narrow
                   isActive: widget.loopPlaybackEnabled,
                   mode: mode == _ButtonDisplayMode.wide ? ButtonDisplayMode.wide : ButtonDisplayMode.narrow,
                   onTap: widget.onLoopPlaybackToggle,
@@ -299,17 +437,18 @@ class _TransportBarState extends State<TransportBar> {
                   activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
                 ),
 
-              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
+              if (showLoopSnap) SizedBox(width: isCompact ? 4 : 8),
 
-              // Snap split button: icon toggles on/off, chevron opens grid menu - hide on very compact
-              if (!isVeryCompact)
+              // Snap split button: icon toggles on/off, chevron opens grid menu - hide at minimal width
+              if (showLoopSnap)
                 _SnapSplitButton(
                   value: widget.arrangementSnap,
                   onChanged: widget.onSnapChanged,
                   mode: mode,
+                  isIconOnly: isIconOnly,
                 ),
 
-              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
+              if (showLoopSnap) SizedBox(width: isCompact ? 4 : 8),
 
               // Metronome split button: icon toggles, chevron opens count-in menu
               _MetronomeSplitButton(
@@ -412,36 +551,61 @@ class _TransportBarState extends State<TransportBar> {
 
               // === RIGHT: MUSICAL CONTEXT ===
 
-              // Tap tempo button (Piano Roll style) - hide on very compact
-              if (!isVeryCompact)
+              // Tap tempo button (Piano Roll style) - hide when space is tight
+              if (showTapTempo)
                 _TapTempoPill(
                   tempo: widget.tempo,
                   onTempoChanged: widget.onTempoChanged,
                   mode: mode,
                 ),
 
-              if (!isVeryCompact) SizedBox(width: isCompact ? 2 : 4),
+              if (showTapTempo) SizedBox(width: isCompact ? 2 : 4),
 
               // Tempo display [120 BPM] with drag interaction
-              _TempoDisplay(
-                tempo: widget.tempo,
-                onTempoChanged: widget.onTempoChanged,
-              ),
-
-              if (!isVeryCompact) SizedBox(width: isCompact ? 4 : 8),
-
-              // Signature display/dropdown - hide on very compact
-              if (!isVeryCompact)
-                _SignatureDropdown(
-                  beatsPerBar: widget.beatsPerBar,
-                  beatUnit: widget.beatUnit,
-                  onChanged: widget.onTimeSignatureChanged,
+              // Key only when this is the last element (signature hidden)
+              if (!showSignature)
+                KeyedSubtree(
+                  key: _lastElementKey,
+                  child: _TempoDisplay(
+                    tempo: widget.tempo,
+                    onTempoChanged: widget.onTempoChanged,
+                  ),
+                )
+              else
+                _TempoDisplay(
+                  tempo: widget.tempo,
+                  onTempoChanged: widget.onTempoChanged,
                 ),
 
-              // Use Spacer to push Help to the right edge
-              const Spacer(),
+              if (showSignature) SizedBox(width: isCompact ? 4 : 8),
 
-              // Help button
+              // Signature display/dropdown - hide when space is tight
+              // Key when this is the last visible element
+              if (showSignature)
+                KeyedSubtree(
+                  key: _lastElementKey,
+                  child: _SignatureDropdown(
+                    beatsPerBar: widget.beatsPerBar,
+                    beatUnit: widget.beatUnit,
+                    onChanged: widget.onTimeSignatureChanged,
+                    isLabelHidden: !showSignatureLabel,
+                  ),
+                ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // DEBUG: Visible red line left of help button
+              Container(
+                key: _redLineKey,
+                width: 1,
+                height: 60,
+                color: Colors.red,
+              ),
+              const SizedBox(width: 8), // gap between red line and help button
+
+              // Help button (fixed position at right edge)
               IconButton(
                 icon: Icon(
                   Icons.help_outline,
@@ -452,7 +616,7 @@ class _TransportBarState extends State<TransportBar> {
                 tooltip: 'Keyboard Shortcuts (?)',
               ),
 
-              SizedBox(width: isCompact ? 8 : 16),
+              const SizedBox(width: 8),
             ],
           ),
         );
@@ -728,11 +892,13 @@ class _SnapSplitButton extends StatefulWidget {
   final SnapValue value;
   final Function(SnapValue)? onChanged;
   final _ButtonDisplayMode mode;
+  final bool isIconOnly;
 
   const _SnapSplitButton({
     required this.value,
     this.onChanged,
     required this.mode,
+    this.isIconOnly = false,
   });
 
   @override
@@ -861,14 +1027,16 @@ class _SnapSplitButtonState extends State<_SnapSplitButton> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.grid_on, size: 14, color: textColor),
-                      const SizedBox(width: 5),
-                      Text(
-                        isActive ? 'Snap ${widget.value.displayName}' : 'Snap',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 11,
+                      if (!widget.isIconOnly) ...[
+                        const SizedBox(width: 5),
+                        Text(
+                          isActive ? 'Snap ${widget.value.displayName}' : 'Snap',
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -2018,16 +2186,18 @@ class _ViewMenuItemState extends State<_ViewMenuItem> {
   }
 }
 
-/// Time signature dropdown with "Signature" label (matches piano roll style)
+/// Time signature dropdown with optional "Signature" label (matches piano roll style)
 class _SignatureDropdown extends StatefulWidget {
   final int beatsPerBar;
   final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onChanged;
+  final bool isLabelHidden;
 
   const _SignatureDropdown({
     required this.beatsPerBar,
     required this.beatUnit,
     this.onChanged,
+    this.isLabelHidden = false,
   });
 
   @override
@@ -2103,15 +2273,19 @@ class _SignatureDropdownState extends State<_SignatureDropdown> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Signature',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+              // "Signature" label - hidden when space is tight
+              if (!widget.isLabelHidden) ...[
+                Text(
+                  'Signature',
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 5),
+                const SizedBox(width: 5),
+              ],
+              // [4/4] box - always shown
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
