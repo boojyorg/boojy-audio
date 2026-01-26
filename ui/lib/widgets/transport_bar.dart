@@ -328,8 +328,10 @@ class _TransportBarState extends State<TransportBar> {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   physics: const NeverScrollableScrollPhysics(), // Disable scrolling
-                  child: Row(
-                    children: [
+                  child: Transform.translate(
+                    offset: const Offset(4, 0),
+                    child: Row(
+                      children: [
                       const SizedBox(width: 8),
 
                       // Audio logo image - always visible (never hidden)
@@ -346,10 +348,13 @@ class _TransportBarState extends State<TransportBar> {
                       scale: _logoHovered ? 1.1 : 1.0,
                       duration: const Duration(milliseconds: 150),
                       curve: Curves.easeInOut,
-                      child: Image.asset(
-                        'assets/images/boojy_audio_text.png',
-                        height: 32,
-                        filterQuality: FilterQuality.high,
+                      child: Transform.translate(
+                        offset: const Offset(0, -3),
+                        child: Image.asset(
+                          'assets/images/boojy_audio_text.png',
+                          height: 32,
+                          filterQuality: FilterQuality.high,
+                        ),
                       ),
                     ),
                   ),
@@ -599,33 +604,25 @@ class _TransportBarState extends State<TransportBar> {
                   ),
                 ),
               ),
+            ),
 
-              // DEBUG: Visible red line left of help button
-              Container(
-                key: _redLineKey,
-                width: 1,
-                height: 60,
-                color: Colors.red,
+            // Help button (fixed position at right edge)
+            IconButton(
+              icon: Icon(
+                Icons.help_outline,
+                color: context.colors.textSecondary,
+                size: 20,
               ),
-              const SizedBox(width: 8), // gap between red line and help button
+              onPressed: widget.onHelpPressed,
+              tooltip: 'Keyboard Shortcuts (?)',
+            ),
 
-              // Help button (fixed position at right edge)
-              IconButton(
-                icon: Icon(
-                  Icons.help_outline,
-                  color: context.colors.textSecondary,
-                  size: 20,
-                ),
-                onPressed: widget.onHelpPressed,
-                tooltip: 'Keyboard Shortcuts (?)',
-              ),
-
-              const SizedBox(width: 8),
-            ],
-          ),
-        );
-      },
-    );
+            const SizedBox(width: 8),
+          ],
+        ),
+      );
+    },
+  );
   }
 
   String _formatPosition(double seconds, double bpm) {
