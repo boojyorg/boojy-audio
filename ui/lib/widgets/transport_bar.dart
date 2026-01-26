@@ -174,41 +174,48 @@ class _TransportBarState extends State<TransportBar> {
 
   /// Calculate expected content width based on hiding level
   /// This avoids measuring the Row which doesn't work inside Expanded
-  double _calculateContentWidth(int level, bool isCompact) {
+  /// Levels: 0=full, 1=icon-only loop/snap, 2=no sig label, 3=no tap tempo, 4=no position, 5=no signature
+  double _calculateContentWidth(int level) {
     double width = 8; // left padding
 
     // Always visible: logo (~100), file menu (~100), view (~32), undo/redo (~64)
     width += 100 + 100 + 32 + 64;
     // Spacing after undo/redo + divider
-    width += isCompact ? 16 : 24;
+    width += 24;
 
-    // Level 0-4: Loop & Snap visible
-    if (level < 5) {
-      width += (level >= 1) ? (36 + 50) : (70 + 90); // icon-only vs with labels
-      width += isCompact ? 12 : 24; // spacing
-    }
+    // Loop & Snap always visible
+    width += (level >= 1) ? (36 + 50) : (70 + 90); // icon-only vs with labels
+    width += 24; // spacing
 
     // Metronome always visible (~50)
     width += 50;
-    width += isCompact ? 16 : 24; // spacing + divider
+    width += 24; // spacing + divider
 
-    // Transport (play/stop/record) (~120) + position (~90)
-    width += 120 + 90;
-    width += isCompact ? 16 : 24; // spacing + divider
+    // Transport (play/stop/record) (~120)
+    width += 120;
+    width += 12; // spacing
+
+    // Level 0-3: Position display visible (~90)
+    if (level < 4) {
+      width += 90;
+      width += 24; // spacing + divider
+    } else {
+      width += 12; // just spacing before divider when position hidden
+    }
 
     // Level 0-2: Tap Tempo visible (~40)
     if (level < 3) {
       width += 40;
-      width += isCompact ? 4 : 8;
+      width += 8;
     }
 
     // Tempo display always visible (~80)
     width += 80;
 
-    // Level 0-3: Signature visible
-    if (level < 4) {
+    // Level 0-4: Signature visible
+    if (level < 5) {
       width += (level < 2) ? 100 : 50; // with label vs without
-      width += isCompact ? 8 : 12;
+      width += 12;
     }
 
     return width;
@@ -267,10 +274,8 @@ class _TransportBarState extends State<TransportBar> {
         debugPrint('Using MEASURED delta: $widthIncrease');
       } else {
         // Fallback to estimate (only happens if we never hid from this level)
-        final currentIsCompact = _hidingLevel >= 2;
-        final prevIsCompact = prevLevel >= 2;
-        final currentWidth = _calculateContentWidth(_hidingLevel, currentIsCompact);
-        final prevWidth = _calculateContentWidth(prevLevel, prevIsCompact);
+        final currentWidth = _calculateContentWidth(_hidingLevel);
+        final prevWidth = _calculateContentWidth(prevLevel);
         widthIncrease = prevWidth - currentWidth;
         debugPrint('Using ESTIMATED delta: $widthIncrease (no measurement yet)');
       }
@@ -298,16 +303,15 @@ class _TransportBarState extends State<TransportBar> {
         });
 
         // Gap-based responsive: hiding level is adjusted based on calculated content width
-        // Hiding levels: 0=full, 1=icon-only, 2=no sig label, 3=no tap, 4=no sig, 5=minimal
+        // Hiding levels: 0=full, 1=icon-only loop/snap, 2=no sig label, 3=no tap tempo, 4=no position, 5=no signature
         final isIconOnly = _hidingLevel >= 1;
         final showSignatureLabel = _hidingLevel < 2;
         final showTapTempo = _hidingLevel < 3;
-        final showSignature = _hidingLevel < 4;
-        final showLoopSnap = _hidingLevel < 5;
+        final showPosition = _hidingLevel < 4;
+        final showSignature = _hidingLevel < 5;
 
-        // Spacing mode based on hiding level
-        final isCompact = _hidingLevel >= 2;
-        final mode = isCompact ? _ButtonDisplayMode.narrow : _ButtonDisplayMode.wide;
+        // Always use wide spacing (no compact mode)
+        const mode = _ButtonDisplayMode.wide;
 
         return Container(
           height: 60,
@@ -352,7 +356,7 @@ class _TransportBarState extends State<TransportBar> {
                 ),
               ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // Project name with File menu dropdown
               // Plan: Project name doubles as File menu (always visible, helpful in fullscreen)
@@ -412,7 +416,7 @@ class _TransportBarState extends State<TransportBar> {
                     : 'Redo (⇧⌘Z)',
               ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // === VERTICAL DIVIDER ===
               Container(
@@ -421,13 +425,12 @@ class _TransportBarState extends State<TransportBar> {
                 color: context.colors.elevated,
               ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // === CENTER-LEFT: SETUP TOOLS ===
 
-              // Loop playback toggle button (Piano Roll style) - hide at minimal width
-              if (showLoopSnap)
-                PillToggleButton(
+              // Loop playback toggle button (Piano Roll style)
+              PillToggleButton(
                   icon: Icons.loop,
                   label: isIconOnly ? '' : 'Loop', // Icon-only when narrow
                   isActive: widget.loopPlaybackEnabled,
@@ -437,18 +440,17 @@ class _TransportBarState extends State<TransportBar> {
                   activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
                 ),
 
-              if (showLoopSnap) SizedBox(width: isCompact ? 4 : 8),
+              const SizedBox(width: 8),
 
-              // Snap split button: icon toggles on/off, chevron opens grid menu - hide at minimal width
-              if (showLoopSnap)
-                _SnapSplitButton(
-                  value: widget.arrangementSnap,
-                  onChanged: widget.onSnapChanged,
-                  mode: mode,
-                  isIconOnly: isIconOnly,
-                ),
+              // Snap split button: icon toggles on/off, chevron opens grid menu
+              _SnapSplitButton(
+                value: widget.arrangementSnap,
+                onChanged: widget.onSnapChanged,
+                mode: mode,
+                isIconOnly: isIconOnly,
+              ),
 
-              if (showLoopSnap) SizedBox(width: isCompact ? 4 : 8),
+              const SizedBox(width: 8),
 
               // Metronome split button: icon toggles, chevron opens count-in menu
               _MetronomeSplitButton(
@@ -459,7 +461,7 @@ class _TransportBarState extends State<TransportBar> {
                 mode: mode,
               ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // === CENTER: TRANSPORT ===
 
@@ -505,40 +507,42 @@ class _TransportBarState extends State<TransportBar> {
                   playheadPosition: widget.playheadPosition,
                 ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // Main Position display (bars.beats.subdivision)
               // Styled to match tempo box (dark background with border)
               // Background color changes during recording states
               // Larger text to make it the central focus point
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: widget.isRecording
-                      ? const Color(0xFFEF4444) // Red during recording
-                      : widget.isCountingIn
-                          ? const Color(0xFFFFA600) // Orange during count-in
-                          : context.colors.dark, // Match tempo box
-                  borderRadius: BorderRadius.circular(2),
-                  border: widget.isRecording || widget.isCountingIn
-                      ? null
-                      : Border.all(color: context.colors.surface, width: 1.5),
-                ),
-                child: Text(
-                  _formatPosition(widget.playheadPosition, widget.tempo),
-                  style: TextStyle(
-                    color: widget.isRecording || widget.isCountingIn
-                        ? Colors.white // White text on colored backgrounds
-                        : context.colors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+              // Hidden at level 4 to save space
+              if (showPosition)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: widget.isRecording
+                        ? const Color(0xFFEF4444) // Red during recording
+                        : widget.isCountingIn
+                            ? const Color(0xFFFFA600) // Orange during count-in
+                            : context.colors.dark, // Match tempo box
+                    borderRadius: BorderRadius.circular(2),
+                    border: widget.isRecording || widget.isCountingIn
+                        ? null
+                        : Border.all(color: context.colors.surface, width: 1.5),
+                  ),
+                  child: Text(
+                    _formatPosition(widget.playheadPosition, widget.tempo),
+                    style: TextStyle(
+                      color: widget.isRecording || widget.isCountingIn
+                          ? Colors.white // White text on colored backgrounds
+                          : context.colors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              if (showPosition) const SizedBox(width: 12),
 
               // === VERTICAL DIVIDER ===
               Container(
@@ -547,7 +551,7 @@ class _TransportBarState extends State<TransportBar> {
                 color: context.colors.elevated,
               ),
 
-              SizedBox(width: isCompact ? 8 : 12),
+              const SizedBox(width: 12),
 
               // === RIGHT: MUSICAL CONTEXT ===
 
@@ -559,10 +563,10 @@ class _TransportBarState extends State<TransportBar> {
                   mode: mode,
                 ),
 
-              if (showTapTempo) SizedBox(width: isCompact ? 2 : 4),
+              if (showTapTempo) const SizedBox(width: 4),
 
               // Tempo display [120 BPM] with drag interaction
-              // Key only when this is the last element (signature hidden)
+              // Gets _lastElementKey when signature is hidden (level 5)
               if (!showSignature)
                 KeyedSubtree(
                   key: _lastElementKey,
@@ -577,10 +581,10 @@ class _TransportBarState extends State<TransportBar> {
                   onTempoChanged: widget.onTempoChanged,
                 ),
 
-              if (showSignature) SizedBox(width: isCompact ? 4 : 8),
+              if (showSignature) const SizedBox(width: 8),
 
-              // Signature display/dropdown - hide when space is tight
-              // Key when this is the last visible element
+              // Signature display/dropdown - hidden at level 5
+              // Gets _lastElementKey when visible
               if (showSignature)
                 KeyedSubtree(
                   key: _lastElementKey,

@@ -82,9 +82,9 @@ class _PillToggleButtonState extends State<PillToggleButton>
         ? activeColor
         : (isHovered ? colors.elevated : colors.dark);
 
-    // Active buttons typically have dark text on light background
+    // Active buttons use elevated (dark grey) to match snap/metronome buttons
     final textColor = widget.isActive
-        ? Colors.black
+        ? colors.elevated
         : (widget.inactiveTextColor ?? colors.textPrimary);
 
     return Tooltip(
