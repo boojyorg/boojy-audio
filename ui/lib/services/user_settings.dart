@@ -103,6 +103,7 @@ class UserSettings extends ChangeNotifier {
 
   // Panel size keys
   static const String _keyLibraryWidth = 'panel_library_width';
+  static const String _keyLibraryLeftColumnWidth = 'panel_library_left_column_width';
   static const String _keyMixerWidth = 'panel_mixer_width';
   static const String _keyEditorHeight = 'panel_editor_height';
   static const String _keyPianoRollSidebarWidth = 'panel_piano_roll_sidebar_width';
@@ -170,6 +171,7 @@ class UserSettings extends ChangeNotifier {
 
   // Panel size settings
   double _libraryWidth = 200.0;
+  double _libraryLeftColumnWidth = 80.0;
   double _mixerWidth = 380.0;
   double _editorHeight = 250.0;
   double _pianoRollSidebarWidth = 250.0;
@@ -476,6 +478,17 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Library left column width (categories column in two-column layout)
+  double get libraryLeftColumnWidth => _libraryLeftColumnWidth;
+  set libraryLeftColumnWidth(double value) {
+    final clamped = value.clamp(70.0, 150.0);
+    if (_libraryLeftColumnWidth != clamped) {
+      _libraryLeftColumnWidth = clamped;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
   /// Mixer panel width
   double get mixerWidth => _mixerWidth;
   set mixerWidth(double value) {
@@ -629,6 +642,7 @@ class UserSettings extends ChangeNotifier {
       final savedLibraryWidth = _prefs?.getDouble(_keyLibraryWidth);
       _hasSavedPanelSettings = savedLibraryWidth != null;
       _libraryWidth = savedLibraryWidth ?? 200.0;
+      _libraryLeftColumnWidth = _prefs?.getDouble(_keyLibraryLeftColumnWidth) ?? 80.0;
       _mixerWidth = _prefs?.getDouble(_keyMixerWidth) ?? 380.0;
       _editorHeight = _prefs?.getDouble(_keyEditorHeight) ?? 250.0;
       _pianoRollSidebarWidth = _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
@@ -770,6 +784,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setBool(_keyEditorVisible, _editorVisible);
       // Sizes
       await _prefs!.setDouble(_keyLibraryWidth, _libraryWidth);
+      await _prefs!.setDouble(_keyLibraryLeftColumnWidth, _libraryLeftColumnWidth);
       await _prefs!.setDouble(_keyMixerWidth, _mixerWidth);
       await _prefs!.setDouble(_keyEditorHeight, _editorHeight);
       await _prefs!.setDouble(_keyPianoRollSidebarWidth, _pianoRollSidebarWidth);
