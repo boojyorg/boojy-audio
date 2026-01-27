@@ -99,6 +99,15 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Edge being resized ('left' or 'right').
   String? resizingEdge;
 
+  /// Original edge position when resize started (for delta calculation in multi-note resize).
+  double? resizeStartBeat;
+
+  /// Edge detected during hover (used to ensure drag matches cursor intent).
+  String? hoveredEdge;
+
+  /// Note ID being hovered over.
+  String? hoveredNoteId;
+
   /// Current cursor style.
   MouseCursor currentCursor = SystemMouseCursors.basic;
 

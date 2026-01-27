@@ -1239,28 +1239,35 @@ class _PianoRollState extends State<PianoRoll>
   // Check if position is near left or right edge of note (FL Studio style)
   // Returns 'left', 'right', or null
   String? _getEdgeAtPosition(Offset position, MidiNoteData note) {
-    const edgeThreshold = 9.0; // 9 pixels for easier edge detection
-
     final noteStartX = _calculateBeatX(note.startTime);
     final noteEndX = _calculateBeatX(note.endTime);
+    final noteWidth = noteEndX - noteStartX;
     final noteY = _calculateNoteY(note.note);
+
+    // Dynamic threshold: max 9px, but ensure middle zone exists (at least 4px)
+    // For 12px note: threshold = (12-4)/2 = 4px each side, 4px middle
+    // For 20px+ note: threshold = 9px (standard)
+    const minMiddleZone = 4.0;
+    const maxThreshold = 9.0;
+    final edgeThreshold = ((noteWidth - minMiddleZone) / 2).clamp(2.0, maxThreshold);
 
     // Check vertical range (allow some tolerance - within note height)
     final isInVerticalRange = (position.dy >= noteY) && (position.dy <= noteY + pixelsPerNote);
 
     if (!isInVerticalRange) return null;
 
-    // Check left edge first (priority if both are close)
-    if ((position.dx - noteStartX).abs() < edgeThreshold) {
+    final distFromLeft = position.dx - noteStartX;
+    final distFromRight = noteEndX - position.dx;
+
+    // Must be within threshold AND closer to this edge than the other
+    if (distFromLeft >= 0 && distFromLeft < edgeThreshold && distFromLeft <= distFromRight) {
       return 'left';
     }
-
-    // Check right edge
-    if ((position.dx - noteEndX).abs() < edgeThreshold) {
+    if (distFromRight >= 0 && distFromRight < edgeThreshold && distFromRight < distFromLeft) {
       return 'right';
     }
 
-    return null; // Not near any edge
+    return null; // In middle zone - will trigger move
   }
 
   /// Update cursor and temp mode override based on current modifier key state
@@ -1311,33 +1318,35 @@ class _PianoRollState extends State<PianoRoll>
           currentCursor = SystemMouseCursors.copy;
         });
       } else if (toolMode == ToolMode.select) {
-        // Select mode - show pointer on notes
-        final edge = _getEdgeAtPosition(position, hoveredNote);
-        if (edge != null) {
-          setState(() {
-            currentCursor = SystemMouseCursors.resizeLeftRight;
-          });
-        } else {
-          setState(() {
-            currentCursor = SystemMouseCursors.click;
-          });
-        }
+        // Select mode - only move, never resize - show grab cursor
+        setState(() {
+          hoveredNoteId = hoveredNote.id;
+          hoveredEdge = null; // No resize in select mode
+          currentCursor = SystemMouseCursors.grab;
+        });
       } else {
         // Draw mode (default)
         final edge = _getEdgeAtPosition(position, hoveredNote);
         if (edge != null) {
           // Near edge - show resize cursor
           setState(() {
+            hoveredNoteId = hoveredNote.id;
+            hoveredEdge = edge;
             currentCursor = SystemMouseCursors.resizeLeftRight;
           });
         } else {
           // On note body - show grab cursor
           setState(() {
+            hoveredNoteId = hoveredNote.id;
+            hoveredEdge = null;
             currentCursor = SystemMouseCursors.grab;
           });
         }
       }
     } else {
+      // Clear hover state when not on a note
+      hoveredNoteId = null;
+      hoveredEdge = null;
       // Empty space
       if (modifiers.isAltPressed || toolMode == ToolMode.eraser) {
         // Eraser mode on empty space
@@ -1491,6 +1500,12 @@ class _PianoRollState extends State<PianoRoll>
 
     // DRAW TOOL: Click on existing note = select it (FL Studio style)
     if (clickedNote != null) {
+      // Clear justCreatedNoteId if clicking a different note
+      // This prevents the just-created note from moving when dragging another note
+      if (justCreatedNoteId != null && clickedNote.id != justCreatedNoteId) {
+        justCreatedNoteId = null;
+      }
+
       // Select this note, deselect others (unless Shift held or note already selected)
       if (modifiers.isShiftPressed) {
         // Toggle selection
@@ -1766,8 +1781,9 @@ class _PianoRollState extends State<PianoRoll>
       });
 
       startAudition(clickedNote.note, clickedNote.velocity);
-    } else if (justCreatedNoteId != null) {
+    } else if (justCreatedNoteId != null && (clickedNote == null || clickedNote.id == justCreatedNoteId)) {
       // User is dragging from where they just created a note - move it (FL Studio style)
+      // Only if they're not clicking on a different note
       final createdNote = currentClip?.notes.firstWhere(
         (n) => n.id == justCreatedNoteId,
         orElse: () => MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
@@ -1796,12 +1812,48 @@ class _PianoRollState extends State<PianoRoll>
       justCreatedNoteId = null;
     } else if (clickedNote != null && !isSliceModeActive) {
       // DRAW TOOL: Allow moving/resizing existing notes (FL Studio style)
-      // Check if we're near the edge for resizing
-      final edge = _getEdgeAtPosition(details.localPosition, clickedNote);
+      // Use stored hover intent if clicking same note (ensures drag matches cursor)
+      // Fall back to recalculating if clicking a different note
+      final edge = (hoveredNoteId == clickedNote.id)
+          ? hoveredEdge
+          : _getEdgeAtPosition(details.localPosition, clickedNote);
 
       if (edge != null) {
         // Start resizing from left or right edge
         saveToHistory(); // Save before resizing
+
+        // Clear move state to prevent accidental note movement during resize
+        movingNoteId = null;
+
+        // Store original positions for delta calculation (needed for multi-note resize)
+        dragStartNotes = {
+          for (final n in currentClip?.notes ?? <MidiNoteData>[]) n.id: n
+        };
+
+        // Store original edge position for delta calculation
+        resizeStartBeat = (edge == 'right') ? clickedNote.endTime : clickedNote.startTime;
+
+        // Auto-select note on resize (standard DAW behavior)
+        final modifiers = ModifierKeyState.current();
+        if (modifiers.isShiftPressed) {
+          // Shift+drag: add to selection, keep others
+          if (!clickedNote.isSelected) {
+            currentClip = currentClip?.copyWith(
+              notes: currentClip!.notes.map((n) =>
+                n.id == clickedNote.id ? n.copyWith(isSelected: true) : n
+              ).toList(),
+            );
+          }
+        } else if (!clickedNote.isSelected) {
+          // Regular drag on unselected: select only this note
+          currentClip = currentClip?.copyWith(
+            notes: currentClip!.notes.map((n) =>
+              n.copyWith(isSelected: n.id == clickedNote.id)
+            ).toList(),
+          );
+        }
+        // If already selected and no shift, keep existing selection
+
         setState(() {
           resizingNoteId = clickedNote.id;
           resizingEdge = edge; // Store which edge ('left' or 'right')
@@ -1811,6 +1863,27 @@ class _PianoRollState extends State<PianoRoll>
       } else {
         // Start moving the note (clicked on body)
         saveToHistory(); // Save before moving
+
+        // Auto-select note on move (standard DAW behavior)
+        final modifiers = ModifierKeyState.current();
+        if (modifiers.isShiftPressed) {
+          // Shift+drag: add to selection, keep others
+          if (!clickedNote.isSelected) {
+            currentClip = currentClip?.copyWith(
+              notes: currentClip!.notes.map((n) =>
+                n.id == clickedNote.id ? n.copyWith(isSelected: true) : n
+              ).toList(),
+            );
+          }
+        } else if (!clickedNote.isSelected) {
+          // Regular drag on unselected: select only this note
+          currentClip = currentClip?.copyWith(
+            notes: currentClip!.notes.map((n) =>
+              n.copyWith(isSelected: n.id == clickedNote.id)
+            ).toList(),
+          );
+        }
+        // If already selected and no shift, keep existing selection
 
         // Store original positions of all notes for proper delta calculation
         dragStartNotes = {
@@ -1951,37 +2024,39 @@ class _PianoRollState extends State<PianoRoll>
 
       notifyClipUpdated();
     } else if (currentMode == InteractionMode.resize && resizingNoteId != null) {
-      // Resize note from left or right edge (FL Studio style)
-      // Shift key bypasses grid snap for fine adjustment
+      // Resize note(s) from left or right edge (FL Studio style)
+      // Supports multi-note resize: all selected notes resize by the same delta
       final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
-      // When snap is off or shift is pressed, allow very small notes (like Ableton)
-      // Otherwise use effective grid division as minimum
       final minDuration = (!snapEnabled || isShiftPressed)
           ? 0.01 // ~1-2px at typical zoom, allows very short notes
           : getEffectiveGridDivision();
-      MidiNoteData? resizedNote;
+
+      // Calculate delta from original edge position
+      final rawBeat = _getBeatAtX(details.localPosition.dx);
+      final newBeat = isShiftPressed ? rawBeat : snapToGrid(rawBeat);
+      final deltaBeat = newBeat - (resizeStartBeat ?? newBeat);
+
+      MidiNoteData? lastResizedNote;
       setState(() {
         currentClip = currentClip?.copyWith(
           notes: currentClip!.notes.map((n) {
-            if (n.id == resizingNoteId) {
-              final rawBeat = _getBeatAtX(details.localPosition.dx);
-              final newBeat = isShiftPressed ? rawBeat : snapToGrid(rawBeat);
+            // Resize the dragged note OR any selected note
+            if (n.id == resizingNoteId || n.isSelected) {
+              final original = dragStartNotes[n.id];
+              if (original == null) return n;
 
               if (resizingEdge == 'right') {
-                // Right edge: change duration only
-                final newDuration = (newBeat - n.startTime).clamp(minDuration, 64.0);
-                resizedNote = n.copyWith(duration: newDuration);
-                return resizedNote!;
+                // Right edge: extend/shrink duration by delta
+                final newDuration = (original.duration + deltaBeat).clamp(minDuration, 64.0);
+                lastResizedNote = n.copyWith(duration: newDuration);
+                return lastResizedNote!;
               } else if (resizingEdge == 'left') {
-                // Left edge: change start time and duration
-                final oldEndTime = n.endTime;
-                final newStartTime = newBeat.clamp(0.0, oldEndTime - minDuration);
-                final newDuration = oldEndTime - newStartTime;
-                resizedNote = n.copyWith(
-                  startTime: newStartTime,
-                  duration: newDuration,
-                );
-                return resizedNote!;
+                // Left edge: move start by delta, keep end fixed
+                final originalEndTime = original.endTime;
+                final newStartTime = (original.startTime + deltaBeat).clamp(0.0, originalEndTime - minDuration);
+                final newDuration = originalEndTime - newStartTime;
+                lastResizedNote = n.copyWith(startTime: newStartTime, duration: newDuration);
+                return lastResizedNote!;
               }
             }
             return n;
@@ -1989,8 +2064,8 @@ class _PianoRollState extends State<PianoRoll>
         );
 
         // Auto-extend loop if note was resized beyond loop boundary
-        if (resizedNote != null) {
-          autoExtendLoopIfNeeded(resizedNote!);
+        if (lastResizedNote != null) {
+          autoExtendLoopIfNeeded(lastResizedNote!);
         }
       });
       notifyClipUpdated();
@@ -2065,6 +2140,7 @@ class _PianoRollState extends State<PianoRoll>
       isDuplicating = false; // Clear duplicate mode
       resizingNoteId = null;
       resizingEdge = null;
+      resizeStartBeat = null; // Clear resize start position
       currentMode = InteractionMode.draw;
       currentCursor = SystemMouseCursors.basic; // Reset cursor to default
     });

@@ -2,6 +2,23 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- Multi-note resize: when multiple notes are selected, resizing one resizes all by the same delta
+
+### Bug Fixes
+
+- Piano roll note interactions:
+  - Select mode now shows grab cursor (not resize cursor) - resize isn't possible in select mode
+  - Small notes (<18px) can now be moved - dynamic edge threshold ensures a middle zone always exists
+  - Drag action now matches cursor intent - if cursor shows "move", dragging will move (not resize)
+  - More reliable edge detection using distance-to-closest-edge logic
+  - Auto-select note on drag: dragging unselected note selects it, Shift+drag adds to selection
+  - Fixed: resizing a note no longer accidentally moves other notes (cleared stale move state)
+  - Fixed: newly created note no longer moves when click+dragging a different note
+
 ## v0.1.4 - 2025-01-27
 
 ### Improvements
