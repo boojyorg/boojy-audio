@@ -4,6 +4,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- Library panel UI polish:
+  - Consistent 12px font size across both columns (was 11px in categories, 12px in contents)
+  - Combined header row with inline search field (saves vertical space)
+  - Standard resizable divider with hover feedback and double-click to toggle width
+  - Middle truncation for long filenames that preserves file extension (e.g., "Cymatics...Clap 1.wav")
+  - Category names truncate with ellipsis when narrow (no two-line wrapping)
+  - Simplified divider behavior: middle divider controls left column (100-250px), outer divider controls right column (100-400px)
+  - Panel width computed from left + right columns (max ~658px)
+
 ### Features
 
 - Library audio preview! Click audio files in the library to audition them before adding to your project

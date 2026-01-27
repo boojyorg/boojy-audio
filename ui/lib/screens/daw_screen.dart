@@ -301,8 +301,9 @@ class _DAWScreenState extends State<DAWScreen> {
           _uiLayout.isLibraryPanelCollapsed = _userSettings.libraryCollapsed;
           _uiLayout.isMixerVisible = _userSettings.mixerVisible;
           _uiLayout.isEditorPanelVisible = _userSettings.editorVisible;
-          // Load panel sizes
-          _uiLayout.libraryPanelWidth = _userSettings.libraryWidth;
+          // Load panel sizes (library uses left/right columns, total is computed)
+          _uiLayout.libraryLeftColumnWidth = _userSettings.libraryLeftColumnWidth;
+          _uiLayout.libraryRightColumnWidth = _userSettings.libraryRightColumnWidth;
           _uiLayout.mixerPanelWidth = _userSettings.mixerWidth;
           _uiLayout.editorPanelHeight = _userSettings.editorHeight;
         });
@@ -2096,15 +2097,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
   void _resetPanelLayout() {
     setState(() {
-      // Reset to default panel sizes
-      _uiLayout.libraryPanelWidth = 200.0;
-      _uiLayout.mixerPanelWidth = 380.0;
-      _uiLayout.editorPanelHeight = 250.0;
-
-      // Reset visibility states
-      _uiLayout.isLibraryPanelCollapsed = false;
-      _uiLayout.isMixerVisible = true;
-      _uiLayout.isEditorPanelVisible = true;
+      // Reset to default panel sizes and visibility
+      _uiLayout.resetLayout();
 
       // Save reset states
       _userSettings.libraryCollapsed = false;
@@ -2898,15 +2892,8 @@ class _DAWScreenState extends State<DAWScreen> {
   /// Apply UI layout from loaded project
   void _applyUILayout(UILayoutData layout) {
     setState(() {
-      // Apply panel sizes with clamping
-      _uiLayout.libraryPanelWidth = layout.libraryWidth.clamp(UILayoutState.libraryMinWidth, UILayoutState.libraryHardMax);
-      _uiLayout.mixerPanelWidth = layout.mixerWidth.clamp(UILayoutState.mixerMinWidth, UILayoutState.mixerHardMax);
-      _uiLayout.editorPanelHeight = layout.bottomHeight.clamp(UILayoutState.editorMinHeight, UILayoutState.editorHardMax);
-
-      // Apply collapsed states
-      _uiLayout.isLibraryPanelCollapsed = layout.libraryCollapsed;
-      _uiLayout.isMixerVisible = !layout.mixerCollapsed;
-      // Don't auto-open bottom panel on load
+      // Apply panel sizes and visibility from layout
+      _uiLayout.applyLayout(layout);
     });
 
     // Restore view state if "continue where I left off" is enabled
@@ -3590,9 +3577,18 @@ class _DAWScreenState extends State<DAWScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
-              _uiLayout.libraryPanelWidth = (windowSize.width * 0.15).clamp(
+              // Calculate target total library width
+              final targetLibraryTotal = (windowSize.width * 0.15).clamp(
                 UILayoutState.libraryMinWidth,
                 UILayoutState.libraryHardMax,
+              );
+              // Split into left (default) and right (remainder)
+              _uiLayout.libraryLeftColumnWidth = UILayoutState.libraryLeftColumnDefault;
+              _uiLayout.libraryRightColumnWidth = (targetLibraryTotal -
+                  UILayoutState.libraryLeftColumnDefault -
+                  UILayoutState.libraryDividerWidth).clamp(
+                UILayoutState.libraryRightColumnMin,
+                UILayoutState.libraryRightColumnMax,
               );
               _uiLayout.mixerPanelWidth = (windowSize.width * 0.28).clamp(
                 UILayoutState.mixerMinWidth,
@@ -3795,6 +3791,13 @@ class _DAWScreenState extends State<DAWScreen> {
                                 onItemDoubleClick: _handleLibraryItemDoubleClick,
                                 onVst3DoubleClick: _handleVst3DoubleClick,
                                 onOpenInSampler: _handleOpenInSampler,
+                                leftColumnWidth: _uiLayout.libraryLeftColumnWidth,
+                                onLeftColumnResize: (delta) {
+                                  setState(() {
+                                    _uiLayout.resizeLeftColumn(delta);
+                                    _userSettings.libraryLeftColumnWidth = _uiLayout.libraryLeftColumnWidth;
+                                  });
+                                },
                               ),
                             )
                           : LibraryPanel(
@@ -3805,29 +3808,26 @@ class _DAWScreenState extends State<DAWScreen> {
                               onItemDoubleClick: _handleLibraryItemDoubleClick,
                               onVst3DoubleClick: _handleVst3DoubleClick,
                               onOpenInSampler: _handleOpenInSampler,
+                              leftColumnWidth: _uiLayout.libraryLeftColumnWidth,
+                              onLeftColumnResize: (delta) {
+                                setState(() {
+                                  _uiLayout.resizeLeftColumn(delta);
+                                  _userSettings.libraryLeftColumnWidth = _uiLayout.libraryLeftColumnWidth;
+                                });
+                              },
                             ),
                       ),
 
                       // Divider: Library/Timeline
+                      // Outer divider only affects right column (left stays fixed)
                       ResizableDivider(
                         orientation: DividerOrientation.vertical,
                         isCollapsed: _uiLayout.isLibraryPanelCollapsed,
                         onDrag: (delta) {
-                          final windowWidth = MediaQuery.of(context).size.width;
-                          final maxWidth = UILayoutState.getLibraryMaxWidth(windowWidth);
                           setState(() {
-                            final newWidth = _uiLayout.libraryPanelWidth + delta;
-                            // Snap collapse if dragged below threshold
-                            if (newWidth < UILayoutState.libraryCollapseThreshold) {
-                              _uiLayout.collapseLibrary();
-                              _userSettings.libraryCollapsed = true;
-                            } else {
-                              _uiLayout.libraryPanelWidth = newWidth.clamp(
-                                UILayoutState.libraryMinWidth,
-                                maxWidth,
-                              );
-                              _userSettings.libraryWidth = _uiLayout.libraryPanelWidth;
-                            }
+                            _uiLayout.resizeRightColumn(delta);
+                            _userSettings.libraryRightColumnWidth = _uiLayout.libraryRightColumnWidth;
+                            _userSettings.libraryCollapsed = _uiLayout.isLibraryPanelCollapsed;
                           });
                         },
                         onDoubleClick: () {

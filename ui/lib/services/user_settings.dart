@@ -104,6 +104,7 @@ class UserSettings extends ChangeNotifier {
   // Panel size keys
   static const String _keyLibraryWidth = 'panel_library_width';
   static const String _keyLibraryLeftColumnWidth = 'panel_library_left_column_width';
+  static const String _keyLibraryRightColumnWidth = 'panel_library_right_column_width';
   static const String _keyMixerWidth = 'panel_mixer_width';
   static const String _keyEditorHeight = 'panel_editor_height';
   static const String _keyPianoRollSidebarWidth = 'panel_piano_roll_sidebar_width';
@@ -170,8 +171,9 @@ class UserSettings extends ChangeNotifier {
   bool _editorVisible = true;
 
   // Panel size settings
-  double _libraryWidth = 200.0;
-  double _libraryLeftColumnWidth = 80.0;
+  double _libraryWidth = 208.0;
+  double _libraryLeftColumnWidth = 130.0;
+  double _libraryRightColumnWidth = 170.0;
   double _mixerWidth = 380.0;
   double _editorHeight = 250.0;
   double _pianoRollSidebarWidth = 250.0;
@@ -481,9 +483,20 @@ class UserSettings extends ChangeNotifier {
   /// Library left column width (categories column in two-column layout)
   double get libraryLeftColumnWidth => _libraryLeftColumnWidth;
   set libraryLeftColumnWidth(double value) {
-    final clamped = value.clamp(70.0, 150.0);
+    final clamped = value.clamp(100.0, 250.0);
     if (_libraryLeftColumnWidth != clamped) {
       _libraryLeftColumnWidth = clamped;
+      _savePanelSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Library right column width (contents column in two-column layout)
+  double get libraryRightColumnWidth => _libraryRightColumnWidth;
+  set libraryRightColumnWidth(double value) {
+    final clamped = value.clamp(100.0, 400.0);
+    if (_libraryRightColumnWidth != clamped) {
+      _libraryRightColumnWidth = clamped;
       _savePanelSettings();
       notifyListeners();
     }
@@ -641,8 +654,9 @@ class UserSettings extends ChangeNotifier {
       // Load panel size settings (check if saved before for first-launch detection)
       final savedLibraryWidth = _prefs?.getDouble(_keyLibraryWidth);
       _hasSavedPanelSettings = savedLibraryWidth != null;
-      _libraryWidth = savedLibraryWidth ?? 200.0;
-      _libraryLeftColumnWidth = _prefs?.getDouble(_keyLibraryLeftColumnWidth) ?? 80.0;
+      _libraryWidth = savedLibraryWidth ?? 208.0;
+      _libraryLeftColumnWidth = _prefs?.getDouble(_keyLibraryLeftColumnWidth) ?? 130.0;
+      _libraryRightColumnWidth = _prefs?.getDouble(_keyLibraryRightColumnWidth) ?? 170.0;
       _mixerWidth = _prefs?.getDouble(_keyMixerWidth) ?? 380.0;
       _editorHeight = _prefs?.getDouble(_keyEditorHeight) ?? 250.0;
       _pianoRollSidebarWidth = _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
@@ -785,6 +799,7 @@ class UserSettings extends ChangeNotifier {
       // Sizes
       await _prefs!.setDouble(_keyLibraryWidth, _libraryWidth);
       await _prefs!.setDouble(_keyLibraryLeftColumnWidth, _libraryLeftColumnWidth);
+      await _prefs!.setDouble(_keyLibraryRightColumnWidth, _libraryRightColumnWidth);
       await _prefs!.setDouble(_keyMixerWidth, _mixerWidth);
       await _prefs!.setDouble(_keyEditorHeight, _editorHeight);
       await _prefs!.setDouble(_keyPianoRollSidebarWidth, _pianoRollSidebarWidth);

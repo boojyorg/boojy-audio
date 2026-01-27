@@ -50,12 +50,16 @@ extension SnapValueExtension on SnapValue {
 /// Used by DAWScreen to manage resizable panels.
 class UILayoutState extends ChangeNotifier {
   // Panel widths
-  double _libraryPanelWidth = 200.0;
   double _mixerPanelWidth = 380.0;
   double _editorPanelHeight = 250.0;
 
+  // Library panel column widths (stored separately, panel width is computed)
+  double _libraryLeftColumnWidth = 130.0;
+  double _libraryRightColumnWidth = 170.0;
+
   // Memory of last size before collapse (for restore on expand)
-  double _libraryLastWidth = 200.0;
+  double _libraryLastLeftColumnWidth = 130.0;
+  double _libraryLastRightColumnWidth = 170.0;
   double _mixerLastWidth = 380.0;
   double _editorLastHeight = 250.0;
 
@@ -79,12 +83,20 @@ class UILayoutState extends ChangeNotifier {
   bool _loopAutoFollow = true;
 
   // Fixed minimums (usability floor)
-  static const double libraryMinWidth = 150.0;
+  static const double libraryMinWidth = 208.0; // left min + divider + right min
+
+  // Library panel internal column constraints
+  static const double libraryLeftColumnMin = 100.0;
+  static const double libraryLeftColumnMax = 250.0;
+  static const double libraryLeftColumnDefault = 130.0;
+  static const double libraryRightColumnMin = 100.0;
+  static const double libraryRightColumnMax = 400.0;
+  static const double libraryDividerWidth = 8.0;
   static const double mixerMinWidth = 200.0;
   static const double editorMinHeight = 150.0;
 
   // Hard maximums (prevent absurdly large panels on big screens)
-  static const double libraryHardMax = 400.0;
+  static const double libraryHardMax = 600.0;
   static const double mixerHardMax = 500.0;
   static const double editorHardMax = 600.0;
 
@@ -137,9 +149,13 @@ class UILayoutState extends ChangeNotifier {
   // ARRANGEMENT WIDTH HELPERS
   // ============================================
 
+  /// Computed total library panel width (left + divider + right)
+  double get libraryPanelWidth =>
+      _libraryLeftColumnWidth + libraryDividerWidth + _libraryRightColumnWidth;
+
   /// Get current arrangement view width
   double getArrangementWidth(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : _libraryPanelWidth;
+    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : libraryPanelWidth;
     final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
     return windowWidth - libraryWidth - mixerWidth;
   }
@@ -147,23 +163,51 @@ class UILayoutState extends ChangeNotifier {
   /// Check if there's room to show library panel (when expanding from collapsed)
   bool canShowLibrary(double windowWidth) {
     final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
-    final libraryWidth = _libraryPanelWidth; // Width it would be if expanded
+    final libraryWidth = libraryPanelWidth; // Width it would be if expanded
     final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
     return arrangementWidth >= minArrangementWidth;
   }
 
   /// Check if there's room to show mixer panel
   bool canShowMixer(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : _libraryPanelWidth;
+    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : libraryPanelWidth;
     final mixerWidth = _mixerPanelWidth; // Width it would be if expanded
     final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
     return arrangementWidth >= minArrangementWidth;
   }
 
-  // Getters and Setters
-  double get libraryPanelWidth => _libraryPanelWidth;
-  set libraryPanelWidth(double width) {
-    _libraryPanelWidth = width.clamp(libraryMinWidth, libraryHardMax);
+  // ============================================
+  // LIBRARY COLUMN GETTERS AND SETTERS
+  // ============================================
+
+  double get libraryLeftColumnWidth => _libraryLeftColumnWidth;
+  set libraryLeftColumnWidth(double width) {
+    _libraryLeftColumnWidth = width.clamp(libraryLeftColumnMin, libraryLeftColumnMax);
+    notifyListeners();
+  }
+
+  double get libraryRightColumnWidth => _libraryRightColumnWidth;
+  set libraryRightColumnWidth(double width) {
+    _libraryRightColumnWidth = width.clamp(libraryRightColumnMin, libraryRightColumnMax);
+    notifyListeners();
+  }
+
+  /// Resize left column (middle divider) - right column absorbs difference
+  void resizeLeftColumn(double delta) {
+    _libraryLeftColumnWidth = (_libraryLeftColumnWidth + delta)
+        .clamp(libraryLeftColumnMin, libraryLeftColumnMax);
+    notifyListeners();
+  }
+
+  /// Resize right column (outer divider) - left column stays fixed
+  void resizeRightColumn(double delta) {
+    final newRight = _libraryRightColumnWidth + delta;
+    if (newRight < libraryRightColumnMin - 50) {
+      // Below collapse threshold, collapse the panel
+      collapseLibrary();
+      return;
+    }
+    _libraryRightColumnWidth = newRight.clamp(libraryRightColumnMin, libraryRightColumnMax);
     notifyListeners();
   }
 
@@ -210,10 +254,6 @@ class UILayoutState extends ChangeNotifier {
   }
 
   // Setters with clamping (method style - for explicit calls)
-  void setLibraryPanelWidth(double width) {
-    libraryPanelWidth = width;
-  }
-
   void setMixerPanelWidth(double width) {
     mixerPanelWidth = width;
   }
@@ -225,7 +265,8 @@ class UILayoutState extends ChangeNotifier {
   // Collapse methods (remember size, then collapse)
   void collapseLibrary() {
     if (!_isLibraryPanelCollapsed) {
-      _libraryLastWidth = _libraryPanelWidth;
+      _libraryLastLeftColumnWidth = _libraryLeftColumnWidth;
+      _libraryLastRightColumnWidth = _libraryRightColumnWidth;
       _isLibraryPanelCollapsed = true;
       notifyListeners();
     }
@@ -250,7 +291,8 @@ class UILayoutState extends ChangeNotifier {
   // Expand methods (restore to last size)
   void expandLibrary() {
     if (_isLibraryPanelCollapsed) {
-      _libraryPanelWidth = _libraryLastWidth;
+      _libraryLeftColumnWidth = _libraryLastLeftColumnWidth;
+      _libraryRightColumnWidth = _libraryLastRightColumnWidth;
       _isLibraryPanelCollapsed = false;
       notifyListeners();
     }
@@ -402,7 +444,8 @@ class UILayoutState extends ChangeNotifier {
 
   /// Reset all panel sizes and visibility to defaults
   void resetLayout() {
-    _libraryPanelWidth = 200.0;
+    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    _libraryRightColumnWidth = libraryRightColumnMin;
     _mixerPanelWidth = 380.0;
     _editorPanelHeight = 250.0;
     _isLibraryPanelCollapsed = false;
@@ -413,7 +456,11 @@ class UILayoutState extends ChangeNotifier {
 
   /// Apply layout from loaded project
   void applyLayout(UILayoutData layout) {
-    _libraryPanelWidth = layout.libraryWidth.clamp(libraryMinWidth, libraryHardMax);
+    // Backwards compatible: split total width into left + right columns
+    final totalWidth = layout.libraryWidth.clamp(libraryMinWidth, libraryHardMax);
+    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    _libraryRightColumnWidth = (totalWidth - _libraryLeftColumnWidth - libraryDividerWidth)
+        .clamp(libraryRightColumnMin, libraryRightColumnMax);
     _mixerPanelWidth = layout.mixerWidth.clamp(mixerMinWidth, mixerHardMax);
     _editorPanelHeight = layout.bottomHeight.clamp(editorMinHeight, editorHardMax);
     _isLibraryPanelCollapsed = layout.libraryCollapsed;
@@ -425,7 +472,7 @@ class UILayoutState extends ChangeNotifier {
   /// Get current layout for saving
   UILayoutData getCurrentLayout() {
     return UILayoutData(
-      libraryWidth: _libraryPanelWidth,
+      libraryWidth: libraryPanelWidth, // Use computed getter
       mixerWidth: _mixerPanelWidth,
       bottomHeight: _editorPanelHeight,
       libraryCollapsed: _isLibraryPanelCollapsed,

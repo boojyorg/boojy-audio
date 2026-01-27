@@ -3,14 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'instrument_browser.dart';
 import 'library_preview_bar.dart';
-import 'shared/panel_header.dart';
+import 'resizable_divider.dart';
 import 'shared/search_field.dart';
 import '../models/library_item.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/library_preview_service.dart';
 import '../services/library_service.dart';
-import '../services/user_settings.dart';
 import '../theme/theme_extension.dart';
+import '../utils/text_utils.dart';
 
 /// Library panel widget - two-column layout with categories on left, contents on right
 class LibraryPanel extends StatefulWidget {
@@ -22,6 +22,13 @@ class LibraryPanel extends StatefulWidget {
   final void Function(Vst3Plugin)? onVst3DoubleClick;
   final void Function(LibraryItem)? onOpenInSampler;
 
+  /// Left column width (managed by parent via UILayoutState)
+  final double leftColumnWidth;
+
+  /// Callback when inner divider is dragged
+  /// Only affects left column - right column absorbs the difference
+  final void Function(double delta)? onLeftColumnResize;
+
   const LibraryPanel({
     super.key,
     this.isCollapsed = false,
@@ -31,6 +38,8 @@ class LibraryPanel extends StatefulWidget {
     this.onItemDoubleClick,
     this.onVst3DoubleClick,
     this.onOpenInSampler,
+    this.leftColumnWidth = 100.0,
+    this.onLeftColumnResize,
   });
 
   @override
@@ -49,10 +58,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
   final ScrollController _rightScrollController = ScrollController();
   String _searchQuery = '';
 
-  // Left column width (persisted)
-  double _leftColumnWidth = 80.0;
-  bool _isDraggingDivider = false;
-
   /// Cache for folder contents to avoid FutureBuilder rebuilds
   final Map<String, List<LibraryItem>> _folderContentsCache = {};
 
@@ -63,8 +68,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
   void initState() {
     super.initState();
     widget.libraryService.addListener(_onLibraryChanged);
-    // Load saved left column width
-    _leftColumnWidth = UserSettings().libraryLeftColumnWidth;
   }
 
   @override
@@ -116,39 +119,39 @@ class _LibraryPanelState extends State<LibraryPanel> {
     }
 
     final colors = context.colors;
+
     return Container(
-      decoration: BoxDecoration(
-        color: colors.standard,
-        border: Border(
-          right: BorderSide(color: colors.elevated),
-        ),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          _buildSearchBar(),
-          Expanded(
-            child: _searchQuery.isNotEmpty
-                ? _buildSearchResults()
-                : Row(
-                    children: [
-                      // Left column - Categories
-                      SizedBox(
-                        width: _leftColumnWidth,
-                        child: _buildCategoryList(),
-                      ),
-                      // Draggable divider
-                      _buildDivider(),
-                      // Right column - Contents + Preview
-                      Expanded(
-                        child: _buildContentsColumn(),
-                      ),
-                    ],
-                  ),
+          decoration: BoxDecoration(
+            color: colors.standard,
+            border: Border(
+              right: BorderSide(color: colors.elevated),
+            ),
           ),
-        ],
-      ),
-    );
+          child: Column(
+            children: [
+              _buildCombinedHeader(),
+              Expanded(
+                child: _searchQuery.isNotEmpty
+                    ? _buildSearchResults()
+                    : Row(
+                        children: [
+                          // Left column - Categories
+                          SizedBox(
+                            width: widget.leftColumnWidth,
+                            child: _buildCategoryList(),
+                          ),
+                          // Draggable divider
+                          _buildDivider(),
+                          // Right column - Contents + Preview
+                          Expanded(
+                            child: _buildContentsColumn(),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        );
   }
 
   Widget _buildCollapsedPanel() {
@@ -174,61 +177,77 @@ class _LibraryPanelState extends State<LibraryPanel> {
     );
   }
 
-  Widget _buildHeader() {
-    return PanelHeader(
-      title: 'Library',
-      icon: Icons.library_music,
-      actions: widget.onToggle != null
-          ? [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                color: context.colors.textSecondary,
-                iconSize: 18,
-                onPressed: widget.onToggle,
-                tooltip: 'Hide Library (B)',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ]
-          : null,
-    );
-  }
+  Widget _buildCombinedHeader() {
+    final colors = context.colors;
 
-  Widget _buildSearchBar() {
-    return SearchFieldPanel(
-      controller: _searchController,
-      onChanged: (value) {
-        setState(() {
-          _searchQuery = value;
-        });
-      },
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.elevated,
+        border: Border(
+          bottom: BorderSide(color: colors.elevated),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.library_music,
+            color: colors.textPrimary,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'LIBRARY',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 26,
+              child: SearchField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (widget.onToggle != null)
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              color: colors.textSecondary,
+              iconSize: 18,
+              onPressed: widget.onToggle,
+              tooltip: 'Hide Library (B)',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildDivider() {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
-        onHorizontalDragStart: (_) {
-          setState(() => _isDraggingDivider = true);
-        },
-        onHorizontalDragUpdate: (details) {
-          setState(() {
-            _leftColumnWidth = (_leftColumnWidth + details.delta.dx).clamp(70.0, 150.0);
-          });
-        },
-        onHorizontalDragEnd: (_) {
-          setState(() => _isDraggingDivider = false);
-          // Save to settings
-          UserSettings().libraryLeftColumnWidth = _leftColumnWidth;
-        },
-        child: Container(
-          width: 4,
-          color: _isDraggingDivider
-              ? context.colors.accent
-              : context.colors.elevated,
-        ),
-      ),
+    return ResizableDivider(
+      orientation: DividerOrientation.vertical,
+      onDrag: (delta) {
+        // Middle divider only affects left column
+        // Right column absorbs the difference (via Expanded widget)
+        widget.onLeftColumnResize?.call(delta);
+      },
+      onDoubleClick: () {
+        // Toggle between compact (100px) and comfortable (150px)
+        final target = widget.leftColumnWidth > 125.0 ? 100.0 : 150.0;
+        widget.onLeftColumnResize?.call(target - widget.leftColumnWidth);
+      },
     );
   }
 
@@ -326,10 +345,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: isSelected ? colors.textPrimary : colors.textSecondary,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -349,9 +369,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
           children: [
             Icon(Icons.add, size: 14, color: colors.textMuted),
             const SizedBox(width: 6),
-            Text(
-              'Add Folder',
-              style: TextStyle(fontSize: 11, color: colors.textMuted),
+            Expanded(
+              child: Text(
+                'Add Folder',
+                style: TextStyle(fontSize: 12, color: colors.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -662,6 +686,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
                   fontSize: 12,
                   color: colors.textSecondary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -804,14 +830,26 @@ class _LibraryPanelState extends State<LibraryPanel> {
               const SizedBox(width: 4),
             ],
             Expanded(
-              child: Text(
-                item.displayName,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isCurrentlyPreviewing ? colors.accent : colors.textPrimary,
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final textStyle = TextStyle(
+                    fontSize: 12,
+                    color: isCurrentlyPreviewing ? colors.accent : colors.textPrimary,
+                  );
+                  return Text(
+                    TextUtils.truncateMiddleToFit(
+                      filename: item.displayName,
+                      maxWidth: constraints.maxWidth,
+                      style: textStyle,
+                    ),
+                    style: textStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                  );
+                },
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               categoryPath,
               style: TextStyle(
@@ -836,11 +874,23 @@ class _LibraryPanelState extends State<LibraryPanel> {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                name,
-                style: TextStyle(fontSize: 12, color: colors.textPrimary),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final textStyle = TextStyle(fontSize: 12, color: colors.textPrimary);
+                  return Text(
+                    TextUtils.truncateMiddleToFit(
+                      filename: name,
+                      maxWidth: constraints.maxWidth,
+                      style: textStyle,
+                    ),
+                    style: textStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                  );
+                },
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               categoryPath,
               style: TextStyle(fontSize: 10, color: colors.textMuted),
@@ -1127,14 +1177,25 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
               const SizedBox(width: 4),
             ],
             Expanded(
-              child: Text(
-                widget.name,
-                style: TextStyle(
-                  color: widget.isPreviewing
-                      ? colors.accent
-                      : (_isHovered ? colors.textPrimary : colors.textSecondary),
-                  fontSize: 12,
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final textStyle = TextStyle(
+                    color: widget.isPreviewing
+                        ? colors.accent
+                        : (_isHovered ? colors.textPrimary : colors.textSecondary),
+                    fontSize: 12,
+                  );
+                  return Text(
+                    TextUtils.truncateMiddleToFit(
+                      filename: widget.name,
+                      maxWidth: constraints.maxWidth,
+                      style: textStyle,
+                    ),
+                    style: textStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                  );
+                },
               ),
             ),
             if (widget.isFavorite)
