@@ -77,6 +77,16 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Track ID being hovered during drag.
   int? dragHoveredTrackId;
 
+  /// Cached waveform data for audio file drag preview.
+  /// File path of the audio file being loaded for preview waveform.
+  String? previewWaveformPath;
+
+  /// Cached duration of the audio file being dragged.
+  double? previewWaveformDuration;
+
+  /// Cached waveform peaks for the audio file being dragged.
+  List<double>? previewWaveformPeaks;
+
   /// Whether an audio file is being dragged over empty space.
   bool isAudioFileDraggingOverEmpty = false;
 

@@ -412,6 +412,44 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     }
   }
 
+  /// Load waveform data for drag preview.
+  /// Uses the engine's preview system to get duration and waveform without creating a clip.
+  void _loadWaveformForPreview(String filePath) {
+    final engine = widget.audioEngine;
+    if (engine == null) return;
+
+    // Load file into engine's preview system
+    final result = engine.previewLoadAudio(filePath);
+    if (result.startsWith('Error')) return;
+
+    final duration = engine.previewGetDuration();
+    final rawPeaks = engine.previewGetWaveform(500); // Low-res for preview
+
+    // Convert single-value peaks to [min, max] pairs
+    // WaveformPainter expects [min, max, min, max, ...] format
+    // Mirror the max values to create min values for proper waveform display
+    final peaks = <double>[];
+    for (final value in rawPeaks) {
+      peaks.add(-value.abs()); // min (negative/bottom)
+      peaks.add(value.abs());  // max (positive/top)
+    }
+
+    // Only update if we're still previewing this file
+    if (mounted && previewWaveformPath == filePath) {
+      setState(() {
+        previewWaveformDuration = duration;
+        previewWaveformPeaks = peaks;
+      });
+    }
+  }
+
+  /// Clear cached waveform preview data.
+  void _clearWaveformPreviewCache() {
+    previewWaveformPath = null;
+    previewWaveformDuration = null;
+    previewWaveformPeaks = null;
+  }
+
   /// Public method to trigger immediate track refresh
   void refreshTracks() {
     _loadTracksAsync();
@@ -2233,6 +2271,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         // Library audio file drag - show preview with file info
         if (isMidiTrack) return;
 
+        // Load waveform data if this is a new file being dragged
+        if (previewWaveformPath != details.data.filePath) {
+          previewWaveformPath = details.data.filePath;
+          _loadWaveformForPreview(details.data.filePath);
+        }
+
         // Convert global offset to local coordinates
         final RenderBox? box = context.findRenderObject() as RenderBox?;
         final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
@@ -2255,6 +2299,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             startTime: startTime,
             trackId: track.id,
             mousePosition: localPos,
+            duration: previewWaveformDuration,
+            waveformPeaks: previewWaveformPeaks,
           );
         });
       },
@@ -2268,7 +2314,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         }
       },
       onAcceptWithDetails: (details) {
-        // Clear preview on drop
+        // Clear preview and waveform cache on drop
+        _clearWaveformPreviewCache();
         setState(() {
           previewClip = null;
           dragHoveredTrackId = null;
@@ -4528,74 +4575,97 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   }
 
   Widget _buildPreviewClip(PreviewClip preview) {
-    // Use actual duration if available, otherwise 3 seconds default
     final previewDuration = preview.duration ?? 3.0;
     final clipWidth = previewDuration * pixelsPerSecond;
     final clipX = preview.startTime * pixelsPerSecond;
     final trackHeight = widget.clipHeights[preview.trackId] ?? 100.0;
-    final colors = context.colors;
+    final totalHeight = trackHeight - 3.0;
+    const headerHeight = 20.0;
+
+    // Get actual track color - match how real clips get color
+    final track = tracks.where((t) => t.id == preview.trackId).firstOrNull;
+    final trackIndex = track != null ? tracks.indexOf(track) : 0;
+    final trackColor = track != null
+        ? (widget.getTrackColor?.call(track.id, track.name, track.type)
+            ?? TrackColors.getTrackColor(trackIndex))
+        : TrackColors.getTrackColor(0);
 
     return Positioned(
       left: clipX,
       top: 0,
-      child: Opacity(
-        opacity: 0.8,
-        child: Container(
-          width: clipWidth,
-          height: trackHeight - 2,
-          decoration: BoxDecoration(
-            color: colors.success.withValues(alpha: 0.15),
-            border: Border.all(
-              color: colors.success,
-              width: 2,
-              strokeAlign: BorderSide.strokeAlignOutside,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.5,
+          child: SizedBox(
+            width: clipWidth,
+            height: totalHeight,
+            child: Stack(
               children: [
-                // Header with filename
+                // Background and border
                 Container(
-                  height: 18,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  color: colors.success.withValues(alpha: 0.3),
-                  child: Row(
+                  decoration: BoxDecoration(
+                    color: trackColor.withValues(alpha: 0.3),
+                    border: Border.all(
+                      color: trackColor.withValues(alpha: 0.8),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                // Content
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Column(
                     children: [
+                      // Header
+                      Container(
+                        height: headerHeight,
+                        decoration: BoxDecoration(color: trackColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.audiotrack,
+                              size: 12,
+                              color: context.colors.textPrimary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                preview.fileName,
+                                style: TextStyle(
+                                  color: context.colors.textPrimary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Waveform content
                       Expanded(
-                        child: Text(
-                          preview.fileName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: colors.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (preview.waveformPeaks == null || preview.waveformPeaks!.isEmpty) {
+                              return const SizedBox();
+                            }
+                            return CustomPaint(
+                              size: Size(constraints.maxWidth, constraints.maxHeight),
+                              painter: WaveformPainter(
+                                peaks: preview.waveformPeaks!,
+                                color: TrackColors.getLighterShade(trackColor),
+                                contentDuration: previewDuration,
+                                visibleDuration: previewDuration,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
-                ),
-                // Waveform area
-                Expanded(
-                  child: preview.waveformPeaks != null && preview.waveformPeaks!.isNotEmpty
-                      ? CustomPaint(
-                          painter: WaveformPainter(
-                            peaks: preview.waveformPeaks!,
-                            color: colors.success,
-                          ),
-                          size: Size(clipWidth, trackHeight - 20),
-                        )
-                      : Center(
-                          child: Icon(
-                            Icons.audiotrack,
-                            color: colors.success.withValues(alpha: 0.5),
-                            size: 24,
-                          ),
-                        ),
                 ),
               ],
             ),

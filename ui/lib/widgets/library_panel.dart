@@ -971,7 +971,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else if (item.type == LibraryItemType.audioFile && item is AudioFileItem) {
       child = Draggable<AudioFileItem>(
         data: item,
-        feedback: _buildDragFeedback(item.name, item.icon),
+        // Use invisible feedback - the preview clip in timeline view provides visual feedback
+        feedback: const SizedBox.shrink(),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
