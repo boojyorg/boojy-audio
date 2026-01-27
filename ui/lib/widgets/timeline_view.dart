@@ -2752,21 +2752,23 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               height: headerHeight,
               color: masterColor,
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                children: [
-                  // Icon (headphones)
-                  const Text('🎧', style: TextStyle(fontSize: 11)),
-                  const SizedBox(width: 4),
-                  // "Master" text (white)
-                  Text(
-                    'Master',
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+              child: ClipRect(
+                child: Row(
+                  children: [
+                    // Icon (headphones)
+                    const Text('🎧', style: TextStyle(fontSize: 11)),
+                    const SizedBox(width: 4),
+                    // "Master" text (white)
+                    Text(
+                      'Master',
+                      style: TextStyle(
+                        color: context.colors.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             // Content area - transparent so grid shows through
@@ -3179,7 +3181,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       height: totalHeight,
                       child: Column(
                         children: [
-                          // Header with track color
+                          // Header with track color (simplified when clip is too narrow)
                           Container(
                             height: headerHeight,
                             decoration: BoxDecoration(
@@ -3188,29 +3190,31 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                 top: Radius.circular(3),
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.audiotrack,
-                                  size: 12,
-                                  color: context.colors.textPrimary,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    clip.fileName,
-                                    style: TextStyle(
-                                      color: context.colors.textPrimary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            padding: clipWidth > 30 ? const EdgeInsets.symmetric(horizontal: 6) : null,
+                            child: clipWidth > 30
+                                ? Row(
+                                    children: [
+                                      Icon(
+                                        Icons.audiotrack,
+                                        size: 12,
+                                        color: context.colors.textPrimary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          clip.fileName,
+                                          style: TextStyle(
+                                            color: context.colors.textPrimary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null, // Just show colored bar for very narrow clips
                           ),
                           // Content area with waveform (transparent background)
                           Expanded(
@@ -3522,29 +3526,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         // Header
                         Container(
                           height: headerHeight,
+                          clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(color: trackColor),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.piano,
-                                size: 10,
-                                color: context.colors.textPrimary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  sourceClip.name,
-                                  style: TextStyle(
-                                    color: context.colors.textPrimary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          child: ClipRect(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.piano,
+                                  size: 10,
+                                  color: context.colors.textPrimary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    sourceClip.name,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Notes content
@@ -3638,29 +3645,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         // Header
                         Container(
                           height: headerHeight,
+                          clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(color: trackColor),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.audiotrack,
-                                size: 12,
-                                color: context.colors.textPrimary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  sourceClip.fileName,
-                                  style: TextStyle(
-                                    color: context.colors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          child: ClipRect(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.audiotrack,
+                                  size: 12,
+                                  color: context.colors.textPrimary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    sourceClip.fileName,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Waveform content
@@ -3761,29 +3771,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         // Header
                         Container(
                           height: headerHeight,
+                          clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(color: trackColor),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.audiotrack,
-                                size: 12,
-                                color: context.colors.textPrimary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  sourceClip.fileName,
-                                  style: TextStyle(
-                                    color: context.colors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          child: ClipRect(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.audiotrack,
+                                  size: 12,
+                                  color: context.colors.textPrimary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    sourceClip.fileName,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Waveform content
@@ -3874,29 +3887,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         // Header
                         Container(
                           height: headerHeight,
+                          clipBehavior: Clip.hardEdge,
                           decoration: BoxDecoration(color: trackColor),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.piano,
-                                size: 10,
-                                color: context.colors.textPrimary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  sourceClip.name,
-                                  style: TextStyle(
-                                    color: context.colors.textPrimary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          child: ClipRect(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.piano,
+                                  size: 10,
+                                  color: context.colors.textPrimary,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    sourceClip.name,
+                                    style: TextStyle(
+                                      color: context.colors.textPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Notes content
@@ -4338,35 +4354,37 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       ),
                       child: Column(
                         children: [
-                          // Header
+                          // Header (simplified when clip is too narrow)
                           Container(
                             height: headerHeight,
                             decoration: BoxDecoration(
                               color: trackColor,
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.piano,
-                                  size: 10,
-                                  color: context.colors.textPrimary,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    midiClip.name,
-                                    style: TextStyle(
-                                      color: context.colors.textPrimary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            padding: clipWidth > 26 ? const EdgeInsets.symmetric(horizontal: 4) : null,
+                            child: clipWidth > 26
+                                ? Row(
+                                    children: [
+                                      Icon(
+                                        Icons.piano,
+                                        size: 10,
+                                        color: context.colors.textPrimary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          midiClip.name,
+                                          style: TextStyle(
+                                            color: context.colors.textPrimary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null, // Just show colored bar for very narrow clips
                           ),
                           // Content area with notes (transparent background)
                           Expanded(
@@ -4620,29 +4638,32 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       // Header
                       Container(
                         height: headerHeight,
+                        clipBehavior: Clip.hardEdge,
                         decoration: BoxDecoration(color: trackColor),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.audiotrack,
-                              size: 12,
-                              color: context.colors.textPrimary,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                preview.fileName,
-                                style: TextStyle(
-                                  color: context.colors.textPrimary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                        child: ClipRect(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.audiotrack,
+                                size: 12,
+                                color: context.colors.textPrimary,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  preview.fileName,
+                                  style: TextStyle(
+                                    color: context.colors.textPrimary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       // Waveform content

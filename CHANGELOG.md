@@ -7,7 +7,7 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Features
 
 - Multi-note resize: when multiple notes are selected, resizing one resizes all by the same delta
-- Ableton-style audio clip drag preview: when dragging audio from library over audio tracks, shows ghost preview clip with filename header (snaps to grid like actual drop position)
+- Ableton-style audio clip drag preview: when dragging audio from library over audio tracks, shows faded preview clip matching real clip style with live waveform (snaps to grid)
 - Smart MIDI track tab switching:
   - Tab order: Instrument → Piano Roll → Effects
   - Dropping instrument shows Instrument tab (clip created but not selected)
@@ -19,6 +19,7 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Bug Fixes
 
 - Fixed: Piano Roll no longer shows placeholder briefly when switching from Instrument tab
+- Fixed: Clip header overflow on very short clips - wrapped header Rows in ClipRect to prevent "RenderFlex overflowed" errors
 
 - Piano roll note interactions:
   - Select mode now shows grab cursor (not resize cursor) - resize isn't possible in select mode
