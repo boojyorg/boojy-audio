@@ -105,6 +105,17 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   late TabController _tabController;
   int _selectedTabIndex = 0;
 
+  // Track if user manually selected a tab (vs auto-switching)
+  bool _userManuallySelectedTab = false;
+
+  // Track last track/clip IDs to detect changes
+  int? _lastTrackId;
+  int? _lastClipId;
+
+  // Flag to indicate we just switched to Piano Roll expecting clip data
+  // This prevents showing "Click to create clip" placeholder during transition
+  bool _switchedToPianoRollAwaitingData = false;
+
   // Temporary tool mode when holding modifier keys (Alt, Cmd)
   ToolMode? _tempToolMode;
 
@@ -180,6 +191,18 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
   }
 
+  /// Get the current clip ID (MIDI or audio)
+  int? _getCurrentClipId() {
+    return widget.currentEditingClip?.clipId ?? widget.currentEditingAudioClip?.clipId;
+  }
+
+  /// Handle user manually tapping a tab
+  void _onManualTabTap(int index) {
+    _userManuallySelectedTab = true;
+    _switchedToPianoRollAwaitingData = false; // Reset awaiting flag on manual selection
+    _tabController.index = index;
+  }
+
   @override
   void didUpdateWidget(EditorPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -198,42 +221,51 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           });
         });
         _selectedTabIndex = 0; // Reset to first tab
+        _userManuallySelectedTab = false; // Reset manual flag on track type change
+        _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
       });
+      _lastTrackId = widget.selectedTrackId;
+      _lastClipId = _getCurrentClipId();
       return; // Exit early to avoid setting index on newly created controller
     }
 
-    // Only auto-switch tabs if this is the first track selection (from null)
-    // Otherwise, preserve the current tab when switching between tracks
-    if (widget.selectedTrackId != oldWidget.selectedTrackId) {
-      if (oldWidget.selectedTrackId == null && widget.selectedTrackId != null) {
-        // First selection: auto-switch to appropriate tab
-        // MIDI: [Synthesizer=0, PianoRoll=1, Effects=2]
-        // Sampler: [Sampler=0, PianoRoll=1, Effects=2]
-        // Audio: [AudioEditor=0, Effects=1]
-        if (_isMidiTrack && widget.currentInstrumentData != null) {
-          _tabController.index = 0; // Instrument tab (MIDI tracks)
-        } else {
-          _tabController.index = 0; // First tab for all track types
-        }
+    final trackChanged = widget.selectedTrackId != _lastTrackId;
+    final currentClipId = _getCurrentClipId();
+    final clipChanged = currentClipId != _lastClipId;
+
+    // Track changed → reset to Instrument tab (tab 0) for MIDI/Sampler
+    if (trackChanged && widget.selectedTrackId != null) {
+      _userManuallySelectedTab = false; // Reset manual flag on track change
+      _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
+      if (_isMidiTrack || _isSamplerTrack) {
+        _tabController.index = 0; // Instrument/Sampler tab
+      } else if (_isAudioTrack) {
+        _tabController.index = 0; // Audio Editor tab
       }
-      // If switching from one track to another, preserve current tab
+    }
+    // Clip selected (and user hasn't manually chosen a tab) → Piano Roll
+    else if (clipChanged && currentClipId != null && !_userManuallySelectedTab) {
+      if (_isMidiTrack || _isSamplerTrack) {
+        // Set flag to prevent showing "Click to create clip" placeholder during transition
+        // This handles the case where tab switches but clip data takes a frame to propagate
+        _switchedToPianoRollAwaitingData = widget.currentEditingClip == null;
+        _tabController.index = 1; // Piano Roll tab
+      } else if (_isAudioTrack) {
+        _tabController.index = 0; // Audio Editor tab
+      }
+    }
+    // Clip deselected → back to Instrument tab
+    else if (clipChanged && currentClipId == null && _lastClipId != null) {
+      _userManuallySelectedTab = false; // Reset manual flag when clip deselected
+      _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
+      if (_isMidiTrack || _isSamplerTrack) {
+        _tabController.index = 0; // Instrument/Sampler tab
+      }
     }
 
-    // Auto-switch to Piano Roll tab when MIDI clip selected
-    if (widget.currentEditingClip != null && oldWidget.currentEditingClip == null) {
-      // MIDI: Piano Roll is tab 1. Sampler: Piano Roll is also tab 1
-      _tabController.index = 1;
-    }
-
-    // Auto-switch to Audio Editor/Sampler tab when audio clip selected
-    if (widget.currentEditingAudioClip != null && oldWidget.currentEditingAudioClip == null) {
-      _tabController.index = 0;
-    }
-
-    // Auto-switch to Instrument tab when instrument data first appears (MIDI tracks only)
-    if (_isMidiTrack && widget.currentInstrumentData != null && oldWidget.currentInstrumentData == null) {
-      _tabController.index = 0; // Instrument is now tab 0 for MIDI tracks
-    }
+    // Update tracking state
+    _lastTrackId = widget.selectedTrackId;
+    _lastClipId = currentClipId;
   }
 
   @override
@@ -510,7 +542,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          _tabController.index = index;
+          _onManualTabTap(index);
           widget.onTabAndExpand?.call(index);
         },
         borderRadius: BorderRadius.circular(6),
@@ -636,7 +668,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            _tabController.index = index;
+            _onManualTabTap(index);
           },
           borderRadius: BorderRadius.circular(6),
           child: AnimatedContainer(
@@ -826,8 +858,19 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     // Check if we have a real clip selected
     final clipData = widget.currentEditingClip;
 
+    // Clear the awaiting flag if clip data has arrived
+    if (clipData != null && _switchedToPianoRollAwaitingData) {
+      _switchedToPianoRollAwaitingData = false;
+    }
+
     // Track selected but no clip - show "Click to create" message
+    // BUT: if we just switched to Piano Roll expecting clip data, show empty state
+    // to avoid flashing the placeholder while data propagates
     if (clipData == null && widget.selectedTrackId != null) {
+      // If we're awaiting clip data (just switched tabs), show minimal empty state
+      if (_switchedToPianoRollAwaitingData) {
+        return ColoredBox(color: context.colors.dark, child: const SizedBox());
+      }
       return ColoredBox(
         color: context.colors.dark,
         child: Center(

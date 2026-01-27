@@ -832,7 +832,7 @@ class _DAWScreenState extends State<DAWScreen> {
   }
 
   // Unified track selection method - handles both timeline and mixer clicks
-  void _onTrackSelected(int? trackId, {bool isShiftHeld = false}) {
+  void _onTrackSelected(int? trackId, {bool isShiftHeld = false, bool autoSelectClip = false}) {
     if (trackId == null) {
       setState(() {
         _selectTrack(null);
@@ -848,7 +848,8 @@ class _DAWScreenState extends State<DAWScreen> {
 
     // Try to find an existing clip for this track and select it
     // instead of clearing the clip selection (only for single selection)
-    if (!isShiftHeld) {
+    // When autoSelectClip is false (e.g., after instrument drop), don't auto-select clip
+    if (!isShiftHeld && autoSelectClip) {
       final clipsForTrack = _midiPlaybackManager?.midiClips
           .where((c) => c.trackId == trackId)
           .toList();
@@ -861,6 +862,9 @@ class _DAWScreenState extends State<DAWScreen> {
         // No clips for this track - clear selection
         _midiPlaybackManager?.selectClip(null, null);
       }
+    } else if (!isShiftHeld && !autoSelectClip) {
+      // Clear clip selection when autoSelectClip is false
+      _midiPlaybackManager?.selectClip(null, null);
     }
   }
 
@@ -1028,8 +1032,8 @@ class _DAWScreenState extends State<DAWScreen> {
     // Assign the instrument to the new track
     _onInstrumentSelected(trackId, instrument.id);
 
-    // Select the newly created track and its clip
-    _onTrackSelected(trackId);
+    // Select the newly created track but NOT the clip (so Instrument tab shows)
+    _onTrackSelected(trackId, autoSelectClip: false);
 
     // Immediately refresh track widgets so the new track appears instantly
     _refreshTrackWidgets();
@@ -1125,8 +1129,8 @@ class _DAWScreenState extends State<DAWScreen> {
         _audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
 
-      // Select the newly created track and its clip
-      _onTrackSelected(trackId);
+      // Select the newly created track but NOT the clip (so Instrument tab shows)
+      _onTrackSelected(trackId, autoSelectClip: false);
 
       // Immediately refresh track widgets so the new track appears instantly
       _refreshTrackWidgets();

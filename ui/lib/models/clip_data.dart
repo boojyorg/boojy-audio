@@ -130,14 +130,40 @@ class ClipData {
 /// Preview clip shown during drag operation
 class PreviewClip {
   final String fileName;
+  final String filePath;
   final double startTime;
   final int trackId;
   final Offset mousePosition;
+  final double? duration;
+  final List<double>? waveformPeaks;
 
-  PreviewClip({
+  const PreviewClip({
     required this.fileName,
+    required this.filePath,
     required this.startTime,
     required this.trackId,
     required this.mousePosition,
+    this.duration,
+    this.waveformPeaks,
   });
+
+  PreviewClip copyWith({
+    String? fileName,
+    String? filePath,
+    double? startTime,
+    int? trackId,
+    Offset? mousePosition,
+    double? duration,
+    List<double>? waveformPeaks,
+  }) {
+    return PreviewClip(
+      fileName: fileName ?? this.fileName,
+      filePath: filePath ?? this.filePath,
+      startTime: startTime ?? this.startTime,
+      trackId: trackId ?? this.trackId,
+      mousePosition: mousePosition ?? this.mousePosition,
+      duration: duration ?? this.duration,
+      waveformPeaks: waveformPeaks ?? this.waveformPeaks,
+    );
+  }
 }

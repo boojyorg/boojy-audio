@@ -2229,7 +2229,51 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         // Only accept on Audio tracks, reject on MIDI tracks
         return !isMidiTrack;
       },
+      onMove: (details) {
+        // Library audio file drag - show preview with file info
+        if (isMidiTrack) return;
+
+        // Convert global offset to local coordinates
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+        final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+        final xInContent = localPos.dx + scrollOffset;
+        final rawBeats = xInContent / pixelsPerBeat;
+
+        // Snap to grid
+        final snappedBeats = GridUtils.snapToGridRound(
+          rawBeats,
+          GridUtils.getTimelineGridResolution(pixelsPerBeat),
+        );
+        final startTime = snappedBeats.clamp(0.0, double.infinity) / (widget.tempo / 60.0);
+
+        setState(() {
+          dragHoveredTrackId = track.id;
+          previewClip = PreviewClip(
+            fileName: details.data.name,
+            filePath: details.data.filePath,
+            startTime: startTime,
+            trackId: track.id,
+            mousePosition: localPos,
+          );
+        });
+      },
+      onLeave: (data) {
+        // Clear preview when leaving this track
+        if (previewClip?.trackId == track.id) {
+          setState(() {
+            dragHoveredTrackId = null;
+            previewClip = null;
+          });
+        }
+      },
       onAcceptWithDetails: (details) {
+        // Clear preview on drop
+        setState(() {
+          previewClip = null;
+          dragHoveredTrackId = null;
+        });
+
         // Calculate drop position with scroll offset
         final RenderBox? box = context.findRenderObject() as RenderBox?;
         final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
@@ -2300,13 +2344,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 // Only show preview on Audio tracks
                 if (isMidiTrack) return;
 
-                // Update preview position
-                const fileName = 'Preview'; // We don't have filename yet
+                // Update preview position (Finder drag - no file info yet)
                 final startTime = _calculateTimelinePosition(details.localPosition);
 
                 setState(() {
                   previewClip = PreviewClip(
-                    fileName: fileName,
+                    fileName: 'Audio File',
+                    filePath: '', // Unknown until drop
                     startTime: startTime,
                     trackId: track.id,
                     mousePosition: details.localPosition,
@@ -4484,30 +4528,77 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   }
 
   Widget _buildPreviewClip(PreviewClip preview) {
-    const previewDuration = 3.0; // seconds (placeholder)
+    // Use actual duration if available, otherwise 3 seconds default
+    final previewDuration = preview.duration ?? 3.0;
     final clipWidth = previewDuration * pixelsPerSecond;
     final clipX = preview.startTime * pixelsPerSecond;
+    final trackHeight = widget.clipHeights[preview.trackId] ?? 100.0;
+    final colors = context.colors;
 
     return Positioned(
       left: clipX,
       top: 0,
-      child: Container(
-        width: clipWidth,
-        height: 72,
-        decoration: BoxDecoration(
-          color: context.colors.success.withValues(alpha: 0.3),
-          border: Border.all(
-            color: context.colors.success,
-            width: 2,
-            strokeAlign: BorderSide.strokeAlignOutside,
+      child: Opacity(
+        opacity: 0.8,
+        child: Container(
+          width: clipWidth,
+          height: trackHeight - 2,
+          decoration: BoxDecoration(
+            color: colors.success.withValues(alpha: 0.15),
+            border: Border.all(
+              color: colors.success,
+              width: 2,
+              strokeAlign: BorderSide.strokeAlignOutside,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Center(
-          child: Icon(
-            Icons.audiotrack,
-            color: context.colors.success.withValues(alpha: 0.6),
-            size: 32,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with filename
+                Container(
+                  height: 18,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  color: colors.success.withValues(alpha: 0.3),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          preview.fileName,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Waveform area
+                Expanded(
+                  child: preview.waveformPeaks != null && preview.waveformPeaks!.isNotEmpty
+                      ? CustomPaint(
+                          painter: WaveformPainter(
+                            peaks: preview.waveformPeaks!,
+                            color: colors.success,
+                          ),
+                          size: Size(clipWidth, trackHeight - 20),
+                        )
+                      : Center(
+                          child: Icon(
+                            Icons.audiotrack,
+                            color: colors.success.withValues(alpha: 0.5),
+                            size: 24,
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
