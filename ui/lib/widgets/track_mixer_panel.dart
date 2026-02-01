@@ -446,20 +446,27 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   /// Handle arm button toggle with exclusive arm behavior for MIDI tracks.
   /// Clicking arm on a MIDI track disarms all other MIDI tracks (Ableton-style).
   void _handleArmToggle(TrackData track, List<TrackData> allTracks) {
+    final disarmedIds = <int>[];
     setState(() {
       if (!track.armed) {
         // Arming this track - disarm all other MIDI tracks (exclusive arm)
         for (final t in allTracks) {
           if (t.type == 'midi' && t.id != track.id && t.armed) {
             t.armed = false;
-            widget.audioEngine?.setTrackArmed(t.id, armed: false);
+            disarmedIds.add(t.id);
           }
         }
       }
       // Toggle this track's arm state
       track.armed = !track.armed;
     });
-    widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+    // Defer FFI calls so the frame paints first
+    Future.microtask(() {
+      for (final id in disarmedIds) {
+        widget.audioEngine?.setTrackArmed(id, armed: false);
+      }
+      widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+    });
   }
 
   /// Handle Shift+click on arm button for multi-arm mode.
@@ -468,7 +475,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     setState(() {
       track.armed = !track.armed;
     });
-    widget.audioEngine?.setTrackArmed(track.id, armed: track.armed);
+    Future.microtask(() => widget.audioEngine?.setTrackArmed(track.id, armed: track.armed));
   }
 
   Future<void> _duplicateTrack(TrackData track) async {
@@ -1072,13 +1079,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         setState(() {
           track.mute = !track.mute;
         });
-        widget.audioEngine?.setTrackMute(track.id, mute: track.mute);
+        Future.microtask(() => widget.audioEngine?.setTrackMute(track.id, mute: track.mute));
       },
       onSoloToggle: () {
         setState(() {
           track.solo = !track.solo;
         });
-        widget.audioEngine?.setTrackSolo(track.id, solo: track.solo);
+        Future.microtask(() => widget.audioEngine?.setTrackSolo(track.id, solo: track.solo));
       },
       isArmed: track.armed,
       onArmToggle: () => _handleArmToggle(track, allTracks),

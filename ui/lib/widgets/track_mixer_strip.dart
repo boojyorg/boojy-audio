@@ -1110,57 +1110,64 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   Widget _buildControlButton(String label, bool isActive, Color activeColor, VoidCallback? onPressed, double size, double fontSize) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? activeColor : context.colors.surface,
-          // All active buttons use dark text for better contrast
-          foregroundColor: isActive
-              ? context.colors.darkest
-              : context.colors.textSecondary,
-          padding: EdgeInsets.zero,
-          minimumSize: Size(size, size),
-          textStyle: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: onPressed,
+      child: MouseRegion(
+        cursor: onPressed != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: isActive ? activeColor : context.colors.surface,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? context.colors.darkest : context.colors.textSecondary,
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-        child: Text(label),
       ),
     );
   }
 
   /// Build arm button with Shift+click support for multi-arm mode
+  /// Matches M/S button style but uses red when armed
   Widget _buildArmButton(bool canArm, double size, double fontSize) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ElevatedButton(
-        onPressed: canArm
-            ? () {
-                // Check if Shift is held for multi-arm mode
-                final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
-                if (shiftPressed && widget.onArmShiftClick != null) {
-                  widget.onArmShiftClick!();
-                } else {
-                  widget.onArmToggle?.call();
-                }
+    return GestureDetector(
+      onTap: canArm
+          ? () {
+              final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
+              if (shiftPressed && widget.onArmShiftClick != null) {
+                widget.onArmShiftClick!();
+              } else {
+                widget.onArmToggle?.call();
               }
-            : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: widget.isArmed ? context.colors.recordActive : context.colors.surface,
-          foregroundColor: widget.isArmed ? context.colors.darkest : context.colors.textSecondary,
-          padding: EdgeInsets.zero,
-          minimumSize: Size(size, size),
-          textStyle: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.bold,
+            }
+          : null,
+      child: MouseRegion(
+        cursor: canArm ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: widget.isArmed ? context.colors.recordActive : context.colors.surface,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'R',
+            style: TextStyle(
+              color: widget.isArmed ? context.colors.darkest : context.colors.textSecondary,
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
-        child: const Text('R'),
       ),
     );
   }

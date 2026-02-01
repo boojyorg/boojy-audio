@@ -289,29 +289,26 @@ class _RecordButtonState extends State<RecordButton>
                 final bool isCountingIn = widget.isCountingIn;
                 final bool isRecording = widget.isRecording;
 
-                // Calculate fill color based on state
+                // Match CircularToggleButton pattern exactly
+                // Fill: dim red when idle, brighter when recording
                 Color fillColor;
-                if (!isEnabled) {
-                  fillColor = context.colors.elevated;
-                } else if (isRecording) {
-                  // Solid red when recording
+                if (isRecording) {
                   fillColor = recordColor.withValues(alpha: _isHovered ? 0.95 : 0.85);
                 } else if (isCountingIn) {
-                  // Blinking: interpolate between dim and bright
                   final blinkValue = _blinkController.value;
                   fillColor = recordColor.withValues(alpha: 0.3 + (blinkValue * 0.55));
-                } else {
-                  // Idle: match play/stop button alpha values (0.2 idle, 0.3 hover)
+                } else if (isEnabled) {
                   fillColor = recordColor.withValues(alpha: _isHovered ? 0.3 : 0.2);
+                } else {
+                  // Disabled: same as CircularToggleButton disabled
+                  fillColor = context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8);
                 }
 
-                // Border for all states when enabled (match play/stop - no alpha reduction)
-                final Border? border = isEnabled
-                    ? Border.all(
-                        color: recordColor,
-                        width: 2,
-                      )
-                    : null;
+                // Border always visible (matches CircularToggleButton)
+                final border = Border.all(
+                  color: isEnabled ? recordColor : context.colors.elevated,
+                  width: 2,
+                );
 
                 // Glow effect when hovering or recording
                 final List<BoxShadow>? shadows = (_isHovered || isRecording) && isEnabled
@@ -333,22 +330,14 @@ class _RecordButtonState extends State<RecordButton>
                     border: border,
                     boxShadow: shadows,
                   ),
-                  child: Center(
-                    // Always show inner red circle, varying in brightness
-                    child: Container(
-                      width: widget.size * 0.36,
-                      height: widget.size * 0.36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: !isEnabled
-                            ? context.colors.textSecondary
-                            : isRecording
-                                ? Colors.white.withValues(alpha: 0.9)
-                                : isCountingIn
-                                    ? recordColor.withValues(alpha: 0.5 + (_blinkController.value * 0.5))
-                                    : recordColor.withValues(alpha: _isHovered ? 0.8 : 0.6),
-                      ),
-                    ),
+                  child: Icon(
+                    Icons.fiber_manual_record,
+                    size: widget.size * 0.5,
+                    color: isEnabled
+                        ? (isCountingIn
+                            ? recordColor.withValues(alpha: 0.5 + (_blinkController.value * 0.5))
+                            : recordColor)
+                        : context.colors.textMuted,
                   ),
                 );
               },
