@@ -6,6 +6,18 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- Multi-track audio recording with per-track input routing:
+  - Per-track input device and channel assignment (stored on Track struct)
+  - Input selector dropdown on mixer strip Row 1 with live animated level meters (~50ms poll)
+  - Input monitoring: hear live input on armed tracks mixed into track output
+  - Input level overlay on capsule fader (faded green at 25% opacity behind output meters)
+  - Multi-channel recording: each armed audio track records its assigned input channel independently
+  - Recorded clips placed at playhead position (after count-in) instead of always at 0.0
+  - Auto-assign input channels on audio track creation (alternates L/R)
+  - Record button disabled when no tracks are armed
+  - Input selector locked during recording (greyed out, no arrow)
+  - Preview playback blocked during recording
+- Track icon/color popup: click track emoji to open picker with 16 emoji icons and 16 track colors
 - Multi-note resize: when multiple notes are selected, resizing one resizes all by the same delta
 - Ableton-style audio clip drag preview: when dragging audio from library over audio tracks, shows faded preview clip matching real clip style with live waveform (snaps to grid)
 - Smart MIDI track tab switching:

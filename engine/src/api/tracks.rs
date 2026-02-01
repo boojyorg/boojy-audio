@@ -173,6 +173,69 @@ pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<Strin
 }
 
 // ============================================================================
+// INPUT ROUTING
+// ============================================================================
+
+/// Set audio input device and channel for a track
+///
+/// # Arguments
+/// * `track_id` - Track ID
+/// * `device_index` - Input device index (-1 = no input)
+/// * `channel` - Channel index within the device (0-based, mono)
+pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        if device_index < 0 {
+            track.input_device_index = None;
+            track.input_channel = 0;
+            Ok(format!("Track {} input cleared", track_id))
+        } else {
+            track.input_device_index = Some(device_index as usize);
+            track.input_channel = channel;
+            Ok(format!("Track {} input set to device {} channel {}", track_id, device_index, channel))
+        }
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
+/// Get audio input device and channel for a track
+///
+/// Returns: "device_index,channel" (-1 if no input assigned)
+pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let track = track_arc.lock().map_err(|e| e.to_string())?;
+        let device_idx = track.input_device_index.map(|i| i as i32).unwrap_or(-1);
+        Ok(format!("{},{}", device_idx, track.input_channel))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
+/// Set input monitoring for a track (hear input through track when armed)
+pub fn set_track_input_monitoring(track_id: TrackId, enabled: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        track.input_monitoring = enabled;
+        Ok(format!("Track {} input monitoring: {}", track_id, enabled))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
+// ============================================================================
 // TRACK QUERIES
 // ============================================================================
 
@@ -218,8 +281,9 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
             TrackType::Group => "Group",
             TrackType::Master => "Master",
         };
+        let input_device = track.input_device_index.map(|i| i as i32).unwrap_or(-1);
         Ok(format!(
-            "{},{},{},{:.2},{:.2},{},{},{}",
+            "{},{},{},{:.2},{:.2},{},{},{},{},{}",
             track.id,
             track.name,
             type_str,
@@ -227,7 +291,9 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
             track.pan,
             track.mute as u8,
             track.solo as u8,
-            track.armed as u8
+            track.armed as u8,
+            input_device,
+            track.input_channel
         ))
     } else {
         Err(format!("Track {} not found", track_id))

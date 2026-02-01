@@ -28,6 +28,9 @@ class TrackController extends ChangeNotifier {
   // Track color state (auto-detected with manual override)
   final Map<int, Color> _trackColorOverrides = {};
 
+  // Track icon state (auto-detected from name/type, with manual override)
+  final Map<int, String> _trackIconOverrides = {};
+
   // Track instruments
   final Map<int, InstrumentData> _trackInstruments = {};
 
@@ -122,6 +125,23 @@ class TrackController extends ChangeNotifier {
   /// Clear track color override (revert to auto-detection)
   void clearTrackColorOverride(int trackId) {
     _trackColorOverrides.remove(trackId);
+    notifyListeners();
+  }
+
+  /// Get track icon (custom override or null for auto-detection)
+  String? getTrackIcon(int trackId) {
+    return _trackIconOverrides[trackId];
+  }
+
+  /// Set custom track icon emoji
+  void setTrackIcon(int trackId, String icon) {
+    _trackIconOverrides[trackId] = icon;
+    notifyListeners();
+  }
+
+  /// Clear custom track icon (revert to auto-detection)
+  void clearTrackIcon(int trackId) {
+    _trackIconOverrides.remove(trackId);
     notifyListeners();
   }
 

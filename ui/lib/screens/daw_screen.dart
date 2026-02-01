@@ -58,6 +58,7 @@ import '../controllers/controllers.dart';
 import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
+import 'daw/mixins/daw_mixins.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -67,213 +68,122 @@ class DAWScreen extends StatefulWidget {
   State<DAWScreen> createState() => _DAWScreenState();
 }
 
-class _DAWScreenState extends State<DAWScreen> {
-  AudioEngine? _audioEngine;
+class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin, DAWLibraryMixin, DAWProjectMixin, DAWBuildMixin {
+  // ============================================
+  // PRIVATE ALIASES FOR BACKWARD COMPATIBILITY
+  // These map private names to mixin's public properties
+  // ============================================
 
-  // Controllers (extracted from daw_screen for maintainability)
-  final PlaybackController _playbackController = PlaybackController();
-  final RecordingController _recordingController = RecordingController();
-  final TrackController _trackController = TrackController();
-  final MidiClipController _midiClipController = MidiClipController();
-  final AutomationController _automationController = AutomationController();
-  final UILayoutState _uiLayout = UILayoutState();
+  // Audio engine
+  AudioEngine? get _audioEngine => audioEngine;
+  set _audioEngine(AudioEngine? value) => audioEngine = value;
 
-  // Undo/Redo manager
-  final UndoRedoManager _undoRedoManager = UndoRedoManager();
+  // Controllers
+  PlaybackController get _playbackController => playbackController;
+  RecordingController get _recordingController => recordingController;
+  TrackController get _trackController => trackController;
+  MidiClipController get _midiClipController => midiClipController;
+  AutomationController get _automationController => automationController;
+  UILayoutState get _uiLayout => uiLayout;
 
-  // Library service
-  final LibraryService _libraryService = LibraryService();
+  // Undo/Redo
+  UndoRedoManager get _undoRedoManager => undoRedoManager;
 
-  // Library preview service (lazy initialized when audio engine is ready)
-  LibraryPreviewService? _libraryPreviewService;
+  // Services
+  LibraryService get _libraryService => libraryService;
+  LibraryPreviewService? get _libraryPreviewService => libraryPreviewService;
+  set _libraryPreviewService(LibraryPreviewService? value) => libraryPreviewService = value;
+  Vst3PluginManager? get _vst3PluginManager => vst3PluginManager;
+  set _vst3PluginManager(Vst3PluginManager? value) => vst3PluginManager = value;
+  ProjectManager? get _projectManager => projectManager;
+  set _projectManager(ProjectManager? value) => projectManager = value;
+  VersionManager? get _versionManager => versionManager;
+  set _versionManager(VersionManager? value) => versionManager = value;
+  MidiPlaybackManager? get _midiPlaybackManager => midiPlaybackManager;
+  set _midiPlaybackManager(MidiPlaybackManager? value) => midiPlaybackManager = value;
+  UserSettings get _userSettings => userSettings;
+  AutoSaveService get _autoSaveService => autoSaveService;
+  MidiCaptureBuffer get _midiCaptureBuffer => midiCaptureBuffer;
 
-  // M10: VST3 Plugin manager (lazy initialized when audio engine is ready)
-  Vst3PluginManager? _vst3PluginManager;
+  // Local state
+  int? get _loadedClipId => loadedClipId;
+  set _loadedClipId(int? value) => loadedClipId = value;
+  double? get _clipDuration => clipDuration;
+  set _clipDuration(double? value) => clipDuration = value;
+  List<double> get _waveformPeaks => waveformPeaks;
+  set _waveformPeaks(List<double> value) => waveformPeaks = value;
+  bool get _isAudioGraphInitialized => isAudioGraphInitialized;
+  set _isAudioGraphInitialized(bool value) => isAudioGraphInitialized = value;
+  bool get _isLoading => isLoading;
+  set _isLoading(bool value) => isLoading = value;
+  bool get _hasInitializedPanelSizes => hasInitializedPanelSizes;
+  set _hasInitializedPanelSizes(bool value) => hasInitializedPanelSizes = value;
+  ClipData? get _selectedAudioClip => selectedAudioClip;
+  set _selectedAudioClip(ClipData? value) => selectedAudioClip = value;
+  ToolMode get _currentToolMode => currentToolMode;
+  set _currentToolMode(ToolMode value) => currentToolMode = value;
+  ProjectMetadata get _projectMetadata => projectMetadata;
+  set _projectMetadata(ProjectMetadata value) => projectMetadata = value;
+  Map<int, double?> get _automationPreviewValues => automationPreviewValues;
 
-  // M5: Project manager (lazy initialized when audio engine is ready)
-  ProjectManager? _projectManager;
+  // Playback convenience
+  double get _playheadPosition => playheadPosition;
+  set _playheadPosition(double value) => playheadPosition = value;
+  bool get _isPlaying => isPlaying;
+  set _statusMessage(String value) => statusMessage = value;
 
-  // Version manager (lazy initialized when project is loaded)
-  VersionManager? _versionManager;
+  // Recording convenience
+  bool get _isRecording => isRecording;
+  bool get _isCountingIn => isCountingIn;
+  bool get _isMetronomeEnabled => isMetronomeEnabled;
+  double get _tempo => tempo;
+  List<Map<String, dynamic>> get _midiDevices => midiDevices;
+  int get _selectedMidiDeviceIndex => selectedMidiDeviceIndex;
 
-  // M8: MIDI playback manager (lazy initialized when audio engine is ready)
-  MidiPlaybackManager? _midiPlaybackManager;
-
-  // User settings and auto-save
-  final UserSettings _userSettings = UserSettings();
-  final AutoSaveService _autoSaveService = AutoSaveService();
-
-  // MIDI capture buffer for retroactive recording
-  final MidiCaptureBuffer _midiCaptureBuffer = MidiCaptureBuffer(maxDurationSeconds: 30);
-
-  // State (clip-specific state remains local)
-  int? _loadedClipId;
-  double? _clipDuration;
-  List<double> _waveformPeaks = [];
-  bool _isAudioGraphInitialized = false;
-  bool _isLoading = false;
-  bool _hasInitializedPanelSizes = false; // Track if we've set initial panel sizes
-
-  // Audio clip selection for Audio Editor
-  ClipData? _selectedAudioClip;
-
-  // Tool mode (shared between piano roll and arrangement view)
-  ToolMode _currentToolMode = ToolMode.draw;
-
-  // Project metadata
-  ProjectMetadata _projectMetadata = const ProjectMetadata(
-    name: 'Untitled',
-    bpm: 120.0,
-  );
-
-  // Playback state now managed by _playbackController
-  // Convenience getters/setters for backwards compatibility
-  double get _playheadPosition => _playbackController.playheadPosition;
-  set _playheadPosition(double value) => _playbackController.setPlayheadPosition(value);
-  bool get _isPlaying => _playbackController.isPlaying;
-  set _statusMessage(String value) => _playbackController.setStatusMessage(value);
-
-  // Recording state now managed by _recordingController
-  // Convenience getters for backwards compatibility
-  bool get _isRecording => _recordingController.isRecording;
-  bool get _isCountingIn => _recordingController.isCountingIn;
-  bool get _isMetronomeEnabled => _recordingController.isMetronomeEnabled;
-  double get _tempo => _recordingController.tempo;
-  List<Map<String, dynamic>> get _midiDevices => _recordingController.midiDevices;
-  int get _selectedMidiDeviceIndex => _recordingController.selectedMidiDeviceIndex;
-
-  // M3-M7: UI panel state now managed by _uiLayout (UILayoutState)
-  // Includes: virtual piano, mixer, library panel, editor panel, and panel sizes
-
-  // M8-M10: Track state now managed by _trackController (TrackController)
-
-  // Convenience getters/setters that delegate to _trackController
-  int? get _selectedTrackId => _trackController.selectedTrackId;
-  Set<int> get _selectedTrackIds => _trackController.selectedTrackIds;
+  // Track convenience
+  int? get _selectedTrackId => selectedTrackId;
+  set _selectedTrackId(int? value) => selectedTrackId = value;
+  Set<int> get _selectedTrackIds => selectedTrackIds;
   void _selectTrack(int? trackId, {bool isShiftHeld = false}) =>
-      _trackController.selectTrack(trackId, isShiftHeld: isShiftHeld);
-  set _selectedTrackId(int? value) => _trackController.selectTrack(value);
+      selectTrack(trackId, isShiftHeld: isShiftHeld);
+  Map<int, InstrumentData> get _trackInstruments => trackInstruments;
+  Map<int, double> get _clipHeights => clipHeights;
+  Map<int, double> get _automationHeights => automationHeights;
+  double get _masterTrackHeight => masterTrackHeight;
 
-  Map<int, InstrumentData> get _trackInstruments => _trackController.trackInstruments;
-  Map<int, double> get _clipHeights => _trackController.clipHeights;
-  Map<int, double> get _automationHeights => _trackController.automationHeights;
-  double get _masterTrackHeight => _trackController.masterTrackHeight;
+  // Helper method aliases
+  void _setClipHeight(int trackId, double height) => setClipHeight(trackId, height);
+  void _setAutomationHeight(int trackId, double height) => setAutomationHeight(trackId, height);
+  void _onAutomationPreviewValue(int trackId, double? value) => onAutomationPreviewValue(trackId, value);
+  void _syncVolumeAutomationToEngine(int trackId) => syncVolumeAutomationToEngine(trackId);
+  void _setMasterTrackHeight(double height) => setMasterTrackHeight(height);
+  Color _getTrackColor(int trackId, String trackName, String trackType) => getTrackColor(trackId, trackName, trackType);
+  void _setTrackColor(int trackId, Color color) => setTrackColor(trackId, color);
 
-  // Live preview values for automation drag (trackId -> normalized value)
-  Map<int, double?> _automationPreviewValues = {};
+  // GlobalKeys
+  GlobalKey<TimelineViewState> get _timelineKey => timelineKey;
+  GlobalKey<TrackMixerPanelState> get _mixerKey => mixerKey;
 
-  void _setClipHeight(int trackId, double height) {
-    _trackController.setClipHeight(trackId, height);
-  }
+  // Scroll controllers
+  ScrollController get _timelineVerticalScrollController => timelineVerticalScrollController;
+  ScrollController get _mixerVerticalScrollController => mixerVerticalScrollController;
+  bool get _isScrollSyncing => isScrollSyncing;
+  set _isScrollSyncing(bool value) => isScrollSyncing = value;
 
-  void _setAutomationHeight(int trackId, double height) {
-    _trackController.setAutomationHeight(trackId, height);
-  }
+  // Scroll sync methods
+  void _onTimelineVerticalScroll() => onTimelineVerticalScroll();
+  void _onMixerVerticalScroll() => onMixerVerticalScroll();
 
-  void _onAutomationPreviewValue(int trackId, double? value) {
-    setState(() {
-      if (value == null) {
-        _automationPreviewValues.remove(trackId);
-      } else {
-        _automationPreviewValues[trackId] = value;
-      }
-    });
-  }
+  // Track widget methods
+  void _disarmOtherMidiTracks(int exceptTrackId) => disarmOtherMidiTracks(exceptTrackId);
+  void _refreshTrackWidgets({bool clearClips = false}) => refreshTrackWidgets(clearClips: clearClips);
 
-  /// Sync volume automation to engine for a specific track
-  /// Called after automation points are added, updated, or deleted
-  void _syncVolumeAutomationToEngine(int trackId) {
-    final lane = _automationController.getLane(trackId, AutomationParameter.volume);
-    if (lane != null && _audioEngine != null) {
-      final csv = lane.toEngineDbCsv(_tempo);
-      _audioEngine!.setTrackVolumeAutomation(trackId, csv);
-    }
-  }
-
-  void _setMasterTrackHeight(double height) {
-    _trackController.setMasterTrackHeight(height);
-  }
-
-  Color _getTrackColor(int trackId, String trackName, String trackType) {
-    return _trackController.getTrackColor(trackId, trackName, trackType);
-  }
-
-  void _setTrackColor(int trackId, Color color) {
-    _trackController.setTrackColor(trackId, color);
-  }
-
-  // GlobalKeys for child widgets that need immediate refresh
-  final GlobalKey<TimelineViewState> _timelineKey = GlobalKey<TimelineViewState>();
-  final GlobalKey<TrackMixerPanelState> _mixerKey = GlobalKey<TrackMixerPanelState>();
-
-  // Linked vertical scroll controllers for timeline and mixer panel sync
-  final ScrollController _timelineVerticalScrollController = ScrollController();
-  final ScrollController _mixerVerticalScrollController = ScrollController();
-  bool _isScrollSyncing = false; // Prevent infinite loop during sync
-
-  /// Sync timeline scroll to mixer
-  void _onTimelineVerticalScroll() {
-    if (_isScrollSyncing) return;
-    if (!_mixerVerticalScrollController.hasClients) return;
-    if (!_mixerVerticalScrollController.position.hasContentDimensions) return;
-
-    _isScrollSyncing = true;
-    try {
-      final targetOffset = _timelineVerticalScrollController.offset.clamp(
-        _mixerVerticalScrollController.position.minScrollExtent,
-        _mixerVerticalScrollController.position.maxScrollExtent,
-      );
-      _mixerVerticalScrollController.jumpTo(targetOffset);
-    } finally {
-      _isScrollSyncing = false;
-    }
-  }
-
-  /// Sync mixer scroll to timeline
-  void _onMixerVerticalScroll() {
-    if (_isScrollSyncing) return;
-    if (!_timelineVerticalScrollController.hasClients) return;
-    if (!_timelineVerticalScrollController.position.hasContentDimensions) return;
-
-    _isScrollSyncing = true;
-    try {
-      final targetOffset = _mixerVerticalScrollController.offset.clamp(
-        _timelineVerticalScrollController.position.minScrollExtent,
-        _timelineVerticalScrollController.position.maxScrollExtent,
-      );
-      _timelineVerticalScrollController.jumpTo(targetOffset);
-    } finally {
-      _isScrollSyncing = false;
-    }
-  }
-
-  /// Disarm all MIDI tracks except the specified one.
-  /// Called when a new MIDI track is created to implement exclusive arm.
-  void _disarmOtherMidiTracks(int exceptTrackId) {
-    final tracks = _mixerKey.currentState?.tracks ?? [];
-    for (final track in tracks) {
-      if (track.type == 'midi' && track.id != exceptTrackId && track.armed) {
-        track.armed = false;
-        _audioEngine?.setTrackArmed(track.id, armed: false);
-      }
-    }
-  }
-
-  /// Trigger immediate refresh of track lists in both timeline and mixer panels
-  void _refreshTrackWidgets({bool clearClips = false}) {
-    // Use post-frame callback to ensure the engine state has settled
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        if (clearClips) {
-          _timelineKey.currentState?.clearClips();
-        }
-        _timelineKey.currentState?.refreshTracks();
-        _mixerKey.currentState?.refreshTracks();
-        // Force a rebuild of the parent widget as well
-        setState(() {});
-      }
-    });
-  }
+  // ============================================
+  // END OF ALIASES
+  // The mixins (DAWPlaybackMixin, DAWRecordingMixin, etc.) provide
+  // public methods that can be used directly. The private methods
+  // below are kept for backward compatibility during migration.
+  // ============================================
 
   @override
   void initState() {
@@ -3716,6 +3626,7 @@ class _DAWScreenState extends State<DAWScreen> {
             canPlay: true, // Always allow transport controls
             isRecording: _isRecording,
             isCountingIn: _isCountingIn,
+            hasArmedTracks: mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
             metronomeEnabled: _isMetronomeEnabled,
             virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
             tempo: _tempo,
@@ -4004,6 +3915,12 @@ class _DAWScreenState extends State<DAWScreen> {
                             onTogglePanel: _toggleMixer,
                             getTrackColor: _getTrackColor,
                             onTrackColorChanged: _setTrackColor,
+                            getTrackIcon: (trackId) => _trackController.getTrackIcon(trackId),
+                            onTrackIconChanged: (trackId, icon) {
+                              setState(() {
+                                _trackController.setTrackIcon(trackId, icon);
+                              });
+                            },
                             onTrackNameChanged: (trackId, newName) {
                               // Mark track name as user-edited
                               _trackController.markTrackNameUserEdited(trackId, edited: true);
@@ -4044,6 +3961,7 @@ class _DAWScreenState extends State<DAWScreen> {
                             },
                             automationPreviewValues: _automationPreviewValues,
                             onAutomationPreviewValue: _onAutomationPreviewValue,
+                            isRecording: _recordingController.isRecording || _recordingController.isCountingIn,
                             getSelectedParameter: (trackId) => _automationController.visibleParameter,
                             onParameterChanged: (trackId, param) {
                               setState(() {

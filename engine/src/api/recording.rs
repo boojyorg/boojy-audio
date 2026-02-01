@@ -79,6 +79,29 @@ pub fn get_sample_rate() -> u32 {
 }
 
 // ============================================================================
+// AUDIO INPUT METERING
+// ============================================================================
+
+/// Get input channel peak level for metering
+/// Returns peak amplitude (0.0 to 1.0+) for the specified channel (0=left, 1=right)
+pub fn get_input_channel_level(channel: u32) -> Result<f32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    Ok(input_manager.get_channel_peak(channel))
+}
+
+/// Get number of input channels for the current device
+pub fn get_input_channel_count() -> Result<u32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    Ok(input_manager.get_input_channels() as u32)
+}
+
+// ============================================================================
 // AUDIO INPUT CAPTURE
 // ============================================================================
 
@@ -116,6 +139,24 @@ pub fn stop_audio_input() -> Result<String, String> {
 pub fn start_recording() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    // Capture playhead position BEFORE starting playback
+    // This is where the recorded clip will be placed on the timeline
+    let playhead_seconds = graph.get_playhead_position();
+
+    // Calculate count-in duration so we know the actual recording start position
+    let count_in_bars = graph.recorder.get_count_in_bars();
+    let tempo = graph.recorder.get_tempo();
+    let time_sig = graph.recorder.get_time_signature();
+    let count_in_seconds = if count_in_bars > 0 {
+        (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo
+    } else {
+        0.0
+    };
+
+    // The clip should be placed at the playhead position AFTER count-in completes
+    let recording_start = playhead_seconds + count_in_seconds;
+    graph.recorder.set_recording_start_seconds(recording_start);
 
     // FIRST: Start playback state (lock-free atomic operation)
     // This must happen before starting audio input to avoid deadlock
@@ -189,11 +230,8 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     }
 
     if let Some(clip) = clip_option {
-        // Store the recorded clip and add to ALL armed tracks (Ableton-style multi-arm)
-        let clip_arc = Arc::new(clip);
-
-        // Find ALL armed audio tracks
-        let target_track_ids: Vec<u64> = {
+        // Find ALL armed audio tracks with their input channel assignments
+        let armed_tracks: Vec<(u64, u32)> = {
             let mut tm = graph.track_manager.lock().map_err(|e| e.to_string())?;
             let audio_tracks: Vec<_> = tm.get_all_tracks()
                 .into_iter()
@@ -207,15 +245,16 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
                 .collect();
 
             if audio_tracks.is_empty() {
-                // No audio tracks exist, create one
-                vec![tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string())]
+                // No audio tracks exist, create one (defaults to channel 0)
+                let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
+                vec![(id, 0u32)]
             } else {
-                // Find ALL armed tracks
-                let armed_tracks: Vec<u64> = audio_tracks.iter()
+                // Find ALL armed tracks with their input channels
+                let armed: Vec<(u64, u32)> = audio_tracks.iter()
                     .filter_map(|t| {
                         if let Ok(track) = t.lock() {
                             if track.armed {
-                                Some(track.id)
+                                Some((track.id, track.input_channel))
                             } else {
                                 None
                             }
@@ -225,49 +264,87 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
                     })
                     .collect();
 
-                if armed_tracks.is_empty() {
+                if armed.is_empty() {
                     // No armed tracks, use first track
                     if let Some(first_track) = audio_tracks.first() {
                         if let Ok(track) = first_track.lock() {
-                            vec![track.id]
+                            vec![(track.id, track.input_channel)]
                         } else {
-                            // Mutex poisoned, create new track
-                            vec![tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string())]
+                            let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
+                            vec![(id, 0u32)]
                         }
                     } else {
-                        // Should not happen since we checked is_empty, but be safe
-                        vec![tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string())]
+                        let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
+                        vec![(id, 0u32)]
                     }
                 } else {
-                    // Use all armed tracks
-                    armed_tracks
+                    armed
                 }
             }
         };
 
-        eprintln!("🎙️ [API] Recording will be added to {} track(s): {:?}", target_track_ids.len(), target_track_ids);
+        eprintln!("🎙️ [API] Recording will be added to {} track(s): {:?}", armed_tracks.len(), armed_tracks);
 
-        // Add clip to ALL armed tracks at position 0.0
+        // Place clip at the position where recording started (after count-in)
+        let start_position = graph.recorder.get_recording_start_seconds();
+        eprintln!("🎙️ [API] Placing recorded clip at position {:.3}s", start_position);
+
+        let stereo_samples = &clip.samples;
+        let duration = clip.duration_seconds;
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         let mut first_clip_id = None;
-        for track_id in &target_track_ids {
-            let clip_id = graph.add_clip_to_track(*track_id, clip_arc.clone(), 0.0)
+        let clips_mutex = get_audio_clips()?;
+        let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+
+        for (track_id, input_channel) in &armed_tracks {
+            // Extract this track's assigned input channel from the stereo recording
+            // Channel 0 = left (even indices), Channel 1 = right (odd indices)
+            // Create a stereo clip where both channels contain the mono source
+            let track_samples: Vec<f32> = if armed_tracks.len() == 1 {
+                // Single track: use the full stereo recording as-is
+                stereo_samples.clone()
+            } else {
+                // Multi-track: extract assigned channel and duplicate to stereo
+                let channel_offset = *input_channel as usize;
+                let frame_count = stereo_samples.len() / 2;
+                let mut samples = Vec::with_capacity(frame_count * 2);
+                for frame in 0..frame_count {
+                    let sample = stereo_samples.get(frame * 2 + channel_offset.min(1))
+                        .copied().unwrap_or(0.0);
+                    samples.push(sample); // Left
+                    samples.push(sample); // Right (same mono source)
+                }
+                samples
+            };
+
+            let track_clip = crate::audio_file::AudioClip {
+                samples: track_samples,
+                channels: 2,
+                sample_rate: crate::audio_file::TARGET_SAMPLE_RATE,
+                duration_seconds: duration,
+                file_path: format!("recorded_t{}_{}.wav", track_id, timestamp),
+            };
+
+            let track_clip_arc = Arc::new(track_clip);
+            let clip_id = graph.add_clip_to_track(*track_id, track_clip_arc.clone(), start_position)
                 .ok_or(format!("Failed to add recorded clip to track {}", track_id))?;
+
+            clips_map.insert(clip_id, track_clip_arc);
 
             if first_clip_id.is_none() {
                 first_clip_id = Some(clip_id);
             }
 
-            eprintln!("✅ [API] Added clip {} to track {}", clip_id, track_id);
+            eprintln!("✅ [API] Added clip {} to track {} (input ch {})", clip_id, track_id, input_channel);
         }
 
         let clip_id = first_clip_id.ok_or("Failed to create any clips")?;
 
-        // Store in AUDIO_CLIPS map with the first clip ID
-        let clips_mutex = get_audio_clips()?;
-        let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
-        clips_map.insert(clip_id, clip_arc);
-
-        eprintln!("📊 [API] Recorded clip duplicated to {} armed tracks", target_track_ids.len());
+        eprintln!("📊 [API] Created {} clips for {} armed tracks", armed_tracks.len(), armed_tracks.len());
 
         Ok(Some(clip_id))
     } else {

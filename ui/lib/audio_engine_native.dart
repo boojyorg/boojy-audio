@@ -93,6 +93,11 @@ class AudioEngine implements AudioEngineInterface {
   late final _SetTrackMuteFfi _setTrackMute;
   late final _SetTrackSoloFfi _setTrackSolo;
   late final _SetTrackArmedFfi _setTrackArmed;
+  late final _SetTrackInputFfi _setTrackInput;
+  late final _GetTrackInputFfi _getTrackInput;
+  late final _SetTrackInputMonitoringFfi _setTrackInputMonitoring;
+  late final _GetInputChannelLevelFfi _getInputChannelLevel;
+  late final _GetInputChannelCountFfi _getInputChannelCount;
   late final _SetTrackNameFfi _setTrackName;
   late final _GetTrackCountFfi _getTrackCount;
   late final _GetAllTrackIdsFfi _getAllTrackIds;
@@ -549,6 +554,31 @@ class AudioEngine implements AudioEngineInterface {
       _setTrackArmed = _lib
           .lookup<ffi.NativeFunction<_SetTrackArmedFfiNative>>(
               'set_track_armed_ffi')
+          .asFunction();
+
+      _setTrackInput = _lib
+          .lookup<ffi.NativeFunction<_SetTrackInputFfiNative>>(
+              'set_track_input_ffi')
+          .asFunction();
+
+      _getTrackInput = _lib
+          .lookup<ffi.NativeFunction<_GetTrackInputFfiNative>>(
+              'get_track_input_ffi')
+          .asFunction();
+
+      _setTrackInputMonitoring = _lib
+          .lookup<ffi.NativeFunction<_SetTrackInputMonitoringFfiNative>>(
+              'set_track_input_monitoring_ffi')
+          .asFunction();
+
+      _getInputChannelLevel = _lib
+          .lookup<ffi.NativeFunction<_GetInputChannelLevelFfiNative>>(
+              'get_input_channel_level_ffi')
+          .asFunction();
+
+      _getInputChannelCount = _lib
+          .lookup<ffi.NativeFunction<_GetInputChannelCountFfiNative>>(
+              'get_input_channel_count_ffi')
           .asFunction();
 
       _setTrackName = _lib
@@ -2027,6 +2057,78 @@ class AudioEngine implements AudioEngineInterface {
     }
   }
 
+  /// Set audio input device and channel for a track
+  /// deviceIndex: -1 = no input, 0+ = device index
+  /// channel: 0-based channel within the device
+  String setTrackInput(int trackId, int deviceIndex, int channel) {
+    try {
+      final resultPtr = _setTrackInput(trackId, deviceIndex, channel);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Get audio input device and channel for a track
+  /// Returns map with 'deviceIndex' (-1 if none) and 'channel'
+  Map<String, int> getTrackInput(int trackId) {
+    try {
+      final resultPtr = _getTrackInput(trackId);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error')) {
+        return {'deviceIndex': -1, 'channel': 0};
+      }
+      final parts = result.split(',');
+      if (parts.length >= 2) {
+        return {
+          'deviceIndex': int.tryParse(parts[0]) ?? -1,
+          'channel': int.tryParse(parts[1]) ?? 0,
+        };
+      }
+      return {'deviceIndex': -1, 'channel': 0};
+    } catch (e) {
+      return {'deviceIndex': -1, 'channel': 0};
+    }
+  }
+
+  /// Set input monitoring for a track
+  String setTrackInputMonitoring(int trackId, {required bool enabled}) {
+    try {
+      final resultPtr = _setTrackInputMonitoring(trackId, enabled);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Get input channel peak level for metering (0.0 to 1.0+)
+  /// channel: 0 = left, 1 = right
+  double getInputChannelLevel(int channel) {
+    try {
+      final resultPtr = _getInputChannelLevel(channel);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error')) return 0.0;
+      return double.tryParse(result) ?? 0.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get number of input channels for the current device
+  int getInputChannelCount() {
+    try {
+      return _getInputChannelCount();
+    } catch (e) {
+      return 0;
+    }
+  }
+
   /// Rename a track
   String setTrackName(int trackId, String name) {
     try {
@@ -3215,6 +3317,21 @@ typedef _SetTrackSoloFfi = ffi.Pointer<Utf8> Function(int, bool);
 
 typedef _SetTrackArmedFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Bool);
 typedef _SetTrackArmedFfi = ffi.Pointer<Utf8> Function(int, bool);
+
+typedef _SetTrackInputFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Int32, ffi.Uint32);
+typedef _SetTrackInputFfi = ffi.Pointer<Utf8> Function(int, int, int);
+
+typedef _GetTrackInputFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetTrackInputFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _SetTrackInputMonitoringFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Bool);
+typedef _SetTrackInputMonitoringFfi = ffi.Pointer<Utf8> Function(int, bool);
+
+typedef _GetInputChannelLevelFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint32);
+typedef _GetInputChannelLevelFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetInputChannelCountFfiNative = ffi.Uint32 Function();
+typedef _GetInputChannelCountFfi = int Function();
 
 typedef _SetTrackNameFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<Utf8>);
 typedef _SetTrackNameFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<Utf8>);

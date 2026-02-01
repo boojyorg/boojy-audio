@@ -84,6 +84,17 @@ class AudioEngine implements AudioEngineInterface {
   void setTrackArmed(int trackId, {required bool armed}) =>
       throw UnsupportedError('stub');
 
+  String setTrackInput(int trackId, int deviceIndex, int channel) => 'OK';
+
+  Map<String, int> getTrackInput(int trackId) =>
+      {'deviceIndex': -1, 'channel': 0};
+
+  String setTrackInputMonitoring(int trackId, {required bool enabled}) => 'OK';
+
+  double getInputChannelLevel(int channel) => 0.0;
+
+  int getInputChannelCount() => 0;
+
   @override
   int addEffectToTrack(int trackId, String effectType) =>
       throw UnsupportedError('stub');
@@ -140,6 +151,9 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void setCountInBars(int bars) => throw UnsupportedError('stub');
+
+  // Audio device operations
+  List<Map<String, dynamic>> getAudioInputDevices() => [];
 
   // Audio file operations (not in interface but used directly)
   int loadAudioFile(String path) => throw UnsupportedError('stub');

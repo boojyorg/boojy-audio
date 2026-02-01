@@ -6,12 +6,19 @@
 
 ## What's Next
 
-### v0.2.0 — Producer Workflow
+### v0.2.0 — Recording & Mixing Essentials
 
-- ~~Library sound preview~~ ✅
-- Sampler fixes
-- Clip automation playback (engine integration)
-- Synth preset preview (MIDI note audition)
+- [ ] Send/Return effects (beginner-friendly presets + manual setup)
+- [ ] Better Sampler editor (real waveform, loop points, one-shot, full audio controls)
+- [ ] MIDI CC recording (sustain pedal + pitch bend)
+- [ ] Input monitoring (hear live input through DAW)
+- [ ] Tempo automation (master tempo track)
+- [ ] Punch in/out recording
+- [ ] Freeze/bounce track (non-destructive)
+- [ ] Scale/key snapping in piano roll
+- [ ] MIDI Learn (map hardware controllers to parameters)
+
+See [docs/v0.2-design.md](v0.2-design.md) for full design spec with mockups.
 
 ---
 
@@ -43,7 +50,7 @@ Focus: Core functionality, stability, audio clip features
 
 ---
 
-### v0.2.0 Details
+### v0.1.5 — Producer Workflow Foundation (Complete)
 
 Focus: Features that unblock beat-making and instrumental production
 
@@ -93,22 +100,15 @@ Focus: Features that unblock beat-making and instrumental production
 
 ---
 
-### v0.3.0 — Recording & Mixing
+### v0.3.0 — Polish & Advanced
 
-Focus: Complete the recording workflow
+Focus: Clip editing refinements and workflow improvements
 
-**Recording:**
-
-- [ ] MIDI controller recording
-- [ ] Audio recording (mic/line input)
-- [ ] Capture MIDI (retroactive)
-- [ ] Input monitoring
-
-**Mixing:**
-
-- [ ] Mixer view (dedicated panel)
-- [ ] Aux/return tracks (send effects)
-- [ ] Track groups/folders
+- [ ] Fade in/out on audio clips (linear, exponential, S-curve)
+- [ ] Crossfades between overlapping clips
+- [ ] Track grouping/folders
+- [ ] Plugin presets (save/load per effect/instrument)
+- [ ] Arrangement markers (named timeline markers: Intro, Verse, etc.)
 
 ---
 

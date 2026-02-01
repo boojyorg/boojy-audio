@@ -904,6 +904,16 @@ impl AudioGraph {
                                             track_right += synth_sample;
                                         }
 
+                                        // Input monitoring: mix live input for armed audio tracks
+                                        if track.armed && track.input_monitoring
+                                            && track.track_type == crate::track::TrackType::Audio
+                                        {
+                                            let ch = track.input_channel as usize;
+                                            let input_sample = if ch == 0 { input_left } else { input_right };
+                                            track_left += input_sample;
+                                            track_right += input_sample;
+                                        }
+
                                         // Handle mute/solo
                                         if track.mute {
                                             // Still process FX to keep VST3 alive, but don't mix
@@ -1045,6 +1055,11 @@ impl AudioGraph {
                     soloed: bool,
                     fx_chain: Vec<u64>,
                     volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
+                    // Input monitoring fields
+                    armed: bool,
+                    input_monitoring: bool,
+                    input_channel: u32,
+                    is_audio_track: bool,
                 }
 
                 let track_data_option = if let Ok(tm) = track_manager.lock() {
@@ -1067,6 +1082,10 @@ impl AudioGraph {
                                 soloed: track.solo,
                                 fx_chain: track.fx_chain.clone(),
                                 volume_automation: track.volume_automation.clone(),
+                                armed: track.armed,
+                                input_monitoring: track.input_monitoring,
+                                input_channel: track.input_channel,
+                                is_audio_track: track.track_type == crate::track::TrackType::Audio,
                             };
 
                             if track.track_type == crate::track::TrackType::Master {
@@ -1105,6 +1124,28 @@ impl AudioGraph {
 
                     let mut mix_left = 0.0;
                     let mut mix_right = 0.0;
+
+                    // Read input samples FIRST (needed for both recording and input monitoring)
+                    let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
+                        let channels = input_mgr.get_input_channels();
+                        if channels == 1 {
+                            if let Some(samples) = input_mgr.read_samples(1) {
+                                let mono_sample = samples.get(0).copied().unwrap_or(0.0);
+                                (mono_sample, mono_sample)
+                            } else {
+                                (0.0, 0.0)
+                            }
+                        } else {
+                            if let Some(samples) = input_mgr.read_samples(2) {
+                                (samples.get(0).copied().unwrap_or(0.0),
+                                 samples.get(1).copied().unwrap_or(0.0))
+                            } else {
+                                (0.0, 0.0)
+                            }
+                        }
+                    } else {
+                        (0.0, 0.0)
+                    };
 
                     // Mix all tracks using snapshots (no locking!)
                     for track_snap in &track_snapshots {
@@ -1257,6 +1298,14 @@ impl AudioGraph {
                             track_right += synth_sample;
                         }
 
+                        // Input monitoring: mix live input for armed audio tracks
+                        if track_snap.armed && track_snap.input_monitoring && track_snap.is_audio_track {
+                            let ch = track_snap.input_channel as usize;
+                            let input_sample = if ch == 0 { input_left } else { input_right };
+                            track_left += input_sample;
+                            track_right += input_sample;
+                        }
+
                         // Process FX chain on this track BEFORE volume/pan
                         // This is important because VST3 instruments generate their own audio
                         // and we want the fader to control the post-FX output level
@@ -1337,29 +1386,6 @@ impl AudioGraph {
                         }
                     }
                     */ // END LEGACY CODE REMOVAL
-
-                    // Get input samples (if recording)
-                    // Use try_lock() to avoid deadlock with API thread
-                    let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
-                        let channels = input_mgr.get_input_channels();
-                        if channels == 1 {
-                            if let Some(samples) = input_mgr.read_samples(1) {
-                                let mono_sample = samples.get(0).copied().unwrap_or(0.0);
-                                (mono_sample, mono_sample)
-                            } else {
-                                (0.0, 0.0)
-                            }
-                        } else {
-                            if let Some(samples) = input_mgr.read_samples(2) {
-                                (samples.get(0).copied().unwrap_or(0.0),
-                                 samples.get(1).copied().unwrap_or(0.0))
-                            } else {
-                                (0.0, 0.0)
-                            }
-                        }
-                    } else {
-                        (0.0, 0.0)
-                    };
 
                     // Process recording (metronome handled separately below)
                     let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, true);

@@ -30,6 +30,8 @@ pub struct Recorder {
     time_signature: Arc<Mutex<u32>>,
     /// Samples remaining to suppress metronome after seek (prevents click overlap)
     seek_cooldown: Arc<AtomicU64>,
+    /// Playhead position (in seconds) where recording should be placed on the timeline
+    recording_start_seconds: Arc<Mutex<f64>>,
 }
 
 impl Recorder {
@@ -44,6 +46,7 @@ impl Recorder {
             metronome_enabled: Arc::new(AtomicBool::new(true)),
             time_signature: Arc::new(Mutex::new(4)), // Default: 4/4
             seek_cooldown: Arc::new(AtomicU64::new(0)),
+            recording_start_seconds: Arc::new(Mutex::new(0.0)),
         }
     }
 
@@ -245,6 +248,17 @@ impl Recorder {
     /// Get time signature (beats per bar)
     pub fn get_time_signature(&self) -> u32 {
         *self.time_signature.lock().expect("mutex poisoned")
+    }
+
+    /// Set the timeline position (in seconds) where the recording should be placed
+    pub fn set_recording_start_seconds(&self, seconds: f64) {
+        *self.recording_start_seconds.lock().expect("mutex poisoned") = seconds;
+        eprintln!("🎙️  [Recorder] Recording start position set to {:.3}s", seconds);
+    }
+
+    /// Get the timeline position (in seconds) where the recording should be placed
+    pub fn get_recording_start_seconds(&self) -> f64 {
+        *self.recording_start_seconds.lock().expect("mutex poisoned")
     }
 }
 

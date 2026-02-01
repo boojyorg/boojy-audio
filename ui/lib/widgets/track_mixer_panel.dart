@@ -101,6 +101,13 @@ class TrackMixerPanel extends StatefulWidget {
   final Map<int, double?> automationPreviewValues;
   final Function(int trackId, double? value)? onAutomationPreviewValue;
 
+  // Recording state (locks input selectors during recording)
+  final bool isRecording;
+
+  // Custom track icons
+  final String? Function(int trackId)? getTrackIcon;
+  final Function(int trackId, String icon)? onTrackIconChanged;
+
   const TrackMixerPanel({
     super.key,
     required this.audioEngine,
@@ -152,6 +159,9 @@ class TrackMixerPanel extends StatefulWidget {
     this.onAddParameter,
     this.automationPreviewValues = const {},
     this.onAutomationPreviewValue,
+    this.isRecording = false,
+    this.getTrackIcon,
+    this.onTrackIconChanged,
   });
 
   @override
@@ -170,6 +180,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   DateTime _lastLevelUpdate = DateTime.now();
   bool _isAudioFileDragging = false;
   bool _forceDecayToZero = false; // When true, decay all meters to zero
+
+  // Audio input devices cache (refreshed with tracks)
+  List<Map<String, dynamic>> _inputDevices = [];
+
+  // Input level for armed tracks (track_id -> input level 0.0-1.0)
+  Map<int, double> _inputLevels = {};
 
   // Drag-and-drop state
   int? _draggingIndex;         // Current position of dragged track in the list
@@ -273,10 +289,26 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       }
     }
 
-    if (mounted && newLevels.isNotEmpty) {
+    // Poll input levels for armed tracks
+    final newInputLevels = <int, double>{};
+    for (final track in _tracks) {
+      if (track.armed && track.inputDeviceIndex >= 0) {
+        try {
+          final rawLevel = widget.audioEngine!.getInputChannelLevel(track.inputChannel);
+          // Convert raw amplitude (0.0-1.0+) to display range
+          final displayLevel = rawLevel.clamp(0.0, 1.0);
+          newInputLevels[track.id] = displayLevel;
+        } catch (e) {
+          // Silently fail
+        }
+      }
+    }
+
+    if (mounted && (newLevels.isNotEmpty || newInputLevels.isNotEmpty)) {
       setState(() {
         _displayLevels = newLevels;
         _peakLevels = newLevels;
+        _inputLevels = newInputLevels;
       });
     }
   }
@@ -299,6 +331,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     if (widget.audioEngine == null) return;
 
     try {
+      // Refresh input devices list alongside tracks
+      final devices = await Future.microtask(() {
+        return widget.audioEngine!.getAudioInputDevices();
+      });
+
       final trackIds = await Future.microtask(() {
         return widget.audioEngine!.getAllTrackIds();
       });
@@ -317,6 +354,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       }
 
       if (mounted) {
+        _inputDevices = devices;
         // Separate master track (not reorderable)
         final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
         final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toList();
@@ -376,6 +414,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     await UndoRedoManager().execute(command);
 
     if (command.createdTrackId != null && command.createdTrackId! >= 0) {
+      // Auto-assign input channel for audio tracks
+      if (type == 'audio' && _inputDevices.isNotEmpty) {
+        final existingAudioCount = _tracks.where((t) => t.type.toLowerCase() == 'audio').length;
+        final channel = existingAudioCount % 2; // Alternate L/R channels
+        widget.audioEngine?.setTrackInput(command.createdTrackId!, 0, channel);
+      }
+
       _loadTracksAsync();
 
       // Notify parent to create default MIDI clip for MIDI tracks
@@ -1079,6 +1124,24 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onColorChanged: widget.onTrackColorChanged != null
           ? (color) => widget.onTrackColorChanged!(track.id, color)
           : null,
+      // Custom icon
+      customIcon: widget.getTrackIcon?.call(track.id),
+      onIconChanged: widget.onTrackIconChanged != null
+          ? (icon) => widget.onTrackIconChanged!(track.id, icon)
+          : null,
+      // Input routing
+      inputDeviceIndex: track.inputDeviceIndex,
+      inputChannel: track.inputChannel,
+      inputDevices: _inputDevices,
+      isRecording: widget.isRecording,
+      inputLevel: _inputLevels[track.id],
+      onInputChanged: (deviceIndex, channel) {
+        setState(() {
+          track.inputDeviceIndex = deviceIndex;
+          track.inputChannel = channel;
+        });
+        widget.audioEngine?.setTrackInput(track.id, deviceIndex, channel);
+      },
     );
   }
 }

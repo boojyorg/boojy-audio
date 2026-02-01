@@ -12,6 +12,7 @@ import '../utils/track_colors.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
+import 'input_selector_dropdown.dart';
 
 /// Unified track strip combining track info and mixer controls
 /// Displayed on the right side of timeline, aligned with each track row
@@ -91,6 +92,18 @@ class TrackMixerStrip extends StatefulWidget {
   // Track color change callback
   final Function(Color)? onColorChanged;
 
+  // Input routing
+  final int inputDeviceIndex; // -1 = no input, 0+ = device index
+  final int inputChannel; // 0-based channel within device
+  final List<Map<String, dynamic>> inputDevices; // Available input devices
+  final Function(int deviceIndex, int channel)? onInputChanged;
+  final bool isRecording; // Lock input selector during recording
+  final double? inputLevel; // 0.0 to 1.0, input level overlay on fader when armed
+
+  // Custom icon (emoji override from user)
+  final String? customIcon;
+  final Function(String)? onIconChanged;
+
   const TrackMixerStrip({
     super.key,
     required this.trackId,
@@ -147,6 +160,14 @@ class TrackMixerStrip extends StatefulWidget {
     this.onAutomationHeightChanged,
     this.stripWidth = 380.0,
     this.onColorChanged,
+    this.inputDeviceIndex = -1,
+    this.inputChannel = 0,
+    this.inputDevices = const [],
+    this.onInputChanged,
+    this.isRecording = false,
+    this.inputLevel,
+    this.customIcon,
+    this.onIconChanged,
   });
 
   @override
@@ -282,13 +303,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Row 1: Icon + Number + Name + MSR + Pan
+          // Row 1: Icon + Number + Name + [Input] + MSR + Pan
           // No fixed height - let it size to content and sit at top
           Row(
             children: [
               // Icon + Number + Name (fixed font sizes, expands to fill space)
               Expanded(child: _buildTrackInfoRow(fontSize: fontSize, iconSize: iconSize)),
-              const SizedBox(width: 5),
+              const SizedBox(width: 4),
+              // Input selector (Audio/Sampler tracks only)
+              if (_showInputSelector)
+                _buildInputSelector(buttonSize: buttonSize, fontSize: buttonFontSize),
+              if (_showInputSelector)
+                const SizedBox(width: 4),
               // M, S, R buttons (scale with height)
               _buildControlButtons(buttonSize: buttonSize, spacing: buttonSpacing, fontSize: buttonFontSize),
               const SizedBox(width: 6),
@@ -347,6 +373,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         volumeDb: displayVolumeDb,
                         onVolumeChanged: widget.onVolumeChanged,
                         onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                        inputLevel: widget.isArmed ? widget.inputLevel : null,
                       ),
                     ),
                   ],
@@ -540,8 +567,14 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Icon (fixed size)
-        Text(_getTrackEmoji(), style: TextStyle(fontSize: iconSize)),
+        // Icon (fixed size, clickable to change)
+        GestureDetector(
+          onTap: widget.onIconChanged != null ? () => _showIconPopup(context) : null,
+          child: MouseRegion(
+            cursor: widget.onIconChanged != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            child: Text(_getTrackEmoji(), style: TextStyle(fontSize: iconSize)),
+          ),
+        ),
         const SizedBox(width: 6),
         // Number (sequential display index, not internal ID) - fixed size
         Text(
@@ -596,6 +629,112 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   String _getStandardDisplayName() {
     // Show track name (which may be auto-populated from instrument)
     return widget.trackName;
+  }
+
+  /// Whether to show the input selector (Audio and Sampler tracks only)
+  bool get _showInputSelector {
+    final type = widget.trackType.toLowerCase();
+    return type == 'audio' || type == 'sampler';
+  }
+
+  /// Get short label for current input assignment
+  String _getInputLabel() {
+    if (widget.inputDeviceIndex < 0) return 'No In';
+
+    // If we have device info, use device name + channel
+    if (widget.inputDevices.isNotEmpty && widget.inputDeviceIndex < widget.inputDevices.length) {
+      final device = widget.inputDevices[widget.inputDeviceIndex];
+      final deviceName = device['name'] as String? ?? 'Input';
+      // Shorten common names
+      String shortName = deviceName
+          .replaceAll('Built-in Microphone', 'Mic')
+          .replaceAll('Built-in', 'Built')
+          .replaceAll('Microphone', 'Mic');
+      // Truncate long names
+      if (shortName.length > 8) {
+        shortName = '${shortName.substring(0, 7)}…';
+      }
+      return 'In ${widget.inputChannel + 1}';
+    }
+
+    return 'In ${widget.inputChannel + 1}';
+  }
+
+  /// Build input selector dropdown button
+  Widget _buildInputSelector({double buttonSize = 22, double fontSize = 10}) {
+    final colors = context.colors;
+    final isLocked = widget.isRecording;
+    final hasInput = widget.inputDeviceIndex >= 0;
+    final label = _getInputLabel();
+    final height = buttonSize;
+
+    return GestureDetector(
+      onTap: isLocked ? null : () => _showInputDropdown(context),
+      child: MouseRegion(
+        cursor: isLocked ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+        child: Container(
+          height: height,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: isLocked
+                ? colors.surface.withValues(alpha: 0.5)
+                : hasInput
+                    ? colors.dark
+                    : colors.surface,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(
+              color: isLocked
+                  ? colors.hover.withValues(alpha: 0.3)
+                  : colors.hover,
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isLocked
+                      ? colors.textMuted
+                      : hasInput
+                          ? colors.textPrimary
+                          : colors.textSecondary,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (!isLocked) ...[
+                const SizedBox(width: 1),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: fontSize + 4,
+                  color: colors.textSecondary,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show input device/channel dropdown with live level meters
+  void _showInputDropdown(BuildContext context) {
+    final RenderBox button = this.context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(Offset.zero);
+
+    showInputSelectorDropdown(
+      context: context,
+      position: Offset(position.dx, position.dy + button.size.height),
+      inputDevices: widget.inputDevices,
+      currentDeviceIndex: widget.inputDeviceIndex,
+      currentChannel: widget.inputChannel,
+      audioEngine: widget.audioEngine,
+      onSelected: (deviceIndex, channel) {
+        widget.onInputChanged?.call(deviceIndex, channel);
+      },
+    );
   }
 
 
@@ -1104,6 +1243,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   String _getTrackEmoji() {
+    // Use custom icon if set
+    if (widget.customIcon != null) return widget.customIcon!;
+
     final lowerName = widget.trackName.toLowerCase();
     final lowerType = widget.trackType.toLowerCase();
 
@@ -1118,6 +1260,153 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     if (lowerType == 'audio') return '🔊';
 
     return '🎵'; // Default
+  }
+
+  /// Emoji grid for track icon picker
+  static const List<String> _iconEmojis = [
+    '🎤', '🎸', '🎹', '🥁', '🎺', '🎷', '🎻', '🎧',
+    '🎵', '🎶', '🔊', '🎼', '🪗', '🪘', '🪕', '🎙️',
+  ];
+
+  /// Show icon picker popup
+  void _showIconPopup(BuildContext context) {
+    final RenderBox box = this.context.findRenderObject() as RenderBox;
+    final Offset position = box.localToGlobal(Offset.zero);
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (dialogContext) {
+        return Stack(
+          children: [
+            // Dismiss on tap outside
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(dialogContext).pop(),
+                behavior: HitTestBehavior.opaque,
+                child: const ColoredBox(color: Colors.transparent),
+              ),
+            ),
+            // Popup positioned near the icon
+            Positioned(
+              left: position.dx,
+              top: position.dy + box.size.height,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(8),
+                color: dialogContext.colors.elevated,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: dialogContext.colors.hover, width: 0.5),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Track Icon',
+                        style: TextStyle(
+                          color: dialogContext.colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Emoji grid (2 rows x 8 cols)
+                      ...List.generate(2, (row) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: row == 0 ? 4 : 0),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(8, (col) {
+                              final idx = row * 8 + col;
+                              final emoji = _iconEmojis[idx];
+                              final isSelected = _getTrackEmoji() == emoji;
+                              return Padding(
+                                padding: EdgeInsets.only(right: col < 7 ? 4 : 0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    widget.onIconChanged?.call(emoji);
+                                    Navigator.of(dialogContext).pop();
+                                  },
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? dialogContext.colors.textPrimary
+                                            : dialogContext.colors.hover,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(emoji, style: const TextStyle(fontSize: 16)),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      // Color grid below
+                      Text(
+                        'Track Color',
+                        style: TextStyle(
+                          color: dialogContext.colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ...List.generate(2, (row) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: row == 0 ? 4 : 0),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(8, (col) {
+                              final color = TrackColors.manualPalette[row * 8 + col];
+                              final isSelected = widget.trackColor == color;
+                              return Padding(
+                                padding: EdgeInsets.only(right: col < 7 ? 4 : 0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    widget.onColorChanged?.call(color);
+                                    Navigator.of(dialogContext).pop();
+                                  },
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? dialogContext.colors.textPrimary
+                                            : dialogContext.colors.hover,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

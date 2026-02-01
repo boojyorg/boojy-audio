@@ -61,10 +61,11 @@ pub use project::{
     get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
 };
 pub use recording::{
-    get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_recorded_duration,
-    get_recording_state, get_recording_waveform, get_sample_rate, get_selected_audio_output_device,
-    set_audio_input_device, set_audio_output_device, set_count_in_bars, start_audio_input,
-    start_recording, stop_audio_input, stop_recording,
+    get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_input_channel_count,
+    get_input_channel_level, get_recorded_duration, get_recording_state, get_recording_waveform,
+    get_sample_rate, get_selected_audio_output_device, set_audio_input_device,
+    set_audio_output_device, set_count_in_bars, start_audio_input, start_recording,
+    stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
     create_sampler_for_track, get_synth_parameters, is_sampler_track, load_sample_for_track,
@@ -73,9 +74,10 @@ pub use synthesizer::{
 };
 pub use timing::{get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo, set_time_signature};
 pub use tracks::{
-    create_track, get_all_track_ids, get_track_count, get_track_info, get_track_peak_levels,
-    move_clip_to_track, set_track_armed, set_track_mute, set_track_name, set_track_pan,
-    set_track_solo, set_track_volume, set_track_volume_automation,
+    create_track, get_all_track_ids, get_track_count, get_track_info, get_track_input,
+    get_track_peak_levels, move_clip_to_track, set_track_armed, set_track_input,
+    set_track_input_monitoring, set_track_mute, set_track_name, set_track_pan, set_track_solo,
+    set_track_volume, set_track_volume_automation,
 };
 pub use transport::{
     get_playhead_position, get_transport_state, transport_pause, transport_play, transport_seek,

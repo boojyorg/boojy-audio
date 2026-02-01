@@ -2,6 +2,7 @@
 use cpal::traits::{DeviceTrait, HostTrait};
 use ringbuf::{traits::*, HeapRb};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU32, Ordering};
 use anyhow::Result;
 
 use crate::audio_file::TARGET_SAMPLE_RATE;
@@ -27,6 +28,10 @@ pub struct AudioInputManager {
     input_buffer: Option<Arc<Mutex<HeapRb<f32>>>>,
     /// Number of input channels (1 = mono, 2 = stereo)
     input_channels: u16,
+    /// Peak levels per channel (stored as f32 bits in AtomicU32 for lock-free access)
+    /// Updated in the input callback, read by the UI for metering
+    input_peak_left: Arc<AtomicU32>,
+    input_peak_right: Arc<AtomicU32>,
 }
 
 impl AudioInputManager {
@@ -38,6 +43,8 @@ impl AudioInputManager {
             input_stream: None,
             input_buffer: None,
             input_channels: 1, // Default to mono
+            input_peak_left: Arc::new(AtomicU32::new(0)),
+            input_peak_right: Arc::new(AtomicU32::new(0)),
         })
     }
 
@@ -135,16 +142,47 @@ impl AudioInputManager {
         let ring_buffer_arc = Arc::new(Mutex::new(ring_buffer));
         let ring_buffer_clone = ring_buffer_arc.clone();
 
+        // Clone peak tracking atomics for use in the callback
+        let peak_left = self.input_peak_left.clone();
+        let peak_right = self.input_peak_right.clone();
+        let num_channels = self.input_channels;
+
         // Create input stream
         let stream = device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                // Track peak levels per channel
+                let mut max_left: f32 = 0.0;
+                let mut max_right: f32 = 0.0;
+
+                if num_channels == 1 {
+                    // Mono: all samples are the same channel
+                    for &sample in data {
+                        let abs = sample.abs();
+                        if abs > max_left { max_left = abs; }
+                    }
+                    max_right = max_left;
+                } else {
+                    // Stereo (or more): interleaved L R L R ...
+                    for (i, &sample) in data.iter().enumerate() {
+                        let abs = sample.abs();
+                        if i % 2 == 0 {
+                            if abs > max_left { max_left = abs; }
+                        } else {
+                            if abs > max_right { max_right = abs; }
+                        }
+                    }
+                }
+
+                // Update peak atomics (store f32 bits as u32)
+                peak_left.store(max_left.to_bits(), Ordering::Relaxed);
+                peak_right.store(max_right.to_bits(), Ordering::Relaxed);
+
                 // Write input samples to ring buffer
                 if let Ok(mut buffer) = ring_buffer_clone.lock() {
                     for &sample in data {
                         // If buffer is full, drop oldest samples
                         if buffer.is_full() {
-                            eprintln!("⚠️  [AudioInput] Ring buffer overflow! Dropping oldest sample.");
                             let _ = buffer.try_pop();
                         }
                         let _ = buffer.try_push(sample);
@@ -223,6 +261,25 @@ impl AudioInputManager {
     /// Get the number of input channels (1 = mono, 2 = stereo)
     pub fn get_input_channels(&self) -> u16 {
         self.input_channels
+    }
+
+    /// Get peak level for a specific input channel (0 = left, 1 = right)
+    /// Returns the peak amplitude (0.0 to 1.0+) from the most recent input callback.
+    /// Used for live input metering in the UI.
+    pub fn get_channel_peak(&self, channel: u32) -> f32 {
+        let bits = if channel == 0 {
+            self.input_peak_left.load(Ordering::Relaxed)
+        } else {
+            self.input_peak_right.load(Ordering::Relaxed)
+        };
+        f32::from_bits(bits)
+    }
+
+    /// Get both channel peaks as (left, right)
+    pub fn get_peaks(&self) -> (f32, f32) {
+        let left = f32::from_bits(self.input_peak_left.load(Ordering::Relaxed));
+        let right = f32::from_bits(self.input_peak_right.load(Ordering::Relaxed));
+        (left, right)
     }
 }
 

@@ -858,6 +858,50 @@ pub extern "C" fn set_track_armed_ffi(track_id: u64, armed: bool) -> *mut c_char
     }
 }
 
+/// Set track input device and channel
+#[no_mangle]
+pub extern "C" fn set_track_input_ffi(track_id: u64, device_index: i32, channel: u32) -> *mut c_char {
+    match api::set_track_input(track_id, device_index, channel) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get track input device and channel
+/// Returns: "device_index,channel" (-1 if no input assigned)
+#[no_mangle]
+pub extern "C" fn get_track_input_ffi(track_id: u64) -> *mut c_char {
+    match api::get_track_input(track_id) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Set track input monitoring
+#[no_mangle]
+pub extern "C" fn set_track_input_monitoring_ffi(track_id: u64, enabled: bool) -> *mut c_char {
+    match api::set_track_input_monitoring(track_id, enabled) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get input channel peak level for metering
+/// Returns peak amplitude as a float string (e.g., "0.42")
+#[no_mangle]
+pub extern "C" fn get_input_channel_level_ffi(channel: u32) -> *mut c_char {
+    match api::get_input_channel_level(channel) {
+        Ok(level) => safe_cstring(format!("{:.4}", level)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get number of input channels for the current device
+#[no_mangle]
+pub extern "C" fn get_input_channel_count_ffi() -> u32 {
+    api::get_input_channel_count().unwrap_or(0)
+}
+
 /// Set track name
 #[no_mangle]
 pub extern "C" fn set_track_name_ffi(track_id: u64, name: *const c_char) -> *mut c_char {

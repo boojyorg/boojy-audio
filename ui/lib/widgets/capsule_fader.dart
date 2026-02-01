@@ -8,6 +8,7 @@ class CapsuleFader extends StatelessWidget {
   final double volumeDb; // -60 to +6
   final Function(double)? onVolumeChanged;
   final VoidCallback? onDoubleTap; // Reset to 0 dB
+  final double? inputLevel; // 0.0 to 1.0, shown as faded overlay when armed
 
   const CapsuleFader({
     super.key,
@@ -16,6 +17,7 @@ class CapsuleFader extends StatelessWidget {
     required this.volumeDb,
     this.onVolumeChanged,
     this.onDoubleTap,
+    this.inputLevel,
   });
 
   @override
@@ -44,6 +46,7 @@ class CapsuleFader extends StatelessWidget {
                 leftLevel: leftLevel,
                 rightLevel: rightLevel,
                 volumeSliderValue: _volumeDbToSlider(volumeDb),
+                inputLevel: inputLevel,
               ),
             ),
           ),
@@ -93,11 +96,13 @@ class _CapsuleFaderPainter extends CustomPainter {
   final double leftLevel;
   final double rightLevel;
   final double volumeSliderValue; // 0.0 to 1.0
+  final double? inputLevel; // 0.0 to 1.0, faded overlay when armed
 
   _CapsuleFaderPainter({
     required this.leftLevel,
     required this.rightLevel,
     required this.volumeSliderValue,
+    this.inputLevel,
   });
 
   @override
@@ -131,6 +136,17 @@ class _CapsuleFaderPainter extends CustomPainter {
     final meterRight = size.width - capsuleRadius - meterPadding;
     final meterWidth = meterRight - meterLeft;
     final meterHeight = (size.height - 3 * meterPadding) / 2;
+
+    // Draw input level overlay (faded, behind output meters) when armed
+    if (inputLevel != null && inputLevel! > 0.01) {
+      _drawInputOverlay(
+        canvas,
+        Offset(meterLeft, meterPadding),
+        meterWidth,
+        meterPadding * 2 + meterHeight * 2,
+        inputLevel!,
+      );
+    }
 
     // Draw left channel meter (top half)
     _drawMeterRow(
@@ -196,6 +212,21 @@ class _CapsuleFaderPainter extends CustomPainter {
     }
   }
 
+  /// Draw input level as a faded overlay spanning full meter height
+  void _drawInputOverlay(Canvas canvas, Offset offset, double width, double height, double level) {
+    final levelWidth = width * level;
+    final levelRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(offset.dx, offset.dy, levelWidth, height),
+      const Radius.circular(2),
+    );
+
+    // Faded green overlay at 25% opacity
+    final paint = Paint()
+      ..color = const Color(0xFF22c55e).withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(levelRect, paint);
+  }
+
   void _drawVolumeHandle(Canvas canvas, Size size) {
     // Calculate handle position
     final handleRadius = size.height / 2;
@@ -221,6 +252,7 @@ class _CapsuleFaderPainter extends CustomPainter {
   bool shouldRepaint(_CapsuleFaderPainter oldDelegate) {
     return oldDelegate.leftLevel != leftLevel ||
         oldDelegate.rightLevel != rightLevel ||
-        oldDelegate.volumeSliderValue != volumeSliderValue;
+        oldDelegate.volumeSliderValue != volumeSliderValue ||
+        oldDelegate.inputLevel != inputLevel;
   }
 }

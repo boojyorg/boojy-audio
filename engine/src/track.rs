@@ -358,8 +358,14 @@ pub struct Track {
     // --- Recording ---
     /// Armed for recording (Audio/MIDI tracks only)
     pub armed: bool,
-    /// Input monitoring enabled
+    /// Input monitoring enabled (hear input through track when armed)
     pub input_monitoring: bool,
+
+    // --- Input Routing ---
+    /// Audio input device index (None = no input assigned)
+    pub input_device_index: Option<usize>,
+    /// Audio input channel within the device (0-based, mono)
+    pub input_channel: u32,
 
     // --- Metering ---
     /// Peak level for left channel (for meters)
@@ -379,6 +385,13 @@ impl Track {
         // Audio, MIDI, and Sampler tracks are armed by default (ready to record)
         let armed = matches!(track_type, TrackType::Audio | TrackType::Midi | TrackType::Sampler);
 
+        // Audio tracks get default input device (first device, channel 0)
+        let input_device_index = if matches!(track_type, TrackType::Audio | TrackType::Sampler) {
+            Some(0)
+        } else {
+            None
+        };
+
         Self {
             id,
             track_type,
@@ -394,6 +407,8 @@ impl Track {
             fx_chain: Vec::new(),
             armed,
             input_monitoring: false,
+            input_device_index,
+            input_channel: 0,
             peak_left: 0.0,
             peak_right: 0.0,
             volume_automation: Vec::new(),

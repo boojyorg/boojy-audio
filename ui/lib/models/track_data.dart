@@ -10,6 +10,10 @@ class TrackData {
   bool solo;
   bool armed;
 
+  // Input routing
+  int inputDeviceIndex; // -1 = no input assigned
+  int inputChannel; // 0-based channel within device
+
   TrackData({
     required this.id,
     required this.name,
@@ -19,10 +23,13 @@ class TrackData {
     required this.mute,
     required this.solo,
     required this.armed,
+    this.inputDeviceIndex = -1,
+    this.inputChannel = 0,
   });
 
-  /// Parse track info from CSV format: "track_id,name,type,volume_db,pan,mute,solo,armed"
-  /// Handles both 7-field (legacy) and 8-field (with armed) formats
+  /// Parse track info from CSV format:
+  /// "track_id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel"
+  /// Handles 7-field (legacy), 8-field (with armed), and 10-field (with input routing) formats
   static TrackData? fromCSV(String csv) {
     try {
       final parts = csv.split(',');
@@ -36,8 +43,9 @@ class TrackData {
         pan: double.parse(parts[4]),
         mute: parts[5] == 'true' || parts[5] == '1',
         solo: parts[6] == 'true' || parts[6] == '1',
-        // Handle optional armed field (default to false if not present)
         armed: parts.length >= 8 ? (parts[7] == 'true' || parts[7] == '1') : false,
+        inputDeviceIndex: parts.length >= 9 ? (int.tryParse(parts[8]) ?? -1) : -1,
+        inputChannel: parts.length >= 10 ? (int.tryParse(parts[9]) ?? 0) : 0,
       );
     } catch (e) {
       return null;
@@ -46,7 +54,7 @@ class TrackData {
 
   /// Convert to CSV format for serialization
   String toCSV() {
-    return '$id,$name,$type,$volumeDb,$pan,$mute,$solo,$armed';
+    return '$id,$name,$type,$volumeDb,$pan,$mute,$solo,$armed,$inputDeviceIndex,$inputChannel';
   }
 
   /// Create a copy with optional field overrides
@@ -59,6 +67,8 @@ class TrackData {
     bool? mute,
     bool? solo,
     bool? armed,
+    int? inputDeviceIndex,
+    int? inputChannel,
   }) {
     return TrackData(
       id: id ?? this.id,
@@ -69,6 +79,8 @@ class TrackData {
       mute: mute ?? this.mute,
       solo: solo ?? this.solo,
       armed: armed ?? this.armed,
+      inputDeviceIndex: inputDeviceIndex ?? this.inputDeviceIndex,
+      inputChannel: inputChannel ?? this.inputChannel,
     );
   }
 }
