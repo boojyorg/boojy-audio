@@ -50,6 +50,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed: MIDI recording timing off by ~100-125ms (users playing early to compensate for latency) — MIDI input timestamps now compensate for audio output latency. Previously MIDI events were timestamped to when received, not when heard; now they're timestamped to account for the ~5-10ms it takes for audio to reach speakers/headphones. Audio latency is now queried from CoreAudio device properties (input latency, output latency, safety offset) instead of being estimated from buffer size alone
 - Fixed: MIDI devices plugged in after app launch not detected — refresh_midi_devices() now actually rescans OS MIDI system instead of being a no-op. Newly connected MIDI controllers (like StudioLogic) can be detected by clicking "Refresh MIDI Devices" without restarting the app
 - Improved: MIDI device selection now validates device index and provides clear error messages when selecting invalid or unplugged devices
 - Improved: MIDI device enumeration logging helps diagnose device detection issues — detailed console output shows available devices and troubleshooting steps when no devices are found

@@ -167,6 +167,10 @@ pub struct AudioGraph {
     preferred_buffer_size: Arc<Mutex<BufferSizePreset>>,
     /// Actual buffer size being used (set by audio callback)
     actual_buffer_size: Arc<std::sync::atomic::AtomicU32>,
+    /// Hardware input latency in milliseconds (measured from device, not estimated)
+    pub hardware_input_latency_ms: Arc<Mutex<f32>>,
+    /// Hardware output latency in milliseconds (measured from device, not estimated)
+    pub hardware_output_latency_ms: Arc<Mutex<f32>>,
 
     // --- Device Selection ---
     /// Selected output device name (None = use system default)
@@ -221,6 +225,8 @@ impl AudioGraph {
             track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
             preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
             actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
+            hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
             latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
@@ -233,6 +239,11 @@ impl AudioGraph {
         stream.play()?;
         graph.stream = Some(stream);
         eprintln!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
+
+        // Query hardware latency from CoreAudio device
+        if let Err(e) = graph.query_coreaudio_latency() {
+            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {}", e);
+        }
 
         Ok(graph)
     }
@@ -262,6 +273,8 @@ impl AudioGraph {
             track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
             preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
             actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
+            hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
         };
 
@@ -656,19 +669,158 @@ impl AudioGraph {
     /// Returns: (buffer_size_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
     pub fn get_latency_info(&self) -> (u32, f32, f32, f32) {
         let buffer_samples = self.get_actual_buffer_size();
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
 
-        // Calculate latency based on buffer size
-        // Output latency = buffer size / sample rate
-        let output_latency_ms = buffer_samples as f32 / sample_rate * 1000.0;
+        // Use hardware-measured latency values (queried from CoreAudio on macOS)
+        let input_latency_ms = *self.hardware_input_latency_ms.lock().expect("mutex poisoned");
+        let output_latency_ms = *self.hardware_output_latency_ms.lock().expect("mutex poisoned");
 
-        // Input latency is similar (assuming same buffer for input)
-        let input_latency_ms = output_latency_ms;
-
-        // Total roundtrip = input + output
-        let total_roundtrip_ms = input_latency_ms + output_latency_ms;
+        // Total roundtrip = input + output + buffer latency
+        let buffer_latency_ms = buffer_samples as f32 / TARGET_SAMPLE_RATE as f32 * 1000.0;
+        let total_roundtrip_ms = input_latency_ms + output_latency_ms + buffer_latency_ms;
 
         (buffer_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
+    }
+
+    /// Query hardware audio latency from CoreAudio device (macOS only)
+    /// Updates the hardware_input_latency_ms and hardware_output_latency_ms fields
+    #[cfg(target_os = "macos")]
+    fn query_coreaudio_latency(&self) -> anyhow::Result<()> {
+        use coreaudio::audio_unit::{
+            macos_helpers::get_default_device_id,
+        };
+        use coreaudio::sys::{
+            kAudioDevicePropertyLatency,
+            kAudioDevicePropertySafetyOffset,
+            kAudioObjectPropertyScopeInput,
+            kAudioObjectPropertyScopeOutput,
+            AudioObjectGetPropertyData,
+            AudioObjectPropertyAddress,
+        };
+        use std::mem::size_of;
+
+        // Get the default output device ID
+        let device_id = get_default_device_id(false) // false = output device
+            .ok_or_else(|| anyhow::anyhow!("Failed to get default output device"))?;
+
+        // Query output latency
+        let mut output_latency_frames: u32 = 0;
+        let mut output_safety_offset: u32 = 0;
+        let mut property_size = size_of::<u32>() as u32;
+
+        unsafe {
+            // Get device latency (output)
+            let mut address = AudioObjectPropertyAddress {
+                mSelector: kAudioDevicePropertyLatency,
+                mScope: kAudioObjectPropertyScopeOutput,
+                mElement: 0,
+            };
+            let status = AudioObjectGetPropertyData(
+                device_id,
+                &address as *const _,
+                0,
+                std::ptr::null(),
+                &mut property_size as *mut _,
+                &mut output_latency_frames as *mut _ as *mut _,
+            );
+
+            if status != 0 {
+                eprintln!("⚠️ [LATENCY] Failed to get output latency (status: {})", status);
+            } else {
+                eprintln!("🎚️ [LATENCY] Output device latency: {} frames", output_latency_frames);
+            }
+
+            // Get safety offset (output)
+            address.mSelector = kAudioDevicePropertySafetyOffset;
+            property_size = size_of::<u32>() as u32;
+            let status = AudioObjectGetPropertyData(
+                device_id,
+                &address as *const _,
+                0,
+                std::ptr::null(),
+                &mut property_size as *mut _,
+                &mut output_safety_offset as *mut _ as *mut _,
+            );
+
+            if status != 0 {
+                eprintln!("⚠️ [LATENCY] Failed to get output safety offset (status: {})", status);
+            } else {
+                eprintln!("🎚️ [LATENCY] Output safety offset: {} frames", output_safety_offset);
+            }
+        }
+
+        // Query input latency
+        let mut input_latency_frames: u32 = 0;
+        let mut input_safety_offset: u32 = 0;
+
+        unsafe {
+            // Get device latency (input)
+            let mut address = AudioObjectPropertyAddress {
+                mSelector: kAudioDevicePropertyLatency,
+                mScope: kAudioObjectPropertyScopeInput,
+                mElement: 0,
+            };
+            property_size = size_of::<u32>() as u32;
+            let status = AudioObjectGetPropertyData(
+                device_id,
+                &address as *const _,
+                0,
+                std::ptr::null(),
+                &mut property_size as *mut _,
+                &mut input_latency_frames as *mut _ as *mut _,
+            );
+
+            if status != 0 {
+                eprintln!("⚠️ [LATENCY] Failed to get input latency (status: {})", status);
+            } else {
+                eprintln!("🎚️ [LATENCY] Input device latency: {} frames", input_latency_frames);
+            }
+
+            // Get safety offset (input)
+            address.mSelector = kAudioDevicePropertySafetyOffset;
+            property_size = size_of::<u32>() as u32;
+            let status = AudioObjectGetPropertyData(
+                device_id,
+                &address as *const _,
+                0,
+                std::ptr::null(),
+                &mut property_size as *mut _,
+                &mut input_safety_offset as *mut _ as *mut _,
+            );
+
+            if status != 0 {
+                eprintln!("⚠️ [LATENCY] Failed to get input safety offset (status: {})", status);
+            } else {
+                eprintln!("🎚️ [LATENCY] Input safety offset: {} frames", input_safety_offset);
+            }
+        }
+
+        // Convert frames to milliseconds
+        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let input_latency_ms = (input_latency_frames + input_safety_offset) as f32 / sample_rate * 1000.0;
+        let output_latency_ms = (output_latency_frames + output_safety_offset) as f32 / sample_rate * 1000.0;
+
+        eprintln!("🎚️ [LATENCY] Hardware latency: input={:.2}ms, output={:.2}ms",
+            input_latency_ms, output_latency_ms);
+
+        // Update stored values
+        *self.hardware_input_latency_ms.lock().expect("mutex poisoned") = input_latency_ms;
+        *self.hardware_output_latency_ms.lock().expect("mutex poisoned") = output_latency_ms;
+
+        Ok(())
+    }
+
+    /// Fallback for non-macOS platforms - estimates latency from buffer size
+    #[cfg(not(target_os = "macos"))]
+    fn query_coreaudio_latency(&self) -> anyhow::Result<()> {
+        let buffer_samples = self.get_actual_buffer_size();
+        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let estimated_latency_ms = buffer_samples as f32 / sample_rate * 1000.0;
+
+        *self.hardware_input_latency_ms.lock().expect("mutex poisoned") = estimated_latency_ms;
+        *self.hardware_output_latency_ms.lock().expect("mutex poisoned") = estimated_latency_ms;
+
+        eprintln!("🎚️ [LATENCY] Estimated latency (non-macOS): {:.2}ms", estimated_latency_ms);
+        Ok(())
     }
 
     /// Restart the audio stream (used when changing buffer size) - native only
@@ -689,6 +841,11 @@ impl AudioGraph {
 
         self.stream = Some(stream);
         eprintln!("✅ [AudioGraph] Audio stream restarted");
+
+        // Re-query hardware latency after stream change
+        if let Err(e) = self.query_coreaudio_latency() {
+            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {}", e);
+        }
 
         Ok(())
     }

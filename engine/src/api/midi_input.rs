@@ -96,14 +96,30 @@ pub fn start_midi_input() -> Result<String, String> {
     let synth_manager = graph.track_synth_manager.clone();
     let effect_manager = graph.effect_manager.clone();
     let playhead_samples = graph.playhead_samples.clone();
+    let hardware_output_latency_ms = graph.hardware_output_latency_ms.clone();
 
     midi_manager.set_event_callback(move |event| {
         // Override midir timestamp with engine playhead position (correct unit: samples)
         // midir gives microseconds which don't match the engine's sample-based timeline
+        //
+        // LATENCY COMPENSATION: Subtract output latency from playhead so that MIDI events
+        // are timestamped to when they'll actually be HEARD, not when they're received.
+        // This fixes metronome sync issues where users play early to compensate for latency.
         use std::sync::atomic::Ordering;
+        use crate::audio_file::TARGET_SAMPLE_RATE;
+
         let current_playhead = playhead_samples.load(Ordering::SeqCst);
+
+        // Get hardware output latency and convert from ms to samples
+        let output_latency_ms = *hardware_output_latency_ms.lock().expect("mutex poisoned");
+        let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
+
+        // Compensate for output latency: event is heard output_latency later
+        // So timestamp it to when it will actually be heard
+        let compensated_playhead = current_playhead.saturating_sub(output_latency_samples);
+
         let mut engine_event = event;
-        engine_event.timestamp_samples = current_playhead;
+        engine_event.timestamp_samples = compensated_playhead;
 
         // 1. Record to MIDI recorder if recording
         if let Ok(mut recorder) = midi_recorder.lock() {

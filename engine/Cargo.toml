@@ -58,6 +58,10 @@ flutter_rust_bridge = "2"        # Flutter-Rust bridge
 [target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
 midir = "0.9"                    # Cross-platform MIDI I/O
 
+# CoreAudio device latency querying (macOS only)
+[target.'cfg(target_os = "macos")'.dependencies]
+coreaudio-rs = "0.11"            # CoreAudio bindings for accurate latency measurement
+
 # ============================================
 # Web/WASM platform dependencies
 # ============================================
