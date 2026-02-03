@@ -110,22 +110,30 @@ pub fn start_midi_input() -> Result<String, String> {
 
         let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
-        // Get hardware output latency and convert from ms to samples
-        let output_latency_ms = *hardware_output_latency_ms.lock().expect("mutex poisoned");
-        let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
+        // Check if we're currently recording
+        let is_recording = midi_recorder.lock()
+            .map(|r| r.is_recording())
+            .unwrap_or(false);
 
-        // Compensate for output latency in software monitoring scenario:
-        // When user hears their MIDI input through the DAW synth (not direct monitoring),
-        // they hear it delayed by output_latency, causing them to play early.
-        // Add latency to correct this: timestamp notes later to align with when heard.
-        let compensated_playhead = current_playhead.saturating_add(output_latency_samples);
+        // LATENCY COMPENSATION (only for live monitoring, NOT during recording):
+        // During recording: Use raw playhead - entire system has consistent latency
+        // During live play: Compensate for monitoring delay (user hears synth output delayed)
+        let timestamp = if is_recording {
+            // NO compensation during recording - natural latency keeps everything in sync
+            current_playhead
+        } else {
+            // Live monitoring: compensate for output latency
+            let output_latency_ms = *hardware_output_latency_ms.lock().expect("mutex poisoned");
+            let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
+            current_playhead.saturating_add(output_latency_samples)
+        };
 
         let mut engine_event = event;
-        engine_event.timestamp_samples = compensated_playhead;
+        engine_event.timestamp_samples = timestamp;
 
         // 1. Record to MIDI recorder if recording
-        if let Ok(mut recorder) = midi_recorder.lock() {
-            if recorder.is_recording() {
+        if is_recording {
+            if let Ok(mut recorder) = midi_recorder.lock() {
                 recorder.record_event(engine_event);
             }
         }
