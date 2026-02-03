@@ -50,6 +50,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed: MIDI devices plugged in after app launch not detected — refresh_midi_devices() now actually rescans OS MIDI system instead of being a no-op. Newly connected MIDI controllers (like StudioLogic) can be detected by clicking "Refresh MIDI Devices" without restarting the app
+- Improved: MIDI device selection now validates device index and provides clear error messages when selecting invalid or unplugged devices
+- Improved: MIDI device enumeration logging helps diagnose device detection issues — detailed console output shows available devices and troubleshooting steps when no devices are found
 - Fixed: MIDI recording notes not appearing live and playhead freezing — Display offset was calculated from user settings instead of actual count-in duration used by engine. This caused wrong offset when recording while already playing (Play→Record with no count-in)
 - Fixed: Transport position going negative and freezing during recording — recordStartPosition was set to position AFTER count-in (e.g., 4s) instead of BEFORE (e.g., 0s), causing wrong Stop button behavior and display calculations (playhead showed negative bars like -1.1.1)
 - Fixed: Recorded MIDI clip disappearing after stopping recording — Captured live notes weren't being passed through from _completeRecording() to handleRecordingComplete(), resulting in empty clips that appeared during recording but vanished when stopped

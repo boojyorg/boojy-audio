@@ -106,21 +106,33 @@ impl MidiInputManager {
 
     /// Refresh the list of available MIDI input devices
     pub fn refresh_devices(&mut self) -> Result<()> {
-        let midi_input = MidiInput::new("Boojy Audio MIDI Input")?;
+        let midi_input = MidiInput::new("Boojy Audio MIDI Input")
+            .map_err(|e| anyhow::anyhow!("Failed to create MIDI input: {}", e))?;
 
         let ports = midi_input.ports();
+
+        eprintln!("🎹 [MIDI] Scanning for MIDI input devices...");
+        eprintln!("🎹 [MIDI] Found {} MIDI input port(s)", ports.len());
+
         let port_names: Vec<String> = ports
             .iter()
-            .map(|port| {
-                midi_input
+            .enumerate()
+            .map(|(i, port)| {
+                let name = midi_input
                     .port_name(port)
-                    .unwrap_or_else(|_| "Unknown Device".to_string())
+                    .unwrap_or_else(|_| format!("Unknown Device {}", i));
+                eprintln!("  [{}] {}", i, name);
+                name
             })
             .collect();
 
-        eprintln!("🎹 [MIDI] Found {} MIDI input devices", ports.len());
-        for (i, name) in port_names.iter().enumerate() {
-            eprintln!("  [{}] {}", i, name);
+        if ports.is_empty() {
+            eprintln!("⚠️ [MIDI] No MIDI input devices found!");
+            eprintln!("⚠️ [MIDI] Make sure your MIDI device is:");
+            eprintln!("   - Properly connected (USB/MIDI cable)");
+            eprintln!("   - Powered on");
+            eprintln!("   - Drivers installed (if required)");
+            eprintln!("   - Recognized by macOS (check Audio MIDI Setup app)");
         }
 
         self.ports = ports;

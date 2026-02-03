@@ -30,26 +30,49 @@ pub fn get_midi_input_devices() -> Result<Vec<(String, String, bool)>, String> {
 }
 
 /// Refresh MIDI devices (rescan)
-/// Returns success message - devices are fetched fresh each time get_midi_input_devices is called
+/// Re-queries the OS MIDI system to detect newly plugged/unplugged devices
 pub fn refresh_midi_devices() -> Result<String, String> {
-    // The device list is fetched fresh each time get_midi_input_devices is called,
-    // so this just returns success to satisfy the API contract
-    Ok("MIDI devices refreshed".to_string())
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut midi_manager = graph.midi_input_manager.lock()
+        .map_err(|e| e.to_string())?;
+
+    midi_manager.refresh_devices()
+        .map_err(|e| format!("Failed to refresh MIDI devices: {}", e))?;
+
+    let device_count = midi_manager.get_devices().len();
+    Ok(format!("MIDI devices refreshed: {} device(s) found", device_count))
 }
 
 /// Select a MIDI input device by index
 pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
     if device_index < 0 {
-        return Err("Invalid device index".to_string());
+        return Err("Invalid device index: must be >= 0".to_string());
     }
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut midi_manager = graph.midi_input_manager.lock()
+        .map_err(|e| e.to_string())?;
 
-    let mut midi_manager = graph.midi_input_manager.lock().map_err(|e| e.to_string())?;
-    midi_manager.select_device(device_index as usize).map_err(|e| e.to_string())?;
+    // Validate device index
+    let device_count = midi_manager.get_devices().len();
+    if (device_index as usize) >= device_count {
+        return Err(format!(
+            "Invalid device index: {} (only {} device(s) available)",
+            device_index, device_count
+        ));
+    }
 
-    Ok(format!("Selected MIDI input device {}", device_index))
+    midi_manager.select_device(device_index as usize)
+        .map_err(|e| e.to_string())?;
+
+    let device_name = midi_manager.get_devices()
+        .get(device_index as usize)
+        .map(|d| d.name.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    Ok(format!("Selected MIDI input device: {}", device_name))
 }
 
 // ============================================================================
