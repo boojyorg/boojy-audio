@@ -136,6 +136,36 @@ pub extern "C" fn get_playhead_position_ffi() -> f64 {
     api::get_playhead_position().unwrap_or(0.0)
 }
 
+/// Get position when Play was pressed (in seconds)
+#[no_mangle]
+pub extern "C" fn get_play_start_position_ffi() -> f64 {
+    api::get_play_start_position().unwrap_or(0.0)
+}
+
+/// Set position when Play was pressed (in seconds)
+#[no_mangle]
+pub extern "C" fn set_play_start_position_ffi(position_seconds: f64) -> *mut c_char {
+    match api::set_play_start_position(position_seconds) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Get position when recording started (after count-in, in seconds)
+#[no_mangle]
+pub extern "C" fn get_record_start_position_ffi() -> f64 {
+    api::get_record_start_position().unwrap_or(0.0)
+}
+
+/// Set position when recording started (after count-in, in seconds)
+#[no_mangle]
+pub extern "C" fn set_record_start_position_ffi(position_seconds: f64) -> *mut c_char {
+    match api::set_record_start_position(position_seconds) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Get transport state (0=Stopped, 1=Playing, 2=Paused)
 #[no_mangle]
 pub extern "C" fn get_transport_state_ffi() -> i32 {
@@ -418,6 +448,18 @@ pub extern "C" fn get_count_in_bars_ffi() -> u32 {
     api::get_count_in_bars().unwrap_or(2)
 }
 
+/// Get current count-in beat number (1-indexed, 0 when not counting in)
+#[no_mangle]
+pub extern "C" fn get_count_in_beat_ffi() -> u32 {
+    api::get_count_in_beat().unwrap_or(0)
+}
+
+/// Get count-in progress (0.0-1.0)
+#[no_mangle]
+pub extern "C" fn get_count_in_progress_ffi() -> f32 {
+    api::get_count_in_progress().unwrap_or(0.0)
+}
+
 /// Set tempo in BPM
 #[no_mangle]
 pub extern "C" fn set_tempo_ffi(bpm: f64) -> *mut c_char {
@@ -550,6 +592,16 @@ pub extern "C" fn get_midi_recording_state_ffi() -> i32 {
     match api::get_midi_recording_state() {
         Ok(state) => state,
         Err(_) => -1,
+    }
+}
+
+/// Get live MIDI recording events for real-time UI preview
+/// Returns CSV: "note,velocity,type,timestamp_samples;..." or empty string
+#[no_mangle]
+pub extern "C" fn get_midi_recorder_live_events_ffi() -> *mut c_char {
+    match api::get_midi_recorder_live_events() {
+        Ok(events) => safe_cstring(events).into_raw(),
+        Err(_) => safe_cstring(String::new()).into_raw(),
     }
 }
 

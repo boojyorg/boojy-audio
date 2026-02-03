@@ -381,6 +381,19 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Initialize controllers with audio engine
       _playbackController.initialize(_audioEngine!);
       _recordingController.initialize(_audioEngine!);
+      _recordingController.setLiveRecordingNotifier(liveRecordingNotifier);
+      _recordingController.getFirstArmedMidiTrackId = () {
+        final tracks = mixerKey.currentState?.tracks ?? [];
+        for (final t in tracks) {
+          if ((t.type == 'midi' || t.type == 'sampler') && t.armed) return t.id;
+        }
+        return selectedTrackId ?? 0;
+      };
+      _recordingController.getRecordingClipName = (trackId) => generateClipName(trackId);
+      _recordingController.hasArmedAudioTracks = () {
+        final tracks = mixerKey.currentState?.tracks ?? [];
+        return tracks.any((t) => t.type == 'audio' && t.armed);
+      };
 
       // Initialize VST3 editor service (for platform channel communication)
       VST3EditorService.initialize(_audioEngine!);
@@ -460,7 +473,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   void _stopPlayback() {
-    _playbackController.stop();
+    debugPrint('🛑 [DAW] _stopPlayback() called');
+    debugPrint('🛑 [DAW]   isPlaying=${_playbackController.isPlaying}');
+    debugPrint('🛑 [DAW]   isRecording=${_recordingController.isRecording}');
+    debugPrint('🛑 [DAW]   playheadPosition=${_playbackController.playheadPosition.toStringAsFixed(3)}s');
+    stopPlayback(); // Use mixin method which handles idle vs playing state
     // Reset mixer meters when playback stops
     _mixerKey.currentState?.resetMeters();
   }
@@ -530,88 +547,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     );
   }
 
-  // M2: Recording methods - delegate to RecordingController
-  void _toggleRecording() {
-    if (_isRecording || _isCountingIn) {
-      _stopRecording();
-    } else {
-      _startRecording();
-    }
-  }
-
-  void _startRecording() {
-    // Set up callback to handle recording completion with MIDI clip processing
-    _recordingController.onRecordingComplete = _handleRecordingComplete;
-    _recordingController.startRecording();
-  }
-
-  void _stopRecording() {
-    final result = _recordingController.stopRecording();
-    _handleRecordingComplete(result);
-  }
-
-  /// Handle recording completion - process audio and MIDI clips
-  void _handleRecordingComplete(RecordingResult result) {
-    final List<String> recordedItems = [];
-
-    // Handle audio clip
-    if (result.audioClipId != null) {
-      setState(() {
-        _loadedClipId = result.audioClipId;
-        _clipDuration = result.duration;
-        _waveformPeaks = result.waveformPeaks ?? [];
-      });
-      recordedItems.add('Audio ${result.duration?.toStringAsFixed(2) ?? ""}s');
-    }
-
-    // Handle MIDI clip
-    if (result.midiClipId != null && result.midiClipInfo != null) {
-      final clipInfo = result.midiClipInfo!;
-      if (!clipInfo.startsWith('Error')) {
-        try {
-          final parts = clipInfo.split(',');
-          if (parts.length >= 5) {
-            final trackId = int.parse(parts[1]);
-            final startTimeSeconds = double.parse(parts[2]);
-            final durationSeconds = double.parse(parts[3]);
-            final noteCount = int.parse(parts[4]);
-
-            // Convert from seconds to beats for MIDI clip storage
-            final beatsPerSecond = _tempo / 60.0;
-            final startTimeBeats = startTimeSeconds * beatsPerSecond;
-            final durationBeats = durationSeconds > 0
-                ? durationSeconds * beatsPerSecond
-                : 16.0; // Default 4 bars (16 beats) if no duration
-
-            // Create MidiClipData and add to timeline
-            final actualTrackId = trackId >= 0 ? trackId : (_selectedTrackId ?? 0);
-            final clipData = MidiClipData(
-              clipId: result.midiClipId!,
-              trackId: actualTrackId,
-              startTime: startTimeBeats,
-              duration: durationBeats,
-              name: _generateClipName(actualTrackId),
-              notes: [], // Notes are managed by the engine
-            );
-
-            _midiPlaybackManager?.addRecordedClip(clipData);
-            recordedItems.add('MIDI ($noteCount notes)');
-          }
-        } catch (e) {
-          recordedItems.add('MIDI clip');
-        }
-      } else {
-        recordedItems.add('MIDI clip');
-      }
-    }
-
-    // Update status message
-    if (recordedItems.isNotEmpty) {
-      _playbackController.setStatusMessage('Recorded: ${recordedItems.join(', ')}');
-    } else if (result.audioClipId == null && result.midiClipId == null) {
-      _playbackController.setStatusMessage('No recording captured');
-    }
-  }
+  // M2: Recording methods - handled by DAWRecordingMixin
+  // (toggleRecording, startRecording, stopRecording, handleRecordingComplete)
 
   void _toggleMetronome() {
     _recordingController.toggleMetronome();
@@ -3615,7 +3552,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             onPlay: _playWithLoopCheck,
             onPause: _pause,
             onStop: _stopPlayback,
-            onRecord: _toggleRecording,
+            onRecord: toggleRecording,
+            onPauseRecording: pauseRecording,
+            onStopRecording: stopRecordingAndReturn,
             onCaptureMidi: _captureMidi,
             onCountInChanged: _setCountInBars,
             countInBars: _userSettings.countInBars,
@@ -3626,6 +3565,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             canPlay: true, // Always allow transport controls
             isRecording: _isRecording,
             isCountingIn: _isCountingIn,
+            countInBeat: _recordingController.countInBeat,
+            countInProgress: _recordingController.countInProgress,
             hasArmedTracks: mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
             metronomeEnabled: _isMetronomeEnabled,
             virtualPianoEnabled: _uiLayout.isVirtualPianoEnabled,
@@ -3819,6 +3760,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           // Tool mode (shared with piano roll)
                           toolMode: _currentToolMode,
                           onToolModeChanged: (mode) => setState(() => _currentToolMode = mode),
+                          // Recording state (for auto-scroll)
+                          isRecording: _isRecording,
                           // Automation state
                           automationVisibleTrackId: _automationController.visibleTrackId,
                           getAutomationLane: (trackId) => _automationController.getLane(trackId, _automationController.visibleParameter),
@@ -4077,6 +4020,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                     beatUnit: _projectMetadata.timeSignatureDenominator,
                     projectTempo: _projectMetadata.bpm,
                     onProjectTempoChanged: _onTempoChanged,
+                    isRecording: _isRecording,
                   ),
                 ),
 

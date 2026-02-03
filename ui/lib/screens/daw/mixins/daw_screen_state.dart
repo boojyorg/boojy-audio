@@ -15,6 +15,7 @@ import '../../../services/midi_playback_manager.dart';
 import '../../../services/user_settings.dart';
 import '../../../services/auto_save_service.dart';
 import '../../../services/midi_capture_buffer.dart';
+import '../../../services/live_recording_notifier.dart';
 import '../../../controllers/controllers.dart';
 import '../../../state/ui_layout_state.dart';
 import '../../../widgets/timeline_view.dart';
@@ -60,6 +61,7 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   final UserSettings userSettings = UserSettings();
   final AutoSaveService autoSaveService = AutoSaveService();
   final MidiCaptureBuffer midiCaptureBuffer = MidiCaptureBuffer(maxDurationSeconds: 30);
+  final LiveRecordingNotifier liveRecordingNotifier = LiveRecordingNotifier();
 
   // ============================================
   // LOCAL STATE

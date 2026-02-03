@@ -52,20 +52,20 @@ pub use midi_clips::{
     quantize_midi_clip, remove_midi_clip, remove_midi_event, send_midi_note_off, send_midi_note_on,
 };
 pub use midi_input::{
-    get_midi_input_devices, get_midi_recording_state, refresh_midi_devices,
-    select_midi_input_device, set_synth_oscillator_type, set_synth_volume, start_midi_input,
-    start_midi_recording, stop_midi_input, stop_midi_recording,
+    get_midi_input_devices, get_midi_recorder_live_events, get_midi_recording_state,
+    refresh_midi_devices, select_midi_input_device, set_synth_oscillator_type, set_synth_volume,
+    start_midi_input, start_midi_recording, stop_midi_input, stop_midi_recording,
 };
 pub use project::{
     export_audio, export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
     get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
 };
 pub use recording::{
-    get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_input_channel_count,
-    get_input_channel_level, get_recorded_duration, get_recording_state, get_recording_waveform,
-    get_sample_rate, get_selected_audio_output_device, set_audio_input_device,
-    set_audio_output_device, set_count_in_bars, start_audio_input, start_recording,
-    stop_audio_input, stop_recording,
+    get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_count_in_beat,
+    get_count_in_progress, get_input_channel_count, get_input_channel_level,
+    get_recorded_duration, get_recording_state, get_recording_waveform, get_sample_rate,
+    get_selected_audio_output_device, set_audio_input_device, set_audio_output_device,
+    set_count_in_bars, start_audio_input, start_recording, stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
     create_sampler_for_track, get_synth_parameters, is_sampler_track, load_sample_for_track,
@@ -80,8 +80,9 @@ pub use tracks::{
     set_track_volume, set_track_volume_automation,
 };
 pub use transport::{
-    get_playhead_position, get_transport_state, transport_pause, transport_play, transport_seek,
-    transport_stop,
+    get_playhead_position, get_play_start_position, get_record_start_position, get_transport_state,
+    set_play_start_position, set_record_start_position, transport_pause, transport_play,
+    transport_seek, transport_stop,
 };
 pub use preview::{
     preview_get_duration, preview_get_position, preview_get_waveform, preview_is_looping,

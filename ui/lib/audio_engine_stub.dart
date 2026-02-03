@@ -152,6 +152,37 @@ class AudioEngine implements AudioEngineInterface {
   @override
   void setCountInBars(int bars) => throw UnsupportedError('stub');
 
+  String getMidiClipInfo(int clipId) => throw UnsupportedError('stub');
+
+  // Transport / playback
+  double getPlayheadPosition() => throw UnsupportedError('stub');
+  double getTempo() => throw UnsupportedError('stub');
+  void transportPlay() => throw UnsupportedError('stub');
+  void transportPause() => throw UnsupportedError('stub');
+  void transportStop() => throw UnsupportedError('stub');
+  void transportSeek(double position) => throw UnsupportedError('stub');
+
+  // Recording
+  void startRecording() => throw UnsupportedError('stub');
+  int stopRecording() => throw UnsupportedError('stub');
+  void startMidiRecording() => throw UnsupportedError('stub');
+  int stopMidiRecording() => throw UnsupportedError('stub');
+  int getRecordingState() => throw UnsupportedError('stub');
+  int getCountInBeat() => throw UnsupportedError('stub');
+  double getCountInProgress() => throw UnsupportedError('stub');
+  double getRecordedDuration() => throw UnsupportedError('stub');
+  void setMetronomeEnabled({required bool enabled}) =>
+      throw UnsupportedError('stub');
+
+  // MIDI
+  void startMidiInput() => throw UnsupportedError('stub');
+  List<Map<String, dynamic>> getMidiInputDevices() =>
+      throw UnsupportedError('stub');
+  void selectMidiInputDevice(int deviceIndex) =>
+      throw UnsupportedError('stub');
+  void refreshMidiDevices() => throw UnsupportedError('stub');
+  String getMidiRecorderLiveEvents() => throw UnsupportedError('stub');
+
   // Audio device operations
   List<Map<String, dynamic>> getAudioInputDevices() => [];
 

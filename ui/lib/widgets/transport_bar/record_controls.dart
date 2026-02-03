@@ -1,124 +1,22 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
 
-/// Recording indicator with pulsing REC label and duration
-class RecordingIndicator extends StatefulWidget {
-  final bool isRecording;
-  final bool isCountingIn;
-  final double playheadPosition;
+/// Record button states for the CustomPainter
+enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
 
-  const RecordingIndicator({
-    super.key,
-    required this.isRecording,
-    required this.isCountingIn,
-    required this.playheadPosition,
-  });
-
-  @override
-  State<RecordingIndicator> createState() => _RecordingIndicatorState();
-}
-
-class _RecordingIndicatorState extends State<RecordingIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  String _formatDuration(double seconds) {
-    final mins = (seconds / 60).floor();
-    final secs = (seconds % 60).floor();
-    final ms = ((seconds % 1) * 100).floor();
-    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}.${ms.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: context.colors.standard,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: widget.isRecording
-                ? context.colors.recordActive
-                : context.colors.warning,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Pulsing REC indicator
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.isRecording
-                        ? Color.fromRGBO(255, 0, 0, _pulseAnimation.value)
-                        : Color.fromRGBO(255, 152, 0, _pulseAnimation.value),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 6),
-            Text(
-              widget.isCountingIn ? 'COUNT-IN' : 'REC',
-              style: TextStyle(
-                color: widget.isRecording
-                    ? context.colors.recordActive
-                    : context.colors.warning,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            if (widget.isRecording) ...[
-              const SizedBox(width: 8),
-              Text(
-                _formatDuration(widget.playheadPosition),
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Record button with right-click context menu for count-in settings
+/// Record button with count-in ring timer and right-click context menu.
+///
+/// During count-in: depleting orange ring + beat number inside.
+/// During recording: solid red fill + white dot + glow.
+/// Transition flash on recording start.
 class RecordButton extends StatefulWidget {
   final bool isRecording;
   final bool isCountingIn;
   final int countInBars;
+  final int countInBeat; // 1-indexed beat number from engine
+  final double countInProgress; // 0.0-1.0 from engine
+  final int beatsPerBar; // time signature numerator
   final VoidCallback? onPressed;
   final Function(int)? onCountInChanged;
   final double size;
@@ -128,6 +26,9 @@ class RecordButton extends StatefulWidget {
     required this.isRecording,
     required this.isCountingIn,
     required this.countInBars,
+    this.countInBeat = 0,
+    this.countInProgress = 0.0,
+    this.beatsPerBar = 4,
     required this.onPressed,
     required this.onCountInChanged,
     this.size = 40,
@@ -138,46 +39,49 @@ class RecordButton extends StatefulWidget {
 }
 
 class _RecordButtonState extends State<RecordButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
-  late AnimationController _blinkController;
+  late AnimationController _flashController;
+  late AnimationController _pulseController;
+  bool _wasCountingIn = false;
 
   @override
   void initState() {
     super.initState();
-    // Blink animation for count-in state (500ms on/off cycle)
-    _blinkController = AnimationController(
+    _flashController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 150),
     );
-
-    // Start blinking if already counting in
-    if (widget.isCountingIn) {
-      _blinkController.repeat(reverse: true);
-    }
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+    _wasCountingIn = widget.isCountingIn;
   }
 
   @override
   void didUpdateWidget(RecordButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Start/stop blink animation based on count-in state
-    if (widget.isCountingIn && !oldWidget.isCountingIn) {
-      _blinkController.repeat(reverse: true);
-    } else if (!widget.isCountingIn && oldWidget.isCountingIn) {
-      _blinkController.stop();
-      _blinkController.reset();
+
+    // Flash on count-in → recording transition
+    if (widget.isRecording && !oldWidget.isRecording && _wasCountingIn) {
+      _flashController.forward(from: 0.0);
     }
+
+    _wasCountingIn = widget.isCountingIn;
   }
 
   @override
   void dispose() {
-    _blinkController.dispose();
+    _flashController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
   void _showCountInMenu(BuildContext context, Offset position) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
     showMenu<int>(
       context: context,
@@ -239,14 +143,13 @@ class _RecordButtonState extends State<RecordButton>
     final isEnabled = widget.onPressed != null;
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
 
-    // Record button color: Bright red (same intensity as play/stop)
     const recordColor = Color(0xFFFF4444);
+    const countInColor = Color(0xFFFFA600);
 
     String tooltip = widget.isRecording
         ? 'Stop Recording (R)'
         : (widget.isCountingIn ? 'Counting In...' : 'Record (R)');
 
-    // Add count-in info to tooltip
     if (!widget.isRecording && !widget.isCountingIn) {
       final countInText = widget.countInBars == 0
           ? 'Off'
@@ -257,6 +160,14 @@ class _RecordButtonState extends State<RecordButton>
                   : '4 Bars';
       tooltip += ' | Right-click: Count-in ($countInText)';
     }
+
+    final visualState = widget.isRecording
+        ? _RecordButtonVisualState.recording
+        : widget.isCountingIn
+            ? _RecordButtonVisualState.countingIn
+            : (isEnabled
+                ? _RecordButtonVisualState.idle
+                : _RecordButtonVisualState.disabled);
 
     return Tooltip(
       message: tooltip,
@@ -271,7 +182,6 @@ class _RecordButtonState extends State<RecordButton>
           },
           onTapCancel: () => setState(() => _isPressed = false),
           onSecondaryTapDown: (details) {
-            // Right-click: show count-in menu
             _showCountInMenu(context, details.globalPosition);
           },
           child: AnimatedScale(
@@ -279,65 +189,21 @@ class _RecordButtonState extends State<RecordButton>
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             child: AnimatedBuilder(
-              animation: _blinkController,
+              animation: Listenable.merge([_flashController, _pulseController]),
               builder: (context, child) {
-                // Traffic Light System:
-                // - Idle: Grey/red fill with small red circle in center
-                // - Count-In: Blinking red (animated)
-                // - Recording: Solid red fill with glow
-
-                final bool isCountingIn = widget.isCountingIn;
-                final bool isRecording = widget.isRecording;
-
-                // Match CircularToggleButton pattern exactly
-                // Fill: dim red when idle, brighter when recording
-                Color fillColor;
-                if (isRecording) {
-                  fillColor = recordColor.withValues(alpha: _isHovered ? 0.95 : 0.85);
-                } else if (isCountingIn) {
-                  final blinkValue = _blinkController.value;
-                  fillColor = recordColor.withValues(alpha: 0.3 + (blinkValue * 0.55));
-                } else if (isEnabled) {
-                  fillColor = recordColor.withValues(alpha: _isHovered ? 0.3 : 0.2);
-                } else {
-                  // Disabled: same as CircularToggleButton disabled
-                  fillColor = context.colors.elevated.withValues(alpha: _isHovered ? 1.0 : 0.8);
-                }
-
-                // Border always visible (matches CircularToggleButton)
-                final border = Border.all(
-                  color: isEnabled ? recordColor : context.colors.elevated,
-                  width: 2,
-                );
-
-                // Glow effect when hovering or recording
-                final List<BoxShadow>? shadows = (_isHovered || isRecording) && isEnabled
-                    ? [
-                        BoxShadow(
-                          color: recordColor.withValues(alpha: isRecording ? 0.5 : 0.3),
-                          blurRadius: isRecording ? 12 : 8,
-                          spreadRadius: isRecording ? 3 : 2,
-                        ),
-                      ]
-                    : null;
-
-                return Container(
-                  width: widget.size,
-                  height: widget.size,
-                  decoration: BoxDecoration(
-                    color: fillColor,
-                    shape: BoxShape.circle,
-                    border: border,
-                    boxShadow: shadows,
-                  ),
-                  child: Icon(
-                    Icons.fiber_manual_record,
-                    size: widget.size * 0.5,
-                    color: isEnabled
-                        ? (isCountingIn
-                            ? recordColor.withValues(alpha: 0.5 + (_blinkController.value * 0.5))
-                            : recordColor)
-                        : context.colors.textMuted,
+                return CustomPaint(
+                  size: Size(widget.size, widget.size),
+                  painter: _RecordButtonPainter(
+                    state: visualState,
+                    ringProgress: widget.countInProgress,
+                    beatNumber: widget.countInBeat,
+                    flashValue: _flashController.value,
+                    pulseValue: _pulseController.value,
+                    isHovered: _isHovered,
+                    recordColor: recordColor,
+                    countInColor: countInColor,
+                    disabledColor: context.colors.elevated,
+                    textMutedColor: context.colors.textMuted,
                   ),
                 );
               },
@@ -346,5 +212,207 @@ class _RecordButtonState extends State<RecordButton>
         ),
       ),
     );
+  }
+}
+
+/// CustomPainter for the record button.
+///
+/// Draws different visuals based on state:
+/// - Idle: red border + dim red fill + red dot
+/// - Disabled: grey border + grey fill + grey dot
+/// - CountingIn: orange depleting ring (CW from 12 o'clock) + beat number
+/// - Recording: red fill + pulsing glow + white dot + optional flash overlay
+class _RecordButtonPainter extends CustomPainter {
+  final _RecordButtonVisualState state;
+  final double ringProgress; // 0.0 (start) to 1.0 (end of count-in)
+  final int beatNumber; // 1-indexed beat within bar
+  final double flashValue; // 0.0 to 1.0 (flash animation)
+  final double pulseValue; // 0.0 to 1.0 (pulse animation, 2-second cycle)
+  final bool isHovered;
+  final Color recordColor;
+  final Color countInColor;
+  final Color disabledColor;
+  final Color textMutedColor;
+
+  _RecordButtonPainter({
+    required this.state,
+    required this.ringProgress,
+    required this.beatNumber,
+    required this.flashValue,
+    required this.pulseValue,
+    required this.isHovered,
+    required this.recordColor,
+    required this.countInColor,
+    required this.disabledColor,
+    required this.textMutedColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    const borderWidth = 2.0;
+
+    switch (state) {
+      case _RecordButtonVisualState.idle:
+        _drawIdle(canvas, center, radius, borderWidth);
+        break;
+      case _RecordButtonVisualState.disabled:
+        _drawDisabled(canvas, center, radius, borderWidth);
+        break;
+      case _RecordButtonVisualState.countingIn:
+        _drawCountingIn(canvas, center, radius, borderWidth, size);
+        break;
+      case _RecordButtonVisualState.recording:
+        _drawRecording(canvas, center, radius, borderWidth);
+        break;
+    }
+  }
+
+  void _drawIdle(Canvas canvas, Offset center, double radius, double bw) {
+    // Fill
+    final fillPaint = Paint()
+      ..color = recordColor.withValues(alpha: isHovered ? 0.3 : 0.2)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius - bw, fillPaint);
+
+    // Border
+    final borderPaint = Paint()
+      ..color = recordColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = bw;
+    canvas.drawCircle(center, radius - bw / 2, borderPaint);
+
+    // Glow on hover
+    if (isHovered) {
+      final glowPaint = Paint()
+        ..color = recordColor.withValues(alpha: 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      canvas.drawCircle(center, radius, glowPaint);
+    }
+
+    // Red dot in center
+    final dotPaint = Paint()
+      ..color = recordColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius * 0.22, dotPaint);
+  }
+
+  void _drawDisabled(Canvas canvas, Offset center, double radius, double bw) {
+    // Fill
+    final fillPaint = Paint()
+      ..color = disabledColor.withValues(alpha: isHovered ? 1.0 : 0.8)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius - bw, fillPaint);
+
+    // Border
+    final borderPaint = Paint()
+      ..color = disabledColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = bw;
+    canvas.drawCircle(center, radius - bw / 2, borderPaint);
+
+    // Grey dot
+    final dotPaint = Paint()
+      ..color = textMutedColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius * 0.22, dotPaint);
+  }
+
+  void _drawCountingIn(
+      Canvas canvas, Offset center, double radius, double bw, Size size) {
+    // Dim orange fill
+    final fillPaint = Paint()
+      ..color = countInColor.withValues(alpha: 0.2)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius - bw, fillPaint);
+
+    // Depleting ring arc (clockwise from 12 o'clock)
+    final remaining = (1.0 - ringProgress).clamp(0.0, 1.0);
+    if (remaining > 0.001) {
+      final arcPaint = Paint()
+        ..color = countInColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = bw + 1.5
+        ..strokeCap = StrokeCap.round;
+
+      const startAngle = -pi / 2; // 12 o'clock
+      final sweepAngle = remaining * 2 * pi;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius - bw / 2),
+        startAngle,
+        sweepAngle,
+        false,
+        arcPaint,
+      );
+    }
+
+    // Beat number text in center
+    if (beatNumber > 0) {
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: '$beatNumber',
+          style: TextStyle(
+            color: countInColor,
+            fontSize: radius * 0.9,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      textPainter.paint(
+        canvas,
+        center - Offset(textPainter.width / 2, textPainter.height / 2),
+      );
+    }
+  }
+
+  void _drawRecording(Canvas canvas, Offset center, double radius, double bw) {
+    // Pulsing glow: 0.8 to 1.0 opacity (2-second cycle)
+    final glowAlpha = 0.8 + (0.2 * sin(pulseValue * 2 * pi));
+    final glowPaint = Paint()
+      ..color = recordColor.withValues(alpha: glowAlpha * 0.4)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(center, radius + 2, glowPaint);
+
+    // Solid red fill with subtle pulse
+    final fillAlpha = 0.8 + (0.15 * sin(pulseValue * 2 * pi));
+    final fillPaint = Paint()
+      ..color = recordColor.withValues(alpha: isHovered ? 0.95 : fillAlpha)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, fillPaint);
+
+    // Border
+    final borderPaint = Paint()
+      ..color = recordColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = bw;
+    canvas.drawCircle(center, radius - bw / 2, borderPaint);
+
+    // White dot in center
+    final dotPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius * 0.2, dotPaint);
+
+    // Flash overlay (on transition from count-in)
+    if (flashValue > 0) {
+      final flashPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.6 * (1.0 - flashValue))
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(center, radius, flashPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RecordButtonPainter oldDelegate) {
+    return state != oldDelegate.state ||
+        ringProgress != oldDelegate.ringProgress ||
+        beatNumber != oldDelegate.beatNumber ||
+        flashValue != oldDelegate.flashValue ||
+        pulseValue != oldDelegate.pulseValue ||
+        isHovered != oldDelegate.isHovered;
   }
 }

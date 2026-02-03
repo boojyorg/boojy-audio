@@ -26,6 +26,10 @@ class AudioEngine implements AudioEngineInterface {
   late final _TransportSeekFfi _transportSeek;
   late final _GetPlayheadPositionFfi _getPlayheadPosition;
   late final _GetTransportStateFfi _getTransportState;
+  late final _GetPlayStartPositionFfi _getPlayStartPosition;
+  late final _SetPlayStartPositionFfi _setPlayStartPosition;
+  late final _GetRecordStartPositionFfi _getRecordStartPosition;
+  late final _SetRecordStartPositionFfi _setRecordStartPosition;
   late final _GetClipDurationFfi _getClipDuration;
 
   // Latency Control functions
@@ -52,6 +56,8 @@ class AudioEngine implements AudioEngineInterface {
   late final _GetRecordingWaveformFfi _getRecordingWaveform;
   late final _SetCountInBarsFfi _setCountInBars;
   late final _GetCountInBarsFfi _getCountInBars;
+  late final _GetCountInBeatFfi _getCountInBeat;
+  late final _GetCountInProgressFfi _getCountInProgress;
   late final _SetTempoFfi _setTempo;
   late final _GetTempoFfi _getTempo;
   late final _SetMetronomeEnabledFfi _setMetronomeEnabled;
@@ -161,6 +167,7 @@ class AudioEngine implements AudioEngineInterface {
   late final _StartMidiRecordingFfi _startMidiRecording;
   late final _StopMidiRecordingFfi _stopMidiRecording;
   late final _GetMidiRecordingStateFfi _getMidiRecordingState;
+  late final _GetMidiRecorderLiveEventsFfi _getMidiRecorderLiveEvents;
   late final _QuantizeMidiClipFfi _quantizeMidiClip;
   late final _GetMidiClipInfoFfi _getMidiClipInfo;
   late final _GetAllMidiClipsInfoFfi _getAllMidiClipsInfo;
@@ -322,6 +329,26 @@ class AudioEngine implements AudioEngineInterface {
               'get_transport_state_ffi')
           .asFunction();
 
+      _getPlayStartPosition = _lib
+          .lookup<ffi.NativeFunction<_GetPlayStartPositionFfiNative>>(
+              'get_play_start_position_ffi')
+          .asFunction();
+
+      _setPlayStartPosition = _lib
+          .lookup<ffi.NativeFunction<_SetPlayStartPositionFfiNative>>(
+              'set_play_start_position_ffi')
+          .asFunction();
+
+      _getRecordStartPosition = _lib
+          .lookup<ffi.NativeFunction<_GetRecordStartPositionFfiNative>>(
+              'get_record_start_position_ffi')
+          .asFunction();
+
+      _setRecordStartPosition = _lib
+          .lookup<ffi.NativeFunction<_SetRecordStartPositionFfiNative>>(
+              'set_record_start_position_ffi')
+          .asFunction();
+
       // Latency Control bindings
       _setBufferSize = _lib
           .lookup<ffi.NativeFunction<_SetBufferSizeFfiNative>>(
@@ -433,7 +460,17 @@ class AudioEngine implements AudioEngineInterface {
           .lookup<ffi.NativeFunction<_GetCountInBarsFfiNative>>(
               'get_count_in_bars_ffi')
           .asFunction();
-      
+
+      _getCountInBeat = _lib
+          .lookup<ffi.NativeFunction<_GetCountInBeatFfiNative>>(
+              'get_count_in_beat_ffi')
+          .asFunction();
+
+      _getCountInProgress = _lib
+          .lookup<ffi.NativeFunction<_GetCountInProgressFfiNative>>(
+              'get_count_in_progress_ffi')
+          .asFunction();
+
       _setTempo = _lib
           .lookup<ffi.NativeFunction<_SetTempoFfiNative>>(
               'set_tempo_ffi')
@@ -880,6 +917,11 @@ class AudioEngine implements AudioEngineInterface {
               'get_midi_recording_state_ffi')
           .asFunction();
 
+      _getMidiRecorderLiveEvents = _lib
+          .lookup<ffi.NativeFunction<_GetMidiRecorderLiveEventsFfiNative>>(
+              'get_midi_recorder_live_events_ffi')
+          .asFunction();
+
       _quantizeMidiClip = _lib
           .lookup<ffi.NativeFunction<_QuantizeMidiClipFfiNative>>(
               'quantize_midi_clip_ffi')
@@ -1129,6 +1171,48 @@ class AudioEngine implements AudioEngineInterface {
       return _getTransportState();
     } catch (e) {
       return 0;
+    }
+  }
+
+  /// Get position when Play was pressed (in seconds)
+  double getPlayStartPosition() {
+    try {
+      return _getPlayStartPosition();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Set position when Play was pressed (in seconds)
+  String setPlayStartPosition(double positionSeconds) {
+    try {
+      final resultPtr = _setPlayStartPosition(positionSeconds);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Get position when recording started (after count-in, in seconds)
+  double getRecordStartPosition() {
+    try {
+      return _getRecordStartPosition();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Set position when recording started (after count-in, in seconds)
+  String setRecordStartPosition(double positionSeconds) {
+    try {
+      final resultPtr = _setRecordStartPosition(positionSeconds);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: $e';
     }
   }
 
@@ -1484,6 +1568,24 @@ class AudioEngine implements AudioEngineInterface {
       return _getCountInBars();
     } catch (e) {
       return 2;
+    }
+  }
+
+  /// Get current count-in beat number (1-indexed, 0 when not counting in)
+  int getCountInBeat() {
+    try {
+      return _getCountInBeat();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get count-in progress (0.0-1.0)
+  double getCountInProgress() {
+    try {
+      return _getCountInProgress();
+    } catch (e) {
+      return 0.0;
     }
   }
 
@@ -1899,6 +2001,19 @@ class AudioEngine implements AudioEngineInterface {
       return _getMidiRecordingState();
     } catch (e) {
       return 0;
+    }
+  }
+
+  /// Get live MIDI recording events for real-time UI preview
+  /// Returns CSV: "note,velocity,type,timestamp_samples;..." or empty string
+  String getMidiRecorderLiveEvents() {
+    try {
+      final resultPtr = _getMidiRecorderLiveEvents();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return '';
     }
   }
 
@@ -3167,6 +3282,18 @@ typedef _GetPlayheadPositionFfi = double Function();
 typedef _GetTransportStateFfiNative = ffi.Int32 Function();
 typedef _GetTransportStateFfi = int Function();
 
+typedef _GetPlayStartPositionFfiNative = ffi.Double Function();
+typedef _GetPlayStartPositionFfi = double Function();
+
+typedef _SetPlayStartPositionFfiNative = ffi.Pointer<Utf8> Function(ffi.Double);
+typedef _SetPlayStartPositionFfi = ffi.Pointer<Utf8> Function(double);
+
+typedef _GetRecordStartPositionFfiNative = ffi.Double Function();
+typedef _GetRecordStartPositionFfi = double Function();
+
+typedef _SetRecordStartPositionFfiNative = ffi.Pointer<Utf8> Function(ffi.Double);
+typedef _SetRecordStartPositionFfi = ffi.Pointer<Utf8> Function(double);
+
 // Latency Control types
 typedef _SetBufferSizeFfiNative = ffi.Pointer<Utf8> Function(ffi.Int32);
 typedef _SetBufferSizeFfi = ffi.Pointer<Utf8> Function(int);
@@ -3242,6 +3369,12 @@ typedef _SetCountInBarsFfi = ffi.Pointer<Utf8> Function(int);
 
 typedef _GetCountInBarsFfiNative = ffi.Uint32 Function();
 typedef _GetCountInBarsFfi = int Function();
+
+typedef _GetCountInBeatFfiNative = ffi.Uint32 Function();
+typedef _GetCountInBeatFfi = int Function();
+
+typedef _GetCountInProgressFfiNative = ffi.Float Function();
+typedef _GetCountInProgressFfi = double Function();
 
 typedef _SetTempoFfiNative = ffi.Pointer<Utf8> Function(ffi.Double);
 typedef _SetTempoFfi = ffi.Pointer<Utf8> Function(double);
@@ -3521,6 +3654,9 @@ typedef _StopMidiRecordingFfi = int Function();
 
 typedef _GetMidiRecordingStateFfiNative = ffi.Int32 Function();
 typedef _GetMidiRecordingStateFfi = int Function();
+
+typedef _GetMidiRecorderLiveEventsFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetMidiRecorderLiveEventsFfi = ffi.Pointer<Utf8> Function();
 
 typedef _QuantizeMidiClipFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint32);
 typedef _QuantizeMidiClipFfi = ffi.Pointer<Utf8> Function(int, int);

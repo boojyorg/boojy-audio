@@ -15,13 +15,32 @@ class MidiPlaybackManager extends ChangeNotifier {
   final List<MidiClipData> _midiClips = [];
   final Map<int, int> _dartToRustClipIds = {}; // Maps Dart clip ID -> Rust clip ID
 
+  // Live recording clip (displayed during recording, not persisted)
+  MidiClipData? _liveRecordingClip;
+
   MidiPlaybackManager(this._audioEngine);
 
   // Getters
   int? get selectedClipId => _selectedMidiClipId;
   MidiClipData? get currentEditingClip => _currentEditingClip;
-  List<MidiClipData> get midiClips => List.unmodifiable(_midiClips);
   Map<int, int> get dartToRustClipIds => Map.unmodifiable(_dartToRustClipIds);
+
+  /// Get all MIDI clips including the live recording clip (if active)
+  List<MidiClipData> get midiClips {
+    if (_liveRecordingClip != null) {
+      return [..._midiClips, _liveRecordingClip!];
+    }
+    return List.unmodifiable(_midiClips);
+  }
+
+  /// Set the live recording clip (displayed during recording)
+  void setLiveRecordingClip(MidiClipData? clip) {
+    _liveRecordingClip = clip;
+    notifyListeners();
+  }
+
+  /// Get the live recording clip (null if not recording)
+  MidiClipData? get liveRecordingClip => _liveRecordingClip;
 
   /// Select a MIDI clip for editing
   ///
@@ -318,6 +337,9 @@ class MidiPlaybackManager extends ChangeNotifier {
 
   /// Add a recorded MIDI clip to the manager
   void addRecordedClip(MidiClipData clip) {
+    // Remove any existing clip with the same ID to prevent duplicate key errors
+    // (the engine may reuse clip IDs across recordings)
+    _midiClips.removeWhere((c) => c.clipId == clip.clipId);
     _midiClips.add(clip);
     notifyListeners();
   }

@@ -20,6 +20,9 @@ pub struct MidiRecorder {
     events: Vec<MidiEvent>,
     /// Recording start timestamp (in samples)
     start_timestamp: u64,
+    /// Sample position where actual recording begins (after count-in)
+    /// Events before this position are discarded
+    recording_start_samples: u64,
     /// Current playhead position (in samples)
     playhead_samples: Arc<AtomicU64>,
     /// Tempo (BPM) for quantization
@@ -35,6 +38,7 @@ impl MidiRecorder {
             state: MidiRecordingState::Idle,
             events: Vec::new(),
             start_timestamp: 0,
+            recording_start_samples: 0,
             playhead_samples,
             tempo: 120.0,
             quantize_grid_samples: 0,
@@ -84,27 +88,32 @@ impl MidiRecorder {
         Ok(Some(clip))
     }
 
+    /// Set the sample position where actual recording begins (after count-in)
+    pub fn set_recording_start(&mut self, samples: u64) {
+        self.recording_start_samples = samples;
+        eprintln!("🎹 [MIDI_REC] Recording start set to sample {}", samples);
+    }
+
     /// Record a MIDI event
     pub fn record_event(&mut self, event: MidiEvent) {
         if self.state != MidiRecordingState::Recording {
             return;
         }
 
-        // Convert absolute timestamp to relative (from recording start)
-        let relative_timestamp = if event.timestamp_samples >= self.start_timestamp {
-            event.timestamp_samples - self.start_timestamp
-        } else {
-            0
-        };
+        // Discard events during count-in (before recording_start_samples)
+        if event.timestamp_samples < self.recording_start_samples {
+            return;
+        }
 
+        // Make timestamp relative to recording start (after count-in)
         let mut recorded_event = event;
-        recorded_event.timestamp_samples = relative_timestamp;
+        recorded_event.timestamp_samples -= self.recording_start_samples;
 
         self.events.push(recorded_event);
 
         eprintln!(
             "🎹 [MIDI_REC] Event recorded: {:?} at sample {}",
-            recorded_event.event_type, relative_timestamp
+            recorded_event.event_type, recorded_event.timestamp_samples
         );
     }
 
@@ -153,6 +162,12 @@ impl MidiRecorder {
     /// Get number of recorded events
     pub fn event_count(&self) -> usize {
         self.events.len()
+    }
+
+    /// Get a snapshot of recorded events for live UI preview
+    /// Returns a reference to the events buffer (no allocation)
+    pub fn get_events_snapshot(&self) -> &[MidiEvent] {
+        &self.events
     }
 }
 

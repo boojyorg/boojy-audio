@@ -17,6 +17,9 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onPause;
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
+  // NEW: Separate callbacks for recording-specific actions
+  final VoidCallback? onPauseRecording;
+  final VoidCallback? onStopRecording;
   final VoidCallback? onCaptureMidi;
   final Function(int)? onCountInChanged; // 0 = off, 1 = 1 bar, 2 = 2 bars
   final int countInBars; // Current count-in setting
@@ -99,12 +102,18 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
+  // Count-in ring timer data
+  final int countInBeat;
+  final double countInProgress;
+
   const TransportBar({
     super.key,
     this.onPlay,
     this.onPause,
     this.onStop,
     this.onRecord,
+    this.onPauseRecording,
+    this.onStopRecording,
     this.onCaptureMidi,
     this.onCountInChanged,
     this.countInBars = 2,
@@ -163,6 +172,8 @@ class TransportBar extends StatefulWidget {
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.isLoading = false,
+    this.countInBeat = 0,
+    this.countInProgress = 0.0,
   });
 
   @override
@@ -477,12 +488,21 @@ class _TransportBarState extends State<TransportBar> {
 
               // === CENTER: TRANSPORT ===
 
-              // Transport buttons - Play, Stop, Record
+              // Transport buttons - Play/Pause, Stop, Record
               CircularToggleButton(
                 icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                enabled: widget.canPlay,
+                enabled: widget.canPlay || widget.isRecording || widget.isCountingIn,
                 enabledColor: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
-                onPressed: widget.canPlay ? (widget.isPlaying ? widget.onPause : widget.onPlay) : null,
+                onPressed: () {
+                  if (widget.isRecording || widget.isCountingIn) {
+                    // During recording: Pause stops recording and stays at current position
+                    widget.onPauseRecording?.call();
+                  } else if (widget.isPlaying) {
+                    widget.onPause?.call();
+                  } else {
+                    widget.onPlay?.call();
+                  }
+                },
                 tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
                 size: 36,
                 iconSize: 18,
@@ -492,9 +512,16 @@ class _TransportBarState extends State<TransportBar> {
 
               CircularToggleButton(
                 icon: Icons.stop,
-                enabled: widget.canPlay,
+                enabled: widget.canPlay || widget.isRecording || widget.isCountingIn,
                 enabledColor: const Color(0xFFF97316),
-                onPressed: widget.canPlay ? widget.onStop : null,
+                onPressed: () {
+                  if (widget.isRecording || widget.isCountingIn) {
+                    // During recording: Stop stops recording and returns to record start
+                    widget.onStopRecording?.call();
+                  } else {
+                    widget.onStop?.call();
+                  }
+                },
                 tooltip: 'Stop',
                 size: 36,
                 iconSize: 18,
@@ -506,20 +533,15 @@ class _TransportBarState extends State<TransportBar> {
                 isRecording: widget.isRecording,
                 isCountingIn: widget.isCountingIn,
                 countInBars: widget.countInBars,
+                countInBeat: widget.countInBeat,
+                countInProgress: widget.countInProgress,
+                beatsPerBar: widget.beatsPerBar,
                 onPressed: (widget.hasArmedTracks || widget.isRecording || widget.isCountingIn)
                     ? widget.onRecord
                     : null,
                 onCountInChanged: widget.onCountInChanged,
                 size: 36,
               ),
-
-              // Recording indicator with duration
-              if (widget.isRecording || widget.isCountingIn)
-                RecordingIndicator(
-                  isRecording: widget.isRecording,
-                  isCountingIn: widget.isCountingIn,
-                  playheadPosition: widget.playheadPosition,
-                ),
 
               const SizedBox(width: 12),
 
@@ -529,26 +551,17 @@ class _TransportBarState extends State<TransportBar> {
               // Larger text to make it the central focus point
               // Hidden at level 4 to save space
               if (showPosition)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: widget.isRecording
-                        ? const Color(0xFFEF4444) // Red during recording
-                        : widget.isCountingIn
-                            ? const Color(0xFFFFA600) // Orange during count-in
-                            : context.colors.dark, // Match tempo box
+                    color: context.colors.dark,
                     borderRadius: BorderRadius.circular(2),
-                    border: widget.isRecording || widget.isCountingIn
-                        ? null
-                        : Border.all(color: context.colors.surface, width: 1.5),
+                    border: Border.all(color: context.colors.surface, width: 1.5),
                   ),
                   child: Text(
                     _formatPosition(widget.playheadPosition, widget.tempo),
                     style: TextStyle(
-                      color: widget.isRecording || widget.isCountingIn
-                          ? Colors.white // White text on colored backgrounds
-                          : context.colors.textPrimary,
+                      color: context.colors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
                       fontFeatures: const [FontFeature.tabularFigures()],

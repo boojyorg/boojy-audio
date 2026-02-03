@@ -64,6 +64,9 @@ class EditorPanel extends StatefulWidget {
   final double projectTempo;
   final Function(double)? onProjectTempoChanged;
 
+  // Whether recording is active (piano roll becomes read-only)
+  final bool isRecording;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -95,6 +98,7 @@ class EditorPanel extends StatefulWidget {
     this.beatUnit = 4,
     this.projectTempo = 120.0,
     this.onProjectTempoChanged,
+    this.isRecording = false,
   });
 
   @override
@@ -945,6 +949,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       onVirtualPianoToggle: widget.onVirtualPianoToggle,
       beatsPerBar: widget.beatsPerBar,
       beatUnit: widget.beatUnit,
+      isRecording: widget.isRecording,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

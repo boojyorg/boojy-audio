@@ -369,6 +369,8 @@ class AudioEngine implements AudioEngineInterface {
   @override
   void setCountInBars(int bars) {}
   int getCountInBars() => 0;
+  int getCountInBeat() => 0;
+  double getCountInProgress() => 0.0;
 
   @override
   void setTempo(double bpm) {
@@ -446,6 +448,7 @@ class AudioEngine implements AudioEngineInterface {
   String startMidiRecording() => 'Not implemented';
   int stopMidiRecording() => -1;
   int getMidiRecordingState() => 0;
+  String getMidiRecorderLiveEvents() => '';
   String quantizeMidiClip(int clipId, int gridDivision) => 'OK';
   String getMidiClipInfo(int clipId) => '{}';
   String getAllMidiClipsInfo() => '[]';

@@ -2,7 +2,7 @@
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use std::f32::consts::PI;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// Recording state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,6 +32,10 @@ pub struct Recorder {
     seek_cooldown: Arc<AtomicU64>,
     /// Playhead position (in seconds) where recording should be placed on the timeline
     recording_start_seconds: Arc<Mutex<f64>>,
+    /// Current count-in beat number (1-indexed, 0 when not counting in)
+    count_in_beat: Arc<AtomicU32>,
+    /// Count-in progress as fixed-point (0-10000 maps to 0.0-1.0)
+    count_in_progress: Arc<AtomicU32>,
 }
 
 impl Recorder {
@@ -47,6 +51,8 @@ impl Recorder {
             time_signature: Arc::new(Mutex::new(4)), // Default: 4/4
             seek_cooldown: Arc::new(AtomicU64::new(0)),
             recording_start_seconds: Arc::new(Mutex::new(0.0)),
+            count_in_beat: Arc::new(AtomicU32::new(0)),
+            count_in_progress: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -61,6 +67,8 @@ impl Recorder {
             metronome_enabled: self.metronome_enabled.clone(),
             time_signature: self.time_signature.clone(),
             seek_cooldown: self.seek_cooldown.clone(),
+            count_in_beat: self.count_in_beat.clone(),
+            count_in_progress: self.count_in_progress.clone(),
         }
     }
 
@@ -104,6 +112,8 @@ impl Recorder {
         }
 
         *state = RecordingState::Idle;
+        self.count_in_beat.store(0, Ordering::Relaxed);
+        self.count_in_progress.store(0, Ordering::Relaxed);
 
         // Get recorded samples
         let samples = {
@@ -260,6 +270,16 @@ impl Recorder {
     pub fn get_recording_start_seconds(&self) -> f64 {
         *self.recording_start_seconds.lock().expect("mutex poisoned")
     }
+
+    /// Get current count-in beat number (1-indexed, 0 when not counting in)
+    pub fn get_count_in_beat(&self) -> u32 {
+        self.count_in_beat.load(Ordering::Relaxed)
+    }
+
+    /// Get count-in progress (0.0-1.0)
+    pub fn get_count_in_progress(&self) -> f32 {
+        self.count_in_progress.load(Ordering::Relaxed) as f32 / 10000.0
+    }
 }
 
 /// References for use in audio callback
@@ -272,6 +292,8 @@ pub struct RecorderCallbackRefs {
     pub metronome_enabled: Arc<AtomicBool>,
     pub time_signature: Arc<Mutex<u32>>,
     pub seek_cooldown: Arc<AtomicU64>,
+    pub count_in_beat: Arc<AtomicU32>,
+    pub count_in_progress: Arc<AtomicU32>,
 }
 
 impl RecorderCallbackRefs {
@@ -345,6 +367,12 @@ impl RecorderCallbackRefs {
                 let count_in_bars = *self.count_in_bars.lock().expect("mutex poisoned");
                 let count_in_samples = samples_per_bar * count_in_bars as u64;
 
+                // Calculate and store beat/progress for UI ring timer
+                let beat_in_bar = ((sample_idx % samples_per_bar) / samples_per_beat) as u32 + 1; // 1-indexed
+                let progress = (sample_idx as f64 / count_in_samples.max(1) as f64).min(1.0);
+                self.count_in_beat.store(beat_in_bar, Ordering::Relaxed);
+                self.count_in_progress.store((progress * 10000.0) as u32, Ordering::Relaxed);
+
                 if sample_idx >= count_in_samples {
                     // Count-in finished, start recording (need to re-acquire lock for state change)
                     eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {})", sample_idx);
@@ -352,6 +380,8 @@ impl RecorderCallbackRefs {
                     *state = RecordingState::Recording;
                     drop(state); // Release immediately
                     self.sample_counter.store(0, Ordering::SeqCst);
+                    self.count_in_beat.store(0, Ordering::Relaxed);
+                    self.count_in_progress.store(0, Ordering::Relaxed);
                 }
                 // During count-in, only output metronome, don't record
             }

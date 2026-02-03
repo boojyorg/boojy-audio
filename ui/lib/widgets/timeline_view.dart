@@ -26,6 +26,7 @@ import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
 import 'timeline/timeline_state.dart';
 import 'timeline/clip_preview_builders.dart';
+import '../services/live_recording_notifier.dart';
 import 'timeline/painters/painters.dart';
 import 'timeline/track_automation_lane_widget.dart';
 
@@ -127,6 +128,9 @@ class TimelineView extends StatefulWidget {
   final ToolMode toolMode;
   final Function(ToolMode)? onToolModeChanged;
 
+  // Recording state (for auto-scroll and visual indicators)
+  final bool isRecording;
+
   // Automation state
   final int? automationVisibleTrackId;
   final TrackAutomationLane? Function(int trackId)? getAutomationLane;
@@ -187,6 +191,7 @@ class TimelineView extends StatefulWidget {
     this.onAutomationPointDeleted,
     this.onAutomationPreviewValue,
     this.automationScrollController,
+    this.isRecording = false,
   });
 
   @override
@@ -247,6 +252,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       setState(() {
         currentCursor = _cursorForToolMode(widget.toolMode);
       });
+    }
+    // Auto-scroll to keep playhead visible during recording
+    if (widget.isRecording && scrollController.hasClients) {
+      final beatsPerSecond = widget.tempo / 60.0;
+      final playheadPixelX = widget.playheadPosition * beatsPerSecond * pixelsPerBeat;
+      final viewportRight = scrollController.offset + viewWidth;
+      // Scroll when playhead passes 80% of the visible area
+      if (playheadPixelX > viewportRight - viewWidth * 0.2) {
+        final targetOffset = playheadPixelX - viewWidth * 0.3;
+        scrollController.jumpTo(targetOffset.clamp(0.0, scrollController.position.maxScrollExtent));
+      }
     }
   }
 
@@ -3533,6 +3549,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
     const headerHeight = 18.0;
     final totalHeight = trackHeight - 3.0; // Track height minus padding
+    final isLiveRecording = midiClip.clipId == LiveRecordingNotifier.liveClipId;
+    final recordingColor = const Color(0xFFE53935); // Red for recording indicator
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewMidiClipId == midiClip.clipId;
@@ -3545,7 +3563,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       left: clipX,
       top: 0,
       child: Listener(
-        onPointerDown: (event) {
+        onPointerDown: isLiveRecording ? null : (event) {
           // Immediate selection feedback on pointer down (no gesture delay)
           if (event.buttons == kPrimaryButton) {
             // Check modifier keys directly at click time (more reliable than cached tempToolMode)
@@ -3608,10 +3626,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
         },
         child: GestureDetector(
-        onSecondaryTapDown: (details) {
+        onSecondaryTapDown: isLiveRecording ? null : (details) {
           _showMidiClipContextMenu(details.globalPosition, midiClip);
         },
-        onTapUp: (details) {
+        onTapUp: isLiveRecording ? null : (details) {
           // Stop erasing if in eraser mode (single click delete)
           if (isErasing) {
             _stopErasing();
@@ -3626,7 +3644,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
           pendingMidiClipTapSelection = null;
         },
-        onHorizontalDragStart: (details) {
+        onHorizontalDragStart: isLiveRecording ? null : (details) {
           // Clear pending tap selection - user is dragging, not clicking
           pendingMidiClipTapSelection = null;
 
@@ -3673,7 +3691,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             isCopyDrag = isDuplicate; // Use captured state from pointer down
           });
         },
-        onHorizontalDragUpdate: (details) {
+        onHorizontalDragUpdate: isLiveRecording ? null : (details) {
           // Continue erasing if in eraser mode
           if (isErasing) {
             _eraseClipsAt(details.globalPosition);
@@ -3692,7 +3710,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             snapBypassActive = bypassSnap;
           });
         },
-        onHorizontalDragEnd: (details) {
+        onHorizontalDragEnd: isLiveRecording ? null : (details) {
           // Stop erasing if in eraser mode
           if (isErasing) {
             _stopErasing();
@@ -3882,7 +3900,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                           Container(
                             height: headerHeight,
                             decoration: BoxDecoration(
-                              color: trackColor,
+                              color: isLiveRecording ? recordingColor : trackColor,
                             ),
                             padding: clipWidth > 26 ? const EdgeInsets.symmetric(horizontal: 4) : null,
                             child: clipWidth > 26
@@ -3921,7 +3939,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                           notes: midiClip.notes,
                                           clipDuration: clipDurationBeats,
                                           loopLength: midiClip.loopLength,
-                                          trackColor: trackColor,
+                                          trackColor: isLiveRecording ? recordingColor : trackColor,
                                           contentStartOffset: midiClip.contentStartOffset,
                                         ),
                                       );
@@ -3936,10 +3954,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     CustomPaint(
                       size: Size(clipWidth, totalHeight),
                       painter: ClipBorderPainter(
-                        borderColor: isSelected
-                            ? context.colors.textPrimary
-                            : trackColor.withValues(alpha: 0.7),
-                        trackColor: trackColor,
+                        borderColor: isLiveRecording
+                            ? recordingColor
+                            : isSelected
+                                ? context.colors.textPrimary
+                                : trackColor.withValues(alpha: 0.7),
+                        trackColor: isLiveRecording ? recordingColor : trackColor,
                         headerHeight: headerHeight,
                         borderWidth: isDragging || isSelected ? 2 : 1,
                         cornerRadius: 4,
@@ -3953,8 +3973,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   ],
                 ),
               ),
-              // Left edge trim handle
-              Positioned(
+              // Left edge trim handle (hidden during live recording)
+              if (!isLiveRecording) Positioned(
                 left: 0,
                 top: 0,
                 child: GestureDetector(
@@ -4026,8 +4046,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   ),
                 ),
               ),
-              // Right edge resize handle
-              Positioned(
+              // Right edge resize handle (hidden during live recording)
+              if (!isLiveRecording) Positioned(
                 right: 0,
                 top: 0,
                 child: GestureDetector(
@@ -4085,8 +4105,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   ),
                 ),
               ),
-              // Split preview line (shown when Alt is pressed and hovering)
-              if (hasSplitPreview)
+              // Split preview line (shown when Alt is pressed and hovering, hidden during recording)
+              if (hasSplitPreview && !isLiveRecording)
                 Positioned(
                   left: splitPreviewX,
                   top: 0,

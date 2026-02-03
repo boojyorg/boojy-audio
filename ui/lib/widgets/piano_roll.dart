@@ -61,6 +61,9 @@ class PianoRoll extends StatefulWidget {
   /// Time signature - beat unit (denominator)
   final int beatUnit;
 
+  /// Whether recording is active (piano roll becomes read-only)
+  final bool isRecording;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -75,6 +78,7 @@ class PianoRoll extends StatefulWidget {
     this.onVirtualPianoToggle,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
+    this.isRecording = false,
   });
 
   @override
@@ -192,6 +196,16 @@ class _PianoRollState extends State<PianoRoll>
         beatsPerBar = widget.beatsPerBar;
         beatUnit = widget.beatUnit;
       });
+    }
+    // Auto-scroll to keep playhead visible during recording
+    if (widget.isRecording && horizontalScroll.hasClients && currentClip != null) {
+      final clipEndPixelX = (currentClip!.startTime + currentClip!.duration) * pixelsPerBeat;
+      final viewportRight = horizontalScroll.offset + viewWidth;
+      // Scroll when clip end passes 80% of the visible area
+      if (clipEndPixelX > viewportRight - viewWidth * 0.2) {
+        final targetOffset = clipEndPixelX - viewWidth * 0.3;
+        horizontalScroll.jumpTo(targetOffset.clamp(0.0, horizontalScroll.position.maxScrollExtent));
+      }
     }
   }
 
@@ -597,12 +611,14 @@ class _PianoRollState extends State<PianoRoll>
                                       },
                                       onPointerDown: (event) {
                                         if (event.buttons == kSecondaryMouseButton) {
+                                          if (widget.isRecording) return; // No context menu during recording
                                           rightClickStartPosition = event.localPosition;
                                           rightClickNote = _findNoteAtPosition(event.localPosition);
                                         } else if (event.buttons == kMiddleMouseButton) {
                                           // Middle mouse button: start drag zoom (Ableton-style)
                                           startDragZoom(event.localPosition.dx, event.position.dy);
                                         } else if (event.buttons == kPrimaryMouseButton) {
+                                          if (widget.isRecording) return; // Read-only during recording
                                           // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
                                           final modifiers = ModifierKeyState.current();
                                           final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
@@ -617,6 +633,7 @@ class _PianoRollState extends State<PianoRoll>
                                           updateDragZoom(event.position.dy);
                                           return;
                                         }
+                                        if (widget.isRecording) return; // Read-only during recording
                                         if (event.buttons == kPrimaryMouseButton) {
                                           // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
                                           final modifiers = ModifierKeyState.current();
@@ -655,15 +672,15 @@ class _PianoRollState extends State<PianoRoll>
                                         onHover: _onHover,
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.translucent,
-                                          onTapDown: _onTapDown,
-                                          onTapUp: _onTapUp,
-                                          onTapCancel: () {
+                                          onTapDown: widget.isRecording ? null : _onTapDown,
+                                          onTapUp: widget.isRecording ? null : _onTapUp,
+                                          onTapCancel: widget.isRecording ? null : () {
                                             stopAudition();
                                             pendingNoteTapSelection = null;
                                           },
-                                          onPanStart: _onPanStart,
-                                          onPanUpdate: _onPanUpdate,
-                                          onPanEnd: _onPanEnd,
+                                          onPanStart: widget.isRecording ? null : _onPanStart,
+                                          onPanUpdate: widget.isRecording ? null : _onPanUpdate,
+                                          onPanEnd: widget.isRecording ? null : _onPanEnd,
                                           child: ColoredBox(
                                             color: Colors.transparent,
                                             child: Stack(

@@ -17,6 +17,14 @@ class PlaybackController extends ChangeNotifier {
   bool _isPlaying = false;
   String _statusMessage = '';
 
+  // Position tracking for Stop button behavior
+  double _playStartPosition = 0.0;  // Position when Play pressed
+  double _recordStartPosition = 0.0; // Position when recording starts (after count-in)
+
+  // Display offset for recording (subtracted from engine position so count-in
+  // doesn't visually advance the playhead)
+  double _playheadDisplayOffset = 0.0;
+
   /// Separate notifier for playhead position to avoid triggering full rebuilds.
   /// Widgets needing real-time playhead updates should use ValueListenableBuilder
   /// with this notifier instead of listening to the main controller.
@@ -30,10 +38,6 @@ class PlaybackController extends ChangeNotifier {
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0;
   double _loopTempo = 120.0;
-
-  // Double-stop behavior state
-  DateTime? _lastStopTime;
-  static const _doubleStopThreshold = Duration(milliseconds: 500);
 
   // Loop playback enabled (from arrangement)
   bool _loopPlaybackEnabled = true;
@@ -77,6 +81,8 @@ class PlaybackController extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   String get statusMessage => _statusMessage;
   double? get clipDuration => _clipDuration;
+  double get playStartPosition => _playStartPosition;
+  double get recordStartPosition => _recordStartPosition;
 
   /// Initialize with audio engine reference
   void initialize(AudioEngine engine) {
@@ -93,6 +99,10 @@ class PlaybackController extends ChangeNotifier {
     if (_audioEngine == null) return;
 
     try {
+      // Save current playhead position as play start position
+      _playStartPosition = _audioEngine!.getPlayheadPosition();
+      debugPrint('▶️ [PLAYBACK] play() - saving playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s');
+
       _isLoopCycling = false; // Disable loop cycling for normal play
       _audioEngine!.transportPlay();
       _isPlaying = true;
@@ -160,42 +170,46 @@ class PlaybackController extends ChangeNotifier {
     }
   }
 
-  /// Stop playback with double-stop behavior.
-  /// First stop: pause at current position
-  /// Second stop (within 500ms): return to loop start (if loop enabled) or bar 1
-  void stop() {
+  /// Stop playback and return to start position.
+  /// If [isRecording] is true, returns to recordStartPosition.
+  /// If currently playing, returns to playStartPosition.
+  /// If idle (not playing), returns to bar 1 (position 0.0).
+  void stop({bool isRecording = false}) {
     if (_audioEngine == null) {
       return;
     }
 
     try {
-      final now = DateTime.now();
-      final isDoubleStop = _lastStopTime != null &&
-          now.difference(_lastStopTime!) < _doubleStopThreshold;
+      final wasPlaying = _isPlaying;
+      debugPrint('▶️ [PLAYBACK] stop(isRecording=$isRecording, wasPlaying=$wasPlaying): '
+          'playheadPos=${_playheadPosition.toStringAsFixed(3)}s, '
+          'displayOffset=${_playheadDisplayOffset.toStringAsFixed(3)}s');
 
       _audioEngine!.transportStop();
       _isPlaying = false;
+      _playheadDisplayOffset = 0.0;
       _stopPlayheadTimer();
 
-      if (isDoubleStop) {
-        // Second stop: return to loop start or bar 1
-        if (_loopPlaybackEnabled) {
-          // Return to loop start (convert beats to seconds)
-          final loopStartSeconds = _loopStartBeats * 60.0 / _loopTempo;
-          _playheadPosition = loopStartSeconds;
-          _audioEngine!.transportSeek(loopStartSeconds);
-          _statusMessage = 'Stopped (loop start)';
-        } else {
-          // Return to bar 1 (beat 0)
-          _playheadPosition = 0.0;
-          _audioEngine!.transportSeek(0.0);
-          _statusMessage = 'Stopped (bar 1)';
-        }
-        _lastStopTime = null; // Reset for next double-stop
+      // Return to appropriate start position
+      if (isRecording) {
+        _playheadPosition = _recordStartPosition;
+        _audioEngine!.transportSeek(_recordStartPosition);
+        playheadNotifier.value = _recordStartPosition;
+        _statusMessage = 'Stopped (recording start)';
+        debugPrint('▶️ [PLAYBACK] Returning to recordStartPosition: ${_recordStartPosition.toStringAsFixed(3)}s');
+      } else if (wasPlaying) {
+        _playheadPosition = _playStartPosition;
+        _audioEngine!.transportSeek(_playStartPosition);
+        playheadNotifier.value = _playStartPosition;
+        _statusMessage = 'Stopped (playback start)';
+        debugPrint('▶️ [PLAYBACK] Returning to playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s');
       } else {
-        // First stop: just pause at current position
-        _statusMessage = 'Stopped';
-        _lastStopTime = now;
+        // Idle (not playing) - return to bar 1
+        _playheadPosition = 0.0;
+        _audioEngine!.transportSeek(0.0);
+        playheadNotifier.value = 0.0;
+        _statusMessage = 'Stopped (bar 1)';
+        debugPrint('▶️ [PLAYBACK] Returning to bar 1 (idle state)');
       }
 
       notifyListeners();
@@ -210,6 +224,7 @@ class PlaybackController extends ChangeNotifier {
     if (_audioEngine == null) return;
     _audioEngine!.transportSeek(position);
     _playheadPosition = position;
+    playheadNotifier.value = position;
     notifyListeners();
   }
 
@@ -225,14 +240,46 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set record start position (called when recording actually begins after count-in)
+  void setRecordStartPosition(double position) {
+    _recordStartPosition = position;
+    debugPrint('▶️ [PLAYBACK] setRecordStartPosition: ${position.toStringAsFixed(3)}s');
+  }
+
+  /// Start polling the engine for playhead position updates (60fps).
+  /// Used during recording when the engine transport is running but
+  /// PlaybackController.play() was not called.
+  /// [displayOffset] is subtracted from the engine position so that count-in
+  /// time doesn't visually advance the playhead.
+  void startPlayheadPolling({double displayOffset = 0.0}) {
+    debugPrint('▶️ [PLAYBACK] startPlayheadPolling(displayOffset=${displayOffset.toStringAsFixed(3)}s)');
+    _playheadDisplayOffset = displayOffset;
+    _startPlayheadTimer();
+  }
+
+  /// Stop polling the engine for playhead position updates.
+  /// Used when recording stops.
+  void stopPlayheadPolling() => _stopPlayheadTimer();
+
+  int _playheadLogCounter = 0; // For throttled debug logging
+
   void _startPlayheadTimer() {
     _playheadTimer?.cancel();
+    _playheadLogCounter = 0;
     // 16ms = ~60fps for smooth visual playhead updates
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
       if (_audioEngine != null) {
         // pos is in SECONDS from the engine
         final pos = _audioEngine!.getPlayheadPosition();
-        _playheadPosition = pos;
+        _playheadPosition = pos - _playheadDisplayOffset;
+
+        // Log once per second (~60 frames) to avoid spam
+        _playheadLogCounter++;
+        if (_playheadLogCounter % 60 == 1) {
+          debugPrint('▶️ [PLAYBACK] timer: enginePos=${pos.toStringAsFixed(3)}s, '
+              'offset=${_playheadDisplayOffset.toStringAsFixed(3)}s, '
+              'displayPos=${_playheadPosition.toStringAsFixed(3)}s');
+        }
 
         // Loop cycling: jump back to start when reaching end
         if (_isLoopCycling) {

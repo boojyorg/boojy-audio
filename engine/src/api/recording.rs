@@ -154,9 +154,19 @@ pub fn start_recording() -> Result<String, String> {
         0.0
     };
 
-    // The clip should be placed at the playhead position AFTER count-in completes
-    let recording_start = playhead_seconds + count_in_seconds;
+    // Place clip at the playhead position where the user pressed record (before count-in).
+    // The count-in is a pre-roll — it doesn't advance the logical timeline position.
+    let recording_start = playhead_seconds;
     graph.recorder.set_recording_start_seconds(recording_start);
+
+    // Seek back by count-in duration so user hears song context during count-in
+    // (but not before position 0.0)
+    if count_in_seconds > 0.0 {
+        let seek_position = (playhead_seconds - count_in_seconds).max(0.0);
+        eprintln!("🔊 [API] Seeking back for count-in: {:.3}s → {:.3}s (count-in: {:.3}s)",
+            playhead_seconds, seek_position, count_in_seconds);
+        graph.seek(seek_position);
+    }
 
     // FIRST: Start playback state (lock-free atomic operation)
     // This must happen before starting audio input to avoid deadlock
@@ -230,58 +240,32 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     }
 
     if let Some(clip) = clip_option {
-        // Find ALL armed audio tracks with their input channel assignments
+        // Find armed audio tracks — only place audio clips on explicitly armed tracks.
+        // If no audio tracks are armed, discard the audio clip (MIDI-only recording).
         let armed_tracks: Vec<(u64, u32)> = {
-            let mut tm = graph.track_manager.lock().map_err(|e| e.to_string())?;
-            let audio_tracks: Vec<_> = tm.get_all_tracks()
+            let tm = graph.track_manager.lock().map_err(|e| e.to_string())?;
+            let armed: Vec<(u64, u32)> = tm.get_all_tracks()
                 .into_iter()
-                .filter(|t| {
+                .filter_map(|t| {
                     if let Ok(track) = t.lock() {
-                        track.track_type == crate::track::TrackType::Audio
-                    } else {
-                        false
-                    }
-                })
-                .collect();
-
-            if audio_tracks.is_empty() {
-                // No audio tracks exist, create one (defaults to channel 0)
-                let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
-                vec![(id, 0u32)]
-            } else {
-                // Find ALL armed tracks with their input channels
-                let armed: Vec<(u64, u32)> = audio_tracks.iter()
-                    .filter_map(|t| {
-                        if let Ok(track) = t.lock() {
-                            if track.armed {
-                                Some((track.id, track.input_channel))
-                            } else {
-                                None
-                            }
+                        if track.track_type == crate::track::TrackType::Audio && track.armed {
+                            Some((track.id, track.input_channel))
                         } else {
                             None
                         }
-                    })
-                    .collect();
-
-                if armed.is_empty() {
-                    // No armed tracks, use first track
-                    if let Some(first_track) = audio_tracks.first() {
-                        if let Ok(track) = first_track.lock() {
-                            vec![(track.id, track.input_channel)]
-                        } else {
-                            let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
-                            vec![(id, 0u32)]
-                        }
                     } else {
-                        let id = tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string());
-                        vec![(id, 0u32)]
+                        None
                     }
-                } else {
-                    armed
-                }
-            }
+                })
+                .collect();
+            armed
         };
+
+        // No armed audio tracks — discard audio clip (MIDI-only recording)
+        if armed_tracks.is_empty() {
+            eprintln!("🎙️ [API] No armed audio tracks — discarding audio clip");
+            return Ok(None);
+        }
 
         eprintln!("🎙️ [API] Recording will be added to {} track(s): {:?}", armed_tracks.len(), armed_tracks);
 
@@ -405,4 +389,20 @@ pub fn get_count_in_bars() -> Result<u32, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     Ok(graph.recorder.get_count_in_bars())
+}
+
+/// Get current count-in beat number (1-indexed, 0 when not counting in)
+pub fn get_count_in_beat() -> Result<u32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    Ok(graph.recorder.get_count_in_beat())
+}
+
+/// Get count-in progress (0.0-1.0, ring depletion amount)
+pub fn get_count_in_progress() -> Result<f32, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    Ok(graph.recorder.get_count_in_progress())
 }

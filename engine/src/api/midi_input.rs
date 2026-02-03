@@ -72,12 +72,20 @@ pub fn start_midi_input() -> Result<String, String> {
     let track_manager = graph.track_manager.clone();
     let synth_manager = graph.track_synth_manager.clone();
     let effect_manager = graph.effect_manager.clone();
+    let playhead_samples = graph.playhead_samples.clone();
 
     midi_manager.set_event_callback(move |event| {
+        // Override midir timestamp with engine playhead position (correct unit: samples)
+        // midir gives microseconds which don't match the engine's sample-based timeline
+        use std::sync::atomic::Ordering;
+        let current_playhead = playhead_samples.load(Ordering::SeqCst);
+        let mut engine_event = event;
+        engine_event.timestamp_samples = current_playhead;
+
         // 1. Record to MIDI recorder if recording
         if let Ok(mut recorder) = midi_recorder.lock() {
             if recorder.is_recording() {
-                recorder.record_event(event);
+                recorder.record_event(engine_event);
             }
         }
 
@@ -112,7 +120,7 @@ pub fn start_midi_input() -> Result<String, String> {
             // Only route to built-in synth if NO VST3 plugins in the chain
             if !has_vst3 {
                 if let Ok(mut sm) = synth_manager.lock() {
-                    match &event.event_type {
+                    match &engine_event.event_type {
                         MidiEventType::NoteOn { note, velocity } => {
                             sm.note_on(track_id, *note, *velocity);
                         }
@@ -131,7 +139,7 @@ pub fn start_midi_input() -> Result<String, String> {
                         if let Some(effect_arc) = em.get_effect(effect_id) {
                             if let Ok(mut effect) = effect_arc.lock() {
                                 if let EffectType::VST3(ref mut vst3) = *effect {
-                                    match &event.event_type {
+                                    match &engine_event.event_type {
                                         MidiEventType::NoteOn { note, velocity } => {
                                             // event_type 0 = note on
                                             if let Err(e) = vst3.process_midi_event(0, 0, *note as i32, *velocity as i32, 0) {
@@ -175,18 +183,36 @@ pub fn stop_midi_input() -> Result<String, String> {
 // ============================================================================
 
 /// Start recording MIDI
+/// Calculates the recording start position (after count-in) so that
+/// MIDI events during count-in are discarded and timestamps are correct.
 pub fn start_midi_recording() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
+    // Calculate recording start (after count-in), matching audio recorder logic
+    let playhead_samples = graph.get_playhead_samples();
+    let count_in_bars = graph.recorder.get_count_in_bars();
+    let tempo = graph.recorder.get_tempo();
+    let time_sig = graph.recorder.get_time_signature();
+
+    let recording_start = if count_in_bars > 0 {
+        let count_in_seconds = (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo;
+        let count_in_samples = (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+        playhead_samples + count_in_samples
+    } else {
+        playhead_samples
+    };
+
     let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+    midi_recorder.set_recording_start(recording_start);
     midi_recorder.start_recording()?;
 
+    eprintln!("🎹 [API] MIDI recording started (recording_start_samples: {}, count_in_bars: {})", recording_start, count_in_bars);
     Ok("MIDI recording started".to_string())
 }
 
 /// Stop recording MIDI and return the clip ID
-/// Adds the clip to all armed MIDI tracks at the current playhead position
+/// Adds the clip to all armed MIDI tracks at the recording start position (after count-in)
 pub fn stop_midi_recording() -> Result<Option<u64>, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -197,8 +223,9 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
     if let Some(clip) = clip_option {
         let clip_arc = Arc::new(clip);
 
-        // Get playhead position for clip placement
-        let playhead_seconds = graph.get_playhead_position();
+        // Place clip at the recording start position (after count-in),
+        // matching audio clip placement logic
+        let playhead_seconds = graph.recorder.get_recording_start_seconds();
 
         // Find all armed MIDI/Sampler tracks
         let armed_midi_track_ids: Vec<TrackId> = {
@@ -255,6 +282,47 @@ pub fn get_midi_recording_state() -> Result<i32, String> {
     };
 
     Ok(state)
+}
+
+// ============================================================================
+// LIVE MIDI RECORDING EVENTS (for real-time UI preview)
+// ============================================================================
+
+/// Get live MIDI recording events for real-time UI display
+/// Returns CSV: "note,velocity,type,timestamp_samples;..." where type: 0=NoteOff, 1=NoteOn
+/// Returns empty string if not recording or no events
+pub fn get_midi_recorder_live_events() -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+
+    if !midi_recorder.is_recording() {
+        return Ok(String::new());
+    }
+
+    let events = midi_recorder.get_events_snapshot();
+    if events.is_empty() {
+        return Ok(String::new());
+    }
+
+    // Build CSV: "note,velocity,type,timestamp_samples;..."
+    let mut result = String::with_capacity(events.len() * 20);
+    for (i, event) in events.iter().enumerate() {
+        if i > 0 {
+            result.push(';');
+        }
+        match &event.event_type {
+            MidiEventType::NoteOn { note, velocity } => {
+                result.push_str(&format!("{},{},1,{}", note, velocity, event.timestamp_samples));
+            }
+            MidiEventType::NoteOff { note, velocity } => {
+                result.push_str(&format!("{},{},0,{}", note, velocity, event.timestamp_samples));
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 // ============================================================================

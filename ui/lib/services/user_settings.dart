@@ -159,7 +159,7 @@ class UserSettings extends ChangeNotifier {
   String? _preferredMidiInput; // null = all devices
 
   // Recording settings
-  int _countInBars = 2; // 0 = off, 1 = 1 bar, 2 = 2 bars
+  int _countInBars = 1; // 0 = off, 1 = 1 bar, 2 = 2 bars
 
   // Project settings
   bool _continueWhereLeftOff = true;
@@ -640,7 +640,7 @@ class UserSettings extends ChangeNotifier {
       _preferredMidiInput = _prefs?.getString(_keyPreferredMidiInput);
 
       // Load recording settings
-      _countInBars = _prefs?.getInt(_keyCountInBars) ?? 2;
+      _countInBars = _prefs?.getInt(_keyCountInBars) ?? 1;
 
       // Load project settings
       _continueWhereLeftOff = _prefs?.getBool(_keyContinueWhereLeftOff) ?? true;

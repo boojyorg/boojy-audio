@@ -126,7 +126,11 @@ pub struct AudioGraph {
     /// All MIDI clips on the timeline (legacy - will migrate to tracks)
     midi_clips: Arc<Mutex<Vec<TimelineMidiClip>>>,
     /// Current playhead position in samples
-    playhead_samples: Arc<AtomicU64>,
+    pub playhead_samples: Arc<AtomicU64>,
+    /// Position when Play was pressed (for Stop button to return to)
+    play_start_position_samples: Arc<AtomicU64>,
+    /// Position when recording actually started (after count-in, for Stop button during recording)
+    record_start_position_samples: Arc<AtomicU64>,
     /// Transport state (atomic: 0=Stopped, 1=Playing, 2=Paused)
     state: Arc<AtomicU8>,
     /// Audio output stream (kept alive) - native only
@@ -202,6 +206,8 @@ impl AudioGraph {
             clips: Arc::new(Mutex::new(Vec::new())),
             midi_clips: Arc::new(Mutex::new(Vec::new())),
             playhead_samples,
+            play_start_position_samples: Arc::new(AtomicU64::new(0)),
+            record_start_position_samples: Arc::new(AtomicU64::new(0)),
             state: Arc::new(AtomicU8::new(TransportState::Stopped as u8)),
             stream: None,
             next_clip_id: Arc::new(Mutex::new(0)),
@@ -246,6 +252,8 @@ impl AudioGraph {
             clips: Arc::new(Mutex::new(Vec::new())),
             midi_clips: Arc::new(Mutex::new(Vec::new())),
             playhead_samples,
+            play_start_position_samples: Arc::new(AtomicU64::new(0)),
+            record_start_position_samples: Arc::new(AtomicU64::new(0)),
             state: Arc::new(AtomicU8::new(TransportState::Stopped as u8)),
             next_clip_id: Arc::new(Mutex::new(0)),
             track_manager: Arc::new(Mutex::new(track_manager)),
@@ -455,6 +463,30 @@ impl AudioGraph {
         self.playhead_samples.store(samples, Ordering::SeqCst);
     }
 
+    /// Get the position when Play was pressed (in seconds)
+    pub fn get_play_start_position(&self) -> f64 {
+        let samples = self.play_start_position_samples.load(Ordering::SeqCst);
+        samples as f64 / TARGET_SAMPLE_RATE as f64
+    }
+
+    /// Set the position when Play was pressed (in seconds)
+    pub fn set_play_start_position(&self, position_seconds: f64) {
+        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        self.play_start_position_samples.store(samples, Ordering::SeqCst);
+    }
+
+    /// Get the position when recording started (after count-in, in seconds)
+    pub fn get_record_start_position(&self) -> f64 {
+        let samples = self.record_start_position_samples.load(Ordering::SeqCst);
+        samples as f64 / TARGET_SAMPLE_RATE as f64
+    }
+
+    /// Set the position when recording started (after count-in, in seconds)
+    pub fn set_record_start_position(&self, position_seconds: f64) {
+        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        self.record_start_position_samples.store(samples, Ordering::SeqCst);
+    }
+
     /// Seek to a specific position in seconds
     pub fn seek(&self, position_seconds: f64) {
         // Silence all synthesizers to prevent stuck notes/drone when loop wraps
@@ -484,6 +516,13 @@ impl AudioGraph {
         if current == TransportState::Playing as u8 {
             return Ok(()); // Already playing
         }
+
+        // Save current playhead position as play start position
+        let current_pos = self.playhead_samples.load(Ordering::SeqCst);
+        self.play_start_position_samples.store(current_pos, Ordering::SeqCst);
+        eprintln!("▶️  [AudioGraph] play() - saving play_start_position: {} samples ({:.3}s)",
+            current_pos, current_pos as f64 / TARGET_SAMPLE_RATE as f64);
+
         self.state.store(TransportState::Playing as u8, Ordering::SeqCst);
 
         // Stream is always running (for MIDI preview) - no need to start/stop it
@@ -531,9 +570,10 @@ impl AudioGraph {
         Ok(())
     }
 
-    /// Stop playback (resets to start) - lock-free state change
+    /// Stop playback - lock-free state change
+    /// Note: Playhead position is managed by transportSeek() from Dart layer
     pub fn stop(&mut self) -> anyhow::Result<()> {
-        eprintln!("⏹️  [AudioGraph] stop() called - resetting playhead and metronome");
+        eprintln!("⏹️  [AudioGraph] stop() called - silencing notes and stopping metronome");
 
         self.state.store(TransportState::Stopped as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
@@ -568,11 +608,11 @@ impl AudioGraph {
             }
         }
 
-        // Reset playhead to start
-        let old_playhead = self.playhead_samples.swap(0, Ordering::SeqCst);
-        eprintln!("   Playhead reset: {} → 0", old_playhead);
+        // Note: Playhead position is NOT reset here - it's managed by transportSeek()
+        // from the Dart layer, which allows flexible stop behavior (return to bar 1,
+        // playStartPosition, or recordStartPosition depending on context)
 
-        // Reset metronome beat position (native only)
+        // Reset metronome beat position to match current playhead (native only)
         #[cfg(not(target_arch = "wasm32"))]
         self.recorder.reset_metronome();
 

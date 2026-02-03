@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Redesigned recording workflow** with improved transport controls:
+  - **Count-in with song context**: During count-in, playback starts from (record position - count-in bars) so you hear the actual song, not just metronome clicks
+  - **Three-button behavior during recording**:
+    - Pause: Stops recording and stays at current position (save clip, pause transport)
+    - Stop: Stops recording and returns to recording start position (save clip, seek back)
+    - Record: Saves current take and immediately starts new recording with count-in (multi-take recording)
+  - **Simplified Stop button**: Single press always returns to start position (no more double-stop). When idle (not playing/recording), Stop returns to bar 1
+  - **Play → Record**: Pressing Record while already playing starts recording immediately with no count-in (already in time)
+  - **Record button visual**: Subtle pulsing glow during recording (0.8-1.0 opacity, 2-second cycle)
+  - **Position tracking**: Stop button returns to appropriate position (playStartPosition during playback, recordStartPosition during recording)
+  - **Replace mode recording**: Recording over existing clips automatically removes them if the new recording completely covers them (new_start ≤ old_start AND new_end ≥ old_end), preventing overlapping clips on the same track
 - Multi-track audio recording with per-track input routing:
   - Per-track input device and channel assignment (stored on Track struct)
   - Input selector dropdown on mixer strip Row 1 with live animated level meters (~50ms poll)
@@ -27,11 +38,47 @@ All notable changes to Boojy Audio will be documented in this file.
   - Clicking MIDI clip switches to Piano Roll (no placeholder flash)
   - Switching tracks resets to Instrument tab
   - Manual tab selection is respected until track changes
+- Real-time MIDI note drawing during recording:
+  - Notes appear live on both timeline and piano roll as they are played (~33ms latency)
+  - Held notes extend in real-time as the playhead advances
+  - Recording clip grows rightward with the playhead
+  - Red visual styling on recording clip (header, border, and note colors)
+  - Piano roll becomes read-only during recording (no editing, zoom/scroll still work)
+  - Auto-scroll on timeline and piano roll keeps playhead visible during recording
+  - Clean transition: live preview seamlessly replaced by final clip when recording stops
+  - Works with both virtual piano and external MIDI controllers
 
 ### Bug Fixes
 
+- Fixed: Stop button not returning to bar 1 when idle — Removed unconditional playhead reset from engine's stop() method that was overriding position set by Dart layer's transportSeek()
+- Fixed: Visual playhead not moving when Stop button pressed — PlaybackController's playheadNotifier wasn't being updated in stop() and seek() methods, only in the playback timer
+- Fixed: Playhead not moving during MIDI recording — PlaybackController's playhead polling timer was never started when recording began (engine transport runs but UI didn't poll it)
+- Fixed: Live MIDI notes not appearing on timeline/piano roll during recording — consequence of playhead not updating (ValueListenableBuilder never rebuilt)
+- Fixed: Spurious audio track created when stopping MIDI-only recording — Rust engine no longer auto-creates audio tracks when no audio tracks are armed; Dart side also filters audio clip results
+- Fixed: Transport bar record button bypassed mixin recording methods — playhead polling, live MIDI note display, and library preview blocking were never triggered during recording
+- Fixed: MIDI recording timestamps from external MIDI controllers were in wrong unit (midir microseconds vs engine samples), causing garbled note positions
+- Fixed: MIDI notes played during count-in were incorrectly captured — now discarded (matching Ableton behavior)
+- Fixed: Recorded MIDI clips placed at wrong timeline position (used stop-time playhead instead of recording start position after count-in)
+- Fixed: Recorded MIDI clip disappeared from arrangement view after recording stopped — clip ID 0 was treated as invalid (`> 0` check instead of `>= 0`)
+- Fixed: Playhead moved during count-in — now stays frozen at the recording start position; playhead polling starts only when count-in finishes, with a display offset to compensate for elapsed count-in time
+- Fixed: MIDI clip placed at bar 2 instead of bar 1 when recording with count-in — engine now sets `recording_start` to the pre-count-in playhead position (count-in is a pre-roll, not a timeline advance)
+- Fixed: `handleRecordingComplete` called twice on stop (via callback AND explicit call), causing duplicate MIDI clips and "Duplicate keys" crash — callback is now cleared before calling `stopRecording()`
+- Fixed: Count-in bars mismatch between engine (hardcoded 1) and Dart side (persisted user setting) — removed hardcoded `setCountInBars(1)` from RecordingController; engine now uses the user's saved setting consistently
+- Fixed: Second MIDI recording caused "Duplicate keys" crash — engine reuses clip ID 0; `addRecordedClip()` now deduplicates by removing existing clip with same ID before adding
+- Fixed: Live recording clip extended ~1 bar ahead of playhead during count-in recording — `currentBeat` for live clip now subtracts the actual count-in duration (measured from engine time at transition)
+- Fixed: Recorded MIDI clip notes disappeared visually after second recording — live notes were cleared before being stored in the permanent clip; now captured from LiveRecordingNotifier before stop and embedded in MidiClipData
 - Fixed: Piano Roll no longer shows placeholder briefly when switching from Instrument tab
 - Fixed: Clip header overflow on very short clips - wrapped header Rows in ClipRect to prevent "RenderFlex overflowed" errors
+
+### Improvements
+
+- Count-in ring timer on record button:
+  - During count-in: depleting orange ring (clockwise from 12 o'clock) + beat number inside button
+  - Recording start: brief white flash transition, then solid red fill with glow
+  - Removed separate `[● REC 00:03.42]` recording indicator from transport bar
+  - Position display no longer changes color during recording/count-in (stays neutral)
+  - Count-in beat/progress polled from engine at ~30fps for smooth animation
+  - Works with all count-in lengths (Off/1/2/4 bars) and time signatures
 
 - Piano roll note interactions:
   - Select mode now shows grab cursor (not resize cursor) - resize isn't possible in select mode

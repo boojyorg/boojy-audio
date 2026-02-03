@@ -103,3 +103,29 @@ pub fn get_transport_state() -> Result<i32, String> {
         Ok(state)
     })
 }
+
+/// Get position when Play was pressed (in seconds)
+pub fn get_play_start_position() -> Result<f64, String> {
+    with_graph(|graph| Ok(graph.get_play_start_position()))
+}
+
+/// Set position when Play was pressed (in seconds)
+pub fn set_play_start_position(position_seconds: f64) -> Result<String, String> {
+    with_graph(|graph| {
+        graph.set_play_start_position(position_seconds);
+        Ok(format!("Play start position set to {:.2}s", position_seconds))
+    })
+}
+
+/// Get position when recording started (after count-in, in seconds)
+pub fn get_record_start_position() -> Result<f64, String> {
+    with_graph(|graph| Ok(graph.get_record_start_position()))
+}
+
+/// Set position when recording started (after count-in, in seconds)
+pub fn set_record_start_position(position_seconds: f64) -> Result<String, String> {
+    with_graph(|graph| {
+        graph.set_record_start_position(position_seconds);
+        Ok(format!("Record start position set to {:.2}s", position_seconds))
+    })
+}
