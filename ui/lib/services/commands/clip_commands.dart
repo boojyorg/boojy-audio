@@ -702,6 +702,10 @@ class DeleteMidiClipFromArrangementCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
+    // Remove from engine (stops playback)
+    debugPrint('🗑️ [DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
+    engine.removeMidiClip(clipData.trackId, clipData.clipId);
+    // Remove from UI
     onClipRemoved?.call(clipData.clipId, clipData.trackId);
   }
 

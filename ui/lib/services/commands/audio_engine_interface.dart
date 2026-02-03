@@ -44,6 +44,7 @@ abstract class AudioEngineInterface {
   int createMidiClip();
   String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration);
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds);
+  int removeMidiClip(int trackId, int clipId);
 
   // Project operations
   void setTempo(double bpm);
