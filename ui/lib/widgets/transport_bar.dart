@@ -116,7 +116,7 @@ class TransportBar extends StatefulWidget {
     this.onStopRecording,
     this.onCaptureMidi,
     this.onCountInChanged,
-    this.countInBars = 2,
+    this.countInBars = 1,
     this.onMetronomeToggle,
     this.onPianoToggle,
     required this.playheadPosition,

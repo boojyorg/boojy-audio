@@ -50,6 +50,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- Fixed: MIDI recording notes not appearing live and playhead freezing — Display offset was calculated from user settings instead of actual count-in duration used by engine. This caused wrong offset when recording while already playing (Play→Record with no count-in)
+- Fixed: Transport position going negative and freezing during recording — recordStartPosition was set to position AFTER count-in (e.g., 4s) instead of BEFORE (e.g., 0s), causing wrong Stop button behavior and display calculations (playhead showed negative bars like -1.1.1)
+- Fixed: Recorded MIDI clip disappearing after stopping recording — Captured live notes weren't being passed through from _completeRecording() to handleRecordingComplete(), resulting in empty clips that appeared during recording but vanished when stopped
 - Fixed: Stop button not returning to bar 1 when idle — Removed unconditional playhead reset from engine's stop() method that was overriding position set by Dart layer's transportSeek()
 - Fixed: Visual playhead not moving when Stop button pressed — PlaybackController's playheadNotifier wasn't being updated in stop() and seek() methods, only in the playback timer
 - Fixed: Playhead not moving during MIDI recording — PlaybackController's playhead polling timer was never started when recording began (engine transport runs but UI didn't poll it)
@@ -72,6 +75,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- Count-in default changed from 2 bars to 1 bar (aligns widget default with persisted user setting)
 - Count-in ring timer on record button:
   - During count-in: depleting orange ring (clockwise from 12 o'clock) + beat number inside button
   - Recording start: brief white flash transition, then solid red fill with glow

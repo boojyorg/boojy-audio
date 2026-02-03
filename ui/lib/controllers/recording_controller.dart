@@ -81,6 +81,7 @@ class RecordingController extends ChangeNotifier {
   List<Map<String, dynamic>> get midiDevices => _midiDevices;
   int get selectedMidiDeviceIndex => _selectedMidiDeviceIndex;
   double get recordingStartPosition => _recordingStartPosition;
+  double get countInDurationSeconds => _countInDurationSeconds;
 
   // Callback to set recordStartPosition in PlaybackController
   void Function(double position)? onRecordStartPositionChanged;
@@ -305,8 +306,9 @@ class RecordingController extends ChangeNotifier {
         _countInProgress = 0.0;
 
         // Set record start position in PlaybackController (for Stop button behavior)
-        onRecordStartPositionChanged?.call(currentPosition);
-        debugPrint('🎙️ [REC_CTRL]   Called onRecordStartPositionChanged with ${currentPosition.toStringAsFixed(3)}s');
+        // Use _recordingStartPosition (BEFORE count-in), not currentPosition (AFTER count-in)
+        onRecordStartPositionChanged?.call(_recordingStartPosition);
+        debugPrint('🎙️ [REC_CTRL]   Called onRecordStartPositionChanged with ${_recordingStartPosition.toStringAsFixed(3)}s');
 
         // Initialize live recording notifier now that actual recording has started
         // Use saved recording start position (pre-count-in) so the live clip

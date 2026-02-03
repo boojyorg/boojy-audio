@@ -66,14 +66,17 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     if (recordingController.isRecording && !recordingController.isCountingIn) {
       recordingController.removeListener(_onRecordingStateChanged);
 
-      // Calculate count-in duration to use as display offset
-      final countInBars = userSettings.countInBars;
-      final beatsPerBar = projectMetadata.timeSignatureNumerator;
-      final countInDuration = countInBars * beatsPerBar * 60.0 / tempo;
+      // Use actual count-in duration from recording controller (measured by engine)
+      // This ensures correct offset for both normal recording (with count-in) and
+      // Play→Record (no count-in, offset = 0)
+      final countInDuration = recordingController.countInDurationSeconds;
+      final recordingStartPos = recordingController.recordingStartPosition;
+      final currentPlayhead = playbackController.playheadPosition;
 
       debugPrint('🔴 [REC_MIXIN]   Count-in→Recording transition detected!');
-      debugPrint('🔴 [REC_MIXIN]   countInBars=$countInBars, beatsPerBar=$beatsPerBar, tempo=$tempo');
-      debugPrint('🔴 [REC_MIXIN]   countInDuration=${countInDuration.toStringAsFixed(3)}s');
+      debugPrint('🔴 [REC_MIXIN]   Recording start position: ${recordingStartPos.toStringAsFixed(3)}s');
+      debugPrint('🔴 [REC_MIXIN]   Current playhead position: ${currentPlayhead.toStringAsFixed(3)}s');
+      debugPrint('🔴 [REC_MIXIN]   Count-in duration: ${countInDuration.toStringAsFixed(3)}s');
       debugPrint('🔴 [REC_MIXIN]   Starting playhead polling with displayOffset=$countInDuration');
 
       playbackController.startPlayheadPolling(displayOffset: countInDuration);
@@ -87,12 +90,12 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     debugPrint('🔴 [REC_MIXIN] pauseRecording() called - stopping and staying at current position');
 
     // Stop recording and save clip
-    final result = _completeRecording();
+    final (result, capturedNotes) = _completeRecording();
 
     // Pause (stay at current position)
     playbackController.pause();
 
-    handleRecordingComplete(result);
+    handleRecordingComplete(result, capturedNotes: capturedNotes);
   }
 
   /// Stop recording: Stop recording, return to recordStartPosition
@@ -102,12 +105,12 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     debugPrint('🔴 [REC_MIXIN] stopRecordingAndReturn() called - stopping and returning to record start');
 
     // Stop recording and save clip
-    final result = _completeRecording();
+    final (result, capturedNotes) = _completeRecording();
 
     // Stop and return to recording start position
     playbackController.stop(isRecording: true);
 
-    handleRecordingComplete(result);
+    handleRecordingComplete(result, capturedNotes: capturedNotes);
   }
 
   /// Stop playback (not recording): Return to playStartPosition or bar 1 if idle
@@ -120,8 +123,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     debugPrint('🔴 [REC_MIXIN] stopPlayback() completed');
   }
 
-  /// Internal: Complete recording and return results
-  RecordingResult _completeRecording() {
+  /// Internal: Complete recording and return results with captured notes
+  (RecordingResult, List<MidiNoteData>) _completeRecording() {
     debugPrint('🔴 [REC_MIXIN] _completeRecording() called');
 
     // Re-enable preview playback
@@ -151,7 +154,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // Stop playhead polling (transport will be stopped by caller)
     playbackController.stopPlayheadPolling();
 
-    return result;
+    return (result, capturedNotes);
   }
 
   /// Called at ~30fps during recording to update live clip display
