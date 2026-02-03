@@ -114,9 +114,11 @@ pub fn start_midi_input() -> Result<String, String> {
         let output_latency_ms = *hardware_output_latency_ms.lock().expect("mutex poisoned");
         let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
 
-        // Compensate for output latency: event is heard output_latency later
-        // So timestamp it to when it will actually be heard
-        let compensated_playhead = current_playhead.saturating_sub(output_latency_samples);
+        // Compensate for output latency in software monitoring scenario:
+        // When user hears their MIDI input through the DAW synth (not direct monitoring),
+        // they hear it delayed by output_latency, causing them to play early.
+        // Add latency to correct this: timestamp notes later to align with when heard.
+        let compensated_playhead = current_playhead.saturating_add(output_latency_samples);
 
         let mut engine_event = event;
         engine_event.timestamp_samples = compensated_playhead;
