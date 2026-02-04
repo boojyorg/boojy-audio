@@ -6,6 +6,11 @@
 set -e
 cd "$(dirname "$0")/engine"
 
+# Use sccache if available (speeds up rebuilds)
+if command -v sccache &> /dev/null; then
+  export RUSTC_WRAPPER=sccache
+fi
+
 MODE="${1:-debug}"
 
 if [ "$MODE" = "release" ]; then

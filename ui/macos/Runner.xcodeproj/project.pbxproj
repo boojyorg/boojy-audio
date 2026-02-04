@@ -454,7 +454,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncd \"$SRCROOT/../../engine\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  cargo build --release\n  cp target/release/libengine.dylib \"$SRCROOT/Frameworks/libengine.dylib\"\n  cp target/release/libengine.dylib \"$SRCROOT/libengine.dylib\"\nelse\n  cargo build\n  cp target/debug/libengine.dylib \"$SRCROOT/Frameworks/libengine.dylib\"\n  cp target/debug/libengine.dylib \"$SRCROOT/libengine.dylib\"\nfi\n";
+			shellScript = "export PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif command -v sccache &> /dev/null; then\n  export RUSTC_WRAPPER=sccache\nfi\ncd \"$SRCROOT/../../engine\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  cargo build --release\n  cp target/release/libengine.dylib \"$SRCROOT/Frameworks/libengine.dylib\"\n  cp target/release/libengine.dylib \"$SRCROOT/libengine.dylib\"\nelse\n  cargo build\n  cp target/debug/libengine.dylib \"$SRCROOT/Frameworks/libengine.dylib\"\n  cp target/debug/libengine.dylib \"$SRCROOT/libengine.dylib\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
