@@ -4,6 +4,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Fix engine stuck in initializing**: Defer MIDI device enumeration from engine init to first use. CoreMIDI can block indefinitely when scanning for devices, preventing the engine from ever reaching the ready state.
+- **Fix MIDI notes lost at recording boundary**: Notes held during count-in that extend past the recording start are now "caught" and included at the start of the recording (timestamp 0), instead of being silently discarded.
+- **Fix duplicate MIDI events**: Deduplicate identical MIDI events in the recorder to handle controllers that send on multiple channels simultaneously (e.g. SL STUDIO sending on channel 0 and 1).
+
 ### Features
 
 - **Redesigned recording workflow** with improved transport controls:
@@ -50,7 +56,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
-- Fixed: MIDI recording timing — NO latency compensation applied during recording (entire system has consistent latency). Latency compensation only applies during live monitoring (not recording) to provide instant playback feedback. Audio latency is now queried from CoreAudio device properties (input latency, output latency, safety offset) instead of being estimated from buffer size alone
+- **Fixed: MIDI recording timing issue — notes no longer appear 125ms (1/16 bar) early**
+  - Root cause: `start_midi_recording()` was reading current playhead after audio callback had already advanced it by ~6000 samples (125ms), instead of using the original recording start position captured before playback started
+  - This race condition caused `recording_start` to be calculated 125ms too high, making all recorded notes appear 1/16 bar early at 120 BPM
+  - Fix: Use stable `recording_start_seconds` value that was captured before the seek-back for count-in
+  - Audio latency is now queried from CoreAudio device properties (input latency, output latency, safety offset) instead of being estimated from buffer size alone
+  - NO latency compensation is applied during recording (entire system has consistent latency). Latency compensation only applies during live monitoring to provide instant playback feedback
 - Fixed: Deleted MIDI clips continue playing — DeleteMidiClipFromArrangementCommand now calls engine.removeMidiClip() to stop playback, not just UI removal. Added removeMidiClip() to AudioEngineInterface for proper command pattern support
 - Fixed: MIDI devices plugged in after app launch not detected — refresh_midi_devices() now actually rescans OS MIDI system instead of being a no-op. Newly connected MIDI controllers (like StudioLogic) can be detected by clicking "Refresh MIDI Devices" without restarting the app
 - Improved: MIDI device selection now validates device index and provides clear error messages when selecting invalid or unplugged devices

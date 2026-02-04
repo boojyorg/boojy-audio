@@ -1,5 +1,6 @@
 /// MIDI recording engine
-use crate::midi::{MidiClip, MidiEvent};
+use crate::midi::{MidiClip, MidiEvent, MidiEventType};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -29,6 +30,11 @@ pub struct MidiRecorder {
     tempo: f64,
     /// Quantize grid size (in samples, 0 = no quantization)
     quantize_grid_samples: u64,
+    /// Notes held during count-in (note_number -> NoteOn event)
+    /// Used to catch notes that straddle the recording boundary
+    held_notes: HashMap<u8, MidiEvent>,
+    /// Whether held notes have been flushed into the recording
+    held_notes_flushed: bool,
 }
 
 impl MidiRecorder {
@@ -42,6 +48,8 @@ impl MidiRecorder {
             playhead_samples,
             tempo: 120.0,
             quantize_grid_samples: 0,
+            held_notes: HashMap::new(),
+            held_notes_flushed: false,
         }
     }
 
@@ -55,6 +63,8 @@ impl MidiRecorder {
         self.start_timestamp = self.playhead_samples.load(Ordering::SeqCst);
 
         self.events.clear();
+        self.held_notes.clear();
+        self.held_notes_flushed = false;
         self.state = MidiRecordingState::Recording;
 
         eprintln!("🎹 [MIDI_REC] Recording started at sample {}", self.start_timestamp);
@@ -100,14 +110,53 @@ impl MidiRecorder {
             return;
         }
 
-        // Discard events during count-in (before recording_start_samples)
+        // During count-in: track held notes so we can catch notes that
+        // straddle the recording boundary (pressed before, released after)
         if event.timestamp_samples < self.recording_start_samples {
+            match event.event_type {
+                MidiEventType::NoteOn { note, .. } => {
+                    self.held_notes.insert(note, event);
+                }
+                MidiEventType::NoteOff { note, .. } => {
+                    self.held_notes.remove(&note);
+                }
+            }
             return;
+        }
+
+        // First event after boundary: flush any notes still held from count-in
+        // These are notes the user pressed before the recording start and is
+        // still holding — insert them at timestamp 0 (the recording start)
+        if !self.held_notes_flushed {
+            self.held_notes_flushed = true;
+            let held: Vec<MidiEvent> = self.held_notes.drain().map(|(_, e)| {
+                match e.event_type {
+                    MidiEventType::NoteOn { note, velocity } => {
+                        eprintln!(
+                            "🎹 [MIDI_REC] Caught held note from count-in: note={}, vel={}",
+                            note, velocity
+                        );
+                        MidiEvent::note_on(note, velocity, 0)
+                    }
+                    _ => unreachable!(), // held_notes only stores NoteOn
+                }
+            }).collect();
+            for e in held {
+                self.events.push(e);
+            }
         }
 
         // Make timestamp relative to recording start (after count-in)
         let mut recorded_event = event;
         recorded_event.timestamp_samples -= self.recording_start_samples;
+
+        // Deduplicate: skip if identical to the last recorded event
+        // (handles MIDI controllers that send on multiple channels simultaneously)
+        if let Some(last) = self.events.last() {
+            if *last == recorded_event {
+                return;
+            }
+        }
 
         self.events.push(recorded_event);
 

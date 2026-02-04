@@ -401,10 +401,17 @@ class RecordingController extends ChangeNotifier {
   }
 
   /// Load available MIDI devices
+  /// Refreshes the device list first since MIDI enumeration is deferred from engine init
   void loadMidiDevices() {
     if (_audioEngine == null) return;
 
     try {
+      // Trigger a device scan (deferred from engine init to avoid blocking)
+      try {
+        _audioEngine!.refreshMidiDevices();
+      } catch (e) {
+        debugPrint('RecordingController: MIDI device scan failed: $e');
+      }
       final devices = _audioEngine!.getMidiInputDevices();
       _midiDevices = devices;
 

@@ -239,24 +239,35 @@ pub fn start_midi_recording() -> Result<String, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     // Calculate recording start (after count-in), matching audio recorder logic
-    let playhead_samples = graph.get_playhead_samples();
+    // Use the ORIGINAL playhead position (where user pressed Record), not current playhead!
+    // The current playhead has already been seeked back and advanced by the audio callback,
+    // causing a race condition that makes recording_start too high by ~6000 samples (125ms).
+    let recording_start_seconds = graph.recorder.get_recording_start_seconds();
+    let recording_start_samples = (recording_start_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+
     let count_in_bars = graph.recorder.get_count_in_bars();
     let tempo = graph.recorder.get_tempo();
     let time_sig = graph.recorder.get_time_signature();
 
-    let recording_start = if count_in_bars > 0 {
+    let count_in_samples = if count_in_bars > 0 {
         let count_in_seconds = (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo;
-        let count_in_samples = (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
-        playhead_samples + count_in_samples
+        (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64
     } else {
-        playhead_samples
+        0
     };
+
+    let recording_start = recording_start_samples + count_in_samples;
+
+    eprintln!("🎹 [API] MIDI recording started:");
+    eprintln!("  recording_start_seconds: {:.3}s", recording_start_seconds);
+    eprintln!("  recording_start_samples: {}", recording_start_samples);
+    eprintln!("  count_in_bars: {}", count_in_bars);
+    eprintln!("  count_in_samples: {}", count_in_samples);
+    eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / crate::audio_file::TARGET_SAMPLE_RATE as f64);
 
     let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
     midi_recorder.set_recording_start(recording_start);
     midi_recorder.start_recording()?;
-
-    eprintln!("🎹 [API] MIDI recording started (recording_start_samples: {}, count_in_bars: {})", recording_start, count_in_bars);
     Ok("MIDI recording started".to_string())
 }
 

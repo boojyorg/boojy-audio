@@ -45,7 +45,7 @@ impl Recorder {
             state: Arc::new(Mutex::new(RecordingState::Idle)),
             recorded_samples: Arc::new(Mutex::new(Vec::new())),
             sample_counter: Arc::new(AtomicU64::new(0)),
-            count_in_bars: Arc::new(Mutex::new(2)), // Default: 2 bars
+            count_in_bars: Arc::new(Mutex::new(1)), // Default: 1 bar
             tempo: Arc::new(Mutex::new(120.0)), // Default: 120 BPM
             metronome_enabled: Arc::new(AtomicBool::new(true)),
             time_signature: Arc::new(Mutex::new(4)), // Default: 4/4

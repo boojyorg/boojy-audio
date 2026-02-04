@@ -90,8 +90,10 @@ pub struct MidiInputManager {
 #[cfg(not(target_os = "ios"))]
 impl MidiInputManager {
     /// Create a new MIDI input manager
+    /// Does NOT enumerate devices on creation to avoid blocking engine initialization
+    /// (CoreMIDI can hang indefinitely). Call refresh_devices() explicitly when needed.
     pub fn new() -> Result<Self> {
-        let mut manager = Self {
+        let manager = Self {
             ports: Vec::new(),
             port_names: Vec::new(),
             selected_port_index: None,
@@ -100,7 +102,6 @@ impl MidiInputManager {
             midi_input: None,
         };
 
-        manager.refresh_devices()?;
         Ok(manager)
     }
 
