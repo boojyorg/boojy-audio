@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.1.5 - 2026-02-04
+
 ### Bug Fixes
 
 - **Fix file drops on empty area ignoring cursor position**: Dropping audio or MIDI files on the empty area below tracks always placed the clip at bar 1. Now the clip is placed at the snapped beat position where the cursor was when the file was dropped.
@@ -116,6 +118,14 @@ All notable changes to Boojy Audio will be documented in this file.
   - Position display no longer changes color during recording/count-in (stays neutral)
   - Count-in beat/progress polled from engine at ~30fps for smooth animation
   - Works with all count-in lengths (Off/1/2/4 bars) and time signatures
+
+- **Build system improvements**:
+  - Added `build.sh` script — single command for debug (`./build.sh`) or release (`./build.sh release`) builds with automatic dylib installation
+  - Integrated sccache for Rust compilation caching (caches compiled crates across builds)
+  - Added Xcode "Build Rust Engine" run script phase — `flutter run` now auto-builds the engine (no manual `./build.sh` needed)
+  - Optimized third-party crates in debug builds (`opt-level = 2`) for better audio performance without sacrificing own-code compile speed
+  - Explicit Apple linker configuration in `engine/.cargo/config.toml`
+  - Fixed all 11 Rust compiler warnings (elided lifetimes, unused qualifications, ambiguous glob re-exports, dead code)
 
 - Piano roll note interactions:
   - Select mode now shows grab cursor (not resize cursor) - resize isn't possible in select mode

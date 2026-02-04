@@ -136,6 +136,7 @@ impl PreviewPlayer {
     }
 
     /// Get the loaded file path
+    #[allow(dead_code)]
     pub fn get_loaded_path(&self) -> Option<&str> {
         self.loaded_path.as_deref()
     }

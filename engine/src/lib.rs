@@ -71,7 +71,9 @@ pub use synth::*;
 pub use sampler::*;
 pub use track::*;
 pub use effects::*;
+#[allow(ambiguous_glob_reexports)]
 pub use project::*;
+#[allow(ambiguous_glob_reexports)]
 pub use export::*;
 
 // ============================================

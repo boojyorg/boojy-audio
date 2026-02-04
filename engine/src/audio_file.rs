@@ -143,7 +143,7 @@ pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
 }
 
 /// Convert Symphonia AudioBufferRef to interleaved f32 samples
-fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef, channels: usize) -> Vec<f32> {
+fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef<'_>, channels: usize) -> Vec<f32> {
     match audio_buf {
         AudioBufferRef::F32(buf) => {
             let left = buf.chan(0);

@@ -60,7 +60,7 @@ pub extern "C" fn load_audio_file_to_track_ffi(path: *const c_char, track_id: u6
         return -1;
     }
 
-    let c_str = unsafe { std::ffi::CStr::from_ptr(path) };
+    let c_str = unsafe { CStr::from_ptr(path) };
     let path_str = match c_str.to_str() {
         Ok(s) => s,
         Err(_) => return -1,
@@ -82,7 +82,7 @@ pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
         return -1;
     }
 
-    let c_str = unsafe { std::ffi::CStr::from_ptr(path) };
+    let c_str = unsafe { CStr::from_ptr(path) };
     let path_str = match c_str.to_str() {
         Ok(s) => s,
         Err(_) => return -1,
@@ -881,7 +881,7 @@ pub extern "C" fn set_track_volume_automation_ffi(track_id: u64, csv_data: *cons
         String::new()
     } else {
         unsafe {
-            match std::ffi::CStr::from_ptr(csv_data).to_str() {
+            match CStr::from_ptr(csv_data).to_str() {
                 Ok(s) => s.to_string(),
                 Err(_) => return safe_cstring("Error: Invalid UTF-8 in csv_data".to_string()).into_raw(),
             }

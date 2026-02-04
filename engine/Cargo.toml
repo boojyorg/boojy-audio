@@ -94,3 +94,7 @@ web-sys = { version = "0.3", features = [
     "ErrorEvent",
 ] }
 getrandom = { version = "0.2", features = ["js"] }  # Random number generation for WASM
+
+# Optimize third-party crates even in debug builds (faster runtime, minimal compile cost)
+[profile.dev.package."*"]
+opt-level = 2

@@ -2284,7 +2284,7 @@ impl AudioGraph {
                         project_data.sample_rate,
                         clip_data.duration,
                     );
-                    let clip_arc = std::sync::Arc::new(midi_clip);
+                    let clip_arc = Arc::new(midi_clip);
 
                     // Generate a new clip ID
                     let clip_id = {
@@ -3134,7 +3134,7 @@ fn reconstruct_midi_clip_from_notes(
     notes: &[crate::project::MidiNoteData],
     sample_rate: u32,
     saved_duration: Option<f64>,
-) -> crate::midi::MidiClip {
+) -> MidiClip {
     use crate::midi::{MidiClip, MidiEvent, MidiEventType};
 
     let mut events = Vec::new();

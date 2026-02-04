@@ -1,6 +1,6 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.1.3 (Alpha)
+**Current Version:** v0.1.5 (Alpha)
 
 ---
 
@@ -11,7 +11,7 @@
 - [ ] Send/Return effects (beginner-friendly presets + manual setup)
 - [ ] Better Sampler editor (real waveform, loop points, one-shot, full audio controls)
 - [ ] MIDI CC recording (sustain pedal + pitch bend)
-- [ ] Input monitoring (hear live input through DAW)
+- [x] Input monitoring (hear live input through DAW) — done in v0.1.5
 - [ ] Tempo automation (master tempo track)
 - [ ] Punch in/out recording
 - [ ] Freeze/bounce track (non-destructive)
@@ -88,6 +88,40 @@ Focus: Features that unblock beat-making and instrumental production
 - [x] Audition toggle with persistence
 - [ ] Synth preset preview (play MIDI note) — stubbed, needs hidden track integration
 
+**Recording Workflow:** ✅ Complete
+
+- [x] Redesigned transport controls (three-button behavior during recording)
+- [x] Count-in with song context (hear actual song during count-in)
+- [x] Recording overlap trimming (new recording always wins)
+- [x] Undo support for recording (single Cmd+Z for entire operation)
+- [x] Manual resize overlap blocking (clips clamped at adjacent boundaries)
+- [x] Real-time MIDI note drawing during recording
+- [x] Count-in ring timer on record button
+- [x] Play → Record (no count-in when already playing)
+
+**Multi-Track Audio Recording:** ✅ Complete
+
+- [x] Per-track input device and channel assignment
+- [x] Input selector dropdown on mixer strip with live level meters
+- [x] Input monitoring on armed tracks (auto mode)
+- [x] Multi-channel recording (each armed track records independently)
+- [x] Auto-assign input channels on track creation
+- [x] Input selector locked during recording
+
+**MIDI File Import/Export:** ✅ Complete
+
+- [x] Export MIDI clips as Standard MIDI Files (.mid)
+- [x] Import .mid files by drag from library or Finder
+- [x] Library panel shows .mid files alongside audio files
+
+**Build System:** ✅ Complete
+
+- [x] `build.sh` script (debug/release with auto dylib installation)
+- [x] sccache integration for Rust compilation caching
+- [x] Xcode auto-build (engine builds on `flutter run`)
+- [x] Optimized debug dependencies (opt-level 2)
+- [x] Zero Rust compiler warnings
+
 **Sampler Fixes:**
 
 - [ ] Fix stereo output (currently mono to both channels)
@@ -162,7 +196,7 @@ Focus: Ready for real users
 - [ ] VST2/AU support
 - [ ] Linux support
 - [ ] Version history
-- [ ] Import/export MIDI
+- [x] Import/export MIDI — done in v0.1.5
 
 ---
 
