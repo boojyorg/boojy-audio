@@ -73,6 +73,11 @@ Future<String?> showClipContextMenu({
         icon: Icons.audiotrack,
         label: 'Bounce to Audio',
       ),
+      ContextMenuItem(
+        value: 'export_midi',
+        icon: Icons.file_download_outlined,
+        label: 'Export as MIDI File...',
+      ),
     ],
     const PopupMenuDivider(),
     ContextMenuItem(

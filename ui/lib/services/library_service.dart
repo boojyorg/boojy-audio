@@ -177,13 +177,19 @@ class LibraryService extends ChangeNotifier {
           final name = entity.path.split('/').last;
           final ext = name.split('.').last.toLowerCase();
 
-          // Check if audio file
+          // Check if audio or MIDI file
           if (_isAudioFile(ext)) {
             items.add(AudioFileItem(
               id: 'file_${entity.path.hashCode}',
               name: name,
               filePath: entity.path,
               icon: Icons.audio_file,
+            ));
+          } else if (_isMidiFile(ext)) {
+            items.add(MidiFileItem(
+              id: 'file_${entity.path.hashCode}',
+              name: name,
+              filePath: entity.path,
             ));
           }
         } else if (entity is Directory) {
@@ -221,6 +227,12 @@ class LibraryService extends ChangeNotifier {
   bool _isAudioFile(String ext) {
     const audioExtensions = ['wav', 'mp3', 'aiff', 'aif', 'flac', 'ogg', 'm4a'];
     return audioExtensions.contains(ext);
+  }
+
+  /// Check if extension is MIDI file
+  bool _isMidiFile(String ext) {
+    const midiExtensions = ['mid', 'midi'];
+    return midiExtensions.contains(ext);
   }
 
   /// Clear folder cache (for refresh)

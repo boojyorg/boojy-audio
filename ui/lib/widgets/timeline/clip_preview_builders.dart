@@ -484,11 +484,20 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Build preview clip widget for drag-and-drop from library
   Widget buildPreviewClip(PreviewClip preview) {
     final previewDuration = preview.duration ?? 3.0;
-    final clipWidth = previewDuration * pixelsPerSecond;
+
+    // For MIDI previews, width is based on beats; for audio, based on seconds
+    final double clipWidth;
+    if (preview.isMidi) {
+      final durationBeats = previewDuration * (widget.tempo / 60.0);
+      clipWidth = durationBeats * pixelsPerBeat;
+    } else {
+      clipWidth = previewDuration * pixelsPerSecond;
+    }
+
     final clipX = preview.startTime * pixelsPerSecond;
     final trackHeight = widget.clipHeights[preview.trackId] ?? 100.0;
     final totalHeight = trackHeight - 3.0;
-    const headerHeight = 20.0;
+    final headerHeight = preview.isMidi ? 18.0 : 20.0;
 
     // Get actual track color - match how real clips get color
     final track = tracks.where((t) => t.id == preview.trackId).firstOrNull;
@@ -535,8 +544,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                           child: Row(
                             children: [
                               Icon(
-                                Icons.audiotrack,
-                                size: 12,
+                                preview.isMidi ? Icons.piano : Icons.audiotrack,
+                                size: preview.isMidi ? 10 : 12,
                                 color: context.colors.textPrimary,
                               ),
                               const SizedBox(width: 4),
@@ -545,8 +554,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                   preview.fileName,
                                   style: TextStyle(
                                     color: context.colors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: preview.isMidi ? 10 : 11,
+                                    fontWeight: preview.isMidi ? FontWeight.w600 : FontWeight.w500,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -556,22 +565,161 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                           ),
                         ),
                       ),
-                      // Waveform content
+                      // Content area (waveform or MIDI notes)
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            if (preview.waveformPeaks == null || preview.waveformPeaks!.isEmpty) {
-                              return const SizedBox();
+                            if (preview.isMidi) {
+                              if (preview.midiNotes == null || preview.midiNotes!.isEmpty) {
+                                return const SizedBox();
+                              }
+                              final durationBeats = previewDuration * (widget.tempo / 60.0);
+                              return CustomPaint(
+                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                painter: MidiClipPainter(
+                                  notes: preview.midiNotes!,
+                                  clipDuration: durationBeats,
+                                  loopLength: durationBeats,
+                                  trackColor: trackColor,
+                                ),
+                              );
+                            } else {
+                              if (preview.waveformPeaks == null || preview.waveformPeaks!.isEmpty) {
+                                return const SizedBox();
+                              }
+                              return CustomPaint(
+                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                painter: WaveformPainter(
+                                  peaks: preview.waveformPeaks!,
+                                  color: TrackColors.getLighterShade(trackColor),
+                                  contentDuration: previewDuration,
+                                  visibleDuration: previewDuration,
+                                ),
+                              );
                             }
-                            return CustomPaint(
-                              size: Size(constraints.maxWidth, constraints.maxHeight),
-                              painter: WaveformPainter(
-                                peaks: preview.waveformPeaks!,
-                                color: TrackColors.getLighterShade(trackColor),
-                                contentDuration: previewDuration,
-                                visibleDuration: previewDuration,
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build preview clip widget for drag-and-drop over empty area (no track exists yet).
+  /// Uses a default track color since no track exists to inherit color from.
+  Widget buildEmptyAreaPreviewClip(PreviewClip preview) {
+    final previewDuration = preview.duration ?? 3.0;
+
+    final double clipWidth;
+    if (preview.isMidi) {
+      final durationBeats = previewDuration * (widget.tempo / 60.0);
+      clipWidth = durationBeats * pixelsPerBeat;
+    } else {
+      clipWidth = previewDuration * pixelsPerSecond;
+    }
+
+    final clipX = preview.startTime * pixelsPerSecond;
+    // Match default track clip height (100.0 - 3.0 padding = 97.0)
+    const defaultClipHeight = 100.0;
+    const totalHeight = defaultClipHeight - 3.0;
+    final headerHeight = preview.isMidi ? 18.0 : 20.0;
+
+    // Use the color that the next track would get
+    final trackColor = TrackColors.getTrackColor(tracks.length);
+    final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+
+    return Positioned(
+      left: clipX - scrollOffset,
+      top: 8,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.5,
+          child: SizedBox(
+            width: clipWidth,
+            height: totalHeight,
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: trackColor.withValues(alpha: 0.3),
+                    border: Border.all(
+                      color: trackColor.withValues(alpha: 0.8),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: headerHeight,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(color: trackColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ClipRect(
+                          child: Row(
+                            children: [
+                              Icon(
+                                preview.isMidi ? Icons.piano : Icons.audiotrack,
+                                size: preview.isMidi ? 10 : 12,
+                                color: context.colors.textPrimary,
                               ),
-                            );
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  preview.fileName,
+                                  style: TextStyle(
+                                    color: context.colors.textPrimary,
+                                    fontSize: preview.isMidi ? 10 : 11,
+                                    fontWeight: preview.isMidi ? FontWeight.w600 : FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (preview.isMidi) {
+                              if (preview.midiNotes == null || preview.midiNotes!.isEmpty) {
+                                return const SizedBox();
+                              }
+                              final durationBeats = previewDuration * (widget.tempo / 60.0);
+                              return CustomPaint(
+                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                painter: MidiClipPainter(
+                                  notes: preview.midiNotes!,
+                                  clipDuration: durationBeats,
+                                  loopLength: durationBeats,
+                                  trackColor: trackColor,
+                                ),
+                              );
+                            } else {
+                              if (preview.waveformPeaks == null || preview.waveformPeaks!.isEmpty) {
+                                return const SizedBox();
+                              }
+                              return CustomPaint(
+                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                painter: WaveformPainter(
+                                  peaks: preview.waveformPeaks!,
+                                  color: TrackColors.getLighterShade(trackColor),
+                                  contentDuration: previewDuration,
+                                  visibleDuration: previewDuration,
+                                ),
+                              );
+                            }
                           },
                         ),
                       ),

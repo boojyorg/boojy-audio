@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'audio_clip_edit_data.dart';
 import 'clip_automation_data.dart';
+import 'midi_note_data.dart';
 
 /// Represents an audio clip on the timeline
 class ClipData {
@@ -136,6 +137,8 @@ class PreviewClip {
   final Offset mousePosition;
   final double? duration;
   final List<double>? waveformPeaks;
+  final List<MidiNoteData>? midiNotes;
+  final bool isMidi;
 
   const PreviewClip({
     required this.fileName,
@@ -145,6 +148,8 @@ class PreviewClip {
     required this.mousePosition,
     this.duration,
     this.waveformPeaks,
+    this.midiNotes,
+    this.isMidi = false,
   });
 
   PreviewClip copyWith({
@@ -155,6 +160,8 @@ class PreviewClip {
     Offset? mousePosition,
     double? duration,
     List<double>? waveformPeaks,
+    List<MidiNoteData>? midiNotes,
+    bool? isMidi,
   }) {
     return PreviewClip(
       fileName: fileName ?? this.fileName,
@@ -164,6 +171,8 @@ class PreviewClip {
       mousePosition: mousePosition ?? this.mousePosition,
       duration: duration ?? this.duration,
       waveformPeaks: waveformPeaks ?? this.waveformPeaks,
+      midiNotes: midiNotes ?? this.midiNotes,
+      isMidi: isMidi ?? this.isMidi,
     );
   }
 }

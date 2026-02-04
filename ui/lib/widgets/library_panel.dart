@@ -977,6 +977,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
         onDragStarted: _handleDragStarted,
         child: child,
       );
+    } else if (item.type == LibraryItemType.midiFile && item is MidiFileItem) {
+      child = Draggable<MidiFileItem>(
+        data: item,
+        feedback: const SizedBox.shrink(),
+        childWhenDragging: Opacity(opacity: 0.5, child: child),
+        onDragStarted: _handleDragStarted,
+        child: child,
+      );
     }
 
     return child;

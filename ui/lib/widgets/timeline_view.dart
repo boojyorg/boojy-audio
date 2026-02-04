@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
+import 'dart:io' show File;
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cross_file/cross_file.dart';
+import '../services/midi_file_service.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../utils/grid_utils.dart';
@@ -92,8 +94,15 @@ class TimelineView extends StatefulWidget {
   final Function(int trackId, Vst3Plugin plugin)? onVst3InstrumentDropped;
   final Function(Vst3Plugin plugin)? onVst3InstrumentDroppedOnEmpty;
 
+  // MIDI clip export
+  final Function(MidiClipData clip)? onMidiClipExported;
+
+  // MIDI file drag-and-drop
+  final Function(String filePath, double startTimeBeats)? onMidiFileDroppedOnEmpty;
+  final Function(int trackId, String filePath, double startTimeBeats)? onMidiFileDroppedOnTrack;
+
   // Audio file drag-and-drop on empty space
-  final Function(String filePath)? onAudioFileDroppedOnEmpty;
+  final Function(String filePath, double startTimeBeats)? onAudioFileDroppedOnEmpty;
 
   // Audio file drag-and-drop on existing track
   final Function(int trackId, String filePath, double startTimeBeats)? onAudioFileDroppedOnTrack;
@@ -166,6 +175,9 @@ class TimelineView extends StatefulWidget {
     this.onInstrumentDroppedOnEmpty,
     this.onVst3InstrumentDropped,
     this.onVst3InstrumentDroppedOnEmpty,
+    this.onMidiClipExported,
+    this.onMidiFileDroppedOnEmpty,
+    this.onMidiFileDroppedOnTrack,
     this.onAudioFileDroppedOnEmpty,
     this.onAudioFileDroppedOnTrack,
     this.onCreateTrackWithClip,
@@ -381,13 +393,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
     final file = files.first;
     final filePath = file.path;
+    final ext = filePath.split('.').last.toLowerCase();
+
+    // Handle MIDI files via callback
+    if (ext == 'mid' || ext == 'midi') {
+      final startBeats = _calculateBeatPosition(localPosition);
+      widget.onMidiFileDroppedOnTrack?.call(trackId, filePath, startBeats);
+      return;
+    }
 
     // Only accept audio files
-    if (!filePath.endsWith('.wav') &&
-        !filePath.endsWith('.mp3') &&
-        !filePath.endsWith('.aif') &&
-        !filePath.endsWith('.aiff') &&
-        !filePath.endsWith('.flac')) {
+    if (!['wav', 'mp3', 'aif', 'aiff', 'flac'].contains(ext)) {
       return;
     }
 
@@ -465,6 +481,41 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     previewWaveformPath = null;
     previewWaveformDuration = null;
     previewWaveformPeaks = null;
+  }
+
+  /// Load MIDI note data for drag preview.
+  /// Decodes the MIDI file to extract notes and duration for preview rendering.
+  Future<void> _loadMidiNotesForPreview(String filePath) async {
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final result = MidiFileService.decode(bytes);
+      if (result.notes.isEmpty) return;
+
+      // Calculate duration from max note end
+      double maxEnd = 0;
+      for (final note in result.notes) {
+        final end = note.startTime + note.duration;
+        if (end > maxEnd) maxEnd = end;
+      }
+      final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
+
+      // Only update if we're still previewing this file
+      if (mounted && previewMidiFilePath == filePath) {
+        setState(() {
+          previewMidiDuration = durationBeats;
+          previewMidiNotes = result.notes;
+        });
+      }
+    } catch (e) {
+      debugPrint('TimelineView: Error loading MIDI preview: $e');
+    }
+  }
+
+  /// Clear cached MIDI preview data.
+  void _clearMidiPreviewCache() {
+    previewMidiFilePath = null;
+    previewMidiDuration = null;
+    previewMidiNotes = null;
   }
 
   /// Public method to trigger immediate track refresh
@@ -813,6 +864,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           break;
         case 'bounce':
           // TODO: Implement bounce to audio
+          break;
+        case 'export_midi':
+          widget.onMidiClipExported?.call(clip);
           break;
         case 'color':
           _showColorPicker(clip);
@@ -1680,7 +1734,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         totalTracksHeight += widget.automationHeights[track.id] ?? 60.0;
       }
     }
-    totalTracksHeight += 160.0; // Empty drop target area + buffer before Master
+    final actualTracksHeight = totalTracksHeight; // Before adding empty area
 
     return MouseRegion(
       cursor: currentCursor,
@@ -1885,7 +1939,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                               children: [
                                 // Scrollable tracks area
                                 Expanded(
-                                  child: SingleChildScrollView(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      // Compute empty area height to fill remaining viewport
+                                      final emptyAreaHeight = math.max(100.0, constraints.maxHeight - actualTracksHeight);
+                                      final totalTracksHeight = actualTracksHeight + emptyAreaHeight;
+
+                                      return SingleChildScrollView(
                                     controller: widget.verticalScrollController,
                                     scrollDirection: Axis.vertical,
                                     child: Listener(
@@ -1927,10 +1987,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                           ),
 
                                           // Tracks (regular tracks only, Master is pinned below)
-                                          _buildTracks(totalWidth, totalBeats.toDouble()),
+                                          _buildTracks(totalWidth, totalBeats.toDouble(), emptyAreaHeight: emptyAreaHeight),
                                         ],
                                       ),
                                     ),
+                                  );
+                                    },
                                   ),
                                 ),
 
@@ -1961,7 +2023,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
-  Widget _buildTracks(double width, double totalBeats) {
+  Widget _buildTracks(double width, double totalBeats, {double emptyAreaHeight = 100.0}) {
     // Only show empty state if audio engine is not initialized
     // Master track should always exist, so empty tracks means audio engine issue
     if (tracks.isEmpty && widget.audioEngine == null) {
@@ -2020,10 +2082,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           );
         }),
 
-        // Empty space drop target - minimum height area for drops
+        // Empty space drop target - fills remaining viewport height
         // Supports: instruments, VST3 plugins, audio files, AND drag-to-create
         SizedBox(
-          height: 100, // Minimum drop target area height
+          height: emptyAreaHeight,
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onHorizontalDragStart: (details) {
@@ -2065,23 +2127,158 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 isDraggingNewClip = false;
               });
             },
-            // Library panel AudioFileItem drag target (outermost)
-            child: DragTarget<AudioFileItem>(
+            // Library panel MidiFileItem drag target (outermost)
+            child: DragTarget<MidiFileItem>(
               onWillAcceptWithDetails: (details) => true,
+              onMove: (details) {
+                // Load MIDI data if this is a new file being dragged
+                if (previewMidiFilePath != details.data.filePath) {
+                  previewMidiFilePath = details.data.filePath;
+                  _loadMidiNotesForPreview(details.data.filePath);
+                }
+
+                // Calculate beat position from mouse
+                final RenderBox? box = context.findRenderObject() as RenderBox?;
+                final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+                final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+                final xInContent = localPos.dx + scrollOffset;
+                final rawBeats = xInContent / pixelsPerBeat;
+                final snappedBeats = GridUtils.snapToGridRound(
+                  rawBeats,
+                  GridUtils.getTimelineGridResolution(pixelsPerBeat),
+                );
+                final startTime = snappedBeats.clamp(0.0, double.infinity) / (widget.tempo / 60.0);
+                final durationSeconds = previewMidiDuration != null
+                    ? previewMidiDuration! / (widget.tempo / 60.0)
+                    : null;
+
+                setState(() {
+                  isMidiFileDraggingOverEmpty = true;
+                  previewClip = PreviewClip(
+                    fileName: details.data.name,
+                    filePath: details.data.filePath,
+                    startTime: startTime,
+                    trackId: -2,
+                    mousePosition: localPos,
+                    duration: durationSeconds,
+                    midiNotes: previewMidiNotes,
+                    isMidi: true,
+                  );
+                });
+              },
+              onLeave: (data) {
+                setState(() {
+                  isMidiFileDraggingOverEmpty = false;
+                  if (previewClip?.trackId == -2) previewClip = null;
+                });
+              },
               onAcceptWithDetails: (details) {
-                widget.onAudioFileDroppedOnEmpty?.call(details.data.filePath);
+                // Calculate beat position from drop location
+                final RenderBox? box = context.findRenderObject() as RenderBox?;
+                final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+                final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+                final xInContent = localPos.dx + scrollOffset;
+                final rawBeats = xInContent / pixelsPerBeat;
+                final snappedBeats = GridUtils.snapToGridRound(
+                  rawBeats,
+                  GridUtils.getTimelineGridResolution(pixelsPerBeat),
+                ).clamp(0.0, double.infinity);
+
+                _clearMidiPreviewCache();
+                setState(() {
+                  previewClip = null;
+                  isMidiFileDraggingOverEmpty = false;
+                });
+                widget.onMidiFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
+              },
+              builder: (context, candidateMidiFiles, rejectedMidiFiles) {
+
+              // Library panel AudioFileItem drag target
+              return DragTarget<AudioFileItem>(
+              onWillAcceptWithDetails: (details) => true,
+              onMove: (details) {
+                // Load waveform data if this is a new file being dragged
+                if (previewWaveformPath != details.data.filePath) {
+                  previewWaveformPath = details.data.filePath;
+                  _loadWaveformForPreview(details.data.filePath);
+                }
+
+                // Calculate beat position from mouse
+                final RenderBox? box = context.findRenderObject() as RenderBox?;
+                final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+                final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+                final xInContent = localPos.dx + scrollOffset;
+                final rawBeats = xInContent / pixelsPerBeat;
+                final snappedBeats = GridUtils.snapToGridRound(
+                  rawBeats,
+                  GridUtils.getTimelineGridResolution(pixelsPerBeat),
+                );
+                final startTime = snappedBeats.clamp(0.0, double.infinity) / (widget.tempo / 60.0);
+
+                setState(() {
+                  isAudioFileDraggingOverEmpty = true;
+                  previewClip = PreviewClip(
+                    fileName: details.data.name,
+                    filePath: details.data.filePath,
+                    startTime: startTime,
+                    trackId: -1,
+                    mousePosition: localPos,
+                    duration: previewWaveformDuration,
+                    waveformPeaks: previewWaveformPeaks,
+                  );
+                });
+              },
+              onLeave: (data) {
+                setState(() {
+                  isAudioFileDraggingOverEmpty = false;
+                  if (previewClip?.trackId == -1) previewClip = null;
+                });
+              },
+              onAcceptWithDetails: (details) {
+                // Calculate beat position from drop location
+                final RenderBox? box = context.findRenderObject() as RenderBox?;
+                final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+                final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+                final xInContent = localPos.dx + scrollOffset;
+                final rawBeats = xInContent / pixelsPerBeat;
+                final snappedBeats = GridUtils.snapToGridRound(
+                  rawBeats,
+                  GridUtils.getTimelineGridResolution(pixelsPerBeat),
+                ).clamp(0.0, double.infinity);
+
+                _clearWaveformPreviewCache();
+                setState(() {
+                  previewClip = null;
+                  isAudioFileDraggingOverEmpty = false;
+                });
+                widget.onAudioFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
               },
               builder: (context, candidateLibraryAudioFiles, rejectedLibraryAudioFiles) {
                 final isLibraryAudioHovering = candidateLibraryAudioFiles.isNotEmpty;
 
                 return PlatformDropTarget(
               onDragDone: (details) {
-                // Handle audio file drops from Finder
+                // Calculate beat position from Finder drop location
+                final RenderBox? box = context.findRenderObject() as RenderBox?;
+                final localPos = box?.globalToLocal(details.localPosition) ?? Offset.zero;
+                final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+                final xInContent = localPos.dx + scrollOffset;
+                final rawBeats = xInContent / pixelsPerBeat;
+                final snappedBeats = GridUtils.snapToGridRound(
+                  rawBeats,
+                  GridUtils.getTimelineGridResolution(pixelsPerBeat),
+                ).clamp(0.0, double.infinity);
+
+                // Handle file drops from Finder
                 for (final file in details.files) {
                   final ext = file.path.split('.').last.toLowerCase();
+                  if (['mid', 'midi'].contains(ext)) {
+                    widget.onMidiFileDroppedOnEmpty?.call(file.path, snappedBeats);
+                    return;
+                  }
                   if (['wav', 'mp3', 'flac', 'aif', 'aiff'].contains(ext)) {
-                    widget.onAudioFileDroppedOnEmpty?.call(file.path);
-                    return; // Only handle first valid audio file
+                    widget.onAudioFileDroppedOnEmpty?.call(file.path, snappedBeats);
+                    return;
                   }
                 }
               },
@@ -2114,8 +2311,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     },
                     builder: (context, candidateInstruments, rejectedInstruments) {
                       final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
+                      final isMidiFileHovering = candidateMidiFiles.isNotEmpty;
                       final isAudioHovering = isAudioFileDraggingOverEmpty || isLibraryAudioHovering;
-                      final isAnyHovering = isInstrumentHovering || isAudioHovering;
+                      final isFileHovering = isAudioHovering || isMidiFileHovering;
+                      final isAnyHovering = isInstrumentHovering || isFileHovering;
 
                       // Helper to truncate filename for display
                       String truncateFilename(String name, {int maxLength = 30}) {
@@ -2125,11 +2324,16 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
                       // Determine label text
                       String dropLabel;
-                      if (isLibraryAudioHovering && candidateLibraryAudioFiles.isNotEmpty) {
+                      if (isMidiFileHovering && candidateMidiFiles.isNotEmpty) {
+                        final fileName = truncateFilename(candidateMidiFiles.first!.name);
+                        dropLabel = 'Drop to create new MIDI track with $fileName';
+                      } else if (isLibraryAudioHovering && candidateLibraryAudioFiles.isNotEmpty) {
                         final fileName = truncateFilename(candidateLibraryAudioFiles.first!.name);
                         dropLabel = 'Drop to create new Audio track with $fileName';
                       } else if (isAudioFileDraggingOverEmpty) {
                         dropLabel = 'Drop to create new Audio track';
+                      } else if (isMidiFileDraggingOverEmpty) {
+                        dropLabel = 'Drop to create new MIDI track';
                       } else if (candidateVst3Plugins.isNotEmpty) {
                         dropLabel = 'Drop to create new MIDI track with ${candidateVst3Plugins.first?.name}';
                       } else if (candidateInstruments.isNotEmpty) {
@@ -2138,53 +2342,93 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         dropLabel = 'Drop to create new track';
                       }
 
+                      // Check if we have a file preview for the empty area
+                      final hasFilePreview = previewClip != null &&
+                          (previewClip!.trackId == -1 || previewClip!.trackId == -2);
+
                       return Stack(
                         children: [
-                          // Drop target feedback
-                          // ignore: use_decorated_box
-                          Container(
-                            decoration: isAnyHovering
-                                ? BoxDecoration(
-                                    color: context.colors.success.withValues(alpha: 0.1),
-                                    border: Border.all(
-                                      color: context.colors.success,
-                                      width: 3,
-                                      style: BorderStyle.solid,
-                                    ),
+                          if (hasFilePreview) ...[
+                            // Clip-shaped preview at mouse position
+                            buildEmptyAreaPreviewClip(previewClip!),
+                            // Label pill at bottom
+                            Positioned(
+                              bottom: 4,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: context.colors.success.withValues(alpha: 0.8),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline,
+                                        color: context.colors.textPrimary,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        dropLabel,
+                                        style: TextStyle(
+                                          color: context.colors.textPrimary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ] else if (isAnyHovering) ...[
+                            // Instrument/VST3 drag — keep the green border feedback
+                            // ignore: use_decorated_box
+                            Container(
+                              decoration: BoxDecoration(
+                                color: context.colors.success.withValues(alpha: 0.1),
+                                border: Border.all(
+                                  color: context.colors.success,
+                                  width: 3,
+                                  style: BorderStyle.solid,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: context.colors.success,
                                     borderRadius: BorderRadius.circular(8),
-                                  )
-                                : null,
-                            child: isAnyHovering
-                                ? Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: context.colors.success,
-                                        borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline,
+                                        color: context.colors.textPrimary,
+                                        size: 20,
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.add_circle_outline,
-                                            color: context.colors.textPrimary,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            dropLabel,
-                                            style: TextStyle(
-                                              color: context.colors.textPrimary,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        dropLabel,
+                                        style: TextStyle(
+                                          color: context.colors.textPrimary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                  )
-                                : const SizedBox.expand(),
-                          ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ] else
+                            const SizedBox.expand(),
                           // Drag-to-create preview (for empty space)
                           if (isDraggingNewClip && newClipTrackId == null)
                             buildDragToCreatePreview(),
@@ -2196,6 +2440,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               ),
             );
               },
+            );
+            },
             ),
           ),
         ),
@@ -2292,7 +2538,85 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     }
 
     // Build the clip area widget
-    final clipAreaWidget = DragTarget<AudioFileItem>(
+    final clipAreaWidget = DragTarget<MidiFileItem>(
+      onWillAcceptWithDetails: (details) {
+        // Only accept MIDI files on MIDI tracks
+        return isMidiTrack;
+      },
+      onMove: (details) {
+        if (!isMidiTrack) return;
+
+        // Load MIDI data if this is a new file being dragged
+        if (previewMidiFilePath != details.data.filePath) {
+          previewMidiFilePath = details.data.filePath;
+          _loadMidiNotesForPreview(details.data.filePath);
+        }
+
+        // Convert global offset to local coordinates
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+        final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+        final xInContent = localPos.dx + scrollOffset;
+        final rawBeats = xInContent / pixelsPerBeat;
+
+        // Snap to grid
+        final snappedBeats = GridUtils.snapToGridRound(
+          rawBeats,
+          GridUtils.getTimelineGridResolution(pixelsPerBeat),
+        );
+        final startTime = snappedBeats.clamp(0.0, double.infinity) / (widget.tempo / 60.0);
+
+        // Duration in beats -> convert to seconds for consistent PreviewClip
+        final durationSeconds = previewMidiDuration != null
+            ? previewMidiDuration! / (widget.tempo / 60.0)
+            : null;
+
+        setState(() {
+          dragHoveredTrackId = track.id;
+          previewClip = PreviewClip(
+            fileName: details.data.name,
+            filePath: details.data.filePath,
+            startTime: startTime,
+            trackId: track.id,
+            mousePosition: localPos,
+            duration: durationSeconds,
+            midiNotes: previewMidiNotes,
+            isMidi: true,
+          );
+        });
+      },
+      onLeave: (data) {
+        if (previewClip?.trackId == track.id) {
+          setState(() {
+            dragHoveredTrackId = null;
+            previewClip = null;
+          });
+        }
+      },
+      onAcceptWithDetails: (details) {
+        _clearMidiPreviewCache();
+        setState(() {
+          previewClip = null;
+          dragHoveredTrackId = null;
+        });
+
+        final RenderBox? box = context.findRenderObject() as RenderBox?;
+        final localPos = box?.globalToLocal(details.offset) ?? Offset.zero;
+        final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+        final xInContent = localPos.dx + scrollOffset;
+        final rawBeats = xInContent / pixelsPerBeat;
+        final snappedBeats = GridUtils.snapToGridRound(
+          rawBeats,
+          GridUtils.getTimelineGridResolution(pixelsPerBeat),
+        );
+        widget.onMidiFileDroppedOnTrack?.call(
+          track.id,
+          details.data.filePath,
+          snappedBeats.clamp(0.0, double.infinity),
+        );
+      },
+      builder: (context, candidateMidiFiles, rejectedMidiFiles) {
+      return DragTarget<AudioFileItem>(
       onWillAcceptWithDetails: (details) {
         // Only accept on Audio tracks, reject on MIDI tracks
         return !isMidiTrack;
@@ -2435,8 +2759,6 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 });
               },
               onDragDone: (details) async {
-                // Reject drops on MIDI tracks
-                if (isMidiTrack) return;
                 await _handleFileDrop(details.files, track.id, details.localPosition);
               },
           child: GestureDetector(
@@ -2715,6 +3037,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         );
           },
         );
+      },
+    );
       },
     );
 

@@ -10,6 +10,7 @@ enum LibraryItemType {
   vst3Effect,     // VST3 Effect - adds VST3 to track FX chain
   folder,      // User folder - container for files
   audioFile,   // Audio file from user folder - creates Audio track
+  midiFile,    // MIDI file from user folder - creates MIDI track with notes
 }
 
 /// Base class for all library items
@@ -122,6 +123,18 @@ class AudioFileItem extends LibraryItem {
     required this.filePath,
     super.icon = Icons.audio_file,
   }) : super(type: LibraryItemType.audioFile, path: filePath);
+}
+
+/// MIDI file from user folder
+class MidiFileItem extends LibraryItem {
+  final String filePath;
+
+  const MidiFileItem({
+    required super.id,
+    required super.name,
+    required this.filePath,
+    super.icon = Icons.piano,
+  }) : super(type: LibraryItemType.midiFile, path: filePath);
 }
 
 /// Built-in effect item

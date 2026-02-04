@@ -6,6 +6,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Fix file drops on empty area ignoring cursor position**: Dropping audio or MIDI files on the empty area below tracks always placed the clip at bar 1. Now the clip is placed at the snapped beat position where the cursor was when the file was dropped.
+- **Fix drag preview not visible in full empty area**: The empty-area drop target was only 100px tall, so dragging files to the lower part of the empty space showed no preview. The drop target now fills the entire remaining viewport height.
 - **Fix engine stuck in initializing**: Defer MIDI device enumeration from engine init to first use. CoreMIDI can block indefinitely when scanning for devices, preventing the engine from ever reaching the ready state.
 - **Fix MIDI notes lost at recording boundary**: Notes held during count-in that extend past the recording start are now "caught" and included at the start of the recording (timestamp 0), instead of being silently discarded.
 - **Fix duplicate MIDI events**: Deduplicate identical MIDI events in the recorder to handle controllers that send on multiple channels simultaneously (e.g. SL STUDIO sending on channel 0 and 1).
@@ -21,6 +23,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Drag preview for MIDI files on tracks**: Dragging a `.mid` file from the library onto a MIDI track now shows a semi-transparent clip preview with MIDI note bars at the snapped grid position, matching the existing audio file drag preview behavior.
+- **Clip preview for empty area drops**: Dragging audio or MIDI files to the empty area below tracks now shows an actual clip preview (waveform or note bars) instead of the plain green border rectangle, with a small label pill at the bottom.
+- **MIDI File Import/Export**: Export MIDI clips as Standard MIDI Files (.mid) via right-click context menu, and import .mid files by dragging from the library panel or Finder onto the timeline. Library panel now shows .mid files alongside audio files in user folders.
 - **Input monitoring (auto mode)**: Armed tracks now automatically monitor input — arm a track and hear yourself through the DAW's effects chain. Unarming stops monitoring with a smooth 20ms fade-out to prevent audio clicks. No new UI needed; the existing R (arm) button controls monitoring. Works for audio tracks (MIDI monitoring was already implicit via the synth).
 - **Redesigned recording workflow** with improved transport controls:
   - **Count-in with song context**: During count-in, playback starts from (record position - count-in bars) so you hear the actual song, not just metronome clicks

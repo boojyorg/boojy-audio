@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/library_item.dart';
+import '../../../models/midi_note_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/commands/clip_commands.dart';
+import '../../../services/midi_file_service.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
@@ -96,6 +98,16 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
           }
         } else {
           showSnackBar('Select a track first to add effects');
+        }
+        break;
+
+      case LibraryItemType.midiFile:
+        if (item is MidiFileItem) {
+          if (isMidi) {
+            onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
+          } else {
+            onMidiFileDroppedOnEmpty(item.filePath);
+          }
         }
         break;
 
@@ -419,6 +431,79 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     } catch (e) {
       debugPrint('Failed to create track with clip: $e');
     }
+  }
+
+  // ============================================
+  // MIDI FILE DROP HANDLERS
+  // ============================================
+
+  /// Handle MIDI file dropped on empty area - creates new MIDI track
+  Future<void> onMidiFileDroppedOnEmpty(String filePath) async {
+    if (audioEngine == null) return;
+
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final result = MidiFileService.decode(bytes);
+      if (result.notes.isEmpty) return;
+
+      // Create new MIDI track
+      final command = CreateTrackCommand(
+        trackType: 'midi',
+        trackName: 'MIDI',
+      );
+      await undoRedoManager.execute(command);
+
+      final trackId = command.createdTrackId;
+      if (trackId == null || trackId < 0) return;
+
+      _importMidiNotesToTrack(trackId, filePath, 0.0, result);
+    } catch (e) {
+      debugPrint('Failed to import MIDI file to new track: $e');
+    }
+  }
+
+  /// Handle MIDI file dropped on existing track
+  Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
+    if (audioEngine == null) return;
+    if (!isMidiTrack(trackId)) return;
+
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final result = MidiFileService.decode(bytes);
+      if (result.notes.isEmpty) return;
+
+      _importMidiNotesToTrack(trackId, filePath, startTimeBeats, result);
+    } catch (e) {
+      debugPrint('Failed to import MIDI file to track: $e');
+    }
+  }
+
+  /// Import decoded MIDI notes as a clip on a track
+  void _importMidiNotesToTrack(int trackId, String filePath, double startTimeBeats, MidiFileDecodeResult result) {
+    // Find the max note end to determine clip duration
+    double maxEnd = 0;
+    for (final note in result.notes) {
+      final end = note.startTime + note.duration;
+      if (end > maxEnd) maxEnd = end;
+    }
+    final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
+
+    final clipId = DateTime.now().microsecondsSinceEpoch;
+    final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
+
+    final clipData = MidiClipData(
+      clipId: clipId,
+      trackId: trackId,
+      startTime: startTimeBeats,
+      duration: durationBeats,
+      notes: result.notes,
+      name: clipName,
+    );
+
+    midiPlaybackManager?.addRecordedClip(clipData);
+    midiPlaybackManager?.rescheduleClip(clipData, tempo);
+
+    refreshTrackWidgets();
   }
 
   // ============================================

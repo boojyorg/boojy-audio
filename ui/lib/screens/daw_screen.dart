@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 // Conditional import for platform-specific code
 import 'daw_screen_io.dart' if (dart.library.js_interop) 'daw_screen_io_web.dart';
 import '../audio_engine.dart';
@@ -51,6 +53,7 @@ import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/midi_capture_buffer.dart';
 import '../services/clip_naming_service.dart';
+import '../services/midi_file_service.dart';
 import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
@@ -990,7 +993,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   // Audio file drop handler - creates new audio track with clip
-  Future<void> _onAudioFileDroppedOnEmpty(String filePath) async {
+  Future<void> _onAudioFileDroppedOnEmpty(String filePath, [double startTimeBeats = 0.0]) async {
     if (_audioEngine == null) return;
 
     try {
@@ -1022,20 +1025,29 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = _audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
-      // 5. Add to timeline view's clip list
+      // 5. Convert start position from beats to seconds for audio clips
+      final beatsPerSecond = _tempo / 60.0;
+      final startTimeSeconds = startTimeBeats / beatsPerSecond;
+
+      // Set clip start time in engine if not at position 0
+      if (startTimeSeconds > 0) {
+        _audioEngine!.setClipStartTime(trackId, clipId, startTimeSeconds);
+      }
+
+      // 6. Add to timeline view's clip list
       _timelineKey.currentState?.addClip(ClipData(
         clipId: clipId,
         trackId: trackId,
         filePath: finalPath, // Use the copied path
-        startTime: 0.0,
+        startTime: startTimeSeconds,
         duration: duration,
         waveformPeaks: peaks,
       ));
 
-      // 6. Select the newly created clip (opens Audio Editor)
+      // 7. Select the newly created clip (opens Audio Editor)
       _timelineKey.currentState?.selectAudioClip(clipId);
 
-      // 7. Refresh track widgets
+      // 8. Refresh track widgets
       _refreshTrackWidgets();
     } catch (e) {
       debugPrint('Failed to add audio file to new track: $e');
@@ -1090,6 +1102,94 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       _refreshTrackWidgets();
     } catch (e) {
       debugPrint('Failed to add audio file to track: $e');
+    }
+  }
+
+  /// Import a MIDI file onto an existing MIDI track
+  Future<void> _onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
+    if (_audioEngine == null) return;
+    if (!_isMidiTrack(trackId)) return;
+
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final result = MidiFileService.decode(bytes);
+      if (result.notes.isEmpty) return;
+
+      // Find the max note end to determine clip duration
+      double maxEnd = 0;
+      for (final note in result.notes) {
+        final end = note.startTime + note.duration;
+        if (end > maxEnd) maxEnd = end;
+      }
+      final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
+
+      // Generate a unique clip ID
+      final clipId = DateTime.now().microsecondsSinceEpoch;
+      final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
+
+      final clipData = MidiClipData(
+        clipId: clipId,
+        trackId: trackId,
+        startTime: startTimeBeats,
+        duration: durationBeats,
+        notes: result.notes,
+        name: clipName,
+      );
+
+      _midiPlaybackManager?.addRecordedClip(clipData);
+      _midiPlaybackManager?.rescheduleClip(clipData, _tempo);
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Failed to import MIDI file to track: $e');
+    }
+  }
+
+  /// Import a MIDI file onto a new track (dropped on empty space)
+  Future<void> _onMidiFileDroppedOnEmpty(String filePath, double startTimeBeats) async {
+    if (_audioEngine == null) return;
+
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final result = MidiFileService.decode(bytes);
+      if (result.notes.isEmpty) return;
+
+      // Create new MIDI track
+      final command = CreateTrackCommand(
+        trackType: 'midi',
+        trackName: 'MIDI',
+      );
+      await _undoRedoManager.execute(command);
+
+      final trackId = command.createdTrackId;
+      if (trackId == null || trackId < 0) return;
+
+      // Find the max note end to determine clip duration
+      double maxEnd = 0;
+      for (final note in result.notes) {
+        final end = note.startTime + note.duration;
+        if (end > maxEnd) maxEnd = end;
+      }
+      final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
+
+      final clipId = DateTime.now().microsecondsSinceEpoch;
+      final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
+
+      final clipData = MidiClipData(
+        clipId: clipId,
+        trackId: trackId,
+        startTime: startTimeBeats,
+        duration: durationBeats,
+        notes: result.notes,
+        name: clipName,
+      );
+
+      _midiPlaybackManager?.addRecordedClip(clipData);
+      _midiPlaybackManager?.rescheduleClip(clipData, _tempo);
+
+      _refreshTrackWidgets();
+    } catch (e) {
+      debugPrint('Failed to import MIDI file to new track: $e');
     }
   }
 
@@ -1326,6 +1426,16 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       case LibraryItemType.vst3Instrument:
       case LibraryItemType.vst3Effect:
         // Handled by _handleVst3DoubleClick
+        break;
+
+      case LibraryItemType.midiFile:
+        if (item is MidiFileItem) {
+          if (isMidi) {
+            _onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
+          } else {
+            _onMidiFileDroppedOnEmpty(item.filePath, 0.0);
+          }
+        }
         break;
 
       case LibraryItemType.folder:
@@ -2304,6 +2414,22 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       },
     );
     _undoRedoManager.execute(command);
+  }
+
+  /// Export a MIDI clip as a Standard MIDI File (.mid)
+  Future<void> _exportMidiClip(MidiClipData clip) async {
+    final defaultName = clip.name.replaceAll(RegExp(r'[^\w\s\-]'), '');
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export MIDI File',
+      fileName: '$defaultName.mid',
+      type: FileType.custom,
+      allowedExtensions: ['mid'],
+    );
+    if (result == null) return;
+
+    final path = result.endsWith('.mid') ? result : '$result.mid';
+    final bytes = MidiFileService.encode(clip.notes, tempo: _tempo);
+    await File(path).writeAsBytes(bytes);
   }
 
   /// Batch delete multiple MIDI clips (eraser tool - single undo action)
@@ -3725,6 +3851,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
                           onVst3InstrumentDropped: _onVst3InstrumentDropped,
                           onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
+                          onMidiClipExported: _exportMidiClip,
+                          onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
+                          onMidiFileDroppedOnTrack: _onMidiFileDroppedOnTrack,
                           onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
                           onAudioFileDroppedOnTrack: _onAudioFileDroppedOnTrack,
                           onCreateTrackWithClip: _onCreateTrackWithClip,
@@ -3842,7 +3971,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                             onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
                             onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
                             onEditPluginsPressed: _showVst3PluginEditor, // M10
-                            onAudioFileDropped: _onAudioFileDroppedOnEmpty,
+                            onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
                             onMidiTrackCreated: _createDefaultMidiClip,
                             onTrackCreated: _onTrackCreatedFromMixer,
                             onTrackReordered: _onTrackReordered,

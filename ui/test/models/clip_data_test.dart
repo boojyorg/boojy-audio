@@ -369,6 +369,7 @@ void main() {
       test('creates instance with all required fields', () {
         final preview = PreviewClip(
           fileName: 'drums.wav',
+          filePath: '/path/to/drums.wav',
           startTime: 2.0,
           trackId: 3,
           mousePosition: const Offset(100.0, 200.0),
@@ -383,6 +384,7 @@ void main() {
       test('handles zero values', () {
         final preview = PreviewClip(
           fileName: 'sample.wav',
+          filePath: '/path/to/sample.wav',
           startTime: 0.0,
           trackId: 0,
           mousePosition: Offset.zero,
@@ -396,6 +398,7 @@ void main() {
       test('handles negative mouse position', () {
         final preview = PreviewClip(
           fileName: 'sample.wav',
+          filePath: '/path/to/sample.wav',
           startTime: 0.0,
           trackId: 1,
           mousePosition: const Offset(-10.0, -20.0),
