@@ -319,13 +319,6 @@ impl RecorderCallbackRefs {
             self.sample_counter.fetch_add(1, Ordering::SeqCst)
         } else {
             let val = self.sample_counter.load(Ordering::SeqCst);
-            // Debug: Log when we're NOT ticking (should stay at 0 after reset)
-            static LAST_LOGGED: AtomicU64 = AtomicU64::new(u64::MAX);
-            if val != LAST_LOGGED.load(Ordering::Relaxed) && val % 96000 == 0 {
-                eprintln!("🔇 [Recorder] Not ticking, counter at: {} (is_playing={}, state={:?})",
-                    val, is_playing, current_state);
-                LAST_LOGGED.store(val, Ordering::Relaxed);
-            }
             val
         };
 

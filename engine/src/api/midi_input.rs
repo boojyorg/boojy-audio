@@ -243,26 +243,33 @@ pub fn start_midi_recording() -> Result<String, String> {
     // The current playhead has already been seeked back and advanced by the audio callback,
     // causing a race condition that makes recording_start too high by ~6000 samples (125ms).
     let recording_start_seconds = graph.recorder.get_recording_start_seconds();
-    let recording_start_samples = (recording_start_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
 
     let count_in_bars = graph.recorder.get_count_in_bars();
     let tempo = graph.recorder.get_tempo();
     let time_sig = graph.recorder.get_time_signature();
 
-    let count_in_samples = if count_in_bars > 0 {
-        let count_in_seconds = (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo;
-        (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64
+    // Calculate count-in duration in seconds and samples
+    let count_in_seconds = if count_in_bars > 0 {
+        (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo
     } else {
-        0
+        0.0
     };
+    let count_in_samples = (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
 
-    let recording_start = recording_start_samples + count_in_samples;
+    // Calculate where the transport actually starts for count-in.
+    // This matches the seek in recording.rs: (playhead_seconds - count_in_seconds).max(0.0)
+    // We must use the seekback position (not the original position) because the transport
+    // plays forward from the seekback point. At Bar 1, seekback clamps to 0 so count-in
+    // plays in-place. At Bar 4+, seekback is non-zero and the transport arrives at the
+    // original position after count-in — adding count_in would double-count the offset.
+    let seekback_seconds = (recording_start_seconds - count_in_seconds).max(0.0);
+    let seekback_samples = (seekback_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+    let recording_start = seekback_samples + count_in_samples;
 
     eprintln!("🎹 [API] MIDI recording started:");
     eprintln!("  recording_start_seconds: {:.3}s", recording_start_seconds);
-    eprintln!("  recording_start_samples: {}", recording_start_samples);
-    eprintln!("  count_in_bars: {}", count_in_bars);
-    eprintln!("  count_in_samples: {}", count_in_samples);
+    eprintln!("  count_in_bars: {} ({:.3}s)", count_in_bars, count_in_seconds);
+    eprintln!("  seekback_seconds: {:.3}s", seekback_seconds);
     eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / crate::audio_file::TARGET_SAMPLE_RATE as f64);
 
     let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;

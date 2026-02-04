@@ -6,7 +6,7 @@ use crate::track::{AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, Trac
 use crate::effects::{Effect, EffectManager, Limiter};  // Import from effects module
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 // Native-only imports
 #[cfg(not(target_arch = "wasm32"))]
@@ -379,6 +379,43 @@ impl AudioGraph {
             Some(id)
         } else {
             None
+        }
+    }
+
+    /// Re-add an audio clip to a track with a specific clip ID.
+    /// Used for undo/redo to preserve clip ID consistency.
+    pub fn add_clip_to_track_with_id(
+        &self,
+        track_id: TrackId,
+        clip_id: ClipId,
+        clip: Arc<AudioClip>,
+        start_time: f64,
+        offset: f64,
+        duration: Option<f64>,
+    ) -> bool {
+        let track_manager = self.track_manager.lock().expect("mutex poisoned");
+        if let Some(track_arc) = track_manager.get_track(track_id) {
+            let mut track = track_arc.lock().expect("mutex poisoned");
+            track.audio_clips.push(TimelineClip {
+                id: clip_id,
+                clip,
+                start_time,
+                offset,
+                duration,
+                gain_db: 0.0,
+                warp_enabled: false,
+                stretch_factor: 1.0,
+                warp_mode: 0,
+                stretched_cache: None,
+                cached_stretch_factor: 0.0,
+                transpose_semitones: 0,
+                transpose_cents: 0,
+                volume_automation: Vec::new(),
+                pan_automation: Vec::new(),
+            });
+            true
+        } else {
+            false
         }
     }
 
@@ -1016,34 +1053,14 @@ impl AudioGraph {
                     // Get current playhead for latency test sample counting
                     let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
-                    // Debug: log that we're in stopped callback (once)
-                    static LOGGED_STOPPED: AtomicBool = AtomicBool::new(false);
-                    if !LOGGED_STOPPED.swap(true, Ordering::Relaxed) {
-                        eprintln!("🔇 Audio callback: NOT PLAYING branch active");
-                    }
-
-                    // Log channel info once
-                    static LOGGED_CHANNELS: AtomicBool = AtomicBool::new(false);
-
                     // Lock synth manager once for the entire buffer
                     let mut synth_guard = track_synth_manager.lock().ok();
-
-                    // Debug: log if we got the lock
-                    static LOGGED_LOCK: AtomicBool = AtomicBool::new(false);
-                    if !LOGGED_LOCK.swap(true, Ordering::Relaxed) {
-                        eprintln!("🔇 Synth guard acquired: {}", synth_guard.is_some());
-                    }
 
                     for frame_idx in 0..frames {
                         // Get input samples (if recording)
                         // Use try_lock() to avoid deadlock - if lock is held by API thread, just skip this frame
                         let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
                             let channels = input_mgr.get_input_channels();
-
-                            // Log once for debugging
-                            if !LOGGED_CHANNELS.swap(true, Ordering::Relaxed) {
-                                eprintln!("🔊 [AudioGraph] Reading input with {} channels", channels);
-                            }
 
                             if channels == 1 {
                                 // Mono input: read 1 sample and duplicate to both channels
@@ -1102,13 +1119,27 @@ impl AudioGraph {
                                         }
 
                                         // Input monitoring: mix live input for armed audio tracks
-                                        if track.armed && track.input_monitoring
-                                            && track.track_type == crate::track::TrackType::Audio
+                                        // Uses fade gain for smooth transitions (20ms ramp avoids clicks)
                                         {
-                                            let ch = track.input_channel as usize;
-                                            let input_sample = if ch == 0 { input_left } else { input_right };
-                                            track_left += input_sample;
-                                            track_right += input_sample;
+                                            let should_monitor = track.armed && track.input_monitoring
+                                                && track.track_type == crate::track::TrackType::Audio;
+                                            let target = if should_monitor { 1.0f64 } else { 0.0f64 };
+
+                                            if track.monitoring_fade_gain != target {
+                                                let step = 1.0 / (0.020 * TARGET_SAMPLE_RATE as f64);
+                                                if target > track.monitoring_fade_gain {
+                                                    track.monitoring_fade_gain = (track.monitoring_fade_gain + step).min(1.0);
+                                                } else {
+                                                    track.monitoring_fade_gain = (track.monitoring_fade_gain - step).max(0.0);
+                                                }
+                                            }
+
+                                            if track.monitoring_fade_gain > 0.0 {
+                                                let ch = track.input_channel as usize;
+                                                let input_sample = if ch == 0 { input_left } else { input_right };
+                                                track_left += input_sample * track.monitoring_fade_gain as f32;
+                                                track_right += input_sample * track.monitoring_fade_gain as f32;
+                                            }
                                         }
 
                                         // Handle mute/solo
@@ -1257,6 +1288,7 @@ impl AudioGraph {
                     input_monitoring: bool,
                     input_channel: u32,
                     is_audio_track: bool,
+                    monitoring_fade_gain: f64,
                 }
 
                 let track_data_option = if let Ok(tm) = track_manager.lock() {
@@ -1283,6 +1315,7 @@ impl AudioGraph {
                                 input_monitoring: track.input_monitoring,
                                 input_channel: track.input_channel,
                                 is_audio_track: track.track_type == crate::track::TrackType::Audio,
+                                monitoring_fade_gain: track.monitoring_fade_gain,
                             };
 
                             if track.track_type == crate::track::TrackType::Master {
@@ -1298,7 +1331,7 @@ impl AudioGraph {
                     None // Lock failed, use empty track list
                 }; // All locks released here!
 
-                let (track_snapshots, has_solo, master_snapshot) = track_data_option
+                let (mut track_snapshots, has_solo, master_snapshot) = track_data_option
                     .unwrap_or_else(|| (Vec::new(), false, None));
 
                 // Track peak levels per track for metering (track_id -> (max_left, max_right))
@@ -1309,6 +1342,11 @@ impl AudioGraph {
                 // OPTIMIZATION: Lock synth manager ONCE before the frame loop
                 // This prevents lock contention that causes audio dropouts
                 let mut synth_guard = track_synth_manager.lock().ok();
+
+                // Check if recording is active (skip clip playback on armed tracks)
+                let is_recording = recorder_refs.state.lock()
+                    .map(|s| *s == crate::recorder::RecordingState::Recording)
+                    .unwrap_or(false);
 
                 // Process each frame (using snapshots - NO LOCKS in hot path!)
                 for frame_idx in 0..frames {
@@ -1345,7 +1383,7 @@ impl AudioGraph {
                     };
 
                     // Mix all tracks using snapshots (no locking!)
-                    for track_snap in &track_snapshots {
+                    for track_snap in &mut track_snapshots {
                         // Handle mute/solo logic
                         if track_snap.muted {
                             continue; // Muted tracks produce no sound
@@ -1357,8 +1395,13 @@ impl AudioGraph {
                         let mut track_left = 0.0;
                         let mut track_right = 0.0;
 
+                        // Skip existing clip playback on armed tracks during recording
+                        // (user should only hear new input, not old overlapping clips)
+                        let skip_clips = track_snap.armed && is_recording;
+
                         // Mix all audio clips on this track
                         for timeline_clip in &track_snap.audio_clips {
+                            if skip_clips { continue; }
                             let clip_duration = timeline_clip.duration
                                 .unwrap_or(timeline_clip.clip.duration_seconds);
                             // When warp is enabled, the clip's timeline duration changes:
@@ -1427,6 +1470,7 @@ impl AudioGraph {
                             let has_vst3 = !track_snap.fx_chain.is_empty();
 
                             for timeline_midi_clip in &track_snap.midi_clips {
+                                if skip_clips { continue; }
                                 let clip_start_samples = (timeline_midi_clip.start_time * TARGET_SAMPLE_RATE as f64) as u64;
                                 let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
@@ -1496,11 +1540,26 @@ impl AudioGraph {
                         }
 
                         // Input monitoring: mix live input for armed audio tracks
-                        if track_snap.armed && track_snap.input_monitoring && track_snap.is_audio_track {
-                            let ch = track_snap.input_channel as usize;
-                            let input_sample = if ch == 0 { input_left } else { input_right };
-                            track_left += input_sample;
-                            track_right += input_sample;
+                        // Uses fade gain for smooth transitions (20ms ramp avoids clicks)
+                        {
+                            let should_monitor = track_snap.armed && track_snap.input_monitoring && track_snap.is_audio_track;
+                            let target = if should_monitor { 1.0f64 } else { 0.0f64 };
+
+                            if track_snap.monitoring_fade_gain != target {
+                                let step = 1.0 / (0.020 * TARGET_SAMPLE_RATE as f64);
+                                if target > track_snap.monitoring_fade_gain {
+                                    track_snap.monitoring_fade_gain = (track_snap.monitoring_fade_gain + step).min(1.0);
+                                } else {
+                                    track_snap.monitoring_fade_gain = (track_snap.monitoring_fade_gain - step).max(0.0);
+                                }
+                            }
+
+                            if track_snap.monitoring_fade_gain > 0.0 {
+                                let ch = track_snap.input_channel as usize;
+                                let input_sample = if ch == 0 { input_left } else { input_right };
+                                track_left += input_sample * track_snap.monitoring_fade_gain as f32;
+                                track_right += input_sample * track_snap.monitoring_fade_gain as f32;
+                            }
                         }
 
                         // Process FX chain on this track BEFORE volume/pan
@@ -1650,8 +1709,15 @@ impl AudioGraph {
                     data[frame_idx * 2 + 1] = output_right;
                 }
 
-                // Update track peak levels in track manager (brief lock after buffer processing)
+                // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
                 if let Ok(tm) = track_manager.lock() {
+                    for track_snap in &track_snapshots {
+                        if let Some(track_arc) = tm.get_track(track_snap.id) {
+                            if let Ok(mut track) = track_arc.lock() {
+                                track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
+                            }
+                        }
+                    }
                     for (track_id, (peak_l, peak_r)) in &track_peaks {
                         if let Some(track_arc) = tm.get_track(*track_id) {
                             if let Ok(mut track) = track_arc.lock() {

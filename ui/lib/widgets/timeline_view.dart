@@ -2278,6 +2278,19 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final isMidiTrack = track.type.toLowerCase() == 'midi';
     final clipHeight = widget.clipHeights[track.id] ?? 100.0;
 
+    // Detect active recording region on this track (for visual masking)
+    double? recStartBeat;
+    double? recEndBeat;
+    if (widget.isRecording) {
+      final liveClip = trackMidiClips
+          .where((c) => c.clipId == LiveRecordingNotifier.liveClipId)
+          .firstOrNull;
+      if (liveClip != null) {
+        recStartBeat = liveClip.startTime;
+        recEndBeat = liveClip.startTime + liveClip.duration;
+      }
+    }
+
     // Build the clip area widget
     final clipAreaWidget = DragTarget<AudioFileItem>(
       onWillAcceptWithDetails: (details) {
@@ -2638,7 +2651,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Render audio clips for this track (hide clips being erased)
             ...trackClips
                 .where((clip) => !erasedAudioClipIds.contains(clip.clipId))
-                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
+                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? 100.0, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
 
             // Ghost preview for audio clip copy drag (all selected clips)
             ...trackClips
@@ -2657,6 +2670,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   midiClip,
                   trackColor,
                   widget.clipHeights[track.id] ?? 100.0,
+                  recStartBeat: recStartBeat,
+                  recEndBeat: recEndBeat,
                 )),
 
             // Ghost preview for MIDI clip copy drag (all selected clips)
@@ -2796,7 +2811,31 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
   }
 
-  Widget _buildClip(ClipData clip, Color trackColor, double trackHeight) {
+  /// Wraps [child] in a [ClipPath] that hides the recording region,
+  /// or returns [child] unmodified if no masking is needed.
+  Widget _applyRecordingMask({
+    required Widget child,
+    required double clipX,
+    required double clipWidth,
+    required double pixelsPerUnit,
+    double? recStart,
+    double? recEnd,
+    bool exclude = false,
+  }) {
+    if (exclude || recStart == null || recEnd == null) return child;
+    final recStartPx = recStart * pixelsPerUnit - clipX;
+    final recEndPx = recEnd * pixelsPerUnit - clipX;
+    if (recStartPx >= clipWidth || recEndPx <= 0) return child;
+    return ClipPath(
+      clipper: RecordingMaskClipper(
+        excludeStartPx: recStartPx,
+        excludeEndPx: recEndPx,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildClip(ClipData clip, Color trackColor, double trackHeight, {double? recStartBeat, double? recEndBeat}) {
     // Calculate clip width based on warp state:
     // - Warp ON: clip syncs to project tempo, so it covers a fixed number of beats
     // - Warp OFF: clip is fixed-length in seconds, so width changes with tempo
@@ -2875,7 +2914,13 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       key: ValueKey('audio_clip_${clip.clipId}'),
       left: clipX,
       top: 0,
-      child: GestureDetector(
+      child: _applyRecordingMask(
+        clipX: clipX,
+        clipWidth: clipWidth,
+        pixelsPerUnit: pixelsPerBeat,
+        recStart: recStartBeat,
+        recEnd: recEndBeat,
+        child: GestureDetector(
         onTapDown: (details) {
           // Check modifier keys directly at click time (more reliable than cached tempToolMode)
           final modifiers = ModifierKeyState.current();
@@ -3311,7 +3356,20 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     var newOffset = audioTrimStartOffset + deltaSeconds;
 
                     // Clamp to valid bounds
-                    newStartTime = newStartTime.clamp(0.0, audioTrimStartTime + audioTrimStartDuration - 0.1);
+                    double minStartTime = 0.0;
+
+                    // Overlap blocking: clamp to nearest clip on the left
+                    final leftSiblings = clips.where(
+                        (c) => c.trackId == clip.trackId && c.clipId != clip.clipId);
+                    for (final sibling in leftSiblings) {
+                      final siblingEnd = sibling.startTime + sibling.duration;
+                      if (siblingEnd <= audioTrimStartTime + audioTrimStartDuration &&
+                          siblingEnd > minStartTime) {
+                        minStartTime = siblingEnd;
+                      }
+                    }
+
+                    newStartTime = newStartTime.clamp(minStartTime, audioTrimStartTime + audioTrimStartDuration - 0.1);
                     newDuration = (audioTrimStartTime + audioTrimStartDuration) - newStartTime;
                     newDuration = newDuration.clamp(0.1, double.infinity);
                     newOffset = newOffset.clamp(0.0, double.infinity);
@@ -3414,6 +3472,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                           newDuration = newDuration.clamp(0.1, clip.loopLength);
                         }
 
+                        // Overlap blocking: clamp to nearest clip on the right
+                        final siblingClips = clips.where(
+                            (c) => c.trackId == clip.trackId && c.clipId != clip.clipId);
+                        for (final sibling in siblingClips) {
+                          if (sibling.startTime > clip.startTime) {
+                            final maxDuration = sibling.startTime - clip.startTime;
+                            if (newDuration > maxDuration) {
+                              newDuration = maxDuration;
+                            }
+                          }
+                        }
+
                         setState(() {
                           final index = clips.indexWhere((c) => c.clipId == clip.clipId);
                           if (index >= 0) {
@@ -3483,10 +3553,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           ),
         ),
       ),
+      ),
     );
   }
 
-  Widget _buildMidiClip(MidiClipData midiClip, Color trackColor, double trackHeight) {
+  Widget _buildMidiClip(MidiClipData midiClip, Color trackColor, double trackHeight, {double? recStartBeat, double? recEndBeat}) {
     // MIDI clips use beat-based positioning (tempo-independent visual layout)
     final clipStartBeats = midiClip.startTime;
     final clipDurationBeats = midiClip.duration;
@@ -3562,7 +3633,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       key: ValueKey('midi_clip_${midiClip.clipId}'),
       left: clipX,
       top: 0,
-      child: Listener(
+      child: _applyRecordingMask(
+        clipX: clipX,
+        clipWidth: clipWidth,
+        pixelsPerUnit: pixelsPerBeat,
+        recStart: recStartBeat,
+        recEnd: recEndBeat,
+        exclude: isLiveRecording,
+        child: Listener(
         onPointerDown: isLiveRecording ? null : (event) {
           // Immediate selection feedback on pointer down (no gesture delay)
           if (event.buttons == kPrimaryButton) {
@@ -3999,7 +4077,20 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     // Snap to grid
                     final snapResolution = _getGridSnapResolution();
                     newStartTime = (newStartTime / snapResolution).round() * snapResolution;
-                    newStartTime = newStartTime.clamp(0.0, trimStartTime + trimStartDuration - 1.0);
+
+                    // Overlap blocking: clamp to nearest MIDI clip on the left
+                    double midiMinStartTime = 0.0;
+                    final midiLeftSiblings = widget.midiClips.where(
+                        (c) => c.trackId == midiClip.trackId && c.clipId != midiClip.clipId);
+                    for (final sibling in midiLeftSiblings) {
+                      final siblingEnd = sibling.startTime + sibling.duration;
+                      if (siblingEnd <= trimStartTime + trimStartDuration &&
+                          siblingEnd > midiMinStartTime) {
+                        midiMinStartTime = siblingEnd;
+                      }
+                    }
+
+                    newStartTime = newStartTime.clamp(midiMinStartTime, trimStartTime + trimStartDuration - 1.0);
 
                     // Recalculate duration based on snapped start
                     newDuration = (trimStartTime + trimStartDuration) - newStartTime;
@@ -4079,6 +4170,18 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       newDuration = newDuration.clamp(1.0, midiClip.loopLength);
                     }
 
+                    // Overlap blocking: clamp to nearest MIDI clip on the right
+                    final midiSiblings = widget.midiClips.where(
+                        (c) => c.trackId == midiClip.trackId && c.clipId != midiClip.clipId);
+                    for (final sibling in midiSiblings) {
+                      if (sibling.startTime > midiClip.startTime) {
+                        final maxDuration = sibling.startTime - midiClip.startTime;
+                        if (newDuration > maxDuration) {
+                          newDuration = maxDuration;
+                        }
+                      }
+                    }
+
                     final updatedClip = midiClip.copyWith(duration: newDuration);
                     widget.onMidiClipUpdated?.call(updatedClip);
                   },
@@ -4119,6 +4222,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             ],
           ),
         ),
+      ),
       ),
       ),
     );

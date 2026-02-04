@@ -154,6 +154,42 @@ class ClipBorderPainter extends CustomPainter {
 }
 
 /// Clipper for clip content to match the notched border shape.
+/// Clips out a rectangular region from a widget, used to hide portions of
+/// clips that overlap with the active recording region.
+class RecordingMaskClipper extends CustomClipper<Path> {
+  final double excludeStartPx;
+  final double excludeEndPx;
+
+  RecordingMaskClipper({
+    required this.excludeStartPx,
+    required this.excludeEndPx,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final clampedStart = excludeStartPx.clamp(0.0, size.width);
+    final clampedEnd = excludeEndPx.clamp(0.0, size.width);
+
+    // Left visible portion (before recording region)
+    if (clampedStart > 0) {
+      path.addRect(Rect.fromLTRB(0, 0, clampedStart, size.height));
+    }
+    // Right visible portion (after recording region)
+    if (clampedEnd < size.width) {
+      path.addRect(Rect.fromLTRB(clampedEnd, 0, size.width, size.height));
+    }
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant RecordingMaskClipper oldClipper) {
+    return oldClipper.excludeStartPx != excludeStartPx ||
+        oldClipper.excludeEndPx != excludeEndPx;
+  }
+}
+
+/// Clipper for clip content to match the notched border shape.
 class ClipPathClipper extends CustomClipper<Path> {
   final double cornerRadius;
   final double notchRadius;

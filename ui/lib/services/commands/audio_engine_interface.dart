@@ -4,6 +4,8 @@
 abstract class AudioEngineInterface {
   // Clip operations
   void setClipStartTime(int trackId, int clipId, double startTime);
+  String setClipOffset(int trackId, int clipId, double offset);
+  String setClipDuration(int trackId, int clipId, double duration);
   String setAudioClipGain(int trackId, int clipId, double gainDb);
   String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode);
   String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents);
@@ -11,6 +13,8 @@ abstract class AudioEngineInterface {
   double getClipDuration(int clipId);
   List<double> getWaveformPeaks(int clipId, int resolution);
   void removeAudioClip(int trackId, int clipId);
+  int addExistingClipToTrack(int clipId, int trackId, double startTime,
+      {double offset = 0.0, double? duration});
   int duplicateAudioClip(int trackId, int clipId, double startTime);
 
   // Track operations

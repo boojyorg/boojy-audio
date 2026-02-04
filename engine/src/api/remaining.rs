@@ -5,6 +5,47 @@
 
 use crate::track::TrackId;
 
+/// Re-add an existing audio clip to a track from the clips map.
+/// Used for undo/redo to restore a previously removed clip with its original ID.
+/// The clip data must still exist in AUDIO_CLIPS.
+///
+/// Returns the clip ID (same as input) on success.
+pub fn add_existing_clip_to_track(
+    clip_id: u64,
+    track_id: u64,
+    start_time: f64,
+    offset: f64,
+    duration: Option<f64>,
+) -> Result<u64, String> {
+    let clips_mutex = clips()?;
+    let clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+
+    let clip_arc = clips_map
+        .get(&clip_id)
+        .ok_or(format!("Clip {} not found in clips map", clip_id))?
+        .clone();
+
+    drop(clips_map);
+
+    let graph_mutex = graph()?;
+    let graph_lock = graph_mutex.lock().map_err(|e| e.to_string())?;
+
+    let success = graph_lock.add_clip_to_track_with_id(
+        track_id, clip_id, clip_arc, start_time, offset, duration,
+    );
+
+    if !success {
+        return Err(format!("Failed to add clip to track {}", track_id));
+    }
+
+    eprintln!(
+        "🔄 [API] Re-added clip {} on track {} at {:.3}s",
+        clip_id, track_id, start_time
+    );
+
+    Ok(clip_id)
+}
+
 /// Set the start time (position) of a clip on a track
 /// Used for dragging clips to reposition them on the timeline
 pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Result<String, String> {
@@ -32,6 +73,56 @@ pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Resu
         }
 
         Err(format!("Clip {} not found on track {}", clip_id, track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
+/// Set the offset (trim start) of an audio clip on a track
+///
+/// Offset is in seconds — how far into the audio data to start playback.
+/// Used for recording overlap trimming.
+pub fn set_clip_offset(track_id: u64, clip_id: u64, offset: f64) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.offset = offset.max(0.0);
+                return Ok(format!("Clip {} offset set to {:.3}s", clip_id, offset));
+            }
+        }
+
+        Err(format!("Audio clip {} not found on track {}", clip_id, track_id))
+    } else {
+        Err(format!("Track {} not found", track_id))
+    }
+}
+
+/// Set the playback duration of an audio clip on a track
+///
+/// Duration is in seconds. Sets `clip.duration = Some(duration)` which limits
+/// how much of the audio data is played. Used for recording overlap trimming.
+pub fn set_clip_duration(track_id: u64, clip_id: u64, duration: f64) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.duration = Some(duration.max(0.0));
+                return Ok(format!("Clip {} duration set to {:.3}s", clip_id, duration));
+            }
+        }
+
+        Err(format!("Audio clip {} not found on track {}", clip_id, track_id))
     } else {
         Err(format!("Track {} not found", track_id))
     }

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../controllers/controllers.dart';
+import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
+import '../../../models/track_data.dart';
+import '../../../services/commands/clip_commands.dart';
+import '../../../services/commands/command.dart';
 import '../../../services/commands/project_commands.dart';
 import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
+import '../../../widgets/timeline/gestures/midi_clip_gestures.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 
@@ -32,16 +37,11 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Start recording
   /// [isAlreadyPlaying]: If true, skips count-in and starts recording immediately
   void startRecording({bool isAlreadyPlaying = false}) {
-    debugPrint('🔴 [REC_MIXIN] startRecording(isAlreadyPlaying=$isAlreadyPlaying) called');
-    debugPrint('🔴 [REC_MIXIN]   countInBars=${userSettings.countInBars}, tempo=$tempo');
-    debugPrint('🔴 [REC_MIXIN]   selectedTrackId=$selectedTrackId');
-
     // Block preview playback during recording
     libraryPreviewService?.setRecordingState(true);
 
     // Listen for live recording updates (real-time MIDI note display)
     liveRecordingNotifier.addListener(_onLiveRecordingUpdate);
-    debugPrint('🔴 [REC_MIXIN]   Added _onLiveRecordingUpdate listener');
 
     // Set up callbacks
     recordingController.onRecordingComplete = handleRecordingComplete;
@@ -54,15 +54,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // transition and start polling then (with a display offset so the engine's
     // elapsed count-in time doesn't shift the visual playhead).
     recordingController.addListener(_onRecordingStateChanged);
-    debugPrint('🔴 [REC_MIXIN]   Added _onRecordingStateChanged listener');
   }
 
   /// Detect count-in → recording transition and start playhead polling
   void _onRecordingStateChanged() {
-    debugPrint('🔴 [REC_MIXIN] _onRecordingStateChanged() fired: '
-        'isRecording=${recordingController.isRecording}, '
-        'isCountingIn=${recordingController.isCountingIn}');
-
     if (recordingController.isRecording && !recordingController.isCountingIn) {
       recordingController.removeListener(_onRecordingStateChanged);
 
@@ -70,14 +65,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       // This ensures correct offset for both normal recording (with count-in) and
       // Play→Record (no count-in, offset = 0)
       final countInDuration = recordingController.countInDurationSeconds;
-      final recordingStartPos = recordingController.recordingStartPosition;
-      final currentPlayhead = playbackController.playheadPosition;
-
-      debugPrint('🔴 [REC_MIXIN]   Count-in→Recording transition detected!');
-      debugPrint('🔴 [REC_MIXIN]   Recording start position: ${recordingStartPos.toStringAsFixed(3)}s');
-      debugPrint('🔴 [REC_MIXIN]   Current playhead position: ${currentPlayhead.toStringAsFixed(3)}s');
-      debugPrint('🔴 [REC_MIXIN]   Count-in duration: ${countInDuration.toStringAsFixed(3)}s');
-      debugPrint('🔴 [REC_MIXIN]   Starting playhead polling with displayOffset=$countInDuration');
 
       playbackController.startPlayheadPolling(displayOffset: countInDuration);
     }
@@ -86,8 +73,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Pause recording: Stop recording, stay at current position
   void pauseRecording() {
     if (!isRecording && !isCountingIn) return;
-
-    debugPrint('🔴 [REC_MIXIN] pauseRecording() called - stopping and staying at current position');
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
@@ -102,8 +87,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   void stopRecordingAndReturn() {
     if (!isRecording && !isCountingIn) return;
 
-    debugPrint('🔴 [REC_MIXIN] stopRecordingAndReturn() called - stopping and returning to record start');
-
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
 
@@ -115,18 +98,11 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Stop playback (not recording): Return to playStartPosition or bar 1 if idle
   void stopPlayback() {
-    debugPrint('🔴 [REC_MIXIN] stopPlayback() called');
-    debugPrint('🔴 [REC_MIXIN]   isPlaying=${playbackController.isPlaying}');
-    debugPrint('🔴 [REC_MIXIN]   playStartPosition=${playbackController.playStartPosition.toStringAsFixed(3)}s');
-    debugPrint('🔴 [REC_MIXIN]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s');
     playbackController.stop(isRecording: false);
-    debugPrint('🔴 [REC_MIXIN] stopPlayback() completed');
   }
 
   /// Internal: Complete recording and return results with captured notes
   (RecordingResult, List<MidiNoteData>) _completeRecording() {
-    debugPrint('🔴 [REC_MIXIN] _completeRecording() called');
-
     // Re-enable preview playback
     libraryPreviewService?.setRecordingState(false);
 
@@ -134,7 +110,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // the live recording notifier, so we must snapshot the notes now.
     final liveClip = liveRecordingNotifier.buildLiveClipData();
     final capturedNotes = liveClip?.notes ?? [];
-    debugPrint('🔴 [REC_MIXIN]   Captured ${capturedNotes.length} live notes before stop');
 
     // Stop listening for live recording updates and state changes
     liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
@@ -147,9 +122,6 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.onRecordingComplete = null;
 
     final result = recordingController.stopRecording();
-    debugPrint('🔴 [REC_MIXIN]   Recording result: '
-        'audioClipId=${result.audioClipId}, midiClipId=${result.midiClipId}, '
-        'duration=${result.duration}, midiClipInfo=${result.midiClipInfo}');
 
     // Stop playhead polling (transport will be stopped by caller)
     playbackController.stopPlayheadPolling();
@@ -165,101 +137,340 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // Set as current editing clip so piano roll shows live notes
     if (liveClip != null && liveClip.notes.isNotEmpty) {
       midiPlaybackManager?.selectClip(LiveRecordingNotifier.liveClipId, liveClip);
-      // Log every ~30 frames (once per second at 30fps) to avoid spam
-      if (liveClip.notes.length % 5 == 1) {
-        debugPrint('🔴 [REC_MIXIN] _onLiveRecordingUpdate: '
-            '${liveClip.notes.length} notes, '
-            'startTime=${liveClip.startTime.toStringAsFixed(2)}, '
-            'duration=${liveClip.duration.toStringAsFixed(2)}');
-      }
     }
   }
 
-  /// Remove any clips on the track that are completely covered by the new clip.
-  /// A clip is "completely covered" if: new_start <= old_start AND new_end >= old_end
-  void _removeCompletelyCoveredClips({
+  /// Handle recording overlap: trim, split, or delete existing clips that
+  /// overlap with the new recording. "New recording always wins."
+  ///
+  /// Handles 4 scenarios:
+  /// 1. Complete cover: new covers existing entirely → delete existing
+  /// 2. Overlaps end: new starts inside existing → trim existing end
+  /// 3. Overlaps start: new ends inside existing → trim existing start
+  /// 4. Inside existing: new is inside existing → split existing into two
+  ///
+  /// Clips trimmed smaller than [minClipSize] are deleted instead.
+  void _handleRecordingOverlap({
     required int trackId,
     required double startTime,
     required double duration,
     required bool isMidiClip,
   }) {
-    final newEndTime = startTime + duration;
+    final newStart = startTime;
+    final newEnd = startTime + duration;
+    // Minimum clip size: 0.25 beats (MIDI) or equivalent seconds (audio)
+    const minClipSize = 0.25;
 
     if (isMidiClip) {
-      // Check MIDI clips on the same track
-      final clipsToRemove = <int>[];
-      for (final clip in midiPlaybackManager?.midiClips ?? []) {
-        if (clip.trackId == trackId) {
-          final clipEndTime = clip.startTime + clip.duration;
-          // Check if new clip completely covers this existing clip
-          if (startTime <= clip.startTime && newEndTime >= clipEndTime) {
-            clipsToRemove.add(clip.clipId);
-            debugPrint('🔴 [REC_MIXIN] Removing completely covered MIDI clip: '
-                'id=${clip.clipId}, start=${clip.startTime.toStringAsFixed(2)}, '
-                'end=${clipEndTime.toStringAsFixed(2)}');
-          }
-        }
-      }
-      // Remove the covered clips
-      for (final clipId in clipsToRemove) {
-        midiClipController.deleteClip(clipId, trackId);
-      }
+      _handleMidiRecordingOverlap(trackId, newStart, newEnd, minClipSize);
     } else {
-      // Check audio clips on the same track
-      final timelineState = timelineKey.currentState;
-      if (timelineState != null) {
-        final clipsToRemove = <int>[];
-        for (final clip in timelineState.clips) {
-          if (clip.trackId == trackId) {
-            final clipEndTime = clip.startTime + clip.duration;
-            // Check if new clip completely covers this existing clip
-            if (startTime <= clip.startTime && newEndTime >= clipEndTime) {
-              clipsToRemove.add(clip.clipId);
-              debugPrint('🔴 [REC_MIXIN] Removing completely covered audio clip: '
-                  'id=${clip.clipId}, start=${clip.startTime.toStringAsFixed(2)}, '
-                  'end=${clipEndTime.toStringAsFixed(2)}');
-            }
-          }
-        }
-        // Remove the covered clips
-        for (final clipId in clipsToRemove) {
-          timelineState.removeClip(clipId);
-        }
-      }
+      _handleAudioRecordingOverlap(trackId, newStart, newEnd, minClipSize);
     }
   }
 
+  void _handleMidiRecordingOverlap(
+    int trackId,
+    double newStart,
+    double newEnd,
+    double minClipSize,
+  ) {
+    final clips = List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []);
+    final clipsToRemove = <int>[];
+    final clipsToUpdate = <MidiClipData>[];
+    final clipsToAdd = <MidiClipData>[];
+    final clipIdsToRemoveForSplit = <int>[];
+
+    for (final clip in clips) {
+      if (clip.trackId != trackId) continue;
+      final clipEnd = clip.startTime + clip.duration;
+
+      // No overlap — skip
+      if (newEnd <= clip.startTime || newStart >= clipEnd) continue;
+
+      // Case 1: Complete cover → delete
+      if (newStart <= clip.startTime && newEnd >= clipEnd) {
+        clipsToRemove.add(clip.clipId);
+        continue;
+      }
+
+      // Case 2: New overlaps end of existing → trim existing end
+      if (newStart > clip.startTime && newStart < clipEnd && newEnd >= clipEnd) {
+        final newDuration = newStart - clip.startTime;
+        if (newDuration < minClipSize) {
+          clipsToRemove.add(clip.clipId);
+        } else {
+          clipsToUpdate.add(clip.copyWith(duration: newDuration));
+        }
+        continue;
+      }
+
+      // Case 3: New overlaps start of existing → trim existing start
+      if (newEnd > clip.startTime && newEnd < clipEnd && newStart <= clip.startTime) {
+        final newDuration = clipEnd - newEnd;
+        if (newDuration < minClipSize) {
+          clipsToRemove.add(clip.clipId);
+        } else {
+          // Adjust notes for the trim offset
+          final trimOffset = newEnd - clip.startTime;
+          final adjustedNotes = MidiClipGestureUtils.adjustNotesForTrim(
+            notes: clip.notes,
+            trimOffset: trimOffset,
+          );
+          clipsToUpdate.add(clip.copyWith(
+            startTime: newEnd,
+            duration: newDuration,
+            notes: adjustedNotes,
+          ));
+        }
+        continue;
+      }
+
+      // Case 4: New is inside existing → split into Part A + Part B
+      if (newStart > clip.startTime && newEnd < clipEnd) {
+        final partADuration = newStart - clip.startTime;
+        final partBDuration = clipEnd - newEnd;
+        final splitOffset = newEnd - clip.startTime;
+
+        // Part A: original start to newStart
+        if (partADuration >= minClipSize) {
+          final partAId = generateUniqueClipId();
+          clipsToAdd.add(clip.copyWith(
+            clipId: partAId,
+            duration: partADuration,
+            name: '${clip.name} (L)',
+          ));
+        }
+
+        // Part B: newEnd to original end
+        if (partBDuration >= minClipSize) {
+          final partBId = generateUniqueClipId();
+          final adjustedNotes = MidiClipGestureUtils.adjustNotesForTrim(
+            notes: clip.notes,
+            trimOffset: splitOffset,
+          );
+          clipsToAdd.add(clip.copyWith(
+            clipId: partBId,
+            startTime: newEnd,
+            duration: partBDuration,
+            notes: adjustedNotes,
+            name: '${clip.name} (R)',
+          ));
+        }
+
+        // Mark original for removal
+        clipIdsToRemoveForSplit.add(clip.clipId);
+        continue;
+      }
+    }
+
+    // Execute: remove, update, then add (order matters)
+    for (final clipId in clipsToRemove) {
+      midiClipController.deleteClip(clipId, trackId);
+    }
+    for (final clipId in clipIdsToRemoveForSplit) {
+      midiClipController.deleteClip(clipId, trackId);
+    }
+    for (final updated in clipsToUpdate) {
+      midiPlaybackManager?.updateClipInPlace(updated);
+      // Sync to engine: reschedule notes and update start time
+      midiPlaybackManager?.rescheduleClip(updated, tempo);
+    }
+    for (final newClip in clipsToAdd) {
+      midiPlaybackManager?.addRecordedClip(newClip);
+      // Sync to engine: create Rust clip and schedule notes
+      midiPlaybackManager?.rescheduleClip(newClip, tempo);
+    }
+  }
+
+  void _handleAudioRecordingOverlap(
+    int trackId,
+    double newStart,
+    double newEnd,
+    double minClipSize,
+  ) {
+    final timelineState = timelineKey.currentState;
+    if (timelineState == null) return;
+
+    final clips = List<ClipData>.from(timelineState.clips);
+    final clipIdsToRemove = <int>[];
+    final clipsToUpdate = <ClipData>[];
+    final clipsToAdd = <ClipData>[];
+
+    for (final clip in clips) {
+      if (clip.trackId != trackId) continue;
+      final clipEnd = clip.startTime + clip.duration;
+
+      // No overlap — skip
+      if (newEnd <= clip.startTime || newStart >= clipEnd) continue;
+
+      // Case 1: Complete cover → delete
+      if (newStart <= clip.startTime && newEnd >= clipEnd) {
+        // Sync to engine
+        audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
+        clipIdsToRemove.add(clip.clipId);
+        continue;
+      }
+
+      // Case 2: New overlaps end of existing → trim existing end
+      if (newStart > clip.startTime && newStart < clipEnd && newEnd >= clipEnd) {
+        final newDuration = newStart - clip.startTime;
+        if (newDuration < minClipSize) {
+          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
+          clipIdsToRemove.add(clip.clipId);
+        } else {
+          // Sync to engine: update duration in-place
+          audioEngine?.setClipDuration(clip.trackId, clip.clipId, newDuration);
+          clipsToUpdate.add(clip.copyWith(duration: newDuration));
+        }
+        continue;
+      }
+
+      // Case 3: New overlaps start of existing → trim existing start
+      if (newEnd > clip.startTime && newEnd < clipEnd && newStart <= clip.startTime) {
+        final newDuration = clipEnd - newEnd;
+        if (newDuration < minClipSize) {
+          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
+          clipIdsToRemove.add(clip.clipId);
+        } else {
+          final trimDelta = newEnd - clip.startTime;
+          // Sync to engine: update start time, offset, and duration in-place
+          audioEngine?.setClipStartTime(clip.trackId, clip.clipId, newEnd);
+          audioEngine?.setClipOffset(clip.trackId, clip.clipId, clip.offset + trimDelta);
+          audioEngine?.setClipDuration(clip.trackId, clip.clipId, newDuration);
+          clipsToUpdate.add(clip.copyWith(
+            startTime: newEnd,
+            duration: newDuration,
+            offset: clip.offset + trimDelta,
+          ));
+        }
+        continue;
+      }
+
+      // Case 4: New is inside existing → split into Part A + Part B
+      if (newStart > clip.startTime && newEnd < clipEnd) {
+        final partADuration = newStart - clip.startTime;
+        final partBDuration = clipEnd - newEnd;
+        final trimDelta = newEnd - clip.startTime;
+
+        // Part B: duplicate BEFORE modifying original (duplicateAudioClip reads from track)
+        if (partBDuration >= minClipSize) {
+          final partBEngineId = audioEngine?.duplicateAudioClip(clip.trackId, clip.clipId, newEnd) ?? -1;
+          if (partBEngineId > 0) {
+            audioEngine?.setClipOffset(clip.trackId, partBEngineId, clip.offset + trimDelta);
+            audioEngine?.setClipDuration(clip.trackId, partBEngineId, partBDuration);
+            clipsToAdd.add(clip.copyWith(
+              clipId: partBEngineId,
+              startTime: newEnd,
+              duration: partBDuration,
+              offset: clip.offset + trimDelta,
+            ));
+          }
+        }
+
+        // Part A: shrink original in-place
+        if (partADuration >= minClipSize) {
+          audioEngine?.setClipDuration(clip.trackId, clip.clipId, partADuration);
+          clipsToUpdate.add(clip.copyWith(duration: partADuration));
+        } else {
+          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
+          clipIdsToRemove.add(clip.clipId);
+        }
+        continue;
+      }
+    }
+
+    // Execute UI updates: remove, update, then add (order matters)
+    for (final clipId in clipIdsToRemove) {
+      timelineState.removeClip(clipId);
+    }
+    for (final updated in clipsToUpdate) {
+      timelineState.updateClip(updated);
+    }
+    for (final newClip in clipsToAdd) {
+      timelineState.addClip(newClip);
+    }
+  }
+
+  /// Generate a unique clip ID for split clips
+  static int generateUniqueClipId() {
+    return DateTime.now().microsecondsSinceEpoch + (++_clipIdCounter);
+  }
+  static int _clipIdCounter = 0;
+
   /// Handle recording completion - process audio and MIDI clips
   void handleRecordingComplete(RecordingResult result, {List<MidiNoteData> capturedNotes = const []}) {
-    debugPrint('🔴 [REC_MIXIN] handleRecordingComplete() called');
-    debugPrint('🔴 [REC_MIXIN]   audioClipId=${result.audioClipId}, midiClipId=${result.midiClipId}');
-    debugPrint('🔴 [REC_MIXIN]   duration=${result.duration}, midiClipInfo="${result.midiClipInfo}"');
-
     // Ensure live recording display is cleared
     liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
     midiPlaybackManager?.setLiveRecordingClip(null);
 
     final List<String> recordedItems = [];
+    final timelineState = timelineKey.currentState;
+
+    // Track IDs affected by this recording (for undo command)
+    int? audioTrackIdForUndo;
+    int? midiTrackIdForUndo;
+
+    // Before snapshots (captured before overlap handling)
+    List<ClipData> audioClipsBefore = [];
+    List<MidiClipData> midiClipsBefore = [];
 
     // Handle audio clip
     if (result.audioClipId != null) {
-      debugPrint('🔴 [REC_MIXIN]   Processing audio clip: id=${result.audioClipId}');
       setState(() {
         loadedClipId = result.audioClipId;
         clipDuration = result.duration;
         waveformPeaks = result.waveformPeaks ?? [];
       });
+
+      // Find the armed audio track to place the clip on
+      final tracks = mixerKey.currentState?.tracks ?? [];
+      final armedAudioTrack = tracks.cast<TrackData?>().firstWhere(
+        (t) => t!.type == 'audio' && t.armed,
+        orElse: () => null,
+      );
+
+      if (armedAudioTrack != null && result.duration != null && result.duration! > 0) {
+        final audioTrackId = armedAudioTrack.id;
+        audioTrackIdForUndo = audioTrackId;
+        final startTime = recordingController.recordingStartPosition;
+        final duration = result.duration!;
+        final peaks = result.waveformPeaks ?? [];
+
+        // Capture before snapshot
+        audioClipsBefore = timelineState?.getAudioClipsOnTrack(audioTrackId) ?? [];
+
+        // Handle overlap: trim, split, or delete existing clips
+        _handleRecordingOverlap(
+          trackId: audioTrackId,
+          startTime: startTime,
+          duration: duration,
+          isMidiClip: false,
+        );
+
+        // Create ClipData and add to timeline
+        final clipData = ClipData(
+          clipId: result.audioClipId!,
+          trackId: audioTrackId,
+          filePath: 'recorded_t${audioTrackId}_${result.audioClipId}.wav',
+          startTime: startTime,
+          duration: duration,
+          waveformPeaks: peaks,
+        );
+
+        if (timelineState != null) {
+          timelineState.addClip(clipData);
+        }
+      }
+
       recordedItems.add('Audio ${result.duration?.toStringAsFixed(2) ?? ""}s');
     }
 
     // Handle MIDI clip
     if (result.midiClipId != null && result.midiClipInfo != null) {
-      debugPrint('🔴 [REC_MIXIN]   Processing MIDI clip: id=${result.midiClipId}');
       final clipInfo = result.midiClipInfo!;
       if (!clipInfo.startsWith('Error')) {
         try {
           final parts = clipInfo.split(',');
-          debugPrint('🔴 [REC_MIXIN]   clipInfo parts (${parts.length}): $parts');
           if (parts.length >= 5) {
             final trackId = int.parse(parts[1]);
             final startTimeSeconds = double.parse(parts[2]);
@@ -275,10 +486,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
             // Create MidiClipData and add to timeline
             final actualTrackId = trackId >= 0 ? trackId : (selectedTrackId ?? 0);
-            debugPrint('🔴 [REC_MIXIN]   MIDI clip placement: trackId=$actualTrackId, '
-                'startTimeBeats=${startTimeBeats.toStringAsFixed(3)}, '
-                'durationBeats=${durationBeats.toStringAsFixed(3)}, '
-                'noteCount=$noteCount, capturedNotes=${capturedNotes.length}');
+            midiTrackIdForUndo = actualTrackId;
             final clipData = MidiClipData(
               clipId: result.midiClipId!,
               trackId: actualTrackId,
@@ -288,39 +496,67 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
               notes: capturedNotes.isNotEmpty ? capturedNotes : [],
             );
 
-            // Remove any completely covered clips before adding the new one
-            _removeCompletelyCoveredClips(
+            // Capture before snapshot
+            midiClipsBefore = midiPlaybackManager?.midiClips
+                    .where((c) => c.trackId == actualTrackId)
+                    .toList() ??
+                [];
+
+            // Handle overlap: trim, split, or delete existing clips
+            _handleRecordingOverlap(
               trackId: actualTrackId,
               startTime: startTimeBeats,
               duration: durationBeats,
               isMidiClip: true,
             );
 
-            debugPrint('🔴 [REC_MIXIN]   Calling midiPlaybackManager.addRecordedClip()');
-            midiPlaybackManager?.addRecordedClip(clipData);
+            midiPlaybackManager?.addRecordedClip(clipData, rustClipId: result.midiClipId!);
             recordedItems.add('MIDI ($noteCount notes)');
-          } else {
-            debugPrint('🔴 [REC_MIXIN]   ⚠️ clipInfo has <5 parts, skipping MIDI clip');
           }
         } catch (e) {
-          debugPrint('🔴 [REC_MIXIN]   ⚠️ Error parsing MIDI clipInfo: $e');
           recordedItems.add('MIDI clip');
         }
       } else {
-        debugPrint('🔴 [REC_MIXIN]   ⚠️ clipInfo starts with Error: $clipInfo');
         recordedItems.add('MIDI clip');
       }
-    } else {
-      debugPrint('🔴 [REC_MIXIN]   ⚠️ No MIDI clip: midiClipId=${result.midiClipId}, '
-          'midiClipInfo=${result.midiClipInfo}');
+    }
+
+    // Push undo command if any clips were recorded
+    if (audioTrackIdForUndo != null || midiTrackIdForUndo != null) {
+      // Capture after snapshots
+      final audioClipsAfter = audioTrackIdForUndo != null
+          ? (timelineState?.getAudioClipsOnTrack(audioTrackIdForUndo) ?? [])
+          : <ClipData>[];
+      final midiClipsAfter = midiTrackIdForUndo != null
+          ? (midiPlaybackManager?.midiClips
+                  .where((c) => c.trackId == midiTrackIdForUndo)
+                  .toList() ??
+              [])
+          : <MidiClipData>[];
+
+      final command = RecordingCompleteCommand(
+        audioTrackId: audioTrackIdForUndo,
+        midiTrackId: midiTrackIdForUndo,
+        audioClipsBefore: audioClipsBefore,
+        audioClipsAfter: audioClipsAfter,
+        midiClipsBefore: midiClipsBefore,
+        midiClipsAfter: midiClipsAfter,
+        onApplyAudioState: (trackId, clips) {
+          timelineKey.currentState?.replaceAudioClipsOnTrack(trackId, clips);
+        },
+        onApplyMidiState: (trackId, clips) {
+          midiPlaybackManager?.replaceClipsOnTrack(trackId, clips);
+        },
+      );
+
+      // Add to undo stack without re-executing (work already done)
+      undoRedoManager.execute(command);
     }
 
     // Update status message
     if (recordedItems.isNotEmpty) {
-      debugPrint('🔴 [REC_MIXIN]   Final recorded items: $recordedItems');
       playbackController.setStatusMessage('Recorded: ${recordedItems.join(', ')}');
     } else if (result.audioClipId == null && result.midiClipId == null) {
-      debugPrint('🔴 [REC_MIXIN]   ⚠️ No recording captured at all');
       playbackController.setStatusMessage('No recording captured');
     }
   }

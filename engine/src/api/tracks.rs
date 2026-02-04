@@ -111,6 +111,8 @@ pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String>
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.armed = armed;
+        // Auto-mode: armed = monitoring (hear input when armed)
+        track.input_monitoring = armed;
         Ok(format!("Track {} armed: {}", track_id, armed))
     } else {
         Err(format!("Track {} not found", track_id))

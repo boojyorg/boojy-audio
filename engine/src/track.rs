@@ -360,6 +360,8 @@ pub struct Track {
     pub armed: bool,
     /// Input monitoring enabled (hear input through track when armed)
     pub input_monitoring: bool,
+    /// Fade gain for monitoring transitions (0.0-1.0, avoids clicks on arm/disarm)
+    pub monitoring_fade_gain: f64,
 
     // --- Input Routing ---
     /// Audio input device index (None = no input assigned)
@@ -406,7 +408,8 @@ impl Track {
             parent_group: None,
             fx_chain: Vec::new(),
             armed,
-            input_monitoring: false,
+            input_monitoring: armed,
+            monitoring_fade_gain: if armed { 1.0 } else { 0.0 },
             input_device_index,
             input_channel: 0,
             peak_left: 0.0,

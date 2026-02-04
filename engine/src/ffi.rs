@@ -291,6 +291,26 @@ pub extern "C" fn set_clip_start_time_ffi(track_id: u64, clip_id: u64, start_tim
     }
 }
 
+/// Set audio clip offset (trim start)
+/// Used for recording overlap trimming
+#[no_mangle]
+pub extern "C" fn set_clip_offset_ffi(track_id: u64, clip_id: u64, offset: f64) -> *mut c_char {
+    match api::set_clip_offset(track_id, clip_id, offset) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
+/// Set audio clip duration
+/// Used for recording overlap trimming
+#[no_mangle]
+pub extern "C" fn set_clip_duration_ffi(track_id: u64, clip_id: u64, duration: f64) -> *mut c_char {
+    match api::set_clip_duration(track_id, clip_id, duration) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+    }
+}
+
 /// Set audio clip gain
 /// Used to adjust per-clip volume in the Audio Editor
 #[no_mangle]
@@ -1199,6 +1219,36 @@ pub extern "C" fn remove_audio_clip_ffi(track_id: u64, clip_id: u64) -> i32 {
             eprintln!(
                 "❌ [FFI] Failed to remove clip {} from track {}: {}",
                 clip_id, track_id, e
+            );
+            -1
+        }
+    }
+}
+
+/// Re-add an existing audio clip to a track (for undo/redo support).
+/// The clip data must still exist in the clips map.
+/// Returns new clip ID, or -1 on error.
+#[no_mangle]
+pub extern "C" fn add_existing_clip_to_track_ffi(
+    clip_id: u64,
+    track_id: u64,
+    start_time: f64,
+    offset: f64,
+    has_duration: i32,
+    duration: f64,
+) -> i64 {
+    let dur = if has_duration != 0 {
+        Some(duration)
+    } else {
+        None
+    };
+
+    match api::add_existing_clip_to_track(clip_id, track_id, start_time, offset, dur) {
+        Ok(new_id) => new_id as i64,
+        Err(e) => {
+            eprintln!(
+                "❌ [FFI] add_existing_clip_to_track_ffi error: {}",
+                e
             );
             -1
         }

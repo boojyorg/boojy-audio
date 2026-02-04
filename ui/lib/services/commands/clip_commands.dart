@@ -777,3 +777,106 @@ class CreateMidiClipCommand extends Command {
   @override
   String get description => 'Create MIDI Clip: ${clipData.name}';
 }
+
+/// Command for recording completion with overlap trimming.
+/// Stores before/after snapshots of all clips on the affected track(s).
+/// Handles both MIDI and audio clips, syncing UI and engine state.
+class RecordingCompleteCommand extends Command {
+  /// Track IDs affected by this recording
+  final int? midiTrackId;
+  final int? audioTrackId;
+
+  /// MIDI clip snapshots (all clips on the track before/after recording)
+  final List<MidiClipData> midiClipsBefore;
+  final List<MidiClipData> midiClipsAfter;
+
+  /// Audio clip snapshots (all clips on the track before/after recording)
+  final List<ClipData> audioClipsBefore;
+  final List<ClipData> audioClipsAfter;
+
+  /// Callbacks to apply MIDI clip state to UI (midiPlaybackManager)
+  final void Function(int trackId, List<MidiClipData> clips)? onApplyMidiState;
+
+  /// Callbacks to apply audio clip state to UI (timelineState)
+  final void Function(int trackId, List<ClipData> clips)? onApplyAudioState;
+
+  /// Skip the first execute() since work was already done by handleRecordingComplete
+  bool _isFirstExecute = true;
+
+  RecordingCompleteCommand({
+    this.midiTrackId,
+    this.audioTrackId,
+    this.midiClipsBefore = const [],
+    this.midiClipsAfter = const [],
+    this.audioClipsBefore = const [],
+    this.audioClipsAfter = const [],
+    this.onApplyMidiState,
+    this.onApplyAudioState,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    if (_isFirstExecute) {
+      _isFirstExecute = false;
+      return; // Work already done by handleRecordingComplete
+    }
+    _applyState(engine, audioClipsBefore, audioClipsAfter,
+        midiClipsBefore, midiClipsAfter);
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    _applyState(engine, audioClipsAfter, audioClipsBefore,
+        midiClipsAfter, midiClipsBefore);
+  }
+
+  void _applyState(
+    AudioEngineInterface engine,
+    List<ClipData> fromAudioClips,
+    List<ClipData> toAudioClips,
+    List<MidiClipData> fromMidiClips,
+    List<MidiClipData> toMidiClips,
+  ) {
+    // Sync audio clips with engine
+    if (audioTrackId != null) {
+      final fromIds = fromAudioClips.map((c) => c.clipId).toSet();
+      final toIds = toAudioClips.map((c) => c.clipId).toSet();
+
+      // Remove clips that are in "from" but not in "to"
+      for (final id in fromIds.difference(toIds)) {
+        engine.removeAudioClip(audioTrackId!, id);
+      }
+
+      // Add clips that are in "to" but not in "from"
+      for (final clip in toAudioClips) {
+        if (!fromIds.contains(clip.clipId)) {
+          engine.addExistingClipToTrack(
+            clip.clipId,
+            audioTrackId!,
+            clip.startTime,
+            offset: clip.offset,
+            duration: clip.duration,
+          );
+        }
+      }
+
+      // Update positions/durations for clips that exist in both
+      for (final clip in toAudioClips) {
+        if (fromIds.contains(clip.clipId)) {
+          engine.setClipStartTime(audioTrackId!, clip.clipId, clip.startTime);
+        }
+      }
+
+      // Apply to UI
+      onApplyAudioState?.call(audioTrackId!, toAudioClips);
+    }
+
+    // Apply MIDI state to UI (engine sync handled by midiPlaybackManager)
+    if (midiTrackId != null) {
+      onApplyMidiState?.call(midiTrackId!, toMidiClips);
+    }
+  }
+
+  @override
+  String get description => 'Record';
+}

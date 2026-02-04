@@ -342,6 +342,12 @@ class AudioEngine implements AudioEngineInterface {
   void setClipStartTime(int trackId, int clipId, double startTime) {}
 
   @override
+  String setClipOffset(int trackId, int clipId, double offset) => 'OK';
+
+  @override
+  String setClipDuration(int trackId, int clipId, double duration) => 'OK';
+
+  @override
   String setAudioClipGain(int trackId, int clipId, double gainDb) => 'OK';
 
   @override
@@ -352,6 +358,10 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void removeAudioClip(int trackId, int clipId) {}
+
+  @override
+  int addExistingClipToTrack(int clipId, int trackId, double startTime,
+      {double offset = 0.0, double? duration}) => -1;
 
   @override
   int duplicateAudioClip(int trackId, int clipId, double startTime) => -1;

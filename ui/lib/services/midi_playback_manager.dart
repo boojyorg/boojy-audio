@@ -336,11 +336,18 @@ class MidiPlaybackManager extends ChangeNotifier {
   }
 
   /// Add a recorded MIDI clip to the manager
-  void addRecordedClip(MidiClipData clip) {
+  ///
+  /// [rustClipId]: If provided, registers the Dart→Rust clip ID mapping so
+  /// overlap handling (deleteClip, rescheduleClip) can find the engine clip.
+  /// For recorded clips, the Rust clip ID comes from stop_midi_recording().
+  void addRecordedClip(MidiClipData clip, {int? rustClipId}) {
     // Remove any existing clip with the same ID to prevent duplicate key errors
     // (the engine may reuse clip IDs across recordings)
     _midiClips.removeWhere((c) => c.clipId == clip.clipId);
     _midiClips.add(clip);
+    if (rustClipId != null) {
+      _dartToRustClipIds[clip.clipId] = rustClipId;
+    }
     notifyListeners();
   }
 
@@ -395,6 +402,25 @@ class MidiPlaybackManager extends ChangeNotifier {
     }
   }
 
+  /// Reschedule a clip's notes and start time in the engine.
+  ///
+  /// For existing clips (already in engine): clears notes and re-adds them,
+  /// then updates the start time. For new clips: creates a new Rust clip.
+  /// Used after recording overlap trimming/splitting modifies clip data.
+  void rescheduleClip(MidiClipData clip, double tempo) {
+    _scheduleMidiClipPlayback(clip, tempo);
+
+    // _scheduleMidiClipPlayback only sets start time for NEW clips.
+    // For existing clips that were trimmed (start time changed), we need
+    // to explicitly update the engine's start time.
+    final rustClipId = _dartToRustClipIds[clip.clipId];
+    if (rustClipId != null) {
+      final beatsPerSecond = tempo / 60.0;
+      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
+      _audioEngine.setClipStartTime(clip.trackId, rustClipId, clipStartTimeSeconds);
+    }
+  }
+
   /// Update all clips that share the same patternId with new notes and name
   /// This propagates edits from one linked clip to all its siblings
   void updateLinkedClips(MidiClipData updatedClip, double tempo) {
@@ -424,6 +450,28 @@ class MidiPlaybackManager extends ChangeNotifier {
     }
 
     _midiClips.removeWhere((c) => c.trackId == trackId);
+
+    // Clear current editing clip if it was on this track
+    if (_currentEditingClip != null && _currentEditingClip!.trackId == trackId) {
+      _currentEditingClip = null;
+      _selectedMidiClipId = null;
+    }
+
+    notifyListeners();
+  }
+
+  /// Replace all clips on a specific track with a new set.
+  /// Used for undo/redo of recording operations.
+  void replaceClipsOnTrack(int trackId, List<MidiClipData> newClips) {
+    // Remove existing clips for this track
+    final clipsToRemove = _midiClips.where((c) => c.trackId == trackId).toList();
+    for (final clip in clipsToRemove) {
+      _dartToRustClipIds.remove(clip.clipId);
+    }
+    _midiClips.removeWhere((c) => c.trackId == trackId);
+
+    // Add the new clips
+    _midiClips.addAll(newClips);
 
     // Clear current editing clip if it was on this track
     if (_currentEditingClip != null && _currentEditingClip!.trackId == trackId) {

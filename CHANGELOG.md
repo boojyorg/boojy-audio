@@ -9,9 +9,19 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Fix engine stuck in initializing**: Defer MIDI device enumeration from engine init to first use. CoreMIDI can block indefinitely when scanning for devices, preventing the engine from ever reaching the ready state.
 - **Fix MIDI notes lost at recording boundary**: Notes held during count-in that extend past the recording start are now "caught" and included at the start of the recording (timestamp 0), instead of being silently discarded.
 - **Fix duplicate MIDI events**: Deduplicate identical MIDI events in the recorder to handle controllers that send on multiple channels simultaneously (e.g. SL STUDIO sending on channel 0 and 1).
+- **Fixed: Recorded audio clips not appearing on timeline**: Engine stored recorded audio data correctly but the Dart UI never created a `ClipData` object or added it to the timeline state. Audio recordings now properly appear as clips after recording stops.
+- **Fixed: MIDI notes lost when recording at non-zero position**: Recording MIDI at any position other than Bar 1 (e.g., Bar 4) silently discarded the first `count_in_duration` seconds of notes. The MIDI recorder's event filtering threshold double-counted the count-in offset — it added count-in samples to the original playhead position instead of the seekback position, causing notes at the recording start to be incorrectly treated as count-in events.
+- **Fixed: Recording overlap trimming not syncing to engine**: Overlap handling (trim, split, delete) only updated the UI — the Rust engine still played original untrimmed clips. Added engine-level `setClipOffset` and `setClipDuration` APIs for audio clip trimming, and MIDI clip rescheduling after overlap modifications. All four overlap scenarios (delete, trim end, trim start, split) now properly sync to the engine for both audio and MIDI clips.
+- **Fixed: Recorded MIDI clips not removable by overlap handling**: `addRecordedClip()` never populated the Dart→Rust clip ID mapping, so `deleteClip()` and `rescheduleClip()` couldn't find the engine clip. Overlap trimming appeared to work visually but old untrimmed clips kept playing in the engine.
+- **Fixed: Old clips audible during recording**: Existing audio and MIDI clips on armed tracks now silenced while recording, so the user only hears their live input — not old clips being overwritten.
+
+### Improvements
+
+- **Visual masking of overwritten clips during recording**: When recording over existing clips, the overwritten portions are now visually hidden in real-time. Only the non-overlapping parts of existing clips remain visible, giving clear feedback of what will be replaced.
 
 ### Features
 
+- **Input monitoring (auto mode)**: Armed tracks now automatically monitor input — arm a track and hear yourself through the DAW's effects chain. Unarming stops monitoring with a smooth 20ms fade-out to prevent audio clicks. No new UI needed; the existing R (arm) button controls monitoring. Works for audio tracks (MIDI monitoring was already implicit via the synth).
 - **Redesigned recording workflow** with improved transport controls:
   - **Count-in with song context**: During count-in, playback starts from (record position - count-in bars) so you hear the actual song, not just metronome clicks
   - **Three-button behavior during recording**:
@@ -22,7 +32,9 @@ All notable changes to Boojy Audio will be documented in this file.
   - **Play → Record**: Pressing Record while already playing starts recording immediately with no count-in (already in time)
   - **Record button visual**: Subtle pulsing glow during recording (0.8-1.0 opacity, 2-second cycle)
   - **Position tracking**: Stop button returns to appropriate position (playStartPosition during playback, recordStartPosition during recording)
-  - **Replace mode recording**: Recording over existing clips automatically removes them if the new recording completely covers them (new_start ≤ old_start AND new_end ≥ old_end), preventing overlapping clips on the same track
+  - **Recording overlap trimming**: New recordings automatically trim, split, or delete existing clips on the same track ("new recording always wins"). Handles all overlap scenarios: complete cover (delete), overlaps end (trim), overlaps start (trim), and recording inside existing (split into two). Clips trimmed below 0.25 beats are auto-deleted. Works for both MIDI and audio clips
+  - **Undo support for recording**: Entire recording operation (new clip + all overlap trim/split/delete actions) is undoable as a single Cmd+Z. Uses snapshot-based command pattern with engine-level clip re-add support
+  - **Manual resize overlap blocking**: Clip edge drags are clamped at adjacent clip boundaries on the same track, preventing manual creation of overlapping clips (both audio and MIDI)
 - Multi-track audio recording with per-track input routing:
   - Per-track input device and channel assignment (stored on Track struct)
   - Input selector dropdown on mixer strip Row 1 with live animated level meters (~50ms poll)

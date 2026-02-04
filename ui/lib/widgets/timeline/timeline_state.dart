@@ -424,4 +424,13 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   List<ClipData> getAudioClipsOnTrack(int trackId) {
     return clips.where((clip) => clip.trackId == trackId).toList();
   }
+
+  /// Replace all audio clips on a specific track with a new set.
+  /// Used for undo/redo of recording operations.
+  void replaceAudioClipsOnTrack(int trackId, List<ClipData> newClips) {
+    setState(() {
+      clips.removeWhere((c) => c.trackId == trackId);
+      clips.addAll(newClips);
+    });
+  }
 }

@@ -18,6 +18,14 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
+  String setClipOffset(int trackId, int clipId, double offset) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String setClipDuration(int trackId, int clipId, double duration) =>
+      throw UnsupportedError('stub');
+
+  @override
   String setAudioClipGain(int trackId, int clipId, double gainDb) =>
       throw UnsupportedError('stub');
 
@@ -42,6 +50,11 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void removeAudioClip(int trackId, int clipId) =>
+      throw UnsupportedError('stub');
+
+  @override
+  int addExistingClipToTrack(int clipId, int trackId, double startTime,
+          {double offset = 0.0, double? duration}) =>
       throw UnsupportedError('stub');
 
   @override

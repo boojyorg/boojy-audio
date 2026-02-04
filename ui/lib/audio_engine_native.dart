@@ -42,6 +42,8 @@ class AudioEngine implements AudioEngineInterface {
   late final _GetLatencyTestStatusFfi _getLatencyTestStatus;
   late final _GetLatencyTestErrorFfi _getLatencyTestError;
   late final _SetClipStartTimeFfi _setClipStartTime;
+  late final _SetClipOffsetFfi _setClipOffset;
+  late final _SetClipDurationFfi _setClipDuration;
   late final _SetAudioClipGainFfi _setAudioClipGain;
   late final _SetAudioClipWarpFfi _setAudioClipWarp;
   late final _SetAudioClipTransposeFfi _setAudioClipTranspose;
@@ -113,6 +115,7 @@ class AudioEngine implements AudioEngineInterface {
   late final _DuplicateTrackFfi _duplicateTrack;
   late final _DuplicateAudioClipFfi _duplicateAudioClip;
   late final _RemoveAudioClipFfi _removeAudioClip;
+  late final _AddExistingClipToTrackFfi _addExistingClipToTrack;
   late final _ClearAllTracksFfi _clearAllTracks;
 
   // M4 functions - Effects
@@ -400,6 +403,16 @@ class AudioEngine implements AudioEngineInterface {
               'set_clip_start_time_ffi')
           .asFunction();
 
+      _setClipOffset = _lib
+          .lookup<ffi.NativeFunction<_SetClipOffsetFfiNative>>(
+              'set_clip_offset_ffi')
+          .asFunction();
+
+      _setClipDuration = _lib
+          .lookup<ffi.NativeFunction<_SetClipDurationFfiNative>>(
+              'set_clip_duration_ffi')
+          .asFunction();
+
       _setAudioClipGain = _lib
           .lookup<ffi.NativeFunction<_SetAudioClipGainFfiNative>>(
               'set_audio_clip_gain_ffi')
@@ -661,6 +674,11 @@ class AudioEngine implements AudioEngineInterface {
       _removeAudioClip = _lib
           .lookup<ffi.NativeFunction<_RemoveAudioClipFfiNative>>(
               'remove_audio_clip_ffi')
+          .asFunction();
+
+      _addExistingClipToTrack = _lib
+          .lookup<ffi.NativeFunction<_AddExistingClipToTrackFfiNative>>(
+              'add_existing_clip_to_track_ffi')
           .asFunction();
 
       _clearAllTracks = _lib
@@ -1408,6 +1426,34 @@ class AudioEngine implements AudioEngineInterface {
   String setClipStartTime(int trackId, int clipId, double startTime) {
     try {
       final result = _setClipStartTime(trackId, clipId, startTime);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Set audio clip offset (trim start position)
+  /// Used for recording overlap trimming
+  @override
+  String setClipOffset(int trackId, int clipId, double offset) {
+    try {
+      final result = _setClipOffset(trackId, clipId, offset);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Set audio clip duration
+  /// Used for recording overlap trimming
+  @override
+  String setClipDuration(int trackId, int clipId, double duration) {
+    try {
+      final result = _setClipDuration(trackId, clipId, duration);
       final str = result.toDartString();
       _freeRustString(result);
       return str;
@@ -2359,6 +2405,27 @@ class AudioEngine implements AudioEngineInterface {
       return result > 0;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Re-add an existing audio clip to a track from the engine's clips map.
+  /// Used for redo after undoing a recording or clip deletion.
+  /// Returns the new clip ID, or -1 on error.
+  int addExistingClipToTrack(int clipId, int trackId, double startTime,
+      {double offset = 0.0, double? duration}) {
+    try {
+      final result = _addExistingClipToTrack(
+        clipId,
+        trackId,
+        startTime,
+        offset,
+        duration != null ? 1 : 0,
+        duration ?? 0.0,
+      );
+      return result;
+    } catch (e) {
+      print('❌ addExistingClipToTrack error: $e');
+      return -1;
     }
   }
 
@@ -3330,6 +3397,12 @@ typedef _GetClipDurationFfi = double Function(int);
 typedef _SetClipStartTimeFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double);
 typedef _SetClipStartTimeFfi = ffi.Pointer<Utf8> Function(int, int, double);
 
+typedef _SetClipOffsetFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double);
+typedef _SetClipOffsetFfi = ffi.Pointer<Utf8> Function(int, int, double);
+
+typedef _SetClipDurationFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Double);
+typedef _SetClipDurationFfi = ffi.Pointer<Utf8> Function(int, int, double);
+
 typedef _SetAudioClipGainFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Float);
 typedef _SetAudioClipGainFfi = ffi.Pointer<Utf8> Function(int, int, double);
 
@@ -3492,6 +3565,11 @@ typedef _DuplicateAudioClipFfi = int Function(int, int, double);
 
 typedef _RemoveAudioClipFfiNative = ffi.Int32 Function(ffi.Uint64, ffi.Uint64);
 typedef _RemoveAudioClipFfi = int Function(int, int);
+
+typedef _AddExistingClipToTrackFfiNative = ffi.Int64 Function(
+    ffi.Uint64, ffi.Uint64, ffi.Double, ffi.Double, ffi.Int32, ffi.Double);
+typedef _AddExistingClipToTrackFfi = int Function(
+    int, int, double, double, int, double);
 
 typedef _ClearAllTracksFfiNative = ffi.Pointer<Utf8> Function();
 typedef _ClearAllTracksFfi = ffi.Pointer<Utf8> Function();
