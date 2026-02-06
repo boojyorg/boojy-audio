@@ -62,21 +62,18 @@ where
 {
     let graph_mutex = get_audio_graph()?;
 
-    match graph_mutex.try_lock() {
-        Ok(mut graph) => f(&mut graph),
-        Err(_) => {
-            // Lock is busy - spawn thread to retry (UI won't freeze)
-            let action = action_name.to_string();
-            eprintln!("⚠️ [API] {}: lock busy, spawning thread", action);
-            std::thread::spawn(move || {
-                if let Some(m) = AUDIO_GRAPH.get() {
-                    if let Ok(mut g) = m.lock() {
-                        let _ = f(&mut g);
-                        eprintln!("✅ [API] {}: completed in background thread", action);
-                    }
+    if let Ok(mut graph) = graph_mutex.try_lock() { f(&mut graph) } else {
+        // Lock is busy - spawn thread to retry (UI won't freeze)
+        let action = action_name.to_string();
+        eprintln!("⚠️ [API] {action}: lock busy, spawning thread");
+        std::thread::spawn(move || {
+            if let Some(m) = AUDIO_GRAPH.get() {
+                if let Ok(mut g) = m.lock() {
+                    let _ = f(&mut g);
+                    eprintln!("✅ [API] {action}: completed in background thread");
                 }
-            });
-            Ok(queued_msg.to_string())
-        }
+            }
+        });
+        Ok(queued_msg.to_string())
     }
 }

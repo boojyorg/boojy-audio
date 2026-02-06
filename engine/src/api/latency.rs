@@ -18,7 +18,7 @@ pub fn set_buffer_size(preset: i32) -> Result<String, String> {
         2 => BufferSizePreset::Balanced,
         3 => BufferSizePreset::Safe,
         4 => BufferSizePreset::HighStability,
-        _ => return Err(format!("Invalid buffer size preset: {}", preset)),
+        _ => return Err(format!("Invalid buffer size preset: {preset}")),
     };
 
     with_graph_mut(|graph| {
@@ -56,7 +56,7 @@ pub fn get_actual_buffer_size() -> Result<u32, String> {
 }
 
 /// Get audio latency info
-/// Returns: (buffer_size_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
+/// Returns: (`buffer_size_samples`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`)
 pub fn get_latency_info() -> Option<(u32, f32, f32, f32)> {
     let graph_mutex = get_audio_graph().ok()?;
     let graph = graph_mutex.lock().ok()?;
@@ -85,7 +85,7 @@ pub fn stop_latency_test() -> Result<String, String> {
 }
 
 /// Get latency test status
-/// Returns: (state, result_ms)
+/// Returns: (state, `result_ms`)
 /// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
 /// Result: latency in ms (or -1.0 if not available)
 pub fn get_latency_test_status() -> Result<(i32, f32), String> {
@@ -109,7 +109,7 @@ pub fn get_waveform_peaks(clip_id: u64, resolution: usize) -> Result<Vec<f32>, S
 
     let clip = clips_map
         .get(&clip_id)
-        .ok_or_else(|| format!("Clip {} not found", clip_id))?;
+        .ok_or_else(|| format!("Clip {clip_id} not found"))?;
 
     // Downsample to resolution peaks
     let frames = clip.frame_count();
@@ -150,7 +150,7 @@ pub fn get_clip_duration(clip_id: u64) -> Result<f64, String> {
 
     let clip = clips_map
         .get(&clip_id)
-        .ok_or_else(|| format!("Clip {} not found", clip_id))?;
+        .ok_or_else(|| format!("Clip {clip_id} not found"))?;
 
     Ok(clip.duration_seconds)
 }

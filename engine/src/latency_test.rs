@@ -243,7 +243,7 @@ impl LatencyTest {
                     // Silence detected, start playing
                     self.tone_start_sample.store(current_sample, Ordering::SeqCst);
                     self.state.store(LatencyTestState::Playing as u8, Ordering::SeqCst);
-                    eprintln!("🎚️ [LatencyTest] Silence detected, playing tone at sample {}", current_sample);
+                    eprintln!("🎚️ [LatencyTest] Silence detected, playing tone at sample {current_sample}");
                 }
             }
 
@@ -264,7 +264,7 @@ impl LatencyTest {
                     if input_sample.abs() > self.config.detection_threshold {
                         self.detected_sample.store(current_sample, Ordering::SeqCst);
                         self.state.store(LatencyTestState::Analyzing as u8, Ordering::SeqCst);
-                        eprintln!("🎚️ [LatencyTest] Tone detected at sample {}", current_sample);
+                        eprintln!("🎚️ [LatencyTest] Tone detected at sample {current_sample}");
 
                         // Calculate result
                         self.calculate_result();
@@ -297,7 +297,7 @@ impl LatencyTest {
             }
 
             self.state.store(LatencyTestState::Done as u8, Ordering::SeqCst);
-            eprintln!("🎚️ [LatencyTest] Result: {:.1}ms ({} samples)", latency_ms, latency_samples);
+            eprintln!("🎚️ [LatencyTest] Result: {latency_ms:.1}ms ({latency_samples} samples)");
         } else {
             self.state.store(LatencyTestState::Error as u8, Ordering::SeqCst);
             if let Ok(mut error) = self.error_message.lock() {
@@ -306,8 +306,8 @@ impl LatencyTest {
         }
     }
 
-    /// Get status as (state_code, result_ms)
-    /// state_code: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
+    /// Get status as (`state_code`, `result_ms`)
+    /// `state_code`: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
     pub fn get_status(&self) -> (i32, f32) {
         let state = self.get_state() as i32;
         let result = self.get_result().unwrap_or(-1.0);

@@ -68,7 +68,7 @@ impl SamplerVoice {
 
     fn note_on(&mut self, note: u8, velocity: u8, playback_rate: f64) {
         self.note = note;
-        self.velocity = velocity as f32 / 127.0;
+        self.velocity = f32::from(velocity) / 127.0;
         self.playback_position = 0.0;
         self.playback_rate = playback_rate;
         self.env_state = EnvelopeState::Attack;
@@ -109,12 +109,11 @@ impl SamplerVoice {
             if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
                 self.is_active = false;
                 return (0.0, 0.0);
-            } else {
-                // Still holding key but sample ended - start release
-                self.release_start_level = self.env_level;
-                self.env_state = EnvelopeState::Release;
-                self.env_time = 0.0;
             }
+            // Still holding key but sample ended - start release
+            self.release_start_level = self.env_level;
+            self.env_state = EnvelopeState::Release;
+            self.env_time = 0.0;
         }
 
         // Linear interpolation between samples
@@ -216,7 +215,7 @@ impl Sampler {
         }
     }
 
-    /// Load a sample from an AudioClip
+    /// Load a sample from an `AudioClip`
     pub fn load_sample(&mut self, clip: Arc<AudioClip>) {
         println!("🎹 Sampler: Loaded sample '{}' ({:.2}s, {} channels)",
             clip.file_path,
@@ -298,7 +297,7 @@ impl Sampler {
     }
 
     pub fn set_parameter(&mut self, key: &str, value: &str) {
-        println!("🎛️ Sampler set_parameter: {}={}", key, value);
+        println!("🎛️ Sampler set_parameter: {key}={value}");
 
         match key {
             "root_note" => {
@@ -320,7 +319,7 @@ impl Sampler {
                 }
             }
             _ => {
-                println!("  ⚠️ Unknown sampler parameter: {}", key);
+                println!("  ⚠️ Unknown sampler parameter: {key}");
             }
         }
     }
@@ -341,11 +340,11 @@ impl Sampler {
     }
 
     /// Calculate playback rate for pitch shifting
-    /// root_note = note that plays at original pitch
-    /// target_note = note being triggered
+    /// `root_note` = note that plays at original pitch
+    /// `target_note` = note being triggered
     fn calculate_playback_rate(root_note: u8, target_note: u8) -> f64 {
         // Pitch ratio = 2^(semitones/12)
-        let semitone_diff = target_note as f64 - root_note as f64;
+        let semitone_diff = f64::from(target_note) - f64::from(root_note);
         2.0_f64.powf(semitone_diff / 12.0)
     }
 }
@@ -353,9 +352,9 @@ impl Sampler {
 /// Convert MIDI note number to note name (e.g., 60 -> "C4")
 fn note_name(note: u8) -> String {
     const NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    let octave = (note as i32 / 12) - 1;
+    let octave = (i32::from(note) / 12) - 1;
     let name = NAMES[(note % 12) as usize];
-    format!("{}{}", name, octave)
+    format!("{name}{octave}")
 }
 
 // ============================================================================

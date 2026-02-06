@@ -20,7 +20,7 @@ impl Default for WavBitDepth {
 }
 
 impl WavBitDepth {
-    /// Get bits per sample for hound WavSpec
+    /// Get bits per sample for hound `WavSpec`
     pub fn bits_per_sample(&self) -> u16 {
         match self {
             WavBitDepth::Int16 => 16,
@@ -85,11 +85,11 @@ pub enum PlatformTarget {
     None,
     /// Spotify: -14 LUFS
     Spotify,
-    /// YouTube: -14 LUFS
+    /// `YouTube`: -14 LUFS
     YouTube,
     /// Apple Music: -16 LUFS
     AppleMusic,
-    /// SoundCloud: -14 LUFS
+    /// `SoundCloud`: -14 LUFS
     SoundCloud,
     /// Custom LUFS target
     Custom(f64),
@@ -242,12 +242,12 @@ impl ExportOptions {
 
     /// Parse options from JSON string
     pub fn from_json(json: &str) -> Result<Self, String> {
-        serde_json::from_str(json).map_err(|e| format!("Failed to parse export options: {}", e))
+        serde_json::from_str(json).map_err(|e| format!("Failed to parse export options: {e}"))
     }
 
     /// Serialize options to JSON string
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("Failed to serialize export options: {}", e))
+        serde_json::to_string(self).map_err(|e| format!("Failed to serialize export options: {e}"))
     }
 }
 
@@ -296,12 +296,12 @@ impl ExportMetadata {
 
     /// Parse metadata from JSON string
     pub fn from_json(json: &str) -> Result<Self, String> {
-        serde_json::from_str(json).map_err(|e| format!("Failed to parse metadata: {}", e))
+        serde_json::from_str(json).map_err(|e| format!("Failed to parse metadata: {e}"))
     }
 
     /// Serialize metadata to JSON string
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self).map_err(|e| format!("Failed to serialize metadata: {}", e))
+        serde_json::to_string(self).map_err(|e| format!("Failed to serialize metadata: {e}"))
     }
 }
 

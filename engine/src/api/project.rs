@@ -24,8 +24,7 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     let project_path = Path::new(&project_path_str);
 
     eprintln!(
-        "💾 [API] Saving project '{}' to {:?}",
-        project_name, project_path
+        "💾 [API] Saving project '{project_name}' to {project_path:?}"
     );
 
     // Get audio graph
@@ -58,7 +57,7 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     project::save_project(&project_data, project_path).map_err(|e| e.to_string())?;
 
     eprintln!("✅ [API] Project saved successfully");
-    Ok(format!("Project saved to {:?}", project_path))
+    Ok(format!("Project saved to {project_path:?}"))
 }
 
 /// Load project from .audio folder
@@ -74,7 +73,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 
     let project_path = Path::new(&project_path_str);
 
-    eprintln!("📂 [API] Loading project from {:?}", project_path);
+    eprintln!("📂 [API] Loading project from {project_path:?}");
 
     // Load project data from JSON
     let project_data = project::load_project(project_path).map_err(|e| e.to_string())?;
@@ -100,11 +99,11 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
         let audio_file_path =
             project::resolve_audio_file_path(project_path, &audio_file_data.relative_path);
 
-        eprintln!("📁 [API] Loading audio file: {:?}", audio_file_path);
+        eprintln!("📁 [API] Loading audio file: {audio_file_path:?}");
 
         // Load the audio file
         let clip = load_audio_file(&audio_file_path)
-            .map_err(|e| format!("Failed to load audio file {:?}: {}", audio_file_path, e))?;
+            .map_err(|e| format!("Failed to load audio file {audio_file_path:?}: {e}"))?;
 
         let clip_arc = Arc::new(clip);
         clips_map.insert(audio_file_data.id, clip_arc);
@@ -144,7 +143,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
             }
         }
     }
-    eprintln!("📎 [API] Restored {} audio clips", audio_clip_count);
+    eprintln!("📎 [API] Restored {audio_clip_count} audio clips");
 
     eprintln!("✅ [API] Project loaded successfully");
     Ok(format!("Loaded project: {}", project_data.name))
@@ -161,7 +160,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String, String> {
     let output_path = Path::new(&output_path_str);
 
-    eprintln!("🎵 [API] Exporting to WAV: {:?}", output_path);
+    eprintln!("🎵 [API] Exporting to WAV: {output_path:?}");
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
@@ -173,7 +172,7 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
         return Err("No audio content to export".to_string());
     }
 
-    eprintln!("🎵 [API] Project duration: {:.2}s", duration);
+    eprintln!("🎵 [API] Project duration: {duration:.2}s");
 
     // Render offline
     let samples = graph.render_offline(duration);
@@ -187,14 +186,13 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
         let max_amplitude = samples
             .iter()
             .map(|s| s.abs())
-            .fold(0.0f32, |a, b| a.max(b));
+            .fold(0.0f32, f32::max);
 
         if max_amplitude > 0.0 {
             let target_amplitude = 0.989f32; // -0.1 dBFS
             let gain = target_amplitude / max_amplitude;
             eprintln!(
-                "🎵 [API] Normalizing: max={:.4}, gain={:.4}",
-                max_amplitude, gain
+                "🎵 [API] Normalizing: max={max_amplitude:.4}, gain={gain:.4}"
             );
             samples.iter().map(|s| s * gain).collect()
         } else {
@@ -213,17 +211,17 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
     };
 
     let mut writer =
-        hound::WavWriter::create(output_path, spec).map_err(|e| format!("Failed to create WAV file: {}", e))?;
+        hound::WavWriter::create(output_path, spec).map_err(|e| format!("Failed to create WAV file: {e}"))?;
 
     for sample in &final_samples {
         writer
             .write_sample(*sample)
-            .map_err(|e| format!("Failed to write sample: {}", e))?;
+            .map_err(|e| format!("Failed to write sample: {e}"))?;
     }
 
     writer
         .finalize()
-        .map_err(|e| format!("Failed to finalize WAV file: {}", e))?;
+        .map_err(|e| format!("Failed to finalize WAV file: {e}"))?;
 
     let file_size = std::fs::metadata(output_path)
         .map(|m| m.len())
@@ -235,7 +233,7 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
         file_size as f64 / 1024.0 / 1024.0
     );
 
-    Ok(format!("Exported to {}", output_path_str))
+    Ok(format!("Exported to {output_path_str}"))
 }
 
 // ============================================================================
@@ -251,21 +249,21 @@ pub fn is_ffmpeg_available() -> bool {
 ///
 /// # Arguments
 /// * `output_path_str` - Path to output file
-/// * `options_json` - JSON string of ExportOptions
+/// * `options_json` - JSON string of `ExportOptions`
 ///
 /// # Returns
-/// JSON string with ExportResult on success
+/// JSON string with `ExportResult` on success
 pub fn export_audio(output_path_str: String, options_json: String) -> Result<String, String> {
     use crate::export::{export_mp3, export_wav, ExportFormat, ExportOptions};
 
     let output_path = Path::new(&output_path_str);
 
-    eprintln!("🎵 [API] Exporting audio to: {:?}", output_path);
-    eprintln!("🎵 [API] Options: {}", options_json);
+    eprintln!("🎵 [API] Exporting audio to: {output_path:?}");
+    eprintln!("🎵 [API] Options: {options_json}");
 
     // Parse options from JSON
     let options: ExportOptions =
-        serde_json::from_str(&options_json).map_err(|e| format!("Invalid options JSON: {}", e))?;
+        serde_json::from_str(&options_json).map_err(|e| format!("Invalid options JSON: {e}"))?;
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
@@ -277,7 +275,7 @@ pub fn export_audio(output_path_str: String, options_json: String) -> Result<Str
         return Err("No audio content to export".to_string());
     }
 
-    eprintln!("🎵 [API] Project duration: {:.2}s", duration);
+    eprintln!("🎵 [API] Project duration: {duration:.2}s");
 
     // Render offline
     let samples = graph.render_offline(duration);
@@ -307,7 +305,7 @@ pub fn export_audio(output_path_str: String, options_json: String) -> Result<Str
 /// * `mono` - Whether to mixdown to mono
 ///
 /// # Returns
-/// JSON string with ExportResult on success
+/// JSON string with `ExportResult` on success
 pub fn export_wav_with_options(
     output_path_str: String,
     bit_depth: i32,
@@ -329,7 +327,7 @@ pub fn export_wav_with_options(
         32 => WavBitDepth::Float32,
         _ => {
             progress.fail("Invalid bit depth");
-            return Err(format!("Invalid bit depth: {}. Use 16, 24, or 32", bit_depth));
+            return Err(format!("Invalid bit depth: {bit_depth}. Use 16, 24, or 32"));
         }
     };
 
@@ -340,8 +338,7 @@ pub fn export_wav_with_options(
         .with_mono(mono);
 
     eprintln!(
-        "🎵 [API] Exporting WAV: {:?}, {}-bit, {}Hz",
-        output_path, bit_depth, sample_rate
+        "🎵 [API] Exporting WAV: {output_path:?}, {bit_depth}-bit, {sample_rate}Hz"
     );
 
     // Check for cancellation
@@ -411,7 +408,7 @@ pub fn export_wav_with_options(
 /// * `mono` - Whether to mixdown to mono
 ///
 /// # Returns
-/// JSON string with ExportResult on success
+/// JSON string with `ExportResult` on success
 pub fn export_mp3_with_options(
     output_path_str: String,
     bitrate: i32,
@@ -432,7 +429,7 @@ pub fn export_mp3_with_options(
         320 => Mp3Bitrate::Kbps320,
         _ => {
             progress.fail("Invalid bitrate");
-            return Err(format!("Invalid bitrate: {}. Use 128, 192, or 320", bitrate));
+            return Err(format!("Invalid bitrate: {bitrate}. Use 128, 192, or 320"));
         }
     };
 
@@ -442,8 +439,7 @@ pub fn export_mp3_with_options(
         .with_mono(mono);
 
     eprintln!(
-        "🎵 [API] Exporting MP3: {:?}, {} kbps, {}Hz",
-        output_path, bitrate, sample_rate
+        "🎵 [API] Exporting MP3: {output_path:?}, {bitrate} kbps, {sample_rate}Hz"
     );
 
     // Check for cancellation
@@ -507,7 +503,7 @@ pub fn export_mp3_with_options(
 ///
 /// # Arguments
 /// * `file_path_str` - Path to the MP3 file
-/// * `metadata_json` - JSON string of ExportMetadata
+/// * `metadata_json` - JSON string of `ExportMetadata`
 ///
 /// # Returns
 /// Success message
@@ -517,7 +513,7 @@ pub fn write_mp3_metadata(file_path_str: String, metadata_json: String) -> Resul
     let file_path = Path::new(&file_path_str);
 
     let metadata: ExportMetadata = serde_json::from_str(&metadata_json)
-        .map_err(|e| format!("Invalid metadata JSON: {}", e))?;
+        .map_err(|e| format!("Invalid metadata JSON: {e}"))?;
 
     write_id3_tags(file_path, &metadata)?;
 
@@ -556,10 +552,10 @@ pub fn get_tracks_for_stems() -> Result<String, String> {
 /// * `output_dir` - Directory to export stems to
 /// * `base_name` - Base filename for stems (e.g., "My Song")
 /// * `track_ids_json` - JSON array of track IDs to export, or null for all tracks
-/// * `options_json` - JSON string of ExportOptions
+/// * `options_json` - JSON string of `ExportOptions`
 ///
 /// # Returns
-/// JSON string with StemExportResult
+/// JSON string with `StemExportResult`
 pub fn export_stems(
     output_dir: String,
     base_name: String,
@@ -575,14 +571,14 @@ pub fn export_stems(
 
     let output_path = Path::new(&output_dir);
 
-    eprintln!("🎚️ [API] Exporting stems to: {:?}", output_path);
+    eprintln!("🎚️ [API] Exporting stems to: {output_path:?}");
 
     // Parse options
     let options: ExportOptions = match serde_json::from_str(&options_json) {
         Ok(o) => o,
         Err(e) => {
             progress.fail("Invalid options");
-            return Err(format!("Invalid options JSON: {}", e));
+            return Err(format!("Invalid options JSON: {e}"));
         }
     };
 
@@ -597,7 +593,7 @@ pub fn export_stems(
             Ok(ids) => Some(ids),
             Err(e) => {
                 progress.fail("Invalid track IDs");
-                return Err(format!("Invalid track IDs: {}", e));
+                return Err(format!("Invalid track IDs: {e}"));
             }
         }
     };
@@ -657,15 +653,14 @@ pub fn export_stems(
         );
 
         eprintln!(
-            "🎚️ [API] Rendering track '{}' (ID: {})",
-            track_name, track_id
+            "🎚️ [API] Rendering track '{track_name}' (ID: {track_id})"
         );
 
         let samples = graph.render_track_offline(*track_id, duration);
 
         // Skip empty tracks
         if samples.iter().all(|&s| s.abs() < 0.0001) {
-            eprintln!("   ⏭️ Track '{}' is silent, skipping", track_name);
+            eprintln!("   ⏭️ Track '{track_name}' is silent, skipping");
             continue;
         }
 

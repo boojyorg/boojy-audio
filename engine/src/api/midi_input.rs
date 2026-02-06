@@ -38,10 +38,10 @@ pub fn refresh_midi_devices() -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     midi_manager.refresh_devices()
-        .map_err(|e| format!("Failed to refresh MIDI devices: {}", e))?;
+        .map_err(|e| format!("Failed to refresh MIDI devices: {e}"))?;
 
     let device_count = midi_manager.get_devices().len();
-    Ok(format!("MIDI devices refreshed: {} device(s) found", device_count))
+    Ok(format!("MIDI devices refreshed: {device_count} device(s) found"))
 }
 
 /// Select a MIDI input device by index
@@ -59,8 +59,7 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
     let device_count = midi_manager.get_devices().len();
     if (device_index as usize) >= device_count {
         return Err(format!(
-            "Invalid device index: {} (only {} device(s) available)",
-            device_index, device_count
+            "Invalid device index: {device_index} (only {device_count} device(s) available)"
         ));
     }
 
@@ -68,11 +67,9 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
 
     let device_name = midi_manager.get_devices()
-        .get(device_index as usize)
-        .map(|d| d.name.clone())
-        .unwrap_or_else(|| "Unknown".to_string());
+        .get(device_index as usize).map_or_else(|| "Unknown".to_string(), |d| d.name.clone());
 
-    Ok(format!("Selected MIDI input device: {}", device_name))
+    Ok(format!("Selected MIDI input device: {device_name}"))
 }
 
 // ============================================================================
@@ -191,14 +188,14 @@ pub fn start_midi_input() -> Result<String, String> {
                                     match &engine_event.event_type {
                                         MidiEventType::NoteOn { note, velocity } => {
                                             // event_type 0 = note on
-                                            if let Err(e) = vst3.process_midi_event(0, 0, *note as i32, *velocity as i32, 0) {
-                                                eprintln!("⚠️ [MIDI] Failed to send note on to VST3 {}: {}", effect_id, e);
+                                            if let Err(e) = vst3.process_midi_event(0, 0, i32::from(*note), i32::from(*velocity), 0) {
+                                                eprintln!("⚠️ [MIDI] Failed to send note on to VST3 {effect_id}: {e}");
                                             }
                                         }
                                         MidiEventType::NoteOff { note, velocity } => {
                                             // event_type 1 = note off
-                                            if let Err(e) = vst3.process_midi_event(1, 0, *note as i32, *velocity as i32, 0) {
-                                                eprintln!("⚠️ [MIDI] Failed to send note off to VST3 {}: {}", effect_id, e);
+                                            if let Err(e) = vst3.process_midi_event(1, 0, i32::from(*note), i32::from(*velocity), 0) {
+                                                eprintln!("⚠️ [MIDI] Failed to send note off to VST3 {effect_id}: {e}");
                                             }
                                         }
                                     }
@@ -250,11 +247,11 @@ pub fn start_midi_recording() -> Result<String, String> {
 
     // Calculate count-in duration in seconds and samples
     let count_in_seconds = if count_in_bars > 0 {
-        (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo
+        f64::from(count_in_bars) * f64::from(time_sig) * 60.0 / tempo
     } else {
         0.0
     };
-    let count_in_samples = (count_in_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+    let count_in_samples = (count_in_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
 
     // Calculate where the transport actually starts for count-in.
     // This matches the seek in recording.rs: (playhead_seconds - count_in_seconds).max(0.0)
@@ -263,14 +260,14 @@ pub fn start_midi_recording() -> Result<String, String> {
     // plays in-place. At Bar 4+, seekback is non-zero and the transport arrives at the
     // original position after count-in — adding count_in would double-count the offset.
     let seekback_seconds = (recording_start_seconds - count_in_seconds).max(0.0);
-    let seekback_samples = (seekback_seconds * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+    let seekback_samples = (seekback_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
     let recording_start = seekback_samples + count_in_samples;
 
     eprintln!("🎹 [API] MIDI recording started:");
-    eprintln!("  recording_start_seconds: {:.3}s", recording_start_seconds);
-    eprintln!("  count_in_bars: {} ({:.3}s)", count_in_bars, count_in_seconds);
-    eprintln!("  seekback_seconds: {:.3}s", seekback_seconds);
-    eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / crate::audio_file::TARGET_SAMPLE_RATE as f64);
+    eprintln!("  recording_start_seconds: {recording_start_seconds:.3}s");
+    eprintln!("  count_in_bars: {count_in_bars} ({count_in_seconds:.3}s)");
+    eprintln!("  seekback_seconds: {seekback_seconds:.3}s");
+    eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE));
 
     let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
     midi_recorder.set_recording_start(recording_start);
@@ -318,14 +315,14 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
         let clip_id = graph.add_midi_clip(clip_arc.clone(), playhead_seconds);
 
         if armed_midi_track_ids.is_empty() {
-            eprintln!("✅ [API] MIDI clip recorded with ID: {} (no armed tracks, added globally)", clip_id);
+            eprintln!("✅ [API] MIDI clip recorded with ID: {clip_id} (no armed tracks, added globally)");
             return Ok(Some(clip_id));
         }
 
         // Add clip to each armed MIDI track using the same clip_id
         for track_id in armed_midi_track_ids {
-            if let Some(_) = graph.add_midi_clip_to_track(track_id, clip_arc.clone(), playhead_seconds, clip_id) {
-                eprintln!("✅ [API] MIDI clip {} added to armed track {}", clip_id, track_id);
+            if graph.add_midi_clip_to_track(track_id, clip_arc.clone(), playhead_seconds, clip_id).is_some() {
+                eprintln!("✅ [API] MIDI clip {clip_id} added to armed track {track_id}");
             }
         }
 
@@ -356,7 +353,7 @@ pub fn get_midi_recording_state() -> Result<i32, String> {
 // ============================================================================
 
 /// Get live MIDI recording events for real-time UI display
-/// Returns CSV: "note,velocity,type,timestamp_samples;..." where type: 0=NoteOff, 1=NoteOn
+/// Returns CSV: "`note,velocity,type,timestamp_samples`;..." where type: 0=NoteOff, 1=NoteOn
 /// Returns empty string if not recording or no events
 pub fn get_midi_recorder_live_events() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
@@ -396,7 +393,7 @@ pub fn get_midi_recorder_live_events() -> Result<String, String> {
 // LEGACY SYNTH API (deprecated)
 // ============================================================================
 
-/// Set synthesizer oscillator type (LEGACY - use set_synth_parameter instead)
+/// Set synthesizer oscillator type (LEGACY - use `set_synth_parameter` instead)
 pub fn set_synth_oscillator_type(_osc_type: i32) -> Result<String, String> {
     // Legacy API - no-op, use set_synth_parameter for per-track synths
     Ok("Legacy API deprecated - use set_synth_parameter".to_string())

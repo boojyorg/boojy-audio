@@ -221,7 +221,7 @@ impl VST3Host {
             F: FnMut(&VST3PluginInfo),
         {
             unsafe {
-                let callback = &mut *(user_data as *mut F);
+                let callback = &mut *user_data.cast::<F>();
                 if !info.is_null() {
                     callback(&*info);
                 }
@@ -232,7 +232,7 @@ impl VST3Host {
             let count = vst3_scan_directory(
                 dir_cstr.as_ptr(),
                 scan_callback::<F>,
-                &mut callback as *mut F as *mut c_void,
+                (&raw mut callback).cast::<c_void>(),
             );
 
             if count >= 0 {
@@ -252,7 +252,7 @@ impl VST3Host {
             F: FnMut(&VST3PluginInfo),
         {
             unsafe {
-                let callback = &mut *(user_data as *mut F);
+                let callback = &mut *user_data.cast::<F>();
                 if !info.is_null() {
                     callback(&*info);
                 }
@@ -262,7 +262,7 @@ impl VST3Host {
         unsafe {
             let count = vst3_scan_standard_locations(
                 scan_callback::<F>,
-                &mut callback as *mut F as *mut c_void,
+                (&raw mut callback).cast::<c_void>(),
             );
 
             if count >= 0 {
@@ -342,7 +342,7 @@ impl VST3Plugin {
         let mut info: VST3PluginInfo = unsafe { std::mem::zeroed() };
 
         unsafe {
-            if vst3_get_plugin_info(self.handle, &mut info) {
+            if vst3_get_plugin_info(self.handle, &raw mut info) {
                 Ok(info)
             } else {
                 Err(VST3Host::get_last_error())
@@ -437,7 +437,7 @@ impl VST3Plugin {
         let mut info: VST3ParameterInfo = unsafe { std::mem::zeroed() };
 
         unsafe {
-            if vst3_get_parameter_info(self.handle, index, &mut info) {
+            if vst3_get_parameter_info(self.handle, index, &raw mut info) {
                 Ok(info)
             } else {
                 Err(VST3Host::get_last_error())
@@ -469,7 +469,7 @@ impl VST3Plugin {
             let mut buffer = vec![0u8; size as usize];
             let actual_size = vst3_get_state(
                 self.handle,
-                buffer.as_mut_ptr() as *mut c_void,
+                buffer.as_mut_ptr().cast::<c_void>(),
                 size,
             );
 
@@ -486,7 +486,7 @@ impl VST3Plugin {
         unsafe {
             if vst3_set_state(
                 self.handle,
-                data.as_ptr() as *const c_void,
+                data.as_ptr().cast::<c_void>(),
                 data.len() as i32,
             ) {
                 Ok(())
@@ -521,7 +521,7 @@ impl VST3Plugin {
         unsafe {
             let mut width: c_int = 0;
             let mut height: c_int = 0;
-            if vst3_get_editor_size(self.handle, &mut width, &mut height) {
+            if vst3_get_editor_size(self.handle, &raw mut width, &raw mut height) {
                 Ok((width, height))
             } else {
                 Err(VST3Host::get_last_error())
@@ -534,9 +534,9 @@ impl VST3Plugin {
 
         // Get thread ID for debugging
         let thread_id = std::thread::current().id();
-        eprintln!("🔧 [VST3Plugin] attach_editor on thread {:?}", thread_id);
+        eprintln!("🔧 [VST3Plugin] attach_editor on thread {thread_id:?}");
         eprintln!("🔧 [VST3Plugin] handle={:?}, handle_addr={:p}", self.handle, &self.handle);
-        eprintln!("🔧 [VST3Plugin] parent={:?}", parent);
+        eprintln!("🔧 [VST3Plugin] parent={parent:?}");
         let _ = std::io::stderr().flush();
 
         // Verify handle is not null
@@ -565,7 +565,7 @@ impl VST3Plugin {
             // Try calling the function
             let result = vst3_attach_editor(self.handle, parent);
 
-            eprintln!("🔧 [VST3Plugin] C++ vst3_attach_editor returned: {}", result);
+            eprintln!("🔧 [VST3Plugin] C++ vst3_attach_editor returned: {result}");
             let _ = std::io::stderr().flush();
 
             if result {
@@ -598,7 +598,7 @@ use std::sync::{Arc, Mutex};
 
 /// VST3 effect wrapper for the effect system
 ///
-/// This wraps a VST3Plugin in an Arc<Mutex<>> so it can be cloned (by cloning
+/// This wraps a `VST3Plugin` in an Arc<Mutex<>> so it can be cloned (by cloning
 /// the Arc) and safely shared across threads. The Effect trait is implemented
 /// on this wrapper.
 #[derive(Clone)]
@@ -613,7 +613,7 @@ pub struct VST3Effect {
 }
 
 impl VST3Effect {
-    /// Create a new VST3Effect from a plugin path
+    /// Create a new `VST3Effect` from a plugin path
     pub fn new(plugin_path: &str, sample_rate: f64, block_size: i32) -> Result<Self, String> {
         let plugin = VST3Plugin::load(plugin_path)?;
         let info = plugin.get_info()?;
@@ -708,7 +708,7 @@ impl VST3Effect {
         plugin.has_editor()
     }
 
-    /// Open editor view (creates IPlugView)
+    /// Open editor view (creates `IPlugView`)
     pub fn open_editor(&self) -> Result<(), String> {
         let plugin = self.plugin.lock().expect("mutex poisoned");
         plugin.open_editor()
@@ -733,16 +733,16 @@ impl VST3Effect {
     }
 
     /// Get the raw C++ handle for the plugin
-    /// This is used for calling attach_editor without holding Rust locks
+    /// This is used for calling `attach_editor` without holding Rust locks
     pub fn get_handle(&self) -> *mut c_void {
         let plugin = self.plugin.lock().expect("mutex poisoned");
-        plugin.handle as *mut c_void
+        plugin.handle.cast::<c_void>()
     }
 
     /// Attach editor to parent window using raw handle (no locks held)
-    /// This is used to avoid deadlocks when plugins call back during attached()
+    /// This is used to avoid deadlocks when plugins call back during `attached()`
     pub fn attach_editor_raw(handle: *mut c_void, parent: *mut c_void) -> Result<(), String> {
-        eprintln!("🔧 [VST3Effect] attach_editor_raw: handle={:?}, parent={:?}", handle, parent);
+        eprintln!("🔧 [VST3Effect] attach_editor_raw: handle={handle:?}, parent={parent:?}");
 
         if handle.is_null() {
             return Err("Invalid plugin handle".to_string());
@@ -752,7 +752,7 @@ impl VST3Effect {
         }
 
         unsafe {
-            let result = vst3_attach_editor(handle as *mut VST3PluginHandle, parent);
+            let result = vst3_attach_editor(handle.cast::<VST3PluginHandle>(), parent);
             if result {
                 Ok(())
             } else {
@@ -782,7 +782,7 @@ impl crate::effects::Effect for VST3Effect {
         ) {
             Ok(()) => (output_left[0], output_right[0]),
             Err(e) => {
-                eprintln!("VST3 processing error: {}", e);
+                eprintln!("VST3 processing error: {e}");
                 (left, right) // Pass through on error
             }
         }
@@ -822,7 +822,7 @@ mod tests {
             count += 1;
         }).ok();
 
-        println!("Found {} plugins", count);
+        println!("Found {count} plugins");
         VST3Host::shutdown();
     }
 
@@ -838,10 +838,10 @@ mod tests {
                     println!("   Type: {}", if info.is_instrument { "Instrument" } else if info.is_effect { "Effect" } else { "Unknown" });
                 }
                 println!("Total: {} plugins\n", plugins.len());
-                assert!(plugins.len() > 0, "Expected to find at least one VST3 plugin");
+                assert!(!plugins.is_empty(), "Expected to find at least one VST3 plugin");
             }
             Err(e) => {
-                println!("Scan failed: {}", e);
+                println!("Scan failed: {e}");
                 panic!("Failed to scan plugins");
             }
         }
@@ -868,7 +868,7 @@ mod tests {
 
                 // Get parameter count
                 let param_count = plugin.get_parameter_count();
-                println!("Parameter count: {}", param_count);
+                println!("Parameter count: {param_count}");
 
                 // Get first few parameters
                 for i in 0..param_count.min(5) {
@@ -881,7 +881,7 @@ mod tests {
                 println!("Serum test passed!\n");
             }
             Err(e) => {
-                println!("Could not load Serum (this is OK if not installed): {}", e);
+                println!("Could not load Serum (this is OK if not installed): {e}");
             }
         }
     }
@@ -897,12 +897,12 @@ mod tests {
 
                 // Test parameter access
                 let param_count = effect.get_parameter_count();
-                println!("Parameters: {}", param_count);
+                println!("Parameters: {param_count}");
 
                 if param_count > 0 {
                     // Try to get and set first parameter
                     let value = effect.get_parameter_value(0);
-                    println!("Param 0 value: {}", value);
+                    println!("Param 0 value: {value}");
 
                     if let Ok(info) = effect.get_parameter_info(0) {
                         println!("Param 0 name: {}", info.title_str());
@@ -910,22 +910,22 @@ mod tests {
 
                     // Try setting a value
                     if let Err(e) = effect.set_parameter_value(0, 0.5) {
-                        println!("Warning: Could not set parameter: {}", e);
+                        println!("Warning: Could not set parameter: {e}");
                     }
                 }
 
                 // Test audio processing with silence
                 let (out_l, out_r) = effect.process_frame(0.0, 0.0);
-                println!("Processed silence: ({}, {})", out_l, out_r);
+                println!("Processed silence: ({out_l}, {out_r})");
 
                 // Test with a simple signal
                 let (out_l, out_r) = effect.process_frame(0.5, 0.5);
-                println!("Processed signal: ({}, {})", out_l, out_r);
+                println!("Processed signal: ({out_l}, {out_r})");
 
                 println!("VST3Effect wrapper test passed!\n");
             }
             Err(e) => {
-                println!("Could not create VST3Effect (this is OK if Serum not installed): {}", e);
+                println!("Could not create VST3Effect (this is OK if Serum not installed): {e}");
             }
         }
     }
@@ -952,19 +952,19 @@ mod tests {
 
             match plugin.process_audio(&input_left, &input_right, &mut output_left, &mut output_right) {
                 Ok(()) => {
-                    println!("Successfully processed {} samples", samples);
+                    println!("Successfully processed {samples} samples");
 
                     // Check that output is not all zeros
                     let max_output = output_left.iter()
                         .chain(output_right.iter())
                         .map(|x| x.abs())
-                        .fold(0.0f32, |a, b| a.max(b));
+                        .fold(0.0f32, f32::max);
 
-                    println!("Max output amplitude: {}", max_output);
+                    println!("Max output amplitude: {max_output}");
                     println!("Audio processing test passed!\n");
                 }
                 Err(e) => {
-                    println!("Audio processing failed: {}", e);
+                    println!("Audio processing failed: {e}");
                 }
             }
 

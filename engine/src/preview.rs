@@ -55,7 +55,7 @@ impl PreviewPlayer {
 
         // Load the audio file
         let clip = load_audio_file(path).map_err(|e| e.to_string())?;
-        let total_samples = (clip.duration_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        let total_samples = (clip.duration_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
 
         // Auto-enable looping for short files (< 3 seconds)
         let should_loop = clip.duration_seconds < 3.0;
@@ -91,7 +91,7 @@ impl PreviewPlayer {
 
     /// Seek to a position in seconds
     pub fn seek(&mut self, position_seconds: f64) {
-        let sample_pos = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        let sample_pos = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
         let clamped = sample_pos.min(self.total_samples);
         self.position_samples.store(clamped, Ordering::SeqCst);
     }
@@ -99,15 +99,14 @@ impl PreviewPlayer {
     /// Get current playback position in seconds
     pub fn get_position(&self) -> f64 {
         let samples = self.position_samples.load(Ordering::SeqCst);
-        samples as f64 / TARGET_SAMPLE_RATE as f64
+        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
     /// Get total duration in seconds
     pub fn get_duration(&self) -> f64 {
         self.clip
             .as_ref()
-            .map(|c| c.duration_seconds)
-            .unwrap_or(0.0)
+            .map_or(0.0, |c| c.duration_seconds)
     }
 
     /// Check if currently playing

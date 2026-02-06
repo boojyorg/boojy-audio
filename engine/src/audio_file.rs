@@ -47,7 +47,7 @@ impl AudioClip {
 pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
     let path_ref = path.as_ref();
     let file = std::fs::File::open(path_ref)
-        .context(format!("Failed to open audio file: {:?}", path_ref))?;
+        .context(format!("Failed to open audio file: {path_ref:?}"))?;
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
@@ -98,7 +98,7 @@ pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
                 decoder.reset();
                 continue;
             }
-            Err(err) => return Err(anyhow::anyhow!("Error reading packet: {}", err)),
+            Err(err) => return Err(anyhow::anyhow!("Error reading packet: {err}")),
         };
 
         // Skip packets not for this track
@@ -114,24 +114,24 @@ pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
                 decoded_samples.extend_from_slice(&samples);
             }
             Err(Error::DecodeError(_)) => continue, // Skip decode errors
-            Err(err) => return Err(anyhow::anyhow!("Decode error: {}", err)),
+            Err(err) => return Err(anyhow::anyhow!("Decode error: {err}")),
         }
     }
 
     // Resample if needed
-    let final_samples = if source_sample_rate != TARGET_SAMPLE_RATE {
+    let final_samples = if source_sample_rate == TARGET_SAMPLE_RATE {
+        decoded_samples
+    } else {
         resample_audio(
             &decoded_samples,
             source_sample_rate,
             TARGET_SAMPLE_RATE,
             channels,
         )?
-    } else {
-        decoded_samples
     };
 
     let frame_count = final_samples.len() / channels;
-    let duration_seconds = frame_count as f64 / TARGET_SAMPLE_RATE as f64;
+    let duration_seconds = frame_count as f64 / f64::from(TARGET_SAMPLE_RATE);
 
     Ok(AudioClip {
         samples: final_samples,
@@ -142,7 +142,7 @@ pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
     })
 }
 
-/// Convert Symphonia AudioBufferRef to interleaved f32 samples
+/// Convert Symphonia `AudioBufferRef` to interleaved f32 samples
 fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef<'_>, channels: usize) -> Vec<f32> {
     match audio_buf {
         AudioBufferRef::F32(buf) => {
@@ -157,15 +157,15 @@ fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef<'_>, channels: usize) 
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U8(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (s as f32 - 128.0) / 128.0).collect();
+            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (f32::from(s) - 128.0) / 128.0).collect();
             let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| (s as f32 - 128.0) / 128.0).collect();
+            let right: Vec<f32> = right_src.iter().map(|&s| (f32::from(s) - 128.0) / 128.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U16(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (s as f32 - 32768.0) / 32768.0).collect();
+            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (f32::from(s) - 32768.0) / 32768.0).collect();
             let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| (s as f32 - 32768.0) / 32768.0).collect();
+            let right: Vec<f32> = right_src.iter().map(|&s| (f32::from(s) - 32768.0) / 32768.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U24(buf) => {
@@ -181,15 +181,15 @@ fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef<'_>, channels: usize) 
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S8(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| s as f32 / 128.0).collect();
+            let left: Vec<f32> = buf.chan(0).iter().map(|&s| f32::from(s) / 128.0).collect();
             let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| s as f32 / 128.0).collect();
+            let right: Vec<f32> = right_src.iter().map(|&s| f32::from(s) / 128.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S16(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| s as f32 / 32768.0).collect();
+            let left: Vec<f32> = buf.chan(0).iter().map(|&s| f32::from(s) / 32768.0).collect();
             let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| s as f32 / 32768.0).collect();
+            let right: Vec<f32> = right_src.iter().map(|&s| f32::from(s) / 32768.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S24(buf) => {
@@ -279,7 +279,7 @@ fn resample_audio(
         let resampled = resampler.process(&padded_chunk, None)?;
 
         // Calculate how many output frames correspond to actual input
-        let ratio = target_rate as f64 / source_rate as f64;
+        let ratio = f64::from(target_rate) / f64::from(source_rate);
         let output_for_remaining = (remaining as f64 * ratio).ceil() as usize;
 
         for (ch_idx, ch_data) in resampled.iter().enumerate() {

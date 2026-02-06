@@ -102,7 +102,7 @@ fn interpolate_automation_gain(automation: &[AutomationPoint], time_seconds: f64
     let mut high = automation.len() - 1;
 
     while low < high - 1 {
-        let mid = (low + high) / 2;
+        let mid = usize::midpoint(low, high);
         if automation[mid].time_seconds <= time_seconds {
             low = mid;
         } else {
@@ -242,7 +242,7 @@ impl AudioGraph {
 
         // Query hardware latency from CoreAudio device
         if let Err(e) = graph.query_coreaudio_latency() {
-            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {}", e);
+            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {e}");
         }
 
         Ok(graph)
@@ -420,7 +420,7 @@ impl AudioGraph {
     }
 
     /// Add a MIDI clip to a specific track (M5.5)
-    /// Uses the provided clip_id to ensure consistency with global storage
+    /// Uses the provided `clip_id` to ensure consistency with global storage
     pub fn add_midi_clip_to_track(&self, track_id: TrackId, clip: Arc<MidiClip>, start_time: f64, clip_id: ClipId) -> Option<ClipId> {
         let track_manager = self.track_manager.lock().expect("mutex poisoned");
         if let Some(track_arc) = track_manager.get_track(track_id) {
@@ -440,7 +440,7 @@ impl AudioGraph {
     }
 
     /// Sync a MIDI clip from global storage to the track
-    /// This is needed after modifying a clip because Arc::make_mut creates a new copy
+    /// This is needed after modifying a clip because `Arc::make_mut` creates a new copy
     pub fn sync_midi_clip_to_track(&self, clip_id: ClipId) {
         // Get the updated clip from global storage
         let updated_clip = {
@@ -491,8 +491,8 @@ impl AudioGraph {
         let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
         let initial_count = midi_clips.len();
         midi_clips.retain(|clip| clip.track_id != Some(track_id));
-        let removed_count = initial_count - midi_clips.len();
-        removed_count
+        
+        initial_count - midi_clips.len()
     }
 
     /// Get the current playhead position in seconds
@@ -500,7 +500,7 @@ impl AudioGraph {
         let samples = self.playhead_samples.load(Ordering::SeqCst);
         // Simple conversion: samples to seconds (no tempo scaling)
         // The playhead tracks real time - tempo affects note/beat positions, not time itself
-        samples as f64 / TARGET_SAMPLE_RATE as f64
+        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
     /// Get the current playhead position in samples
@@ -516,24 +516,24 @@ impl AudioGraph {
     /// Get the position when Play was pressed (in seconds)
     pub fn get_play_start_position(&self) -> f64 {
         let samples = self.play_start_position_samples.load(Ordering::SeqCst);
-        samples as f64 / TARGET_SAMPLE_RATE as f64
+        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
     /// Set the position when Play was pressed (in seconds)
     pub fn set_play_start_position(&self, position_seconds: f64) {
-        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
         self.play_start_position_samples.store(samples, Ordering::SeqCst);
     }
 
     /// Get the position when recording started (after count-in, in seconds)
     pub fn get_record_start_position(&self) -> f64 {
         let samples = self.record_start_position_samples.load(Ordering::SeqCst);
-        samples as f64 / TARGET_SAMPLE_RATE as f64
+        samples as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
     /// Set the position when recording started (after count-in, in seconds)
     pub fn set_record_start_position(&self, position_seconds: f64) {
-        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
         self.record_start_position_samples.store(samples, Ordering::SeqCst);
     }
 
@@ -547,7 +547,7 @@ impl AudioGraph {
         }
 
         // Simple conversion: seconds to samples (no tempo scaling)
-        let samples = (position_seconds * TARGET_SAMPLE_RATE as f64) as u64;
+        let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
         self.playhead_samples.store(samples, Ordering::SeqCst);
         // Sync metronome to the same position so beats stay on beat after seek/loop (native only)
         #[cfg(not(target_arch = "wasm32"))]
@@ -571,7 +571,7 @@ impl AudioGraph {
         let current_pos = self.playhead_samples.load(Ordering::SeqCst);
         self.play_start_position_samples.store(current_pos, Ordering::SeqCst);
         eprintln!("▶️  [AudioGraph] play() - saving play_start_position: {} samples ({:.3}s)",
-            current_pos, current_pos as f64 / TARGET_SAMPLE_RATE as f64);
+            current_pos, current_pos as f64 / f64::from(TARGET_SAMPLE_RATE));
 
         self.state.store(TransportState::Playing as u8, Ordering::SeqCst);
 
@@ -621,7 +621,7 @@ impl AudioGraph {
     }
 
     /// Stop playback - lock-free state change
-    /// Note: Playhead position is managed by transportSeek() from Dart layer
+    /// Note: Playhead position is managed by `transportSeek()` from Dart layer
     pub fn stop(&mut self) -> anyhow::Result<()> {
         eprintln!("⏹️  [AudioGraph] stop() called - silencing notes and stopping metronome");
 
@@ -703,7 +703,7 @@ impl AudioGraph {
     }
 
     /// Get current audio latency info
-    /// Returns: (buffer_size_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
+    /// Returns: (`buffer_size_samples`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`)
     pub fn get_latency_info(&self) -> (u32, f32, f32, f32) {
         let buffer_samples = self.get_actual_buffer_size();
 
@@ -718,8 +718,8 @@ impl AudioGraph {
         (buffer_samples, input_latency_ms, output_latency_ms, total_roundtrip_ms)
     }
 
-    /// Query hardware audio latency from CoreAudio device (macOS only)
-    /// Updates the hardware_input_latency_ms and hardware_output_latency_ms fields
+    /// Query hardware audio latency from `CoreAudio` device (macOS only)
+    /// Updates the `hardware_input_latency_ms` and `hardware_output_latency_ms` fields
     #[cfg(target_os = "macos")]
     fn query_coreaudio_latency(&self) -> anyhow::Result<()> {
         use coreaudio::audio_unit::{
@@ -753,17 +753,17 @@ impl AudioGraph {
             };
             let status = AudioObjectGetPropertyData(
                 device_id,
-                &address as *const _,
+                &raw const address,
                 0,
                 std::ptr::null(),
-                &mut property_size as *mut _,
-                &mut output_latency_frames as *mut _ as *mut _,
+                &raw mut property_size,
+                (&raw mut output_latency_frames).cast(),
             );
 
             if status != 0 {
-                eprintln!("⚠️ [LATENCY] Failed to get output latency (status: {})", status);
+                eprintln!("⚠️ [LATENCY] Failed to get output latency (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Output device latency: {} frames", output_latency_frames);
+                eprintln!("🎚️ [LATENCY] Output device latency: {output_latency_frames} frames");
             }
 
             // Get safety offset (output)
@@ -771,17 +771,17 @@ impl AudioGraph {
             property_size = size_of::<u32>() as u32;
             let status = AudioObjectGetPropertyData(
                 device_id,
-                &address as *const _,
+                &raw const address,
                 0,
                 std::ptr::null(),
-                &mut property_size as *mut _,
-                &mut output_safety_offset as *mut _ as *mut _,
+                &raw mut property_size,
+                (&raw mut output_safety_offset).cast(),
             );
 
             if status != 0 {
-                eprintln!("⚠️ [LATENCY] Failed to get output safety offset (status: {})", status);
+                eprintln!("⚠️ [LATENCY] Failed to get output safety offset (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Output safety offset: {} frames", output_safety_offset);
+                eprintln!("🎚️ [LATENCY] Output safety offset: {output_safety_offset} frames");
             }
         }
 
@@ -799,17 +799,17 @@ impl AudioGraph {
             property_size = size_of::<u32>() as u32;
             let status = AudioObjectGetPropertyData(
                 device_id,
-                &address as *const _,
+                &raw const address,
                 0,
                 std::ptr::null(),
-                &mut property_size as *mut _,
-                &mut input_latency_frames as *mut _ as *mut _,
+                &raw mut property_size,
+                (&raw mut input_latency_frames).cast(),
             );
 
             if status != 0 {
-                eprintln!("⚠️ [LATENCY] Failed to get input latency (status: {})", status);
+                eprintln!("⚠️ [LATENCY] Failed to get input latency (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Input device latency: {} frames", input_latency_frames);
+                eprintln!("🎚️ [LATENCY] Input device latency: {input_latency_frames} frames");
             }
 
             // Get safety offset (input)
@@ -817,17 +817,17 @@ impl AudioGraph {
             property_size = size_of::<u32>() as u32;
             let status = AudioObjectGetPropertyData(
                 device_id,
-                &address as *const _,
+                &raw const address,
                 0,
                 std::ptr::null(),
-                &mut property_size as *mut _,
-                &mut input_safety_offset as *mut _ as *mut _,
+                &raw mut property_size,
+                (&raw mut input_safety_offset).cast(),
             );
 
             if status != 0 {
-                eprintln!("⚠️ [LATENCY] Failed to get input safety offset (status: {})", status);
+                eprintln!("⚠️ [LATENCY] Failed to get input safety offset (status: {status})");
             } else {
-                eprintln!("🎚️ [LATENCY] Input safety offset: {} frames", input_safety_offset);
+                eprintln!("🎚️ [LATENCY] Input safety offset: {input_safety_offset} frames");
             }
         }
 
@@ -836,8 +836,7 @@ impl AudioGraph {
         let input_latency_ms = (input_latency_frames + input_safety_offset) as f32 / sample_rate * 1000.0;
         let output_latency_ms = (output_latency_frames + output_safety_offset) as f32 / sample_rate * 1000.0;
 
-        eprintln!("🎚️ [LATENCY] Hardware latency: input={:.2}ms, output={:.2}ms",
-            input_latency_ms, output_latency_ms);
+        eprintln!("🎚️ [LATENCY] Hardware latency: input={input_latency_ms:.2}ms, output={output_latency_ms:.2}ms");
 
         // Update stored values
         *self.hardware_input_latency_ms.lock().expect("mutex poisoned") = input_latency_ms;
@@ -881,7 +880,7 @@ impl AudioGraph {
 
         // Re-query hardware latency after stream change
         if let Err(e) = self.query_coreaudio_latency() {
-            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {}", e);
+            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {e}");
         }
 
         Ok(())
@@ -901,7 +900,7 @@ impl AudioGraph {
         // Helper to find device by name from a host
         fn find_device_in_host<H: HostTrait>(host: &H, name: &str) -> Option<H::Device> {
             host.output_devices().ok()?.find(|d| {
-                d.name().ok().as_ref().map(|n| n == name).unwrap_or(false)
+                d.name().ok().as_ref().is_some_and(|n| n == name)
             })
         }
 
@@ -956,16 +955,13 @@ impl AudioGraph {
         let device = {
             let host = cpal::default_host();
             if let Some(ref name) = selected_name {
-                match find_device_in_host(&host, name) {
-                    Some(d) => {
-                        eprintln!("🔊 [AudioGraph] Using selected output device: {}", name);
-                        d
-                    }
-                    None => {
-                        eprintln!("⚠️ [AudioGraph] Selected device '{}' not found, using default", name);
-                        host.default_output_device()
-                            .ok_or_else(|| anyhow::anyhow!("No output device available"))?
-                    }
+                if let Some(d) = find_device_in_host(&host, name) {
+                    eprintln!("🔊 [AudioGraph] Using selected output device: {name}");
+                    d
+                } else {
+                    eprintln!("⚠️ [AudioGraph] Selected device '{name}' not found, using default");
+                    host.default_output_device()
+                        .ok_or_else(|| anyhow::anyhow!("No output device available"))?
                 }
             } else {
                 host.default_output_device()
@@ -975,11 +971,11 @@ impl AudioGraph {
 
         // Log device info
         if let Ok(name) = device.name() {
-            eprintln!("🔊 [AudioGraph] Using device: {}", name);
+            eprintln!("🔊 [AudioGraph] Using device: {name}");
         }
 
         let supported_config = device.default_output_config()?;
-        eprintln!("🔊 [AudioGraph] Device config: {:?}", supported_config);
+        eprintln!("🔊 [AudioGraph] Device config: {supported_config:?}");
 
         // Get preferred buffer size
         let preferred_samples = self.preferred_buffer_size.lock()
@@ -991,13 +987,11 @@ impl AudioGraph {
             SupportedBufferSize::Range { min, max } => {
                 // Handle invalid range (e.g., iOS simulator reports [0-0])
                 if *max == 0 || *min == *max && *max == 0 {
-                    eprintln!("🔊 [AudioGraph] Buffer size: device reports invalid range [{}-{}], using default",
-                        min, max);
+                    eprintln!("🔊 [AudioGraph] Buffer size: device reports invalid range [{min}-{max}], using default");
                     None
                 } else {
                     let clamped = preferred_samples.clamp(*min, *max);
-                    eprintln!("🔊 [AudioGraph] Buffer size: requested={}, device range=[{}-{}], using={}",
-                        preferred_samples, min, max, clamped);
+                    eprintln!("🔊 [AudioGraph] Buffer size: requested={preferred_samples}, device range=[{min}-{max}], using={clamped}");
                     Some(cpal::BufferSize::Fixed(clamped))
                 }
             }
@@ -1065,7 +1059,7 @@ impl AudioGraph {
                             if channels == 1 {
                                 // Mono input: read 1 sample and duplicate to both channels
                                 if let Some(samples) = input_mgr.read_samples(1) {
-                                    let mono_sample = samples.get(0).copied().unwrap_or(0.0);
+                                    let mono_sample = samples.first().copied().unwrap_or(0.0);
                                     (mono_sample, mono_sample)
                                 } else {
                                     (0.0, 0.0)
@@ -1073,7 +1067,7 @@ impl AudioGraph {
                             } else {
                                 // Stereo input: read 2 samples
                                 if let Some(samples) = input_mgr.read_samples(2) {
-                                    (samples.get(0).copied().unwrap_or(0.0),
+                                    (samples.first().copied().unwrap_or(0.0),
                                      samples.get(1).copied().unwrap_or(0.0))
                                 } else {
                                     (0.0, 0.0)
@@ -1126,7 +1120,7 @@ impl AudioGraph {
                                             let target = if should_monitor { 1.0f64 } else { 0.0f64 };
 
                                             if track.monitoring_fade_gain != target {
-                                                let step = 1.0 / (0.020 * TARGET_SAMPLE_RATE as f64);
+                                                let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
                                                 if target > track.monitoring_fade_gain {
                                                     track.monitoring_fade_gain = (track.monitoring_fade_gain + step).min(1.0);
                                                 } else {
@@ -1354,7 +1348,7 @@ impl AudioGraph {
                     // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
                     // At 100 BPM, playhead advances slower (0.833x) through timeline
                     // At 140 BPM, playhead advances faster (1.167x) through timeline
-                    let real_seconds = playhead_frame as f64 / TARGET_SAMPLE_RATE as f64;
+                    let real_seconds = playhead_frame as f64 / f64::from(TARGET_SAMPLE_RATE);
                     let playhead_seconds = real_seconds * tempo_ratio;
 
                     let mut mix_left = 0.0;
@@ -1365,18 +1359,16 @@ impl AudioGraph {
                         let channels = input_mgr.get_input_channels();
                         if channels == 1 {
                             if let Some(samples) = input_mgr.read_samples(1) {
-                                let mono_sample = samples.get(0).copied().unwrap_or(0.0);
+                                let mono_sample = samples.first().copied().unwrap_or(0.0);
                                 (mono_sample, mono_sample)
                             } else {
                                 (0.0, 0.0)
                             }
+                        } else if let Some(samples) = input_mgr.read_samples(2) {
+                            (samples.first().copied().unwrap_or(0.0),
+                             samples.get(1).copied().unwrap_or(0.0))
                         } else {
-                            if let Some(samples) = input_mgr.read_samples(2) {
-                                (samples.get(0).copied().unwrap_or(0.0),
-                                 samples.get(1).copied().unwrap_or(0.0))
-                            } else {
-                                (0.0, 0.0)
-                            }
+                            (0.0, 0.0)
                         }
                     } else {
                         (0.0, 0.0)
@@ -1408,7 +1400,7 @@ impl AudioGraph {
                             // stretch > 1 = faster playback = clip ends sooner
                             // stretch < 1 = slower playback = clip ends later
                             let effective_duration = if timeline_clip.warp_enabled {
-                                clip_duration / timeline_clip.stretch_factor as f64
+                                clip_duration / f64::from(timeline_clip.stretch_factor)
                             } else {
                                 clip_duration
                             };
@@ -1421,7 +1413,7 @@ impl AudioGraph {
                                 let clip_gain = timeline_clip.get_gain();
 
                                 // Get pitch ratio for transpose (1.0 = no change)
-                                let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
+                                let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
                                 // Determine which audio source to use and calculate frame index
                                 let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
@@ -1429,22 +1421,22 @@ impl AudioGraph {
                                         // Warp mode: use pre-stretched cached audio (pitch preserved)
                                         // Apply pitch ratio to playback rate for transpose
                                         if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                            let frame = (time_in_clip * pitch_ratio * TARGET_SAMPLE_RATE as f64) as usize;
+                                            let frame = (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize;
                                             (frame, stretched.as_ref())
                                         } else {
                                             // Fallback to Re-Pitch if cache not ready
-                                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                                            ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                            let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                                            ((stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
                                         }
                                     } else {
                                         // Re-Pitch mode: sample-rate shift (pitch follows speed)
                                         // Also apply any additional transpose
-                                        let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                                        ((stretched_time * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                        let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                                        ((stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
                                     }
                                 } else {
                                     // No warp - apply pitch ratio for transpose
-                                    ((time_in_clip * pitch_ratio * TARGET_SAMPLE_RATE as f64) as usize, &*timeline_clip.clip)
+                                    ((time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
                                 };
 
                                 if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -1471,7 +1463,7 @@ impl AudioGraph {
 
                             for timeline_midi_clip in &track_snap.midi_clips {
                                 if skip_clips { continue; }
-                                let clip_start_samples = (timeline_midi_clip.start_time * TARGET_SAMPLE_RATE as f64) as u64;
+                                let clip_start_samples = (timeline_midi_clip.start_time * f64::from(TARGET_SAMPLE_RATE)) as u64;
                                 let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
                                 // Check if clip is active at this frame
@@ -1497,7 +1489,7 @@ impl AudioGraph {
                                                                     if let Ok(mut effect) = effect_arc.lock() {
                                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                            let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                                            let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
                                                                         }
                                                                     }
                                                                 }
@@ -1519,7 +1511,7 @@ impl AudioGraph {
                                                                     if let Ok(mut effect) = effect_arc.lock() {
                                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                            let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                                            let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
                                                                         }
                                                                     }
                                                                 }
@@ -1546,7 +1538,7 @@ impl AudioGraph {
                             let target = if should_monitor { 1.0f64 } else { 0.0f64 };
 
                             if track_snap.monitoring_fade_gain != target {
-                                let step = 1.0 / (0.020 * TARGET_SAMPLE_RATE as f64);
+                                let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
                                 if target > track_snap.monitoring_fade_gain {
                                     track_snap.monitoring_fade_gain = (track_snap.monitoring_fade_gain + step).min(1.0);
                                 } else {
@@ -1587,11 +1579,11 @@ impl AudioGraph {
                         // Apply track volume AFTER FX chain (from snapshot)
                         // This ensures VST3 instrument output is also affected by the fader
                         // Use automation curve if available, otherwise static volume_gain
-                        let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
+                        let frame_volume_gain = if track_snap.volume_automation.is_empty() {
+                            track_snap.volume_gain
+                        } else {
                             // Interpolate volume from automation curve
                             interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
-                        } else {
-                            track_snap.volume_gain
                         };
                         fx_left *= frame_volume_gain;
                         fx_right *= frame_volume_gain;
@@ -1738,7 +1730,7 @@ impl AudioGraph {
                 playhead_samples.fetch_add(frames as u64, Ordering::SeqCst);
             },
             move |err| {
-                eprintln!("Audio stream error: {}", err);
+                eprintln!("Audio stream error: {err}");
             },
             None,
         )?;
@@ -1775,10 +1767,10 @@ impl AudioGraph {
     // M5: SAVE & LOAD PROJECT
     // ========================================================================
 
-    /// Export current state to ProjectData (for saving) - native only (uses recorder)
+    /// Export current state to `ProjectData` (for saving) - native only (uses recorder)
     #[cfg(not(target_arch = "wasm32"))]
     pub fn export_to_project_data(&self, project_name: String) -> crate::project::ProjectData {
-        use crate::project::*;
+        use crate::project::{TrackData, EffectData, ClipData, SendData, Vst3PluginData, AudioFileData, ProjectData};
         use crate::effects::EffectType as ET;
         use std::collections::HashMap;
         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
@@ -1884,7 +1876,7 @@ impl AudioGraph {
                     timeline_clip.clip.sample_rate
                 );
                 let duration_seconds = timeline_clip.clip.duration_samples as f64
-                    / timeline_clip.clip.sample_rate as f64;
+                    / f64::from(timeline_clip.clip.sample_rate);
 
                 ClipData {
                     id: timeline_clip.id,
@@ -1898,7 +1890,7 @@ impl AudioGraph {
 
             // Combine audio and MIDI clips
             let clips_data: Vec<ClipData> = audio_clips_data.into_iter()
-                .chain(midi_clips_data.into_iter())
+                .chain(midi_clips_data)
                 .collect();
 
             // Get track type string
@@ -1971,9 +1963,7 @@ impl AudioGraph {
             track.audio_clips.iter().map(|timeline_clip| {
                 // Extract just the filename from the path for cleaner storage
                 let filename = std::path::Path::new(&timeline_clip.clip.file_path)
-                    .file_name()
-                    .map(|f| f.to_string_lossy().to_string())
-                    .unwrap_or_else(|| timeline_clip.clip.file_path.clone());
+                    .file_name().map_or_else(|| timeline_clip.clip.file_path.clone(), |f| f.to_string_lossy().to_string());
                 AudioFileData {
                     id: timeline_clip.id,
                     original_name: filename.clone(),
@@ -2014,10 +2004,10 @@ impl AudioGraph {
         }
     }
 
-    /// Restore state from ProjectData (for loading) - native only (uses recorder)
+    /// Restore state from `ProjectData` (for loading) - native only (uses recorder)
     #[cfg(not(target_arch = "wasm32"))]
     pub fn restore_from_project_data(&mut self, project_data: crate::project::ProjectData) -> anyhow::Result<()> {
-        use crate::effects::*;
+        use crate::effects::{Effect, ParametricEQ, EffectType, Compressor, Reverb, Delay, Chorus, Limiter};
         use crate::track::TrackType;
 
         // Stop playback
@@ -2065,9 +2055,9 @@ impl AudioGraph {
             _ => BufferSizePreset::HighStability,
         };
         if let Err(e) = self.set_buffer_size(buffer_preset) {
-            eprintln!("⚠️  Failed to restore buffer size: {}", e);
+            eprintln!("⚠️  Failed to restore buffer size: {e}");
         } else {
-            eprintln!("   - Buffer size: {:?}", buffer_preset);
+            eprintln!("   - Buffer size: {buffer_preset:?}");
         }
 
         // Recreate tracks and effects
@@ -2227,7 +2217,7 @@ impl AudioGraph {
                     eprintln!("   - Restoring VST3 plugin: {} from {}", vst3_data.plugin_name, vst3_data.plugin_path);
 
                     // Load the VST3 plugin
-                    let sample_rate = TARGET_SAMPLE_RATE as f64;
+                    let sample_rate = f64::from(TARGET_SAMPLE_RATE);
                     let block_size = 512; // TODO: Get from config
 
                     match VST3Effect::new(&vst3_data.plugin_path, sample_rate, block_size) {
@@ -2342,16 +2332,16 @@ impl AudioGraph {
     /// Returns interleaved stereo audio (L, R, L, R, ...)
     pub fn render_offline(&self, duration_seconds: f64) -> Vec<f32> {
         let sample_rate = TARGET_SAMPLE_RATE;
-        let total_frames = (duration_seconds * sample_rate as f64) as usize;
+        let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
         let mut output = Vec::with_capacity(total_frames * 2); // stereo interleaved
 
-        eprintln!("🎵 [AudioGraph] Starting offline render: {:.2}s ({} frames)", duration_seconds, total_frames);
+        eprintln!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
 
         // Get tempo for timeline positioning
         // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
         let current_tempo = self.recorder.get_tempo();
         let tempo_ratio = current_tempo / 120.0;
-        eprintln!("🎵 [AudioGraph] Using tempo {} BPM (ratio: {:.3})", current_tempo, tempo_ratio);
+        eprintln!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
 
         // Create track snapshots (same as real-time rendering)
         struct TrackSnapshot {
@@ -2405,7 +2395,7 @@ impl AudioGraph {
         // Process each frame
         for frame_idx in 0..total_frames {
             // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
-            let real_seconds = frame_idx as f64 / sample_rate as f64;
+            let real_seconds = frame_idx as f64 / f64::from(sample_rate);
             let playhead_seconds = real_seconds * tempo_ratio;
 
             let mut mix_left = 0.0f32;
@@ -2432,7 +2422,7 @@ impl AudioGraph {
                     // stretch > 1 = faster playback = clip ends sooner
                     // stretch < 1 = slower playback = clip ends later
                     let effective_duration = if timeline_clip.warp_enabled {
-                        clip_duration / timeline_clip.stretch_factor as f64
+                        clip_duration / f64::from(timeline_clip.stretch_factor)
                     } else {
                         clip_duration
                     };
@@ -2443,7 +2433,7 @@ impl AudioGraph {
                     {
                         let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                         let clip_gain = timeline_clip.get_gain();
-                        let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
+                        let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
                         // Determine which audio source to use and calculate frame index
                         let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
@@ -2451,22 +2441,22 @@ impl AudioGraph {
                                 // Warp mode: use pre-stretched cached audio (pitch preserved)
                                 // Apply pitch ratio for transpose
                                 if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                    let frame = (time_in_clip * pitch_ratio * sample_rate as f64) as usize;
+                                    let frame = (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize;
                                     (frame, stretched.as_ref())
                                 } else {
                                     // Fallback to Re-Pitch if cache not ready
-                                    let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                                    ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                                    let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                                    ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                                 }
                             } else {
                                 // Re-Pitch mode: sample-rate shift (pitch follows speed)
                                 // Also apply any additional transpose
-                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                                ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                                let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                                ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                             }
                         } else {
                             // No warp - apply pitch ratio for transpose
-                            ((time_in_clip * pitch_ratio * sample_rate as f64) as usize, &*timeline_clip.clip)
+                            ((time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                         };
 
                         if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -2488,7 +2478,7 @@ impl AudioGraph {
                 // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
                 let has_vst3 = !track_snap.fx_chain.is_empty();
                 for timeline_midi_clip in &track_snap.midi_clips {
-                    let clip_start_samples = (timeline_midi_clip.start_time * sample_rate as f64) as u64;
+                    let clip_start_samples = (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
                     let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
                     // Check if clip is active at this frame
@@ -2515,7 +2505,7 @@ impl AudioGraph {
                                                         if let Ok(mut effect) = effect_arc.lock() {
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                                let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
                                                             }
                                                         }
                                                     }
@@ -2538,7 +2528,7 @@ impl AudioGraph {
                                                         if let Ok(mut effect) = effect_arc.lock() {
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                                let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
                                                             }
                                                         }
                                                     }
@@ -2560,10 +2550,10 @@ impl AudioGraph {
                 }
 
                 // Apply track volume (use automation if available)
-                let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
-                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
-                } else {
+                let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                     track_snap.volume_gain
+                } else {
+                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
                 };
                 track_left *= frame_volume_gain;
                 track_right *= frame_volume_gain;
@@ -2636,7 +2626,7 @@ impl AudioGraph {
             // Progress logging every 10%
             if frame_idx % (total_frames / 10).max(1) == 0 {
                 let progress = (frame_idx as f64 / total_frames as f64 * 100.0) as i32;
-                eprintln!("   {}% complete...", progress);
+                eprintln!("   {progress}% complete...");
             }
         }
 
@@ -2649,12 +2639,11 @@ impl AudioGraph {
     /// This renders the track in isolation without master bus processing
     pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
         let sample_rate = TARGET_SAMPLE_RATE;
-        let total_frames = (duration_seconds * sample_rate as f64) as usize;
+        let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
         let mut output = Vec::with_capacity(total_frames * 2);
 
         eprintln!(
-            "🎚️ [AudioGraph] Starting track {} offline render: {:.2}s ({} frames)",
-            track_id, duration_seconds, total_frames
+            "🎚️ [AudioGraph] Starting track {track_id} offline render: {duration_seconds:.2}s ({total_frames} frames)"
         );
 
         // Get tempo for timeline positioning
@@ -2697,14 +2686,14 @@ impl AudioGraph {
         };
 
         let Some(track_snap) = track_snapshot else {
-            eprintln!("❌ [AudioGraph] Track {} not found for stem export", track_id);
+            eprintln!("❌ [AudioGraph] Track {track_id} not found for stem export");
             return output;
         };
 
         // Process each frame
         for frame_idx in 0..total_frames {
             // Apply tempo ratio: at 120 BPM, playhead advances 1:1 with real time
-            let real_seconds = frame_idx as f64 / sample_rate as f64;
+            let real_seconds = frame_idx as f64 / f64::from(sample_rate);
             let playhead_seconds = real_seconds * tempo_ratio;
 
             let mut track_left = 0.0f32;
@@ -2719,7 +2708,7 @@ impl AudioGraph {
                 // stretch > 1 = faster playback = clip ends sooner
                 // stretch < 1 = slower playback = clip ends later
                 let effective_duration = if timeline_clip.warp_enabled {
-                    clip_duration / timeline_clip.stretch_factor as f64
+                    clip_duration / f64::from(timeline_clip.stretch_factor)
                 } else {
                     clip_duration
                 };
@@ -2729,7 +2718,7 @@ impl AudioGraph {
                     let time_in_clip =
                         playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                     let clip_gain = timeline_clip.get_gain();
-                    let pitch_ratio = timeline_clip.get_pitch_ratio() as f64;
+                    let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
                     // Determine which audio source to use and calculate frame index
                     let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
@@ -2737,22 +2726,22 @@ impl AudioGraph {
                             // Warp mode: use pre-stretched cached audio (pitch preserved)
                             // Apply pitch ratio for transpose
                             if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                let frame = (time_in_clip * pitch_ratio * sample_rate as f64) as usize;
+                                let frame = (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize;
                                 (frame, stretched.as_ref())
                             } else {
                                 // Fallback to Re-Pitch if cache not ready
-                                let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                                ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                                let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                                ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                             }
                         } else {
                             // Re-Pitch mode: sample-rate shift (pitch follows speed)
                             // Also apply any additional transpose
-                            let stretched_time = time_in_clip * timeline_clip.stretch_factor as f64 * pitch_ratio;
-                            ((stretched_time * sample_rate as f64) as usize, &*timeline_clip.clip)
+                            let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                            ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                         }
                     } else {
                         // No warp - apply pitch ratio for transpose
-                        ((time_in_clip * pitch_ratio * sample_rate as f64) as usize, &*timeline_clip.clip)
+                        ((time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
                     };
 
                     if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -2774,7 +2763,7 @@ impl AudioGraph {
             // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
             let has_vst3 = !track_snap.fx_chain.is_empty();
             for timeline_midi_clip in &track_snap.midi_clips {
-                let clip_start_samples = (timeline_midi_clip.start_time * sample_rate as f64) as u64;
+                let clip_start_samples = (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
                 let clip_end_samples =
                     clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
@@ -2800,7 +2789,7 @@ impl AudioGraph {
                                                     if let Ok(mut effect) = effect_arc.lock() {
                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                            let _ = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0);
+                                                            let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
                                                         }
                                                     }
                                                 }
@@ -2823,7 +2812,7 @@ impl AudioGraph {
                                                     if let Ok(mut effect) = effect_arc.lock() {
                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                            let _ = vst3.process_midi_event(1, 0, note as i32, 0, 0);
+                                                            let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
                                                         }
                                                     }
                                                 }
@@ -2845,10 +2834,10 @@ impl AudioGraph {
             }
 
             // Apply track volume (use automation if available)
-            let frame_volume_gain = if !track_snap.volume_automation.is_empty() {
-                interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
-            } else {
+            let frame_volume_gain = if track_snap.volume_automation.is_empty() {
                 track_snap.volume_gain
+            } else {
+                interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
             };
             track_left *= frame_volume_gain;
             track_right *= frame_volume_gain;
@@ -2880,7 +2869,7 @@ impl AudioGraph {
             // Progress logging every 25%
             if frame_idx % (total_frames / 4).max(1) == 0 && frame_idx > 0 {
                 let progress = (frame_idx as f64 / total_frames as f64 * 100.0) as i32;
-                eprintln!("   Track {} - {}% complete...", track_id, progress);
+                eprintln!("   Track {track_id} - {progress}% complete...");
             }
         }
 
@@ -2954,7 +2943,7 @@ impl AudioGraph {
     // --- Audio Device Management --- (native only)
 
     /// Get list of available audio output devices - native only
-    /// Returns: Vec of (id, name, is_default)
+    /// Returns: Vec of (id, name, `is_default`)
     /// When ASIO feature is enabled, ASIO devices are listed first with [ASIO] prefix
     #[cfg(not(target_arch = "wasm32"))]
     pub fn get_output_devices() -> Vec<(String, String, bool)> {
@@ -2990,7 +2979,7 @@ impl AudioGraph {
 
         let default_name = host.default_output_device()
             .and_then(|d| d.name().ok());
-        eprintln!("🔊 [AudioGraph] Default output device: {:?}", default_name);
+        eprintln!("🔊 [AudioGraph] Default output device: {default_name:?}");
 
         match host.output_devices() {
             Ok(devices) => {
@@ -3005,7 +2994,7 @@ impl AudioGraph {
                 all_devices.extend(standard_devices);
             }
             Err(e) => {
-                eprintln!("❌ [AudioGraph] Failed to enumerate output devices: {}", e);
+                eprintln!("❌ [AudioGraph] Failed to enumerate output devices: {e}");
             }
         }
 
@@ -3014,7 +3003,7 @@ impl AudioGraph {
     }
 
     /// Get list of available audio input devices - native only
-    /// Returns: Vec of (id, name, is_default)
+    /// Returns: Vec of (id, name, `is_default`)
     #[cfg(not(target_arch = "wasm32"))]
     pub fn get_input_devices() -> Vec<(String, String, bool)> {
         let host = cpal::default_host();
@@ -3031,7 +3020,7 @@ impl AudioGraph {
                 }).collect()
             }
             Err(e) => {
-                eprintln!("❌ [AudioGraph] Failed to enumerate input devices: {}", e);
+                eprintln!("❌ [AudioGraph] Failed to enumerate input devices: {e}");
                 Vec::new()
             }
         }
@@ -3048,7 +3037,7 @@ impl AudioGraph {
     pub fn set_output_device(&mut self, device_name: Option<String>) -> anyhow::Result<()> {
         let device_name = device_name.filter(|s| !s.is_empty());
 
-        eprintln!("🔊 [AudioGraph] Setting output device to: {:?}", device_name);
+        eprintln!("🔊 [AudioGraph] Setting output device to: {device_name:?}");
 
         // Update selected device
         {
@@ -3060,7 +3049,7 @@ impl AudioGraph {
         self.restart_audio_stream()?;
 
         if let Some(ref name) = device_name {
-            eprintln!("✅ [AudioGraph] Output device changed to: {}", name);
+            eprintln!("✅ [AudioGraph] Output device changed to: {name}");
         } else {
             eprintln!("✅ [AudioGraph] Output device changed to system default");
         }
@@ -3080,7 +3069,7 @@ impl AudioGraph {
 // MIDI SERIALIZATION HELPERS
 // ============================================================================
 
-/// Convert MIDI events (NoteOn/NoteOff pairs) to MidiNoteData for serialization
+/// Convert MIDI events (NoteOn/NoteOff pairs) to `MidiNoteData` for serialization
 fn convert_midi_events_to_notes(
     events: &[crate::midi::MidiEvent],
     sample_rate: u32,
@@ -3094,7 +3083,7 @@ fn convert_midi_events_to_notes(
     let mut notes = Vec::new();
 
     for event in events {
-        let time_seconds = event.timestamp_samples as f64 / sample_rate as f64;
+        let time_seconds = event.timestamp_samples as f64 / f64::from(sample_rate);
         match event.event_type {
             MidiEventType::NoteOn { note, velocity } if velocity > 0 => {
                 active_notes.insert(note, (time_seconds, velocity));
@@ -3129,7 +3118,7 @@ fn convert_midi_events_to_notes(
     notes
 }
 
-/// Reconstruct MidiClip from serialized MidiNoteData
+/// Reconstruct `MidiClip` from serialized `MidiNoteData`
 fn reconstruct_midi_clip_from_notes(
     notes: &[crate::project::MidiNoteData],
     sample_rate: u32,
@@ -3140,8 +3129,8 @@ fn reconstruct_midi_clip_from_notes(
     let mut events = Vec::new();
 
     for note in notes {
-        let start_samples = (note.start_time * sample_rate as f64) as u64;
-        let end_samples = ((note.start_time + note.duration) * sample_rate as f64) as u64;
+        let start_samples = (note.start_time * f64::from(sample_rate)) as u64;
+        let end_samples = ((note.start_time + note.duration) * f64::from(sample_rate)) as u64;
 
         events.push(MidiEvent::new(
             MidiEventType::NoteOn { note: note.note, velocity: note.velocity },
@@ -3158,11 +3147,11 @@ fn reconstruct_midi_clip_from_notes(
 
     // Use saved duration if available, otherwise calculate from notes
     let duration_samples = if let Some(dur) = saved_duration {
-        (dur * sample_rate as f64) as u64
+        (dur * f64::from(sample_rate)) as u64
     } else {
         // Calculate duration as the end of the last note
         notes.iter()
-            .map(|n| ((n.start_time + n.duration) * sample_rate as f64) as u64)
+            .map(|n| ((n.start_time + n.duration) * f64::from(sample_rate)) as u64)
             .max()
             .unwrap_or(0)
     };
@@ -3183,7 +3172,7 @@ mod tests {
     use crate::audio_file::AudioClip;
 
     fn create_test_clip(duration: f64) -> AudioClip {
-        let frames = (duration * TARGET_SAMPLE_RATE as f64) as usize;
+        let frames = (duration * f64::from(TARGET_SAMPLE_RATE)) as usize;
         let samples = vec![0.1; frames * 2]; // Stereo
         AudioClip {
             samples,

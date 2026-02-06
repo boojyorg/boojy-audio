@@ -9,73 +9,64 @@ use super::helpers::{get_audio_graph, with_graph, AUDIO_GRAPH};
 // TRANSPORT CONTROL
 // ============================================================================
 
-/// Start playback (non-blocking: uses try_lock to avoid UI freeze)
+/// Start playback (non-blocking: uses `try_lock` to avoid UI freeze)
 pub fn transport_play() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
 
-    match graph_mutex.try_lock() {
-        Ok(mut graph) => {
-            graph.play().map_err(|e| e.to_string())?;
-            Ok("Playing".to_string())
-        }
-        Err(_) => {
-            eprintln!("⚠️ [API] transport_play: lock busy, spawning thread");
-            std::thread::spawn(|| {
-                if let Some(m) = AUDIO_GRAPH.get() {
-                    if let Ok(mut g) = m.lock() {
-                        let _ = g.play();
-                        eprintln!("✅ [API] transport_play: completed in background thread");
-                    }
+    if let Ok(mut graph) = graph_mutex.try_lock() {
+        graph.play().map_err(|e| e.to_string())?;
+        Ok("Playing".to_string())
+    } else {
+        eprintln!("⚠️ [API] transport_play: lock busy, spawning thread");
+        std::thread::spawn(|| {
+            if let Some(m) = AUDIO_GRAPH.get() {
+                if let Ok(mut g) = m.lock() {
+                    let _ = g.play();
+                    eprintln!("✅ [API] transport_play: completed in background thread");
                 }
-            });
-            Ok("Play queued".to_string())
-        }
+            }
+        });
+        Ok("Play queued".to_string())
     }
 }
 
-/// Pause playback (non-blocking: uses try_lock to avoid UI freeze)
+/// Pause playback (non-blocking: uses `try_lock` to avoid UI freeze)
 pub fn transport_pause() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
 
-    match graph_mutex.try_lock() {
-        Ok(mut graph) => {
-            graph.pause().map_err(|e| e.to_string())?;
-            Ok("Paused".to_string())
-        }
-        Err(_) => {
-            eprintln!("⚠️ [API] transport_pause: lock busy, spawning thread");
-            std::thread::spawn(|| {
-                if let Some(m) = AUDIO_GRAPH.get() {
-                    if let Ok(mut g) = m.lock() {
-                        let _ = g.pause();
-                    }
+    if let Ok(mut graph) = graph_mutex.try_lock() {
+        graph.pause().map_err(|e| e.to_string())?;
+        Ok("Paused".to_string())
+    } else {
+        eprintln!("⚠️ [API] transport_pause: lock busy, spawning thread");
+        std::thread::spawn(|| {
+            if let Some(m) = AUDIO_GRAPH.get() {
+                if let Ok(mut g) = m.lock() {
+                    let _ = g.pause();
                 }
-            });
-            Ok("Pause queued".to_string())
-        }
+            }
+        });
+        Ok("Pause queued".to_string())
     }
 }
 
-/// Stop playback and reset to start (non-blocking: uses try_lock to avoid UI freeze)
+/// Stop playback and reset to start (non-blocking: uses `try_lock` to avoid UI freeze)
 pub fn transport_stop() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
 
-    match graph_mutex.try_lock() {
-        Ok(mut graph) => {
-            graph.stop().map_err(|e| e.to_string())?;
-            Ok("Stopped".to_string())
-        }
-        Err(_) => {
-            eprintln!("⚠️ [API] transport_stop: lock busy, spawning thread");
-            std::thread::spawn(|| {
-                if let Some(m) = AUDIO_GRAPH.get() {
-                    if let Ok(mut g) = m.lock() {
-                        let _ = g.stop();
-                    }
+    if let Ok(mut graph) = graph_mutex.try_lock() {
+        graph.stop().map_err(|e| e.to_string())?;
+        Ok("Stopped".to_string())
+    } else {
+        eprintln!("⚠️ [API] transport_stop: lock busy, spawning thread");
+        std::thread::spawn(|| {
+            if let Some(m) = AUDIO_GRAPH.get() {
+                if let Ok(mut g) = m.lock() {
+                    let _ = g.stop();
                 }
-            });
-            Ok("Stop queued".to_string())
-        }
+            }
+        });
+        Ok("Stop queued".to_string())
     }
 }
 
@@ -83,7 +74,7 @@ pub fn transport_stop() -> Result<String, String> {
 pub fn transport_seek(position_seconds: f64) -> Result<String, String> {
     with_graph(|graph| {
         graph.seek(position_seconds);
-        Ok(format!("Seeked to {:.2}s", position_seconds))
+        Ok(format!("Seeked to {position_seconds:.2}s"))
     })
 }
 
@@ -113,7 +104,7 @@ pub fn get_play_start_position() -> Result<f64, String> {
 pub fn set_play_start_position(position_seconds: f64) -> Result<String, String> {
     with_graph(|graph| {
         graph.set_play_start_position(position_seconds);
-        Ok(format!("Play start position set to {:.2}s", position_seconds))
+        Ok(format!("Play start position set to {position_seconds:.2}s"))
     })
 }
 
@@ -126,6 +117,6 @@ pub fn get_record_start_position() -> Result<f64, String> {
 pub fn set_record_start_position(position_seconds: f64) -> Result<String, String> {
     with_graph(|graph| {
         graph.set_record_start_position(position_seconds);
-        Ok(format!("Record start position set to {:.2}s", position_seconds))
+        Ok(format!("Record start position set to {position_seconds:.2}s"))
     })
 }

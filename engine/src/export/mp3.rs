@@ -23,7 +23,7 @@ pub fn is_ffmpeg_available() -> bool {
 /// Export audio samples to MP3 file
 ///
 /// # Arguments
-/// * `samples` - Stereo interleaved f32 samples from render_offline
+/// * `samples` - Stereo interleaved f32 samples from `render_offline`
 /// * `output_path` - Path to output MP3 file
 /// * `options` - Export options (bitrate, sample rate, normalize)
 ///
@@ -34,7 +34,7 @@ pub fn export_mp3(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎵 [MP3 Export] Starting export to {:?}", output_path);
+    eprintln!("🎵 [MP3 Export] Starting export to {output_path:?}");
 
     // Check ffmpeg availability
     if !is_ffmpeg_available() {
@@ -79,7 +79,7 @@ pub fn export_mp3(
 
     // Calculate duration
     let num_frames = processed.len() / 2;
-    let duration = num_frames as f64 / options.sample_rate as f64;
+    let duration = num_frames as f64 / f64::from(options.sample_rate);
 
     // Encode to MP3 using ffmpeg
     encode_mp3_ffmpeg(&processed, output_path, options.sample_rate, bitrate)?;
@@ -154,23 +154,23 @@ fn encode_mp3_ffmpeg(
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+        .map_err(|e| format!("Failed to spawn ffmpeg: {e}"))?;
 
     // Write PCM data to ffmpeg's stdin
     if let Some(ref mut stdin) = child.stdin {
         stdin
             .write_all(&pcm_bytes)
-            .map_err(|e| format!("Failed to write to ffmpeg: {}", e))?;
+            .map_err(|e| format!("Failed to write to ffmpeg: {e}"))?;
     }
 
     // Wait for ffmpeg to finish
     let output = child
         .wait_with_output()
-        .map_err(|e| format!("Failed to wait for ffmpeg: {}", e))?;
+        .map_err(|e| format!("Failed to wait for ffmpeg: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("ffmpeg encoding failed: {}", stderr));
+        return Err(format!("ffmpeg encoding failed: {stderr}"));
     }
 
     eprintln!("✅ [MP3 Encode] ffmpeg encoding complete");

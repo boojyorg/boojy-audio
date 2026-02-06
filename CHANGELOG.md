@@ -4,6 +4,20 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **CI pipeline**: Add GitHub Actions workflow (`ci.yml`) with Flutter analyze, dart format, flutter test, and Rust clippy/test on every push and PR
+- **Comprehensive command test coverage**: Add 76 new tests across effect, mixer, track, and project commands with shared MockAudioEngine test infrastructure
+- **Remove dead aliases from DAW screen**: Remove ~112 lines of backward-compatibility aliases left from the mixin migration in `daw_screen.dart`
+- **Extract UI constants**: Centralize magic numbers (clip heights, zoom limits, gesture thresholds, etc.) into `UIConstants` class, referenced from timeline, piano roll, and mixer strip
+- **Rust clippy auto-fixes**: Fix ~650 clippy warnings (format strings, doc backticks, infallible casts)
+
+### Known Issues
+
+- Project restore after crash can cause deleted audio tracks to reappear and existing tracks to be lost
+- Delay between renaming a track and the visual update propagating (e.g., mixer strip color update lags behind clip color change)
+- Audio sliced with the slice tool in Audio Editor still plays back even though sliced parts don't appear in arrangement view
+
 ## v0.1.5 - 2026-02-04
 
 ### Bug Fixes

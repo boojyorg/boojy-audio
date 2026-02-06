@@ -13,7 +13,7 @@
 /// The gain applied (linear scale)
 pub fn normalize_peak(samples: &mut [f32], target_db: f32) -> f32 {
     // Find peak amplitude
-    let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     if peak <= 0.0 {
         eprintln!("⚠️ [Normalize] No audio content (peak = 0)");
@@ -54,7 +54,7 @@ pub fn calculate_rms(samples: &[f32]) -> f32 {
         return 0.0;
     }
 
-    let sum_squares: f64 = samples.iter().map(|&s| (s as f64) * (s as f64)).sum();
+    let sum_squares: f64 = samples.iter().map(|&s| f64::from(s) * f64::from(s)).sum();
     (sum_squares / samples.len() as f64).sqrt() as f32
 }
 
@@ -80,8 +80,8 @@ pub fn calculate_lufs(samples: &[f32], sample_rate: u32) -> f64 {
     let mut right: Vec<f64> = Vec::with_capacity(num_frames);
 
     for i in 0..num_frames {
-        left.push(samples[i * 2] as f64);
-        right.push(samples[i * 2 + 1] as f64);
+        left.push(f64::from(samples[i * 2]));
+        right.push(f64::from(samples[i * 2 + 1]));
     }
 
     // Apply K-weighting filter (simplified: just high-shelf boost)
@@ -150,7 +150,7 @@ pub fn normalize_lufs(samples: &mut [f32], sample_rate: u32, target_lufs: f64) -
     let current_lufs = calculate_lufs(samples, sample_rate);
 
     if current_lufs < -60.0 {
-        eprintln!("⚠️ [LUFS] Audio too quiet to measure ({:.1} LUFS)", current_lufs);
+        eprintln!("⚠️ [LUFS] Audio too quiet to measure ({current_lufs:.1} LUFS)");
         return 0.0;
     }
 
@@ -158,8 +158,7 @@ pub fn normalize_lufs(samples: &mut [f32], sample_rate: u32, target_lufs: f64) -
     let gain_linear = 10.0f64.powf(gain_db / 20.0) as f32;
 
     eprintln!(
-        "📊 [LUFS] Current: {:.1} LUFS, Target: {:.1} LUFS, Gain: {:.1} dB",
-        current_lufs, target_lufs, gain_db
+        "📊 [LUFS] Current: {current_lufs:.1} LUFS, Target: {target_lufs:.1} LUFS, Gain: {gain_db:.1} dB"
     );
 
     // Apply gain
@@ -168,12 +167,11 @@ pub fn normalize_lufs(samples: &mut [f32], sample_rate: u32, target_lufs: f64) -
     }
 
     // Check for clipping and apply limiter if needed
-    let peak_after: f32 = samples.iter().map(|s| s.abs()).fold(0.0f32, |a, b| a.max(b));
+    let peak_after: f32 = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     if peak_after > 1.0 {
         eprintln!(
-            "⚠️ [LUFS] Clipping detected (peak {:.2}), applying limiter",
-            peak_after
+            "⚠️ [LUFS] Clipping detected (peak {peak_after:.2}), applying limiter"
         );
 
         // Simple soft-clipping limiter

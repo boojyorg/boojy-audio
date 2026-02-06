@@ -33,8 +33,8 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
     let mut right = Vec::with_capacity(num_frames);
 
     for i in 0..num_frames {
-        left.push(samples[i * 2] as f64);
-        right.push(samples[i * 2 + 1] as f64);
+        left.push(f64::from(samples[i * 2]));
+        right.push(f64::from(samples[i * 2 + 1]));
     }
 
     // Create resampler
@@ -46,10 +46,10 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
         chunk_size,
         2, // stereo
     )
-    .map_err(|e| format!("Failed to create resampler: {}", e))?;
+    .map_err(|e| format!("Failed to create resampler: {e}"))?;
 
     // Calculate output size
-    let output_frames = ((num_frames as f64 * to_rate as f64) / from_rate as f64).ceil() as usize;
+    let output_frames = ((num_frames as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
     let mut output_left = Vec::with_capacity(output_frames);
     let mut output_right = Vec::with_capacity(output_frames);
 
@@ -65,7 +65,7 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
 
         let output_chunk = resampler
             .process(&input_chunk, None)
-            .map_err(|e| format!("Resampling error: {}", e))?;
+            .map_err(|e| format!("Resampling error: {e}"))?;
 
         output_left.extend_from_slice(&output_chunk[0]);
         output_right.extend_from_slice(&output_chunk[1]);
@@ -87,10 +87,10 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
 
         let output_chunk = resampler
             .process(&input_chunk, None)
-            .map_err(|e| format!("Resampling error: {}", e))?;
+            .map_err(|e| format!("Resampling error: {e}"))?;
 
         // Only take the samples we need (proportional to remaining input)
-        let output_needed = ((remaining as f64 * to_rate as f64) / from_rate as f64).ceil() as usize;
+        let output_needed = ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
         let take_count = output_needed.min(output_chunk[0].len());
 
         output_left.extend_from_slice(&output_chunk[0][..take_count]);
@@ -131,7 +131,7 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
     }
 
     // Convert to f64 for rubato
-    let input: Vec<f64> = samples.iter().map(|&s| s as f64).collect();
+    let input: Vec<f64> = samples.iter().map(|&s| f64::from(s)).collect();
 
     // Create resampler
     let chunk_size = 1024;
@@ -141,10 +141,10 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
         chunk_size,
         1, // mono
     )
-    .map_err(|e| format!("Failed to create resampler: {}", e))?;
+    .map_err(|e| format!("Failed to create resampler: {e}"))?;
 
     // Calculate output size
-    let output_frames = ((samples.len() as f64 * to_rate as f64) / from_rate as f64).ceil() as usize;
+    let output_frames = ((samples.len() as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
     let mut output = Vec::with_capacity(output_frames);
 
     // Process in chunks
@@ -156,7 +156,7 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
 
         let output_chunk = resampler
             .process(&input_chunk, None)
-            .map_err(|e| format!("Resampling error: {}", e))?;
+            .map_err(|e| format!("Resampling error: {e}"))?;
 
         output.extend(output_chunk[0].iter().map(|&s| s as f32));
 
@@ -173,10 +173,10 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
 
         let output_chunk = resampler
             .process(&input_chunk, None)
-            .map_err(|e| format!("Resampling error: {}", e))?;
+            .map_err(|e| format!("Resampling error: {e}"))?;
 
         // Only take the samples we need
-        let output_needed = ((remaining as f64 * to_rate as f64) / from_rate as f64).ceil() as usize;
+        let output_needed = ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
         let take_count = output_needed.min(output_chunk[0].len());
 
         output.extend(output_chunk[0][..take_count].iter().map(|&s| s as f32));
@@ -279,9 +279,7 @@ mod tests {
         // Allow 1% tolerance due to chunk processing
         assert!(
             (actual_frames as i64 - expected_frames as i64).abs() < (expected_frames as i64 / 100),
-            "Expected ~{} frames, got {}",
-            expected_frames,
-            actual_frames
+            "Expected ~{expected_frames} frames, got {actual_frames}"
         );
     }
 }

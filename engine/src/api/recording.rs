@@ -38,7 +38,7 @@ pub fn set_audio_input_device(device_index: i32) -> Result<String, String> {
     let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
     input_manager.select_device(device_index as usize).map_err(|e| e.to_string())?;
 
-    Ok(format!("Selected input device {}", device_index))
+    Ok(format!("Selected input device {device_index}"))
 }
 
 /// Get list of available audio output devices
@@ -98,7 +98,7 @@ pub fn get_input_channel_count() -> Result<u32, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
-    Ok(input_manager.get_input_channels() as u32)
+    Ok(u32::from(input_manager.get_input_channels()))
 }
 
 // ============================================================================
@@ -149,7 +149,7 @@ pub fn start_recording() -> Result<String, String> {
     let tempo = graph.recorder.get_tempo();
     let time_sig = graph.recorder.get_time_signature();
     let count_in_seconds = if count_in_bars > 0 {
-        (count_in_bars as f64) * (time_sig as f64) * 60.0 / tempo
+        f64::from(count_in_bars) * f64::from(time_sig) * 60.0 / tempo
     } else {
         0.0
     };
@@ -163,8 +163,7 @@ pub fn start_recording() -> Result<String, String> {
     // (but not before position 0.0)
     if count_in_seconds > 0.0 {
         let seek_position = (playhead_seconds - count_in_seconds).max(0.0);
-        eprintln!("🔊 [API] Seeking back for count-in: {:.3}s → {:.3}s (count-in: {:.3}s)",
-            playhead_seconds, seek_position, count_in_seconds);
+        eprintln!("🔊 [API] Seeking back for count-in: {playhead_seconds:.3}s → {seek_position:.3}s (count-in: {count_in_seconds:.3}s)");
         graph.seek(seek_position);
     }
 
@@ -182,12 +181,9 @@ pub fn start_recording() -> Result<String, String> {
     // and start_capture() calls stream.play() which may wait for the audio callback.
     eprintln!("🎙️  [API] Attempting to acquire input_manager lock...");
     let audio_input_started = {
-        let mut input_manager = match graph.input_manager.try_lock() {
-            Ok(guard) => guard,
-            Err(_) => {
-                eprintln!("⚠️  [API] Could not acquire input_manager lock, skipping audio input");
-                return Ok(format!("Recording started (MIDI only, input busy): {:?}", state));
-            }
+        let mut input_manager = if let Ok(guard) = graph.input_manager.try_lock() { guard } else {
+            eprintln!("⚠️  [API] Could not acquire input_manager lock, skipping audio input");
+            return Ok(format!("Recording started (MIDI only, input busy): {state:?}"));
         };
 
         // Auto-enumerate and select default device if none selected
@@ -203,7 +199,7 @@ pub fn start_recording() -> Result<String, String> {
                     true
                 }
                 Err(e) => {
-                    eprintln!("⚠️  [API] Audio input capture failed (MIDI recording will still work): {}", e);
+                    eprintln!("⚠️  [API] Audio input capture failed (MIDI recording will still work): {e}");
                     false
                 }
             }
@@ -216,9 +212,9 @@ pub fn start_recording() -> Result<String, String> {
     };
 
     let msg = if audio_input_started {
-        format!("Recording started (audio + MIDI): {:?}", state)
+        format!("Recording started (audio + MIDI): {state:?}")
     } else {
-        format!("Recording started (MIDI only): {:?}", state)
+        format!("Recording started (MIDI only): {state:?}")
     };
     Ok(msg)
 }
@@ -271,7 +267,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
 
         // Place clip at the position where recording started (after count-in)
         let start_position = graph.recorder.get_recording_start_seconds();
-        eprintln!("🎙️ [API] Placing recorded clip at position {:.3}s", start_position);
+        eprintln!("🎙️ [API] Placing recorded clip at position {start_position:.3}s");
 
         let stereo_samples = &clip.samples;
         let duration = clip.duration_seconds;
@@ -310,12 +306,12 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
                 channels: 2,
                 sample_rate: crate::audio_file::TARGET_SAMPLE_RATE,
                 duration_seconds: duration,
-                file_path: format!("recorded_t{}_{}.wav", track_id, timestamp),
+                file_path: format!("recorded_t{track_id}_{timestamp}.wav"),
             };
 
             let track_clip_arc = Arc::new(track_clip);
             let clip_id = graph.add_clip_to_track(*track_id, track_clip_arc.clone(), start_position)
-                .ok_or(format!("Failed to add recorded clip to track {}", track_id))?;
+                .ok_or(format!("Failed to add recorded clip to track {track_id}"))?;
 
             clips_map.insert(clip_id, track_clip_arc);
 
@@ -323,7 +319,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
                 first_clip_id = Some(clip_id);
             }
 
-            eprintln!("✅ [API] Added clip {} to track {} (input ch {})", clip_id, track_id, input_channel);
+            eprintln!("✅ [API] Added clip {clip_id} to track {track_id} (input ch {input_channel})");
         }
 
         let clip_id = first_clip_id.ok_or("Failed to create any clips")?;
@@ -367,7 +363,7 @@ pub fn get_recording_waveform(num_peaks: usize) -> Result<String, String> {
 
     let peaks = graph.recorder.get_recording_waveform(num_peaks);
     let csv = peaks.iter()
-        .map(|p| format!("{:.3}", p))
+        .map(|p| format!("{p:.3}"))
         .collect::<Vec<_>>()
         .join(",");
 
@@ -380,7 +376,7 @@ pub fn set_count_in_bars(bars: u32) -> Result<String, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     graph.recorder.set_count_in_bars(bars);
-    Ok(format!("Count-in set to {} bars", bars))
+    Ok(format!("Count-in set to {bars} bars"))
 }
 
 /// Get count-in duration in bars

@@ -1,13 +1,13 @@
 //! Metadata embedding for audio files
 //!
-//! Supports ID3v2 tags for MP3 files.
+//! Supports `ID3v2` tags for MP3 files.
 
 use super::options::ExportMetadata;
 use id3::{Tag, TagLike, Version};
 use id3::frame::{Picture, PictureType};
 use std::path::Path;
 
-/// Write ID3v2 tags to an MP3 file
+/// Write `ID3v2` tags to an MP3 file
 ///
 /// # Arguments
 /// * `mp3_path` - Path to the MP3 file
@@ -21,34 +21,34 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
         return Ok(());
     }
 
-    eprintln!("🏷️ [Metadata] Writing ID3 tags to {:?}", mp3_path);
+    eprintln!("🏷️ [Metadata] Writing ID3 tags to {mp3_path:?}");
 
     let mut tag = Tag::new();
 
     // Set text frames
     if let Some(ref title) = metadata.title {
         tag.set_title(title);
-        eprintln!("   Title: {}", title);
+        eprintln!("   Title: {title}");
     }
 
     if let Some(ref artist) = metadata.artist {
         tag.set_artist(artist);
-        eprintln!("   Artist: {}", artist);
+        eprintln!("   Artist: {artist}");
     }
 
     if let Some(ref album) = metadata.album {
         tag.set_album(album);
-        eprintln!("   Album: {}", album);
+        eprintln!("   Album: {album}");
     }
 
     if let Some(year) = metadata.year {
         tag.set_year(year as i32);
-        eprintln!("   Year: {}", year);
+        eprintln!("   Year: {year}");
     }
 
     if let Some(ref genre) = metadata.genre {
         tag.set_genre(genre);
-        eprintln!("   Genre: {}", genre);
+        eprintln!("   Genre: {genre}");
     }
 
     if let Some(track_number) = metadata.track_number {
@@ -63,13 +63,13 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
     // BPM (TBPM frame)
     if let Some(bpm) = metadata.bpm {
         tag.add_frame(id3::frame::Frame::text("TBPM", bpm.to_string()));
-        eprintln!("   BPM: {}", bpm);
+        eprintln!("   BPM: {bpm}");
     }
 
     // Key (TKEY frame)
     if let Some(ref key) = metadata.key {
         tag.add_frame(id3::frame::Frame::text("TKEY", key.clone()));
-        eprintln!("   Key: {}", key);
+        eprintln!("   Key: {key}");
     }
 
     // Copyright (TCOP frame)
@@ -106,7 +106,7 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
 
     // Write to file
     tag.write_to_path(mp3_path, Version::Id3v24)
-        .map_err(|e| format!("Failed to write ID3 tags: {}", e))?;
+        .map_err(|e| format!("Failed to write ID3 tags: {e}"))?;
 
     eprintln!("✅ [Metadata] ID3 tags written successfully");
 
@@ -119,18 +119,18 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
 /// * `mp3_path` - Path to the MP3 file
 ///
 /// # Returns
-/// ExportMetadata with read values
+/// `ExportMetadata` with read values
 pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
     let tag = Tag::read_from_path(mp3_path)
-        .map_err(|e| format!("Failed to read ID3 tags: {}", e))?;
+        .map_err(|e| format!("Failed to read ID3 tags: {e}"))?;
 
     let mut metadata = ExportMetadata::default();
 
-    metadata.title = tag.title().map(|s| s.to_string());
-    metadata.artist = tag.artist().map(|s| s.to_string());
-    metadata.album = tag.album().map(|s| s.to_string());
+    metadata.title = tag.title().map(ToString::to_string);
+    metadata.artist = tag.artist().map(ToString::to_string);
+    metadata.album = tag.album().map(ToString::to_string);
     metadata.year = tag.year().map(|y| y as u32);
-    metadata.genre = tag.genre().map(|s| s.to_string());
+    metadata.genre = tag.genre().map(ToString::to_string);
     metadata.track_number = tag.track();
     metadata.track_total = tag.total_tracks();
 
@@ -160,7 +160,7 @@ pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    
 
     #[test]
     fn test_empty_metadata() {

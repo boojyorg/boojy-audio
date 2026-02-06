@@ -144,7 +144,7 @@ impl AudioEngine {
         let config = device.default_output_config()?;
 
         println!("Audio device: {}", device.name()?);
-        println!("Audio config: {:?}", config);
+        println!("Audio config: {config:?}");
 
         // Create stream that outputs silence
         let stream = device.build_output_stream(
@@ -156,7 +156,7 @@ impl AudioEngine {
                 }
             },
             move |err| {
-                eprintln!("Audio stream error: {}", err);
+                eprintln!("Audio stream error: {err}");
             },
             None,
         )?;

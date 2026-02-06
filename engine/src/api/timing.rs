@@ -31,7 +31,7 @@ pub fn set_tempo(bpm: f64) -> Result<String, String> {
     // Adjust playhead to maintain visual position
     graph.set_playhead_samples(adjusted_samples);
 
-    Ok(format!("Tempo set to {:.1} BPM", bpm))
+    Ok(format!("Tempo set to {bpm:.1} BPM"))
 }
 
 /// Get tempo in BPM
@@ -73,7 +73,7 @@ pub fn set_time_signature(beats_per_bar: u32) -> Result<String, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     graph.recorder.set_time_signature(beats_per_bar);
-    Ok(format!("Time signature set to {}/4", beats_per_bar))
+    Ok(format!("Time signature set to {beats_per_bar}/4"))
 }
 
 /// Get time signature (beats per bar)

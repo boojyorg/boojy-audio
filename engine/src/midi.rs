@@ -18,7 +18,7 @@ pub enum MidiEventType {
 /// MIDI event with sample-accurate timestamp
 #[derive(Debug, Clone, Copy)]
 pub struct MidiEvent {
-    /// Event type (NoteOn, NoteOff, etc.)
+    /// Event type (`NoteOn`, `NoteOff`, etc.)
     pub event_type: MidiEventType,
     /// Timestamp in samples (relative to clip start)
     pub timestamp_samples: u64,
@@ -98,12 +98,12 @@ impl MidiClip {
     /// One bar = 4 beats = 2 seconds = 96000 samples at 48kHz
     /// Examples: 3.5 bars -> 4 bars, 3.1 bars -> 4 bars, 3.0 bars -> 3 bars
     pub fn snap_to_bar(samples: u64, sample_rate: u32) -> u64 {
-        let samples_per_bar = (sample_rate as u64) * 2; // 2 seconds per bar at 120 BPM
+        let samples_per_bar = u64::from(sample_rate) * 2; // 2 seconds per bar at 120 BPM
         if samples == 0 {
             return samples_per_bar; // Minimum 1 bar
         }
         // If already on a bar boundary, keep it; otherwise round up
-        if samples % samples_per_bar == 0 {
+        if samples.is_multiple_of(samples_per_bar) {
             samples
         } else {
             ((samples / samples_per_bar) + 1) * samples_per_bar
@@ -127,8 +127,7 @@ impl MidiClip {
         // Calculate duration snapped to bar boundary
         let last_event_samples = events
             .last()
-            .map(|e| e.timestamp_samples)
-            .unwrap_or(0);
+            .map_or(0, |e| e.timestamp_samples);
         let duration_samples = Self::snap_to_bar(last_event_samples, sample_rate);
 
         Self {
@@ -169,7 +168,7 @@ impl MidiClip {
 
     /// Get duration in seconds
     pub fn duration_seconds(&self) -> f64 {
-        self.duration_samples as f64 / self.sample_rate as f64
+        self.duration_samples as f64 / f64::from(self.sample_rate)
     }
 
     /// Quantize all events to the specified grid (in samples)
@@ -199,7 +198,7 @@ impl MidiClip {
     }
 }
 
-/// MIDI note representation for piano roll editing (not to be confused with MidiNote type)
+/// MIDI note representation for piano roll editing (not to be confused with `MidiNote` type)
 #[derive(Debug, Clone, Copy)]
 pub struct Note {
     /// MIDI note number (0-127)
@@ -213,7 +212,7 @@ pub struct Note {
 }
 
 impl Note {
-    /// Convert note to NoteOn and NoteOff events
+    /// Convert note to `NoteOn` and `NoteOff` events
     pub fn to_events(&self) -> (MidiEvent, MidiEvent) {
         let note_on = MidiEvent::note_on(self.pitch, self.velocity, self.start_samples);
         let note_off = MidiEvent::note_off(

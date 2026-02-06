@@ -21,7 +21,7 @@ pub fn get_midi_clip_count() -> Result<usize, String> {
 
 /// Get all MIDI clips info
 /// Returns semicolon-separated list of clip info strings
-/// Each clip: "clip_id,track_id,start_time,duration,note_count"
+/// Each clip: "`clip_id,track_id,start_time,duration,note_count`"
 pub fn get_all_midi_clips_info() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -64,8 +64,8 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
 }
 
 /// Get info about a MIDI clip
-/// Returns: "clip_id,track_id,start_time,duration,note_count"
-/// track_id is -1 if not assigned to a track
+/// Returns: "`clip_id,track_id,start_time,duration,note_count`"
+/// `track_id` is -1 if not assigned to a track
 pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -98,11 +98,11 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
         }
     }
 
-    Err(format!("MIDI clip {} not found", clip_id))
+    Err(format!("MIDI clip {clip_id} not found"))
 }
 
 /// Get MIDI notes from a clip
-/// Returns semicolon-separated list of notes: "note,velocity,start_time,duration"
+/// Returns semicolon-separated list of notes: "`note,velocity,start_time,duration`"
 pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -130,7 +130,7 @@ pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
         }
     }
 
-    Err(format!("MIDI clip {} not found", clip_id))
+    Err(format!("MIDI clip {clip_id} not found"))
 }
 
 /// Helper function to extract notes from a MIDI clip
@@ -148,12 +148,12 @@ fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> St
             }
             MidiEventType::NoteOff { note, .. } => {
                 if let Some((start_samples, velocity)) = note_starts.remove(&note) {
-                    let start_time = start_samples as f64 / sample_rate as f64;
-                    let end_time = event.timestamp_samples as f64 / sample_rate as f64;
+                    let start_time = start_samples as f64 / f64::from(sample_rate);
+                    let end_time = event.timestamp_samples as f64 / f64::from(sample_rate);
                     let duration = end_time - start_time;
 
                     // Format: note,velocity,start_time,duration
-                    notes_info.push(format!("{},{},{},{}", note, velocity, start_time, duration));
+                    notes_info.push(format!("{note},{velocity},{start_time},{duration}"));
                 }
             }
         }
@@ -220,7 +220,7 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
         synth_manager.note_on(track_id, note, velocity);
     }
 
-    Ok(format!("Note On: {} (velocity: {})", note, velocity))
+    Ok(format!("Note On: {note} (velocity: {velocity})"))
 }
 
 /// Send MIDI note off event directly to synthesizer (for virtual piano)
@@ -277,7 +277,7 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
         synth_manager.note_off(track_id, note);
     }
 
-    Ok(format!("Note Off: {} (velocity: {})", note, velocity))
+    Ok(format!("Note Off: {note} (velocity: {velocity})"))
 }
 
 // ============================================================================
@@ -334,8 +334,8 @@ pub fn add_midi_note_to_clip(
         let clip_data: &mut crate::midi::MidiClip = Arc::make_mut(&mut timeline_clip.clip);
 
         // Convert time to samples
-        let start_samples = (start_time * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
-        let duration_samples = (duration * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
+        let start_samples = (start_time * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
+        let duration_samples = (duration * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
 
         // Create note events
         let note_on = MidiEvent::note_on(note, velocity, start_samples);
@@ -349,12 +349,12 @@ pub fn add_midi_note_to_clip(
     // Sync the updated clip to the track (needed because Arc::make_mut may have created a new copy)
     graph.sync_midi_clip_to_track(clip_id);
 
-    Ok(format!("Added note {} at {:.3}s, duration {:.3}s", note, start_time, duration))
+    Ok(format!("Added note {note} at {start_time:.3}s, duration {duration:.3}s"))
 }
 
 /// Get all MIDI events from a clip
-/// Returns: Vec<(event_type, note, velocity, timestamp_seconds)>
-/// event_type: 0 = NoteOn, 1 = NoteOff
+/// Returns: Vec<(`event_type`, note, velocity, `timestamp_seconds`)>
+/// `event_type`: 0 = `NoteOn`, 1 = `NoteOff`
 pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, String> {
     use crate::midi::MidiEventType;
 
@@ -378,7 +378,7 @@ pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, Str
                 MidiEventType::NoteOn { note, velocity } => (0, note, velocity),
                 MidiEventType::NoteOff { note, velocity } => (1, note, velocity),
             };
-            let timestamp_seconds = event.timestamp_samples as f64 / crate::audio_file::TARGET_SAMPLE_RATE as f64;
+            let timestamp_seconds = event.timestamp_samples as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
             (event_type, note, velocity, timestamp_seconds)
         })
         .collect();
@@ -405,7 +405,7 @@ pub fn remove_midi_event(clip_id: u64, event_index: usize) -> Result<String, Str
     clip_data.remove_event(event_index)
         .ok_or("Event index out of bounds")?;
 
-    Ok(format!("Removed event at index {}", event_index))
+    Ok(format!("Removed event at index {event_index}"))
 }
 
 /// Clear all MIDI events from a clip
@@ -453,8 +453,8 @@ pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, St
     // Calculate grid size in samples based on tempo (assume 120 BPM for now)
     let tempo = 120.0;
     let seconds_per_beat = 60.0 / tempo;
-    let samples_per_beat = (seconds_per_beat * crate::audio_file::TARGET_SAMPLE_RATE as f64) as u64;
-    let grid_samples = samples_per_beat / grid_division as u64;
+    let samples_per_beat = (seconds_per_beat * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
+    let grid_samples = samples_per_beat / u64::from(grid_division);
 
     // Get mutable reference to the clip data
     let clip_data: &mut crate::midi::MidiClip = Arc::make_mut(&mut timeline_clip.clip);
@@ -462,7 +462,7 @@ pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, St
     // Quantize the clip
     clip_data.quantize(grid_samples);
 
-    Ok(format!("Quantized to 1/{} note grid", grid_division))
+    Ok(format!("Quantized to 1/{grid_division} note grid"))
 }
 
 // ============================================================================
@@ -485,7 +485,7 @@ pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_second
         let timeline_clip = midi_clips
             .iter_mut()
             .find(|c| c.id == clip_id)
-            .ok_or(format!("MIDI clip {} not found", clip_id))?;
+            .ok_or(format!("MIDI clip {clip_id} not found"))?;
 
         // Update the track_id in the global collection
         timeline_clip.track_id = Some(track_id);
@@ -496,7 +496,7 @@ pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_second
 
     // Add the clip to the track's timeline (use the same clip_id for consistency)
     graph.add_midi_clip_to_track(track_id, clip_arc, start_time_seconds, clip_id)
-        .ok_or(format!("Failed to add MIDI clip to track {}", track_id))?;
+        .ok_or(format!("Failed to add MIDI clip to track {track_id}"))?;
 
     Ok(())
 }

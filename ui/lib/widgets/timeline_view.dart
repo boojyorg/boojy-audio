@@ -5,6 +5,7 @@ import 'dart:io' show File;
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:cross_file/cross_file.dart';
+import '../constants/ui_constants.dart';
 import '../services/midi_file_service.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
@@ -184,7 +185,7 @@ class TimelineView extends StatefulWidget {
     this.onCreateClipOnTrack,
     this.clipHeights = const {},
     this.automationHeights = const {},
-    this.masterTrackHeight = 60.0,
+    this.masterTrackHeight = UIConstants.defaultMasterTrackHeight,
     this.onClipHeightChanged,
     this.onAutomationHeightChanged,
     this.trackOrder = const [],
@@ -1281,7 +1282,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // We need to account for:
     // 1. Nav bar height (24px) - subtract this to get position relative to tracks area
     // 2. Vertical scroll offset - add this to convert from visible to content coordinates
-    const navBarHeight = 24.0;
+    const navBarHeight = UIConstants.navBarHeight;
     final verticalScrollOffset = widget.verticalScrollController?.hasClients == true
         ? widget.verticalScrollController!.offset
         : 0.0;
@@ -1305,14 +1306,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -1340,14 +1341,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -1704,9 +1705,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final beatsPerSecond = widget.tempo / 60.0;
 
     // Minimum 64 bars (256 beats) for a typical song length, or extend based on clip duration
-    const minBars = 64;
-    const beatsPerBar = 4;
-    const minBeats = minBars * beatsPerBar;
+    const minBeats = UIConstants.timelineMinBeats;
 
     // Calculate beats needed for clip duration (if any)
     final clipDurationBeats = widget.clipDuration != null
@@ -1728,10 +1727,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
     double totalTracksHeight = 0.0;
     for (final track in regularTracks) {
-      totalTracksHeight += widget.clipHeights[track.id] ?? 100.0;
+      totalTracksHeight += widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
       // Add automation lane height if visible for this track
       if (widget.automationVisibleTrackId == track.id) {
-        totalTracksHeight += widget.automationHeights[track.id] ?? 60.0;
+        totalTracksHeight += widget.automationHeights[track.id] ?? UIConstants.defaultAutomationHeight;
       }
     }
     final actualTracksHeight = totalTracksHeight; // Before adding empty area
@@ -1883,12 +1882,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           NavBarWithZoom(
             scrollController: navBarScrollController,
             onZoomIn: () => setState(() {
-              pixelsPerBeat = (pixelsPerBeat * 1.1).clamp(minZoom, maxZoom);
+              pixelsPerBeat = (pixelsPerBeat * UIConstants.zoomStepFactor).clamp(minZoom, maxZoom);
             }),
             onZoomOut: () => setState(() {
-              pixelsPerBeat = (pixelsPerBeat / 1.1).clamp(minZoom, maxZoom);
+              pixelsPerBeat = (pixelsPerBeat / UIConstants.zoomStepFactor).clamp(minZoom, maxZoom);
             }),
-            height: 24.0,
+            height: UIConstants.navBarHeight,
             child: UnifiedNavBar(
               config: UnifiedNavBarConfig(
                 pixelsPerBeat: pixelsPerBeat,
@@ -1906,7 +1905,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 onLoopRegionChanged: widget.onLoopRegionChanged,
               ),
               scrollController: navBarScrollController,
-              height: 24.0,
+              height: UIConstants.navBarHeight,
             ),
           ),
 
@@ -2113,7 +2112,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               final durationBeats = endBeats - startBeats;
 
               // Minimum clip length is 1 bar (4 beats)
-              if (durationBeats >= 4.0) {
+              if (durationBeats >= UIConstants.minDragCreateDurationBeats) {
                 // Show track type selection popup
                 _showTrackTypePopup(context, details.globalPosition, startBeats, durationBeats);
               }
@@ -2479,7 +2478,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
   /// Build automation lane for a track in the timeline
   Widget _buildAutomationLane(int trackId, Color trackColor, double width, double totalBeats) {
     final lane = widget.getAutomationLane?.call(trackId);
-    final automationHeight = widget.automationHeights[trackId] ?? 60.0;
+    final automationHeight = widget.automationHeights[trackId] ?? UIConstants.defaultAutomationHeight;
 
     // Create empty lane if none provided
     final automationLane = lane ??
@@ -2522,7 +2521,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final trackMidiClips = widget.midiClips.where((c) => c.trackId == track.id).toList();
     final isHovered = dragHoveredTrackId == track.id;
     final isMidiTrack = track.type.toLowerCase() == 'midi';
-    final clipHeight = widget.clipHeights[track.id] ?? 100.0;
+    final clipHeight = widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
 
     // Detect active recording region on this track (for visual masking)
     double? recStartBeat;
@@ -2817,10 +2816,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             final trackIndex = regularTracks.indexWhere((t) => t.id == track.id);
             double trackYOffset = 0.0;
             for (int i = 0; i < trackIndex; i++) {
-              trackYOffset += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+              trackYOffset += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
               // Include automation height if visible for this track
               if (widget.automationVisibleTrackId == regularTracks[i].id) {
-                trackYOffset += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+                trackYOffset += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
               }
             }
 
@@ -2921,7 +2920,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             final durationBeats = endBeats - startBeats;
 
             // Minimum clip length is 1 bar (4 beats)
-            if (durationBeats >= 4.0) {
+            if (durationBeats >= UIConstants.minDragCreateDurationBeats) {
               widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
             }
 
@@ -2948,7 +2947,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
         },
         child: Container(
-        height: widget.clipHeights[track.id] ?? 100.0,
+        height: widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
         decoration: BoxDecoration(
           // Transparent background to show grid through
           color: isHovered
@@ -2973,17 +2972,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Render audio clips for this track (hide clips being erased)
             ...trackClips
                 .where((clip) => !erasedAudioClipIds.contains(clip.clipId))
-                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? 100.0, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
+                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
 
             // Ghost preview for audio clip copy drag (all selected clips)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => buildAudioCopyDragPreviews(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
+                .expand((clip) => buildAudioCopyDragPreviews(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Ghost preview for audio clips during MIDI drag (cross-type)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingMidiClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
+                .expand((clip) => buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Render MIDI clips for this track (hide clips being erased)
             ...trackMidiClips
@@ -2991,7 +2990,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .map((midiClip) => _buildMidiClip(
                   midiClip,
                   trackColor,
-                  widget.clipHeights[track.id] ?? 100.0,
+                  widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
                   recStartBeat: recStartBeat,
                   recEndBeat: recEndBeat,
                 )),
@@ -2999,12 +2998,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Ghost preview for MIDI clip copy drag (all selected clips)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingMidiClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => buildCopyDragPreviews(midiClip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
+                .expand((midiClip) => buildCopyDragPreviews(midiClip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Ghost preview for MIDI clips during audio drag (cross-type)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.clipHeights[track.id] ?? 100.0)),
+                .expand((midiClip) => buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Show preview clip if hovering over this track
             if (previewClip != null && previewClip!.trackId == track.id)
@@ -3012,7 +3011,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // Drag-to-create preview for this track
             if (isDraggingNewClip && newClipTrackId == track.id)
-              buildDragToCreatePreviewOnTrack(trackColor, widget.clipHeights[track.id] ?? 100.0),
+              buildDragToCreatePreviewOnTrack(trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight),
 
             // Red rejection overlay when dragging audio onto MIDI track
             if (isAudioFileRejected || platformDragOverMidiTrackId == track.id)
@@ -3060,12 +3059,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               left: 0,
               right: 0,
               bottom: 0,
-              height: 6,
+              height: UIConstants.trackResizeHandleHeight,
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeRow,
                 child: GestureDetector(
                   onVerticalDragUpdate: (details) {
-                    final newHeight = (clipHeight + details.delta.dy).clamp(40.0, 400.0);
+                    final newHeight = (clipHeight + details.delta.dy).clamp(UIConstants.trackMinHeight, UIConstants.trackMaxHeight);
                     widget.onClipHeightChanged?.call(track.id, newHeight);
                   },
                   child: Container(color: Colors.transparent),
@@ -3082,7 +3081,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
   Widget _buildMasterTrack(double width, TimelineTrackData track) {
     final masterColor = context.colors.accent;
-    const headerHeight = 18.0;
+    const headerHeight = UIConstants.clipHeaderHeight;
 
     // Match the MIDI/Audio clip style - spans full width like a clip
     // Content area is transparent so grid shows through from behind
@@ -3225,8 +3224,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final isDragging = draggingClipId == clip.clipId;
     final isSelected = selectedAudioClipIds.contains(clip.clipId);
 
-    const headerHeight = 18.0;
-    final totalHeight = trackHeight - 3.0; // Track height minus padding
+    const headerHeight = UIConstants.clipHeaderHeight;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding; // Track height minus padding
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewAudioClipId == clip.clipId;
@@ -3750,7 +3749,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   child: MouseRegion(
                     cursor: SystemMouseCursors.resizeLeft,
                     child: Container(
-                      width: 8,
+                      width: UIConstants.clipResizeHandleWidth,
                       height: totalHeight,
                       color: Colors.transparent,
                     ),
@@ -3850,7 +3849,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                         child: MouseRegion(
                           cursor: SystemMouseCursors.resizeRight,
                           child: Container(
-                            width: 8,
+                            width: UIConstants.clipResizeHandleWidth,
                             height: totalHeight,
                             color: Colors.transparent,
                           ),
@@ -3942,8 +3941,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final isSelected = widget.selectedMidiClipId == midiClip.clipId || selectedMidiClipIds.contains(midiClip.clipId);
     final isDragging = draggingMidiClipId == midiClip.clipId;
 
-    const headerHeight = 18.0;
-    final totalHeight = trackHeight - 3.0; // Track height minus padding
+    const headerHeight = UIConstants.clipHeaderHeight;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding; // Track height minus padding
     final isLiveRecording = midiClip.clipId == LiveRecordingNotifier.liveClipId;
     final recordingColor = const Color(0xFFE53935); // Red for recording indicator
 
@@ -4454,7 +4453,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   child: MouseRegion(
                     cursor: SystemMouseCursors.resizeLeft,
                     child: Container(
-                      width: 8,
+                      width: UIConstants.clipResizeHandleWidth,
                       height: totalHeight,
                       color: Colors.transparent,
                     ),
@@ -4524,7 +4523,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                           ? SystemMouseCursors.forbidden
                           : SystemMouseCursors.resizeRight,
                       child: Container(
-                        width: 8,
+                        width: UIConstants.clipResizeHandleWidth,
                         height: totalHeight,
                         color: Colors.transparent,
                       ),
@@ -4681,14 +4680,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? 100.0;
+        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? 60.0;
+          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? 100.0;
+      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if track overlaps with selection Y range

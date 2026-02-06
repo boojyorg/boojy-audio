@@ -33,12 +33,12 @@ pub struct TimelineClip {
     /// Warp/tempo sync enabled (stretch to match project tempo)
     pub warp_enabled: bool,
     /// Stretch factor for time-stretching (1.0 = normal, 2.0 = double speed)
-    /// Calculated as: project_bpm / clip_original_bpm
+    /// Calculated as: `project_bpm` / `clip_original_bpm`
     pub stretch_factor: f32,
     /// Warp algorithm mode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
     pub warp_mode: u8,
     /// Cached stretched audio for Warp mode (pitch-preserved time-stretching)
-    /// Only used when warp_enabled=true AND warp_mode=0 (Warp)
+    /// Only used when `warp_enabled=true` AND `warp_mode=0` (Warp)
     pub stretched_cache: Option<Arc<AudioClip>>,
     /// Stretch factor used when the cache was built (to detect when rebuild is needed)
     pub cached_stretch_factor: f32,
@@ -77,7 +77,7 @@ impl TimelineClip {
     }
 
     /// Rebuild the stretched audio cache for Warp mode (pitch-preserved time-stretching).
-    /// Call this when warp settings change (warp_enabled, stretch_factor, warp_mode).
+    /// Call this when warp settings change (`warp_enabled`, `stretch_factor`, `warp_mode`).
     pub fn rebuild_stretched_cache(&mut self) {
         use crate::stretch::stretch_audio_preserve_pitch;
 
@@ -128,8 +128,8 @@ impl TimelineClip {
     }
 
     /// Generic automation interpolation with edge hold behavior.
-    /// Returns default_value if automation is empty.
-    /// Public so TimelineMidiClip can reuse it.
+    /// Returns `default_value` if automation is empty.
+    /// Public so `TimelineMidiClip` can reuse it.
     pub fn interpolate_clip_automation(points: &[ClipAutomationPoint], beat: f64, default_value: f32) -> f32 {
         if points.is_empty() {
             return default_value;
@@ -150,7 +150,7 @@ impl TimelineClip {
         let mut high = points.len() - 1;
 
         while low < high - 1 {
-            let mid = (low + high) / 2;
+            let mid = usize::midpoint(low, high);
             if points[mid].time_beats <= beat {
                 low = mid;
             } else {
@@ -180,7 +180,7 @@ impl TimelineClip {
     }
 
     /// Parse automation CSV into points, sorted by time.
-    /// Public so TimelineMidiClip can reuse it.
+    /// Public so `TimelineMidiClip` can reuse it.
     pub fn parse_clip_automation_csv(csv: &str) -> Vec<ClipAutomationPoint> {
         if csv.is_empty() {
             return Vec::new();
@@ -376,8 +376,8 @@ pub struct Track {
     pub peak_right: f32,
 
     // --- Automation ---
-    /// Volume automation curve (sorted by time_seconds)
-    /// When not empty, overrides static volume_db during playback
+    /// Volume automation curve (sorted by `time_seconds`)
+    /// When not empty, overrides static `volume_db` during playback
     pub volume_automation: Vec<AutomationPoint>,
 }
 
@@ -431,14 +431,14 @@ impl Track {
     }
 
     /// Get pan coefficients for stereo panning
-    /// Returns (left_gain, right_gain)
+    /// Returns (`left_gain`, `right_gain`)
     ///
     /// Uses equal-power panning law:
     /// - pan = -1.0 → (1.0, 0.0) = full left
     /// - pan =  0.0 → (0.707, 0.707) = center (-3 dB each)
     /// - pan = +1.0 → (0.0, 1.0) = full right
     pub fn get_pan_gains(&self) -> (f32, f32) {
-        let pan_normalized = (self.pan + 1.0) / 2.0; // Map -1..1 to 0..1
+        let pan_normalized = f32::midpoint(self.pan, 1.0); // Map -1..1 to 0..1
         let pan_radians = pan_normalized * std::f32::consts::FRAC_PI_2; // 0 to π/2
 
         let left_gain = pan_radians.cos();
@@ -472,7 +472,7 @@ impl Track {
 
     /// Get interpolated volume at a specific time (in seconds)
     /// Uses linear interpolation between automation points
-    /// Returns static volume_db if no automation exists
+    /// Returns static `volume_db` if no automation exists
     pub fn get_volume_at(&self, time_seconds: f64) -> f32 {
         if self.volume_automation.is_empty() {
             return self.volume_db;
@@ -495,7 +495,7 @@ impl Track {
         let mut high = points.len() - 1;
 
         while low < high - 1 {
-            let mid = (low + high) / 2;
+            let mid = usize::midpoint(low, high);
             if points[mid].time_seconds <= time_seconds {
                 low = mid;
             } else {
@@ -511,7 +511,7 @@ impl Track {
     }
 
     /// Get interpolated gain (linear) at a specific time
-    /// Converts the dB value from get_volume_at() to linear gain
+    /// Converts the dB value from `get_volume_at()` to linear gain
     pub fn get_gain_at(&self, time_seconds: f64) -> f32 {
         let db = self.get_volume_at(time_seconds);
         if db <= -96.0 {
@@ -560,6 +560,12 @@ pub struct TrackManager {
     next_id: TrackId,
     /// Master track ID (always exists)
     master_track_id: TrackId,
+}
+
+impl Default for TrackManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TrackManager {

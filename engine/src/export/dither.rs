@@ -191,7 +191,7 @@ mod tests {
         // Generate some values and check they're in range
         for _ in 0..100 {
             let val = rng.next_tpdf();
-            assert!(val >= -1.0 && val <= 1.0);
+            assert!((-1.0..=1.0).contains(&val));
         }
     }
 

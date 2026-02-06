@@ -1,8 +1,8 @@
 /// Pitch-preserved time-stretching using signalsmith-stretch
 ///
 /// This module provides functionality to time-stretch audio while preserving pitch,
-/// used when warp_mode = 0 (Warp). When warp_mode = 1 (Re-Pitch), simple sample-rate
-/// shifting is used instead (handled in audio_graph.rs).
+/// used when `warp_mode` = 0 (Warp). When `warp_mode` = 1 (Re-Pitch), simple sample-rate
+/// shifting is used instead (handled in `audio_graph.rs`).
 
 use signalsmith_stretch::Stretch;
 use std::sync::Arc;
@@ -17,12 +17,12 @@ use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 ///   - <1.0 = clip should play SLOWER (longer output) to match lower project tempo
 ///
 /// # Returns
-/// A new AudioClip with the stretched audio, wrapped in Arc
+/// A new `AudioClip` with the stretched audio, wrapped in Arc
 ///
 /// # Notes
-/// - stretch_factor = project_bpm / clip_original_bpm
-/// - stretch_factor of 1.2 means project is 20% faster, so clip needs to be 20% shorter
-/// - stretch_factor of 0.8 means project is 20% slower, so clip needs to be 20% longer
+/// - `stretch_factor` = `project_bpm` / `clip_original_bpm`
+/// - `stretch_factor` of 1.2 means project is 20% faster, so clip needs to be 20% shorter
+/// - `stretch_factor` of 0.8 means project is 20% slower, so clip needs to be 20% longer
 pub fn stretch_audio_preserve_pitch(
     clip: &AudioClip,
     stretch_factor: f32,
@@ -40,7 +40,7 @@ pub fn stretch_audio_preserve_pitch(
     // stretch_factor > 1.0 means clip should play FASTER = SHORTER output
     // stretch_factor < 1.0 means clip should play SLOWER = LONGER output
     // So output_frames = input_frames / stretch_factor
-    let output_frames = (input_frames as f64 / stretch_factor as f64).ceil() as usize;
+    let output_frames = (input_frames as f64 / f64::from(stretch_factor)).ceil() as usize;
 
     // Create stretcher instance
     let mut stretcher = Stretch::preset_default(channels, sample_rate);
@@ -67,7 +67,7 @@ pub fn stretch_audio_preserve_pitch(
     }
 
     // Calculate new duration
-    let duration_seconds = output_frames as f64 / sample_rate as f64;
+    let duration_seconds = output_frames as f64 / f64::from(sample_rate);
 
     Arc::new(AudioClip {
         samples: output_samples,

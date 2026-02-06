@@ -22,17 +22,17 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
     let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
 
     // Get audio settings
-    let sample_rate = crate::audio_file::TARGET_SAMPLE_RATE as f64;
+    let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
     let block_size = 512; // TODO: Get from config
 
     // Load VST3 plugin
-    let mut vst3_effect = VST3Effect::new(plugin_path, sample_rate, block_size as i32)
-        .map_err(|e| format!("Failed to load VST3 plugin: {}", e))?;
+    let mut vst3_effect = VST3Effect::new(plugin_path, sample_rate, block_size)
+        .map_err(|e| format!("Failed to load VST3 plugin: {e}"))?;
 
     // Initialize and activate the plugin for audio processing
     vst3_effect
         .initialize()
-        .map_err(|e| format!("Failed to initialize VST3 plugin: {}", e))?;
+        .map_err(|e| format!("Failed to initialize VST3 plugin: {e}"))?;
 
     let effect = EffectType::VST3(vst3_effect);
 
@@ -44,12 +44,11 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.fx_chain.push(effect_id);
         eprintln!(
-            "🎛️ [API] Added VST3 plugin from {} (ID: {}) to track {}",
-            plugin_path, effect_id, track_id
+            "🎛️ [API] Added VST3 plugin from {plugin_path} (ID: {effect_id}) to track {track_id}"
         );
         Ok(effect_id)
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -68,10 +67,10 @@ pub fn get_vst3_parameter_count(effect_id: u64) -> Result<u32, String> {
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.get_parameter_count() as u32)
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -92,10 +91,10 @@ pub fn get_vst3_parameter_info(effect_id: u64, param_index: u32) -> Result<Strin
             // VST3 parameters are normalized 0.0-1.0
             Ok(format!("{},0.0,1.0,0.5", info.title_str()))
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -114,10 +113,10 @@ pub fn get_vst3_parameter_value(effect_id: u64, param_index: u32) -> Result<f64,
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.get_parameter_value(param_index))
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -139,12 +138,12 @@ pub fn set_vst3_parameter_value(
 
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.set_parameter_value(param_index, value)?;
-            Ok(format!("Set VST3 parameter {} = {}", param_index, value))
+            Ok(format!("Set VST3 parameter {param_index} = {value}"))
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -167,15 +166,15 @@ pub fn vst3_has_editor(effect_id: u64) -> Result<bool, String> {
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.has_editor())
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
 #[cfg(not(target_os = "ios"))]
-/// Open a VST3 plugin editor (creates IPlugView)
+/// Open a VST3 plugin editor (creates `IPlugView`)
 pub fn vst3_open_editor(effect_id: u64) -> Result<String, String> {
     use crate::effects::EffectType;
 
@@ -190,10 +189,10 @@ pub fn vst3_open_editor(effect_id: u64) -> Result<String, String> {
             vst3.open_editor()?;
             Ok(String::new()) // Empty string indicates success
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -213,10 +212,10 @@ pub fn vst3_close_editor(effect_id: u64) -> Result<(), String> {
             vst3.close_editor();
             Ok(())
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -234,20 +233,20 @@ pub fn vst3_get_editor_size(effect_id: u64) -> Result<String, String> {
 
         if let EffectType::VST3(vst3) = &*effect {
             let (width, height) = vst3.get_editor_size()?;
-            Ok(format!("{},{}", width, height))
+            Ok(format!("{width},{height}"))
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
 #[cfg(not(target_os = "ios"))]
 /// Attach VST3 editor to a parent window
 ///
-/// IMPORTANT: This function releases all locks before calling attach_editor
-/// to avoid deadlocks - plugins may call back into our code during attached().
+/// IMPORTANT: This function releases all locks before calling `attach_editor`
+/// to avoid deadlocks - plugins may call back into our code during `attached()`.
 pub fn vst3_attach_editor(
     effect_id: u64,
     parent_ptr: *mut std::os::raw::c_void,
@@ -255,7 +254,7 @@ pub fn vst3_attach_editor(
     use crate::effects::EffectType;
     use crate::vst3_host::VST3Effect;
 
-    eprintln!("🔧 [API] vst3_attach_editor: effect_id={}, parent_ptr={:?}", effect_id, parent_ptr);
+    eprintln!("🔧 [API] vst3_attach_editor: effect_id={effect_id}, parent_ptr={parent_ptr:?}");
 
     // Get the VST3 plugin handle while holding locks, then release locks before attach
     let handle: *mut std::os::raw::c_void;
@@ -268,7 +267,7 @@ pub fn vst3_attach_editor(
         eprintln!("🔧 [API] Locked audio graph");
 
         let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
-        eprintln!("🔧 [API] Locked effect manager, looking for effect {}", effect_id);
+        eprintln!("🔧 [API] Locked effect manager, looking for effect {effect_id}");
 
         if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
             eprintln!("🔧 [API] Found effect, acquiring lock");
@@ -278,12 +277,12 @@ pub fn vst3_attach_editor(
             if let EffectType::VST3(vst3) = &*effect {
                 // Get the raw handle - we'll call attach_editor outside the lock
                 handle = vst3.get_handle();
-                eprintln!("🔧 [API] Got VST3 handle: {:?}", handle);
+                eprintln!("🔧 [API] Got VST3 handle: {handle:?}");
             } else {
-                return Err(format!("Effect {} is not a VST3 plugin", effect_id));
+                return Err(format!("Effect {effect_id} is not a VST3 plugin"));
             }
         } else {
-            return Err(format!("Effect {} not found", effect_id));
+            return Err(format!("Effect {effect_id} not found"));
         }
         // All locks are released here when scope ends
     }
@@ -313,7 +312,7 @@ pub fn scan_vst3_plugins(directory_path: &str) -> Result<String, String> {
                 .collect();
             Ok(plugin_list.join("\n"))
         }
-        Err(e) => Err(format!("Failed to scan VST3 plugins: {}", e)),
+        Err(e) => Err(format!("Failed to scan VST3 plugins: {e}")),
     }
 }
 
@@ -365,8 +364,8 @@ pub fn scan_vst3_plugins_standard() -> Result<String, String> {
             Ok(result)
         }
         Err(e) => {
-            eprintln!("❌ [Rust API] Scan failed: {}", e);
-            Err(format!("Failed to scan VST3 plugins: {}", e))
+            eprintln!("❌ [Rust API] Scan failed: {e}");
+            Err(format!("Failed to scan VST3 plugins: {e}"))
         }
     }
 }
@@ -378,7 +377,7 @@ pub fn scan_vst3_plugins_standard() -> Result<String, String> {
 #[cfg(not(target_os = "ios"))]
 /// Send a MIDI note on event to a VST3 plugin
 ///
-/// event_type: 0 = note on, 1 = note off
+/// `event_type`: 0 = note on, 1 = note off
 /// channel: MIDI channel (0-15)
 /// note: MIDI note number (0-127)
 /// velocity: MIDI velocity (0-127)
@@ -400,14 +399,13 @@ pub fn vst3_send_midi_note(
 
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.process_midi_event(event_type, channel, note, velocity, 0)?;
-            eprintln!("🎹 [API] Sent MIDI event to VST3 {}: type={} ch={} note={} vel={}",
-                     effect_id, event_type, channel, note, velocity);
+            eprintln!("🎹 [API] Sent MIDI event to VST3 {effect_id}: type={event_type} ch={channel} note={note} vel={velocity}");
             Ok(())
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -442,10 +440,10 @@ pub fn get_vst3_state(effect_id: u64) -> Result<Vec<u8>, String> {
         if let EffectType::VST3(vst3) = &*effect {
             vst3.get_state()
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -464,10 +462,10 @@ pub fn set_vst3_state(effect_id: u64, data: &[u8]) -> Result<(), String> {
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.set_state(data)
         } else {
-            Err(format!("Effect {} is not a VST3 plugin", effect_id))
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
         }
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 

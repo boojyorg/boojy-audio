@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../../constants/ui_constants.dart';
 import '../../theme/theme_extension.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
@@ -14,8 +15,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Build ghost preview widget for MIDI clip copy drag
   List<Widget> buildCopyDragPreviews(MidiClipData sourceClip, Color trackColor, double trackHeight) {
     final clipWidth = sourceClip.duration * pixelsPerBeat;
-    final totalHeight = trackHeight - 3.0;
-    const headerHeight = 18.0;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
+    const headerHeight = UIConstants.clipHeaderHeight;
 
     // Calculate ghost position using snapped delta from the primary dragged clip
     final dragDeltaBeats = (midiDragCurrentX - midiDragStartX) / pixelsPerBeat;
@@ -134,7 +135,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     } else {
       clipWidth = sourceClip.duration * pixelsPerSecond;
     }
-    final totalHeight = trackHeight - 3.0;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
     const headerHeight = 20.0;
 
     // Calculate ghost position using snapped delta from the primary dragged clip
@@ -253,7 +254,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     } else {
       clipWidth = sourceClip.duration * pixelsPerSecond;
     }
-    final totalHeight = trackHeight - 3.0;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
     const headerHeight = 20.0;
 
     // Calculate delta from MIDI drag state (in beats), convert to seconds
@@ -370,8 +371,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Build ghost preview for MIDI clip during audio drag (cross-type)
   List<Widget> buildMidiCopyDragPreviewsForAudioDrag(MidiClipData sourceClip, Color trackColor, double trackHeight) {
     final clipWidth = sourceClip.duration * pixelsPerBeat;
-    final totalHeight = trackHeight - 3.0;
-    const headerHeight = 18.0;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
+    const headerHeight = UIConstants.clipHeaderHeight;
 
     // Calculate delta from audio drag state (in seconds), convert to beats
     final beatsPerSecond = widget.tempo / 60.0;
@@ -495,9 +496,9 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     }
 
     final clipX = preview.startTime * pixelsPerSecond;
-    final trackHeight = widget.clipHeights[preview.trackId] ?? 100.0;
-    final totalHeight = trackHeight - 3.0;
-    final headerHeight = preview.isMidi ? 18.0 : 20.0;
+    final trackHeight = widget.clipHeights[preview.trackId] ?? UIConstants.defaultClipHeight;
+    final totalHeight = trackHeight - UIConstants.clipContentPadding;
+    final headerHeight = preview.isMidi ? UIConstants.clipHeaderHeight : 20.0;
 
     // Get actual track color - match how real clips get color
     final track = tracks.where((t) => t.id == preview.trackId).firstOrNull;
@@ -626,9 +627,9 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
 
     final clipX = preview.startTime * pixelsPerSecond;
     // Match default track clip height (100.0 - 3.0 padding = 97.0)
-    const defaultClipHeight = 100.0;
+    const defaultClipHeight = UIConstants.defaultClipHeight;
     const totalHeight = defaultClipHeight - 3.0;
-    final headerHeight = preview.isMidi ? 18.0 : 20.0;
+    final headerHeight = preview.isMidi ? UIConstants.clipHeaderHeight : 20.0;
 
     // Use the color that the next track would get
     final trackColor = TrackColors.getTrackColor(tracks.length);

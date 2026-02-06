@@ -26,7 +26,7 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
         "return" => TrackType::Return,
         "group" => TrackType::Group,
         "master" => return Err("Cannot create additional master tracks".to_string()),
-        _ => return Err(format!("Unknown track type: {}", track_type_str)),
+        _ => return Err(format!("Unknown track type: {track_type_str}")),
     };
 
     let graph_mutex = get_audio_graph()?;
@@ -53,7 +53,7 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
 /// * `track_id` - Track ID
 /// * `volume_db` - Volume in dB (-96.0 to +6.0)
 pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, String> {
-    eprintln!("🎚️ set_track_volume called: track={}, volume_db={:.2}", track_id, volume_db);
+    eprintln!("🎚️ set_track_volume called: track={track_id}, volume_db={volume_db:.2}");
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
@@ -64,7 +64,7 @@ pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, Str
         eprintln!("🎚️ Track {} volume now = {:.2} dB, gain = {:.4}", track_id, track.volume_db, track.get_gain());
         Ok(format!("Track {} volume set to {:.2} dB", track_id, track.volume_db))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -83,7 +83,7 @@ pub fn set_track_pan(track_id: TrackId, pan: f32) -> Result<String, String> {
         track.pan = pan.clamp(-1.0, 1.0);
         Ok(format!("Track {} pan set to {:.2}", track_id, track.pan))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -96,9 +96,9 @@ pub fn set_track_mute(track_id: TrackId, mute: bool) -> Result<String, String> {
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.mute = mute;
-        Ok(format!("Track {} mute: {}", track_id, mute))
+        Ok(format!("Track {track_id} mute: {mute}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -113,9 +113,9 @@ pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String>
         track.armed = armed;
         // Auto-mode: armed = monitoring (hear input when armed)
         track.input_monitoring = armed;
-        Ok(format!("Track {} armed: {}", track_id, armed))
+        Ok(format!("Track {track_id} armed: {armed}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -128,9 +128,9 @@ pub fn set_track_solo(track_id: TrackId, solo: bool) -> Result<String, String> {
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.solo = solo;
-        Ok(format!("Track {} solo: {}", track_id, solo))
+        Ok(format!("Track {track_id} solo: {solo}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -143,9 +143,9 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.name = name.clone();
-        Ok(format!("Track {} renamed to '{}'", track_id, name))
+        Ok(format!("Track {track_id} renamed to '{name}'"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -153,10 +153,10 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
 ///
 /// # Arguments
 /// * `track_id` - Track ID
-/// * `csv` - Automation curve as CSV: "time_seconds,db;time_seconds,db;..."
+/// * `csv` - Automation curve as CSV: "`time_seconds,db;time_seconds,db`;..."
 ///           Empty string clears the automation curve
 ///
-/// When automation is set, it overrides the static volume_db during playback
+/// When automation is set, it overrides the static `volume_db` during playback
 pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<String, String> {
     eprintln!("🎚️ set_track_volume_automation: track={}, csv_len={}", track_id, csv.len());
     let graph_mutex = get_audio_graph()?;
@@ -167,10 +167,10 @@ pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<Strin
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.set_volume_automation_csv(csv);
         let point_count = track.volume_automation.len();
-        eprintln!("🎚️ Track {} automation set: {} points", track_id, point_count);
-        Ok(format!("Track {} volume automation set ({} points)", track_id, point_count))
+        eprintln!("🎚️ Track {track_id} automation set: {point_count} points");
+        Ok(format!("Track {track_id} volume automation set ({point_count} points)"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -194,20 +194,20 @@ pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Re
         if device_index < 0 {
             track.input_device_index = None;
             track.input_channel = 0;
-            Ok(format!("Track {} input cleared", track_id))
+            Ok(format!("Track {track_id} input cleared"))
         } else {
             track.input_device_index = Some(device_index as usize);
             track.input_channel = channel;
-            Ok(format!("Track {} input set to device {} channel {}", track_id, device_index, channel))
+            Ok(format!("Track {track_id} input set to device {device_index} channel {channel}"))
         }
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
 /// Get audio input device and channel for a track
 ///
-/// Returns: "device_index,channel" (-1 if no input assigned)
+/// Returns: "`device_index,channel`" (-1 if no input assigned)
 pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -215,10 +215,10 @@ pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let track = track_arc.lock().map_err(|e| e.to_string())?;
-        let device_idx = track.input_device_index.map(|i| i as i32).unwrap_or(-1);
+        let device_idx = track.input_device_index.map_or(-1, |i| i as i32);
         Ok(format!("{},{}", device_idx, track.input_channel))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -231,9 +231,9 @@ pub fn set_track_input_monitoring(track_id: TrackId, enabled: bool) -> Result<St
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.input_monitoring = enabled;
-        Ok(format!("Track {} input monitoring: {}", track_id, enabled))
+        Ok(format!("Track {track_id} input monitoring: {enabled}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -267,7 +267,7 @@ pub fn get_all_track_ids() -> Result<String, String> {
 
 /// Get track info (for UI display)
 ///
-/// Returns: "track_id,name,type,volume_db,pan,mute,solo,armed"
+/// Returns: "`track_id,name,type,volume_db,pan,mute,solo,armed`"
 pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -283,7 +283,7 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
             TrackType::Group => "Group",
             TrackType::Master => "Master",
         };
-        let input_device = track.input_device_index.map(|i| i as i32).unwrap_or(-1);
+        let input_device = track.input_device_index.map_or(-1, |i| i as i32);
         Ok(format!(
             "{},{},{},{:.2},{:.2},{},{},{},{},{}",
             track.id,
@@ -291,19 +291,19 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
             type_str,
             track.volume_db,
             track.pan,
-            track.mute as u8,
-            track.solo as u8,
-            track.armed as u8,
+            u8::from(track.mute),
+            u8::from(track.solo),
+            u8::from(track.armed),
             input_device,
             track.input_channel
         ))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
 /// Get track peak levels (M5.5)
-/// Returns CSV: "peak_left_db,peak_right_db"
+/// Returns CSV: "`peak_left_db,peak_right_db`"
 pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -312,9 +312,9 @@ pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let track = track_arc.lock().map_err(|e| e.to_string())?;
         let (peak_left_db, peak_right_db) = track.get_peak_db();
-        Ok(format!("{:.2},{:.2}", peak_left_db, peak_right_db))
+        Ok(format!("{peak_left_db:.2},{peak_right_db:.2}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -333,7 +333,7 @@ pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, 
     // Find the clip in the global timeline
     let mut clips = graph.get_clips().lock().map_err(|e| e.to_string())?;
     let clip_idx = clips.iter().position(|c| c.id == clip_id)
-        .ok_or(format!("Clip {} not found in global timeline", clip_id))?;
+        .ok_or(format!("Clip {clip_id} not found in global timeline"))?;
 
     // Remove from global timeline
     let timeline_clip = clips.remove(clip_idx);
@@ -345,13 +345,13 @@ pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, 
         // Verify track type matches clip type
         if track.track_type != TrackType::Audio && track.track_type != TrackType::Group {
             clips.insert(clip_idx, timeline_clip); // Put it back
-            return Err(format!("Track {} is not an audio track", track_id));
+            return Err(format!("Track {track_id} is not an audio track"));
         }
 
         track.audio_clips.push(timeline_clip);
-        Ok(format!("Moved clip {} to track {}", clip_id, track_id))
+        Ok(format!("Moved clip {clip_id} to track {track_id}"))
     } else {
         clips.insert(clip_idx, timeline_clip); // Put it back
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }

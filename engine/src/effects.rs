@@ -13,7 +13,7 @@ use std::f32::consts::PI;
 
 /// Effect trait: all effects implement this
 pub trait Effect: Send {
-    /// Process a stereo frame (left, right) → (left_out, right_out)
+    /// Process a stereo frame (left, right) → (`left_out`, `right_out`)
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32);
 
     /// Reset internal state (clear buffers, etc.)
@@ -178,6 +178,12 @@ pub struct ParametricEQ {
     pub high_gain_db: f32,
 }
 
+impl Default for ParametricEQ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParametricEQ {
     pub fn new() -> Self {
         let mut eq = Self {
@@ -249,7 +255,7 @@ impl Effect for ParametricEQ {
         self.high_shelf_r.reset();
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Parametric EQ"
     }
 }
@@ -272,6 +278,12 @@ pub struct Compressor {
     envelope: f32,           // Current gain reduction envelope
     attack_coeff: f32,
     release_coeff: f32,
+}
+
+impl Default for Compressor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Compressor {
@@ -318,7 +330,7 @@ impl Compressor {
 impl Effect for Compressor {
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
         // Calculate RMS level (stereo average)
-        let level = ((left * left + right * right) / 2.0).sqrt();
+        let level = f32::midpoint(left * left, right * right).sqrt();
 
         // Calculate target gain reduction
         let target_gain = self.calculate_gain_reduction(level);
@@ -343,7 +355,7 @@ impl Effect for Compressor {
         self.envelope = 1.0;
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Compressor"
     }
 }
@@ -364,6 +376,12 @@ pub struct Delay {
     buffer_left: Vec<f32>,
     buffer_right: Vec<f32>,
     write_pos: usize,
+}
+
+impl Default for Delay {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Delay {
@@ -418,7 +436,7 @@ impl Effect for Delay {
         self.write_pos = 0;
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Delay"
     }
 }
@@ -448,6 +466,12 @@ pub struct Reverb {
     allpass_buffers_r: Vec<Vec<f32>>,
     allpass_positions_l: Vec<usize>,
     allpass_positions_r: Vec<usize>,
+}
+
+impl Default for Reverb {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Reverb {
@@ -599,7 +623,7 @@ impl Effect for Reverb {
         self.allpass_positions_r.fill(0);
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Reverb"
     }
 }
@@ -617,6 +641,12 @@ pub struct Limiter {
     envelope_left: f32,
     envelope_right: f32,
     release_coeff: f32,
+}
+
+impl Default for Limiter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Limiter {
@@ -649,13 +679,13 @@ impl Effect for Limiter {
         if left_abs > self.envelope_left {
             self.envelope_left = left_abs;
         } else {
-            self.envelope_left = self.release_coeff * self.envelope_left;
+            self.envelope_left *= self.release_coeff;
         }
 
         if right_abs > self.envelope_right {
             self.envelope_right = right_abs;
         } else {
-            self.envelope_right = self.release_coeff * self.envelope_right;
+            self.envelope_right *= self.release_coeff;
         }
 
         // Calculate gain reduction
@@ -682,7 +712,7 @@ impl Effect for Limiter {
         self.envelope_right = 0.0;
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Limiter"
     }
 }
@@ -705,6 +735,12 @@ pub struct Chorus {
 
     // LFO
     lfo_phase: f32,
+}
+
+impl Default for Chorus {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Chorus {
@@ -765,7 +801,7 @@ impl Effect for Chorus {
         self.lfo_phase = 0.0;
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Chorus"
     }
 }
@@ -843,6 +879,12 @@ pub struct EffectManager {
     next_id: EffectId,
 }
 
+impl Default for EffectManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EffectManager {
     pub fn new() -> Self {
         Self {
@@ -873,7 +915,7 @@ impl EffectManager {
     pub fn remove_effect(&mut self, id: EffectId) -> bool {
         if self.effects.remove(&id).is_some() {
             self.bypass_states.remove(&id);
-            eprintln!("🗑️ [EffectManager] Removed effect {}", id);
+            eprintln!("🗑️ [EffectManager] Removed effect {id}");
             true
         } else {
             false
@@ -884,7 +926,7 @@ impl EffectManager {
     pub fn set_bypass(&mut self, id: EffectId, bypassed: bool) -> bool {
         if self.effects.contains_key(&id) {
             self.bypass_states.insert(id, bypassed);
-            eprintln!("🎛️ [EffectManager] Effect {} bypass: {}", id, bypassed);
+            eprintln!("🎛️ [EffectManager] Effect {id} bypass: {bypassed}");
             true
         } else {
             false

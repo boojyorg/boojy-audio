@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  FLUTTER_VERSION: '3.38.0'
+
+jobs:
+  flutter-checks:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: cd ui && flutter pub get
+
+      - name: Check formatting
+        run: cd ui && dart format --set-exit-if-changed lib/ test/
+
+      - name: Analyze
+        run: cd ui && flutter analyze --fatal-infos
+
+      - name: Run tests
+        run: cd ui && flutter test
+
+  rust-checks:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Clippy
+        run: cd engine && cargo clippy --all-targets
+
+      - name: Run tests
+        run: cd engine && cargo test

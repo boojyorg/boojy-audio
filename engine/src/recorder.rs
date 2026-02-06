@@ -38,6 +38,12 @@ pub struct Recorder {
     count_in_progress: Arc<AtomicU32>,
 }
 
+impl Default for Recorder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Recorder {
     /// Create a new recorder
     pub fn new() -> Self {
@@ -94,7 +100,7 @@ impl Recorder {
 
         if count_in > 0 {
             *state = RecordingState::CountingIn;
-            eprintln!("🎙️  [Recorder] Starting with count-in: {} bars", count_in);
+            eprintln!("🎙️  [Recorder] Starting with count-in: {count_in} bars");
         } else {
             *state = RecordingState::Recording;
             eprintln!("🎙️  [Recorder] Starting recording immediately (no count-in)");
@@ -127,7 +133,7 @@ impl Recorder {
 
         // Create audio clip from recorded samples
         let frame_count = samples.len() / 2; // Stereo
-        let duration_seconds = frame_count as f64 / TARGET_SAMPLE_RATE as f64;
+        let duration_seconds = frame_count as f64 / f64::from(TARGET_SAMPLE_RATE);
 
         let clip = AudioClip {
             samples,
@@ -189,7 +195,7 @@ impl Recorder {
     pub fn get_recorded_duration(&self) -> f64 {
         let sample_count = self.get_recorded_sample_count();
         let frame_count = sample_count / 2; // Stereo
-        frame_count as f64 / TARGET_SAMPLE_RATE as f64
+        frame_count as f64 / f64::from(TARGET_SAMPLE_RATE)
     }
 
     /// Get recording waveform preview (downsampled for display)
@@ -234,7 +240,7 @@ impl Recorder {
     /// Reset metronome beat position (called when transport stops)
     pub fn reset_metronome(&self) {
         let old_value = self.sample_counter.swap(0, Ordering::SeqCst);
-        eprintln!("🔄 [Recorder] Metronome reset: {} → 0", old_value);
+        eprintln!("🔄 [Recorder] Metronome reset: {old_value} → 0");
     }
 
     /// Seek metronome to a specific sample position (called when transport seeks)
@@ -252,7 +258,7 @@ impl Recorder {
     pub fn set_time_signature(&self, beats_per_bar: u32) {
         let mut ts = self.time_signature.lock().expect("mutex poisoned");
         *ts = beats_per_bar;
-        eprintln!("⏱️  [Recorder] Time signature set to {}/4", beats_per_bar);
+        eprintln!("⏱️  [Recorder] Time signature set to {beats_per_bar}/4");
     }
 
     /// Get time signature (beats per bar)
@@ -263,7 +269,7 @@ impl Recorder {
     /// Set the timeline position (in seconds) where the recording should be placed
     pub fn set_recording_start_seconds(&self, seconds: f64) {
         *self.recording_start_seconds.lock().expect("mutex poisoned") = seconds;
-        eprintln!("🎙️  [Recorder] Recording start position set to {:.3}s", seconds);
+        eprintln!("🎙️  [Recorder] Recording start position set to {seconds:.3}s");
     }
 
     /// Get the timeline position (in seconds) where the recording should be placed
@@ -318,8 +324,8 @@ impl RecorderCallbackRefs {
         let sample_idx = if should_tick {
             self.sample_counter.fetch_add(1, Ordering::SeqCst)
         } else {
-            let val = self.sample_counter.load(Ordering::SeqCst);
-            val
+            
+            self.sample_counter.load(Ordering::SeqCst)
         };
 
         let tempo = *self.tempo.lock().expect("mutex poisoned");
@@ -327,8 +333,8 @@ impl RecorderCallbackRefs {
         let metronome_enabled = self.metronome_enabled.load(Ordering::SeqCst);
 
         // Calculate beat information
-        let samples_per_beat = (60.0 / tempo * TARGET_SAMPLE_RATE as f64) as u64;
-        let samples_per_bar = samples_per_beat * time_sig as u64;
+        let samples_per_beat = (60.0 / tempo * f64::from(TARGET_SAMPLE_RATE)) as u64;
+        let samples_per_bar = samples_per_beat * u64::from(time_sig);
 
         // Check and decrement seek cooldown (prevents click overlap on short loops)
         let cooldown = self.seek_cooldown.load(Ordering::SeqCst);
@@ -358,7 +364,7 @@ impl RecorderCallbackRefs {
         match current_state {
             RecordingState::CountingIn => {
                 let count_in_bars = *self.count_in_bars.lock().expect("mutex poisoned");
-                let count_in_samples = samples_per_bar * count_in_bars as u64;
+                let count_in_samples = samples_per_bar * u64::from(count_in_bars);
 
                 // Calculate and store beat/progress for UI ring timer
                 let beat_in_bar = ((sample_idx % samples_per_bar) / samples_per_beat) as u32 + 1; // 1-indexed
@@ -368,7 +374,7 @@ impl RecorderCallbackRefs {
 
                 if sample_idx >= count_in_samples {
                     // Count-in finished, start recording (need to re-acquire lock for state change)
-                    eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {})", sample_idx);
+                    eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {sample_idx})");
                     let mut state = self.state.lock().expect("mutex poisoned");
                     *state = RecordingState::Recording;
                     drop(state); // Release immediately

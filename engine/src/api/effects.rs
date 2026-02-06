@@ -11,7 +11,7 @@ use crate::track::TrackId;
 
 /// Add an effect to a track's FX chain
 pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u64, String> {
-    use crate::effects::*;
+    use crate::effects::{EffectType, ParametricEQ, Compressor, Reverb, Delay, Chorus, Limiter};
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -26,7 +26,7 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
         "delay" => EffectType::Delay(Delay::new()),
         "chorus" => EffectType::Chorus(Chorus::new()),
         "limiter" => EffectType::Limiter(Limiter::new()),
-        _ => return Err(format!("Unknown effect type: {}", effect_type_str)),
+        _ => return Err(format!("Unknown effect type: {effect_type_str}")),
     };
 
     // Add effect to effect manager
@@ -37,12 +37,11 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
         let mut track = track_arc.lock().map_err(|e| e.to_string())?;
         track.fx_chain.push(effect_id);
         eprintln!(
-            "🎛️ [API] Added {} effect (ID: {}) to track {}",
-            effect_type_str, effect_id, track_id
+            "🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}"
         );
         Ok(effect_id)
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -61,22 +60,20 @@ pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<Str
             // Remove from effect manager
             effect_manager.remove_effect(effect_id);
             eprintln!(
-                "🗑️ [API] Removed effect {} from track {}",
-                effect_id, track_id
+                "🗑️ [API] Removed effect {effect_id} from track {track_id}"
             );
-            Ok(format!("Effect {} removed from track {}", effect_id, track_id))
+            Ok(format!("Effect {effect_id} removed from track {track_id}"))
         } else {
             Err(format!(
-                "Effect {} not found in track {}'s FX chain",
-                effect_id, track_id
+                "Effect {effect_id} not found in track {track_id}'s FX chain"
             ))
         }
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
-/// Get all effects on a track (returns CSV: "effect_id,effect_id,...")
+/// Get all effects on a track (returns CSV: "`effect_id,effect_id`,...")
 pub fn get_track_effects(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -84,16 +81,16 @@ pub fn get_track_effects(track_id: TrackId) -> Result<String, String> {
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let track = track_arc.lock().map_err(|e| e.to_string())?;
-        let ids: Vec<String> = track.fx_chain.iter().map(|id| id.to_string()).collect();
+        let ids: Vec<String> = track.fx_chain.iter().map(ToString::to_string).collect();
         Ok(ids.join(","))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
 /// Get effect info (returns JSON-like string with type and parameters)
 pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
-    use crate::effects::*;
+    use crate::effects::{EffectType, Effect};
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -140,7 +137,7 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
         };
         Ok(info)
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -157,7 +154,7 @@ pub fn set_effect_bypass(effect_id: u64, bypassed: bool) -> Result<String, Strin
             if bypassed { "on" } else { "off" }
         ))
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }
 
@@ -169,7 +166,7 @@ pub fn get_effect_bypass(effect_id: u64) -> Result<bool, String> {
 
     effect_manager
         .get_bypass(effect_id)
-        .ok_or_else(|| format!("Effect {} not found", effect_id))
+        .ok_or_else(|| format!("Effect {effect_id} not found"))
 }
 
 /// Reorder effects in a track's FX chain
@@ -192,7 +189,7 @@ pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<Stri
         // Validate that all IDs in new_order are in the current fx_chain
         for id in &new_order {
             if !track.fx_chain.contains(id) {
-                return Err(format!("Effect {} not found in track {}'s FX chain", id, track_id));
+                return Err(format!("Effect {id} not found in track {track_id}'s FX chain"));
             }
         }
 
@@ -213,15 +210,15 @@ pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<Stri
             track_id, track.fx_chain
         );
 
-        Ok(format!("Effects reordered on track {}", track_id))
+        Ok(format!("Effects reordered on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
 /// Set an effect parameter
 pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Result<String, String> {
-    use crate::effects::*;
+    use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -272,7 +269,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                     eq.high_gain_db = value;
                     eq.update_coefficients();
                 }
-                _ => return Err(format!("Unknown EQ parameter: {}", param_name)),
+                _ => return Err(format!("Unknown EQ parameter: {param_name}")),
             },
             EffectType::Compressor(comp) => match param_name {
                 "threshold" => {
@@ -292,7 +289,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 "makeup" => {
                     comp.makeup_gain_db = value;
                 }
-                _ => return Err(format!("Unknown Compressor parameter: {}", param_name)),
+                _ => return Err(format!("Unknown Compressor parameter: {param_name}")),
             },
             EffectType::Reverb(rev) => match param_name {
                 "room_size" => {
@@ -304,7 +301,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 "wet_dry" => {
                     rev.wet_dry_mix = value;
                 }
-                _ => return Err(format!("Unknown Reverb parameter: {}", param_name)),
+                _ => return Err(format!("Unknown Reverb parameter: {param_name}")),
             },
             EffectType::Delay(delay) => match param_name {
                 "time" => {
@@ -316,7 +313,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 "wet_dry" => {
                     delay.wet_dry_mix = value;
                 }
-                _ => return Err(format!("Unknown Delay parameter: {}", param_name)),
+                _ => return Err(format!("Unknown Delay parameter: {param_name}")),
             },
             EffectType::Chorus(chorus) => match param_name {
                 "rate" => {
@@ -328,7 +325,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 "wet_dry" => {
                     chorus.wet_dry_mix = value;
                 }
-                _ => return Err(format!("Unknown Chorus parameter: {}", param_name)),
+                _ => return Err(format!("Unknown Chorus parameter: {param_name}")),
             },
             EffectType::Limiter(lim) => match param_name {
                 "threshold" => {
@@ -338,31 +335,29 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                     lim.release_ms = value;
                     lim.update_coefficients();
                 }
-                _ => return Err(format!("Unknown Limiter parameter: {}", param_name)),
+                _ => return Err(format!("Unknown Limiter parameter: {param_name}")),
             },
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(vst3) => {
                 // VST3 parameters are accessed by index (e.g., "param_0", "param_1")
                 if let Some(index_str) = param_name.strip_prefix("param_") {
                     if let Ok(param_index) = index_str.parse::<u32>() {
-                        vst3.set_parameter_value(param_index, value as f64)
-                            .map_err(|e| format!("Failed to set VST3 parameter: {}", e))?;
+                        vst3.set_parameter_value(param_index, f64::from(value))
+                            .map_err(|e| format!("Failed to set VST3 parameter: {e}"))?;
                     } else {
-                        return Err(format!("Invalid VST3 parameter index: {}", param_name));
+                        return Err(format!("Invalid VST3 parameter index: {param_name}"));
                     }
                 } else {
                     return Err(format!(
-                        "VST3 parameter must be in format 'param_N': {}",
-                        param_name
+                        "VST3 parameter must be in format 'param_N': {param_name}"
                     ));
                 }
             }
         }
         Ok(format!(
-            "Set {} = {} on effect {}",
-            param_name, value, effect_id
+            "Set {param_name} = {value} on effect {effect_id}"
         ))
     } else {
-        Err(format!("Effect {} not found", effect_id))
+        Err(format!("Effect {effect_id} not found"))
     }
 }

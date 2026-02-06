@@ -107,7 +107,7 @@ impl Voice {
 
     fn note_on(&mut self, note: u8, velocity: u8) {
         self.note = note;
-        self.velocity = velocity as f32 / 127.0;
+        self.velocity = f32::from(velocity) / 127.0;
         self.phase = 0.0;
         self.frequency = midi_to_freq(note);
         self.env_state = EnvelopeState::Attack;
@@ -208,7 +208,7 @@ impl Voice {
 }
 
 fn midi_to_freq(note: u8) -> f32 {
-    440.0 * 2.0_f32.powf((note as f32 - 69.0) / 12.0)
+    440.0 * 2.0_f32.powf((f32::from(note) - 69.0) / 12.0)
 }
 
 // ============================================================================
@@ -285,7 +285,7 @@ impl Synth {
     }
 
     pub fn set_parameter(&mut self, key: &str, value: &str) {
-        println!("🎛️ Synth set_parameter: {}={}", key, value);
+        println!("🎛️ Synth set_parameter: {key}={value}");
 
         match key {
             "osc_type" | "osc1_type" => {
@@ -323,7 +323,7 @@ impl Synth {
                 }
             }
             _ => {
-                println!("  ⚠️ Unknown parameter: {}", key);
+                println!("  ⚠️ Unknown parameter: {key}");
             }
         }
     }
@@ -471,7 +471,7 @@ impl TrackSynthManager {
     pub fn create_synth(&mut self, track_id: u64) -> u64 {
         let synth = Synth::new(self.sample_rate);
         self.instruments.insert(track_id, TrackInstrument::Synth(synth));
-        println!("✅ Created synth for track {}", track_id);
+        println!("✅ Created synth for track {track_id}");
         track_id
     }
 
@@ -479,7 +479,7 @@ impl TrackSynthManager {
     pub fn create_sampler(&mut self, track_id: u64) -> u64 {
         let sampler = Sampler::new(self.sample_rate);
         self.instruments.insert(track_id, TrackInstrument::Sampler(sampler));
-        println!("✅ Created sampler for track {}", track_id);
+        println!("✅ Created sampler for track {track_id}");
         track_id
     }
 
@@ -489,7 +489,7 @@ impl TrackSynthManager {
             sampler.load_sample_with_root(clip, root_note);
             true
         } else {
-            println!("⚠️ load_sample: Track {} is not a sampler", track_id);
+            println!("⚠️ load_sample: Track {track_id} is not a sampler");
             false
         }
     }
@@ -539,12 +539,12 @@ impl TrackSynthManager {
 
     /// Check if track has a sampler specifically
     pub fn has_sampler(&self, track_id: u64) -> bool {
-        self.instruments.get(&track_id).map_or(false, |i| i.is_sampler())
+        self.instruments.get(&track_id).is_some_and(TrackInstrument::is_sampler)
     }
 
     /// Check if track has a synthesizer specifically
     pub fn is_synth(&self, track_id: u64) -> bool {
-        self.instruments.get(&track_id).map_or(false, |i| i.is_synth())
+        self.instruments.get(&track_id).is_some_and(TrackInstrument::is_synth)
     }
 
     pub fn all_notes_off(&mut self, track_id: u64) {
@@ -574,13 +574,13 @@ impl TrackSynthManager {
         }
 
         let mut output = 0.0;
-        for (track_id, inst) in self.instruments.iter_mut() {
+        for (track_id, inst) in &mut self.instruments {
             let sample = inst.process_sample();
             if sample.abs() > 0.001 {
                 // Debug: only log once per note
                 static LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                 if !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-                    eprintln!("🔊 process_all_synths: track {} producing sample {:.4}", track_id, sample);
+                    eprintln!("🔊 process_all_synths: track {track_id} producing sample {sample:.4}");
                 }
             }
             output += sample;
@@ -599,7 +599,7 @@ impl TrackSynthManager {
             new_synth.filter_cutoff = source.filter_cutoff;
             new_synth.envelope = source.envelope;
             self.instruments.insert(dest_id, TrackInstrument::Synth(new_synth));
-            println!("✅ Copied synth from track {} to {}", source_id, dest_id);
+            println!("✅ Copied synth from track {source_id} to {dest_id}");
             true
         } else {
             false

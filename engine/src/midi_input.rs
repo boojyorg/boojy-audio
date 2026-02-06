@@ -91,7 +91,7 @@ pub struct MidiInputManager {
 impl MidiInputManager {
     /// Create a new MIDI input manager
     /// Does NOT enumerate devices on creation to avoid blocking engine initialization
-    /// (CoreMIDI can hang indefinitely). Call refresh_devices() explicitly when needed.
+    /// (`CoreMIDI` can hang indefinitely). Call `refresh_devices()` explicitly when needed.
     pub fn new() -> Result<Self> {
         let manager = Self {
             ports: Vec::new(),
@@ -108,7 +108,7 @@ impl MidiInputManager {
     /// Refresh the list of available MIDI input devices
     pub fn refresh_devices(&mut self) -> Result<()> {
         let midi_input = MidiInput::new("Boojy Audio MIDI Input")
-            .map_err(|e| anyhow::anyhow!("Failed to create MIDI input: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to create MIDI input: {e}"))?;
 
         let ports = midi_input.ports();
 
@@ -121,8 +121,8 @@ impl MidiInputManager {
             .map(|(i, port)| {
                 let name = midi_input
                     .port_name(port)
-                    .unwrap_or_else(|_| format!("Unknown Device {}", i));
-                eprintln!("  [{}] {}", i, name);
+                    .unwrap_or_else(|_| format!("Unknown Device {i}"));
+                eprintln!("  [{i}] {name}");
                 name
             })
             .collect();
@@ -149,7 +149,7 @@ impl MidiInputManager {
             .iter()
             .enumerate()
             .map(|(i, name)| MidiDevice {
-                id: format!("midi_{}", i),
+                id: format!("midi_{i}"),
                 name: name.clone(),
                 is_default: i == 0, // First device is default
             })
@@ -159,7 +159,7 @@ impl MidiInputManager {
     /// Select a MIDI input device by index
     pub fn select_device(&mut self, index: usize) -> Result<()> {
         if index >= self.ports.len() {
-            return Err(anyhow!("Invalid MIDI device index: {}", index));
+            return Err(anyhow!("Invalid MIDI device index: {index}"));
         }
 
         eprintln!("🎹 [MIDI] Selected device: {}", self.port_names[index]);
@@ -197,7 +197,7 @@ impl MidiInputManager {
         let port = &self.ports[port_index];
         let port_name = &self.port_names[port_index];
 
-        eprintln!("🎹 [MIDI] Starting capture from: {}", port_name);
+        eprintln!("🎹 [MIDI] Starting capture from: {port_name}");
 
         // Clone the callback for the MIDI thread
         let callback = self.event_callback.clone();
@@ -206,7 +206,7 @@ impl MidiInputManager {
         let connection = midi_input.connect(
             port,
             "boojy-audio-input",
-            move |timestamp, message, _| {
+            move |timestamp, message, ()| {
                 // Parse MIDI message
                 if let Some(event) = parse_midi_message(message, timestamp) {
                     // Call the event callback if set
@@ -218,7 +218,7 @@ impl MidiInputManager {
                 }
             },
             (),
-        ).map_err(|e| anyhow!("Failed to connect MIDI input: {:?}", e))?;
+        ).map_err(|e| anyhow!("Failed to connect MIDI input: {e:?}"))?;
 
         self.connection = Some(connection);
         eprintln!("✅ [MIDI] Capture started");
@@ -229,7 +229,7 @@ impl MidiInputManager {
     /// Stop capturing MIDI input
     pub fn stop_capture(&mut self) -> Result<()> {
         if let Some(connection) = self.connection.take() {
-            let (midi_input, _) = connection.close();
+            let (midi_input, ()) = connection.close();
             self.midi_input = Some(midi_input);
             eprintln!("🛑 [MIDI] Capture stopped");
         }
@@ -243,7 +243,7 @@ impl MidiInputManager {
     }
 }
 
-/// Parse a MIDI message into a MidiEvent
+/// Parse a MIDI message into a `MidiEvent`
 #[cfg(not(target_os = "ios"))]
 fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
     if message.is_empty() {
@@ -278,8 +278,7 @@ fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
         // Ignore other message types for now (CC, pitch bend, etc.)
         _ => {
             eprintln!(
-                "🎹 [MIDI] Ignoring message type: 0x{:02X} (channel {})",
-                message_type, channel
+                "🎹 [MIDI] Ignoring message type: 0x{message_type:02X} (channel {channel})"
             );
             None
         }
@@ -301,7 +300,7 @@ mod tests {
                 assert!(manager.ports.len() >= 0);
             }
             Err(e) => {
-                eprintln!("No MIDI devices available: {}", e);
+                eprintln!("No MIDI devices available: {e}");
             }
         }
     }

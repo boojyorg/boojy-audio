@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../constants/ui_constants.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../models/tool_mode.dart';
@@ -22,10 +23,10 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   final ScrollController navBarScrollController = ScrollController();
 
   /// Horizontal zoom (pixels per beat).
-  double _pixelsPerBeat = 25.0;
+  double _pixelsPerBeat = UIConstants.timelineDefaultPixelsPerBeat;
 
   /// View width for zoom calculations (updated from MediaQuery).
-  double _viewWidth = 800.0;
+  double _viewWidth = UIConstants.defaultViewWidth;
 
   // ZoomableEditorMixin interface implementation
   @override
@@ -45,9 +46,9 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   set viewWidth(double value) => _viewWidth = value;
 
   @override
-  double get minZoom => 3.0;
+  double get minZoom => UIConstants.timelineMinZoom;
   @override
-  double get maxZoom => 500.0;
+  double get maxZoom => UIConstants.timelineMaxZoom;
 
   @override
   double calculateMinZoom() => minZoom;

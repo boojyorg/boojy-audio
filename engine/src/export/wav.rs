@@ -14,7 +14,7 @@ pub const ENGINE_SAMPLE_RATE: u32 = 48000;
 /// Export audio samples to WAV file
 ///
 /// # Arguments
-/// * `samples` - Stereo interleaved f32 samples from render_offline
+/// * `samples` - Stereo interleaved f32 samples from `render_offline`
 /// * `output_path` - Path to output WAV file
 /// * `options` - Export options (bit depth, sample rate, normalize, dither)
 ///
@@ -26,8 +26,7 @@ pub fn export_wav(
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
     eprintln!(
-        "🎵 [WAV Export] Starting export to {:?}",
-        output_path
+        "🎵 [WAV Export] Starting export to {output_path:?}"
     );
 
     // Get bit depth from options
@@ -63,7 +62,7 @@ pub fn export_wav(
 
     // Calculate duration
     let num_frames = processed.len() / 2;
-    let duration = num_frames as f64 / options.sample_rate as f64;
+    let duration = num_frames as f64 / f64::from(options.sample_rate);
 
     // Write WAV based on bit depth
     let format_description = match bit_depth {
@@ -117,7 +116,7 @@ fn write_wav_16bit(
     };
 
     let mut writer = hound::WavWriter::create(output_path, spec)
-        .map_err(|e| format!("Failed to create WAV file: {}", e))?;
+        .map_err(|e| format!("Failed to create WAV file: {e}"))?;
 
     // Convert to 16-bit with optional dithering
     let samples_16 = convert_to_16bit(samples, dither);
@@ -125,12 +124,12 @@ fn write_wav_16bit(
     for sample in samples_16 {
         writer
             .write_sample(sample)
-            .map_err(|e| format!("Failed to write sample: {}", e))?;
+            .map_err(|e| format!("Failed to write sample: {e}"))?;
     }
 
     writer
         .finalize()
-        .map_err(|e| format!("Failed to finalize WAV: {}", e))?;
+        .map_err(|e| format!("Failed to finalize WAV: {e}"))?;
 
     Ok(())
 }
@@ -150,7 +149,7 @@ fn write_wav_24bit(
     };
 
     let mut writer = hound::WavWriter::create(output_path, spec)
-        .map_err(|e| format!("Failed to create WAV file: {}", e))?;
+        .map_err(|e| format!("Failed to create WAV file: {e}"))?;
 
     // Convert to 24-bit with optional dithering
     let samples_24 = convert_to_24bit(samples, dither);
@@ -158,12 +157,12 @@ fn write_wav_24bit(
     for sample in samples_24 {
         writer
             .write_sample(sample)
-            .map_err(|e| format!("Failed to write sample: {}", e))?;
+            .map_err(|e| format!("Failed to write sample: {e}"))?;
     }
 
     writer
         .finalize()
-        .map_err(|e| format!("Failed to finalize WAV: {}", e))?;
+        .map_err(|e| format!("Failed to finalize WAV: {e}"))?;
 
     Ok(())
 }
@@ -182,17 +181,17 @@ fn write_wav_float32(
     };
 
     let mut writer = hound::WavWriter::create(output_path, spec)
-        .map_err(|e| format!("Failed to create WAV file: {}", e))?;
+        .map_err(|e| format!("Failed to create WAV file: {e}"))?;
 
     for &sample in samples {
         writer
             .write_sample(sample)
-            .map_err(|e| format!("Failed to write sample: {}", e))?;
+            .map_err(|e| format!("Failed to write sample: {e}"))?;
     }
 
     writer
         .finalize()
-        .map_err(|e| format!("Failed to finalize WAV: {}", e))?;
+        .map_err(|e| format!("Failed to finalize WAV: {e}"))?;
 
     Ok(())
 }

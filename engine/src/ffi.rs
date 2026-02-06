@@ -1,10 +1,10 @@
 /// Simple C-compatible FFI layer for M0
-/// This will be replaced with flutter_rust_bridge in M1
+/// This will be replaced with `flutter_rust_bridge` in M1
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use crate::api;
 
-/// Safely create a CString, replacing null bytes with spaces
+/// Safely create a `CString`, replacing null bytes with spaces
 fn safe_cstring(s: String) -> CString {
     // Replace any null bytes to prevent panic
     let safe_string = s.replace('\0', " ");
@@ -17,7 +17,7 @@ fn safe_cstring(s: String) -> CString {
 pub extern "C" fn play_sine_wave_ffi(frequency: f32, duration_ms: u32) -> *mut c_char {
     match api::play_sine_wave(frequency, duration_ms) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -26,7 +26,7 @@ pub extern "C" fn play_sine_wave_ffi(frequency: f32, duration_ms: u32) -> *mut c
 pub extern "C" fn init_audio_engine_ffi() -> *mut c_char {
     match api::init_audio_engine() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -49,7 +49,7 @@ pub extern "C" fn free_rust_string(ptr: *mut c_char) {
 pub extern "C" fn init_audio_graph_ffi() -> *mut c_char {
     match api::init_audio_graph() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -69,7 +69,7 @@ pub extern "C" fn load_audio_file_to_track_ffi(path: *const c_char, track_id: u6
     match api::load_audio_file_to_track_api(path_str.to_string(), track_id, start_time) {
         Ok(id) => id as i64,
         Err(e) => {
-            eprintln!("❌ [FFI] load_audio_file_to_track_ffi error: {}", e);
+            eprintln!("❌ [FFI] load_audio_file_to_track_ffi error: {e}");
             -1
         }
     }
@@ -99,7 +99,7 @@ pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
 pub extern "C" fn transport_play_ffi() -> *mut c_char {
     match api::transport_play() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -108,7 +108,7 @@ pub extern "C" fn transport_play_ffi() -> *mut c_char {
 pub extern "C" fn transport_pause_ffi() -> *mut c_char {
     match api::transport_pause() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -117,7 +117,7 @@ pub extern "C" fn transport_pause_ffi() -> *mut c_char {
 pub extern "C" fn transport_stop_ffi() -> *mut c_char {
     match api::transport_stop() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -126,7 +126,7 @@ pub extern "C" fn transport_stop_ffi() -> *mut c_char {
 pub extern "C" fn transport_seek_ffi(position_seconds: f64) -> *mut c_char {
     match api::transport_seek(position_seconds) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -147,7 +147,7 @@ pub extern "C" fn get_play_start_position_ffi() -> f64 {
 pub extern "C" fn set_play_start_position_ffi(position_seconds: f64) -> *mut c_char {
     match api::set_play_start_position(position_seconds) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -162,7 +162,7 @@ pub extern "C" fn get_record_start_position_ffi() -> f64 {
 pub extern "C" fn set_record_start_position_ffi(position_seconds: f64) -> *mut c_char {
     match api::set_record_start_position(position_seconds) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -182,7 +182,7 @@ pub extern "C" fn get_transport_state_ffi() -> i32 {
 pub extern "C" fn set_buffer_size_ffi(preset: i32) -> *mut c_char {
     match api::set_buffer_size(preset) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -199,7 +199,7 @@ pub extern "C" fn get_actual_buffer_size_ffi() -> u32 {
 }
 
 /// Get audio latency info
-/// Returns: buffer_size, input_latency_ms, output_latency_ms, total_roundtrip_ms
+/// Returns: `buffer_size`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`
 /// Output is written to the provided pointers
 #[no_mangle]
 pub extern "C" fn get_latency_info_ffi(
@@ -227,7 +227,7 @@ pub extern "C" fn get_latency_info_ffi(
 pub extern "C" fn start_latency_test_ffi() -> *mut c_char {
     match api::start_latency_test() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -236,12 +236,12 @@ pub extern "C" fn start_latency_test_ffi() -> *mut c_char {
 pub extern "C" fn stop_latency_test_ffi() -> *mut c_char {
     match api::stop_latency_test() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get latency test status
-/// Returns packed i64: (state << 32) | (result_ms as bits)
+/// Returns packed i64: (state << 32) | (`result_ms` as bits)
 /// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
 #[no_mangle]
 pub extern "C" fn get_latency_test_status_ffi(
@@ -287,7 +287,7 @@ pub extern "C" fn get_clip_duration_ffi(clip_id: u64) -> f64 {
 pub extern "C" fn set_clip_start_time_ffi(track_id: u64, clip_id: u64, start_time: f64) -> *mut c_char {
     match api::set_clip_start_time(track_id, clip_id, start_time) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -297,7 +297,7 @@ pub extern "C" fn set_clip_start_time_ffi(track_id: u64, clip_id: u64, start_tim
 pub extern "C" fn set_clip_offset_ffi(track_id: u64, clip_id: u64, offset: f64) -> *mut c_char {
     match api::set_clip_offset(track_id, clip_id, offset) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -307,7 +307,7 @@ pub extern "C" fn set_clip_offset_ffi(track_id: u64, clip_id: u64, offset: f64) 
 pub extern "C" fn set_clip_duration_ffi(track_id: u64, clip_id: u64, duration: f64) -> *mut c_char {
     match api::set_clip_duration(track_id, clip_id, duration) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -317,13 +317,13 @@ pub extern "C" fn set_clip_duration_ffi(track_id: u64, clip_id: u64, duration: f
 pub extern "C" fn set_audio_clip_gain_ffi(track_id: u64, clip_id: u64, gain_db: f32) -> *mut c_char {
     match api::set_audio_clip_gain(track_id, clip_id, gain_db) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Set audio clip warp settings for tempo sync
 /// Used to enable/disable time-stretching in the Audio Editor
-/// warp_mode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
+/// `warp_mode`: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
 #[no_mangle]
 pub extern "C" fn set_audio_clip_warp_ffi(
     track_id: u64,
@@ -334,7 +334,7 @@ pub extern "C" fn set_audio_clip_warp_ffi(
 ) -> *mut c_char {
     match api::set_audio_clip_warp(track_id, clip_id, warp_enabled, stretch_factor, warp_mode as u8) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -350,41 +350,38 @@ pub extern "C" fn set_audio_clip_transpose_ffi(
 ) -> *mut c_char {
     match api::set_audio_clip_transpose(track_id, clip_id, semitones, cents) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get waveform peaks
-/// Returns pointer to float array, and writes the length to out_length
-/// Caller must free the returned array with free_waveform_peaks_ffi
+/// Returns pointer to float array, and writes the length to `out_length`
+/// Caller must free the returned array with `free_waveform_peaks_ffi`
 #[no_mangle]
 pub extern "C" fn get_waveform_peaks_ffi(
     clip_id: u64,
     resolution: usize,
     out_length: *mut usize,
 ) -> *mut f32 {
-    match api::get_waveform_peaks(clip_id, resolution) {
-        Ok(peaks) => {
-            let len = peaks.len();
-            let ptr = peaks.as_ptr() as *mut f32;
-            std::mem::forget(peaks); // Don't drop the Vec
-            
-            if !out_length.is_null() {
-                unsafe {
-                    *out_length = len;
-                }
+    if let Ok(peaks) = api::get_waveform_peaks(clip_id, resolution) {
+        let len = peaks.len();
+        let ptr = peaks.as_ptr().cast_mut();
+        std::mem::forget(peaks); // Don't drop the Vec
+        
+        if !out_length.is_null() {
+            unsafe {
+                *out_length = len;
             }
-            
-            ptr
         }
-        Err(_) => {
-            if !out_length.is_null() {
-                unsafe {
-                    *out_length = 0;
-                }
+        
+        ptr
+    } else {
+        if !out_length.is_null() {
+            unsafe {
+                *out_length = 0;
             }
-            std::ptr::null_mut()
         }
+        std::ptr::null_mut()
     }
 }
 
@@ -407,7 +404,7 @@ pub extern "C" fn free_waveform_peaks_ffi(ptr: *mut f32, length: usize) {
 pub extern "C" fn start_recording_ffi() -> *mut c_char {
     match api::start_recording() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -418,7 +415,7 @@ pub extern "C" fn stop_recording_ffi() -> i64 {
         Ok(Some(clip_id)) => clip_id as i64,
         Ok(None) => -1,  // No recording to stop
         Err(e) => {
-            eprintln!("❌ [FFI] Stop recording failed: {}", e);
+            eprintln!("❌ [FFI] Stop recording failed: {e}");
             -1
         }
     }
@@ -428,7 +425,7 @@ pub extern "C" fn stop_recording_ffi() -> i64 {
 #[no_mangle]
 pub extern "C" fn get_recording_state_ffi() -> i32 {
     api::get_recording_state().unwrap_or_else(|e| {
-        eprintln!("❌ [FFI] Get recording state failed: {}", e);
+        eprintln!("❌ [FFI] Get recording state failed: {e}");
         0  // Return Idle state on error
     })
 }
@@ -437,13 +434,13 @@ pub extern "C" fn get_recording_state_ffi() -> i32 {
 #[no_mangle]
 pub extern "C" fn get_recorded_duration_ffi() -> f64 {
     api::get_recorded_duration().unwrap_or_else(|e| {
-        eprintln!("❌ [FFI] Get recorded duration failed: {}", e);
+        eprintln!("❌ [FFI] Get recorded duration failed: {e}");
         0.0
     })
 }
 
 /// Get recording waveform preview as CSV of peak values
-/// num_peaks: number of downsampled peaks to return
+/// `num_peaks`: number of downsampled peaks to return
 /// Returns CSV string of 0.0-1.0 peak values, or empty string on error
 #[no_mangle]
 pub extern "C" fn get_recording_waveform_ffi(num_peaks: u32) -> *mut c_char {
@@ -458,7 +455,7 @@ pub extern "C" fn get_recording_waveform_ffi(num_peaks: u32) -> *mut c_char {
 pub extern "C" fn set_count_in_bars_ffi(bars: u32) -> *mut c_char {
     match api::set_count_in_bars(bars) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -485,7 +482,7 @@ pub extern "C" fn get_count_in_progress_ffi() -> f32 {
 pub extern "C" fn set_tempo_ffi(bpm: f64) -> *mut c_char {
     match api::set_tempo(bpm) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -500,14 +497,14 @@ pub extern "C" fn get_tempo_ffi() -> f64 {
 pub extern "C" fn set_metronome_enabled_ffi(enabled: i32) -> *mut c_char {
     match api::set_metronome_enabled(enabled != 0) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Check if metronome is enabled
 #[no_mangle]
 pub extern "C" fn is_metronome_enabled_ffi() -> i32 {
-    if api::is_metronome_enabled().unwrap_or(true) { 1 } else { 0 }
+    i32::from(api::is_metronome_enabled().unwrap_or(true))
 }
 
 /// Set time signature (beats per bar)
@@ -515,7 +512,7 @@ pub extern "C" fn is_metronome_enabled_ffi() -> i32 {
 pub extern "C" fn set_time_signature_ffi(beats_per_bar: u32) -> *mut c_char {
     match api::set_time_signature(beats_per_bar) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -534,7 +531,7 @@ pub extern "C" fn get_time_signature_ffi() -> u32 {
 pub extern "C" fn start_midi_input_ffi() -> *mut c_char {
     match api::start_midi_input() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -543,7 +540,7 @@ pub extern "C" fn start_midi_input_ffi() -> *mut c_char {
 pub extern "C" fn stop_midi_input_ffi() -> *mut c_char {
     match api::stop_midi_input() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -552,7 +549,7 @@ pub extern "C" fn stop_midi_input_ffi() -> *mut c_char {
 pub extern "C" fn set_synth_oscillator_type_ffi(osc_type: i32) -> *mut c_char {
     match api::set_synth_oscillator_type(osc_type) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -561,7 +558,7 @@ pub extern "C" fn set_synth_oscillator_type_ffi(osc_type: i32) -> *mut c_char {
 pub extern "C" fn set_synth_volume_ffi(volume: f32) -> *mut c_char {
     match api::set_synth_volume(volume) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -570,7 +567,7 @@ pub extern "C" fn set_synth_volume_ffi(volume: f32) -> *mut c_char {
 pub extern "C" fn send_midi_note_on_ffi(note: u8, velocity: u8) -> *mut c_char {
     match api::send_midi_note_on(note, velocity) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -579,7 +576,7 @@ pub extern "C" fn send_midi_note_on_ffi(note: u8, velocity: u8) -> *mut c_char {
 pub extern "C" fn send_midi_note_off_ffi(note: u8, velocity: u8) -> *mut c_char {
     match api::send_midi_note_off(note, velocity) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -592,7 +589,7 @@ pub extern "C" fn send_midi_note_off_ffi(note: u8, velocity: u8) -> *mut c_char 
 pub extern "C" fn start_midi_recording_ffi() -> *mut c_char {
     match api::start_midi_recording() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -609,14 +606,11 @@ pub extern "C" fn stop_midi_recording_ffi() -> i64 {
 /// Get MIDI recording state (0 = Idle, 1 = Recording)
 #[no_mangle]
 pub extern "C" fn get_midi_recording_state_ffi() -> i32 {
-    match api::get_midi_recording_state() {
-        Ok(state) => state,
-        Err(_) => -1,
-    }
+    api::get_midi_recording_state().unwrap_or(-1)
 }
 
 /// Get live MIDI recording events for real-time UI preview
-/// Returns CSV: "note,velocity,type,timestamp_samples;..." or empty string
+/// Returns CSV: "`note,velocity,type,timestamp_samples`;..." or empty string
 #[no_mangle]
 pub extern "C" fn get_midi_recorder_live_events_ffi() -> *mut c_char {
     match api::get_midi_recorder_live_events() {
@@ -630,7 +624,7 @@ pub extern "C" fn get_midi_recorder_live_events_ffi() -> *mut c_char {
 // ============================================================================
 
 /// Get available MIDI input devices
-/// Returns a newline-separated list of "id|name|is_default"
+/// Returns a newline-separated list of "`id|name|is_default`"
 #[no_mangle]
 pub extern "C" fn get_midi_input_devices_ffi() -> *mut c_char {
     match api::get_midi_input_devices() {
@@ -641,7 +635,7 @@ pub extern "C" fn get_midi_input_devices_ffi() -> *mut c_char {
                 .collect();
             safe_cstring(formatted.join("\n")).into_raw()
         }
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -650,7 +644,7 @@ pub extern "C" fn get_midi_input_devices_ffi() -> *mut c_char {
 pub extern "C" fn select_midi_input_device_ffi(device_index: i32) -> *mut c_char {
     match api::select_midi_input_device(device_index) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -659,7 +653,7 @@ pub extern "C" fn select_midi_input_device_ffi(device_index: i32) -> *mut c_char
 pub extern "C" fn refresh_midi_devices_ffi() -> *mut c_char {
     match api::refresh_midi_devices() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -668,7 +662,7 @@ pub extern "C" fn refresh_midi_devices_ffi() -> *mut c_char {
 // ============================================================================
 
 /// Get available audio input devices
-/// Returns a newline-separated list of "id|name|is_default"
+/// Returns a newline-separated list of "`id|name|is_default`"
 #[no_mangle]
 pub extern "C" fn get_audio_input_devices_ffi() -> *mut c_char {
     match api::get_audio_input_devices() {
@@ -679,12 +673,12 @@ pub extern "C" fn get_audio_input_devices_ffi() -> *mut c_char {
                 .collect();
             safe_cstring(formatted.join("\n")).into_raw()
         }
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get available audio output devices
-/// Returns a newline-separated list of "id|name|is_default"
+/// Returns a newline-separated list of "`id|name|is_default`"
 #[no_mangle]
 pub extern "C" fn get_audio_output_devices_ffi() -> *mut c_char {
     match api::get_audio_output_devices() {
@@ -695,7 +689,7 @@ pub extern "C" fn get_audio_output_devices_ffi() -> *mut c_char {
                 .collect();
             safe_cstring(formatted.join("\n")).into_raw()
         }
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -704,7 +698,7 @@ pub extern "C" fn get_audio_output_devices_ffi() -> *mut c_char {
 pub extern "C" fn set_audio_input_device_ffi(device_index: i32) -> *mut c_char {
     match api::set_audio_input_device(device_index) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -731,7 +725,7 @@ pub extern "C" fn set_audio_output_device_ffi(device_name: *const c_char) -> *mu
 
     match api::set_audio_output_device(name) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -741,7 +735,7 @@ pub extern "C" fn set_audio_output_device_ffi(device_name: *const c_char) -> *mu
 pub extern "C" fn get_selected_audio_output_device_ffi() -> *mut c_char {
     match api::get_selected_audio_output_device() {
         Ok(name) => safe_cstring(name).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -762,7 +756,7 @@ pub extern "C" fn add_midi_clip_to_track_ffi(
     start_time_seconds: f64,
 ) -> i64 {
     match api::add_midi_clip_to_track(track_id, clip_id, start_time_seconds) {
-        Ok(_) => 0,
+        Ok(()) => 0,
         Err(_) => -1,
     }
 }
@@ -771,7 +765,7 @@ pub extern "C" fn add_midi_clip_to_track_ffi(
 #[no_mangle]
 pub extern "C" fn remove_midi_clip_ffi(track_id: u64, clip_id: u64) -> i64 {
     match api::remove_midi_clip(track_id, clip_id) {
-        Ok(removed) => if removed { 0 } else { 1 },
+        Ok(removed) => i64::from(!removed),
         Err(_) => -1,
     }
 }
@@ -787,7 +781,7 @@ pub extern "C" fn add_midi_note_to_clip_ffi(
 ) -> *mut c_char {
     match api::add_midi_note_to_clip(clip_id, note, velocity, start_time, duration) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -796,7 +790,7 @@ pub extern "C" fn add_midi_note_to_clip_ffi(
 pub extern "C" fn clear_midi_clip_ffi(clip_id: u64) -> *mut c_char {
     match api::clear_midi_clip(clip_id) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -805,7 +799,7 @@ pub extern "C" fn clear_midi_clip_ffi(clip_id: u64) -> *mut c_char {
 pub extern "C" fn quantize_midi_clip_ffi(clip_id: u64, grid_division: u32) -> *mut c_char {
     match api::quantize_midi_clip(clip_id, grid_division) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -815,13 +809,13 @@ pub extern "C" fn get_midi_clip_count_ffi() -> usize {
     api::get_midi_clip_count().unwrap_or(0)
 }
 
-/// Get MIDI clip info as CSV: "clip_id,track_id,start_time,duration,note_count"
-/// track_id is -1 if not assigned to a track
+/// Get MIDI clip info as CSV: "`clip_id,track_id,start_time,duration,note_count`"
+/// `track_id` is -1 if not assigned to a track
 #[no_mangle]
 pub extern "C" fn get_midi_clip_info_ffi(clip_id: u64) -> *mut c_char {
     match api::get_midi_clip_info(clip_id) {
         Ok(info) => safe_cstring(info).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -858,7 +852,7 @@ pub extern "C" fn create_track_ffi(
     match api::create_track(track_type_str, name_str) {
         Ok(id) => id as i64,
         Err(e) => {
-            eprintln!("❌ [FFI] create_track error: {}", e);
+            eprintln!("❌ [FFI] create_track error: {e}");
             -1
         }
     }
@@ -869,12 +863,12 @@ pub extern "C" fn create_track_ffi(
 pub extern "C" fn set_track_volume_ffi(track_id: u64, volume_db: f32) -> *mut c_char {
     match api::set_track_volume(track_id, volume_db) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Set track volume automation curve
-/// csv_data format: "time_seconds,db;time_seconds,db;..." or empty to clear
+/// `csv_data` format: "`time_seconds,db;time_seconds,db`;..." or empty to clear
 #[no_mangle]
 pub extern "C" fn set_track_volume_automation_ffi(track_id: u64, csv_data: *const c_char) -> *mut c_char {
     let csv = if csv_data.is_null() {
@@ -890,7 +884,7 @@ pub extern "C" fn set_track_volume_automation_ffi(track_id: u64, csv_data: *cons
 
     match api::set_track_volume_automation(track_id, &csv) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -899,7 +893,7 @@ pub extern "C" fn set_track_volume_automation_ffi(track_id: u64, csv_data: *cons
 pub extern "C" fn set_track_pan_ffi(track_id: u64, pan: f32) -> *mut c_char {
     match api::set_track_pan(track_id, pan) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -908,7 +902,7 @@ pub extern "C" fn set_track_pan_ffi(track_id: u64, pan: f32) -> *mut c_char {
 pub extern "C" fn set_track_mute_ffi(track_id: u64, mute: bool) -> *mut c_char {
     match api::set_track_mute(track_id, mute) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -917,7 +911,7 @@ pub extern "C" fn set_track_mute_ffi(track_id: u64, mute: bool) -> *mut c_char {
 pub extern "C" fn set_track_solo_ffi(track_id: u64, solo: bool) -> *mut c_char {
     match api::set_track_solo(track_id, solo) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -926,7 +920,7 @@ pub extern "C" fn set_track_solo_ffi(track_id: u64, solo: bool) -> *mut c_char {
 pub extern "C" fn set_track_armed_ffi(track_id: u64, armed: bool) -> *mut c_char {
     match api::set_track_armed(track_id, armed) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -935,17 +929,17 @@ pub extern "C" fn set_track_armed_ffi(track_id: u64, armed: bool) -> *mut c_char
 pub extern "C" fn set_track_input_ffi(track_id: u64, device_index: i32, channel: u32) -> *mut c_char {
     match api::set_track_input(track_id, device_index, channel) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get track input device and channel
-/// Returns: "device_index,channel" (-1 if no input assigned)
+/// Returns: "`device_index,channel`" (-1 if no input assigned)
 #[no_mangle]
 pub extern "C" fn get_track_input_ffi(track_id: u64) -> *mut c_char {
     match api::get_track_input(track_id) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -954,7 +948,7 @@ pub extern "C" fn get_track_input_ffi(track_id: u64) -> *mut c_char {
 pub extern "C" fn set_track_input_monitoring_ffi(track_id: u64, enabled: bool) -> *mut c_char {
     match api::set_track_input_monitoring(track_id, enabled) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -963,8 +957,8 @@ pub extern "C" fn set_track_input_monitoring_ffi(track_id: u64, enabled: bool) -
 #[no_mangle]
 pub extern "C" fn get_input_channel_level_ffi(channel: u32) -> *mut c_char {
     match api::get_input_channel_level(channel) {
-        Ok(level) => safe_cstring(format!("{:.4}", level)).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Ok(level) => safe_cstring(format!("{level:.4}")).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -985,7 +979,7 @@ pub extern "C" fn set_track_name_ffi(track_id: u64, name: *const c_char) -> *mut
     };
     match api::set_track_name(track_id, name_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1000,30 +994,30 @@ pub extern "C" fn get_track_count_ffi() -> usize {
 pub extern "C" fn get_all_track_ids_ffi() -> *mut c_char {
     match api::get_all_track_ids() {
         Ok(ids) => safe_cstring(ids).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get track info (CSV format)
 ///
-/// Returns: "track_id,name,type,volume_db,pan,mute,solo"
+/// Returns: "`track_id,name,type,volume_db,pan,mute,solo`"
 /// Caller must free the returned string
 #[no_mangle]
 pub extern "C" fn get_track_info_ffi(track_id: u64) -> *mut c_char {
     match api::get_track_info(track_id) {
         Ok(info) => safe_cstring(info).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get track peak levels (M5.5)
-/// Returns: "peak_left_db,peak_right_db"
+/// Returns: "`peak_left_db,peak_right_db`"
 /// Caller must free the returned string
 #[no_mangle]
 pub extern "C" fn get_track_peak_levels_ffi(track_id: u64) -> *mut c_char {
     match api::get_track_peak_levels(track_id) {
         Ok(levels) => safe_cstring(levels).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1032,7 +1026,7 @@ pub extern "C" fn get_track_peak_levels_ffi(track_id: u64) -> *mut c_char {
 pub extern "C" fn move_clip_to_track_ffi(track_id: u64, clip_id: u64) -> *mut c_char {
     match api::move_clip_to_track(track_id, clip_id) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1057,7 +1051,7 @@ pub extern "C" fn add_effect_to_track_ffi(
     match api::add_effect_to_track(track_id, effect_type_str) {
         Ok(effect_id) => effect_id as i64,
         Err(e) => {
-            eprintln!("❌ [FFI] add_effect_to_track error: {}", e);
+            eprintln!("❌ [FFI] add_effect_to_track error: {e}");
             -1
         }
     }
@@ -1068,7 +1062,7 @@ pub extern "C" fn add_effect_to_track_ffi(
 pub extern "C" fn remove_effect_from_track_ffi(track_id: u64, effect_id: u64) -> *mut c_char {
     match api::remove_effect_from_track(track_id, effect_id) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1077,7 +1071,7 @@ pub extern "C" fn remove_effect_from_track_ffi(track_id: u64, effect_id: u64) ->
 pub extern "C" fn get_track_effects_ffi(track_id: u64) -> *mut c_char {
     match api::get_track_effects(track_id) {
         Ok(effects) => safe_cstring(effects).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1086,7 +1080,7 @@ pub extern "C" fn get_track_effects_ffi(track_id: u64) -> *mut c_char {
 pub extern "C" fn get_effect_info_ffi(effect_id: u64) -> *mut c_char {
     match api::get_effect_info(effect_id) {
         Ok(info) => safe_cstring(info).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1106,7 +1100,7 @@ pub extern "C" fn set_effect_parameter_ffi(
 
     match api::set_effect_parameter(effect_id, param_name_str, value) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1117,7 +1111,7 @@ pub extern "C" fn set_effect_bypass_ffi(effect_id: u64, bypassed: i32) -> i32 {
     match api::set_effect_bypass(effect_id, bypassed != 0) {
         Ok(_) => 1,
         Err(e) => {
-            eprintln!("❌ [FFI] set_effect_bypass error: {}", e);
+            eprintln!("❌ [FFI] set_effect_bypass error: {e}");
             0
         }
     }
@@ -1128,16 +1122,16 @@ pub extern "C" fn set_effect_bypass_ffi(effect_id: u64, bypassed: i32) -> i32 {
 #[no_mangle]
 pub extern "C" fn get_effect_bypass_ffi(effect_id: u64) -> i32 {
     match api::get_effect_bypass(effect_id) {
-        Ok(bypassed) => if bypassed { 1 } else { 0 },
+        Ok(bypassed) => i32::from(bypassed),
         Err(e) => {
-            eprintln!("❌ [FFI] get_effect_bypass error: {}", e);
+            eprintln!("❌ [FFI] get_effect_bypass error: {e}");
             -1
         }
     }
 }
 
 /// Reorder effects in a track's FX chain
-/// effect_ids_csv: comma-separated list of effect IDs in the desired order
+/// `effect_ids_csv`: comma-separated list of effect IDs in the desired order
 #[no_mangle]
 pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *const c_char) -> *mut c_char {
     let ids_str = unsafe {
@@ -1149,7 +1143,7 @@ pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *cons
 
     match api::reorder_track_effects(track_id, ids_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1158,7 +1152,7 @@ pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *cons
 pub extern "C" fn delete_track_ffi(track_id: u64) -> *mut c_char {
     match api::delete_track(track_id) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1167,7 +1161,7 @@ pub extern "C" fn delete_track_ffi(track_id: u64) -> *mut c_char {
 pub extern "C" fn clear_all_tracks_ffi() -> *mut c_char {
     match api::clear_all_tracks() {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1180,7 +1174,7 @@ pub extern "C" fn duplicate_track_ffi(track_id: u64) -> i64 {
     match api::duplicate_track(track_id) {
         Ok(new_track_id) => new_track_id as i64,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to duplicate track {}: {}", track_id, e);
+            eprintln!("❌ [FFI] Failed to duplicate track {track_id}: {e}");
             -1
         }
     }
@@ -1199,8 +1193,7 @@ pub extern "C" fn duplicate_audio_clip_ffi(
         Ok(new_clip_id) => new_clip_id as i64,
         Err(e) => {
             eprintln!(
-                "❌ [FFI] Failed to duplicate clip {} on track {}: {}",
-                source_clip_id, track_id, e
+                "❌ [FFI] Failed to duplicate clip {source_clip_id} on track {track_id}: {e}"
             );
             -1
         }
@@ -1217,8 +1210,7 @@ pub extern "C" fn remove_audio_clip_ffi(track_id: u64, clip_id: u64) -> i32 {
         Ok(false) => 0,
         Err(e) => {
             eprintln!(
-                "❌ [FFI] Failed to remove clip {} from track {}: {}",
-                clip_id, track_id, e
+                "❌ [FFI] Failed to remove clip {clip_id} from track {track_id}: {e}"
             );
             -1
         }
@@ -1247,8 +1239,7 @@ pub extern "C" fn add_existing_clip_to_track_ffi(
         Ok(new_id) => new_id as i64,
         Err(e) => {
             eprintln!(
-                "❌ [FFI] add_existing_clip_to_track_ffi error: {}",
-                e
+                "❌ [FFI] add_existing_clip_to_track_ffi error: {e}"
             );
             -1
         }
@@ -1281,7 +1272,7 @@ pub extern "C" fn save_project_ffi(
 
     match api::save_project(project_name_str, project_path_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1297,7 +1288,7 @@ pub extern "C" fn load_project_ffi(project_path: *const c_char) -> *mut c_char {
 
     match api::load_project(project_path_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1316,7 +1307,7 @@ pub extern "C" fn export_to_wav_ffi(
 
     match api::export_to_wav(output_path_str, normalize) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1340,7 +1331,7 @@ pub extern "C" fn set_track_instrument_ffi(
     match api::set_track_instrument(track_id, instrument_type_str) {
         Ok(id) => id,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to set instrument: {}", e);
+            eprintln!("❌ [FFI] Failed to set instrument: {e}");
             -1
         }
     }
@@ -1369,40 +1360,40 @@ pub extern "C" fn set_synth_parameter_ffi(
 
     match api::set_synth_parameter(track_id, param_name_str, value_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get all synthesizer parameters for a track
 #[no_mangle]
 pub extern "C" fn get_synth_parameters_ffi(track_id: u64) -> *mut c_char {
-    println!("🎹 [FFI] Get synth parameters for track {}", track_id);
+    println!("🎹 [FFI] Get synth parameters for track {track_id}");
 
     match api::get_synth_parameters(track_id) {
         Ok(json) => safe_cstring(json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Send MIDI note on event to track synthesizer
 #[no_mangle]
 pub extern "C" fn send_track_midi_note_on_ffi(track_id: u64, note: u8, velocity: u8) -> *mut c_char {
-    println!("🎹 [FFI] Track {} Note On: note={}, velocity={}", track_id, note, velocity);
+    println!("🎹 [FFI] Track {track_id} Note On: note={note}, velocity={velocity}");
 
     match api::send_track_midi_note_on(track_id, note, velocity) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Send MIDI note off event to track synthesizer
 #[no_mangle]
 pub extern "C" fn send_track_midi_note_off_ffi(track_id: u64, note: u8, velocity: u8) -> *mut c_char {
-    println!("🎹 [FFI] Track {} Note Off: note={}, velocity={}", track_id, note, velocity);
+    println!("🎹 [FFI] Track {track_id} Note Off: note={note}, velocity={velocity}");
 
     match api::send_track_midi_note_off(track_id, note, velocity) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1414,22 +1405,22 @@ pub extern "C" fn send_track_midi_note_off_ffi(track_id: u64, note: u8, velocity
 /// Returns instrument ID on success, or -1 on error
 #[no_mangle]
 pub extern "C" fn create_sampler_for_track_ffi(track_id: u64) -> i64 {
-    println!("🎹 [FFI] Creating sampler for track {}", track_id);
+    println!("🎹 [FFI] Creating sampler for track {track_id}");
 
     match api::create_sampler_for_track(track_id) {
         Ok(id) => {
-            println!("✅ [FFI] Sampler created with ID: {}", id);
+            println!("✅ [FFI] Sampler created with ID: {id}");
             id
         }
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to create sampler: {}", e);
+            eprintln!("❌ [FFI] Failed to create sampler: {e}");
             -1
         }
     }
 }
 
 /// Load a sample file into a sampler track
-/// root_note: MIDI note that plays sample at original pitch (default 60 = C4)
+/// `root_note`: MIDI note that plays sample at original pitch (default 60 = C4)
 /// Returns 1 on success, 0 on failure
 #[no_mangle]
 pub extern "C" fn load_sample_for_track_ffi(
@@ -1444,22 +1435,22 @@ pub extern "C" fn load_sample_for_track_ffi(
         }
     };
 
-    println!("🎹 [FFI] Loading sample for track {}: {} (root={})", track_id, path_str, root_note);
+    println!("🎹 [FFI] Loading sample for track {track_id}: {path_str} (root={root_note})");
 
     match api::load_sample_for_track(track_id, path_str, root_note) {
         Ok(msg) => {
-            println!("✅ [FFI] {}", msg);
+            println!("✅ [FFI] {msg}");
             1
         }
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to load sample: {}", e);
+            eprintln!("❌ [FFI] Failed to load sample: {e}");
             0
         }
     }
 }
 
 /// Set sampler parameter for a track
-/// param_name: "root_note", "attack", "attack_ms", "release", "release_ms"
+/// `param_name`: "`root_note`", "attack", "`attack_ms`", "release", "`release_ms`"
 /// Returns success message or error
 #[no_mangle]
 pub extern "C" fn set_sampler_parameter_ffi(
@@ -1481,11 +1472,11 @@ pub extern "C" fn set_sampler_parameter_ffi(
         }
     };
 
-    println!("🎹 [FFI] Set sampler param for track {}: {}={}", track_id, param_name_str, value_str);
+    println!("🎹 [FFI] Set sampler param for track {track_id}: {param_name_str}={value_str}");
 
     match api::set_sampler_parameter(track_id, param_name_str, value_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1497,7 +1488,7 @@ pub extern "C" fn is_sampler_track_ffi(track_id: u64) -> i32 {
         Ok(true) => 1,
         Ok(false) => 0,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to check sampler track: {}", e);
+            eprintln!("❌ [FFI] Failed to check sampler track: {e}");
             -1
         }
     }
@@ -1521,7 +1512,7 @@ pub extern "C" fn scan_vst3_plugins_standard_ffi() -> *mut c_char {
             safe_cstring(plugin_list).into_raw()
         }
         Err(e) => {
-            eprintln!("❌ [FFI] VST3 scan failed: {}", e);
+            eprintln!("❌ [FFI] VST3 scan failed: {e}");
             safe_cstring(String::new()).into_raw()
         }
     }
@@ -1542,15 +1533,15 @@ pub extern "C" fn add_vst3_effect_to_track_ffi(
         }
     };
 
-    println!("🔌 [FFI] Adding VST3 plugin to track {}: {}", track_id, plugin_path_str);
+    println!("🔌 [FFI] Adding VST3 plugin to track {track_id}: {plugin_path_str}");
 
     match api::add_vst3_effect_to_track(track_id, &plugin_path_str) {
         Ok(effect_id) => {
-            println!("✅ [FFI] VST3 plugin added with effect ID: {}", effect_id);
+            println!("✅ [FFI] VST3 plugin added with effect ID: {effect_id}");
             effect_id as i64
         }
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to add VST3 plugin: {}", e);
+            eprintln!("❌ [FFI] Failed to add VST3 plugin: {e}");
             -1
         }
     }
@@ -1563,7 +1554,7 @@ pub extern "C" fn get_vst3_parameter_count_ffi(effect_id: i64) -> i32 {
     match api::get_vst3_parameter_count(effect_id as u64) {
         Ok(count) => count as i32,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to get VST3 parameter count: {}", e);
+            eprintln!("❌ [FFI] Failed to get VST3 parameter count: {e}");
             0
         }
     }
@@ -1580,7 +1571,7 @@ pub extern "C" fn get_vst3_parameter_info_ffi(
     match api::get_vst3_parameter_info(effect_id as u64, param_index as u32) {
         Ok(info) => safe_cstring(info).into_raw(),
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to get VST3 parameter info: {}", e);
+            eprintln!("❌ [FFI] Failed to get VST3 parameter info: {e}");
             safe_cstring(String::new()).into_raw()
         }
     }
@@ -1596,7 +1587,7 @@ pub extern "C" fn get_vst3_parameter_value_ffi(
     match api::get_vst3_parameter_value(effect_id as u64, param_index as u32) {
         Ok(value) => value,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to get VST3 parameter value: {}", e);
+            eprintln!("❌ [FFI] Failed to get VST3 parameter value: {e}");
             0.0
         }
     }
@@ -1614,7 +1605,7 @@ pub extern "C" fn set_vst3_parameter_value_ffi(
     match api::set_vst3_parameter_value(effect_id as u64, param_index as u32, value) {
         Ok(_) => 1,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to set VST3 parameter value: {}", e);
+            eprintln!("❌ [FFI] Failed to set VST3 parameter value: {e}");
             0
         }
     }
@@ -1632,18 +1623,18 @@ pub extern "C" fn vst3_has_editor_ffi(effect_id: i64) -> bool {
     match api::vst3_has_editor(effect_id as u64) {
         Ok(has_editor) => has_editor,
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to check VST3 editor: {}", e);
+            eprintln!("❌ [FFI] Failed to check VST3 editor: {e}");
             false
         }
     }
 }
 
-/// Open a VST3 plugin editor (creates IPlugView)
+/// Open a VST3 plugin editor (creates `IPlugView`)
 /// Returns empty string on success, error message on failure
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_open_editor_ffi(effect_id: i64) -> *mut c_char {
-    println!("🎨 [FFI] Opening VST3 editor for effect {}", effect_id);
+    println!("🎨 [FFI] Opening VST3 editor for effect {effect_id}");
 
     match api::vst3_open_editor(effect_id as u64) {
         Ok(msg) => {
@@ -1655,8 +1646,8 @@ pub extern "C" fn vst3_open_editor_ffi(effect_id: i64) -> *mut c_char {
             }
         }
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to open VST3 editor: {}", e);
-            safe_cstring(format!("Error: {}", e)).into_raw()
+            eprintln!("❌ [FFI] Failed to open VST3 editor: {e}");
+            safe_cstring(format!("Error: {e}")).into_raw()
         }
     }
 }
@@ -1665,11 +1656,11 @@ pub extern "C" fn vst3_open_editor_ffi(effect_id: i64) -> *mut c_char {
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
 pub extern "C" fn vst3_close_editor_ffi(effect_id: i64) {
-    println!("🎨 [FFI] Closing VST3 editor for effect {}", effect_id);
+    println!("🎨 [FFI] Closing VST3 editor for effect {effect_id}");
 
     match api::vst3_close_editor(effect_id as u64) {
-        Ok(_) => println!("✅ [FFI] VST3 editor closed"),
-        Err(e) => eprintln!("❌ [FFI] Failed to close VST3 editor: {}", e),
+        Ok(()) => println!("✅ [FFI] VST3 editor closed"),
+        Err(e) => eprintln!("❌ [FFI] Failed to close VST3 editor: {e}"),
     }
 }
 
@@ -1681,14 +1672,14 @@ pub extern "C" fn vst3_get_editor_size_ffi(effect_id: i64) -> *mut c_char {
     match api::vst3_get_editor_size(effect_id as u64) {
         Ok(size) => safe_cstring(size).into_raw(),
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to get VST3 editor size: {}", e);
-            safe_cstring(format!("Error: {}", e)).into_raw()
+            eprintln!("❌ [FFI] Failed to get VST3 editor size: {e}");
+            safe_cstring(format!("Error: {e}")).into_raw()
         }
     }
 }
 
 /// Attach VST3 editor to a parent window
-/// parent_ptr: Pointer to NSView (on macOS)
+/// `parent_ptr`: Pointer to `NSView` (on macOS)
 /// Returns empty string on success, error message on failure
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
@@ -1696,7 +1687,7 @@ pub extern "C" fn vst3_attach_editor_ffi(
     effect_id: i64,
     parent_ptr: *mut std::os::raw::c_void,
 ) -> *mut c_char {
-    println!("🎨 [FFI] Attaching VST3 editor for effect {} to parent {:?}", effect_id, parent_ptr);
+    println!("🎨 [FFI] Attaching VST3 editor for effect {effect_id} to parent {parent_ptr:?}");
 
     // Flush stdout to ensure logs appear before potential crash
     use std::io::Write;
@@ -1715,14 +1706,14 @@ pub extern "C" fn vst3_attach_editor_ffi(
             }
         }
         Err(e) => {
-            eprintln!("❌ [FFI] Failed to attach VST3 editor: {}", e);
-            safe_cstring(format!("Error: {}", e)).into_raw()
+            eprintln!("❌ [FFI] Failed to attach VST3 editor: {e}");
+            safe_cstring(format!("Error: {e}")).into_raw()
         }
     }
 }
 
 /// Send a MIDI note event to a VST3 plugin
-/// event_type: 0 = note on, 1 = note off
+/// `event_type`: 0 = note on, 1 = note off
 /// Returns empty string on success, error message on failure
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 #[no_mangle]
@@ -1735,7 +1726,7 @@ pub extern "C" fn vst3_send_midi_note_ffi(
 ) -> *mut c_char {
     match api::vst3_send_midi_note(effect_id as u64, event_type, channel, note, velocity) {
         Ok(()) => safe_cstring(String::new()).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1744,23 +1735,23 @@ pub extern "C" fn vst3_send_midi_note_ffi(
 // ============================================================================
 
 /// Get all MIDI clips info
-/// Returns semicolon-separated list: "clip_id,track_id,start_time,duration,note_count"
+/// Returns semicolon-separated list: "`clip_id,track_id,start_time,duration,note_count`"
 /// Each clip info is separated by semicolon
 #[no_mangle]
 pub extern "C" fn get_all_midi_clips_info_ffi() -> *mut c_char {
     match api::get_all_midi_clips_info() {
         Ok(info) => safe_cstring(info).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Get MIDI notes from a clip
-/// Returns semicolon-separated list: "note,velocity,start_time,duration"
+/// Returns semicolon-separated list: "`note,velocity,start_time,duration`"
 #[no_mangle]
 pub extern "C" fn get_midi_clip_notes_ffi(clip_id: u64) -> *mut c_char {
     match api::get_midi_clip_notes(clip_id) {
         Ok(notes) => safe_cstring(notes).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1772,12 +1763,12 @@ pub extern "C" fn get_midi_clip_notes_ffi(clip_id: u64) -> *mut c_char {
 /// Returns 1 if available, 0 if not
 #[no_mangle]
 pub extern "C" fn is_ffmpeg_available_ffi() -> i32 {
-    if api::is_ffmpeg_available() { 1 } else { 0 }
+    i32::from(api::is_ffmpeg_available())
 }
 
 /// Export audio with configurable options (generic, accepts JSON options)
-/// options_json: JSON string of ExportOptions
-/// Returns JSON string with ExportResult on success, or "Error: <message>" on failure
+/// `options_json`: JSON string of `ExportOptions`
+/// Returns JSON string with `ExportResult` on success, or "Error: <message>" on failure
 #[no_mangle]
 pub extern "C" fn export_audio_ffi(
     output_path: *const c_char,
@@ -1799,14 +1790,14 @@ pub extern "C" fn export_audio_ffi(
 
     match api::export_audio(output_path_str, options_json_str) {
         Ok(result_json) => safe_cstring(result_json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Export WAV with configurable options
-/// bit_depth: 16, 24, or 32
-/// sample_rate: 44100 or 48000
-/// Returns JSON string with ExportResult on success, or "Error: <message>" on failure
+/// `bit_depth`: 16, 24, or 32
+/// `sample_rate`: 44100 or 48000
+/// Returns JSON string with `ExportResult` on success, or "Error: <message>" on failure
 #[no_mangle]
 pub extern "C" fn export_wav_with_options_ffi(
     output_path: *const c_char,
@@ -1825,14 +1816,14 @@ pub extern "C" fn export_wav_with_options_ffi(
 
     match api::export_wav_with_options(output_path_str, bit_depth, sample_rate, normalize, dither, mono) {
         Ok(result_json) => safe_cstring(result_json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Export MP3 with configurable options
 /// bitrate: 128, 192, or 320
-/// sample_rate: 44100 or 48000
-/// Returns JSON string with ExportResult on success, or "Error: <message>" on failure
+/// `sample_rate`: 44100 or 48000
+/// Returns JSON string with `ExportResult` on success, or "Error: <message>" on failure
 #[no_mangle]
 pub extern "C" fn export_mp3_with_options_ffi(
     output_path: *const c_char,
@@ -1850,12 +1841,12 @@ pub extern "C" fn export_mp3_with_options_ffi(
 
     match api::export_mp3_with_options(output_path_str, bitrate, sample_rate, normalize, mono) {
         Ok(result_json) => safe_cstring(result_json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Write ID3 metadata to an MP3 file
-/// metadata_json: JSON string of ExportMetadata
+/// `metadata_json`: JSON string of `ExportMetadata`
 /// Returns success message or "Error: <message>"
 #[no_mangle]
 pub extern "C" fn write_mp3_metadata_ffi(
@@ -1878,7 +1869,7 @@ pub extern "C" fn write_mp3_metadata_ffi(
 
     match api::write_mp3_metadata(file_path_str, metadata_json_str) {
         Ok(msg) => safe_cstring(msg).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1892,16 +1883,16 @@ pub extern "C" fn write_mp3_metadata_ffi(
 pub extern "C" fn get_tracks_for_stems_ffi() -> *mut c_char {
     match api::get_tracks_for_stems() {
         Ok(json) => safe_cstring(json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
 /// Export stems (individual tracks) to a directory
-/// output_dir: Directory to export stems to
-/// base_name: Base filename for stems
-/// track_ids_json: JSON array of track IDs, or empty/null for all tracks
-/// options_json: JSON string of ExportOptions
-/// Returns JSON string with StemExportResult on success
+/// `output_dir`: Directory to export stems to
+/// `base_name`: Base filename for stems
+/// `track_ids_json`: JSON array of track IDs, or empty/null for all tracks
+/// `options_json`: JSON string of `ExportOptions`
+/// Returns JSON string with `StemExportResult` on success
 #[no_mangle]
 pub extern "C" fn export_stems_ffi(
     output_dir: *const c_char,
@@ -1939,7 +1930,7 @@ pub extern "C" fn export_stems_ffi(
 
     match api::export_stems(output_dir_str, base_name_str, track_ids_str, options_str) {
         Ok(result_json) => safe_cstring(result_json).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -1948,7 +1939,7 @@ pub extern "C" fn export_stems_ffi(
 // ============================================================================
 
 /// Get current export progress info
-/// Returns JSON string with progress, is_running, is_cancelled, status, error
+/// Returns JSON string with progress, `is_running`, `is_cancelled`, status, error
 #[no_mangle]
 pub extern "C" fn get_export_progress_ffi() -> *mut c_char {
     use crate::export::ExportProgressInfo;
@@ -1987,7 +1978,7 @@ pub extern "C" fn preview_load_audio_ffi(path: *const c_char) -> *mut c_char {
 
     match api::preview_load_audio(path_str.to_string()) {
         Ok(()) => safe_cstring("OK".to_string()).into_raw(),
-        Err(e) => safe_cstring(format!("Error: {}", e)).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     }
 }
 
@@ -2048,7 +2039,7 @@ pub extern "C" fn preview_get_waveform_ffi(resolution: i32) -> *mut c_char {
         "[{}]",
         peaks
             .iter()
-            .map(|p| format!("{:.4}", p))
+            .map(|p| format!("{p:.4}"))
             .collect::<Vec<_>>()
             .join(",")
     );

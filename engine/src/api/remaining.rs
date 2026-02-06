@@ -7,7 +7,7 @@ use crate::track::TrackId;
 
 /// Re-add an existing audio clip to a track from the clips map.
 /// Used for undo/redo to restore a previously removed clip with its original ID.
-/// The clip data must still exist in AUDIO_CLIPS.
+/// The clip data must still exist in `AUDIO_CLIPS`.
 ///
 /// Returns the clip ID (same as input) on success.
 pub fn add_existing_clip_to_track(
@@ -22,7 +22,7 @@ pub fn add_existing_clip_to_track(
 
     let clip_arc = clips_map
         .get(&clip_id)
-        .ok_or(format!("Clip {} not found in clips map", clip_id))?
+        .ok_or(format!("Clip {clip_id} not found in clips map"))?
         .clone();
 
     drop(clips_map);
@@ -35,12 +35,11 @@ pub fn add_existing_clip_to_track(
     );
 
     if !success {
-        return Err(format!("Failed to add clip to track {}", track_id));
+        return Err(format!("Failed to add clip to track {track_id}"));
     }
 
     eprintln!(
-        "🔄 [API] Re-added clip {} on track {} at {:.3}s",
-        clip_id, track_id, start_time
+        "🔄 [API] Re-added clip {clip_id} on track {track_id} at {start_time:.3}s"
     );
 
     Ok(clip_id)
@@ -60,7 +59,7 @@ pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Resu
         for clip in &mut track.audio_clips {
             if clip.id == clip_id {
                 clip.start_time = start_time.max(0.0); // Clamp to >= 0
-                return Ok(format!("Clip {} moved to {:.3}s", clip_id, start_time));
+                return Ok(format!("Clip {clip_id} moved to {start_time:.3}s"));
             }
         }
 
@@ -68,13 +67,13 @@ pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Resu
         for clip in &mut track.midi_clips {
             if clip.id == clip_id {
                 clip.start_time = start_time.max(0.0); // Clamp to >= 0
-                return Ok(format!("MIDI clip {} moved to {:.3}s", clip_id, start_time));
+                return Ok(format!("MIDI clip {clip_id} moved to {start_time:.3}s"));
             }
         }
 
-        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -93,13 +92,13 @@ pub fn set_clip_offset(track_id: u64, clip_id: u64, offset: f64) -> Result<Strin
         for clip in &mut track.audio_clips {
             if clip.id == clip_id {
                 clip.offset = offset.max(0.0);
-                return Ok(format!("Clip {} offset set to {:.3}s", clip_id, offset));
+                return Ok(format!("Clip {clip_id} offset set to {offset:.3}s"));
             }
         }
 
-        Err(format!("Audio clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Audio clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -118,13 +117,13 @@ pub fn set_clip_duration(track_id: u64, clip_id: u64, duration: f64) -> Result<S
         for clip in &mut track.audio_clips {
             if clip.id == clip_id {
                 clip.duration = Some(duration.max(0.0));
-                return Ok(format!("Clip {} duration set to {:.3}s", clip_id, duration));
+                return Ok(format!("Clip {clip_id} duration set to {duration:.3}s"));
             }
         }
 
-        Err(format!("Audio clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Audio clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -159,7 +158,7 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
         if let Ok(mut effect_manager) = graph.effect_manager.lock() {
             for effect_id in &fx_chain {
                 effect_manager.remove_effect(*effect_id);
-                eprintln!("🧹 [API] Removed effect {} from deleted track {}", effect_id, track_id);
+                eprintln!("🧹 [API] Removed effect {effect_id} from deleted track {track_id}");
             }
         }
     }
@@ -167,11 +166,10 @@ pub fn delete_track(track_id: TrackId) -> Result<String, String> {
     let mut track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
 
     if track_manager.remove_track(track_id) {
-        Ok(format!("Track {} deleted", track_id))
+        Ok(format!("Track {track_id} deleted"))
     } else {
         Err(format!(
-            "Cannot delete track {} (either not found or is master track)",
-            track_id
+            "Cannot delete track {track_id} (either not found or is master track)"
         ))
     }
 }
@@ -294,7 +292,7 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
         let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
         let source_track_arc = track_manager
             .get_track(track_id)
-            .ok_or(format!("Track {} not found", track_id))?;
+            .ok_or(format!("Track {track_id} not found"))?;
 
         let source_track = source_track_arc.lock().map_err(|e| e.to_string())?;
 
@@ -329,7 +327,7 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
             if let Some(new_effect_id) = effect_manager.duplicate_effect(*effect_id) {
                 new_chain.push(new_effect_id);
             } else {
-                eprintln!("⚠️  [API] Failed to duplicate effect {}", effect_id);
+                eprintln!("⚠️  [API] Failed to duplicate effect {effect_id}");
             }
         }
 
@@ -374,8 +372,7 @@ pub fn duplicate_track(track_id: TrackId) -> Result<TrackId, String> {
     };
 
     eprintln!(
-        "📋 [API] Duplicated track {} → new track {} created",
-        track_id, new_track_id
+        "📋 [API] Duplicated track {track_id} → new track {new_track_id} created"
     );
 
     Ok(new_track_id)
@@ -406,7 +403,7 @@ pub fn duplicate_audio_clip(
         let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
         let track_arc = track_manager
             .get_track(track_id)
-            .ok_or(format!("Track {} not found", track_id))?;
+            .ok_or(format!("Track {track_id} not found"))?;
 
         let track = track_arc.lock().map_err(|e| e.to_string())?;
 
@@ -415,7 +412,7 @@ pub fn duplicate_audio_clip(
             .audio_clips
             .iter()
             .find(|c| c.id == source_clip_id)
-            .ok_or(format!("Clip {} not found on track {}", source_clip_id, track_id))?;
+            .ok_or(format!("Clip {source_clip_id} not found on track {track_id}"))?;
 
         // Clone the Arc (cheap - just increments reference count)
         (source_clip.clip.clone(), source_clip.offset, source_clip.duration)
@@ -446,8 +443,7 @@ pub fn duplicate_audio_clip(
     }
 
     eprintln!(
-        "📋 [API] Duplicated clip {} → new clip {} at {:.3}s",
-        source_clip_id, new_clip_id, new_start_time
+        "📋 [API] Duplicated clip {source_clip_id} → new clip {new_clip_id} at {new_start_time:.3}s"
     );
 
     Ok(new_clip_id)
@@ -478,9 +474,9 @@ pub fn set_audio_clip_gain(track_id: TrackId, clip_id: u64, gain_db: f32) -> Res
             }
         }
 
-        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -490,7 +486,7 @@ pub fn set_audio_clip_gain(track_id: TrackId, clip_id: u64, gain_db: f32) -> Res
 /// * `track_id` - Track containing the clip
 /// * `clip_id` - ID of the clip to modify
 /// * `warp_enabled` - Whether warp/tempo sync is enabled
-/// * `stretch_factor` - Stretch factor (project_bpm / clip_bpm), 1.0 = no stretch
+/// * `stretch_factor` - Stretch factor (`project_bpm` / `clip_bpm`), 1.0 = no stretch
 /// * `warp_mode` - Warp algorithm: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
 ///
 /// # Returns
@@ -527,9 +523,9 @@ pub fn set_audio_clip_warp(
             }
         }
 
-        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -569,9 +565,9 @@ pub fn set_audio_clip_transpose(
             }
         }
 
-        Err(format!("Clip {} not found on track {}", clip_id, track_id))
+        Err(format!("Clip {clip_id} not found on track {track_id}"))
     } else {
-        Err(format!("Track {} not found", track_id))
+        Err(format!("Track {track_id} not found"))
     }
 }
 
@@ -590,7 +586,7 @@ pub fn remove_audio_clip(track_id: TrackId, clip_id: u64) -> Result<bool, String
     let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
     let track_arc = track_manager
         .get_track(track_id)
-        .ok_or(format!("Track {} not found", track_id))?;
+        .ok_or(format!("Track {track_id} not found"))?;
 
     let mut track = track_arc.lock().map_err(|e| e.to_string())?;
 
@@ -600,7 +596,7 @@ pub fn remove_audio_clip(track_id: TrackId, clip_id: u64) -> Result<bool, String
     let removed = track.audio_clips.len() < initial_len;
 
     if removed {
-        eprintln!("🗑️  [API] Removed audio clip {} from track {}", clip_id, track_id);
+        eprintln!("🗑️  [API] Removed audio clip {clip_id} from track {track_id}");
     }
 
     Ok(removed)

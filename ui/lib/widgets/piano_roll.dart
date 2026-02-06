@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import '../constants/ui_constants.dart';
 import '../models/midi_note_data.dart';
 import '../models/midi_cc_data.dart';
 import '../models/scale_data.dart';
@@ -487,8 +488,8 @@ class _PianoRollState extends State<PianoRoll>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 // Calculate max velocity available (grid can shrink to 0)
-                const navBarHeight = 24.0;
-                const resizeHandleHeight = 6.0;
+                const navBarHeight = UIConstants.navBarHeight;
+                const resizeHandleHeight = UIConstants.laneResizeHandleHeight;
                 final ccHeight = ccLaneExpanded ? PianoRollStateMixin.ccLaneHeight : 0.0;
                 final maxVelocityAvailable = constraints.maxHeight - navBarHeight - ccHeight - resizeHandleHeight;
 
@@ -525,7 +526,7 @@ class _PianoRollState extends State<PianoRoll>
                         scrollController: navBarScroll,
                         onZoomIn: zoomIn,
                         onZoomOut: zoomOut,
-                        height: 24.0,
+                        height: UIConstants.navBarHeight,
                         child: UnifiedNavBar(
                           config: UnifiedNavBarConfig(
                             pixelsPerBeat: pixelsPerBeat,
@@ -544,7 +545,7 @@ class _PianoRollState extends State<PianoRoll>
                             onLoopRegionChanged: _handleNavBarLoopRegionChanged,
                           ),
                           scrollController: navBarScroll,
-                          height: 24.0,
+                          height: UIConstants.navBarHeight,
                         ),
                       ),
                     ),
@@ -557,7 +558,7 @@ class _PianoRollState extends State<PianoRoll>
                       // Piano keys with InteractiveGutter for drag navigation
                       InteractiveGutter(
                         config: InteractiveGutterConfig(
-                          width: 80,
+                          width: UIConstants.pianoKeysWidth,
                           itemCount: visibleRowCount,
                           scrollOffset: verticalScroll.hasClients ? verticalScroll.offset : 0.0,
                           tapEnabled: auditionEnabled,
@@ -916,7 +917,7 @@ class _PianoRollState extends State<PianoRoll>
           child: GestureDetector(
             onVerticalDragUpdate: onVelocityLaneResizeUpdate,
             child: Container(
-              height: 6,
+              height: UIConstants.laneResizeHandleHeight,
               color: Colors.transparent,
               child: Center(
                 child: Container(
@@ -941,7 +942,7 @@ class _PianoRollState extends State<PianoRoll>
             children: [
               // Label area (same width as piano keys)
               Container(
-                width: 80,
+                width: UIConstants.pianoKeysWidth,
                 height: effectiveHeight,
                 decoration: BoxDecoration(
                   color: context.colors.standard,
@@ -1204,8 +1205,8 @@ class _PianoRollState extends State<PianoRoll>
     final colors = context.colors;
 
     return Container(
-      width: 80, // Match piano keys width
-      height: 24, // Match unified nav bar height
+      width: UIConstants.pianoKeysWidth, // Match piano keys width
+      height: UIConstants.navBarHeight, // Match unified nav bar height
       decoration: BoxDecoration(
         color: colors.standard,
         border: Border(

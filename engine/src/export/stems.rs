@@ -77,7 +77,7 @@ pub fn generate_stem_filename(base_name: &str, track_name: &str, extension: &str
         })
         .collect();
 
-    format!("{} - {}.{}", base_name, safe_track_name, extension)
+    format!("{base_name} - {safe_track_name}.{extension}")
 }
 
 /// Generate stem output path
@@ -114,7 +114,7 @@ pub fn export_stem(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎚️ [Stem Export] Exporting stem to {:?}", output_path);
+    eprintln!("🎚️ [Stem Export] Exporting stem to {output_path:?}");
 
     match &options.format {
         super::options::ExportFormat::Wav { .. } => export_wav(samples, output_path, options),
@@ -125,7 +125,7 @@ pub fn export_stem(
 /// Export multiple stems to a directory
 ///
 /// # Arguments
-/// * `tracks` - List of (track_info, rendered_samples) pairs
+/// * `tracks` - List of (`track_info`, `rendered_samples`) pairs
 /// * `output_dir` - Output directory path
 /// * `base_name` - Base filename
 /// * `options` - Export options
@@ -146,7 +146,7 @@ pub fn export_stems(
 
     // Create output directory if it doesn't exist
     std::fs::create_dir_all(output_dir)
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+        .map_err(|e| format!("Failed to create output directory: {e}"))?;
 
     let mut result = StemExportResult::new();
 

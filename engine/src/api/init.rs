@@ -22,13 +22,12 @@ use super::helpers::{AUDIO_CLIPS, AUDIO_GRAPH};
 pub fn play_sine_wave(frequency: f32, duration_ms: u32) -> Result<String, String> {
     std::thread::spawn(move || {
         if let Err(e) = play_sine_wave_internal(frequency, duration_ms) {
-            eprintln!("Error playing sine wave: {}", e);
+            eprintln!("Error playing sine wave: {e}");
         }
     });
 
     Ok(format!(
-        "Playing {} Hz sine wave for {} ms",
-        frequency, duration_ms
+        "Playing {frequency} Hz sine wave for {duration_ms} ms"
     ))
 }
 
@@ -40,7 +39,7 @@ fn play_sine_wave_internal(frequency: f32, duration_ms: u32) -> Result<(), Strin
 
     let config = device
         .default_output_config()
-        .map_err(|e| format!("Failed to get output config: {}", e))?;
+        .map_err(|e| format!("Failed to get output config: {e}"))?;
 
     let sample_rate = config.sample_rate().0 as f32;
     let channels = config.channels() as usize;
@@ -74,17 +73,17 @@ fn play_sine_wave_internal(frequency: f32, duration_ms: u32) -> Result<(), Strin
                 sample_count_clone.fetch_add(num_frames, std::sync::atomic::Ordering::SeqCst);
             },
             |err| {
-                eprintln!("Audio stream error: {}", err);
+                eprintln!("Audio stream error: {err}");
             },
             None,
         )
-        .map_err(|e| format!("Failed to build output stream: {}", e))?;
+        .map_err(|e| format!("Failed to build output stream: {e}"))?;
 
     stream
         .play()
-        .map_err(|e| format!("Failed to play stream: {}", e))?;
+        .map_err(|e| format!("Failed to play stream: {e}"))?;
 
-    std::thread::sleep(std::time::Duration::from_millis(duration_ms as u64));
+    std::thread::sleep(std::time::Duration::from_millis(u64::from(duration_ms)));
 
     Ok(())
 }
@@ -104,7 +103,7 @@ pub fn init_audio_engine() -> Result<String, String> {
         .name()
         .unwrap_or_else(|_| "Unknown Device".to_string());
 
-    Ok(format!("Audio engine initialized. Device: {}", device_name))
+    Ok(format!("Audio engine initialized. Device: {device_name}"))
 }
 
 /// Initialize the audio graph for playback
@@ -113,7 +112,7 @@ pub fn init_audio_graph() -> Result<String, String> {
     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
     {
         use crate::vst3_host::VST3Host;
-        VST3Host::init().map_err(|e| format!("VST3 host init failed: {}", e))?;
+        VST3Host::init().map_err(|e| format!("VST3 host init failed: {e}"))?;
     }
 
     let graph = AudioGraph::new().map_err(|e| e.to_string())?;

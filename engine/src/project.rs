@@ -229,7 +229,7 @@ impl Default for SynthData {
 
 /// Save project to `.audio` folder
 pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<()> {
-    eprintln!("💾 [Project] Saving project to: {:?}", project_path);
+    eprintln!("💾 [Project] Saving project to: {project_path:?}");
 
     // Create project folder structure
     fs::create_dir_all(project_path)
@@ -258,7 +258,7 @@ pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<(
 
 /// Load project from `.audio` folder
 pub fn load_project(project_path: &Path) -> Result<ProjectData> {
-    eprintln!("📂 [Project] Loading project from: {:?}", project_path);
+    eprintln!("📂 [Project] Loading project from: {project_path:?}");
 
     // Read project.json
     let json_path = project_path.join("project.json");
@@ -292,7 +292,7 @@ pub fn copy_audio_file_to_project(
         .and_then(|n| n.to_str())
         .unwrap_or("audio.wav");
 
-    let dest_filename = format!("{:03}-{}", file_id, original_name);
+    let dest_filename = format!("{file_id:03}-{original_name}");
     let dest_path = audio_dir.join(&dest_filename);
 
     // Copy file
@@ -300,8 +300,8 @@ pub fn copy_audio_file_to_project(
         .context("Failed to copy audio file")?;
 
     // Return relative path
-    let relative_path = format!("audio/{}", dest_filename);
-    eprintln!("📁 [Project] Copied audio file: {}", relative_path);
+    let relative_path = format!("audio/{dest_filename}");
+    eprintln!("📁 [Project] Copied audio file: {relative_path}");
     Ok(relative_path)
 }
 
@@ -319,7 +319,7 @@ mod tests {
     fn test_project_serialization() {
         let project = ProjectData::new("Test Project".to_string());
         let json = serde_json::to_string_pretty(&project).unwrap();
-        eprintln!("Project JSON:\n{}", json);
+        eprintln!("Project JSON:\n{json}");
 
         let parsed: ProjectData = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "Test Project");

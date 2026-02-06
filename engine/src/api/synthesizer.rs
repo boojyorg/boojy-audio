@@ -20,8 +20,7 @@ pub fn set_track_instrument(track_id: u64, _instrument_type: String) -> Result<i
 
     let instrument_id = synth_manager.create_synth(track_id);
     println!(
-        "✅ Created instrument {} for track {}",
-        instrument_id, track_id
+        "✅ Created instrument {instrument_id} for track {track_id}"
     );
     Ok(instrument_id as i64)
 }
@@ -38,8 +37,7 @@ pub fn set_synth_parameter(
 
     synth_manager.set_parameter(track_id, &param_name, &value);
     Ok(format!(
-        "Set {} = {} for track {}",
-        param_name, value, track_id
+        "Set {param_name} = {value} for track {track_id}"
     ))
 }
 
@@ -98,8 +96,8 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 0 = note on
-                        if let Err(e) = vst3.process_midi_event(0, 0, note as i32, velocity as i32, 0) {
-                            eprintln!("⚠️ Failed to send MIDI to VST3 {}: {}", effect_id, e);
+                        if let Err(e) = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0) {
+                            eprintln!("⚠️ Failed to send MIDI to VST3 {effect_id}: {e}");
                         }
                     }
                 }
@@ -107,7 +105,7 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
         }
     }
 
-    Ok(format!("Track {} note on: {}", track_id, note))
+    Ok(format!("Track {track_id} note on: {note}"))
 }
 
 /// Send MIDI note off to track synthesizer and any VST3 instruments
@@ -155,8 +153,8 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 1 = note off
-                        if let Err(e) = vst3.process_midi_event(1, 0, note as i32, velocity as i32, 0) {
-                            eprintln!("⚠️ Failed to send MIDI to VST3 {}: {}", effect_id, e);
+                        if let Err(e) = vst3.process_midi_event(1, 0, i32::from(note), i32::from(velocity), 0) {
+                            eprintln!("⚠️ Failed to send MIDI to VST3 {effect_id}: {e}");
                         }
                     }
                 }
@@ -164,7 +162,7 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
         }
     }
 
-    Ok(format!("Track {} note off: {}", track_id, note))
+    Ok(format!("Track {track_id} note off: {note}"))
 }
 
 // ============================================================================
@@ -179,16 +177,16 @@ pub fn create_sampler_for_track(track_id: u64) -> Result<i64, String> {
     let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
 
     let instrument_id = synth_manager.create_sampler(track_id);
-    println!("✅ Created sampler for track {}", track_id);
+    println!("✅ Created sampler for track {track_id}");
     Ok(instrument_id as i64)
 }
 
 /// Load a sample file into a sampler track
-/// root_note: MIDI note that plays sample at original pitch (default 60 = C4)
+/// `root_note`: MIDI note that plays sample at original pitch (default 60 = C4)
 pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Result<String, String> {
     // Load the audio file
     let audio_clip = load_audio_file(&path)
-        .map_err(|e| format!("Failed to load sample '{}': {}", path, e))?;
+        .map_err(|e| format!("Failed to load sample '{path}': {e}"))?;
 
     let duration = audio_clip.duration_seconds;
     let clip_arc = Arc::new(audio_clip);
@@ -200,15 +198,14 @@ pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Resu
 
     if synth_manager.load_sample(track_id, clip_arc, root_note) {
         Ok(format!(
-            "Loaded sample '{}' ({:.2}s) to track {} with root note {}",
-            path, duration, track_id, root_note
+            "Loaded sample '{path}' ({duration:.2}s) to track {track_id} with root note {root_note}"
         ))
     } else {
-        Err(format!("Track {} is not a sampler track", track_id))
+        Err(format!("Track {track_id} is not a sampler track"))
     }
 }
 
-/// Set sampler parameter for a track (root_note, attack_ms, release_ms)
+/// Set sampler parameter for a track (`root_note`, `attack_ms`, `release_ms`)
 pub fn set_sampler_parameter(
     track_id: u64,
     param_name: String,
@@ -220,13 +217,12 @@ pub fn set_sampler_parameter(
 
     // Check if this is a sampler track
     if !synth_manager.has_sampler(track_id) {
-        return Err(format!("Track {} is not a sampler track", track_id));
+        return Err(format!("Track {track_id} is not a sampler track"));
     }
 
     synth_manager.set_parameter(track_id, &param_name, &value);
     Ok(format!(
-        "Set sampler {} = {} for track {}",
-        param_name, value, track_id
+        "Set sampler {param_name} = {value} for track {track_id}"
     ))
 }
 

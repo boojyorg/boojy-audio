@@ -125,7 +125,7 @@ pub fn load_audio_file_to_track_api(
 
     let clip_id = graph
         .add_clip_to_track(track_id, clip_arc.clone(), start_time)
-        .ok_or(format!("Failed to add clip to track {}", track_id))?;
+        .ok_or(format!("Failed to add clip to track {track_id}"))?;
 
     clips_map.insert(clip_id, clip_arc);
 
@@ -177,7 +177,7 @@ pub fn load_audio_file_api(path: String) -> Result<u64, String> {
 
     let clip_id = graph
         .add_clip_to_track(target_track_id, clip_arc.clone(), 0.0)
-        .ok_or(format!("Failed to add clip to track {}", target_track_id))?;
+        .ok_or(format!("Failed to add clip to track {target_track_id}"))?;
 
     clips_map.insert(clip_id, clip_arc);
 

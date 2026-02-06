@@ -1,6 +1,6 @@
 /// Audio input and recording functionality
 use cpal::traits::{DeviceTrait, HostTrait};
-use ringbuf::{traits::*, HeapRb};
+use ringbuf::{traits::{Observer, Consumer, Producer}, HeapRb};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU32, Ordering};
 use anyhow::Result;
@@ -28,7 +28,7 @@ pub struct AudioInputManager {
     input_buffer: Option<Arc<Mutex<HeapRb<f32>>>>,
     /// Number of input channels (1 = mono, 2 = stereo)
     input_channels: u16,
-    /// Peak levels per channel (stored as f32 bits in AtomicU32 for lock-free access)
+    /// Peak levels per channel (stored as f32 bits in `AtomicU32` for lock-free access)
     /// Updated in the input callback, read by the UI for metering
     input_peak_left: Arc<AtomicU32>,
     input_peak_right: Arc<AtomicU32>,
@@ -62,11 +62,11 @@ impl AudioInputManager {
 
         // Enumerate all input devices
         for (idx, device) in host.input_devices()?.enumerate() {
-            let name = device.name().unwrap_or_else(|_| format!("Input Device {}", idx));
+            let name = device.name().unwrap_or_else(|_| format!("Input Device {idx}"));
             let is_default = name == default_name;
 
             devices.push(AudioInputDevice {
-                id: format!("input_{}", idx),
+                id: format!("input_{idx}"),
                 name,
                 is_default,
             });
@@ -130,14 +130,14 @@ impl AudioInputManager {
 
         println!("Starting audio capture:");
         println!("  Device: {}", device.name()?);
-        println!("  Config: {:?}", config);
+        println!("  Config: {config:?}");
 
         // Store the number of input channels
         self.input_channels = config.channels();
         eprintln!("🎙️  [AudioInput] Input channels: {} (1=mono, 2=stereo)", self.input_channels);
 
         // Create ring buffer (stereo, size based on buffer_size_seconds)
-        let buffer_samples = (buffer_size_seconds * TARGET_SAMPLE_RATE as f64 * 2.0) as usize;
+        let buffer_samples = (buffer_size_seconds * f64::from(TARGET_SAMPLE_RATE) * 2.0) as usize;
         let ring_buffer: HeapRb<f32> = HeapRb::new(buffer_samples);
         let ring_buffer_arc = Arc::new(Mutex::new(ring_buffer));
         let ring_buffer_clone = ring_buffer_arc.clone();
@@ -168,9 +168,7 @@ impl AudioInputManager {
                         let abs = sample.abs();
                         if i % 2 == 0 {
                             if abs > max_left { max_left = abs; }
-                        } else {
-                            if abs > max_right { max_right = abs; }
-                        }
+                        } else if abs > max_right { max_right = abs; }
                     }
                 }
 
@@ -190,7 +188,7 @@ impl AudioInputManager {
                 }
             },
             move |err| {
-                eprintln!("Audio input stream error: {}", err);
+                eprintln!("Audio input stream error: {err}");
             },
             None,
         )?;
@@ -310,7 +308,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                println!("Device enumeration failed (expected in CI): {}", e);
+                println!("Device enumeration failed (expected in CI): {e}");
             }
         }
     }

@@ -30,7 +30,7 @@ pub struct MidiRecorder {
     tempo: f64,
     /// Quantize grid size (in samples, 0 = no quantization)
     quantize_grid_samples: u64,
-    /// Notes held during count-in (note_number -> NoteOn event)
+    /// Notes held during count-in (`note_number` -> `NoteOn` event)
     /// Used to catch notes that straddle the recording boundary
     held_notes: HashMap<u8, MidiEvent>,
     /// Whether held notes have been flushed into the recording
@@ -101,7 +101,7 @@ impl MidiRecorder {
     /// Set the sample position where actual recording begins (after count-in)
     pub fn set_recording_start(&mut self, samples: u64) {
         self.recording_start_samples = samples;
-        eprintln!("🎹 [MIDI_REC] Recording start set to sample {}", samples);
+        eprintln!("🎹 [MIDI_REC] Recording start set to sample {samples}");
     }
 
     /// Record a MIDI event
@@ -133,8 +133,7 @@ impl MidiRecorder {
                 match e.event_type {
                     MidiEventType::NoteOn { note, velocity } => {
                         eprintln!(
-                            "🎹 [MIDI_REC] Caught held note from count-in: note={}, vel={}",
-                            note, velocity
+                            "🎹 [MIDI_REC] Caught held note from count-in: note={note}, vel={velocity}"
                         );
                         MidiEvent::note_on(note, velocity, 0)
                     }
@@ -194,7 +193,7 @@ impl MidiRecorder {
             eprintln!("🎹 [MIDI_REC] Quantization disabled");
         } else {
             self.update_quantize_grid();
-            eprintln!("🎹 [MIDI_REC] Quantization enabled: 1/{} note", note_division);
+            eprintln!("🎹 [MIDI_REC] Quantization enabled: 1/{note_division} note");
         }
     }
 
@@ -202,7 +201,7 @@ impl MidiRecorder {
     fn update_quantize_grid(&mut self) {
         // Calculate samples per beat
         let seconds_per_beat = 60.0 / self.tempo;
-        let samples_per_beat = (seconds_per_beat * SAMPLE_RATE as f64) as u64;
+        let samples_per_beat = (seconds_per_beat * f64::from(SAMPLE_RATE)) as u64;
 
         // Default to 1/16 note grid
         self.quantize_grid_samples = samples_per_beat / 4;
@@ -223,7 +222,7 @@ impl MidiRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::midi::MidiEventType;
+    
 
     #[test]
     fn test_midi_recorder_start_stop() {
@@ -283,6 +282,6 @@ mod tests {
 
         // Events should be quantized (exact value depends on tempo/grid)
         let clip = clip.unwrap();
-        assert!(clip.events.len() > 0);
+        assert!(!clip.events.is_empty());
     }
 }

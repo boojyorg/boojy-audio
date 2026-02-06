@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
+import '../constants/ui_constants.dart';
 import '../models/instrument_data.dart';
 import '../models/track_automation_data.dart';
 import '../models/vst3_plugin_data.dart';
@@ -18,8 +19,8 @@ import 'input_selector_dropdown.dart';
 /// Displayed on the right side of timeline, aligned with each track row
 class TrackMixerStrip extends StatefulWidget {
   // Height constraints
-  static const double kMinHeight = 40.0;
-  static const double kMaxHeight = 400.0;
+  static const double kMinHeight = UIConstants.trackMinHeight;
+  static const double kMaxHeight = UIConstants.trackMaxHeight;
   final int trackId;
   final int displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
   final String trackName;
@@ -241,8 +242,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Calculate scale factor based on track height (0.0 at 40px, 1.0 at 76px+)
   double get _scaleFactor {
-    const minHeight = 40.0;
-    const standardHeight = 76.0;
+    const minHeight = UIConstants.trackMinHeight;
+    const standardHeight = UIConstants.trackStandardHeight;
     return ((widget.clipHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
   }
 
@@ -289,8 +290,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     // Fixed sizes - consistent across all heights
     const double fontSize = 12.0;
     const double iconSize = 14.0;
-    const double dbFontSize = 10.0;
-    const double dbContainerWidth = 56.0; // Fixed width so slider aligns
+    const double dbFontSize = UIConstants.dbFontSize;
+    const double dbContainerWidth = UIConstants.dbContainerWidth; // Fixed width so slider aligns
 
     return Padding(
       padding: EdgeInsets.only(
@@ -462,8 +463,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   Widget _buildParameterValueDisplay(BuildContext context, AutomationParameter param, double fontSize) {
     final colors = context.colors;
     final hasPreview = widget.previewParameterValue != null;
-    const double dbFontSize = 10.0; // Match volume display
-    const double containerWidth = 56.0; // Match volume display width
+    const double dbFontSize = UIConstants.dbFontSize; // Match volume display
+    const double containerWidth = UIConstants.dbContainerWidth; // Match volume display width
 
     // Get current value based on parameter type
     // Use preview value during drag if available
@@ -834,7 +835,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: 6,
+                  height: UIConstants.trackResizeHandleHeight,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.resizeRow,
                     child: GestureDetector(
@@ -1423,8 +1424,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 /// Row 2: dB display + Volume slider
 class MasterTrackMixerStrip extends StatefulWidget {
   // Height constraints
-  static const double kMinHeight = 40.0;
-  static const double kMaxHeight = 400.0;
+  static const double kMinHeight = UIConstants.trackMinHeight;
+  static const double kMaxHeight = UIConstants.trackMaxHeight;
   static const double kDefaultHeight = 50.0;
 
   final double volumeDb;
@@ -1467,7 +1468,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
   /// Calculate scale factor based on track height (0.0 at 40px, 1.0 at 76px+)
   double get _scaleFactor {
     const minHeight = MasterTrackMixerStrip.kMinHeight;
-    const standardHeight = 76.0;
+    const standardHeight = UIConstants.trackStandardHeight;
     return ((widget.trackHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
   }
 
@@ -1502,8 +1503,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
     // Fixed sizes
     const double fontSize = 12.0;
     const double iconSize = 14.0;
-    const double dbFontSize = 10.0;
-    const double dbContainerWidth = 56.0;
+    const double dbFontSize = UIConstants.dbFontSize;
+    const double dbContainerWidth = UIConstants.dbContainerWidth;
 
     return SizedBox(
       width: widget.stripWidth,
@@ -1610,7 +1611,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
             left: 0,
             right: 0,
             top: 0,
-            height: 6,
+            height: UIConstants.trackResizeHandleHeight,
             child: MouseRegion(
               cursor: SystemMouseCursors.resizeRow,
               child: GestureDetector(
