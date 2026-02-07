@@ -1107,9 +1107,9 @@ impl AudioGraph {
                                         let mut track_right = 0.0f32;
 
                                         if let Some(ref mut synth_manager) = synth_guard {
-                                            let synth_sample = synth_manager.process_sample(track.id);
-                                            track_left += synth_sample;
-                                            track_right += synth_sample;
+                                            let (synth_left, synth_right) = synth_manager.process_sample_stereo(track.id);
+                                            track_left += synth_left;
+                                            track_right += synth_right;
                                         }
 
                                         // Input monitoring: mix live input for armed audio tracks
@@ -1526,9 +1526,9 @@ impl AudioGraph {
                             }
 
                             // Add per-track synthesizer output (M6) - no lock needed, already held
-                            let synth_sample = synth_manager.process_sample(track_snap.id);
-                            track_left += synth_sample;
-                            track_right += synth_sample;
+                            let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_snap.id);
+                            track_left += synth_left;
+                            track_right += synth_right;
                         }
 
                         // Input monitoring: mix live input for armed audio tracks
@@ -2544,9 +2544,9 @@ impl AudioGraph {
 
                 // Add synthesizer output
                 if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
-                    let synth_sample = synth_manager.process_sample(track_snap.id);
-                    track_left += synth_sample;
-                    track_right += synth_sample;
+                    let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_snap.id);
+                    track_left += synth_left;
+                    track_right += synth_right;
                 }
 
                 // Apply track volume (use automation if available)
@@ -2828,9 +2828,9 @@ impl AudioGraph {
 
             // Add synthesizer output
             if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
-                let synth_sample = synth_manager.process_sample(track_id);
-                track_left += synth_sample;
-                track_right += synth_sample;
+                let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_id);
+                track_left += synth_left;
+                track_right += synth_right;
             }
 
             // Apply track volume (use automation if available)

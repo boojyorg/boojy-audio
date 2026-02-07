@@ -67,6 +67,9 @@ class EditorPanel extends StatefulWidget {
   // Whether recording is active (piano roll becomes read-only)
   final bool isRecording;
 
+  // Create sampler from audio clip
+  final Function(String clipPath)? onCreateSamplerFromClip;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -99,6 +102,7 @@ class EditorPanel extends StatefulWidget {
     this.projectTempo = 120.0,
     this.onProjectTempoChanged,
     this.isRecording = false,
+    this.onCreateSamplerFromClip,
   });
 
   @override
@@ -855,6 +859,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       onToolModeChanged: widget.onToolModeChanged,
       projectTempo: widget.projectTempo,
       onProjectTempoChanged: widget.onProjectTempoChanged,
+      onCreateSamplerFromClip: widget.onCreateSamplerFromClip != null
+          ? () => widget.onCreateSamplerFromClip?.call(clipData.filePath)
+          : null,
     );
   }
 

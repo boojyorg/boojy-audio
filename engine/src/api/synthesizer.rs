@@ -234,3 +234,23 @@ pub fn is_sampler_track(track_id: u64) -> Result<bool, String> {
 
     Ok(synth_manager.has_sampler(track_id))
 }
+
+/// Get sampler info for UI synchronization
+pub fn get_sampler_info(track_id: u64) -> Result<crate::synth::SamplerInfo, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    synth_manager.get_sampler_info(track_id)
+        .ok_or_else(|| format!("Track {track_id} is not a sampler track"))
+}
+
+/// Get waveform peaks from sampler's loaded sample
+pub fn get_sampler_waveform_peaks(track_id: u64, resolution: usize) -> Result<Vec<f32>, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+
+    synth_manager.get_sampler_waveform_peaks(track_id, resolution)
+        .ok_or_else(|| format!("Track {track_id} has no sampler or no sample loaded"))
+}

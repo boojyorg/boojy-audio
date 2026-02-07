@@ -4,9 +4,18 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Fix sampler stereo bug**: Sampler was outputting mono to both channels. All 4 call sites in `audio_graph.rs` now use `process_sample_stereo()` for proper L/R separation.
+
 ### Features
 
 - **Punch In/Out recording**: Re-record specific sections without affecting the rest. Reuses the loop bar for punch boundaries with 4 modes — free recording, loop, loop+punch, and single-pass punch. Transport bar gains →| (Punch In) and |→ (Punch Out) toggle buttons flanking the Loop button. Bar color changes to red when punch is active. Keyboard shortcuts: I (toggle punch in), O (toggle punch out). Engine auto-stops recording at punch-out boundary while playback continues.
+- **Scale/key snapping**: Add Lock toggle to piano roll controls bar — when active, note creation and movement snap to the selected scale. Works with all 11 scale types (Major, Minor, Dorian, Pentatonic, Blues, etc.) and 12 root notes. Combines with existing Highlight (dims out-of-scale rows) and Fold (hides non-scale keys) features.
+- **Sampler one-shot mode**: Default mode — note-off is ignored, sample plays to completion. Toggle loop ON for sustain-loop playback between draggable loop markers.
+- **Sampler loop playback**: Loop markers visible in both modes (greyed when off, accent when on). Draggable loop start/end constrained within sample duration. Voice wraps from loop-end back to loop-start while held.
+- **Sampler Editor overhaul**: Two-row controls bar — Row 1 functional (Loop, Attack, Release, Root Note, Load), Row 2 greyed-out layout placeholder (Warp, Pitch, Volume, Reverse). Real waveform peaks from engine. Seconds-based ruler. Envelope overlay (attack→sustain→release). File picker to load new samples.
+- **[Sampler] button in Audio Editor**: Creates a new sampler track with the current audio clip loaded as the sample. One-click workflow from audio editing to sampler sound design.
 
 ### Improvements
 

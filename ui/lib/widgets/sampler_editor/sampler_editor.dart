@@ -1,12 +1,14 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/app_colors.dart';
 import 'sampler_controls_bar.dart';
+import 'sampler_waveform_painter.dart';
 
 /// Sampler Editor widget for editing sampler instrument parameters.
-/// Displays the loaded sample waveform and provides controls for
-/// Attack, Release, and Root Note in addition to the audio waveform view.
+/// Displays the loaded sample waveform with loop markers, seconds ruler,
+/// and provides controls for Loop, Attack, Release, Root Note, and Load.
 class SamplerEditor extends StatefulWidget {
   final AudioEngine? audioEngine;
   final int? trackId;
@@ -27,17 +29,24 @@ class SamplerEditor extends StatefulWidget {
 
 class _SamplerEditorState extends State<SamplerEditor> {
   // Sampler parameters
-  double _attackMs = 10.0; // Default 10ms attack
-  double _releaseMs = 100.0; // Default 100ms release
+  double _attackMs = 1.0;
+  double _releaseMs = 50.0;
   int _rootNote = 60; // C4
+  bool _loopEnabled = false;
+  double _loopStartSeconds = 0.0;
+  double _loopEndSeconds = 1.0;
+  double _sampleDuration = 0.0; // in seconds
 
-  // Waveform data (will be loaded from sample)
+  // Waveform data (real peaks from engine)
   List<double> _waveformPeaks = [];
 
   // Zoom and scroll
-  double _pixelsPerBeat = 40.0;
+  double _pixelsPerSecond = 100.0;
   final ScrollController _horizontalScroll = ScrollController();
   final ScrollController _rulerScroll = ScrollController();
+
+  // Loop marker dragging
+  _DragTarget? _activeDrag;
 
   @override
   void initState() {
@@ -63,16 +72,31 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   void _loadSampleData() {
-    // TODO: Load waveform peaks from the sampler's loaded sample
-    // For now, generate placeholder data
-    setState(() {
-      _waveformPeaks = List.generate(1000, (i) {
-        final t = i / 1000.0;
-        // Simple envelope shape for visual feedback
-        final envelope = (1 - t) * (t * 4).clamp(0.0, 1.0);
-        return envelope * 0.8;
+    if (widget.audioEngine == null || widget.trackId == null) return;
+
+    final info = widget.audioEngine!.getSamplerInfo(widget.trackId!);
+    if (info != null) {
+      setState(() {
+        _sampleDuration = info.durationSeconds;
+        _loopEnabled = info.loopEnabled;
+        _loopStartSeconds = info.loopStartSeconds;
+        _loopEndSeconds = info.loopEndSeconds;
+        _rootNote = info.rootNote;
+        _attackMs = info.attackMs;
+        _releaseMs = info.releaseMs;
       });
-    });
+    }
+
+    // Load waveform peaks
+    final peaks = widget.audioEngine!.getSamplerWaveformPeaks(
+      widget.trackId!,
+      2048, // resolution - enough for smooth display
+    );
+    if (peaks.isNotEmpty) {
+      setState(() {
+        _waveformPeaks = peaks;
+      });
+    }
   }
 
   void _syncScrollControllers() {
@@ -91,6 +115,10 @@ class _SamplerEditorState extends State<SamplerEditor> {
     });
   }
 
+  // ============================================================================
+  // Parameter callbacks
+  // ============================================================================
+
   void _onAttackChanged(double value) {
     setState(() => _attackMs = value);
     _sendParameterToEngine('attack_ms', value.toString());
@@ -106,23 +134,60 @@ class _SamplerEditorState extends State<SamplerEditor> {
     _sendParameterToEngine('root_note', value.toString());
   }
 
+  void _onLoopToggle() {
+    setState(() => _loopEnabled = !_loopEnabled);
+    _sendParameterToEngine('loop_enabled', _loopEnabled ? '1' : '0');
+  }
+
+  void _onLoopStartChanged(double seconds) {
+    final clamped = seconds.clamp(0.0, _loopEndSeconds - 0.01);
+    setState(() => _loopStartSeconds = clamped);
+    _sendParameterToEngine('loop_start_seconds', clamped.toString());
+  }
+
+  void _onLoopEndChanged(double seconds) {
+    final clamped = seconds.clamp(_loopStartSeconds + 0.01, _sampleDuration);
+    setState(() => _loopEndSeconds = clamped);
+    _sendParameterToEngine('loop_end_seconds', clamped.toString());
+  }
+
   void _sendParameterToEngine(String param, String value) {
     if (widget.audioEngine != null && widget.trackId != null) {
       widget.audioEngine!.setSamplerParameter(widget.trackId!, param, value);
     }
   }
 
+  Future<void> _onLoadSample() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['wav', 'mp3', 'flac', 'aif', 'aiff'],
+      dialogTitle: 'Select Sample',
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      if (widget.audioEngine != null && widget.trackId != null) {
+        widget.audioEngine!.loadSampleForTrack(widget.trackId!, path, _rootNote);
+        _loadSampleData(); // Refresh
+      }
+    }
+  }
+
   void _zoomIn() {
     setState(() {
-      _pixelsPerBeat = (_pixelsPerBeat * 1.2).clamp(10.0, 200.0);
+      _pixelsPerSecond = (_pixelsPerSecond * 1.3).clamp(20.0, 800.0);
     });
   }
 
   void _zoomOut() {
     setState(() {
-      _pixelsPerBeat = (_pixelsPerBeat / 1.2).clamp(10.0, 200.0);
+      _pixelsPerSecond = (_pixelsPerSecond / 1.3).clamp(20.0, 800.0);
     });
   }
+
+  // ============================================================================
+  // Build
+  // ============================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -138,20 +203,23 @@ class _SamplerEditorState extends State<SamplerEditor> {
           color: colors.dark,
           child: Column(
             children: [
-              // Controls Bar with Attack/Release/Root Note
+              // Controls bar (two rows)
               SamplerControlsBar(
+                loopEnabled: _loopEnabled,
                 attackMs: _attackMs,
                 releaseMs: _releaseMs,
                 rootNote: _rootNote,
+                onLoopToggle: _onLoopToggle,
                 onAttackChanged: _onAttackChanged,
                 onReleaseChanged: _onReleaseChanged,
                 onRootNoteChanged: _onRootNoteChanged,
+                onLoadSample: _onLoadSample,
               ),
 
-              // Ruler Row
+              // Ruler Row (seconds-based)
               _buildRulerRow(colors),
 
-              // Waveform Area with Envelope Overlay
+              // Waveform Area with loop markers and envelope overlay
               Expanded(child: _buildWaveformArea(colors)),
             ],
           ),
@@ -196,19 +264,19 @@ class _SamplerEditorState extends State<SamplerEditor> {
     );
   }
 
+  // ============================================================================
+  // Ruler (seconds-based)
+  // ============================================================================
+
   Widget _buildRulerRow(BoojyColors colors) {
-    const totalBeats = 16.0; // Fixed for sampler view
+    final totalWidth = _sampleDuration > 0
+        ? _sampleDuration * _pixelsPerSecond
+        : 400.0;
 
     return SizedBox(
       height: 20,
       child: Row(
         children: [
-          // Left corner
-          SizedBox(
-            width: 80,
-            child: ColoredBox(color: colors.dark),
-          ),
-
           // Ruler
           Expanded(
             child: SingleChildScrollView(
@@ -216,11 +284,14 @@ class _SamplerEditorState extends State<SamplerEditor> {
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
               child: SizedBox(
-                width: totalBeats * _pixelsPerBeat,
+                width: totalWidth,
                 child: CustomPaint(
-                  painter: _SamplerRulerPainter(
-                    pixelsPerBeat: _pixelsPerBeat,
-                    totalBeats: totalBeats,
+                  painter: SamplerRulerPainter(
+                    pixelsPerSecond: _pixelsPerSecond,
+                    sampleDuration: _sampleDuration,
+                    loopEnabled: _loopEnabled,
+                    loopStartSeconds: _loopStartSeconds,
+                    loopEndSeconds: _loopEndSeconds,
                     colors: colors,
                   ),
                 ),
@@ -267,51 +338,56 @@ class _SamplerEditorState extends State<SamplerEditor> {
     );
   }
 
+  // ============================================================================
+  // Waveform area with loop markers
+  // ============================================================================
+
   Widget _buildWaveformArea(BoojyColors colors) {
-    const totalBeats = 16.0;
+    final totalWidth = _sampleDuration > 0
+        ? _sampleDuration * _pixelsPerSecond
+        : 400.0;
 
     return Row(
       children: [
-        // Left margin with root note indicator
-        SizedBox(
-          width: 80,
-          child: Container(
-            color: colors.dark,
-            child: Center(
-              child: Text(
-                _midiNoteToName(_rootNote),
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Waveform area
+        // Waveform area with gesture detection
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final availableHeight = constraints.maxHeight;
 
-              return SingleChildScrollView(
-                controller: _horizontalScroll,
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: SizedBox(
-                  width: totalBeats * _pixelsPerBeat,
-                  height: availableHeight,
-                  child: CustomPaint(
-                    size: Size(totalBeats * _pixelsPerBeat, availableHeight),
-                    painter: _SamplerWaveformPainter(
-                      peaks: _waveformPeaks,
-                      attackMs: _attackMs,
-                      releaseMs: _releaseMs,
-                      pixelsPerBeat: _pixelsPerBeat,
-                      totalBeats: totalBeats,
-                      colors: colors,
+              return GestureDetector(
+                onHorizontalDragStart: (details) {
+                  _handleDragStart(details);
+                },
+                onHorizontalDragUpdate: (details) {
+                  _handleDragUpdate(details);
+                },
+                onHorizontalDragEnd: (details) {
+                  _handleDragEnd();
+                },
+                child: MouseRegion(
+                  cursor: _getCursor(),
+                  child: SingleChildScrollView(
+                    controller: _horizontalScroll,
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    child: SizedBox(
+                      width: totalWidth,
+                      height: availableHeight,
+                      child: CustomPaint(
+                        size: Size(totalWidth, availableHeight),
+                        painter: SamplerWaveformPainter(
+                          peaks: _waveformPeaks,
+                          sampleDuration: _sampleDuration,
+                          pixelsPerSecond: _pixelsPerSecond,
+                          attackMs: _attackMs,
+                          releaseMs: _releaseMs,
+                          loopEnabled: _loopEnabled,
+                          loopStartSeconds: _loopStartSeconds,
+                          loopEndSeconds: _loopEndSeconds,
+                          colors: colors,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -320,7 +396,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
           ),
         ),
 
-        // Right margin
+        // Right margin (under zoom buttons)
         SizedBox(
           width: 48,
           child: ColoredBox(color: colors.dark),
@@ -329,198 +405,56 @@ class _SamplerEditorState extends State<SamplerEditor> {
     );
   }
 
-  String _midiNoteToName(int note) {
-    const noteNames = [
-      'C',
-      'C#',
-      'D',
-      'D#',
-      'E',
-      'F',
-      'F#',
-      'G',
-      'G#',
-      'A',
-      'A#',
-      'B'
-    ];
-    final octave = (note ~/ 12) - 1;
-    final noteName = noteNames[note % 12];
-    return '$noteName$octave';
+  // ============================================================================
+  // Loop marker dragging
+  // ============================================================================
+
+  MouseCursor _getCursor() {
+    if (_activeDrag != null) return SystemMouseCursors.resizeLeftRight;
+    return SystemMouseCursors.basic;
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    if (_sampleDuration <= 0) return;
+
+    final x = details.localPosition.dx +
+        (_horizontalScroll.hasClients ? _horizontalScroll.offset : 0);
+    final loopStartX = _loopStartSeconds * _pixelsPerSecond;
+    final loopEndX = _loopEndSeconds * _pixelsPerSecond;
+
+    const hitThreshold = 8.0;
+
+    // Check if near loop start marker
+    if ((x - loopStartX).abs() < hitThreshold) {
+      _activeDrag = _DragTarget.loopStart;
+      return;
+    }
+
+    // Check if near loop end marker
+    if ((x - loopEndX).abs() < hitThreshold) {
+      _activeDrag = _DragTarget.loopEnd;
+      return;
+    }
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (_activeDrag == null || _sampleDuration <= 0) return;
+
+    final x = details.localPosition.dx +
+        (_horizontalScroll.hasClients ? _horizontalScroll.offset : 0);
+    final seconds = x / _pixelsPerSecond;
+
+    switch (_activeDrag!) {
+      case _DragTarget.loopStart:
+        _onLoopStartChanged(seconds);
+      case _DragTarget.loopEnd:
+        _onLoopEndChanged(seconds);
+    }
+  }
+
+  void _handleDragEnd() {
+    _activeDrag = null;
   }
 }
 
-/// Custom painter for sampler ruler
-class _SamplerRulerPainter extends CustomPainter {
-  final double pixelsPerBeat;
-  final double totalBeats;
-  final BoojyColors colors;
-
-  _SamplerRulerPainter({
-    required this.pixelsPerBeat,
-    required this.totalBeats,
-    required this.colors,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = colors.divider
-      ..strokeWidth = 1;
-
-    final textPaint = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
-
-    // Draw beat markers
-    for (int beat = 0; beat <= totalBeats.toInt(); beat++) {
-      final x = beat * pixelsPerBeat;
-
-      // Draw tick
-      final isBar = beat % 4 == 0;
-      canvas.drawLine(
-        Offset(x, isBar ? 0 : size.height * 0.5),
-        Offset(x, size.height),
-        paint,
-      );
-
-      // Draw beat number at bar lines
-      if (isBar) {
-        textPaint.text = TextSpan(
-          text: '${beat ~/ 4 + 1}',
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 10,
-          ),
-        );
-        textPaint.layout();
-        textPaint.paint(canvas, Offset(x + 2, 2));
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SamplerRulerPainter oldDelegate) {
-    return pixelsPerBeat != oldDelegate.pixelsPerBeat ||
-        totalBeats != oldDelegate.totalBeats;
-  }
-}
-
-/// Custom painter for sampler waveform with envelope overlay
-class _SamplerWaveformPainter extends CustomPainter {
-  final List<double> peaks;
-  final double attackMs;
-  final double releaseMs;
-  final double pixelsPerBeat;
-  final double totalBeats;
-  final BoojyColors colors;
-
-  _SamplerWaveformPainter({
-    required this.peaks,
-    required this.attackMs,
-    required this.releaseMs,
-    required this.pixelsPerBeat,
-    required this.totalBeats,
-    required this.colors,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (peaks.isEmpty) return;
-
-    final waveformPaint = Paint()
-      ..color = colors.accent.withAlpha(180)
-      ..style = PaintingStyle.fill;
-
-    final envelopePaint = Paint()
-      ..color = colors.warning.withAlpha(100)
-      ..style = PaintingStyle.fill;
-
-    final envelopeStrokePaint = Paint()
-      ..color = colors.warning
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final totalWidth = totalBeats * pixelsPerBeat;
-    final centerY = size.height / 2;
-
-    // Draw grid lines
-    final gridPaint = Paint()
-      ..color = colors.divider.withAlpha(50)
-      ..strokeWidth = 1;
-
-    for (int beat = 0; beat <= totalBeats.toInt(); beat++) {
-      final x = beat * pixelsPerBeat;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-
-    // Draw waveform
-    final path = Path();
-    path.moveTo(0, centerY);
-
-    for (int i = 0; i < peaks.length; i++) {
-      final x = (i / peaks.length) * totalWidth;
-      final amplitude = peaks[i] * (size.height * 0.4);
-      path.lineTo(x, centerY - amplitude);
-    }
-
-    // Return path
-    for (int i = peaks.length - 1; i >= 0; i--) {
-      final x = (i / peaks.length) * totalWidth;
-      final amplitude = peaks[i] * (size.height * 0.4);
-      path.lineTo(x, centerY + amplitude);
-    }
-
-    path.close();
-    canvas.drawPath(path, waveformPaint);
-
-    // Draw envelope overlay
-    // Simplified: show attack and release regions
-    const sampleDurationMs = 2000.0; // Assume 2 second sample for visualization
-    final attackWidth = (attackMs / sampleDurationMs) * totalWidth;
-    final releaseStart = totalWidth - (releaseMs / sampleDurationMs) * totalWidth;
-
-    // Attack region
-    final attackPath = Path();
-    attackPath.moveTo(0, size.height);
-    attackPath.lineTo(0, centerY);
-    attackPath.lineTo(attackWidth, 0);
-    attackPath.lineTo(attackWidth, size.height);
-    attackPath.close();
-    canvas.drawPath(attackPath, envelopePaint);
-
-    // Release region
-    final releasePath = Path();
-    releasePath.moveTo(releaseStart, 0);
-    releasePath.lineTo(totalWidth, centerY);
-    releasePath.lineTo(totalWidth, size.height);
-    releasePath.lineTo(releaseStart, size.height);
-    releasePath.close();
-    canvas.drawPath(releasePath, envelopePaint);
-
-    // Envelope curve stroke
-    final envelopeCurve = Path();
-    envelopeCurve.moveTo(0, size.height);
-    envelopeCurve.lineTo(attackWidth, 0);
-    envelopeCurve.lineTo(releaseStart, 0);
-    envelopeCurve.lineTo(totalWidth, size.height);
-    canvas.drawPath(envelopeCurve, envelopeStrokePaint);
-
-    // Draw center line
-    canvas.drawLine(
-      Offset(0, centerY),
-      Offset(totalWidth, centerY),
-      Paint()
-        ..color = colors.textMuted.withAlpha(100)
-        ..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _SamplerWaveformPainter oldDelegate) {
-    return peaks != oldDelegate.peaks ||
-        attackMs != oldDelegate.attackMs ||
-        releaseMs != oldDelegate.releaseMs ||
-        pixelsPerBeat != oldDelegate.pixelsPerBeat;
-  }
-}
+enum _DragTarget { loopStart, loopEnd }

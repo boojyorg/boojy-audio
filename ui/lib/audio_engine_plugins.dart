@@ -409,6 +409,67 @@ mixin _PluginsMixin on _AudioEngineBase {
     }
   }
 
+  /// Get sampler info for UI synchronization
+  /// Returns SamplerInfo if track is a sampler with a loaded sample, null otherwise
+  SamplerInfo? getSamplerInfo(int trackId) {
+    final pDuration = calloc<ffi.Double>();
+    final pSampleRate = calloc<ffi.Double>();
+    final pLoopEnabled = calloc<ffi.Int32>();
+    final pLoopStart = calloc<ffi.Double>();
+    final pLoopEnd = calloc<ffi.Double>();
+    final pRootNote = calloc<ffi.Int32>();
+    final pAttackMs = calloc<ffi.Double>();
+    final pReleaseMs = calloc<ffi.Double>();
+
+    try {
+      final result = _getSamplerInfo(
+        trackId,
+        pDuration, pSampleRate, pLoopEnabled,
+        pLoopStart, pLoopEnd, pRootNote,
+        pAttackMs, pReleaseMs,
+      );
+      if (result != 1) return null;
+
+      return SamplerInfo(
+        durationSeconds: pDuration.value,
+        sampleRate: pSampleRate.value,
+        loopEnabled: pLoopEnabled.value == 1,
+        loopStartSeconds: pLoopStart.value,
+        loopEndSeconds: pLoopEnd.value,
+        rootNote: pRootNote.value,
+        attackMs: pAttackMs.value,
+        releaseMs: pReleaseMs.value,
+      );
+    } finally {
+      calloc.free(pDuration);
+      calloc.free(pSampleRate);
+      calloc.free(pLoopEnabled);
+      calloc.free(pLoopStart);
+      calloc.free(pLoopEnd);
+      calloc.free(pRootNote);
+      calloc.free(pAttackMs);
+      calloc.free(pReleaseMs);
+    }
+  }
+
+  /// Get waveform peaks from sampler's loaded sample
+  /// Returns list of peak amplitudes (0.0-1.0), or empty list if no sample
+  List<double> getSamplerWaveformPeaks(int trackId, int resolution) {
+    final pLength = calloc<ffi.Size>();
+    try {
+      final ptr = _getSamplerWaveformPeaks(trackId, resolution, pLength);
+      if (ptr == ffi.nullptr) return [];
+
+      final length = pLength.value;
+      final peaks = List<double>.generate(length, (i) => ptr[i].toDouble());
+
+      _freeSamplerWaveformPeaks(ptr, length);
+      return peaks;
+    } finally {
+      calloc.free(pLength);
+    }
+  }
+
   // ========================================================================
   // M7 API - VST3 Plugin Hosting
   // ========================================================================

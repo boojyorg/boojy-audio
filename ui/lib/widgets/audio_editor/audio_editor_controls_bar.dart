@@ -47,6 +47,9 @@ class AudioEditorControlsBar extends StatefulWidget {
   final double gainDb;
   final Function(double)? onGainChanged;
 
+  // === Create Sampler ===
+  final VoidCallback? onCreateSamplerFromClip;
+
   const AudioEditorControlsBar({
     super.key,
     this.loopEnabled = true,
@@ -74,6 +77,7 @@ class AudioEditorControlsBar extends StatefulWidget {
     this.onReverseToggle,
     this.gainDb = 0.0,
     this.onGainChanged,
+    this.onCreateSamplerFromClip,
   });
 
   @override
@@ -133,8 +137,12 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
           // === VOLUME ===
           _buildVolumeControl(context),
 
-          // Spacer to push everything left
+          // Spacer to push everything left, Sampler button at right
           const Spacer(),
+
+          // === CREATE SAMPLER ===
+          if (widget.onCreateSamplerFromClip != null)
+            _buildSamplerButton(context),
         ],
       ),
     );
@@ -596,6 +604,47 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     ? colors.elevated
                     : (enabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5)),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============ SAMPLER BUTTON ============
+  Widget _buildSamplerButton(BuildContext context) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: 'Create Sampler from this clip',
+      child: GestureDetector(
+        onTap: widget.onCreateSamplerFromClip,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: colors.dark,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(color: colors.surface, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.piano,
+                  size: 13,
+                  color: colors.textPrimary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Sampler',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

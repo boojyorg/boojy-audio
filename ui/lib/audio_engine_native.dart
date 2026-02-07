@@ -5,6 +5,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 
+import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 
 part 'audio_engine_base.dart';

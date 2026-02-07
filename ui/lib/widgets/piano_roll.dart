@@ -465,9 +465,11 @@ class _PianoRollState extends State<PianoRoll>
             scaleRoot: scaleRoot,
             scaleType: scaleType,
             highlightEnabled: scaleHighlightEnabled,
+            lockEnabled: scaleLockEnabled,
             onRootChanged: (root) => setState(() => scaleRoot = root),
             onTypeChanged: (type) => setState(() => scaleType = type),
             onHighlightToggle: () => setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
+            onLockToggle: () => setState(() => scaleLockEnabled = !scaleLockEnabled),
             // Transform section
             stretchAmount: stretchAmount,
             onLegato: applyLegato,

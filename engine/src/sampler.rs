@@ -1,6 +1,7 @@
 /// Sampler instrument - plays audio samples triggered by MIDI notes
 /// Similar to Synth but uses sample playback instead of oscillators
 /// Supports pitch shifting based on root note and Attack/Release envelope
+/// Supports loop mode (sustain-loop) and one-shot mode (default)
 
 use std::sync::Arc;
 use crate::audio_file::AudioClip;
@@ -86,35 +87,51 @@ impl SamplerVoice {
         }
     }
 
+    /// Process one sample frame with loop-aware playback
     fn process(
         &mut self,
         sample: &AudioClip,
         envelope: &SamplerEnvelope,
         sample_rate: f32,
+        loop_enabled: bool,
+        loop_start: f64,
+        loop_end: f64,
     ) -> (f32, f32) {
         if !self.is_active {
             return (0.0, 0.0);
         }
 
-        // Get sample with linear interpolation
+        let frame_count = sample.frame_count();
+
+        // Check boundaries
+        if self.playback_position as usize >= frame_count {
+            if loop_enabled && self.env_state != EnvelopeState::Release {
+                // Loop back to loop_start
+                self.playback_position = loop_start;
+            } else {
+                // Sample finished
+                if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
+                    self.is_active = false;
+                    return (0.0, 0.0);
+                }
+                // Start release
+                self.release_start_level = self.env_level;
+                self.env_state = EnvelopeState::Release;
+                self.env_time = 0.0;
+            }
+        }
+
+        // Check loop end boundary (when looping)
+        if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0 {
+            if self.playback_position >= loop_end {
+                self.playback_position = loop_start;
+            }
+        }
+
+        // Re-read position after possible loop wrap
         let frame_f = self.playback_position;
         let frame_i = frame_f as usize;
         let frac = (frame_f - frame_i as f64) as f32;
-
-        let frame_count = sample.frame_count();
-
-        // Check if sample ended
-        if frame_i >= frame_count {
-            // Sample finished - check envelope state
-            if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
-                self.is_active = false;
-                return (0.0, 0.0);
-            }
-            // Still holding key but sample ended - start release
-            self.release_start_level = self.env_level;
-            self.env_state = EnvelopeState::Release;
-            self.env_time = 0.0;
-        }
 
         // Linear interpolation between samples
         let (left, right) = if frame_i < frame_count {
@@ -199,8 +216,11 @@ impl SamplerVoice {
 pub struct Sampler {
     voices: Vec<SamplerVoice>,
     sample: Option<Arc<AudioClip>>,
-    pub root_note: u8,      // MIDI note that plays sample at original pitch (default 60 = C4)
+    pub root_note: u8,           // MIDI note that plays sample at original pitch (default 60 = C4)
     pub envelope: SamplerEnvelope,
+    pub loop_enabled: bool,      // false = one-shot (default), true = sustain-loop
+    pub loop_start: f64,         // Loop start in frames (default 0.0)
+    pub loop_end: f64,           // Loop end in frames (default = sample length)
     sample_rate: f32,
 }
 
@@ -211,6 +231,9 @@ impl Sampler {
             sample: None,
             root_note: 60, // C4
             envelope: SamplerEnvelope::default(),
+            loop_enabled: false, // One-shot by default
+            loop_start: 0.0,
+            loop_end: 0.0, // Will be set when sample loads
             sample_rate,
         }
     }
@@ -222,6 +245,9 @@ impl Sampler {
             clip.duration_seconds,
             clip.channels
         );
+        // Set loop_end to sample length by default
+        self.loop_end = clip.frame_count() as f64;
+        self.loop_start = 0.0;
         self.sample = Some(clip);
     }
 
@@ -241,6 +267,28 @@ impl Sampler {
         self.sample.is_some()
     }
 
+    /// Get sample duration in seconds
+    pub fn sample_duration_seconds(&self) -> f64 {
+        self.sample.as_ref().map_or(0.0, |s| s.duration_seconds)
+    }
+
+    /// Get the sample rate of the loaded sample
+    pub fn sample_sample_rate(&self) -> f32 {
+        self.sample.as_ref().map_or(self.sample_rate, |s| s.sample_rate as f32)
+    }
+
+    /// Convert seconds to frames using loaded sample's sample rate
+    fn seconds_to_frames(&self, seconds: f64) -> f64 {
+        let sr = self.sample.as_ref().map_or(self.sample_rate as f64, |s| f64::from(s.sample_rate));
+        seconds * sr
+    }
+
+    /// Convert frames to seconds using loaded sample's sample rate
+    pub fn frames_to_seconds(&self, frames: f64) -> f64 {
+        let sr = self.sample.as_ref().map_or(self.sample_rate as f64, |s| f64::from(s.sample_rate));
+        if sr > 0.0 { frames / sr } else { 0.0 }
+    }
+
     pub fn note_on(&mut self, note: u8, velocity: u8) {
         if self.sample.is_none() {
             println!("⚠️ Sampler: No sample loaded, ignoring note_on");
@@ -256,6 +304,10 @@ impl Sampler {
     }
 
     pub fn note_off(&mut self, note: u8) {
+        if !self.loop_enabled {
+            // One-shot mode: ignore note-off, sample plays to completion
+            return;
+        }
         for voice in &mut self.voices {
             if voice.is_active && voice.note == note {
                 voice.note_off();
@@ -280,8 +332,19 @@ impl Sampler {
         let mut left_out = 0.0;
         let mut right_out = 0.0;
 
+        let loop_enabled = self.loop_enabled;
+        let loop_start = self.loop_start;
+        let loop_end = self.loop_end;
+
         for voice in &mut self.voices {
-            let (l, r) = voice.process(sample, &self.envelope, self.sample_rate);
+            let (l, r) = voice.process(
+                sample,
+                &self.envelope,
+                self.sample_rate,
+                loop_enabled,
+                loop_start,
+                loop_end,
+            );
             left_out += l;
             right_out += r;
         }
@@ -318,6 +381,27 @@ impl Sampler {
                     println!("  → release_ms = {}", self.envelope.release_ms);
                 }
             }
+            "loop_enabled" => {
+                let enabled = value == "1" || value == "true";
+                self.loop_enabled = enabled;
+                println!("  → loop_enabled = {}", self.loop_enabled);
+            }
+            "loop_start_seconds" => {
+                if let Ok(v) = value.parse::<f64>() {
+                    let max_seconds = self.sample_duration_seconds();
+                    let clamped = v.clamp(0.0, max_seconds);
+                    self.loop_start = self.seconds_to_frames(clamped);
+                    println!("  → loop_start = {:.3}s ({:.0} frames)", clamped, self.loop_start);
+                }
+            }
+            "loop_end_seconds" => {
+                if let Ok(v) = value.parse::<f64>() {
+                    let max_seconds = self.sample_duration_seconds();
+                    let clamped = v.clamp(0.0, max_seconds);
+                    self.loop_end = self.seconds_to_frames(clamped);
+                    println!("  → loop_end = {:.3}s ({:.0} frames)", clamped, self.loop_end);
+                }
+            }
             _ => {
                 println!("  ⚠️ Unknown sampler parameter: {key}");
             }
@@ -347,6 +431,12 @@ impl Sampler {
         let semitone_diff = f64::from(target_note) - f64::from(root_note);
         2.0_f64.powf(semitone_diff / 12.0)
     }
+
+    /// Get waveform peaks from the loaded sample
+    pub fn get_waveform_peaks(&self, resolution: usize) -> Vec<f32> {
+        let Some(ref sample) = self.sample else { return vec![]; };
+        crate::preview::extract_waveform_peaks(sample, resolution)
+    }
 }
 
 /// Convert MIDI note number to note name (e.g., 60 -> "C4")
@@ -369,6 +459,16 @@ pub struct SamplerData {
     pub root_note: u8,
     pub attack_ms: f32,
     pub release_ms: f32,
+    #[serde(default)]
+    pub loop_enabled: bool,
+    #[serde(default)]
+    pub loop_start_seconds: f64,
+    #[serde(default = "default_loop_end")]
+    pub loop_end_seconds: f64,
+}
+
+fn default_loop_end() -> f64 {
+    0.0 // Will be overridden by sample duration on load
 }
 
 impl Sampler {
@@ -379,6 +479,9 @@ impl Sampler {
             root_note: self.root_note,
             attack_ms: self.envelope.attack_ms,
             release_ms: self.envelope.release_ms,
+            loop_enabled: self.loop_enabled,
+            loop_start_seconds: self.frames_to_seconds(self.loop_start),
+            loop_end_seconds: self.frames_to_seconds(self.loop_end),
         })
     }
 
@@ -387,8 +490,22 @@ impl Sampler {
         self.root_note = data.root_note;
         self.envelope.attack_ms = data.attack_ms;
         self.envelope.release_ms = data.release_ms;
-        println!("✅ Restored sampler parameters: root={}, attack={}ms, release={}ms",
-            note_name(self.root_note), data.attack_ms, data.release_ms);
+        self.loop_enabled = data.loop_enabled;
+        if data.loop_start_seconds > 0.0 || data.loop_end_seconds > 0.0 {
+            self.loop_start = self.seconds_to_frames(data.loop_start_seconds);
+            self.loop_end = self.seconds_to_frames(data.loop_end_seconds);
+        }
+        // If loop_end is still 0 but we have a sample, set to sample length
+        if self.loop_end == 0.0 {
+            if let Some(ref sample) = self.sample {
+                self.loop_end = sample.frame_count() as f64;
+            }
+        }
+        println!("✅ Restored sampler parameters: root={}, attack={}ms, release={}ms, loop={}, loop_range={:.3}s-{:.3}s",
+            note_name(self.root_note), data.attack_ms, data.release_ms,
+            self.loop_enabled,
+            self.frames_to_seconds(self.loop_start),
+            self.frames_to_seconds(self.loop_end));
     }
 }
 
@@ -430,6 +547,9 @@ mod tests {
         assert!(!sampler.has_sample());
         assert_eq!(sampler.root_note, 60);
         assert_eq!(sampler.active_voice_count(), 0);
+        assert!(!sampler.loop_enabled);
+        assert_eq!(sampler.loop_start, 0.0);
+        assert_eq!(sampler.loop_end, 0.0);
     }
 
     #[test]
@@ -447,5 +567,50 @@ mod tests {
         let env = SamplerEnvelope::default();
         assert_eq!(env.attack_ms, 1.0);
         assert_eq!(env.release_ms, 50.0);
+    }
+
+    #[test]
+    fn test_one_shot_ignores_note_off() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.loop_enabled = false; // One-shot (default)
+        // note_off should be ignored in one-shot mode
+        // (can't fully test without a sample, but verify no crash)
+        sampler.note_off(60);
+    }
+
+    #[test]
+    fn test_loop_parameter_setting() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.set_parameter("loop_enabled", "true");
+        assert!(sampler.loop_enabled);
+        sampler.set_parameter("loop_enabled", "false");
+        assert!(!sampler.loop_enabled);
+        sampler.set_parameter("loop_enabled", "1");
+        assert!(sampler.loop_enabled);
+    }
+
+    #[test]
+    fn test_seconds_to_frames_conversion() {
+        let sampler = Sampler::new(48000.0);
+        // Without sample, uses engine sample rate
+        let frames = sampler.seconds_to_frames(1.0);
+        assert!((frames - 48000.0).abs() < 0.01);
+
+        let seconds = sampler.frames_to_seconds(48000.0);
+        assert!((seconds - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_serialization_defaults() {
+        let data: SamplerData = serde_json::from_str(r#"{
+            "sample_path": "test.wav",
+            "root_note": 60,
+            "attack_ms": 10.0,
+            "release_ms": 100.0
+        }"#).unwrap();
+        // New fields should have serde defaults
+        assert!(!data.loop_enabled);
+        assert_eq!(data.loop_start_seconds, 0.0);
+        assert_eq!(data.loop_end_seconds, 0.0);
     }
 }

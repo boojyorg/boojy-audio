@@ -371,6 +371,25 @@ typedef _SetSamplerParameterFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<ff
 typedef _IsSamplerTrackFfiNative = ffi.Int32 Function(ffi.Uint64);
 typedef _IsSamplerTrackFfi = int Function(int);
 
+typedef _GetSamplerInfoFfiNative = ffi.Int32 Function(
+    ffi.Uint64, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>);
+typedef _GetSamplerInfoFfi = int Function(
+    int, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>);
+
+typedef _GetSamplerWaveformPeaksFfiNative = ffi.Pointer<ffi.Float> Function(
+    ffi.Uint64, ffi.Size, ffi.Pointer<ffi.Size>);
+typedef _GetSamplerWaveformPeaksFfi = ffi.Pointer<ffi.Float> Function(
+    int, int, ffi.Pointer<ffi.Size>);
+
+typedef _FreeSamplerWaveformPeaksFfiNative = ffi.Void Function(
+    ffi.Pointer<ffi.Float>, ffi.Size);
+typedef _FreeSamplerWaveformPeaksFfi = void Function(
+    ffi.Pointer<ffi.Float>, int);
+
 // M7 types - VST3 Plugin Hosting
 typedef _ScanVst3PluginsStandardFfiNative = ffi.Pointer<Utf8> Function();
 typedef _ScanVst3PluginsStandardFfi = ffi.Pointer<Utf8> Function();

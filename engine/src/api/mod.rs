@@ -70,7 +70,8 @@ pub use recording::{
     set_punch_region, start_audio_input, start_recording, stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
-    create_sampler_for_track, get_synth_parameters, is_sampler_track, load_sample_for_track,
+    create_sampler_for_track, get_sampler_info, get_sampler_waveform_peaks,
+    get_synth_parameters, is_sampler_track, load_sample_for_track,
     send_track_midi_note_off, send_track_midi_note_on, set_sampler_parameter, set_synth_parameter,
     set_track_instrument,
 };

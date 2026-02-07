@@ -1,3 +1,4 @@
+import 'package:boojy_audio/models/sampler_info.dart';
 import 'package:boojy_audio/services/commands/audio_engine_interface.dart';
 
 /// Shared mock AudioEngine for testing commands and services.
@@ -211,6 +212,18 @@ class MockAudioEngine implements AudioEngineInterface {
   bool isSamplerTrack(int trackId) {
     _record('isSamplerTrack');
     return false;
+  }
+
+  @override
+  SamplerInfo? getSamplerInfo(int trackId) {
+    _record('getSamplerInfo');
+    return null;
+  }
+
+  @override
+  List<double> getSamplerWaveformPeaks(int trackId, int resolution) {
+    _record('getSamplerWaveformPeaks');
+    return [];
   }
 
   // --- MIDI clip operations ---

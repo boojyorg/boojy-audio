@@ -53,9 +53,11 @@ class PianoRollControlsBar extends StatefulWidget {
   final String scaleRoot;
   final ScaleType scaleType;
   final bool highlightEnabled;
+  final bool lockEnabled;
   final Function(String)? onRootChanged;
   final Function(ScaleType)? onTypeChanged;
   final VoidCallback? onHighlightToggle;
+  final VoidCallback? onLockToggle;
 
   // Transform section
   final double stretchAmount;
@@ -115,9 +117,11 @@ class PianoRollControlsBar extends StatefulWidget {
     required this.scaleRoot,
     required this.scaleType,
     this.highlightEnabled = false,
+    this.lockEnabled = false,
     this.onRootChanged,
     this.onTypeChanged,
     this.onHighlightToggle,
+    this.onLockToggle,
     // Transform section
     this.stretchAmount = 1.0,
     this.onLegato,
@@ -650,6 +654,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       children: [
         // Scale toggle dropdown (combined toggle + dropdown)
         _buildScaleToggleDropdown(context),
+        const SizedBox(width: 4),
+        // Lock to scale toggle
+        _buildToggleButton(
+          context,
+          icon: Icons.lock,
+          label: 'Lock',
+          isActive: widget.lockEnabled,
+          onTap: widget.onLockToggle,
+        ),
         const SizedBox(width: 4),
         // Fold toggle
         _buildToggleButton(

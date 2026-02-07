@@ -643,6 +643,46 @@ impl TrackSynthManager {
             sampler.restore_parameters(data);
         }
     }
+
+    /// Get sampler info for UI synchronization
+    pub fn get_sampler_info(&self, track_id: u64) -> Option<SamplerInfo> {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
+            Some(SamplerInfo {
+                duration_seconds: sampler.sample_duration_seconds(),
+                sample_rate: sampler.sample_sample_rate() as f64,
+                loop_enabled: sampler.loop_enabled,
+                loop_start_seconds: sampler.frames_to_seconds(sampler.loop_start),
+                loop_end_seconds: sampler.frames_to_seconds(sampler.loop_end),
+                root_note: sampler.root_note as i32,
+                attack_ms: sampler.envelope.attack_ms as f64,
+                release_ms: sampler.envelope.release_ms as f64,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Get waveform peaks from sampler's loaded sample
+    pub fn get_sampler_waveform_peaks(&self, track_id: u64, resolution: usize) -> Option<Vec<f32>> {
+        if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
+            let peaks = sampler.get_waveform_peaks(resolution);
+            if peaks.is_empty() { None } else { Some(peaks) }
+        } else {
+            None
+        }
+    }
+}
+
+/// Sampler info struct for UI synchronization
+pub struct SamplerInfo {
+    pub duration_seconds: f64,
+    pub sample_rate: f64,
+    pub loop_enabled: bool,
+    pub loop_start_seconds: f64,
+    pub loop_end_seconds: f64,
+    pub root_note: i32,
+    pub attack_ms: f64,
+    pub release_ms: f64,
 }
 
 // ============================================================================

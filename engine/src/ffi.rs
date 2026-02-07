@@ -1546,6 +1546,81 @@ pub extern "C" fn is_sampler_track_ffi(track_id: u64) -> i32 {
 }
 
 // ============================================================================
+// SAMPLER INFO + WAVEFORM PEAKS FFI
+// ============================================================================
+
+/// Get sampler info for UI synchronization.
+/// Returns 1 on success, 0 if track is not a sampler.
+#[no_mangle]
+pub extern "C" fn get_sampler_info_ffi(
+    track_id: u64,
+    out_duration_seconds: *mut f64,
+    out_sample_rate: *mut f64,
+    out_loop_enabled: *mut i32,
+    out_loop_start_seconds: *mut f64,
+    out_loop_end_seconds: *mut f64,
+    out_root_note: *mut i32,
+    out_attack_ms: *mut f64,
+    out_release_ms: *mut f64,
+) -> i32 {
+    match api::get_sampler_info(track_id) {
+        Ok(info) => {
+            unsafe {
+                if !out_duration_seconds.is_null() { *out_duration_seconds = info.duration_seconds; }
+                if !out_sample_rate.is_null() { *out_sample_rate = info.sample_rate; }
+                if !out_loop_enabled.is_null() { *out_loop_enabled = if info.loop_enabled { 1 } else { 0 }; }
+                if !out_loop_start_seconds.is_null() { *out_loop_start_seconds = info.loop_start_seconds; }
+                if !out_loop_end_seconds.is_null() { *out_loop_end_seconds = info.loop_end_seconds; }
+                if !out_root_note.is_null() { *out_root_note = info.root_note; }
+                if !out_attack_ms.is_null() { *out_attack_ms = info.attack_ms; }
+                if !out_release_ms.is_null() { *out_release_ms = info.release_ms; }
+            }
+            1
+        }
+        Err(e) => {
+            eprintln!("❌ [FFI] get_sampler_info failed: {e}");
+            0
+        }
+    }
+}
+
+/// Get waveform peaks from sampler's loaded sample.
+/// Returns pointer to f32 array (caller must free with free_sampler_waveform_peaks_ffi).
+#[no_mangle]
+pub extern "C" fn get_sampler_waveform_peaks_ffi(
+    track_id: u64,
+    resolution: usize,
+    out_length: *mut usize,
+) -> *mut f32 {
+    if let Ok(peaks) = api::get_sampler_waveform_peaks(track_id, resolution) {
+        let len = peaks.len();
+        let ptr = peaks.as_ptr().cast_mut();
+        std::mem::forget(peaks);
+
+        if !out_length.is_null() {
+            unsafe { *out_length = len; }
+        }
+
+        ptr
+    } else {
+        if !out_length.is_null() {
+            unsafe { *out_length = 0; }
+        }
+        std::ptr::null_mut()
+    }
+}
+
+/// Free waveform peaks allocated by get_sampler_waveform_peaks_ffi.
+#[no_mangle]
+pub extern "C" fn free_sampler_waveform_peaks_ffi(ptr: *mut f32, length: usize) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = Vec::from_raw_parts(ptr, length, length);
+        }
+    }
+}
+
+// ============================================================================
 // M7: VST3 Plugin Hosting FFI
 // ============================================================================
 

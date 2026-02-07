@@ -38,6 +38,9 @@ class AudioEditor extends StatefulWidget {
   /// Callback when project tempo changes from Audio Editor
   final Function(double)? onProjectTempoChanged;
 
+  /// Callback to create a sampler track from this clip's audio
+  final VoidCallback? onCreateSamplerFromClip;
+
   const AudioEditor({
     super.key,
     this.audioEngine,
@@ -48,6 +51,7 @@ class AudioEditor extends StatefulWidget {
     this.onToolModeChanged,
     this.projectTempo = 120.0,
     this.onProjectTempoChanged,
+    this.onCreateSamplerFromClip,
   });
 
   @override
@@ -161,6 +165,7 @@ class _AudioEditorState extends State<AudioEditor>
                   onFineCentsChanged: setFineCents,
                   gainDb: editData.gainDb,
                   onGainChanged: setGain,
+                  onCreateSamplerFromClip: widget.onCreateSamplerFromClip,
                 ),
 
                 // Main content area

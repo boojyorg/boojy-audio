@@ -221,7 +221,7 @@ impl Default for PreviewPlayer {
 }
 
 /// Extract waveform peaks from an audio clip
-fn extract_waveform_peaks(clip: &AudioClip, resolution: usize) -> Vec<f32> {
+pub(crate) fn extract_waveform_peaks(clip: &AudioClip, resolution: usize) -> Vec<f32> {
     let frame_count = clip.frame_count();
     if frame_count == 0 || resolution == 0 {
         return vec![0.0; resolution];

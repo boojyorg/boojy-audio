@@ -1,3 +1,5 @@
+import '../../models/sampler_info.dart';
+
 /// Abstract interface for AudioEngine to enable testing.
 /// Commands use this interface instead of the concrete AudioEngine class,
 /// allowing mock implementations in tests.
@@ -43,6 +45,8 @@ abstract class AudioEngineInterface {
   bool loadSampleForTrack(int trackId, String path, int rootNote);
   String setSamplerParameter(int trackId, String param, String value);
   bool isSamplerTrack(int trackId);
+  SamplerInfo? getSamplerInfo(int trackId);
+  List<double> getSamplerWaveformPeaks(int trackId, int resolution);
 
   // MIDI clip operations
   int createMidiClip();

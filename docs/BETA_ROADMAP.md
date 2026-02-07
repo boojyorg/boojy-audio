@@ -19,11 +19,11 @@
 | # | Feature | Size | Hours | Status |
 |---|---------|------|-------|--------|
 | 1 | Input monitoring (auto mode) | Small | 1-2 | ✅ Done |
-| 2 | Sampler fixes (stereo + editor + ADSR + root note) | Large | 12-15 | 🔴 Not started |
+| 2 | Sampler fixes (stereo + editor + ADSR + root note) | Large | 12-15 | 🟡 Implemented, needs testing |
 | 3 | MIDI CC recording (sustain + pitch bend) | Medium | 6-8 | 🔴 Not started |
 | 4 | Punch in/out recording | Medium | 4-6 | ✅ Done |
 | 5 | MIDI file import/export | Medium | 6-8 | ✅ Done |
-| 6 | Scale/key snapping in piano roll | Small | 3-4 | 🔴 Not started |
+| 6 | Scale/key snapping in piano roll | Small | 3-4 | ✅ Done |
 | 7 | Windows build testing | Medium | 4-6 | 🟡 Build exists, needs testing |
 | 8 | Recording workflow (count-in, restart, etc.) | Medium | — | ✅ Done |
 | 9 | Start screen (new, open recent) | Medium | 4-6 | 🔴 Not started |

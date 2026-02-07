@@ -4038,6 +4038,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                     projectTempo: projectMetadata.bpm,
                     onProjectTempoChanged: _onTempoChanged,
                     isRecording: isRecording,
+                    onCreateSamplerFromClip: (clipPath) {
+                      // Extract filename for track name
+                      final name = clipPath.split('/').last.split('.').first;
+                      _createSamplerTrackWithSample(clipPath, name);
+                    },
                   ),
                 ),
 

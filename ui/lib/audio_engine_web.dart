@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 
 /// JS interop for the Boojy WASM engine
@@ -625,6 +626,12 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   bool isSamplerTrack(int trackId) => false;
+
+  @override
+  SamplerInfo? getSamplerInfo(int trackId) => null;
+
+  @override
+  List<double> getSamplerWaveformPeaks(int trackId, int resolution) => [];
 
   bool vst3HasEditor(int effectId) => false;
   String vst3OpenEditor(int effectId) => 'Not supported';

@@ -2,6 +2,7 @@
 // This file should never be imported directly at runtime
 // ignore_for_file: avoid_positional_boolean_parameters
 
+import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 
 /// Stub AudioEngine that throws on all methods
@@ -213,6 +214,13 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   bool isSamplerTrack(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  SamplerInfo? getSamplerInfo(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  List<double> getSamplerWaveformPeaks(int trackId, int resolution) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Instruments & Synth

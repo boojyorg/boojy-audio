@@ -84,6 +84,9 @@ class _AudioEngineBase {
   late final _LoadSampleForTrackFfi _loadSampleForTrack;
   late final _SetSamplerParameterFfi _setSamplerParameter;
   late final _IsSamplerTrackFfi _isSamplerTrack;
+  late final _GetSamplerInfoFfi _getSamplerInfo;
+  late final _GetSamplerWaveformPeaksFfi _getSamplerWaveformPeaks;
+  late final _FreeSamplerWaveformPeaksFfi _freeSamplerWaveformPeaks;
 
   // M4 functions - Tracks & Mixer
   late final _CreateTrackFfi _createTrack;
@@ -838,6 +841,21 @@ class _AudioEngineBase {
       _isSamplerTrack = _lib
           .lookup<ffi.NativeFunction<_IsSamplerTrackFfiNative>>(
               'is_sampler_track_ffi')
+          .asFunction();
+
+      _getSamplerInfo = _lib
+          .lookup<ffi.NativeFunction<_GetSamplerInfoFfiNative>>(
+              'get_sampler_info_ffi')
+          .asFunction();
+
+      _getSamplerWaveformPeaks = _lib
+          .lookup<ffi.NativeFunction<_GetSamplerWaveformPeaksFfiNative>>(
+              'get_sampler_waveform_peaks_ffi')
+          .asFunction();
+
+      _freeSamplerWaveformPeaks = _lib
+          .lookup<ffi.NativeFunction<_FreeSamplerWaveformPeaksFfiNative>>(
+              'free_sampler_waveform_peaks_ffi')
           .asFunction();
 
       // Bind M7 functions - VST3 Plugin Hosting
