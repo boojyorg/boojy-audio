@@ -39,14 +39,6 @@ class PlaybackController extends ChangeNotifier {
   double _loopEndBeats = 4.0;
   double _loopTempo = 120.0;
 
-  // Loop playback enabled (from arrangement)
-  bool _loopPlaybackEnabled = true;
-
-  /// Set loop playback enabled state (from arrangement)
-  void setLoopPlaybackEnabled({required bool enabled}) {
-    _loopPlaybackEnabled = enabled;
-  }
-
   /// Update loop bounds in real-time during playback.
   /// Call this when the user drags loop handles while playing.
   void updateLoopBounds({

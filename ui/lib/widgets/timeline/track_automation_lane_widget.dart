@@ -76,11 +76,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   String? _hoveredPointId;
   bool _isDrawing = false;
   bool _isResizing = false;
-  bool _isSelecting = false;
   bool _isErasing = false;
   Set<String> _erasedPointIds = {};
-  Offset? _selectionStart;
-  Offset? _selectionEnd;
   Set<String> _selectedPointIds = {};
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;

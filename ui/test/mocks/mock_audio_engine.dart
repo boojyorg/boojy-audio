@@ -26,8 +26,10 @@ class MockAudioEngine implements AudioEngineInterface {
   // --- Clip operations ---
 
   @override
-  void setClipStartTime(int trackId, int clipId, double startTime) =>
-      _record('setClipStartTime');
+  String setClipStartTime(int trackId, int clipId, double startTime) {
+    _record('setClipStartTime');
+    return 'OK';
+  }
 
   @override
   String setClipOffset(int trackId, int clipId, double offset) {
@@ -81,8 +83,10 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  void removeAudioClip(int trackId, int clipId) =>
-      _record('removeAudioClip');
+  bool removeAudioClip(int trackId, int clipId) {
+    _record('removeAudioClip');
+    return true;
+  }
 
   @override
   int addExistingClipToTrack(int clipId, int trackId, double startTime,
@@ -106,7 +110,10 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  void deleteTrack(int trackId) => _record('deleteTrack');
+  String deleteTrack(int trackId) {
+    _record('deleteTrack');
+    return 'OK';
+  }
 
   @override
   int duplicateTrack(int sourceTrackId) {
@@ -161,8 +168,10 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  void removeEffectFromTrack(int trackId, int effectId) =>
-      _record('removeEffectFromTrack');
+  String removeEffectFromTrack(int trackId, int effectId) {
+    _record('removeEffectFromTrack');
+    return 'OK';
+  }
 
   @override
   void setEffectBypass(int effectId, {required bool bypassed}) =>
@@ -173,8 +182,10 @@ class MockAudioEngine implements AudioEngineInterface {
       _record('reorderTrackEffects');
 
   @override
-  void setVst3ParameterValue(int effectId, int paramIndex, double value) =>
-      _record('setVst3ParameterValue');
+  bool setVst3ParameterValue(int effectId, int paramIndex, double value) {
+    _record('setVst3ParameterValue');
+    return true;
+  }
 
   // --- Sampler operations ---
 
@@ -285,5 +296,55 @@ class MockAudioEngine implements AudioEngineInterface {
   List<double> previewGetWaveform(int resolution) {
     _record('previewGetWaveform');
     return [];
+  }
+
+  // --- Punch recording operations ---
+
+  @override
+  String setPunchInEnabled({required bool enabled}) {
+    _record('setPunchInEnabled');
+    return 'OK';
+  }
+
+  @override
+  bool isPunchInEnabled() {
+    _record('isPunchInEnabled');
+    return false;
+  }
+
+  @override
+  String setPunchOutEnabled({required bool enabled}) {
+    _record('setPunchOutEnabled');
+    return 'OK';
+  }
+
+  @override
+  bool isPunchOutEnabled() {
+    _record('isPunchOutEnabled');
+    return false;
+  }
+
+  @override
+  String setPunchRegion(double inSeconds, double outSeconds) {
+    _record('setPunchRegion');
+    return 'OK';
+  }
+
+  @override
+  double getPunchInSeconds() {
+    _record('getPunchInSeconds');
+    return 0.0;
+  }
+
+  @override
+  double getPunchOutSeconds() {
+    _record('getPunchOutSeconds');
+    return 0.0;
+  }
+
+  @override
+  bool isPunchComplete() {
+    _record('isPunchComplete');
+    return false;
   }
 }

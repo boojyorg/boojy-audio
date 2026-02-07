@@ -23,7 +23,6 @@ class LibraryPreviewService extends ChangeNotifier {
   List<double> _waveformPeaks = [];
 
   // For synth preset preview
-  int? _previewTrackId;
   Timer? _noteOffTimer;
   Timer? _positionTimer;
 

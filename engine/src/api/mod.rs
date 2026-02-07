@@ -63,9 +63,11 @@ pub use project::{
 pub use recording::{
     get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_count_in_beat,
     get_count_in_progress, get_input_channel_count, get_input_channel_level,
-    get_recorded_duration, get_recording_state, get_recording_waveform, get_sample_rate,
-    get_selected_audio_output_device, set_audio_input_device, set_audio_output_device,
-    set_count_in_bars, start_audio_input, start_recording, stop_audio_input, stop_recording,
+    get_punch_in_seconds, get_punch_out_seconds, get_recorded_duration, get_recording_state,
+    get_recording_waveform, get_sample_rate, get_selected_audio_output_device,
+    is_punch_complete, is_punch_in_enabled, is_punch_out_enabled, set_audio_input_device,
+    set_audio_output_device, set_count_in_bars, set_punch_in_enabled, set_punch_out_enabled,
+    set_punch_region, start_audio_input, start_recording, stop_audio_input, stop_recording,
 };
 pub use synthesizer::{
     create_sampler_for_track, get_synth_parameters, is_sampler_track, load_sample_for_track,

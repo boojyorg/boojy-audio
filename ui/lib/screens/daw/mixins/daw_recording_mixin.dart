@@ -4,7 +4,6 @@ import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/track_data.dart';
 import '../../../services/commands/clip_commands.dart';
-import '../../../services/commands/command.dart';
 import '../../../services/commands/project_commands.dart';
 import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
@@ -24,8 +23,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     if (isRecording) {
       // During recording: Save and restart
       recordingController.restartRecording();
-    } else if (isCountingIn) {
-      // During count-in: Cancel and return to start
+    } else if (isCountingIn || recordingController.isWaitingForPunchIn) {
+      // During count-in or waiting for punch-in: Cancel and return to start
       stopRecordingAndReturn();
     } else {
       // Idle: Start new recording
@@ -46,8 +45,25 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // Set up callbacks
     recordingController.onRecordingComplete = handleRecordingComplete;
     recordingController.onRecordStartPositionChanged = playbackController.setRecordStartPosition;
+    recordingController.onPunchComplete = _handlePunchComplete;
 
-    recordingController.startRecording(isAlreadyPlaying: isAlreadyPlaying);
+    // Read punch state from UI layout — punch region reuses loop boundaries
+    final punchIn = uiLayout.punchInEnabled;
+    final punchOut = uiLayout.punchOutEnabled;
+    double punchInSeconds = 0.0;
+    double punchOutSeconds = 0.0;
+    if (punchIn || punchOut) {
+      punchInSeconds = uiLayout.loopStartBeats * 60.0 / tempo;
+      punchOutSeconds = uiLayout.loopEndBeats * 60.0 / tempo;
+    }
+
+    recordingController.startRecording(
+      isAlreadyPlaying: isAlreadyPlaying,
+      punchInEnabled: punchIn,
+      punchOutEnabled: punchOut,
+      punchInSeconds: punchInSeconds,
+      punchOutSeconds: punchOutSeconds,
+    );
 
     // Don't start playhead polling during count-in — the playhead should stay
     // frozen at the recording start position. Listen for the count-in → recording
@@ -58,6 +74,13 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Detect count-in → recording transition and start playhead polling
   void _onRecordingStateChanged() {
+    // Start playhead polling when entering WaitingForPunchIn (transport is playing)
+    if (recordingController.isWaitingForPunchIn) {
+      recordingController.removeListener(_onRecordingStateChanged);
+      playbackController.startPlayheadPolling(displayOffset: 0.0);
+      return;
+    }
+
     if (recordingController.isRecording && !recordingController.isCountingIn) {
       recordingController.removeListener(_onRecordingStateChanged);
 
@@ -70,9 +93,29 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     }
   }
 
+  /// Handle auto-punch-out completion — transport keeps playing
+  void _handlePunchComplete(RecordingResult result) {
+    // Capture live recording notes BEFORE cleanup
+    final liveClip = liveRecordingNotifier.buildLiveClipData();
+    final capturedNotes = liveClip?.notes ?? [];
+
+    // Clean up listeners
+    liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
+    recordingController.removeListener(_onRecordingStateChanged);
+    midiPlaybackManager?.setLiveRecordingClip(null);
+
+    // Re-enable preview playback
+    libraryPreviewService?.setRecordingState(false);
+
+    // Process the recording (place clip on timeline) — transport keeps running
+    handleRecordingComplete(result, capturedNotes: capturedNotes);
+
+    // Playhead polling continues since transport is still running
+  }
+
   /// Pause recording: Stop recording, stay at current position
   void pauseRecording() {
-    if (!isRecording && !isCountingIn) return;
+    if (!isRecording && !isCountingIn && !recordingController.isWaitingForPunchIn) return;
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
@@ -85,7 +128,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Stop recording: Stop recording, return to recordStartPosition
   void stopRecordingAndReturn() {
-    if (!isRecording && !isCountingIn) return;
+    if (!isRecording && !isCountingIn && !recordingController.isWaitingForPunchIn) return;
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();

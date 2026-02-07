@@ -477,6 +477,57 @@ pub extern "C" fn get_count_in_progress_ffi() -> f32 {
     api::get_count_in_progress().unwrap_or(0.0)
 }
 
+// ── Punch In/Out ──────────────────────────────────────────────
+
+#[no_mangle]
+pub extern "C" fn set_punch_in_enabled_ffi(enabled: i32) -> *mut c_char {
+    match api::set_punch_in_enabled(enabled != 0) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn is_punch_in_enabled_ffi() -> i32 {
+    api::is_punch_in_enabled().unwrap_or(false) as i32
+}
+
+#[no_mangle]
+pub extern "C" fn set_punch_out_enabled_ffi(enabled: i32) -> *mut c_char {
+    match api::set_punch_out_enabled(enabled != 0) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn is_punch_out_enabled_ffi() -> i32 {
+    api::is_punch_out_enabled().unwrap_or(false) as i32
+}
+
+#[no_mangle]
+pub extern "C" fn set_punch_region_ffi(in_seconds: f64, out_seconds: f64) -> *mut c_char {
+    match api::set_punch_region(in_seconds, out_seconds) {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_punch_in_seconds_ffi() -> f64 {
+    api::get_punch_in_seconds().unwrap_or(0.0)
+}
+
+#[no_mangle]
+pub extern "C" fn get_punch_out_seconds_ffi() -> f64 {
+    api::get_punch_out_seconds().unwrap_or(0.0)
+}
+
+#[no_mangle]
+pub extern "C" fn is_punch_complete_ffi() -> i32 {
+    api::is_punch_complete().unwrap_or(false) as i32
+}
+
 /// Set tempo in BPM
 #[no_mangle]
 pub extern "C" fn set_tempo_ffi(bpm: f64) -> *mut c_char {

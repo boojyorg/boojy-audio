@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -394,6 +393,12 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyM:
         _toggleMetronome();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyI:
+        uiLayout.togglePunchIn();
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyO:
+        uiLayout.togglePunchOut();
         return KeyEventResult.handled;
       default:
         return KeyEventResult.ignored;
@@ -1416,7 +1421,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Get the first clip's file path (we'll use this as the sample)
     final firstClip = audioClips.first;
     final samplePath = firstClip.filePath;
-    if (samplePath == null || samplePath.isEmpty) {
+    if (samplePath.isEmpty) {
       _showSnackBar('Audio clip has no file path');
       return;
     }
@@ -3619,6 +3624,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             // Loop playback control
             loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
             onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
+            // Punch in/out
+            punchInEnabled: uiLayout.punchInEnabled,
+            punchOutEnabled: uiLayout.punchOutEnabled,
+            onPunchInToggle: uiLayout.togglePunchIn,
+            onPunchOutToggle: uiLayout.togglePunchOut,
             // Time signature
             beatsPerBar: projectMetadata.timeSignatureNumerator,
             beatUnit: projectMetadata.timeSignatureDenominator,
@@ -3751,6 +3761,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
                           loopStartBeats: uiLayout.loopStartBeats,
                           loopEndBeats: uiLayout.loopEndBeats,
+                          punchInEnabled: uiLayout.punchInEnabled,
+                          punchOutEnabled: uiLayout.punchOutEnabled,
                           onLoopRegionChanged: (start, end) {
                             // Mark as manual adjustment - disables auto-follow
                             uiLayout.setLoopRegion(start, end, manual: true);

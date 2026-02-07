@@ -154,14 +154,25 @@ pub fn start_recording() -> Result<String, String> {
         0.0
     };
 
-    // Place clip at the playhead position where the user pressed record (before count-in).
-    // The count-in is a pre-roll — it doesn't advance the logical timeline position.
-    let recording_start = playhead_seconds;
+    // Determine recording start position
+    let punch_in = graph.recorder.is_punch_in_enabled();
+    let recording_start = if punch_in {
+        // Punch-in: clip will be placed at the punch-in point
+        graph.recorder.get_punch_in_seconds()
+    } else {
+        // Normal: clip placed at current playhead
+        playhead_seconds
+    };
     graph.recorder.set_recording_start_seconds(recording_start);
 
-    // Seek back by count-in duration so user hears song context during count-in
-    // (but not before position 0.0)
-    if count_in_seconds > 0.0 {
+    // Seek back by count-in duration for pre-roll
+    if punch_in && count_in_seconds > 0.0 {
+        // Punch mode: pre-roll before the punch-in point
+        let seek_position = (recording_start - count_in_seconds).max(0.0);
+        eprintln!("🔊 [API] Punch pre-roll: seeking to {seek_position:.3}s (punch-in at {recording_start:.3}s, count-in: {count_in_seconds:.3}s)");
+        graph.seek(seek_position);
+    } else if count_in_seconds > 0.0 {
+        // Normal: pre-roll before current playhead
         let seek_position = (playhead_seconds - count_in_seconds).max(0.0);
         eprintln!("🔊 [API] Seeking back for count-in: {playhead_seconds:.3}s → {seek_position:.3}s (count-in: {count_in_seconds:.3}s)");
         graph.seek(seek_position);
@@ -332,7 +343,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     }
 }
 
-/// Get current recording state (0=Idle, 1=CountingIn, 2=Recording)
+/// Get current recording state (0=Idle, 1=CountingIn, 2=Recording, 3=WaitingForPunchIn)
 pub fn get_recording_state() -> Result<i32, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
@@ -342,6 +353,7 @@ pub fn get_recording_state() -> Result<i32, String> {
         RecordingState::Idle => 0,
         RecordingState::CountingIn => 1,
         RecordingState::Recording => 2,
+        RecordingState::WaitingForPunchIn => 3,
     };
 
     Ok(state)
@@ -401,4 +413,59 @@ pub fn get_count_in_progress() -> Result<f32, String> {
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
     Ok(graph.recorder.get_count_in_progress())
+}
+
+// ============================================================================
+// PUNCH IN/OUT RECORDING
+// ============================================================================
+
+pub fn set_punch_in_enabled(enabled: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    graph.recorder.set_punch_in_enabled(enabled);
+    Ok(format!("Punch-in {}", if enabled { "enabled" } else { "disabled" }))
+}
+
+pub fn is_punch_in_enabled() -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    Ok(graph.recorder.is_punch_in_enabled())
+}
+
+pub fn set_punch_out_enabled(enabled: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    graph.recorder.set_punch_out_enabled(enabled);
+    Ok(format!("Punch-out {}", if enabled { "enabled" } else { "disabled" }))
+}
+
+pub fn is_punch_out_enabled() -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    Ok(graph.recorder.is_punch_out_enabled())
+}
+
+pub fn set_punch_region(in_seconds: f64, out_seconds: f64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    graph.recorder.set_punch_region(in_seconds, out_seconds);
+    Ok(format!("Punch region set: {in_seconds:.3}s - {out_seconds:.3}s"))
+}
+
+pub fn get_punch_in_seconds() -> Result<f64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    Ok(graph.recorder.get_punch_in_seconds())
+}
+
+pub fn get_punch_out_seconds() -> Result<f64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    Ok(graph.recorder.get_punch_out_seconds())
+}
+
+pub fn is_punch_complete() -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    Ok(graph.recorder.is_punch_complete())
 }

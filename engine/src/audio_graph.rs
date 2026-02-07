@@ -1079,7 +1079,7 @@ impl AudioGraph {
                         };
 
                         // Process recording and get metronome output
-                        let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, false);
+                        let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, false, 0.0);
 
                         // Start with metronome output
                         let mut out_left = met_left;
@@ -1636,7 +1636,7 @@ impl AudioGraph {
                     */ // END LEGACY CODE REMOVAL
 
                     // Process recording (metronome handled separately below)
-                    let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, true);
+                    let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, true, playhead_seconds);
 
                     // Apply master track processing (using snapshot - no locks!)
                     let mut master_left = mix_left;

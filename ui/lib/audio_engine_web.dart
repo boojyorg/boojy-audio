@@ -339,7 +339,7 @@ class AudioEngine implements AudioEngineInterface {
   List<double> getWaveformPeaks(int clipId, int resolution) => [];
 
   @override
-  void setClipStartTime(int trackId, int clipId, double startTime) {}
+  String setClipStartTime(int trackId, int clipId, double startTime) => 'OK';
 
   @override
   String setClipOffset(int trackId, int clipId, double offset) => 'OK';
@@ -357,7 +357,7 @@ class AudioEngine implements AudioEngineInterface {
   String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) => 'OK';
 
   @override
-  void removeAudioClip(int trackId, int clipId) {}
+  bool removeAudioClip(int trackId, int clipId) => true;
 
   @override
   int addExistingClipToTrack(int clipId, int trackId, double startTime,
@@ -553,8 +553,9 @@ class AudioEngine implements AudioEngineInterface {
   String getTrackPeakLevels(int trackId) => '{"left": 0.0, "right": 0.0}';
 
   @override
-  void deleteTrack(int trackId) {
+  String deleteTrack(int trackId) {
     _callEngineWith('delete_track', [_intToBigInt(trackId)]);
+    return 'OK';
   }
 
   @override
@@ -578,7 +579,7 @@ class AudioEngine implements AudioEngineInterface {
   int addEffectToTrack(int trackId, String effectType) => -1;
 
   @override
-  void removeEffectFromTrack(int trackId, int effectId) {}
+  String removeEffectFromTrack(int trackId, int effectId) => 'OK';
 
   String getTrackEffects(int trackId) => '[]';
   String getEffectInfo(int effectId) => '{}';
@@ -606,7 +607,7 @@ class AudioEngine implements AudioEngineInterface {
   double getVst3ParameterValue(int effectId, int paramIndex) => 0.0;
 
   @override
-  void setVst3ParameterValue(int effectId, int paramIndex, double value) {}
+  bool setVst3ParameterValue(int effectId, int paramIndex, double value) => true;
 
   // ============================================================================
   // Sampler API (stubs for web - not yet implemented)
@@ -762,4 +763,32 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   List<double> previewGetWaveform(int resolution) => List.filled(resolution, 0.0);
+
+  // ============================================================================
+  // Punch Recording (stubs - not yet implemented on web)
+  // ============================================================================
+
+  @override
+  String setPunchInEnabled({required bool enabled}) => throw UnsupportedError('Web');
+
+  @override
+  bool isPunchInEnabled() => throw UnsupportedError('Web');
+
+  @override
+  String setPunchOutEnabled({required bool enabled}) => throw UnsupportedError('Web');
+
+  @override
+  bool isPunchOutEnabled() => throw UnsupportedError('Web');
+
+  @override
+  String setPunchRegion(double inSeconds, double outSeconds) => throw UnsupportedError('Web');
+
+  @override
+  double getPunchInSeconds() => throw UnsupportedError('Web');
+
+  @override
+  double getPunchOutSeconds() => throw UnsupportedError('Web');
+
+  @override
+  bool isPunchComplete() => throw UnsupportedError('Web');
 }

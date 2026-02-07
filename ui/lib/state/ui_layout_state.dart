@@ -78,6 +78,10 @@ class UILayoutState extends ChangeNotifier {
   double _loopStartBeats = 0.0;
   double _loopEndBeats = 4.0; // Default 1 bar (4 beats)
 
+  // Punch in/out recording — reuses loop region boundaries
+  bool _punchInEnabled = false;
+  bool _punchOutEnabled = false;
+
   // Auto-follow: loop region automatically tracks longest clip
   // Set to false when user manually adjusts loop region
   bool _loopAutoFollow = true;
@@ -441,6 +445,30 @@ class UILayoutState extends ChangeNotifier {
 
   /// Get loop duration in beats
   double get loopDurationBeats => _loopEndBeats - _loopStartBeats;
+
+  // ── Punch In/Out ──────────────────────────────────────────────
+
+  bool get punchInEnabled => _punchInEnabled;
+  set punchInEnabled(bool value) {
+    _punchInEnabled = value;
+    notifyListeners();
+  }
+
+  bool get punchOutEnabled => _punchOutEnabled;
+  set punchOutEnabled(bool value) {
+    _punchOutEnabled = value;
+    notifyListeners();
+  }
+
+  void togglePunchIn() {
+    _punchInEnabled = !_punchInEnabled;
+    notifyListeners();
+  }
+
+  void togglePunchOut() {
+    _punchOutEnabled = !_punchOutEnabled;
+    notifyListeners();
+  }
 
   /// Reset all panel sizes and visibility to defaults
   void resetLayout() {

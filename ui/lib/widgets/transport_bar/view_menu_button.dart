@@ -104,7 +104,8 @@ class _ViewMenuButtonState extends State<ViewMenuButton> {
 
   @override
   void dispose() {
-    _hideMenu();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 

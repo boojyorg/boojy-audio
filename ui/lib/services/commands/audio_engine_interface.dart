@@ -3,7 +3,7 @@
 /// allowing mock implementations in tests.
 abstract class AudioEngineInterface {
   // Clip operations
-  void setClipStartTime(int trackId, int clipId, double startTime);
+  String setClipStartTime(int trackId, int clipId, double startTime);
   String setClipOffset(int trackId, int clipId, double offset);
   String setClipDuration(int trackId, int clipId, double duration);
   String setAudioClipGain(int trackId, int clipId, double gainDb);
@@ -12,14 +12,14 @@ abstract class AudioEngineInterface {
   int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0});
   double getClipDuration(int clipId);
   List<double> getWaveformPeaks(int clipId, int resolution);
-  void removeAudioClip(int trackId, int clipId);
+  bool removeAudioClip(int trackId, int clipId);
   int addExistingClipToTrack(int clipId, int trackId, double startTime,
       {double offset = 0.0, double? duration});
   int duplicateAudioClip(int trackId, int clipId, double startTime);
 
   // Track operations
   int createTrack(String trackType, String name);
-  void deleteTrack(int trackId);
+  String deleteTrack(int trackId);
   int duplicateTrack(int sourceTrackId);
   String getTrackInfo(int trackId);
   void setTrackName(int trackId, String name);
@@ -33,10 +33,10 @@ abstract class AudioEngineInterface {
   // Effect operations
   int addEffectToTrack(int trackId, String effectType);
   int addVst3EffectToTrack(int trackId, String effectPath);
-  void removeEffectFromTrack(int trackId, int effectId);
+  String removeEffectFromTrack(int trackId, int effectId);
   void setEffectBypass(int effectId, {required bool bypassed});
   void reorderTrackEffects(int trackId, List<int> order);
-  void setVst3ParameterValue(int effectId, int paramIndex, double value);
+  bool setVst3ParameterValue(int effectId, int paramIndex, double value);
 
   // Sampler operations
   int createSamplerForTrack(int trackId);
@@ -65,4 +65,14 @@ abstract class AudioEngineInterface {
   void previewSetLooping(bool shouldLoop);
   bool previewIsLooping();
   List<double> previewGetWaveform(int resolution);
+
+  // Punch recording operations
+  String setPunchInEnabled({required bool enabled});
+  bool isPunchInEnabled();
+  String setPunchOutEnabled({required bool enabled});
+  bool isPunchOutEnabled();
+  String setPunchRegion(double inSeconds, double outSeconds);
+  double getPunchInSeconds();
+  double getPunchOutSeconds();
+  bool isPunchComplete();
 }

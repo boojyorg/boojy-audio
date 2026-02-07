@@ -11,6 +11,8 @@ class UnifiedNavBarConfig {
   final double loopEnd;
   final double? insertMarkerPosition;
   final double? playheadPosition; // in beats (null = not shown)
+  final bool punchInEnabled;
+  final bool punchOutEnabled;
 
   const UnifiedNavBarConfig({
     required this.pixelsPerBeat,
@@ -20,6 +22,8 @@ class UnifiedNavBarConfig {
     this.loopEnd = 4.0,
     this.insertMarkerPosition,
     this.playheadPosition,
+    this.punchInEnabled = false,
+    this.punchOutEnabled = false,
   });
 }
 
@@ -151,6 +155,8 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
                 playheadPosition: widget.config.playheadPosition,
                 hoverBeat: _isHoveringLoopEdge ? _hoverBeat : null,
                 isHoveringPlayhead: _isHoveringPlayhead,
+                punchInEnabled: widget.config.punchInEnabled,
+                punchOutEnabled: widget.config.punchOutEnabled,
               ),
             ),
           ),
@@ -175,7 +181,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   }
 
   bool _isNearLoopStart(double beat) {
-    if (!widget.config.loopEnabled) return false;
+    // Bar is always visible, so edges are always interactive
     final loopStartX = _xAtBeat(widget.config.loopStart);
     final beatX = _xAtBeat(beat);
     final scrollOffset = widget.scrollController.hasClients
@@ -185,7 +191,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   }
 
   bool _isNearLoopEnd(double beat) {
-    if (!widget.config.loopEnabled) return false;
+    // Bar is always visible, so edges are always interactive
     final loopEndX = _xAtBeat(widget.config.loopEnd);
     final beatX = _xAtBeat(beat);
     final scrollOffset = widget.scrollController.hasClients

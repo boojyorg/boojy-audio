@@ -221,7 +221,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     // Get the first clip's file path (we'll use this as the sample)
     final firstClip = audioClips.first;
     final samplePath = firstClip.filePath;
-    if (samplePath == null || samplePath.isEmpty) {
+    if (samplePath.isEmpty) {
       showSnackBar('Audio clip has no file path');
       return;
     }

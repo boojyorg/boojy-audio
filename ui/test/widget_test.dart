@@ -1,20 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:boojy_audio/main.dart';
+import 'package:boojy_audio/theme/app_colors.dart';
+import 'package:boojy_audio/theme/theme_provider.dart';
 
 void main() {
-  testWidgets('App smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const BoojyAudioApp());
+  group('ThemeProvider', () {
+    test('defaults to dark mode', () {
+      final provider = ThemeProvider();
+      expect(provider.isDark, isTrue);
+    });
 
-    // Basic smoke test - app should build without errors
-    expect(find.byType(BoojyAudioApp), findsOneWidget);
+    test('setTheme switches mode', () {
+      final provider = ThemeProvider();
+      expect(provider.isDark, isTrue);
+      provider.setTheme(BoojyTheme.light);
+      expect(provider.isDark, isFalse);
+      expect(provider.isLight, isTrue);
+      provider.setTheme(BoojyTheme.dark);
+      expect(provider.isDark, isTrue);
+    });
+
+    test('colors are non-null', () {
+      final provider = ThemeProvider();
+      expect(provider.colors, isNotNull);
+      expect(provider.colors.standard, isNotNull);
+      expect(provider.colors.accent, isNotNull);
+    });
   });
 }

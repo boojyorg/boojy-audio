@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../theme/animation_constants.dart';
 import '../theme/theme_extension.dart';
 import '../state/ui_layout_state.dart';
+import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
 import 'shared/pill_toggle_button.dart';
 import 'transport_bar/signature_dropdown.dart';
@@ -95,6 +97,12 @@ class TransportBar extends StatefulWidget {
   final bool loopPlaybackEnabled;
   final VoidCallback? onLoopPlaybackToggle;
 
+  // Punch in/out recording
+  final bool punchInEnabled;
+  final bool punchOutEnabled;
+  final VoidCallback? onPunchInToggle;
+  final VoidCallback? onPunchOutToggle;
+
   // Time signature
   final int beatsPerBar;
   final int beatUnit;
@@ -168,6 +176,10 @@ class TransportBar extends StatefulWidget {
     this.onSnapChanged,
     this.loopPlaybackEnabled = false,
     this.onLoopPlaybackToggle,
+    this.punchInEnabled = false,
+    this.punchOutEnabled = false,
+    this.onPunchInToggle,
+    this.onPunchOutToggle,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
@@ -452,6 +464,17 @@ class _TransportBarState extends State<TransportBar> {
 
               // === CENTER-LEFT: SETUP TOOLS ===
 
+              // Punch In button (→|)
+              _PunchButton(
+                label: '→|',
+                isActive: widget.punchInEnabled,
+                onTap: widget.onPunchInToggle,
+                tooltip: widget.punchInEnabled ? 'Punch In On (I)' : 'Punch In Off (I)',
+                mode: mode,
+              ),
+
+              const SizedBox(width: 2),
+
               // Loop playback toggle button (Piano Roll style)
               PillToggleButton(
                   icon: Icons.loop,
@@ -462,6 +485,17 @@ class _TransportBarState extends State<TransportBar> {
                   tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
                   activeColor: context.colors.accent, // BLUE when active (Piano Roll style)
                 ),
+
+              const SizedBox(width: 2),
+
+              // Punch Out button (|→)
+              _PunchButton(
+                label: '|→',
+                isActive: widget.punchOutEnabled,
+                onTap: widget.onPunchOutToggle,
+                tooltip: widget.punchOutEnabled ? 'Punch Out On (O)' : 'Punch Out Off (O)',
+                mode: mode,
+              ),
 
               const SizedBox(width: 8),
 
@@ -661,6 +695,85 @@ class _TransportBarState extends State<TransportBar> {
     final subdivision = ((totalBeats % 1) * subdivisionsPerBeat).floor() + 1; // 1-indexed
 
     return '$bar.$beat.$subdivision';
+  }
+}
+
+/// Punch In/Out toggle button with bold text label.
+/// Displays →| (punch in) or |→ (punch out) with blue/grey toggle states.
+class _PunchButton extends StatefulWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback? onTap;
+  final String tooltip;
+  final ButtonDisplayMode mode;
+
+  const _PunchButton({
+    required this.label,
+    required this.isActive,
+    this.onTap,
+    required this.tooltip,
+    required this.mode,
+  });
+
+  @override
+  State<_PunchButton> createState() => _PunchButtonState();
+}
+
+class _PunchButtonState extends State<_PunchButton>
+    with ButtonHoverMixin {
+  @override
+  double get hoverScale => AnimationConstants.subtleHoverScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final activeColor = colors.accent;
+
+    final bgColor = widget.isActive
+        ? activeColor
+        : (isHovered ? colors.elevated : colors.dark);
+
+    final textColor = widget.isActive
+        ? colors.elevated
+        : colors.textPrimary;
+
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: handleHoverEnter,
+        onExit: handleHoverExit,
+        child: GestureDetector(
+          onTapDown: handleTapDown,
+          onTapUp: (details) {
+            handleTapUp(details);
+            widget.onTap?.call();
+          },
+          onTapCancel: handleTapCancel,
+          child: AnimatedScale(
+            scale: scale,
+            duration: AnimationConstants.pressDuration,
+            curve: AnimationConstants.standardCurve,
+            child: AnimatedContainer(
+              duration: AnimationConstants.pressDuration,
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 pub enum RecordingState {
     Idle,
     CountingIn,
+    WaitingForPunchIn,
     Recording,
 }
 
@@ -36,6 +37,16 @@ pub struct Recorder {
     count_in_beat: Arc<AtomicU32>,
     /// Count-in progress as fixed-point (0-10000 maps to 0.0-1.0)
     count_in_progress: Arc<AtomicU32>,
+    /// Punch-in enabled (auto-start recording at region start)
+    punch_in_enabled: Arc<AtomicBool>,
+    /// Punch-out enabled (auto-stop recording at region end)
+    punch_out_enabled: Arc<AtomicBool>,
+    /// Punch-in position in seconds (= loop/region start)
+    punch_in_seconds: Arc<Mutex<f64>>,
+    /// Punch-out position in seconds (= loop/region end)
+    punch_out_seconds: Arc<Mutex<f64>>,
+    /// Set by audio callback when auto-punch-out fires
+    punch_complete: Arc<AtomicBool>,
 }
 
 impl Default for Recorder {
@@ -59,6 +70,11 @@ impl Recorder {
             recording_start_seconds: Arc::new(Mutex::new(0.0)),
             count_in_beat: Arc::new(AtomicU32::new(0)),
             count_in_progress: Arc::new(AtomicU32::new(0)),
+            punch_in_enabled: Arc::new(AtomicBool::new(false)),
+            punch_out_enabled: Arc::new(AtomicBool::new(false)),
+            punch_in_seconds: Arc::new(Mutex::new(0.0)),
+            punch_out_seconds: Arc::new(Mutex::new(0.0)),
+            punch_complete: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -75,6 +91,11 @@ impl Recorder {
             seek_cooldown: self.seek_cooldown.clone(),
             count_in_beat: self.count_in_beat.clone(),
             count_in_progress: self.count_in_progress.clone(),
+            punch_in_enabled: self.punch_in_enabled.clone(),
+            punch_out_enabled: self.punch_out_enabled.clone(),
+            punch_in_seconds: self.punch_in_seconds.clone(),
+            punch_out_seconds: self.punch_out_seconds.clone(),
+            punch_complete: self.punch_complete.clone(),
         }
     }
 
@@ -94,13 +115,19 @@ impl Recorder {
         }
 
         self.sample_counter.store(0, Ordering::SeqCst);
+        self.punch_complete.store(false, Ordering::SeqCst);
 
         // Check if count-in is enabled
         let count_in = *self.count_in_bars.lock().map_err(|e| e.to_string())?;
+        let punch_in = self.punch_in_enabled.load(Ordering::SeqCst);
 
         if count_in > 0 {
             *state = RecordingState::CountingIn;
-            eprintln!("🎙️  [Recorder] Starting with count-in: {count_in} bars");
+            eprintln!("🎙️  [Recorder] Starting with count-in: {count_in} bars (punch_in={punch_in})");
+        } else if punch_in {
+            // No count-in but punch-in enabled: wait for punch point
+            *state = RecordingState::WaitingForPunchIn;
+            eprintln!("🎙️  [Recorder] Waiting for punch-in (no count-in)");
         } else {
             *state = RecordingState::Recording;
             eprintln!("🎙️  [Recorder] Starting recording immediately (no count-in)");
@@ -112,14 +139,24 @@ impl Recorder {
     /// Stop recording and return the recorded audio clip
     pub fn stop_recording(&self) -> Result<Option<AudioClip>, String> {
         let mut state = self.state.lock().map_err(|e| e.to_string())?;
-        
-        if *state == RecordingState::Idle {
+        let punch_completed = self.punch_complete.load(Ordering::SeqCst);
+
+        // If idle and no auto-punch-out fired, nothing to return
+        if *state == RecordingState::Idle && !punch_completed {
             return Ok(None);
         }
 
+        let was_waiting = *state == RecordingState::WaitingForPunchIn;
         *state = RecordingState::Idle;
         self.count_in_beat.store(0, Ordering::Relaxed);
         self.count_in_progress.store(0, Ordering::Relaxed);
+        self.punch_complete.store(false, Ordering::SeqCst);
+
+        // If stopped while waiting for punch-in, nothing was recorded
+        if was_waiting {
+            eprintln!("🎙️  [Recorder] Stopped while waiting for punch-in — no audio captured");
+            return Ok(None);
+        }
 
         // Get recorded samples
         let samples = {
@@ -286,6 +323,45 @@ impl Recorder {
     pub fn get_count_in_progress(&self) -> f32 {
         self.count_in_progress.load(Ordering::Relaxed) as f32 / 10000.0
     }
+
+    // ── Punch In/Out ──────────────────────────────────────────────
+
+    pub fn set_punch_in_enabled(&self, enabled: bool) {
+        self.punch_in_enabled.store(enabled, Ordering::SeqCst);
+    }
+
+    pub fn is_punch_in_enabled(&self) -> bool {
+        self.punch_in_enabled.load(Ordering::SeqCst)
+    }
+
+    pub fn set_punch_out_enabled(&self, enabled: bool) {
+        self.punch_out_enabled.store(enabled, Ordering::SeqCst);
+    }
+
+    pub fn is_punch_out_enabled(&self) -> bool {
+        self.punch_out_enabled.load(Ordering::SeqCst)
+    }
+
+    pub fn set_punch_region(&self, in_seconds: f64, out_seconds: f64) {
+        *self.punch_in_seconds.lock().expect("mutex poisoned") = in_seconds;
+        *self.punch_out_seconds.lock().expect("mutex poisoned") = out_seconds;
+    }
+
+    pub fn get_punch_in_seconds(&self) -> f64 {
+        *self.punch_in_seconds.lock().expect("mutex poisoned")
+    }
+
+    pub fn get_punch_out_seconds(&self) -> f64 {
+        *self.punch_out_seconds.lock().expect("mutex poisoned")
+    }
+
+    pub fn is_punch_complete(&self) -> bool {
+        self.punch_complete.load(Ordering::SeqCst)
+    }
+
+    pub fn clear_punch_complete(&self) {
+        self.punch_complete.store(false, Ordering::SeqCst);
+    }
 }
 
 /// References for use in audio callback
@@ -300,6 +376,11 @@ pub struct RecorderCallbackRefs {
     pub seek_cooldown: Arc<AtomicU64>,
     pub count_in_beat: Arc<AtomicU32>,
     pub count_in_progress: Arc<AtomicU32>,
+    pub punch_in_enabled: Arc<AtomicBool>,
+    pub punch_out_enabled: Arc<AtomicBool>,
+    pub punch_in_seconds: Arc<Mutex<f64>>,
+    pub punch_out_seconds: Arc<Mutex<f64>>,
+    pub punch_complete: Arc<AtomicBool>,
 }
 
 impl RecorderCallbackRefs {
@@ -310,6 +391,7 @@ impl RecorderCallbackRefs {
         input_left: f32,
         input_right: f32,
         is_playing: bool,
+        playhead_seconds: f64,
     ) -> (f32, f32) {
         // Read state once and drop lock immediately to avoid blocking UI thread
         let current_state = {
@@ -324,7 +406,6 @@ impl RecorderCallbackRefs {
         let sample_idx = if should_tick {
             self.sample_counter.fetch_add(1, Ordering::SeqCst)
         } else {
-            
             self.sample_counter.load(Ordering::SeqCst)
         };
 
@@ -356,9 +437,13 @@ impl RecorderCallbackRefs {
                 let t = position_in_beat as f32 / TARGET_SAMPLE_RATE as f32;
                 let freq = if beat_in_bar == 0 { 1200.0 } else { 800.0 }; // Higher pitch on downbeat
                 let envelope = (1.0 - (position_in_beat as f32 / 4000.0)).powi(2);
-                metronome_output = (2.0 * PI * freq * t).sin() * 0.6 * envelope; // Increased volume from 0.3 to 0.6
+                metronome_output = (2.0 * PI * freq * t).sin() * 0.6 * envelope;
             }
         }
+
+        // Read punch state (atomics are lock-free)
+        let punch_in = self.punch_in_enabled.load(Ordering::SeqCst);
+        let punch_out = self.punch_out_enabled.load(Ordering::SeqCst);
 
         // Handle count-in and recording state transitions
         match current_state {
@@ -373,18 +458,66 @@ impl RecorderCallbackRefs {
                 self.count_in_progress.store((progress * 10000.0) as u32, Ordering::Relaxed);
 
                 if sample_idx >= count_in_samples {
-                    // Count-in finished, start recording (need to re-acquire lock for state change)
-                    eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {sample_idx})");
-                    let mut state = self.state.lock().expect("mutex poisoned");
-                    *state = RecordingState::Recording;
-                    drop(state); // Release immediately
-                    self.sample_counter.store(0, Ordering::SeqCst);
                     self.count_in_beat.store(0, Ordering::Relaxed);
                     self.count_in_progress.store(0, Ordering::Relaxed);
+
+                    if punch_in {
+                        // Punch-in enabled: wait for playhead to reach region start
+                        let punch_in_s = *self.punch_in_seconds.lock().expect("mutex poisoned");
+                        if playhead_seconds >= punch_in_s {
+                            // Already past punch-in point, start recording immediately
+                            eprintln!("✅ [Recorder] Count-in complete, already past punch-in ({playhead_seconds:.3}s >= {punch_in_s:.3}s). Recording immediately.");
+                            let mut state = self.state.lock().expect("mutex poisoned");
+                            *state = RecordingState::Recording;
+                            drop(state);
+                        } else {
+                            eprintln!("✅ [Recorder] Count-in complete, waiting for punch-in at {punch_in_s:.3}s (playhead: {playhead_seconds:.3}s)");
+                            let mut state = self.state.lock().expect("mutex poisoned");
+                            *state = RecordingState::WaitingForPunchIn;
+                            drop(state);
+                        }
+                        self.sample_counter.store(0, Ordering::SeqCst);
+                    } else {
+                        // No punch-in: start recording immediately (existing behavior)
+                        eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {sample_idx})");
+                        let mut state = self.state.lock().expect("mutex poisoned");
+                        *state = RecordingState::Recording;
+                        drop(state);
+                        self.sample_counter.store(0, Ordering::SeqCst);
+                    }
                 }
                 // During count-in, only output metronome, don't record
             }
+            RecordingState::WaitingForPunchIn => {
+                // Transport is playing, waiting for playhead to reach punch-in point
+                let punch_in_s = *self.punch_in_seconds.lock().expect("mutex poisoned");
+                if playhead_seconds >= punch_in_s {
+                    eprintln!("🎯 [Recorder] Punch-in! Playhead {playhead_seconds:.3}s reached punch point {punch_in_s:.3}s");
+                    // Clear buffer and start recording
+                    if let Ok(mut samples) = self.recorded_samples.lock() {
+                        samples.clear();
+                    }
+                    self.sample_counter.store(0, Ordering::SeqCst);
+                    let mut state = self.state.lock().expect("mutex poisoned");
+                    *state = RecordingState::Recording;
+                }
+                // Continue metronome during wait
+            }
             RecordingState::Recording => {
+                // Check punch-out boundary
+                if punch_out {
+                    let punch_out_s = *self.punch_out_seconds.lock().expect("mutex poisoned");
+                    if playhead_seconds >= punch_out_s {
+                        eprintln!("🎯 [Recorder] Punch-out! Playhead {playhead_seconds:.3}s reached punch point {punch_out_s:.3}s");
+                        let mut state = self.state.lock().expect("mutex poisoned");
+                        *state = RecordingState::Idle;
+                        drop(state);
+                        self.punch_complete.store(true, Ordering::SeqCst);
+                        // Don't record this frame — we're past the boundary
+                        return (metronome_output, metronome_output);
+                    }
+                }
+
                 // Record input samples
                 if let Ok(mut samples) = self.recorded_samples.lock() {
                     samples.push(input_left);
@@ -420,13 +553,11 @@ mod tests {
     #[test]
     fn test_start_stop_recording() {
         let recorder = Recorder::new();
-        
-        // Set count-in to 0 for immediate recording
         recorder.set_count_in_bars(0);
-        
+
         assert!(recorder.start_recording().is_ok());
         assert_eq!(recorder.get_state(), RecordingState::Recording);
-        
+
         let result = recorder.stop_recording();
         assert!(result.is_ok());
         assert_eq!(recorder.get_state(), RecordingState::Idle);
@@ -436,9 +567,9 @@ mod tests {
     fn test_count_in() {
         let recorder = Recorder::new();
         recorder.set_count_in_bars(2);
-        
+
         assert_eq!(recorder.get_count_in_bars(), 2);
-        
+
         assert!(recorder.start_recording().is_ok());
         assert_eq!(recorder.get_state(), RecordingState::CountingIn);
     }
@@ -448,11 +579,10 @@ mod tests {
         let recorder = Recorder::new();
         recorder.set_tempo(140.0);
         assert_eq!(recorder.get_tempo(), 140.0);
-        
-        // Test clamping
+
         recorder.set_tempo(500.0);
         assert_eq!(recorder.get_tempo(), 300.0);
-        
+
         recorder.set_tempo(10.0);
         assert_eq!(recorder.get_tempo(), 20.0);
     }
@@ -460,10 +590,136 @@ mod tests {
     #[test]
     fn test_metronome_toggle() {
         let recorder = Recorder::new();
-        assert!(recorder.is_metronome_enabled()); // Default is enabled
-        
+        assert!(recorder.is_metronome_enabled());
+
         recorder.set_metronome_enabled(false);
         assert!(!recorder.is_metronome_enabled());
+    }
+
+    // ── Punch tests ────────────────────────────────────────────
+
+    #[test]
+    fn test_punch_defaults() {
+        let recorder = Recorder::new();
+        assert!(!recorder.is_punch_in_enabled());
+        assert!(!recorder.is_punch_out_enabled());
+        assert!(!recorder.is_punch_complete());
+    }
+
+    #[test]
+    fn test_punch_region_setters() {
+        let recorder = Recorder::new();
+        recorder.set_punch_region(5.0, 10.0);
+        assert!((recorder.get_punch_in_seconds() - 5.0).abs() < f64::EPSILON);
+        assert!((recorder.get_punch_out_seconds() - 10.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_punch_in_starts_waiting() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_punch_in_enabled(true);
+        recorder.set_punch_region(5.0, 10.0);
+
+        assert!(recorder.start_recording().is_ok());
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+    }
+
+    #[test]
+    fn test_stop_while_waiting_returns_none() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_punch_in_enabled(true);
+        recorder.set_punch_region(5.0, 10.0);
+
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+
+        let result = recorder.stop_recording().unwrap();
+        assert!(result.is_none(), "No audio should be captured when stopped during punch wait");
+    }
+
+    #[test]
+    fn test_punch_in_triggers_recording() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_punch_in_enabled(true);
+        recorder.set_punch_region(0.01, 10.0); // punch-in at 0.01s
+
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+
+        let refs = recorder.get_callback_refs();
+        // Feed frames with playhead before punch-in
+        for _ in 0..100 {
+            refs.process_frame(0.5, 0.5, true, 0.005);
+        }
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+
+        // Feed frame at punch-in point
+        refs.process_frame(0.5, 0.5, true, 0.01);
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+    }
+
+    #[test]
+    fn test_punch_out_auto_stops() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_punch_out_enabled(true);
+        recorder.set_punch_region(0.0, 0.01); // punch-out at 0.01s
+
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+
+        let refs = recorder.get_callback_refs();
+        // Record a few frames before punch-out
+        for _ in 0..100 {
+            refs.process_frame(0.5, 0.5, true, 0.005);
+        }
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+        assert!(!recorder.is_punch_complete());
+
+        // Feed frame at punch-out point
+        refs.process_frame(0.5, 0.5, true, 0.01);
+        assert_eq!(recorder.get_state(), RecordingState::Idle);
+        assert!(recorder.is_punch_complete());
+    }
+
+    #[test]
+    fn test_punch_in_and_out_full_cycle() {
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_punch_in_enabled(true);
+        recorder.set_punch_out_enabled(true);
+        recorder.set_punch_region(1.0, 2.0);
+
+        recorder.start_recording().unwrap();
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+
+        let refs = recorder.get_callback_refs();
+
+        // Before punch-in: waiting
+        refs.process_frame(0.1, 0.1, true, 0.5);
+        assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
+
+        // At punch-in: starts recording
+        refs.process_frame(0.1, 0.1, true, 1.0);
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+
+        // During recording
+        refs.process_frame(0.5, 0.5, true, 1.5);
+        assert_eq!(recorder.get_state(), RecordingState::Recording);
+
+        // At punch-out: auto-stops
+        refs.process_frame(0.5, 0.5, true, 2.0);
+        assert_eq!(recorder.get_state(), RecordingState::Idle);
+        assert!(recorder.is_punch_complete());
+
+        // stop_recording should return the audio clip even though state is Idle
+        // because punch_complete was true (auto-punch-out fired)
+        let clip = recorder.stop_recording().unwrap();
+        assert!(clip.is_some(), "Should return recorded audio after auto-punch-out");
+        assert!(!clip.unwrap().samples.is_empty());
     }
 }
 

@@ -13,6 +13,8 @@ class UnifiedNavBarPainter extends CustomPainter {
   final double? hoverBeat; // For loop edge hover feedback
   final bool isHoveringPlayhead; // For expanded hover state
   final int beatsPerBar;
+  final bool punchInEnabled;
+  final bool punchOutEnabled;
 
   UnifiedNavBarPainter({
     required this.pixelsPerBeat,
@@ -25,6 +27,8 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.hoverBeat,
     this.isHoveringPlayhead = false,
     this.beatsPerBar = 4,
+    this.punchInEnabled = false,
+    this.punchOutEnabled = false,
   });
 
   /// Get adaptive grid division based on zoom level
@@ -52,10 +56,8 @@ class UnifiedNavBarPainter extends CustomPainter {
     final darkBgPaint = Paint()..color = const Color(0xFF1A1A1A);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
-    // 2. Draw loop region (if enabled)
-    if (loopEnabled) {
-      _drawLoopRegion(canvas, size);
-    }
+    // 2. Always draw the loop/punch region (grey when inactive)
+    _drawLoopRegion(canvas, size);
 
     // 3. Draw grid lines and bar numbers
     _drawGridAndNumbers(canvas, size);
@@ -80,13 +82,45 @@ class UnifiedNavBarPainter extends CustomPainter {
 
     final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
 
-    // Fill with darker orange
-    final fillPaint = Paint()..color = const Color(0xFFB36800);
+    // Determine colors based on mode:
+    //   Loop + Punch → solid red
+    //   Punch only   → faded red
+    //   Loop only    → orange
+    //   All off      → grey
+    final hasPunch = punchInEnabled || punchOutEnabled;
+    Color fillColor;
+    Color borderColor;
+    Color hoverColor;
+
+    if (hasPunch && loopEnabled) {
+      // Mode 3: Loop + Punch — solid red
+      fillColor = const Color(0xFFAA2222);
+      borderColor = const Color(0xFFCC3333);
+      hoverColor = const Color(0xFFFF6666);
+    } else if (hasPunch) {
+      // Mode 4: Punch only (no loop) — faded red
+      fillColor = const Color(0x66AA2222);
+      borderColor = const Color(0x88CC3333);
+      hoverColor = const Color(0xAAFF6666);
+    } else if (loopEnabled) {
+      // Mode 2: Loop only — orange
+      fillColor = const Color(0xFFB36800);
+      borderColor = const Color(0xFFFF9800);
+      hoverColor = const Color(0xFFFFB74D);
+    } else {
+      // Mode 1: All off — grey bar with darker grey edge
+      fillColor = const Color(0xFF333333);
+      borderColor = const Color(0xFF555555);
+      hoverColor = const Color(0xFF888888);
+    }
+
+    // Fill
+    final fillPaint = Paint()..color = fillColor;
     canvas.drawRect(loopRect, fillPaint);
 
-    // Draw bright orange border
+    // Border
     final borderPaint = Paint()
-      ..color = const Color(0xFFFF9800)
+      ..color = borderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawRect(loopRect, borderPaint);
@@ -99,7 +133,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       // Check if hovering near start edge
       if ((hoverX - loopStartX).abs() < edgeHitZone) {
         final highlightPaint = Paint()
-          ..color = const Color(0xFFFFB74D)
+          ..color = hoverColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3.0;
         canvas.drawLine(
@@ -111,7 +145,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       // Check if hovering near end edge
       else if ((hoverX - loopEndX).abs() < edgeHitZone) {
         final highlightPaint = Paint()
-          ..color = const Color(0xFFFFB74D)
+          ..color = hoverColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3.0;
         canvas.drawLine(
@@ -339,6 +373,8 @@ class UnifiedNavBarPainter extends CustomPainter {
         playheadPosition != oldDelegate.playheadPosition ||
         hoverBeat != oldDelegate.hoverBeat ||
         isHoveringPlayhead != oldDelegate.isHoveringPlayhead ||
-        beatsPerBar != oldDelegate.beatsPerBar;
+        beatsPerBar != oldDelegate.beatsPerBar ||
+        punchInEnabled != oldDelegate.punchInEnabled ||
+        punchOutEnabled != oldDelegate.punchOutEnabled;
   }
 }

@@ -24,7 +24,7 @@ else
 fi
 
 # Update symlink to point to correct build
-ln -sf "../../../../engine/$SRC" ../ui/macos/Runner/libengine.dylib
+ln -sf "../../../engine/$SRC" ../ui/macos/Runner/libengine.dylib
 
 # Copy to locations that need actual files
 cp "$SRC" ../ui/macos/libengine.dylib

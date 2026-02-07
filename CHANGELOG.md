@@ -4,6 +4,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- **Punch In/Out recording**: Re-record specific sections without affecting the rest. Reuses the loop bar for punch boundaries with 4 modes — free recording, loop, loop+punch, and single-pass punch. Transport bar gains →| (Punch In) and |→ (Punch Out) toggle buttons flanking the Loop button. Bar color changes to red when punch is active. Keyboard shortcuts: I (toggle punch in), O (toggle punch out). Engine auto-stops recording at punch-out boundary while playback continues.
+
 ### Improvements
 
 - **CI pipeline**: Add GitHub Actions workflow (`ci.yml`) with Flutter analyze, dart format, flutter test, and Rust clippy/test on every push and PR
@@ -11,6 +15,12 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Remove dead aliases from DAW screen**: Remove ~112 lines of backward-compatibility aliases left from the mixin migration in `daw_screen.dart`
 - **Extract UI constants**: Centralize magic numbers (clip heights, zoom limits, gesture thresholds, etc.) into `UIConstants` class, referenced from timeline, piano roll, and mixer strip
 - **Rust clippy auto-fixes**: Fix ~650 clippy warnings (format strings, doc backticks, infallible casts)
+- **Fix AudioEngineInterface return type mismatches**: Correct 5 method signatures (`setClipStartTime`, `deleteTrack`, `removeAudioClip`, `removeEffectFromTrack`, `setVst3ParameterValue`) and add missing `@override` annotations in native implementation
+- **Add controller and service tests**: 231 new tests — TrackController (105), AutomationController (99), ClipNamingService (9), ToolModeResolver (18) — bringing total to 770
+- **Split timeline_view.dart into focused mixins**: Extract ~1000 lines into 3 new mixin files (TimelineSelectionMixin, TimelineFileHandlersMixin, TimelineContextMenusMixin), reducing the main file from ~4800 to ~3780 lines
+- **Complete AudioEngineInterface**: Add ~18 missing method signatures (init, VST3 editor, export, audio device) so all platforms share the same interface contract; update stub, web, and mock implementations
+- **Dead code cleanup**: Remove unused fields, imports, and fix unnecessary null comparisons across 4 files
+- **Split audio_engine_native.dart into focused part files**: Refactor 3826-line monolith into 7 files using base class + mixins pattern — `_AudioEngineBase` (fields/constructor), `_TransportMixin`, `_RecordingMixin`, `_TracksMixin`, `_PluginsMixin`, plus typedefs; no file exceeds ~1050 lines
 
 ### Known Issues
 
