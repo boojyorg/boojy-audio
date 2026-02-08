@@ -133,11 +133,15 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   /// Whether the selected track is an audio track
   bool get _isAudioTrack => widget.selectedTrackType?.toLowerCase() == 'audio';
 
-  /// Whether the selected track is a sampler track
-  bool get _isSamplerTrack => widget.selectedTrackType?.toLowerCase() == 'sampler';
+  /// Whether the selected track has a sampler instrument (checked via engine)
+  bool get _isSamplerTrack =>
+      widget.audioEngine != null &&
+      widget.selectedTrackId != null &&
+      widget.audioEngine!.isSamplerTrack(widget.selectedTrackId!);
 
-  /// Whether the selected track is a MIDI track (not sampler)
-  bool get _isMidiTrack => widget.selectedTrackType?.toLowerCase() == 'midi';
+  /// Whether the selected track is a MIDI track without sampler instrument
+  bool get _isMidiTrack =>
+      widget.selectedTrackType?.toLowerCase() == 'midi' && !_isSamplerTrack;
 
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)

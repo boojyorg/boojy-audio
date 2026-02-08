@@ -266,7 +266,8 @@ pub enum TrackType {
     Audio,
     /// MIDI track: holds MIDI clips, routed to instruments
     Midi,
-    /// Sampler track: MIDI track with sampler instrument for sample playback
+    /// Deprecated: Use TrackType::Midi with sampler instrument instead.
+    /// Kept only for loading old project files.
     Sampler,
     /// Return track: receives audio from send buses (no clips)
     Return,
@@ -384,11 +385,11 @@ pub struct Track {
 impl Track {
     /// Create a new track
     pub fn new(id: TrackId, track_type: TrackType, name: String) -> Self {
-        // Audio, MIDI, and Sampler tracks are armed by default (ready to record)
-        let armed = matches!(track_type, TrackType::Audio | TrackType::Midi | TrackType::Sampler);
+        // Audio and MIDI tracks are armed by default (ready to record)
+        let armed = matches!(track_type, TrackType::Audio | TrackType::Midi);
 
         // Audio tracks get default input device (first device, channel 0)
-        let input_device_index = if matches!(track_type, TrackType::Audio | TrackType::Sampler) {
+        let input_device_index = if matches!(track_type, TrackType::Audio) {
             Some(0)
         } else {
             None

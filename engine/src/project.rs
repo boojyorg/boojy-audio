@@ -92,9 +92,12 @@ pub struct TrackData {
     pub clips: Vec<ClipData>,
     /// Effect chain
     pub fx_chain: Vec<EffectData>,
-    /// Synthesizer settings (for MIDI tracks)
+    /// Synthesizer settings (for MIDI tracks with synth instrument)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub synth_settings: Option<SynthData>,
+    /// Sampler settings (for MIDI tracks with sampler instrument)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sampler_settings: Option<crate::sampler::SamplerData>,
     /// Send routing to return tracks
     #[serde(default)]
     pub sends: Vec<SendData>,

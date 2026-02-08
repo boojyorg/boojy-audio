@@ -208,14 +208,13 @@ mixin DAWTrackMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin,
   Future<void> onInstrumentDroppedOnEmpty(Instrument instrument) async {
     if (audioEngine == null) return;
 
-    // Handle Sampler instrument separately
+    // Handle Sampler instrument — creates MIDI track with sampler instrument
     if (instrument.id == 'sampler') {
-      // Create empty sampler track (no sample loaded yet)
-      final trackId = audioEngine!.createTrack('sampler', 'Sampler');
+      final trackId = audioEngine!.createTrack('midi', 'Sampler');
       if (trackId < 0) return;
 
-      // Initialize sampler for the track
       audioEngine!.createSamplerForTrack(trackId);
+      createDefaultMidiClip(trackId);
 
       refreshTrackWidgets();
       selectTrack(trackId);

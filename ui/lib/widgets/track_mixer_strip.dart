@@ -635,7 +635,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   /// Whether to show the input selector (Audio and Sampler tracks only)
   bool get _showInputSelector {
     final type = widget.trackType.toLowerCase();
-    return type == 'audio' || type == 'sampler';
+    return type == 'audio';
   }
 
   /// Get short label for current input assignment

@@ -263,7 +263,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       recordingController.getFirstArmedMidiTrackId = () {
         final tracks = mixerKey.currentState?.tracks ?? [];
         for (final t in tracks) {
-          if ((t.type == 'midi' || t.type == 'sampler') && t.armed) return t.id;
+          if (t.type == 'midi' && t.armed) return t.id;
         }
         return selectedTrackId ?? 0;
       };
@@ -730,14 +730,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _onInstrumentDroppedOnEmpty(Instrument instrument) async {
     if (audioEngine == null) return;
 
-    // Handle Sampler instrument separately
+    // Handle Sampler instrument — creates MIDI track with sampler instrument
     if (instrument.id == 'sampler') {
-      // Create empty sampler track (no sample loaded yet)
-      final trackId = audioEngine!.createTrack('sampler', 'Sampler');
+      final trackId = audioEngine!.createTrack('midi', 'Sampler');
       if (trackId < 0) return;
 
-      // Initialize sampler for the track
       audioEngine!.createSamplerForTrack(trackId);
+      createDefaultMidiClip(trackId);
 
       refreshTrackWidgets();
       selectTrack(trackId);
@@ -1377,8 +1376,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Generate track name based on sample name
     final trackName = 'Sampler: ${_truncateName(sampleName, 20)}';
 
-    // Create Sampler track type
-    final trackId = audioEngine!.createTrack('sampler', trackName);
+    // Create MIDI track with sampler instrument
+    final trackId = audioEngine!.createTrack('midi', trackName);
     if (trackId < 0) {
       _showSnackBar('Failed to create sampler track');
       return;
@@ -1397,6 +1396,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       _showSnackBar('Failed to load sample');
       return;
     }
+
+    // Create default 1-bar MIDI clip
+    createDefaultMidiClip(trackId);
 
     // Refresh track list and select the new track
     refreshTrackWidgets();
@@ -1432,8 +1434,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         ? trackName
         : 'Sampler: $trackName';
 
-    // Create Sampler track
-    final samplerTrackId = audioEngine!.createTrack('sampler', samplerTrackName);
+    // Create MIDI track with sampler instrument
+    final samplerTrackId = audioEngine!.createTrack('midi', samplerTrackName);
     if (samplerTrackId < 0) {
       _showSnackBar('Failed to create sampler track');
       return;

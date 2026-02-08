@@ -19,6 +19,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Sampler as instrument**: Sampler tracks are now MIDI tracks with a sampler instrument attached, gaining full MIDI capabilities (create clips on timeline, drag-to-create, record MIDI). Default 1-bar MIDI clip auto-created on sampler creation. Sampler state (sample path, root note, envelope, loop settings) now persists in project save/load. Fixes input routing bug where sampler tracks incorrectly received audio input.
 - **CI pipeline**: Add GitHub Actions workflow (`ci.yml`) with Flutter analyze, dart format, flutter test, and Rust clippy/test on every push and PR
 - **Comprehensive command test coverage**: Add 76 new tests across effect, mixer, track, and project commands with shared MockAudioEngine test infrastructure
 - **Remove dead aliases from DAW screen**: Remove ~112 lines of backward-compatibility aliases left from the mixin migration in `daw_screen.dart`

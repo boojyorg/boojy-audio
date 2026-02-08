@@ -1896,12 +1896,9 @@ impl AudioGraph {
             // Get track type string
             let track_type_str = format!("{:?}", track.track_type);
 
-            // Get synth settings for MIDI tracks
-            let synth_settings = if track_type_str == "Midi" {
-                synth_manager.get_synth_parameters(track.id)
-            } else {
-                None
-            };
+            // Get instrument settings for MIDI tracks (synth or sampler)
+            let synth_settings = synth_manager.get_synth_parameters(track.id);
+            let sampler_settings = synth_manager.get_sampler_parameters(track.id);
 
             // Export send routing
             let sends: Vec<SendData> = track.sends.iter().map(|s| SendData {
@@ -1950,6 +1947,7 @@ impl AudioGraph {
                 clips: clips_data,
                 fx_chain,
                 synth_settings,
+                sampler_settings,
                 sends,
                 parent_group_id: track.parent_group,
                 input_monitoring: track.input_monitoring,
@@ -2069,7 +2067,7 @@ impl AudioGraph {
             let track_type = match track_data.track_type.as_str() {
                 "Audio" => TrackType::Audio,
                 "Midi" => TrackType::Midi,
-                "Sampler" => TrackType::Sampler,
+                "Sampler" => TrackType::Midi,  // Legacy migration: old Sampler tracks become MIDI
                 "Return" => TrackType::Return,
                 "Group" => TrackType::Group,
                 "Master" => TrackType::Master,
@@ -2125,12 +2123,26 @@ impl AudioGraph {
                 }
             }
 
-            // Restore synth for MIDI tracks only if one was saved (not auto-created)
+            // Restore instrument for MIDI tracks (synth or sampler)
             if track_type == TrackType::Midi {
                 if let Some(synth_data) = &track_data.synth_settings {
                     let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
                     synth_manager.create_synth(track_id);
                     synth_manager.restore_synth_parameters(track_id, synth_data);
+                } else if let Some(sampler_data) = &track_data.sampler_settings {
+                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    synth_manager.create_sampler(track_id);
+                    // Load the sample file first, then restore parameters
+                    if !sampler_data.sample_path.is_empty() {
+                        if let Ok(clip) = crate::audio_file::load_audio_file(&sampler_data.sample_path) {
+                            synth_manager.load_sample(track_id, Arc::new(clip), sampler_data.root_note);
+                        }
+                    }
+                    synth_manager.restore_sampler_parameters(track_id, sampler_data);
+                } else if track_data.track_type == "Sampler" {
+                    // Legacy: old project with Sampler type but no sampler_settings
+                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    synth_manager.create_sampler(track_id);
                 }
             }
 
@@ -2896,7 +2908,7 @@ impl AudioGraph {
                     let type_str = match track.track_type {
                         crate::track::TrackType::Audio => "audio",
                         crate::track::TrackType::Midi => "midi",
-                        crate::track::TrackType::Sampler => "sampler",
+                        crate::track::TrackType::Sampler => "midi",  // Legacy: treat as MIDI
                         crate::track::TrackType::Return => "return",
                         crate::track::TrackType::Group => "group",
                         crate::track::TrackType::Master => "master",

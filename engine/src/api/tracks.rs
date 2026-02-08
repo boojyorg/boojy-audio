@@ -22,7 +22,7 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
     let track_type = match track_type_str.to_lowercase().as_str() {
         "audio" => TrackType::Audio,
         "midi" => TrackType::Midi,
-        "sampler" => TrackType::Sampler,
+        "sampler" => TrackType::Midi,  // Sampler is an instrument on MIDI tracks, not a track type
         "return" => TrackType::Return,
         "group" => TrackType::Group,
         "master" => return Err("Cannot create additional master tracks".to_string()),
@@ -278,7 +278,7 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
         let type_str = match track.track_type {
             TrackType::Audio => "Audio",
             TrackType::Midi => "MIDI",
-            TrackType::Sampler => "Sampler",
+            TrackType::Sampler => "MIDI",  // Legacy: old loaded projects report as MIDI
             TrackType::Return => "Return",
             TrackType::Group => "Group",
             TrackType::Master => "Master",
