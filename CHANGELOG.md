@@ -10,6 +10,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Sampler**: Added volume, pitch transpose, fine cents, reverse, warp mode, BPM, and time signature parameters to engine with full FFI support and serialization
 - **Punch In/Out recording**: Re-record specific sections without affecting the rest. Reuses the loop bar for punch boundaries with 4 modes — free recording, loop, loop+punch, and single-pass punch. Transport bar gains →| (Punch In) and |→ (Punch Out) toggle buttons flanking the Loop button. Bar color changes to red when punch is active. Keyboard shortcuts: I (toggle punch in), O (toggle punch out). Engine auto-stops recording at punch-out boundary while playback continues.
 - **Scale/key snapping**: Add Lock toggle to piano roll controls bar — when active, note creation and movement snap to the selected scale. Works with all 11 scale types (Major, Minor, Dorian, Pentatonic, Blues, etc.) and 12 root notes. Combines with existing Highlight (dims out-of-scale rows) and Fold (hides non-scale keys) features.
 - **Sampler one-shot mode**: Default mode — note-off is ignored, sample plays to completion. Toggle loop ON for sustain-loop playback between draggable loop markers.
@@ -19,6 +20,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Sampler Editor**: Full controls bar matching Audio Editor layout — sampler identity controls on left (Loop, Attack/Release capsule sliders, Root Note), audio manipulation on right (Start/Length in bar.beat.sub, Signature, Warp split button with BPM/÷2/×2, Reverse, Pitch transpose+cents, Volume with capsule slider). All controls use shared widgets extracted from Audio Editor (CapsuleSlider, BpmDisplay).
+- **Sampler Editor redesign**: Unified visual style with Audio Editor — single-row controls bar (removed greyed-out placeholder row), 24px navigation bar matching UnifiedNavBar style with hierarchical tick marks and dark background, improved waveform rendering with LOD downsampling and dynamic stroke. Scroll wheel/trackpad support for horizontal scrolling. Zoom controls overlaid via shared NavBarWithZoom component.
 - **Sampler as instrument**: Sampler tracks are now MIDI tracks with a sampler instrument attached, gaining full MIDI capabilities (create clips on timeline, drag-to-create, record MIDI). Default 1-bar MIDI clip auto-created on sampler creation. Sampler state (sample path, root note, envelope, loop settings) now persists in project save/load. Fixes input routing bug where sampler tracks incorrectly received audio input.
 - **CI pipeline**: Add GitHub Actions workflow (`ci.yml`) with Flutter analyze, dart format, flutter test, and Rust clippy/test on every push and PR
 - **Comprehensive command test coverage**: Add 76 new tests across effect, mixer, track, and project commands with shared MockAudioEngine test infrastructure

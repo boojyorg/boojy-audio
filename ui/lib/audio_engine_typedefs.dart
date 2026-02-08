@@ -374,11 +374,17 @@ typedef _IsSamplerTrackFfi = int Function(int);
 typedef _GetSamplerInfoFfiNative = ffi.Int32 Function(
     ffi.Uint64, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
     ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
-    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>);
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>);
 typedef _GetSamplerInfoFfi = int Function(
     int, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
     ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
-    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>);
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Double>,
+    ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Double>, ffi.Pointer<ffi.Int32>,
+    ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>, ffi.Pointer<ffi.Int32>);
 
 typedef _GetSamplerWaveformPeaksFfiNative = ffi.Pointer<ffi.Float> Function(
     ffi.Uint64, ffi.Size, ffi.Pointer<ffi.Size>);

@@ -1562,6 +1562,15 @@ pub extern "C" fn get_sampler_info_ffi(
     out_root_note: *mut i32,
     out_attack_ms: *mut f64,
     out_release_ms: *mut f64,
+    out_volume_db: *mut f64,
+    out_transpose_semitones: *mut i32,
+    out_fine_cents: *mut i32,
+    out_reversed: *mut i32,
+    out_original_bpm: *mut f64,
+    out_warp_enabled: *mut i32,
+    out_warp_mode: *mut i32,
+    out_beats_per_bar: *mut i32,
+    out_beat_unit: *mut i32,
 ) -> i32 {
     match api::get_sampler_info(track_id) {
         Ok(info) => {
@@ -1574,6 +1583,15 @@ pub extern "C" fn get_sampler_info_ffi(
                 if !out_root_note.is_null() { *out_root_note = info.root_note; }
                 if !out_attack_ms.is_null() { *out_attack_ms = info.attack_ms; }
                 if !out_release_ms.is_null() { *out_release_ms = info.release_ms; }
+                if !out_volume_db.is_null() { *out_volume_db = info.volume_db; }
+                if !out_transpose_semitones.is_null() { *out_transpose_semitones = info.transpose_semitones; }
+                if !out_fine_cents.is_null() { *out_fine_cents = info.fine_cents; }
+                if !out_reversed.is_null() { *out_reversed = if info.reversed { 1 } else { 0 }; }
+                if !out_original_bpm.is_null() { *out_original_bpm = info.original_bpm; }
+                if !out_warp_enabled.is_null() { *out_warp_enabled = if info.warp_enabled { 1 } else { 0 }; }
+                if !out_warp_mode.is_null() { *out_warp_mode = info.warp_mode; }
+                if !out_beats_per_bar.is_null() { *out_beats_per_bar = info.beats_per_bar; }
+                if !out_beat_unit.is_null() { *out_beat_unit = info.beat_unit; }
             }
             1
         }

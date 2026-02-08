@@ -1,8 +1,10 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/app_colors.dart';
+import '../shared/editors/nav_bar_with_zoom.dart';
 import 'sampler_controls_bar.dart';
 import 'sampler_waveform_painter.dart';
 
@@ -36,6 +38,17 @@ class _SamplerEditorState extends State<SamplerEditor> {
   double _loopStartSeconds = 0.0;
   double _loopEndSeconds = 1.0;
   double _sampleDuration = 0.0; // in seconds
+
+  // Audio manipulation parameters (matching Audio Editor)
+  int _transposeSemitones = 0;
+  int _fineCents = 0;
+  double _volumeDb = 0.0;
+  bool _reversed = false;
+  double _originalBpm = 120.0;
+  bool _warpEnabled = false;
+  int _warpMode = 0; // 0=repitch, 1=warp
+  int _beatsPerBar = 4;
+  int _beatUnit = 4;
 
   // Waveform data (real peaks from engine)
   List<double> _waveformPeaks = [];
@@ -84,6 +97,15 @@ class _SamplerEditorState extends State<SamplerEditor> {
         _rootNote = info.rootNote;
         _attackMs = info.attackMs;
         _releaseMs = info.releaseMs;
+        _volumeDb = info.volumeDb;
+        _transposeSemitones = info.transposeSemitones;
+        _fineCents = info.fineCents;
+        _reversed = info.reversed;
+        _originalBpm = info.originalBpm;
+        _warpEnabled = info.warpEnabled;
+        _warpMode = info.warpMode;
+        _beatsPerBar = info.beatsPerBar;
+        _beatUnit = info.beatUnit;
       });
     }
 
@@ -151,6 +173,50 @@ class _SamplerEditorState extends State<SamplerEditor> {
     _sendParameterToEngine('loop_end_seconds', clamped.toString());
   }
 
+  void _onVolumeChanged(double value) {
+    setState(() => _volumeDb = value);
+    _sendParameterToEngine('volume_db', value.toString());
+  }
+
+  void _onTransposeChanged(int value) {
+    setState(() => _transposeSemitones = value);
+    _sendParameterToEngine('transpose_semitones', value.toString());
+  }
+
+  void _onFineCentsChanged(int value) {
+    setState(() => _fineCents = value);
+    _sendParameterToEngine('fine_cents', value.toString());
+  }
+
+  void _onReverseToggle() {
+    setState(() => _reversed = !_reversed);
+    _sendParameterToEngine('reversed', _reversed ? '1' : '0');
+  }
+
+  void _onOriginalBpmChanged(double value) {
+    setState(() => _originalBpm = value);
+    _sendParameterToEngine('original_bpm', value.toString());
+  }
+
+  void _onWarpToggle() {
+    setState(() => _warpEnabled = !_warpEnabled);
+    _sendParameterToEngine('warp_enabled', _warpEnabled ? '1' : '0');
+  }
+
+  void _onWarpModeChanged(int value) {
+    setState(() => _warpMode = value);
+    _sendParameterToEngine('warp_mode', value.toString());
+  }
+
+  void _onSignatureChanged(int beatsPerBar, int beatUnit) {
+    setState(() {
+      _beatsPerBar = beatsPerBar;
+      _beatUnit = beatUnit;
+    });
+    _sendParameterToEngine('beats_per_bar', beatsPerBar.toString());
+    _sendParameterToEngine('beat_unit', beatUnit.toString());
+  }
+
   void _sendParameterToEngine(String param, String value) {
     if (widget.audioEngine != null && widget.trackId != null) {
       widget.audioEngine!.setSamplerParameter(widget.trackId!, param, value);
@@ -199,11 +265,15 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final totalWidth = _sampleDuration > 0
+            ? _sampleDuration * _pixelsPerSecond
+            : 400.0;
+
         return ColoredBox(
           color: colors.dark,
           child: Column(
             children: [
-              // Controls bar (two rows)
+              // Controls bar
               SamplerControlsBar(
                 loopEnabled: _loopEnabled,
                 attackMs: _attackMs,
@@ -213,11 +283,51 @@ class _SamplerEditorState extends State<SamplerEditor> {
                 onAttackChanged: _onAttackChanged,
                 onReleaseChanged: _onReleaseChanged,
                 onRootNoteChanged: _onRootNoteChanged,
+                loopStartSeconds: _loopStartSeconds,
+                loopEndSeconds: _loopEndSeconds,
+                sampleDuration: _sampleDuration,
+                onLoopStartChanged: _onLoopStartChanged,
+                onLoopEndChanged: _onLoopEndChanged,
+                beatsPerBar: _beatsPerBar,
+                beatUnit: _beatUnit,
+                onSignatureChanged: _onSignatureChanged,
+                warpEnabled: _warpEnabled,
+                onWarpToggle: _onWarpToggle,
+                warpMode: _warpMode,
+                onWarpModeChanged: _onWarpModeChanged,
+                originalBpm: _originalBpm,
+                onOriginalBpmChanged: _onOriginalBpmChanged,
+                reversed: _reversed,
+                onReverseToggle: _onReverseToggle,
+                transposeSemitones: _transposeSemitones,
+                fineCents: _fineCents,
+                onTransposeChanged: _onTransposeChanged,
+                onFineCentsChanged: _onFineCentsChanged,
+                volumeDb: _volumeDb,
+                onVolumeChanged: _onVolumeChanged,
                 onLoadSample: _onLoadSample,
               ),
 
-              // Ruler Row (seconds-based)
-              _buildRulerRow(colors),
+              // Navigation bar (seconds-based, styled like UnifiedNavBar)
+              NavBarWithZoom(
+                scrollController: _rulerScroll,
+                onZoomIn: _zoomIn,
+                onZoomOut: _zoomOut,
+                height: 24.0,
+                child: SizedBox(
+                  width: totalWidth,
+                  child: CustomPaint(
+                    painter: SamplerRulerPainter(
+                      pixelsPerSecond: _pixelsPerSecond,
+                      sampleDuration: _sampleDuration,
+                      loopEnabled: _loopEnabled,
+                      loopStartSeconds: _loopStartSeconds,
+                      loopEndSeconds: _loopEndSeconds,
+                      colors: colors,
+                    ),
+                  ),
+                ),
+              ),
 
               // Waveform Area with loop markers and envelope overlay
               Expanded(child: _buildWaveformArea(colors)),
@@ -265,80 +375,6 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   // ============================================================================
-  // Ruler (seconds-based)
-  // ============================================================================
-
-  Widget _buildRulerRow(BoojyColors colors) {
-    final totalWidth = _sampleDuration > 0
-        ? _sampleDuration * _pixelsPerSecond
-        : 400.0;
-
-    return SizedBox(
-      height: 20,
-      child: Row(
-        children: [
-          // Ruler
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _rulerScroll,
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              child: SizedBox(
-                width: totalWidth,
-                child: CustomPaint(
-                  painter: SamplerRulerPainter(
-                    pixelsPerSecond: _pixelsPerSecond,
-                    sampleDuration: _sampleDuration,
-                    loopEnabled: _loopEnabled,
-                    loopStartSeconds: _loopStartSeconds,
-                    loopEndSeconds: _loopEndSeconds,
-                    colors: colors,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Zoom controls
-          SizedBox(
-            width: 48,
-            child: Container(
-              color: colors.dark,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildZoomButton(Icons.remove, _zoomOut, colors),
-                  _buildZoomButton(Icons.add, _zoomIn, colors),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildZoomButton(
-      IconData icon, VoidCallback onTap, BoojyColors colors) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: 20,
-          height: 20,
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: 14,
-            color: colors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================================
   // Waveform area with loop markers
   // ============================================================================
 
@@ -347,62 +383,59 @@ class _SamplerEditorState extends State<SamplerEditor> {
         ? _sampleDuration * _pixelsPerSecond
         : 400.0;
 
-    return Row(
-      children: [
-        // Waveform area with gesture detection
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final availableHeight = constraints.maxHeight;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
 
-              return GestureDetector(
-                onHorizontalDragStart: (details) {
-                  _handleDragStart(details);
-                },
-                onHorizontalDragUpdate: (details) {
-                  _handleDragUpdate(details);
-                },
-                onHorizontalDragEnd: (details) {
-                  _handleDragEnd();
-                },
-                child: MouseRegion(
-                  cursor: _getCursor(),
-                  child: SingleChildScrollView(
-                    controller: _horizontalScroll,
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: SizedBox(
-                      width: totalWidth,
-                      height: availableHeight,
-                      child: CustomPaint(
-                        size: Size(totalWidth, availableHeight),
-                        painter: SamplerWaveformPainter(
-                          peaks: _waveformPeaks,
-                          sampleDuration: _sampleDuration,
-                          pixelsPerSecond: _pixelsPerSecond,
-                          attackMs: _attackMs,
-                          releaseMs: _releaseMs,
-                          loopEnabled: _loopEnabled,
-                          loopStartSeconds: _loopStartSeconds,
-                          loopEndSeconds: _loopEndSeconds,
-                          colors: colors,
-                        ),
-                      ),
+        return Listener(
+          onPointerSignal: (event) {
+            if (event is PointerScrollEvent) {
+              _handleScrollWheel(event.scrollDelta.dy);
+            }
+          },
+          child: GestureDetector(
+            onHorizontalDragStart: _handleDragStart,
+            onHorizontalDragUpdate: _handleDragUpdate,
+            onHorizontalDragEnd: (_) => _handleDragEnd(),
+            child: MouseRegion(
+              cursor: _getCursor(),
+              child: SingleChildScrollView(
+                controller: _horizontalScroll,
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                child: SizedBox(
+                  width: totalWidth,
+                  height: availableHeight,
+                  child: CustomPaint(
+                    size: Size(totalWidth, availableHeight),
+                    painter: SamplerWaveformPainter(
+                      peaks: _waveformPeaks,
+                      sampleDuration: _sampleDuration,
+                      pixelsPerSecond: _pixelsPerSecond,
+                      attackMs: _attackMs,
+                      releaseMs: _releaseMs,
+                      loopEnabled: _loopEnabled,
+                      loopStartSeconds: _loopStartSeconds,
+                      loopEndSeconds: _loopEndSeconds,
+                      colors: colors,
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           ),
-        ),
-
-        // Right margin (under zoom buttons)
-        SizedBox(
-          width: 48,
-          child: ColoredBox(color: colors.dark),
-        ),
-      ],
+        );
+      },
     );
+  }
+
+  void _handleScrollWheel(double delta) {
+    if (!_horizontalScroll.hasClients) return;
+    final newOffset = (_horizontalScroll.offset + delta).clamp(
+      0.0,
+      _horizontalScroll.position.maxScrollExtent,
+    );
+    _horizontalScroll.jumpTo(newOffset);
   }
 
   // ============================================================================

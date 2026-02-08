@@ -67,10 +67,10 @@ impl SamplerVoice {
         }
     }
 
-    fn note_on(&mut self, note: u8, velocity: u8, playback_rate: f64) {
+    fn note_on(&mut self, note: u8, velocity: u8, playback_rate: f64, start_position: f64) {
         self.note = note;
         self.velocity = f32::from(velocity) / 127.0;
-        self.playback_position = 0.0;
+        self.playback_position = start_position;
         self.playback_rate = playback_rate;
         self.env_state = EnvelopeState::Attack;
         self.env_level = 0.0;
@@ -96,6 +96,7 @@ impl SamplerVoice {
         loop_enabled: bool,
         loop_start: f64,
         loop_end: f64,
+        reversed: bool,
     ) -> (f32, f32) {
         if !self.is_active {
             return (0.0, 0.0);
@@ -103,33 +104,51 @@ impl SamplerVoice {
 
         let frame_count = sample.frame_count();
 
-        // Check boundaries
-        if self.playback_position as usize >= frame_count {
-            if loop_enabled && self.env_state != EnvelopeState::Release {
-                // Loop back to loop_start
-                self.playback_position = loop_start;
-            } else {
-                // Sample finished
-                if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
-                    self.is_active = false;
-                    return (0.0, 0.0);
+        // Check boundaries (forward or reverse)
+        if reversed {
+            if self.playback_position < 0.0 {
+                if loop_enabled && self.env_state != EnvelopeState::Release {
+                    self.playback_position = loop_end.min(frame_count as f64 - 1.0);
+                } else {
+                    if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
+                        self.is_active = false;
+                        return (0.0, 0.0);
+                    }
+                    self.release_start_level = self.env_level;
+                    self.env_state = EnvelopeState::Release;
+                    self.env_time = 0.0;
                 }
-                // Start release
-                self.release_start_level = self.env_level;
-                self.env_state = EnvelopeState::Release;
-                self.env_time = 0.0;
             }
-        }
-
-        // Check loop end boundary (when looping)
-        if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0 {
-            if self.playback_position >= loop_end {
-                self.playback_position = loop_start;
+            // Check loop start boundary (reversed loops from end to start)
+            if loop_enabled && self.env_state != EnvelopeState::Release && loop_start >= 0.0 {
+                if self.playback_position < loop_start {
+                    self.playback_position = loop_end.min(frame_count as f64 - 1.0);
+                }
+            }
+        } else {
+            if self.playback_position as usize >= frame_count {
+                if loop_enabled && self.env_state != EnvelopeState::Release {
+                    self.playback_position = loop_start;
+                } else {
+                    if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
+                        self.is_active = false;
+                        return (0.0, 0.0);
+                    }
+                    self.release_start_level = self.env_level;
+                    self.env_state = EnvelopeState::Release;
+                    self.env_time = 0.0;
+                }
+            }
+            // Check loop end boundary (when looping)
+            if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0 {
+                if self.playback_position >= loop_end {
+                    self.playback_position = loop_start;
+                }
             }
         }
 
         // Re-read position after possible loop wrap
-        let frame_f = self.playback_position;
+        let frame_f = self.playback_position.max(0.0);
         let frame_i = frame_f as usize;
         let frac = (frame_f - frame_i as f64) as f32;
 
@@ -148,8 +167,12 @@ impl SamplerVoice {
             (0.0, 0.0)
         };
 
-        // Advance playback position
-        self.playback_position += self.playback_rate;
+        // Advance playback position (reversed = decrement)
+        if reversed {
+            self.playback_position -= self.playback_rate;
+        } else {
+            self.playback_position += self.playback_rate;
+        }
 
         // Process envelope
         let env_out = self.process_envelope(envelope, sample_rate);
@@ -222,6 +245,16 @@ pub struct Sampler {
     pub loop_start: f64,         // Loop start in frames (default 0.0)
     pub loop_end: f64,           // Loop end in frames (default = sample length)
     sample_rate: f32,
+    // Audio manipulation parameters (matching Audio Editor)
+    pub volume_db: f32,           // -70.0 to +24.0 dB (default 0.0)
+    pub transpose_semitones: i32, // -48 to +48 (default 0)
+    pub fine_cents: i32,          // -50 to +50 (default 0)
+    pub reversed: bool,           // Reverse playback (default false)
+    pub original_bpm: f64,        // Sample tempo for beat grid (default 120.0)
+    pub warp_enabled: bool,       // Warp mode on/off (default false)
+    pub warp_mode: u8,            // 0=repitch, 1=warp (default 0)
+    pub beats_per_bar: i32,       // Time signature numerator (default 4)
+    pub beat_unit: i32,           // Time signature denominator (default 4)
 }
 
 impl Sampler {
@@ -235,6 +268,15 @@ impl Sampler {
             loop_start: 0.0,
             loop_end: 0.0, // Will be set when sample loads
             sample_rate,
+            volume_db: 0.0,
+            transpose_semitones: 0,
+            fine_cents: 0,
+            reversed: false,
+            original_bpm: 120.0,
+            warp_enabled: false,
+            warp_mode: 0, // repitch
+            beats_per_bar: 4,
+            beat_unit: 4,
         }
     }
 
@@ -295,12 +337,22 @@ impl Sampler {
             return;
         }
 
-        // Calculate playback rate based on pitch difference from root note
-        let playback_rate = Self::calculate_playback_rate(self.root_note, note);
+        // Calculate playback rate with transpose + fine cents offset
+        let semitone_diff = f64::from(note) - f64::from(self.root_note)
+            + f64::from(self.transpose_semitones)
+            + f64::from(self.fine_cents) / 100.0;
+        let playback_rate = 2.0_f64.powf(semitone_diff / 12.0);
+
+        // Determine start position (reversed starts from end)
+        let start_pos = if self.reversed {
+            self.sample.as_ref().map_or(0.0, |s| s.frame_count() as f64 - 1.0)
+        } else {
+            0.0
+        };
 
         // Find free voice or steal oldest
         let idx = self.find_free_voice_index();
-        self.voices[idx].note_on(note, velocity, playback_rate);
+        self.voices[idx].note_on(note, velocity, playback_rate, start_pos);
     }
 
     pub fn note_off(&mut self, note: u8) {
@@ -335,6 +387,7 @@ impl Sampler {
         let loop_enabled = self.loop_enabled;
         let loop_start = self.loop_start;
         let loop_end = self.loop_end;
+        let reversed = self.reversed;
 
         for voice in &mut self.voices {
             let (l, r) = voice.process(
@@ -344,13 +397,20 @@ impl Sampler {
                 loop_enabled,
                 loop_start,
                 loop_end,
+                reversed,
             );
             left_out += l;
             right_out += r;
         }
 
-        // Reduce volume to prevent clipping with multiple voices
-        (left_out * 0.4, right_out * 0.4)
+        // Apply volume gain (dB to linear) + voice mixing reduction
+        let gain = if self.volume_db <= -70.0 {
+            0.0
+        } else {
+            10.0_f32.powf(self.volume_db / 20.0)
+        };
+        let mix_gain = 0.4 * gain;
+        (left_out * mix_gain, right_out * mix_gain)
     }
 
     /// Process and return mono (for compatibility with existing synth interface)
@@ -400,6 +460,58 @@ impl Sampler {
                     let clamped = v.clamp(0.0, max_seconds);
                     self.loop_end = self.seconds_to_frames(clamped);
                     println!("  → loop_end = {:.3}s ({:.0} frames)", clamped, self.loop_end);
+                }
+            }
+            "volume_db" => {
+                if let Ok(v) = value.parse::<f32>() {
+                    self.volume_db = v.clamp(-70.0, 24.0);
+                    println!("  → volume_db = {:.1}", self.volume_db);
+                }
+            }
+            "transpose_semitones" => {
+                if let Ok(v) = value.parse::<i32>() {
+                    self.transpose_semitones = v.clamp(-48, 48);
+                    println!("  → transpose_semitones = {}", self.transpose_semitones);
+                }
+            }
+            "fine_cents" => {
+                if let Ok(v) = value.parse::<i32>() {
+                    self.fine_cents = v.clamp(-50, 50);
+                    println!("  → fine_cents = {}", self.fine_cents);
+                }
+            }
+            "reversed" => {
+                let enabled = value == "1" || value == "true";
+                self.reversed = enabled;
+                println!("  → reversed = {}", self.reversed);
+            }
+            "original_bpm" => {
+                if let Ok(v) = value.parse::<f64>() {
+                    self.original_bpm = v.clamp(20.0, 999.0);
+                    println!("  → original_bpm = {:.1}", self.original_bpm);
+                }
+            }
+            "warp_enabled" => {
+                let enabled = value == "1" || value == "true";
+                self.warp_enabled = enabled;
+                println!("  → warp_enabled = {}", self.warp_enabled);
+            }
+            "warp_mode" => {
+                if let Ok(v) = value.parse::<u8>() {
+                    self.warp_mode = v.min(1); // 0=repitch, 1=warp
+                    println!("  → warp_mode = {}", self.warp_mode);
+                }
+            }
+            "beats_per_bar" => {
+                if let Ok(v) = value.parse::<i32>() {
+                    self.beats_per_bar = v.clamp(1, 16);
+                    println!("  → beats_per_bar = {}", self.beats_per_bar);
+                }
+            }
+            "beat_unit" => {
+                if let Ok(v) = value.parse::<i32>() {
+                    self.beat_unit = v.clamp(1, 16);
+                    println!("  → beat_unit = {}", self.beat_unit);
                 }
             }
             _ => {
@@ -465,10 +577,40 @@ pub struct SamplerData {
     pub loop_start_seconds: f64,
     #[serde(default = "default_loop_end")]
     pub loop_end_seconds: f64,
+    #[serde(default)]
+    pub volume_db: f32,
+    #[serde(default)]
+    pub transpose_semitones: i32,
+    #[serde(default)]
+    pub fine_cents: i32,
+    #[serde(default)]
+    pub reversed: bool,
+    #[serde(default = "default_bpm")]
+    pub original_bpm: f64,
+    #[serde(default)]
+    pub warp_enabled: bool,
+    #[serde(default)]
+    pub warp_mode: u8,
+    #[serde(default = "default_beats_per_bar")]
+    pub beats_per_bar: i32,
+    #[serde(default = "default_beat_unit")]
+    pub beat_unit: i32,
 }
 
 fn default_loop_end() -> f64 {
     0.0 // Will be overridden by sample duration on load
+}
+
+fn default_bpm() -> f64 {
+    120.0
+}
+
+fn default_beats_per_bar() -> i32 {
+    4
+}
+
+fn default_beat_unit() -> i32 {
+    4
 }
 
 impl Sampler {
@@ -482,6 +624,15 @@ impl Sampler {
             loop_enabled: self.loop_enabled,
             loop_start_seconds: self.frames_to_seconds(self.loop_start),
             loop_end_seconds: self.frames_to_seconds(self.loop_end),
+            volume_db: self.volume_db,
+            transpose_semitones: self.transpose_semitones,
+            fine_cents: self.fine_cents,
+            reversed: self.reversed,
+            original_bpm: self.original_bpm,
+            warp_enabled: self.warp_enabled,
+            warp_mode: self.warp_mode,
+            beats_per_bar: self.beats_per_bar,
+            beat_unit: self.beat_unit,
         })
     }
 
@@ -501,11 +652,18 @@ impl Sampler {
                 self.loop_end = sample.frame_count() as f64;
             }
         }
-        println!("✅ Restored sampler parameters: root={}, attack={}ms, release={}ms, loop={}, loop_range={:.3}s-{:.3}s",
+        self.volume_db = data.volume_db;
+        self.transpose_semitones = data.transpose_semitones;
+        self.fine_cents = data.fine_cents;
+        self.reversed = data.reversed;
+        self.original_bpm = data.original_bpm;
+        self.warp_enabled = data.warp_enabled;
+        self.warp_mode = data.warp_mode;
+        self.beats_per_bar = data.beats_per_bar;
+        self.beat_unit = data.beat_unit;
+        println!("✅ Restored sampler parameters: root={}, attack={}ms, release={}ms, loop={}, vol={:.1}dB, transpose={}st",
             note_name(self.root_note), data.attack_ms, data.release_ms,
-            self.loop_enabled,
-            self.frames_to_seconds(self.loop_start),
-            self.frames_to_seconds(self.loop_end));
+            self.loop_enabled, self.volume_db, self.transpose_semitones);
     }
 }
 
@@ -612,5 +770,101 @@ mod tests {
         assert!(!data.loop_enabled);
         assert_eq!(data.loop_start_seconds, 0.0);
         assert_eq!(data.loop_end_seconds, 0.0);
+        // Audio manipulation defaults
+        assert_eq!(data.volume_db, 0.0);
+        assert_eq!(data.transpose_semitones, 0);
+        assert_eq!(data.fine_cents, 0);
+        assert!(!data.reversed);
+        assert_eq!(data.original_bpm, 120.0);
+        assert!(!data.warp_enabled);
+        assert_eq!(data.warp_mode, 0);
+        assert_eq!(data.beats_per_bar, 4);
+        assert_eq!(data.beat_unit, 4);
+    }
+
+    #[test]
+    fn test_volume_db_parameter() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.set_parameter("volume_db", "-6.0");
+        assert!((sampler.volume_db - (-6.0)).abs() < 0.01);
+
+        // Clamping
+        sampler.set_parameter("volume_db", "-100.0");
+        assert_eq!(sampler.volume_db, -70.0);
+        sampler.set_parameter("volume_db", "30.0");
+        assert_eq!(sampler.volume_db, 24.0);
+    }
+
+    #[test]
+    fn test_transpose_and_fine_cents() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.set_parameter("transpose_semitones", "12");
+        assert_eq!(sampler.transpose_semitones, 12);
+        sampler.set_parameter("fine_cents", "-25");
+        assert_eq!(sampler.fine_cents, -25);
+
+        // Clamping
+        sampler.set_parameter("transpose_semitones", "100");
+        assert_eq!(sampler.transpose_semitones, 48);
+        sampler.set_parameter("fine_cents", "-100");
+        assert_eq!(sampler.fine_cents, -50);
+    }
+
+    #[test]
+    fn test_reversed_parameter() {
+        let mut sampler = Sampler::new(48000.0);
+        assert!(!sampler.reversed);
+        sampler.set_parameter("reversed", "1");
+        assert!(sampler.reversed);
+        sampler.set_parameter("reversed", "0");
+        assert!(!sampler.reversed);
+        sampler.set_parameter("reversed", "true");
+        assert!(sampler.reversed);
+    }
+
+    #[test]
+    fn test_bpm_and_warp_parameters() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.set_parameter("original_bpm", "140.0");
+        assert!((sampler.original_bpm - 140.0).abs() < 0.01);
+
+        sampler.set_parameter("warp_enabled", "1");
+        assert!(sampler.warp_enabled);
+
+        sampler.set_parameter("warp_mode", "1");
+        assert_eq!(sampler.warp_mode, 1);
+
+        // BPM clamping
+        sampler.set_parameter("original_bpm", "5.0");
+        assert_eq!(sampler.original_bpm, 20.0);
+    }
+
+    #[test]
+    fn test_time_signature_parameters() {
+        let mut sampler = Sampler::new(48000.0);
+        sampler.set_parameter("beats_per_bar", "3");
+        assert_eq!(sampler.beats_per_bar, 3);
+        sampler.set_parameter("beat_unit", "8");
+        assert_eq!(sampler.beat_unit, 8);
+
+        // Clamping
+        sampler.set_parameter("beats_per_bar", "0");
+        assert_eq!(sampler.beats_per_bar, 1);
+        sampler.set_parameter("beat_unit", "32");
+        assert_eq!(sampler.beat_unit, 16);
+    }
+
+    #[test]
+    fn test_new_defaults() {
+        let sampler = Sampler::new(48000.0);
+        assert_eq!(sampler.volume_db, 0.0);
+        assert_eq!(sampler.transpose_semitones, 0);
+        assert_eq!(sampler.fine_cents, 0);
+        assert!(!sampler.reversed);
+        assert_eq!(sampler.original_bpm, 120.0);
+        assert!(!sampler.warp_enabled);
+        assert_eq!(sampler.warp_mode, 0);
+        assert_eq!(sampler.beats_per_bar, 4);
+        assert_eq!(sampler.beat_unit, 4);
     }
 }

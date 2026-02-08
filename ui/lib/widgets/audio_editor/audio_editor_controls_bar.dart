@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/audio_clip_edit_data.dart';
 import '../../theme/theme_extension.dart';
 import '../piano_roll/loop_time_display.dart';
+import '../shared/editors/bpm_display.dart';
+import '../shared/editors/capsule_slider.dart';
 import 'draggable_pitch_display.dart';
 
 /// Simplified horizontal controls bar for Audio Editor.
@@ -441,7 +443,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         SizedBox(
           width: 120,
           height: 20,
-          child: _VolumeCapsuleSlider(
+          child: CapsuleSlider(
             value: sliderValue,
             onChanged: (value) {
               final db = sliderToDb(value);
@@ -558,7 +560,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 8),
         // Original BPM - draggable display like transport bar
         // Disabled (greyed out) when Warp is OFF
-        _OriginalBpmDisplay(
+        BpmDisplay(
           bpm: widget.originalBpm,
           onBpmChanged: isEnabled ? widget.onOriginalBpmChanged : null,
           enabled: isEnabled,
@@ -805,243 +807,3 @@ class _WarpModeMenuOverlay extends StatelessWidget {
 }
 
 /// Draggable BPM display for clip's original tempo.
-/// Similar to _TempoDisplay in transport_bar.dart.
-class _OriginalBpmDisplay extends StatefulWidget {
-  final double bpm;
-  final Function(double)? onBpmChanged;
-  final bool enabled;
-
-  const _OriginalBpmDisplay({
-    required this.bpm,
-    this.onBpmChanged,
-    this.enabled = true,
-  });
-
-  @override
-  State<_OriginalBpmDisplay> createState() => _OriginalBpmDisplayState();
-}
-
-class _OriginalBpmDisplayState extends State<_OriginalBpmDisplay> {
-  bool _isDragging = false;
-  double _dragStartY = 0.0;
-  double _dragStartBpm = 120.0;
-
-  /// Format BPM for display:
-  /// - If whole number (110.0), show as "110 BPM"
-  /// - If has decimal (110.5), show as "110.50 BPM"
-  String _formatBpm(double bpm) {
-    if (bpm == bpm.roundToDouble()) {
-      return '${bpm.round()} BPM';
-    } else {
-      return '${bpm.toStringAsFixed(2)} BPM';
-    }
-  }
-
-  void _showBpmDialog(BuildContext context) {
-    // Show current value - if whole number, show without decimal
-    final initialText = widget.bpm == widget.bpm.roundToDouble()
-        ? widget.bpm.round().toString()
-        : widget.bpm.toStringAsFixed(2);
-    final controller = TextEditingController(text: initialText);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Original BPM'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: "Clip's original tempo (20 - 999)",
-          ),
-          autofocus: true,
-          onSubmitted: (_) {
-            final value = double.tryParse(controller.text) ?? 120.0;
-            widget.onBpmChanged?.call(value.clamp(20, 999));
-            Navigator.pop(ctx);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = double.tryParse(controller.text) ?? 120.0;
-              widget.onBpmChanged?.call(value.clamp(20, 999));
-              Navigator.pop(ctx);
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final bpmText = _formatBpm(widget.bpm);
-    final isEnabled = widget.enabled;
-
-    return Tooltip(
-      message: isEnabled
-          ? 'Original clip tempo (drag to adjust, double-click for precise input)'
-          : 'Enable Warp to adjust BPM',
-      child: GestureDetector(
-        onVerticalDragStart: isEnabled
-            ? (details) {
-                setState(() {
-                  _isDragging = true;
-                  _dragStartY = details.globalPosition.dy;
-                  // Snap start position to whole BPM for cleaner dragging
-                  _dragStartBpm = widget.bpm.roundToDouble();
-                });
-              }
-            : null,
-        onVerticalDragUpdate: isEnabled
-            ? (details) {
-                if (widget.onBpmChanged != null) {
-                  // Drag up = increase BPM, drag down = decrease BPM
-                  final deltaY = _dragStartY - details.globalPosition.dy;
-                  // ~0.5 BPM per pixel, then round to whole BPM
-                  final deltaBpm = (deltaY * 0.5).roundToDouble();
-                  final newBpm = (_dragStartBpm + deltaBpm).clamp(20.0, 999.0);
-                  widget.onBpmChanged!(newBpm);
-                }
-              }
-            : null,
-        onVerticalDragEnd: isEnabled
-            ? (details) {
-                setState(() {
-                  _isDragging = false;
-                });
-              }
-            : null,
-        onDoubleTap: isEnabled ? () => _showBpmDialog(context) : null,
-        child: MouseRegion(
-          cursor: isEnabled ? SystemMouseCursors.resizeUpDown : SystemMouseCursors.forbidden,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-            decoration: BoxDecoration(
-              color: _isDragging
-                  ? colors.accent.withValues(alpha: 0.2)
-                  : colors.dark,
-              borderRadius: BorderRadius.circular(2),
-              border: _isDragging
-                  ? Border.all(color: colors.accent, width: 1.5)
-                  : Border.all(
-                      color: isEnabled ? colors.surface : colors.surface.withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-            ),
-            child: Text(
-              bpmText,
-              style: TextStyle(
-                color: isEnabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5),
-                fontSize: 10,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Capsule-style volume slider matching track mixer fader appearance.
-/// Has a pill-shaped track with a circular handle.
-class _VolumeCapsuleSlider extends StatelessWidget {
-  final double value; // 0.0 to 1.0
-  final Function(double)? onChanged;
-  final VoidCallback? onDoubleTap;
-
-  const _VolumeCapsuleSlider({
-    required this.value,
-    this.onChanged,
-    this.onDoubleTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GestureDetector(
-          onDoubleTap: onDoubleTap,
-          onHorizontalDragUpdate: (details) {
-            if (onChanged == null) return;
-            final sliderValue =
-                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
-            onChanged!(sliderValue);
-          },
-          onTapDown: (details) {
-            if (onChanged == null) return;
-            final sliderValue =
-                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
-            onChanged!(sliderValue);
-          },
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: CustomPaint(
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: _VolumeCapsulePainter(sliderValue: value),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _VolumeCapsulePainter extends CustomPainter {
-  final double sliderValue; // 0.0 to 1.0
-
-  _VolumeCapsulePainter({required this.sliderValue});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final capsuleRadius = size.height / 2;
-    final capsuleRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Radius.circular(capsuleRadius),
-    );
-
-    // Draw capsule background
-    final bgPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(capsuleRect, bgPaint);
-
-    // Draw capsule border
-    final borderPaint = Paint()
-      ..color = const Color(0xFF3A3A3A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRRect(capsuleRect, borderPaint);
-
-    // Draw volume handle/thumb
-    final handleRadius = size.height / 2 - 1;
-    final usableWidth = size.width - handleRadius * 2;
-    final handleX = handleRadius + sliderValue * usableWidth;
-    final handleY = size.height / 2;
-
-    // Draw semi-transparent grey circle (Logic Pro style)
-    final handlePaint = Paint()
-      ..color = const Color(0xFF808080).withValues(alpha: 0.7)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(handleX, handleY), handleRadius, handlePaint);
-
-    // Draw subtle border on handle
-    final handleBorderPaint = Paint()
-      ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawCircle(Offset(handleX, handleY), handleRadius, handleBorderPaint);
-  }
-
-  @override
-  bool shouldRepaint(_VolumeCapsulePainter oldDelegate) {
-    return oldDelegate.sliderValue != sliderValue;
-  }
-}

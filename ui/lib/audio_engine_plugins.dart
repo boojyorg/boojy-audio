@@ -420,6 +420,15 @@ mixin _PluginsMixin on _AudioEngineBase {
     final pRootNote = calloc<ffi.Int32>();
     final pAttackMs = calloc<ffi.Double>();
     final pReleaseMs = calloc<ffi.Double>();
+    final pVolumeDb = calloc<ffi.Double>();
+    final pTranspose = calloc<ffi.Int32>();
+    final pFineCents = calloc<ffi.Int32>();
+    final pReversed = calloc<ffi.Int32>();
+    final pOriginalBpm = calloc<ffi.Double>();
+    final pWarpEnabled = calloc<ffi.Int32>();
+    final pWarpMode = calloc<ffi.Int32>();
+    final pBeatsPerBar = calloc<ffi.Int32>();
+    final pBeatUnit = calloc<ffi.Int32>();
 
     try {
       final result = _getSamplerInfo(
@@ -427,6 +436,9 @@ mixin _PluginsMixin on _AudioEngineBase {
         pDuration, pSampleRate, pLoopEnabled,
         pLoopStart, pLoopEnd, pRootNote,
         pAttackMs, pReleaseMs,
+        pVolumeDb, pTranspose, pFineCents,
+        pReversed, pOriginalBpm, pWarpEnabled,
+        pWarpMode, pBeatsPerBar, pBeatUnit,
       );
       if (result != 1) return null;
 
@@ -439,6 +451,15 @@ mixin _PluginsMixin on _AudioEngineBase {
         rootNote: pRootNote.value,
         attackMs: pAttackMs.value,
         releaseMs: pReleaseMs.value,
+        volumeDb: pVolumeDb.value,
+        transposeSemitones: pTranspose.value,
+        fineCents: pFineCents.value,
+        reversed: pReversed.value == 1,
+        originalBpm: pOriginalBpm.value,
+        warpEnabled: pWarpEnabled.value == 1,
+        warpMode: pWarpMode.value,
+        beatsPerBar: pBeatsPerBar.value,
+        beatUnit: pBeatUnit.value,
       );
     } finally {
       calloc.free(pDuration);
@@ -449,6 +470,15 @@ mixin _PluginsMixin on _AudioEngineBase {
       calloc.free(pRootNote);
       calloc.free(pAttackMs);
       calloc.free(pReleaseMs);
+      calloc.free(pVolumeDb);
+      calloc.free(pTranspose);
+      calloc.free(pFineCents);
+      calloc.free(pReversed);
+      calloc.free(pOriginalBpm);
+      calloc.free(pWarpEnabled);
+      calloc.free(pWarpMode);
+      calloc.free(pBeatsPerBar);
+      calloc.free(pBeatUnit);
     }
   }
 

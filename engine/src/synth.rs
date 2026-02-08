@@ -656,6 +656,15 @@ impl TrackSynthManager {
                 root_note: sampler.root_note as i32,
                 attack_ms: sampler.envelope.attack_ms as f64,
                 release_ms: sampler.envelope.release_ms as f64,
+                volume_db: sampler.volume_db as f64,
+                transpose_semitones: sampler.transpose_semitones,
+                fine_cents: sampler.fine_cents,
+                reversed: sampler.reversed,
+                original_bpm: sampler.original_bpm,
+                warp_enabled: sampler.warp_enabled,
+                warp_mode: sampler.warp_mode as i32,
+                beats_per_bar: sampler.beats_per_bar,
+                beat_unit: sampler.beat_unit,
             })
         } else {
             None
@@ -683,6 +692,15 @@ pub struct SamplerInfo {
     pub root_note: i32,
     pub attack_ms: f64,
     pub release_ms: f64,
+    pub volume_db: f64,
+    pub transpose_semitones: i32,
+    pub fine_cents: i32,
+    pub reversed: bool,
+    pub original_bpm: f64,
+    pub warp_enabled: bool,
+    pub warp_mode: i32,
+    pub beats_per_bar: i32,
+    pub beat_unit: i32,
 }
 
 // ============================================================================
