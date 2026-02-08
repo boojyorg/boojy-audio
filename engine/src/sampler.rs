@@ -544,10 +544,46 @@ impl Sampler {
         2.0_f64.powf(semitone_diff / 12.0)
     }
 
-    /// Get waveform peaks from the loaded sample
+    /// Get waveform peaks from the loaded sample as min/max pairs.
+    /// Returns [min0, max0, min1, max1, ...] matching Audio Editor format.
     pub fn get_waveform_peaks(&self, resolution: usize) -> Vec<f32> {
         let Some(ref sample) = self.sample else { return vec![]; };
-        crate::preview::extract_waveform_peaks(sample, resolution)
+        let frames = sample.frame_count();
+        if frames == 0 || resolution == 0 {
+            return vec![];
+        }
+
+        let samples_per_peak = (frames / resolution).max(1);
+        let mut peaks = Vec::with_capacity(resolution * 2);
+
+        for i in 0..resolution {
+            let start = i * samples_per_peak;
+            let end = ((i + 1) * samples_per_peak).min(frames);
+            if start >= frames {
+                break;
+            }
+
+            let mut min: f32 = 1.0;
+            let mut max: f32 = -1.0;
+
+            for frame in start..end {
+                // Mix channels for visualization (left channel, or max of stereo)
+                let left = sample.get_sample(frame, 0).unwrap_or(0.0);
+                let right = if sample.channels > 1 {
+                    sample.get_sample(frame, 1).unwrap_or(0.0)
+                } else {
+                    left
+                };
+                let sample_val = if left.abs() >= right.abs() { left } else { right };
+                min = min.min(sample_val);
+                max = max.max(sample_val);
+            }
+
+            peaks.push(min);
+            peaks.push(max);
+        }
+
+        peaks
     }
 }
 

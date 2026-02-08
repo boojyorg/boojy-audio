@@ -7,6 +7,7 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Bug Fixes
 
 - **Fix sampler stereo bug**: Sampler was outputting mono to both channels. All 4 call sites in `audio_graph.rs` now use `process_sample_stereo()` for proper L/R separation.
+- **Fix sampler waveform rendering**: Waveform only showed top half and appeared offset. Root cause: `get_waveform_peaks()` returned single positive values (`.abs()`) instead of min/max pairs. Now returns `[min, max, ...]` matching Audio Editor format.
 
 ### Features
 
@@ -22,6 +23,7 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - **Sampler Editor**: Full controls bar matching Audio Editor layout — sampler identity controls on left (Loop, Attack/Release capsule sliders, Root Note), audio manipulation on right (Start/Length in bar.beat.sub, Signature, Warp split button with BPM/÷2/×2, Reverse, Pitch transpose+cents, Volume with capsule slider). All controls use shared widgets extracted from Audio Editor (CapsuleSlider, BpmDisplay).
 - **Sampler Editor redesign**: Unified visual style with Audio Editor — single-row controls bar (removed greyed-out placeholder row), 24px navigation bar matching UnifiedNavBar style with hierarchical tick marks and dark background, improved waveform rendering with LOD downsampling and dynamic stroke. Scroll wheel/trackpad support for horizontal scrolling. Zoom controls overlaid via shared NavBarWithZoom component.
+- **Sampler waveform matches Audio Editor**: Removed envelope overlay and triangle loop markers from waveform area. Paint order now matches Audio Editor (Grid → Waveform → Loop dimming). Loop dragging moved from waveform to nav bar with hover edge highlighting (orange glow on loop boundaries). Nav bar now supports drag-to-scroll (horizontal) and drag-to-zoom (vertical), scroll wheel, and grab/grabbing cursors matching Audio Editor. Auto-zoom-to-fit on sample load. Fixed nav bar rendering at 0px height (StackFit.loose issue).
 - **Sampler as instrument**: Sampler tracks are now MIDI tracks with a sampler instrument attached, gaining full MIDI capabilities (create clips on timeline, drag-to-create, record MIDI). Default 1-bar MIDI clip auto-created on sampler creation. Sampler state (sample path, root note, envelope, loop settings) now persists in project save/load. Fixes input routing bug where sampler tracks incorrectly received audio input.
 - **CI pipeline**: Add GitHub Actions workflow (`ci.yml`) with Flutter analyze, dart format, flutter test, and Rust clippy/test on every push and PR
 - **Comprehensive command test coverage**: Add 76 new tests across effect, mixer, track, and project commands with shared MockAudioEngine test infrastructure

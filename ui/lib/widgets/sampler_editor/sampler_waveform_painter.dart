@@ -1,49 +1,42 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
-/// Custom painter for sampler waveform with loop region overlay and envelope.
-/// Matches the Audio Editor's WaveformEditorPainter visual style.
-///
-/// Features:
-/// - Real min/max waveform peaks with LOD downsampling
-/// - Loop region overlay: dimmed outside loop (20% black)
-/// - Loop start/end marker lines (vertical, draggable)
-/// - Envelope overlay (orange attack→sustain→release)
-/// - Hierarchical time grid matching WaveformEditorPainter style
-/// - Center line
+/// Custom painter for sampler waveform display.
+/// Matches the Audio Editor's WaveformEditorPainter visual style:
+/// Grid → Waveform → Loop dimming (no envelope, no loop markers).
 class SamplerWaveformPainter extends CustomPainter {
   final List<double> peaks;
   final double sampleDuration; // in seconds
   final double pixelsPerSecond;
-  final double attackMs;
-  final double releaseMs;
   final bool loopEnabled;
   final double loopStartSeconds;
   final double loopEndSeconds;
   final BoojyColors colors;
+  final double originalBpm;
+  final int beatsPerBar;
 
   SamplerWaveformPainter({
     required this.peaks,
     required this.sampleDuration,
     required this.pixelsPerSecond,
-    required this.attackMs,
-    required this.releaseMs,
     required this.loopEnabled,
     required this.loopStartSeconds,
     required this.loopEndSeconds,
     required this.colors,
+    this.originalBpm = 120.0,
+    this.beatsPerBar = 4,
   });
 
-  /// Get adaptive grid intervals based on zoom level.
-  /// Returns (majorInterval, subInterval) in seconds.
-  (double, double) _getGridIntervals() {
-    if (pixelsPerSecond > 400) return (0.5, 0.1);
-    if (pixelsPerSecond > 200) return (0.5, 0.25);
-    if (pixelsPerSecond > 100) return (1.0, 0.25);
-    if (pixelsPerSecond > 50) return (1.0, 0.5);
-    if (pixelsPerSecond > 25) return (2.0, 1.0);
-    return (5.0, 1.0);
+  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+
+  /// Adaptive grid division in beats — matches UnifiedNavBarPainter
+  double _getGridDivision() {
+    final ppb = _pixelsPerBeat;
+    if (ppb < 10) return beatsPerBar.toDouble();
+    if (ppb < 20) return 1.0;
+    if (ppb < 40) return 0.5;
+    if (ppb < 80) return 0.25;
+    return 0.125;
   }
 
   @override
@@ -53,38 +46,30 @@ class SamplerWaveformPainter extends CustomPainter {
     final totalWidth = sampleDuration * pixelsPerSecond;
     final centerY = size.height / 2;
 
-    // 1. Draw hierarchical time grid
+    // 1. Draw grid (includes center line, matching Audio Editor)
     _drawTimeGrid(canvas, size, totalWidth);
 
-    // 2. Draw center line
-    final centerPaint = Paint()
-      ..color = colors.divider.withValues(alpha: 0.5)
-      ..strokeWidth = 1.0;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
-
-    // 3. Draw loop region overlay
-    _drawLoopRegion(canvas, size, totalWidth);
-
-    // 4. Draw waveform (with LOD)
+    // 2. Draw waveform
     _drawWaveform(canvas, size, totalWidth, centerY);
 
-    // 5. Draw envelope overlay
-    _drawEnvelope(canvas, size, totalWidth, centerY);
-
-    // 6. Draw loop markers
-    _drawLoopMarkers(canvas, size, totalWidth);
+    // 3. Draw loop dimming overlay
+    if (loopEnabled) {
+      _drawLoopRegion(canvas, size, totalWidth);
+    }
   }
 
   void _drawTimeGrid(Canvas canvas, Size size, double totalWidth) {
-    final (majorInterval, subInterval) = _getGridIntervals();
+    final ppb = _pixelsPerBeat;
+    final totalBeats = sampleDuration * (originalBpm / 60.0);
+    final gridDivision = _getGridDivision();
 
-    // Major lines (like bar lines in WaveformEditorPainter)
-    final majorPaint = Paint()
+    // Bar lines (matching WaveformEditorPainter)
+    final barPaint = Paint()
       ..color = colors.textMuted
       ..strokeWidth = 1.5;
 
-    // Medium lines (like beat lines)
-    final mediumPaint = Paint()
+    // Beat lines
+    final gridPaint = Paint()
       ..color = colors.divider
       ..strokeWidth = 1.0;
 
@@ -93,31 +78,33 @@ class SamplerWaveformPainter extends CustomPainter {
       ..color = colors.divider.withValues(alpha: 0.3)
       ..strokeWidth = 0.5;
 
-    final maxX = math.min(totalWidth, size.width * 3);
-    for (double t = 0; t <= sampleDuration + subInterval; t += subInterval) {
-      final x = t * pixelsPerSecond;
-      if (x > maxX) break;
+    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
+      final x = beat * ppb;
+      if (x > size.width) break;
 
-      final isMajor = (t / majorInterval - (t / majorInterval).roundToDouble()).abs() < 0.001;
-      // Check if it's a "whole second" line (medium weight)
-      final isSecond = (t - t.roundToDouble()).abs() < 0.001;
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
+      final isBeat = (beat % 1.0).abs() < 0.001;
 
-      if (isMajor) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), majorPaint);
-      } else if (isSecond) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), mediumPaint);
+      if (isBar) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), barPaint);
+      } else if (isBeat) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
       } else {
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), subPaint);
       }
     }
+
+    // Draw horizontal center line (inside grid, matching Audio Editor)
+    final centerPaint = Paint()
+      ..color = colors.divider.withValues(alpha: 0.5)
+      ..strokeWidth = 1.0;
+    final centerY = size.height / 2;
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
   }
 
   void _drawLoopRegion(Canvas canvas, Size size, double totalWidth) {
-    if (!loopEnabled) return;
-
     final loopStartX = loopStartSeconds * pixelsPerSecond;
     final loopEndX = loopEndSeconds * pixelsPerSecond;
-    final sampleEndX = math.min(totalWidth, size.width * 3);
 
     // Dim outside the loop region (20% black, matching WaveformEditorPainter)
     final dimPaint = Paint()..color = const Color(0x33000000);
@@ -131,9 +118,9 @@ class SamplerWaveformPainter extends CustomPainter {
     }
 
     // After loop end
-    if (loopEndX < sampleEndX) {
+    if (loopEndX < size.width) {
       canvas.drawRect(
-        Rect.fromLTWH(loopEndX, 0, sampleEndX - loopEndX, size.height),
+        Rect.fromLTWH(loopEndX, 0, size.width - loopEndX, size.height),
         dimPaint,
       );
     }
@@ -246,109 +233,22 @@ class SamplerWaveformPainter extends CustomPainter {
     return result;
   }
 
-  void _drawEnvelope(Canvas canvas, Size size, double totalWidth, double centerY) {
-    if (sampleDuration <= 0) return;
-
-    final envelopePaint = Paint()
-      ..color = colors.warning.withAlpha(60)
-      ..style = PaintingStyle.fill;
-
-    final envelopeStrokePaint = Paint()
-      ..color = colors.warning.withAlpha(180)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    final attackSeconds = attackMs / 1000.0;
-    final releaseSeconds = releaseMs / 1000.0;
-    final attackEndX = attackSeconds * pixelsPerSecond;
-
-    // For envelope display, use sample duration or loop end
-    final effectiveEnd = loopEnabled
-        ? loopEndSeconds * pixelsPerSecond
-        : math.min(sampleDuration * pixelsPerSecond, totalWidth);
-    final releaseStartX = effectiveEnd - releaseSeconds * pixelsPerSecond;
-
-    // Envelope curve stroke
-    final curve = Path();
-    curve.moveTo(0, size.height * 0.15); // Start low (near bottom, inverted for visual)
-    curve.lineTo(attackEndX, size.height * 0.05); // Attack up to top
-    curve.lineTo(math.max(attackEndX, releaseStartX), size.height * 0.05); // Sustain at top
-    curve.lineTo(effectiveEnd, size.height * 0.15); // Release back down
-
-    canvas.drawPath(curve, envelopeStrokePaint);
-
-    // Fill under envelope
-    final fillPath = Path.from(curve);
-    fillPath.lineTo(effectiveEnd, size.height);
-    fillPath.lineTo(0, size.height);
-    fillPath.close();
-    canvas.drawPath(fillPath, envelopePaint);
-  }
-
-  void _drawLoopMarkers(Canvas canvas, Size size, double totalWidth) {
-    final loopStartX = loopStartSeconds * pixelsPerSecond;
-    final loopEndX = loopEndSeconds * pixelsPerSecond;
-
-    final markerColor = loopEnabled
-        ? colors.accent
-        : colors.textMuted.withAlpha(100);
-
-    final markerPaint = Paint()
-      ..color = markerColor
-      ..strokeWidth = 1.5;
-
-    // Draw loop start line
-    canvas.drawLine(
-      Offset(loopStartX, 0),
-      Offset(loopStartX, size.height),
-      markerPaint,
-    );
-
-    // Draw loop end line
-    canvas.drawLine(
-      Offset(loopEndX, 0),
-      Offset(loopEndX, size.height),
-      markerPaint,
-    );
-
-    // Draw small triangles at top of markers
-    final trianglePaint = Paint()
-      ..color = markerColor
-      ..style = PaintingStyle.fill;
-
-    // Start marker triangle (pointing right)
-    final startTriangle = Path()
-      ..moveTo(loopStartX, 0)
-      ..lineTo(loopStartX + 6, 0)
-      ..lineTo(loopStartX, 8)
-      ..close();
-    canvas.drawPath(startTriangle, trianglePaint);
-
-    // End marker triangle (pointing left)
-    final endTriangle = Path()
-      ..moveTo(loopEndX, 0)
-      ..lineTo(loopEndX - 6, 0)
-      ..lineTo(loopEndX, 8)
-      ..close();
-    canvas.drawPath(endTriangle, trianglePaint);
-  }
-
   @override
   bool shouldRepaint(covariant SamplerWaveformPainter oldDelegate) {
     return !identical(peaks, oldDelegate.peaks) ||
         sampleDuration != oldDelegate.sampleDuration ||
         pixelsPerSecond != oldDelegate.pixelsPerSecond ||
-        attackMs != oldDelegate.attackMs ||
-        releaseMs != oldDelegate.releaseMs ||
         loopEnabled != oldDelegate.loopEnabled ||
         loopStartSeconds != oldDelegate.loopStartSeconds ||
-        loopEndSeconds != oldDelegate.loopEndSeconds;
+        loopEndSeconds != oldDelegate.loopEndSeconds ||
+        originalBpm != oldDelegate.originalBpm ||
+        beatsPerBar != oldDelegate.beatsPerBar;
   }
 }
 
-/// Painter for the seconds-based ruler in the sampler editor.
-/// Styled to match UnifiedNavBar (24px height, dark background,
-/// hierarchical tick marks at bottom, time labels at top).
+/// Beat-based ruler painter for the sampler editor.
+/// Matches UnifiedNavBarPainter: 24px height, dark background,
+/// full-height loop region bar, bar/beat/subdivision labels.
 class SamplerRulerPainter extends CustomPainter {
   final double pixelsPerSecond;
   final double sampleDuration;
@@ -356,6 +256,9 @@ class SamplerRulerPainter extends CustomPainter {
   final double loopStartSeconds;
   final double loopEndSeconds;
   final BoojyColors colors;
+  final double originalBpm;
+  final int beatsPerBar;
+  final double? hoverSeconds; // For loop edge hover feedback
 
   SamplerRulerPainter({
     required this.pixelsPerSecond,
@@ -364,150 +267,239 @@ class SamplerRulerPainter extends CustomPainter {
     required this.loopStartSeconds,
     required this.loopEndSeconds,
     required this.colors,
+    this.originalBpm = 120.0,
+    this.beatsPerBar = 4,
+    this.hoverSeconds,
   });
 
-  /// Get adaptive intervals based on zoom level.
-  /// Returns (majorInterval, subdivisions).
-  (double, int) _getIntervals() {
-    if (pixelsPerSecond > 400) return (0.5, 5);
-    if (pixelsPerSecond > 200) return (0.5, 5);
-    if (pixelsPerSecond > 100) return (1.0, 4);
-    if (pixelsPerSecond > 50) return (1.0, 2);
-    if (pixelsPerSecond > 25) return (2.0, 2);
-    return (5.0, 5);
+  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+
+  /// Adaptive grid division — matches UnifiedNavBarPainter
+  double _getGridDivision() {
+    final ppb = _pixelsPerBeat;
+    if (ppb < 10) return beatsPerBar.toDouble();
+    if (ppb < 20) return 1.0;
+    if (ppb < 40) return 0.5;
+    if (ppb < 80) return 0.25;
+    return 0.125;
   }
 
-  /// Determine label display interval for avoiding text overlap.
-  double _getLabelInterval(double majorInterval) {
-    final majorPixels = majorInterval * pixelsPerSecond;
-    if (majorPixels >= 60) return majorInterval;
-    return majorInterval * 2;
+  /// Bar number display interval — matches UnifiedNavBarPainter
+  int _getBarNumberInterval() {
+    final ppb = _pixelsPerBeat;
+    if (ppb < 1.75) return 8;
+    if (ppb < 3.5) return 4;
+    if (ppb < 7) return 2;
+    return 1;
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Dark background (matching UnifiedNavBar: 0xFF1A1A1A)
+    // 1. Dark background
     final bgPaint = Paint()..color = const Color(0xFF1A1A1A);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // 2. Draw loop region bar at top
+    // 2. Draw loop region (full-height colored bar)
     _drawLoopRegion(canvas, size);
 
-    // 3. Draw tick marks and time labels
-    _drawTicksAndLabels(canvas, size);
+    // 3. Draw grid lines and bar/beat numbers
+    _drawGridAndNumbers(canvas, size);
   }
 
   void _drawLoopRegion(Canvas canvas, Size size) {
     final loopStartX = loopStartSeconds * pixelsPerSecond;
     final loopEndX = loopEndSeconds * pixelsPerSecond;
+    final loopWidth = loopEndX - loopStartX;
+
+    if (loopWidth <= 0) return;
+
+    final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
+
+    // Colors matching UnifiedNavBarPainter (no punch-in for sampler)
+    Color fillColor;
+    Color borderColor;
 
     if (loopEnabled) {
-      // Filled loop region bar (matching UnifiedNavBar orange style)
-      final fillPaint = Paint()..color = const Color(0xFFB36800);
-      canvas.drawRect(
-        Rect.fromLTWH(loopStartX, 0, loopEndX - loopStartX, 4),
-        fillPaint,
-      );
-      // Border
-      final borderPaint = Paint()
-        ..color = const Color(0xFFFF9800)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawRect(
-        Rect.fromLTWH(loopStartX, 0, loopEndX - loopStartX, 4),
-        borderPaint,
-      );
+      fillColor = const Color(0xFFB36800);
+      borderColor = const Color(0xFFFF9800);
     } else {
-      // Grey when inactive
-      final fillPaint = Paint()..color = const Color(0xFF333333);
-      canvas.drawRect(
-        Rect.fromLTWH(loopStartX, 0, loopEndX - loopStartX, 4),
-        fillPaint,
-      );
-      final borderPaint = Paint()
-        ..color = const Color(0xFF555555)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawRect(
-        Rect.fromLTWH(loopStartX, 0, loopEndX - loopStartX, 4),
-        borderPaint,
-      );
+      fillColor = const Color(0xFF333333);
+      borderColor = const Color(0xFF555555);
     }
-  }
 
-  void _drawTicksAndLabels(Canvas canvas, Size size) {
-    final (majorInterval, subdivisions) = _getIntervals();
-    final subInterval = majorInterval / subdivisions;
-    final labelInterval = _getLabelInterval(majorInterval);
+    final fillPaint = Paint()..color = fillColor;
+    canvas.drawRect(loopRect, fillPaint);
 
-    // Tick paints (matching UnifiedNavBar hierarchy — painted from bottom)
-    final majorTickPaint = Paint()
-      ..color = const Color(0xFF707070)
-      ..strokeWidth = 1.5;
-    final mediumTickPaint = Paint()
-      ..color = const Color(0xFF505050)
-      ..strokeWidth = 1.0;
-    final subTickPaint = Paint()
-      ..color = const Color(0xFF404040)
-      ..strokeWidth = 0.5;
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRect(loopRect, borderPaint);
 
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    // Edge highlighting on hover (matching UnifiedNavBarPainter)
+    if (hoverSeconds != null) {
+      final hoverX = hoverSeconds! * pixelsPerSecond;
+      const edgeHitZone = 10.0;
+      const hoverColor = Color(0xFFFFB74D);
 
-    for (double t = 0; t <= sampleDuration + subInterval; t += subInterval) {
-      final x = t * pixelsPerSecond;
-      if (x > size.width * 3) break;
-
-      final isMajor = (t / majorInterval - (t / majorInterval).roundToDouble()).abs() < 0.001;
-      final isSecond = (t - t.roundToDouble()).abs() < 0.001;
-
-      if (isMajor) {
-        // Major tick: 6px from bottom
+      if ((hoverX - loopStartX).abs() < edgeHitZone) {
+        final highlightPaint = Paint()
+          ..color = hoverColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0;
         canvas.drawLine(
-          Offset(x, size.height - 6),
-          Offset(x, size.height),
-          majorTickPaint,
+          Offset(loopStartX, 0),
+          Offset(loopStartX, size.height),
+          highlightPaint,
         );
-
-        // Time label (only at label intervals to avoid overlap)
-        final isLabelTick = (t / labelInterval - (t / labelInterval).roundToDouble()).abs() < 0.001;
-        if (isLabelTick) {
-          textPainter.text = TextSpan(
-            text: _formatTime(t),
-            style: const TextStyle(
-              color: Color(0xFFE0E0E0),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          );
-          textPainter.layout();
-          textPainter.paint(canvas, Offset(x + 4, 5));
-        }
-      } else if (isSecond) {
-        // Whole-second tick: 4px from bottom
+      } else if ((hoverX - loopEndX).abs() < edgeHitZone) {
+        final highlightPaint = Paint()
+          ..color = hoverColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0;
         canvas.drawLine(
-          Offset(x, size.height - 4),
-          Offset(x, size.height),
-          mediumTickPaint,
-        );
-      } else {
-        // Subdivision tick: 2px from bottom
-        canvas.drawLine(
-          Offset(x, size.height - 2),
-          Offset(x, size.height),
-          subTickPaint,
+          Offset(loopEndX, 0),
+          Offset(loopEndX, size.height),
+          highlightPaint,
         );
       }
     }
   }
 
-  String _formatTime(double seconds) {
-    if (seconds < 0.001) return '0s';
-    if (seconds < 1.0) {
-      return '${(seconds * 1000).round()}ms';
-    } else if (seconds < 10.0) {
-      return '${seconds.toStringAsFixed(1)}s';
-    } else {
-      return '${seconds.toStringAsFixed(0)}s';
+  void _drawGridAndNumbers(Canvas canvas, Size size) {
+    final ppb = _pixelsPerBeat;
+    final totalBeats = sampleDuration * (originalBpm / 60.0);
+    final gridDivision = _getGridDivision();
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+    );
+
+    final loopStartX = loopStartSeconds * pixelsPerSecond;
+    final loopEndX = loopEndSeconds * pixelsPerSecond;
+
+    for (double beat = 0; beat <= totalBeats; beat += gridDivision) {
+      final x = beat * ppb;
+      if (x > size.width) break;
+
+      final isBar = (beat % beatsPerBar).abs() < 0.001;
+      final isBeat = (beat % 1.0).abs() < 0.001;
+
+      if (isBar) {
+        // Bar tick — taller
+        final tickPaint = Paint()
+          ..color = const Color(0xFF707070)
+          ..strokeWidth = 1.5;
+        canvas.drawLine(
+          Offset(x, size.height - 6),
+          Offset(x, size.height),
+          tickPaint,
+        );
+
+        // Bar number
+        final barNumber = (beat / beatsPerBar).floor() + 1;
+        final barInterval = _getBarNumberInterval();
+        if (barNumber % barInterval == 1 || barInterval == 1) {
+          final textX = x + 4;
+          final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+          textPainter.text = TextSpan(
+            text: '$barNumber',
+            style: TextStyle(
+              color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          );
+          textPainter.layout();
+          textPainter.paint(canvas, Offset(textX, 2));
+        }
+      } else if (isBeat) {
+        // Beat tick — medium
+        final tickPaint = Paint()
+          ..color = const Color(0xFF505050)
+          ..strokeWidth = 1;
+        canvas.drawLine(
+          Offset(x, size.height - 4),
+          Offset(x, size.height),
+          tickPaint,
+        );
+
+        // Beat label (e.g., "1.2", "1.3")
+        if (ppb >= 30) {
+          final barNumber = (beat / beatsPerBar).floor() + 1;
+          final beatInBar = (beat % beatsPerBar).floor() + 1;
+
+          if (beatInBar > 1) {
+            final subdivisionsVisible = ppb >= 100;
+
+            if (subdivisionsVisible) {
+              final textX = x + 4;
+              final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+              textPainter.text = TextSpan(
+                text: '$barNumber.$beatInBar',
+                style: TextStyle(
+                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+              textPainter.layout();
+              textPainter.paint(canvas, Offset(textX, 2));
+            } else {
+              final textX = x + 2;
+              final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+              textPainter.text = TextSpan(
+                text: '$barNumber.$beatInBar',
+                style: TextStyle(
+                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                  fontSize: 9,
+                ),
+              );
+              textPainter.layout();
+              textPainter.paint(canvas, Offset(textX, 3));
+            }
+          }
+        }
+      } else {
+        // Subdivision tick — short
+        final tickPaint = Paint()
+          ..color = const Color(0xFF404040)
+          ..strokeWidth = 0.5;
+        canvas.drawLine(
+          Offset(x, size.height - 2),
+          Offset(x, size.height),
+          tickPaint,
+        );
+
+        // Progressive subdivision labels (bar.beat.sub)
+        if (ppb >= 100) {
+          final beatFraction = beat % 1.0;
+          final isHalfBeat = (beatFraction - 0.5).abs() < 0.01;
+          final isQuarterBeat = (beatFraction - 0.25).abs() < 0.01 ||
+                                (beatFraction - 0.75).abs() < 0.01;
+
+          final shouldShow = isHalfBeat || (isQuarterBeat && ppb >= 200);
+
+          if (shouldShow) {
+            final barNumber = (beat / beatsPerBar).floor() + 1;
+            final beatInBar = (beat % beatsPerBar).floor() + 1;
+            final subInBeat = (beatFraction * 4).round() + 1;
+
+            final textX = x + 2;
+            final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+
+            textPainter.text = TextSpan(
+              text: '$barNumber.$beatInBar.$subInBeat',
+              style: TextStyle(
+                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                fontSize: 9,
+              ),
+            );
+            textPainter.layout();
+            textPainter.paint(canvas, Offset(textX, 3));
+          }
+        }
+      }
     }
   }
 
@@ -517,6 +509,9 @@ class SamplerRulerPainter extends CustomPainter {
         sampleDuration != oldDelegate.sampleDuration ||
         loopEnabled != oldDelegate.loopEnabled ||
         loopStartSeconds != oldDelegate.loopStartSeconds ||
-        loopEndSeconds != oldDelegate.loopEndSeconds;
+        loopEndSeconds != oldDelegate.loopEndSeconds ||
+        originalBpm != oldDelegate.originalBpm ||
+        beatsPerBar != oldDelegate.beatsPerBar ||
+        hoverSeconds != oldDelegate.hoverSeconds;
   }
 }

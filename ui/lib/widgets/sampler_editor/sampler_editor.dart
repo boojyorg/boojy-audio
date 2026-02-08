@@ -55,11 +55,15 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
   // Zoom and scroll
   double _pixelsPerSecond = 100.0;
+  bool _needsAutoZoom = true;
   final ScrollController _horizontalScroll = ScrollController();
   final ScrollController _rulerScroll = ScrollController();
 
-  // Loop marker dragging
-  _DragTarget? _activeDrag;
+  // Nav bar interaction (loop edges + navigation drag)
+  double? _navBarHoverSeconds;
+  _NavDragMode _navDragMode = _NavDragMode.none;
+  double? _navDragStartX;
+  double? _navDragStartY;
 
   @override
   void initState() {
@@ -89,6 +93,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
     final info = widget.audioEngine!.getSamplerInfo(widget.trackId!);
     if (info != null) {
+      _needsAutoZoom = true;
       setState(() {
         _sampleDuration = info.durationSeconds;
         _loopEnabled = info.loopEnabled;
@@ -239,16 +244,42 @@ class _SamplerEditorState extends State<SamplerEditor> {
     }
   }
 
-  void _zoomIn() {
+  void _zoomIn() => _zoomByFactor(1.3);
+  void _zoomOut() => _zoomByFactor(1.0 / 1.3);
+
+  void _zoomByFactor(double factor) {
+    final oldPps = _pixelsPerSecond;
+    final newPps = (oldPps * factor).clamp(20.0, 800.0);
+    if (newPps == oldPps) return;
+
+    // Calculate new scroll offset to keep viewport center anchored
+    double newScrollOffset = 0.0;
+    if (_horizontalScroll.hasClients) {
+      final viewportWidth = _horizontalScroll.position.viewportDimension;
+      final centerOffset = _horizontalScroll.offset + viewportWidth / 2;
+      final centerSeconds = centerOffset / oldPps;
+      final newCenterOffset = centerSeconds * newPps;
+      newScrollOffset = newCenterOffset - viewportWidth / 2;
+    }
+
     setState(() {
-      _pixelsPerSecond = (_pixelsPerSecond * 1.3).clamp(20.0, 800.0);
+      _pixelsPerSecond = newPps;
+    });
+
+    // Sync both scroll controllers after layout with new content size
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncScrollTo(newScrollOffset);
     });
   }
 
-  void _zoomOut() {
-    setState(() {
-      _pixelsPerSecond = (_pixelsPerSecond / 1.3).clamp(20.0, 800.0);
-    });
+  /// Set both scroll controllers to the same offset (clamped to valid range).
+  void _syncScrollTo(double offset) {
+    if (_horizontalScroll.hasClients) {
+      final max = _horizontalScroll.position.maxScrollExtent;
+      final clamped = offset.clamp(0.0, max);
+      _horizontalScroll.jumpTo(clamped);
+      // Ruler syncs via listener
+    }
   }
 
   // ============================================================================
@@ -265,6 +296,13 @@ class _SamplerEditorState extends State<SamplerEditor> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Auto-zoom to fit sample in available width on load
+        if (_needsAutoZoom && _sampleDuration > 0 && constraints.maxWidth > 0) {
+          _needsAutoZoom = false;
+          _pixelsPerSecond = (constraints.maxWidth / _sampleDuration)
+              .clamp(20.0, 800.0);
+        }
+
         final totalWidth = _sampleDuration > 0
             ? _sampleDuration * _pixelsPerSecond
             : 400.0;
@@ -308,28 +346,57 @@ class _SamplerEditorState extends State<SamplerEditor> {
                 onLoadSample: _onLoadSample,
               ),
 
-              // Navigation bar (seconds-based, styled like UnifiedNavBar)
+              // Navigation bar with loop drag interaction
               NavBarWithZoom(
                 scrollController: _rulerScroll,
                 onZoomIn: _zoomIn,
                 onZoomOut: _zoomOut,
                 height: 24.0,
-                child: SizedBox(
-                  width: totalWidth,
-                  child: CustomPaint(
-                    painter: SamplerRulerPainter(
-                      pixelsPerSecond: _pixelsPerSecond,
-                      sampleDuration: _sampleDuration,
-                      loopEnabled: _loopEnabled,
-                      loopStartSeconds: _loopStartSeconds,
-                      loopEndSeconds: _loopEndSeconds,
-                      colors: colors,
+                child: Listener(
+                  onPointerSignal: (event) {
+                    if (event is PointerScrollEvent) {
+                      _handleScrollWheel(event.scrollDelta.dy);
+                    }
+                  },
+                  child: MouseRegion(
+                    cursor: _getNavBarCursor(),
+                    onHover: _handleNavBarHover,
+                    onExit: (_) => setState(() => _navBarHoverSeconds = null),
+                    child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: _handleNavBarPanStart,
+                    onPanUpdate: _handleNavBarPanUpdate,
+                    onPanEnd: (_) => setState(() {
+                      _navDragMode = _NavDragMode.none;
+                      _navDragStartX = null;
+                      _navDragStartY = null;
+                    }),
+                      child: SizedBox(
+                        width: totalWidth,
+                        height: 24.0,
+                        child: CustomPaint(
+                          size: Size(totalWidth, 24.0),
+                          painter: SamplerRulerPainter(
+                            pixelsPerSecond: _pixelsPerSecond,
+                            sampleDuration: _sampleDuration,
+                            loopEnabled: _loopEnabled,
+                            loopStartSeconds: _loopStartSeconds,
+                            loopEndSeconds: _loopEndSeconds,
+                            colors: colors,
+                            originalBpm: _originalBpm,
+                            beatsPerBar: _beatsPerBar,
+                            hoverSeconds: _isNearLoopEdge(_navBarHoverSeconds)
+                                ? _navBarHoverSeconds
+                                : null,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
 
-              // Waveform Area with loop markers and envelope overlay
+              // Waveform area (simple scrollable, no drag interaction)
               Expanded(child: _buildWaveformArea(colors)),
             ],
           ),
@@ -375,7 +442,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   // ============================================================================
-  // Waveform area with loop markers
+  // Waveform area (simple scrollable display, no drag interaction)
   // ============================================================================
 
   Widget _buildWaveformArea(BoojyColors colors) {
@@ -393,33 +460,25 @@ class _SamplerEditorState extends State<SamplerEditor> {
               _handleScrollWheel(event.scrollDelta.dy);
             }
           },
-          child: GestureDetector(
-            onHorizontalDragStart: _handleDragStart,
-            onHorizontalDragUpdate: _handleDragUpdate,
-            onHorizontalDragEnd: (_) => _handleDragEnd(),
-            child: MouseRegion(
-              cursor: _getCursor(),
-              child: SingleChildScrollView(
-                controller: _horizontalScroll,
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: SizedBox(
-                  width: totalWidth,
-                  height: availableHeight,
-                  child: CustomPaint(
-                    size: Size(totalWidth, availableHeight),
-                    painter: SamplerWaveformPainter(
-                      peaks: _waveformPeaks,
-                      sampleDuration: _sampleDuration,
-                      pixelsPerSecond: _pixelsPerSecond,
-                      attackMs: _attackMs,
-                      releaseMs: _releaseMs,
-                      loopEnabled: _loopEnabled,
-                      loopStartSeconds: _loopStartSeconds,
-                      loopEndSeconds: _loopEndSeconds,
-                      colors: colors,
-                    ),
-                  ),
+          child: SingleChildScrollView(
+            controller: _horizontalScroll,
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(
+              width: totalWidth,
+              height: availableHeight,
+              child: CustomPaint(
+                size: Size(totalWidth, availableHeight),
+                painter: SamplerWaveformPainter(
+                  peaks: _waveformPeaks,
+                  sampleDuration: _sampleDuration,
+                  pixelsPerSecond: _pixelsPerSecond,
+                  loopEnabled: _loopEnabled,
+                  loopStartSeconds: _loopStartSeconds,
+                  loopEndSeconds: _loopEndSeconds,
+                  colors: colors,
+                  originalBpm: _originalBpm,
+                  beatsPerBar: _beatsPerBar,
                 ),
               ),
             ),
@@ -439,55 +498,103 @@ class _SamplerEditorState extends State<SamplerEditor> {
   }
 
   // ============================================================================
-  // Loop marker dragging
+  // Nav bar loop interaction (hover + drag)
   // ============================================================================
 
-  MouseCursor _getCursor() {
-    if (_activeDrag != null) return SystemMouseCursors.resizeLeftRight;
-    return SystemMouseCursors.basic;
+  static const double _edgeHitZone = 10.0;
+
+  double _secondsAtX(double localX) {
+    final scrollOffset = _rulerScroll.hasClients ? _rulerScroll.offset : 0.0;
+    return (localX + scrollOffset) / _pixelsPerSecond;
   }
 
-  void _handleDragStart(DragStartDetails details) {
+  bool _isNearLoopEdge(double? seconds) {
+    if (seconds == null) return false;
+    final x = seconds * _pixelsPerSecond;
+    final startX = _loopStartSeconds * _pixelsPerSecond;
+    final endX = _loopEndSeconds * _pixelsPerSecond;
+    return (x - startX).abs() < _edgeHitZone ||
+        (x - endX).abs() < _edgeHitZone;
+  }
+
+  MouseCursor _getNavBarCursor() {
+    if (_navDragMode == _NavDragMode.navigation) {
+      return SystemMouseCursors.grabbing;
+    }
+    if (_navDragMode == _NavDragMode.loopStart ||
+        _navDragMode == _NavDragMode.loopEnd) {
+      return SystemMouseCursors.resizeLeftRight;
+    }
+    if (_isNearLoopEdge(_navBarHoverSeconds)) {
+      return SystemMouseCursors.resizeLeftRight;
+    }
+    return SystemMouseCursors.grab;
+  }
+
+  void _handleNavBarHover(PointerHoverEvent event) {
+    final seconds = _secondsAtX(event.localPosition.dx);
+    setState(() => _navBarHoverSeconds = seconds);
+  }
+
+  void _handleNavBarPanStart(DragStartDetails details) {
     if (_sampleDuration <= 0) return;
 
-    final x = details.localPosition.dx +
-        (_horizontalScroll.hasClients ? _horizontalScroll.offset : 0);
-    final loopStartX = _loopStartSeconds * _pixelsPerSecond;
-    final loopEndX = _loopEndSeconds * _pixelsPerSecond;
+    final seconds = _secondsAtX(details.localPosition.dx);
+    final x = seconds * _pixelsPerSecond;
+    final startX = _loopStartSeconds * _pixelsPerSecond;
+    final endX = _loopEndSeconds * _pixelsPerSecond;
 
-    const hitThreshold = 8.0;
-
-    // Check if near loop start marker
-    if ((x - loopStartX).abs() < hitThreshold) {
-      _activeDrag = _DragTarget.loopStart;
-      return;
-    }
-
-    // Check if near loop end marker
-    if ((x - loopEndX).abs() < hitThreshold) {
-      _activeDrag = _DragTarget.loopEnd;
-      return;
+    if ((x - startX).abs() < _edgeHitZone) {
+      setState(() => _navDragMode = _NavDragMode.loopStart);
+    } else if ((x - endX).abs() < _edgeHitZone) {
+      setState(() => _navDragMode = _NavDragMode.loopEnd);
+    } else {
+      setState(() {
+        _navDragMode = _NavDragMode.navigation;
+        _navDragStartX = details.globalPosition.dx;
+        _navDragStartY = details.globalPosition.dy;
+      });
     }
   }
 
-  void _handleDragUpdate(DragUpdateDetails details) {
-    if (_activeDrag == null || _sampleDuration <= 0) return;
+  void _handleNavBarPanUpdate(DragUpdateDetails details) {
+    if (_navDragMode == _NavDragMode.none || _sampleDuration <= 0) return;
 
-    final x = details.localPosition.dx +
-        (_horizontalScroll.hasClients ? _horizontalScroll.offset : 0);
-    final seconds = x / _pixelsPerSecond;
-
-    switch (_activeDrag!) {
-      case _DragTarget.loopStart:
-        _onLoopStartChanged(seconds);
-      case _DragTarget.loopEnd:
-        _onLoopEndChanged(seconds);
+    switch (_navDragMode) {
+      case _NavDragMode.loopStart:
+        _onLoopStartChanged(_secondsAtX(details.localPosition.dx));
+      case _NavDragMode.loopEnd:
+        _onLoopEndChanged(_secondsAtX(details.localPosition.dx));
+      case _NavDragMode.navigation:
+        _handleNavBarNavigationDrag(details);
+      case _NavDragMode.none:
+        break;
     }
   }
 
-  void _handleDragEnd() {
-    _activeDrag = null;
+  void _handleNavBarNavigationDrag(DragUpdateDetails details) {
+    if (_navDragStartX == null || _navDragStartY == null) return;
+
+    final deltaX = details.globalPosition.dx - _navDragStartX!;
+    final deltaY = details.globalPosition.dy - _navDragStartY!;
+
+    // Horizontal drag = scroll (opposite direction — drag right = scroll left)
+    if (deltaX.abs() > 2 && _horizontalScroll.hasClients) {
+      final newOffset = (_horizontalScroll.offset - deltaX).clamp(
+        0.0,
+        _horizontalScroll.position.maxScrollExtent,
+      );
+      _horizontalScroll.jumpTo(newOffset);
+      _navDragStartX = details.globalPosition.dx;
+    }
+
+    // Vertical drag = zoom (drag up = zoom in, drag down = zoom out)
+    if (deltaY.abs() > 2) {
+      final factor = 1.0 - (deltaY / 200.0);
+      _zoomByFactor(factor);
+      _navDragStartY = details.globalPosition.dy;
+    }
   }
 }
 
-enum _DragTarget { loopStart, loopEnd }
+enum _NavDragMode { none, loopStart, loopEnd, navigation }
