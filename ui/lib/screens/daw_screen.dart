@@ -28,6 +28,7 @@ import '../services/commands/command.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../services/commands/clip_commands.dart';
+import '../utils/clip_overlap_handler.dart';
 import '../services/library_preview_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
@@ -49,6 +50,7 @@ import '../services/midi_file_service.dart';
 import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
+import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
@@ -71,7 +73,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     undoRedoManager.addListener(_onUndoRedoChanged);
 
     // Listen for controller state changes
-    playbackController.addListener(_onControllerChanged);
+    // Note: playbackController is NOT included here — its frequent updates
+    // (play/pause/stop/seek) are handled via playheadNotifier inside TimelineView.
+    // Including it here would cause full DAW screen rebuilds on every transport change.
     recordingController.addListener(_onControllerChanged);
     trackController.addListener(_onControllerChanged);
     midiClipController.addListener(_onControllerChanged);
@@ -101,6 +105,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           final optIn = await CrashReportingDialog.show(context);
           userSettings.crashReportingEnabled = optIn;
           userSettings.crashReportingAsked = true;
+        }
+
+        // Show start screen modal on launch
+        if (mounted) {
+          _showStartScreen();
         }
       }
     });
@@ -160,7 +169,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     undoRedoManager.removeListener(_onUndoRedoChanged);
 
     // Remove controller listeners
-    playbackController.removeListener(_onControllerChanged);
     recordingController.removeListener(_onControllerChanged);
     trackController.removeListener(_onControllerChanged);
     midiClipController.removeListener(_onControllerChanged); // Was missing!
@@ -934,97 +942,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
   }
 
-  // Audio file drop handler - adds clip to existing audio track (with undo support)
-  Future<void> _onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    if (audioEngine == null) return;
-
-    // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
-    if (_isMidiTrack(trackId)) return;
-
-    try {
-      // 1. Copy sample to project folder if setting is enabled
-      final finalPath = await _prepareSamplePath(filePath);
-
-      // 2. Convert beats to seconds (audio clips use seconds)
-      final startTimeSeconds = startTimeBeats * 60.0 / tempo;
-
-      // 3. Extract filename for display
-      final fileName = finalPath.split('/').last.split('\\').last;
-
-      // 4. Use AddAudioClipCommand for undo support
-      final command = AddAudioClipCommand(
-        trackId: trackId,
-        filePath: finalPath,
-        startTime: startTimeSeconds,
-        clipName: fileName,
-        onClipAdded: (clipId, duration, peaks) {
-          // Add to timeline view's clip list
-          timelineKey.currentState?.addClip(ClipData(
-            clipId: clipId,
-            trackId: trackId,
-            filePath: finalPath,
-            startTime: startTimeSeconds,
-            duration: duration,
-            waveformPeaks: peaks,
-          ));
-          // Select the newly created clip (opens Audio Editor)
-          timelineKey.currentState?.selectAudioClip(clipId);
-        },
-        onClipRemoved: (clipId) {
-          // Remove from timeline view (undo)
-          timelineKey.currentState?.removeClip(clipId);
-        },
-      );
-
-      await undoRedoManager.execute(command);
-
-      // 5. Refresh track widgets
-      refreshTrackWidgets();
-    } catch (e) {
-      debugPrint('Failed to add audio file to track: $e');
-    }
-  }
-
-  /// Import a MIDI file onto an existing MIDI track
-  Future<void> _onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    if (audioEngine == null) return;
-    if (!_isMidiTrack(trackId)) return;
-
-    try {
-      final bytes = await File(filePath).readAsBytes();
-      final result = MidiFileService.decode(bytes);
-      if (result.notes.isEmpty) return;
-
-      // Find the max note end to determine clip duration
-      double maxEnd = 0;
-      for (final note in result.notes) {
-        final end = note.startTime + note.duration;
-        if (end > maxEnd) maxEnd = end;
-      }
-      final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
-
-      // Generate a unique clip ID
-      final clipId = DateTime.now().microsecondsSinceEpoch;
-      final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
-
-      final clipData = MidiClipData(
-        clipId: clipId,
-        trackId: trackId,
-        startTime: startTimeBeats,
-        duration: durationBeats,
-        notes: result.notes,
-        name: clipName,
-      );
-
-      midiPlaybackManager?.addRecordedClip(clipData);
-      midiPlaybackManager?.rescheduleClip(clipData, tempo);
-
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Failed to import MIDI file to track: $e');
-    }
-  }
-
   /// Import a MIDI file onto a new track (dropped on empty space)
   Future<void> _onMidiFileDroppedOnEmpty(String filePath, double startTimeBeats) async {
     if (audioEngine == null) return;
@@ -1311,7 +1228,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       case LibraryItemType.midiFile:
         if (item is MidiFileItem) {
           if (isMidi) {
-            _onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
+            onMidiFileDroppedOnTrack(selectedTrack, item.filePath, 0.0);
           } else {
             _onMidiFileDroppedOnEmpty(item.filePath, 0.0);
           }
@@ -2012,55 +1929,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
   }
 
-  void _onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
-    // Use undo/redo manager for arrangement operations
-    final command = DuplicateMidiClipCommand(
-      originalClip: sourceClip,
-      newStartTime: newStartTime,
-      onClipDuplicated: (newClip, sharedPatternId) {
-        // Update original clip's patternId if it was null (first duplication)
-        if (sourceClip.patternId == null) {
-          final updatedOriginal = sourceClip.copyWith(patternId: sharedPatternId);
-          midiPlaybackManager?.updateClipInPlace(updatedOriginal);
-        }
-
-        // Add new clip to manager and schedule for playback
-        midiPlaybackManager?.addRecordedClip(newClip);
-        midiClipController.updateClip(newClip, playheadPosition);
-        // Select the new clip
-        midiPlaybackManager?.selectClip(newClip.clipId, newClip);
-        if (mounted) setState(() {});
-      },
-      onClipRemoved: (clipId) {
-        // Find the clip to get track ID
-        final clip = midiPlaybackManager?.midiClips.firstWhere(
-          (c) => c.clipId == clipId,
-          orElse: () => sourceClip,
-        );
-        midiClipController.deleteClip(clipId, clip?.trackId ?? sourceClip.trackId);
-        if (mounted) setState(() {});
-      },
-    );
-    undoRedoManager.execute(command);
-  }
-
-  void _onAudioClipCopied(ClipData sourceClip, double newStartTime) {
-    final command = DuplicateAudioClipCommand(
-      originalClip: sourceClip,
-      newStartTime: newStartTime,
-      onClipDuplicated: (newClip) {
-        // Add to timeline view's clip list
-        timelineKey.currentState?.addClip(newClip);
-        if (mounted) setState(() {});
-      },
-      onClipRemoved: (clipId) {
-        // Remove from timeline view's clip list
-        timelineKey.currentState?.removeClip(clipId);
-        if (mounted) setState(() {});
-      },
-    );
-    undoRedoManager.execute(command);
-  }
 
   void _duplicateSelectedClip() {
     final clip = midiPlaybackManager?.currentEditingClip;
@@ -2068,7 +1936,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     // Place duplicate immediately after original
     final newStartTime = clip.startTime + clip.duration;
-    _onMidiClipCopied(clip, newStartTime);
+    onMidiClipCopied(clip, newStartTime);
   }
 
   void _splitSelectedClipAtPlayhead() {
@@ -2431,63 +2299,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     return projectsPath;
   }
 
-  void _newProject() {
-    // Show confirmation dialog if current project has unsaved changes
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Project'),
-        content: const Text('Create a new project? Any unsaved changes will be lost.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-
-              // Stop playback if active
-              if (isPlaying) {
-                _stopPlayback();
-              }
-
-              // Clear all tracks from the audio engine
-              audioEngine?.clearAllTracks();
-
-              // Reset project manager state
-              projectManager?.newProject();
-              midiPlaybackManager?.clear();
-              undoRedoManager.clear();
-
-              // Reset loop auto-follow for new project
-              uiLayout.resetLoopAutoFollow();
-
-              // Clear automation data
-              automationController.clear();
-
-              // Clear window title (back to just "Boojy Audio")
-              WindowTitleService.clearProjectName();
-
-              // Refresh track widgets to show empty state (clear clips too)
-              refreshTrackWidgets(clearClips: true);
-
-              setState(() {
-                loadedClipId = null;
-                waveformPeaks = [];
-                statusMessage = 'New project created';
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('New project created')),
-              );
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-  }
+  void _newProject() => newProject();
 
   Future<void> _openProject() async {
     try {
@@ -3376,6 +3188,24 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   // End Snapshot Methods
   // ========================================================================
 
+  Future<void> _showStartScreen() async {
+    final result = await StartScreenModal.show(context, userSettings);
+    if (!mounted || result == null) return;
+
+    switch (result.action) {
+      case StartScreenAction.newProject:
+        newProject();
+      case StartScreenAction.openProject:
+        openProject();
+      case StartScreenAction.openRecent:
+        if (result.projectPath != null) {
+          openRecentProject(result.projectPath!);
+        }
+      case StartScreenAction.dismissed:
+        break;
+    }
+  }
+
   void _closeProject() {
     // Show confirmation dialog if current project has unsaved changes
     showDialog(
@@ -3417,6 +3247,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Project closed')),
               );
+
+              // Show start screen after closing
+              _showStartScreen();
             },
             child: Text('Close', style: TextStyle(color: context.colors.error)),
           ),
@@ -3487,6 +3320,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         onExportMidi: _exportMidi,
         onProjectSettings: _openProjectSettings,
         onCloseProject: _closeProject,
+        onStartScreen: _showStartScreen,
         recentProjectsMenu: _buildRecentProjectsMenu(),
         // Edit menu state and callbacks
         undoRedoManager: undoRedoManager,
@@ -3709,14 +3543,12 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                       ),
 
                       // Center: Timeline area
-                      // PERFORMANCE: Use ValueListenableBuilder to only rebuild TimelineView
-                      // when playhead changes, not on every controller notification
+                      // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
+                      // so playhead updates at 60fps do NOT rebuild the entire timeline
                       Expanded(
-                        child: ValueListenableBuilder<double>(
-                          valueListenable: playbackController.playheadNotifier,
-                          builder: (context, playheadPos, _) => TimelineView(
+                        child: TimelineView(
                           key: timelineKey,
-                          playheadPosition: playheadPos,
+                          playheadNotifier: playbackController.playheadNotifier,
                           clipDuration: clipDuration,
                           waveformPeaks: waveformPeaks,
                           audioEngine: audioEngine,
@@ -3729,9 +3561,19 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           onMidiClipSelected: _onMidiClipSelected,
                           onAudioClipSelected: _onAudioClipSelected,
                           onMidiClipUpdated: _onMidiClipUpdated,
-                          onMidiClipCopied: _onMidiClipCopied,
-                          onAudioClipCopied: _onAudioClipCopied,
+                          onMidiClipCopied: onMidiClipCopied,
+                          onAudioClipCopied: onAudioClipCopied,
                           getRustClipId: (dartClipId) => midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
+                          onMidiOverlapResolved: (result) {
+                            ClipOverlapHandler.applyMidiResult(
+                              result: result,
+                              deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+                              updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+                              rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+                              addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+                              tempo: tempo,
+                            );
+                          },
                           onMidiClipDeleted: _deleteMidiClip,
                           onMidiClipsBatchDeleted: _deleteMidiClipsBatch,
                           onAudioClipsBatchDeleted: _deleteAudioClipsBatch,
@@ -3741,9 +3583,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
                           onMidiClipExported: _exportMidiClip,
                           onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
-                          onMidiFileDroppedOnTrack: _onMidiFileDroppedOnTrack,
+                          onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
                           onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
-                          onAudioFileDroppedOnTrack: _onAudioFileDroppedOnTrack,
+                          onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
                           onCreateTrackWithClip: _onCreateTrackWithClip,
                           onCreateClipOnTrack: _onCreateClipOnTrack,
                           clipHeights: clipHeights,
@@ -3804,7 +3646,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           },
                           onAutomationPreviewValue: onAutomationPreviewValue,
                           automationScrollController: timelineKey.currentState?.scrollController,
-                        ),
                         ),
                       ),
 

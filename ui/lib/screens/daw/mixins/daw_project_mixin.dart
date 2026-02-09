@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
@@ -29,6 +30,13 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
   /// Create a new project
   void newProject() {
+    // Skip confirmation if there's no active project with content
+    final hasActiveProject = projectManager?.currentPath != null || undoRedoManager.canUndo;
+    if (!hasActiveProject) {
+      _executeNewProject();
+      return;
+    }
+
     // Show confirmation dialog if current project has unsaved changes
     showDialog(
       context: context,
@@ -43,46 +51,50 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-
-              // Stop playback if active
-              if (isPlaying) {
-                stopPlayback();
-              }
-
-              // Clear all tracks from the audio engine
-              audioEngine?.clearAllTracks();
-
-              // Reset project manager state
-              projectManager?.newProject();
-              midiPlaybackManager?.clear();
-              undoRedoManager.clear();
-
-              // Reset loop auto-follow for new project
-              uiLayout.resetLoopAutoFollow();
-
-              // Clear automation data
-              automationController.clear();
-
-              // Clear window title (back to just "Boojy Audio")
-              WindowTitleService.clearProjectName();
-
-              // Refresh track widgets to show empty state (clear clips too)
-              refreshTrackWidgets(clearClips: true);
-
-              setState(() {
-                loadedClipId = null;
-                waveformPeaks = [];
-                statusMessage = 'New project created';
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('New project created')),
-              );
+              _executeNewProject();
             },
             child: const Text('Create'),
           ),
         ],
       ),
+    );
+  }
+
+  /// Execute the new project creation (shared by confirmed and unconfirmed paths)
+  void _executeNewProject() {
+    // Stop playback if active
+    if (isPlaying) {
+      stopPlayback();
+    }
+
+    // Clear all tracks from the audio engine
+    audioEngine?.clearAllTracks();
+
+    // Reset project manager state
+    projectManager?.newProject();
+    midiPlaybackManager?.clear();
+    undoRedoManager.clear();
+
+    // Reset loop auto-follow for new project
+    uiLayout.resetLoopAutoFollow();
+
+    // Clear automation data
+    automationController.clear();
+
+    // Clear window title (back to just "Boojy Audio")
+    WindowTitleService.clearProjectName();
+
+    // Refresh track widgets to show empty state (clear clips too)
+    refreshTrackWidgets(clearClips: true);
+
+    setState(() {
+      loadedClipId = null;
+      waveformPeaks = [];
+      statusMessage = 'New project created';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('New project created')),
     );
   }
 
@@ -309,9 +321,10 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
     final result = await projectManager!.saveProjectToPath(path, getCurrentUILayout());
 
-    // Add to recent projects on successful save
+    // Add to recent projects and generate thumbnail on successful save
     if (result.success) {
       userSettings.addRecentProject(path, projectManager!.currentName);
+      _generateThumbnail(path);
     }
 
     setState(() {
@@ -323,6 +336,115 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message)),
       );
+    }
+  }
+
+  /// Generate an arrangement thumbnail PNG for the start screen.
+  /// Renders tracks as colored rows with clip rectangles.
+  Future<void> _generateThumbnail(String projectPath) async {
+    try {
+      const thumbWidth = 300.0;
+      const thumbHeight = 100.0;
+
+      // Gather track info
+      final trackIds = audioEngine?.getAllTrackIds() ?? [];
+      if (trackIds.isEmpty) return;
+
+      final tracks = <({int id, String type})>[];
+      for (final id in trackIds) {
+        final info = audioEngine?.getTrackInfo(id) ?? '';
+        if (info.isEmpty) continue;
+        final parts = info.split(',');
+        if (parts.length < 3) continue;
+        final type = parts[2]; // "MIDI", "Audio", "Sampler", "Master"
+        if (type == 'Master') continue;
+        tracks.add((id: id, type: type));
+      }
+      if (tracks.isEmpty) return;
+
+      // Gather clips and find total duration
+      final audioClips = timelineKey.currentState?.clips.toList() ?? [];
+      final midiClips = midiPlaybackManager?.midiClips ?? [];
+      final beatsPerSecond = tempo / 60.0;
+
+      double maxEndSeconds = 0;
+      for (final clip in audioClips) {
+        final end = clip.startTime + clip.duration;
+        if (end > maxEndSeconds) maxEndSeconds = end;
+      }
+      for (final clip in midiClips) {
+        final end = (clip.startTime + clip.duration) / beatsPerSecond;
+        if (end > maxEndSeconds) maxEndSeconds = end;
+      }
+      if (maxEndSeconds <= 0) return;
+
+      // Track colors by type
+      const typeColors = {
+        'Audio': Color(0xFF3B82F6),   // Blue
+        'MIDI': Color(0xFF4CAF50),    // Green
+        'Sampler': Color(0xFF9C27B0), // Purple
+      };
+
+      final trackHeight = thumbHeight / tracks.length;
+      final pxPerSecond = thumbWidth / maxEndSeconds;
+
+      // Paint onto a recorder
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight));
+
+      // Dark background
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight),
+        Paint()..color = const Color(0xFF1A1A1A),
+      );
+
+      // Draw clips per track
+      for (int i = 0; i < tracks.length; i++) {
+        final track = tracks[i];
+        final y = i * trackHeight;
+        final color = typeColors[track.type] ?? const Color(0xFF666666);
+        final clipPaint = Paint()..color = color.withValues(alpha: 0.8);
+
+        // Audio clips for this track
+        for (final clip in audioClips) {
+          if (clip.trackId != track.id) continue;
+          final x = clip.startTime * pxPerSecond;
+          final w = clip.duration * pxPerSecond;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(x, y + 1, w.clamp(1.0, thumbWidth), trackHeight - 2),
+              const Radius.circular(1),
+            ),
+            clipPaint,
+          );
+        }
+
+        // MIDI clips for this track
+        for (final clip in midiClips) {
+          if (clip.trackId != track.id) continue;
+          final x = (clip.startTime / beatsPerSecond) * pxPerSecond;
+          final w = (clip.duration / beatsPerSecond) * pxPerSecond;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(x, y + 1, w.clamp(1.0, thumbWidth), trackHeight - 2),
+              const Radius.circular(1),
+            ),
+            clipPaint,
+          );
+        }
+      }
+
+      // Encode to PNG
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(thumbWidth.toInt(), thumbHeight.toInt());
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final file = File('$projectPath/thumbnail.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+    } catch (e) {
+      // Non-critical — don't fail the save
+      debugPrint('Thumbnail generation failed: $e');
     }
   }
 

@@ -398,8 +398,10 @@ pub fn duplicate_audio_clip(
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
-    // Find the source clip and get its Arc<AudioClip>
-    let (clip_arc, offset, duration) = {
+    // Find the source clip and capture all its properties
+    let (clip_arc, offset, duration, gain_db, warp_enabled, stretch_factor,
+         warp_mode, stretched_cache, cached_stretch_factor,
+         transpose_semitones, transpose_cents) = {
         let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
         let track_arc = track_manager
             .get_track(track_id)
@@ -415,7 +417,19 @@ pub fn duplicate_audio_clip(
             .ok_or(format!("Clip {source_clip_id} not found on track {track_id}"))?;
 
         // Clone the Arc (cheap - just increments reference count)
-        (source_clip.clip.clone(), source_clip.offset, source_clip.duration)
+        (
+            source_clip.clip.clone(),
+            source_clip.offset,
+            source_clip.duration,
+            source_clip.gain_db,
+            source_clip.warp_enabled,
+            source_clip.stretch_factor,
+            source_clip.warp_mode,
+            source_clip.stretched_cache.clone(),
+            source_clip.cached_stretch_factor,
+            source_clip.transpose_semitones,
+            source_clip.transpose_cents,
+        )
     };
 
     // Add a new timeline clip with the same audio data at new position
@@ -430,7 +444,7 @@ pub fn duplicate_audio_clip(
         clips_map.insert(new_clip_id, clip_arc);
     }
 
-    // Copy offset and duration settings to the new clip
+    // Copy all source clip settings to the new clip
     {
         let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
         if let Some(track_arc) = track_manager.get_track(track_id) {
@@ -438,6 +452,14 @@ pub fn duplicate_audio_clip(
             if let Some(new_clip) = track.audio_clips.iter_mut().find(|c| c.id == new_clip_id) {
                 new_clip.offset = offset;
                 new_clip.duration = duration;
+                new_clip.gain_db = gain_db;
+                new_clip.warp_enabled = warp_enabled;
+                new_clip.stretch_factor = stretch_factor;
+                new_clip.warp_mode = warp_mode;
+                new_clip.stretched_cache = stretched_cache;
+                new_clip.cached_stretch_factor = cached_stretch_factor;
+                new_clip.transpose_semitones = transpose_semitones;
+                new_clip.transpose_cents = transpose_cents;
             }
         }
     }

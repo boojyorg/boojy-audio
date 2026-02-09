@@ -30,6 +30,7 @@ class DawMenuConfig {
   final VoidCallback onExportMidi;
   final VoidCallback onProjectSettings;
   final VoidCallback onCloseProject;
+  final VoidCallback? onStartScreen;
   final List<PlatformMenuItem> recentProjectsMenu;
 
   // Edit menu callbacks and state
@@ -68,6 +69,7 @@ class DawMenuConfig {
     required this.onExportMidi,
     required this.onProjectSettings,
     required this.onCloseProject,
+    this.onStartScreen,
     required this.recentProjectsMenu,
     required this.undoRedoManager,
     required this.onDelete,
@@ -188,6 +190,11 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           shortcut: const SingleActivator(LogicalKeyboardKey.keyW, meta: true),
           onSelected: config.onCloseProject,
         ),
+        if (config.onStartScreen != null)
+          PlatformMenuItem(
+            label: 'Start Screen',
+            onSelected: config.onStartScreen,
+          ),
       ],
     ),
 

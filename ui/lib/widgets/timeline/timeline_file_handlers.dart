@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cross_file/cross_file.dart';
 import '../../models/clip_data.dart';
 import '../../services/midi_file_service.dart';
+import '../../utils/clip_overlap_handler.dart';
 import '../../theme/theme_extension.dart';
 import 'timeline_state.dart';
 import '../timeline_view.dart';
@@ -31,8 +32,11 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     }
 
     try {
-      // Load audio file
-      final clipId = widget.audioEngine!.loadAudioFile(filePath);
+      // Calculate drop position first (needed for loadAudioFileToTrack)
+      final startTime = calculateTimelinePosition(localPosition);
+
+      // Load audio file onto the correct track at the correct position
+      final clipId = widget.audioEngine!.loadAudioFileToTrack(filePath, trackId, startTime: startTime);
       if (clipId < 0) {
         return;
       }
@@ -43,9 +47,6 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
       final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = widget.audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
-      // Calculate drop position
-      final startTime = calculateTimelinePosition(localPosition);
-
       // Create clip
       final clip = ClipData(
         clipId: clipId,
@@ -55,6 +56,28 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
         duration: duration,
         waveformPeaks: peaks,
         color: context.colors.success,
+      );
+
+      // Resolve overlaps before adding the new clip
+      final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+        newStart: startTime,
+        newEnd: startTime + duration,
+        existingClips: List<ClipData>.from(clips),
+        trackId: trackId,
+      );
+      ClipOverlapHandler.applyAudioResult(
+        result: overlapResult,
+        engineRemoveClip: (tId, cId) => widget.audioEngine?.removeAudioClip(tId, cId),
+        engineSetStartTime: (tId, cId, s) => widget.audioEngine?.setClipStartTime(tId, cId, s),
+        engineSetOffset: (tId, cId, o) => widget.audioEngine?.setClipOffset(tId, cId, o),
+        engineSetDuration: (tId, cId, d) => widget.audioEngine?.setClipDuration(tId, cId, d),
+        engineDuplicateClip: (tId, cId, s) => widget.audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+        uiRemoveClip: (cId) => clips.removeWhere((c) => c.clipId == cId),
+        uiUpdateClip: (c) {
+          final idx = clips.indexWhere((cl) => cl.clipId == c.clipId);
+          if (idx >= 0) clips[idx] = c;
+        },
+        uiAddClip: (c) => clips.add(c),
       );
 
       setState(() {

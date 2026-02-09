@@ -373,6 +373,15 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
     return GridUtils.snapToGridRound(beats, snapResolution);
   }
 
+  /// Returns true if a clip at [clipLeftPx] with [clipWidthPx] overlaps the visible viewport.
+  /// Uses a 100px buffer to avoid pop-in at edges.
+  bool isClipVisible(double clipLeftPx, double clipWidthPx) {
+    if (!scrollController.hasClients) return true;
+    final viewLeft = scrollController.offset;
+    final viewRight = viewLeft + viewWidth;
+    return (clipLeftPx + clipWidthPx) >= viewLeft - 100 && clipLeftPx <= viewRight + 100;
+  }
+
   /// Calculate timeline position in seconds from X coordinate.
   double calculateTimelinePosition(Offset localPosition) {
     final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;

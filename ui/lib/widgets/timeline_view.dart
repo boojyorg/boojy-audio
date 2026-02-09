@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
@@ -6,6 +7,7 @@ import 'dart:async';
 import '../constants/ui_constants.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
+import '../utils/clip_overlap_handler.dart';
 import '../utils/grid_utils.dart';
 import '../utils/track_colors.dart';
 import '../models/clip_data.dart';
@@ -61,7 +63,7 @@ class TimelineTrackData {
 
 /// Timeline view widget for displaying audio clips and playhead
 class TimelineView extends StatefulWidget {
-  final double playheadPosition; // in seconds
+  final ValueListenable<double> playheadNotifier; // in seconds, listened locally
   final double? clipDuration; // in seconds (null if no clip loaded)
   final List<double> waveformPeaks; // waveform data
   final AudioEngine? audioEngine;
@@ -93,6 +95,9 @@ class TimelineView extends StatefulWidget {
   // VST3 instrument drag-and-drop
   final Function(int trackId, Vst3Plugin plugin)? onVst3InstrumentDropped;
   final Function(Vst3Plugin plugin)? onVst3InstrumentDroppedOnEmpty;
+
+  // MIDI overlap resolution (called when clip move/copy causes overlaps)
+  final Function(MidiOverlapResult result)? onMidiOverlapResolved;
 
   // MIDI clip export
   final Function(MidiClipData clip)? onMidiClipExported;
@@ -155,7 +160,7 @@ class TimelineView extends StatefulWidget {
 
   const TimelineView({
     super.key,
-    required this.playheadPosition,
+    required this.playheadNotifier,
     this.clipDuration,
     this.waveformPeaks = const [],
     this.audioEngine,
@@ -179,6 +184,7 @@ class TimelineView extends StatefulWidget {
     this.onInstrumentDroppedOnEmpty,
     this.onVst3InstrumentDropped,
     this.onVst3InstrumentDroppedOnEmpty,
+    this.onMidiOverlapResolved,
     this.onMidiClipExported,
     this.onMidiFileDroppedOnEmpty,
     this.onMidiFileDroppedOnTrack,
@@ -230,8 +236,24 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // Listen for hardware keyboard events (for instant modifier key updates)
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
 
+    // Listen to playhead for recording auto-scroll (without rebuilding entire timeline)
+    widget.playheadNotifier.addListener(_onPlayheadChanged);
+
+    // Throttled scroll listener for viewport culling (rebuild when scrolled 50+ px)
+    scrollController.addListener(_onScrollForCulling);
+
     // Initialize cursor based on initial tool mode
     currentCursor = _cursorForToolMode(widget.toolMode);
+  }
+
+  double _lastCullScrollOffset = 0.0;
+
+  void _onScrollForCulling() {
+    final delta = (scrollController.offset - _lastCullScrollOffset).abs();
+    if (delta > 50) {
+      _lastCullScrollOffset = scrollController.offset;
+      setState(() {});
+    }
   }
 
   /// Handle hardware keyboard events for instant modifier key cursor updates
@@ -271,10 +293,19 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         currentCursor = _cursorForToolMode(widget.toolMode);
       });
     }
-    // Auto-scroll to keep playhead visible during recording
+    // Swap playhead notifier listener if it changed
+    if (widget.playheadNotifier != oldWidget.playheadNotifier) {
+      oldWidget.playheadNotifier.removeListener(_onPlayheadChanged);
+      widget.playheadNotifier.addListener(_onPlayheadChanged);
+    }
+  }
+
+  /// Auto-scroll to keep playhead visible during recording.
+  /// Called by the playhead notifier (does NOT trigger timeline rebuild).
+  void _onPlayheadChanged() {
     if (widget.isRecording && scrollController.hasClients) {
       final beatsPerSecond = widget.tempo / 60.0;
-      final playheadPixelX = widget.playheadPosition * beatsPerSecond * pixelsPerBeat;
+      final playheadPixelX = widget.playheadNotifier.value * beatsPerSecond * pixelsPerBeat;
       final viewportRight = scrollController.offset + viewWidth;
       // Scroll when playhead passes 80% of the visible area
       if (playheadPixelX > viewportRight - viewWidth * 0.2) {
@@ -345,6 +376,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
   @override
   void dispose() {
+    widget.playheadNotifier.removeListener(_onPlayheadChanged);
+    scrollController.removeListener(_onScrollForCulling);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     scrollController.dispose();
     refreshTimer?.cancel();
@@ -782,6 +815,15 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     _clearSplitPreview();
   }
 
+  /// Compare two track lists by id, name, and type to avoid unnecessary rebuilds.
+  bool _tracksEqual(List<TimelineTrackData> a, List<TimelineTrackData> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || a[i].name != b[i].name || a[i].type != b[i].type) return false;
+    }
+    return true;
+  }
+
   /// Load tracks from audio engine
   /// Respects track order from TrackController for drag-and-drop reordering
   Future<void> _loadTracksAsync() async {
@@ -806,33 +848,36 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       }
 
       if (mounted) {
-        setState(() {
-          // Separate master track (always at end, not reorderable)
-          final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
-          final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toSet();
+        // Separate master track (always at end, not reorderable)
+        final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
+        final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toSet();
 
-          // Build ordered list respecting widget.trackOrder
-          final orderedTracks = <TimelineTrackData>[];
+        // Build ordered list respecting widget.trackOrder
+        final orderedTracks = <TimelineTrackData>[];
 
-          // First add tracks in the specified order
-          for (final id in widget.trackOrder) {
-            if (tracksMap.containsKey(id) && regularTrackIds.contains(id)) {
-              orderedTracks.add(tracksMap[id]!);
-            }
+        // First add tracks in the specified order
+        for (final id in widget.trackOrder) {
+          if (tracksMap.containsKey(id) && regularTrackIds.contains(id)) {
+            orderedTracks.add(tracksMap[id]!);
           }
+        }
 
-          // Add any tracks not in the order list (new tracks)
-          for (final id in regularTrackIds) {
-            if (!widget.trackOrder.contains(id)) {
-              orderedTracks.add(tracksMap[id]!);
-            }
+        // Add any tracks not in the order list (new tracks)
+        for (final id in regularTrackIds) {
+          if (!widget.trackOrder.contains(id)) {
+            orderedTracks.add(tracksMap[id]!);
           }
+        }
 
-          // Add master track at the end
-          orderedTracks.addAll(masterTrack);
+        // Add master track at the end
+        orderedTracks.addAll(masterTrack);
 
-          tracks = orderedTracks;
-        });
+        // Only rebuild if tracks actually changed
+        if (!_tracksEqual(tracks, orderedTracks)) {
+          setState(() {
+            tracks = orderedTracks;
+          });
+        }
       }
     } catch (e) {
       debugPrint('TimelineView: Error loading tracks: $e');
@@ -1031,26 +1076,29 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               pixelsPerBeat = (pixelsPerBeat / UIConstants.zoomStepFactor).clamp(minZoom, maxZoom);
             }),
             height: UIConstants.navBarHeight,
-            child: UnifiedNavBar(
-              config: UnifiedNavBarConfig(
-                pixelsPerBeat: pixelsPerBeat,
-                totalBeats: totalBeats.toDouble(),
-                loopEnabled: widget.loopPlaybackEnabled,
-                loopStart: widget.loopStartBeats,
-                loopEnd: widget.loopEndBeats,
-                playheadPosition: _calculatePlayheadBeat(),
-                punchInEnabled: widget.punchInEnabled,
-                punchOutEnabled: widget.punchOutEnabled,
+            child: ValueListenableBuilder<double>(
+              valueListenable: widget.playheadNotifier,
+              builder: (context, _, __) => UnifiedNavBar(
+                config: UnifiedNavBarConfig(
+                  pixelsPerBeat: pixelsPerBeat,
+                  totalBeats: totalBeats.toDouble(),
+                  loopEnabled: widget.loopPlaybackEnabled,
+                  loopStart: widget.loopStartBeats,
+                  loopEnd: widget.loopEndBeats,
+                  playheadPosition: _calculatePlayheadBeat(),
+                  punchInEnabled: widget.punchInEnabled,
+                  punchOutEnabled: widget.punchOutEnabled,
+                ),
+                callbacks: UnifiedNavBarCallbacks(
+                  onHorizontalScroll: _handleNavBarScroll,
+                  onZoom: _handleNavBarZoom,
+                  onPlayheadSet: _handleNavBarPlayheadSet,
+                  onPlayheadDrag: _handleNavBarPlayheadSet, // Same handler for drag
+                  onLoopRegionChanged: widget.onLoopRegionChanged,
+                ),
+                scrollController: navBarScrollController,
+                height: UIConstants.navBarHeight,
               ),
-              callbacks: UnifiedNavBarCallbacks(
-                onHorizontalScroll: _handleNavBarScroll,
-                onZoom: _handleNavBarZoom,
-                onPlayheadSet: _handleNavBarPlayheadSet,
-                onPlayheadDrag: _handleNavBarPlayheadSet, // Same handler for drag
-                onLoopRegionChanged: widget.onLoopRegionChanged,
-              ),
-              scrollController: navBarScrollController,
-              height: UIConstants.navBarHeight,
             ),
           ),
 
@@ -1075,7 +1123,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                           children: [
                             // Grid lines spanning entire area (scrollable + Master)
                             Positioned.fill(
-                              child: _buildGrid(totalWidth, duration, double.infinity),
+                              child: RepaintBoundary(
+                                child: _buildGrid(totalWidth, duration, double.infinity),
+                              ),
                             ),
 
                             // Content column: scrollable tracks + Master
@@ -1147,7 +1197,24 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                             ),
 
                             // Playhead line (vertical line spanning full height)
-                            _buildPlayheadLine(),
+                            // VLB isolates rebuild to just this Positioned child at 60fps
+                            ValueListenableBuilder<double>(
+                              valueListenable: widget.playheadNotifier,
+                              builder: (context, _, __) {
+                                final playheadX = widget.playheadNotifier.value * pixelsPerSecond;
+                                return Positioned(
+                                  left: playheadX - 1,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      width: 2,
+                                      color: const Color(0xFF3B82F6),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
 
                             // Box selection overlay
                             buildBoxSelectionOverlay(),
@@ -1215,14 +1282,16 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // Check if automation is visible for this track
           final showAutomation = widget.automationVisibleTrackId == track.id;
 
-          return _buildTrack(
-            width,
-            track,
-            trackColor,
-            currentAudioCount,
-            currentMidiCount,
-            showAutomation: showAutomation,
-            totalBeats: totalBeats,
+          return RepaintBoundary(
+            child: _buildTrack(
+              width,
+              track,
+              trackColor,
+              currentAudioCount,
+              currentMidiCount,
+              showAutomation: showAutomation,
+              totalBeats: totalBeats,
+            ),
           );
         }),
 
@@ -2114,9 +2183,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               painter: GridPatternPainter(),
             ),
 
-            // Render audio clips for this track (hide clips being erased)
+            // Render audio clips for this track (hide erased + cull off-screen)
             ...trackClips
                 .where((clip) => !erasedAudioClipIds.contains(clip.clipId))
+                .where((clip) => isClipVisible(clip.startTime * pixelsPerSecond, clip.duration * pixelsPerSecond))
                 .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
 
             // Ghost preview for audio clip copy drag (all selected clips)
@@ -2129,9 +2199,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .where((clip) => isCopyDrag && draggingMidiClipId != null && selectedAudioClipIds.contains(clip.clipId))
                 .expand((clip) => buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
-            // Render MIDI clips for this track (hide clips being erased)
+            // Render MIDI clips for this track (hide erased + cull off-screen)
             ...trackMidiClips
                 .where((midiClip) => !erasedMidiClipIds.contains(midiClip.clipId))
+                .where((midiClip) => isClipVisible(midiClip.startTime * pixelsPerBeat, midiClip.duration * pixelsPerBeat))
                 .map((midiClip) => _buildMidiClip(
                   midiClip,
                   trackColor,
@@ -2625,6 +2696,36 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
               // Only create command if position actually changed
               if ((newStartTime - selectedClip.startTime).abs() > 0.001) {
+                debugPrint('[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}');
+                // Update the moved clip's position first (before overlap resolution)
+                final index = clips.indexWhere((c) => c.clipId == selectedClip.clipId);
+                if (index >= 0) {
+                  clips[index] = clips[index].copyWith(startTime: newStartTime);
+                }
+
+                // Resolve overlaps at new position (exclude the moved clip itself)
+                final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+                  newStart: newStartTime,
+                  newEnd: newStartTime + selectedClip.duration,
+                  existingClips: List<ClipData>.from(clips),
+                  trackId: selectedClip.trackId,
+                  excludeClipId: selectedClip.clipId,
+                );
+                ClipOverlapHandler.applyAudioResult(
+                  result: overlapResult,
+                  engineRemoveClip: (tId, cId) => widget.audioEngine?.removeAudioClip(tId, cId),
+                  engineSetStartTime: (tId, cId, s) => widget.audioEngine?.setClipStartTime(tId, cId, s),
+                  engineSetOffset: (tId, cId, o) => widget.audioEngine?.setClipOffset(tId, cId, o),
+                  engineSetDuration: (tId, cId, d) => widget.audioEngine?.setClipDuration(tId, cId, d),
+                  engineDuplicateClip: (tId, cId, s) => widget.audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+                  uiRemoveClip: (cId) => clips.removeWhere((c) => c.clipId == cId),
+                  uiUpdateClip: (clip) {
+                    final idx = clips.indexWhere((c) => c.clipId == clip.clipId);
+                    if (idx >= 0) clips[idx] = clip;
+                  },
+                  uiAddClip: (clip) => clips.add(clip),
+                );
+
                 final command = MoveAudioClipCommand(
                   trackId: selectedClip.trackId,
                   clipId: selectedClip.clipId,
@@ -2634,14 +2735,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 );
                 await UndoRedoManager().execute(command);
               }
-
-              // Update local state
-              setState(() {
-                final index = clips.indexWhere((c) => c.clipId == selectedClip.clipId);
-                if (index >= 0) {
-                  clips[index] = clips[index].copyWith(startTime: newStartTime);
-                }
-              });
+            }
+            // Single setState to flush all audio clip move + overlap changes
+            if (selectedAudioClips.isNotEmpty) {
+              setState(() {});
             }
 
             // Move MIDI clips
@@ -2649,6 +2746,20 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             for (final midiClip in selectedMidiClips) {
               final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+
+              debugPrint('[OVERLAP] MIDI clip drag-end: clip ${midiClip.clipId} "${midiClip.name}" moved ${midiClip.startTime.toStringAsFixed(3)} → ${newStartBeats.toStringAsFixed(3)} beats on track ${midiClip.trackId}');
+              // Resolve MIDI overlaps at new position (exclude the moved clip)
+              final midiOverlap = ClipOverlapHandler.resolveMidiOverlaps(
+                newStart: newStartBeats,
+                newEnd: newStartBeats + midiClip.duration,
+                existingClips: List<MidiClipData>.from(widget.midiClips),
+                trackId: midiClip.trackId,
+                excludeClipId: midiClip.clipId,
+              );
+              if (midiOverlap.hasChanges) {
+                widget.onMidiOverlapResolved?.call(midiOverlap);
+              }
+
               final newStartTimeSeconds = newStartBeats / beatsPerSecond;
               final rustClipId = widget.getRustClipId?.call(midiClip.clipId) ?? midiClip.clipId;
               widget.audioEngine?.setClipStartTime(midiClip.trackId, rustClipId, newStartTimeSeconds);
@@ -3355,6 +3466,19 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             for (final clip in selectedMidiClips) {
               final newStartBeats = (clip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
+
+              // Resolve MIDI overlaps at new position (exclude the moved clip)
+              final midiOverlap = ClipOverlapHandler.resolveMidiOverlaps(
+                newStart: newStartBeats,
+                newEnd: newStartBeats + clip.duration,
+                existingClips: List<MidiClipData>.from(widget.midiClips),
+                trackId: clip.trackId,
+                excludeClipId: clip.clipId,
+              );
+              if (midiOverlap.hasChanges) {
+                widget.onMidiOverlapResolved?.call(midiOverlap);
+              }
+
               final newStartTimeSeconds = newStartBeats / beatsPerSecond;
               final rustClipId = widget.getRustClipId?.call(clip.clipId) ?? clip.clipId;
               widget.audioEngine?.setClipStartTime(clip.trackId, rustClipId, newStartTimeSeconds);
@@ -3377,6 +3501,29 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
               // Only create command if position actually changed
               if ((newStartTime - audioClip.startTime).abs() > 0.001) {
+                // Resolve overlaps at new position (exclude the moved clip itself)
+                final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+                  newStart: newStartTime,
+                  newEnd: newStartTime + audioClip.duration,
+                  existingClips: List<ClipData>.from(clips),
+                  trackId: audioClip.trackId,
+                  excludeClipId: audioClip.clipId,
+                );
+                ClipOverlapHandler.applyAudioResult(
+                  result: overlapResult,
+                  engineRemoveClip: (tId, cId) => widget.audioEngine?.removeAudioClip(tId, cId),
+                  engineSetStartTime: (tId, cId, s) => widget.audioEngine?.setClipStartTime(tId, cId, s),
+                  engineSetOffset: (tId, cId, o) => widget.audioEngine?.setClipOffset(tId, cId, o),
+                  engineSetDuration: (tId, cId, d) => widget.audioEngine?.setClipDuration(tId, cId, d),
+                  engineDuplicateClip: (tId, cId, s) => widget.audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+                  uiRemoveClip: (cId) => clips.removeWhere((c) => c.clipId == cId),
+                  uiUpdateClip: (clip) {
+                    final idx = clips.indexWhere((c) => c.clipId == clip.clipId);
+                    if (idx >= 0) clips[idx] = clip;
+                  },
+                  uiAddClip: (clip) => clips.add(clip),
+                );
+
                 final command = MoveAudioClipCommand(
                   trackId: audioClip.trackId,
                   clipId: audioClip.clipId,
@@ -3708,23 +3855,6 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     return positions;
   }
 
-  /// Build the playhead vertical line (spans full arrangement height)
-  Widget _buildPlayheadLine() {
-    final playheadX = widget.playheadPosition * pixelsPerSecond;
-    const playheadColor = Color(0xFF3B82F6);
-
-    return Positioned(
-      left: playheadX - 1, // Center the 2px line
-      top: 0,
-      bottom: 0,
-      child: IgnorePointer(
-        child: Container(
-          width: 2,
-          color: playheadColor,
-        ),
-      ),
-    );
-  }
 
   /// Check if a beat position is on an existing clip
   bool _isPositionOnClip(double beatPosition, int trackId, List<ClipData> audioClips, List<MidiClipData> midiClips) {
@@ -3784,7 +3914,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
   /// Calculate playhead position in beats.
   double _calculatePlayheadBeat() {
-    return widget.playheadPosition * widget.tempo / 60.0;
+    return widget.playheadNotifier.value * widget.tempo / 60.0;
   }
 
 }

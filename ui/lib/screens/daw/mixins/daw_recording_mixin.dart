@@ -7,7 +7,7 @@ import '../../../services/commands/clip_commands.dart';
 import '../../../services/commands/project_commands.dart';
 import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
-import '../../../widgets/timeline/gestures/midi_clip_gestures.dart';
+import '../../../utils/clip_overlap_handler.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 
@@ -184,15 +184,7 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   }
 
   /// Handle recording overlap: trim, split, or delete existing clips that
-  /// overlap with the new recording. "New recording always wins."
-  ///
-  /// Handles 4 scenarios:
-  /// 1. Complete cover: new covers existing entirely → delete existing
-  /// 2. Overlaps end: new starts inside existing → trim existing end
-  /// 3. Overlaps start: new ends inside existing → trim existing start
-  /// 4. Inside existing: new is inside existing → split existing into two
-  ///
-  /// Clips trimmed smaller than [minClipSize] are deleted instead.
+  /// overlap with the new recording. Uses shared [ClipOverlapHandler].
   void _handleRecordingOverlap({
     required int trackId,
     required double startTime,
@@ -201,244 +193,60 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   }) {
     final newStart = startTime;
     final newEnd = startTime + duration;
-    // Minimum clip size: 0.25 beats (MIDI) or equivalent seconds (audio)
-    const minClipSize = 0.25;
 
     if (isMidiClip) {
-      _handleMidiRecordingOverlap(trackId, newStart, newEnd, minClipSize);
+      _applyMidiOverlap(trackId, newStart, newEnd);
     } else {
-      _handleAudioRecordingOverlap(trackId, newStart, newEnd, minClipSize);
+      _applyAudioOverlap(trackId, newStart, newEnd);
     }
   }
 
-  void _handleMidiRecordingOverlap(
-    int trackId,
-    double newStart,
-    double newEnd,
-    double minClipSize,
-  ) {
+  void _applyMidiOverlap(int trackId, double newStart, double newEnd) {
     final clips = List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []);
-    final clipsToRemove = <int>[];
-    final clipsToUpdate = <MidiClipData>[];
-    final clipsToAdd = <MidiClipData>[];
-    final clipIdsToRemoveForSplit = <int>[];
-
-    for (final clip in clips) {
-      if (clip.trackId != trackId) continue;
-      final clipEnd = clip.startTime + clip.duration;
-
-      // No overlap — skip
-      if (newEnd <= clip.startTime || newStart >= clipEnd) continue;
-
-      // Case 1: Complete cover → delete
-      if (newStart <= clip.startTime && newEnd >= clipEnd) {
-        clipsToRemove.add(clip.clipId);
-        continue;
-      }
-
-      // Case 2: New overlaps end of existing → trim existing end
-      if (newStart > clip.startTime && newStart < clipEnd && newEnd >= clipEnd) {
-        final newDuration = newStart - clip.startTime;
-        if (newDuration < minClipSize) {
-          clipsToRemove.add(clip.clipId);
-        } else {
-          clipsToUpdate.add(clip.copyWith(duration: newDuration));
-        }
-        continue;
-      }
-
-      // Case 3: New overlaps start of existing → trim existing start
-      if (newEnd > clip.startTime && newEnd < clipEnd && newStart <= clip.startTime) {
-        final newDuration = clipEnd - newEnd;
-        if (newDuration < minClipSize) {
-          clipsToRemove.add(clip.clipId);
-        } else {
-          // Adjust notes for the trim offset
-          final trimOffset = newEnd - clip.startTime;
-          final adjustedNotes = MidiClipGestureUtils.adjustNotesForTrim(
-            notes: clip.notes,
-            trimOffset: trimOffset,
-          );
-          clipsToUpdate.add(clip.copyWith(
-            startTime: newEnd,
-            duration: newDuration,
-            notes: adjustedNotes,
-          ));
-        }
-        continue;
-      }
-
-      // Case 4: New is inside existing → split into Part A + Part B
-      if (newStart > clip.startTime && newEnd < clipEnd) {
-        final partADuration = newStart - clip.startTime;
-        final partBDuration = clipEnd - newEnd;
-        final splitOffset = newEnd - clip.startTime;
-
-        // Part A: original start to newStart
-        if (partADuration >= minClipSize) {
-          final partAId = generateUniqueClipId();
-          clipsToAdd.add(clip.copyWith(
-            clipId: partAId,
-            duration: partADuration,
-            name: '${clip.name} (L)',
-          ));
-        }
-
-        // Part B: newEnd to original end
-        if (partBDuration >= minClipSize) {
-          final partBId = generateUniqueClipId();
-          final adjustedNotes = MidiClipGestureUtils.adjustNotesForTrim(
-            notes: clip.notes,
-            trimOffset: splitOffset,
-          );
-          clipsToAdd.add(clip.copyWith(
-            clipId: partBId,
-            startTime: newEnd,
-            duration: partBDuration,
-            notes: adjustedNotes,
-            name: '${clip.name} (R)',
-          ));
-        }
-
-        // Mark original for removal
-        clipIdsToRemoveForSplit.add(clip.clipId);
-        continue;
-      }
-    }
-
-    // Execute: remove, update, then add (order matters)
-    for (final clipId in clipsToRemove) {
-      midiClipController.deleteClip(clipId, trackId);
-    }
-    for (final clipId in clipIdsToRemoveForSplit) {
-      midiClipController.deleteClip(clipId, trackId);
-    }
-    for (final updated in clipsToUpdate) {
-      midiPlaybackManager?.updateClipInPlace(updated);
-      // Sync to engine: reschedule notes and update start time
-      midiPlaybackManager?.rescheduleClip(updated, tempo);
-    }
-    for (final newClip in clipsToAdd) {
-      midiPlaybackManager?.addRecordedClip(newClip);
-      // Sync to engine: create Rust clip and schedule notes
-      midiPlaybackManager?.rescheduleClip(newClip, tempo);
-    }
+    final result = ClipOverlapHandler.resolveMidiOverlaps(
+      newStart: newStart,
+      newEnd: newEnd,
+      existingClips: clips,
+      trackId: trackId,
+    );
+    ClipOverlapHandler.applyMidiResult(
+      result: result,
+      deleteClip: (clipId, tId) => midiClipController.deleteClip(clipId, tId),
+      updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+      rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+      addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+      tempo: tempo,
+    );
   }
 
-  void _handleAudioRecordingOverlap(
-    int trackId,
-    double newStart,
-    double newEnd,
-    double minClipSize,
-  ) {
+  void _applyAudioOverlap(int trackId, double newStart, double newEnd) {
     final timelineState = timelineKey.currentState;
     if (timelineState == null) return;
 
     final clips = List<ClipData>.from(timelineState.clips);
-    final clipIdsToRemove = <int>[];
-    final clipsToUpdate = <ClipData>[];
-    final clipsToAdd = <ClipData>[];
-
-    for (final clip in clips) {
-      if (clip.trackId != trackId) continue;
-      final clipEnd = clip.startTime + clip.duration;
-
-      // No overlap — skip
-      if (newEnd <= clip.startTime || newStart >= clipEnd) continue;
-
-      // Case 1: Complete cover → delete
-      if (newStart <= clip.startTime && newEnd >= clipEnd) {
-        // Sync to engine
-        audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
-        clipIdsToRemove.add(clip.clipId);
-        continue;
-      }
-
-      // Case 2: New overlaps end of existing → trim existing end
-      if (newStart > clip.startTime && newStart < clipEnd && newEnd >= clipEnd) {
-        final newDuration = newStart - clip.startTime;
-        if (newDuration < minClipSize) {
-          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
-          clipIdsToRemove.add(clip.clipId);
-        } else {
-          // Sync to engine: update duration in-place
-          audioEngine?.setClipDuration(clip.trackId, clip.clipId, newDuration);
-          clipsToUpdate.add(clip.copyWith(duration: newDuration));
-        }
-        continue;
-      }
-
-      // Case 3: New overlaps start of existing → trim existing start
-      if (newEnd > clip.startTime && newEnd < clipEnd && newStart <= clip.startTime) {
-        final newDuration = clipEnd - newEnd;
-        if (newDuration < minClipSize) {
-          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
-          clipIdsToRemove.add(clip.clipId);
-        } else {
-          final trimDelta = newEnd - clip.startTime;
-          // Sync to engine: update start time, offset, and duration in-place
-          audioEngine?.setClipStartTime(clip.trackId, clip.clipId, newEnd);
-          audioEngine?.setClipOffset(clip.trackId, clip.clipId, clip.offset + trimDelta);
-          audioEngine?.setClipDuration(clip.trackId, clip.clipId, newDuration);
-          clipsToUpdate.add(clip.copyWith(
-            startTime: newEnd,
-            duration: newDuration,
-            offset: clip.offset + trimDelta,
-          ));
-        }
-        continue;
-      }
-
-      // Case 4: New is inside existing → split into Part A + Part B
-      if (newStart > clip.startTime && newEnd < clipEnd) {
-        final partADuration = newStart - clip.startTime;
-        final partBDuration = clipEnd - newEnd;
-        final trimDelta = newEnd - clip.startTime;
-
-        // Part B: duplicate BEFORE modifying original (duplicateAudioClip reads from track)
-        if (partBDuration >= minClipSize) {
-          final partBEngineId = audioEngine?.duplicateAudioClip(clip.trackId, clip.clipId, newEnd) ?? -1;
-          if (partBEngineId > 0) {
-            audioEngine?.setClipOffset(clip.trackId, partBEngineId, clip.offset + trimDelta);
-            audioEngine?.setClipDuration(clip.trackId, partBEngineId, partBDuration);
-            clipsToAdd.add(clip.copyWith(
-              clipId: partBEngineId,
-              startTime: newEnd,
-              duration: partBDuration,
-              offset: clip.offset + trimDelta,
-            ));
-          }
-        }
-
-        // Part A: shrink original in-place
-        if (partADuration >= minClipSize) {
-          audioEngine?.setClipDuration(clip.trackId, clip.clipId, partADuration);
-          clipsToUpdate.add(clip.copyWith(duration: partADuration));
-        } else {
-          audioEngine?.removeAudioClip(clip.trackId, clip.clipId);
-          clipIdsToRemove.add(clip.clipId);
-        }
-        continue;
-      }
-    }
-
-    // Execute UI updates: remove, update, then add (order matters)
-    for (final clipId in clipIdsToRemove) {
-      timelineState.removeClip(clipId);
-    }
-    for (final updated in clipsToUpdate) {
-      timelineState.updateClip(updated);
-    }
-    for (final newClip in clipsToAdd) {
-      timelineState.addClip(newClip);
-    }
+    final result = ClipOverlapHandler.resolveAudioOverlaps(
+      newStart: newStart,
+      newEnd: newEnd,
+      existingClips: clips,
+      trackId: trackId,
+    );
+    ClipOverlapHandler.applyAudioResult(
+      result: result,
+      engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
+      engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
+      engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
+      engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
+      engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+      uiRemoveClip: (cId) => timelineState.removeClip(cId),
+      uiUpdateClip: (clip) => timelineState.updateClip(clip),
+      uiAddClip: (clip) => timelineState.addClip(clip),
+    );
   }
 
   /// Generate a unique clip ID for split clips
   static int generateUniqueClipId() {
-    return DateTime.now().microsecondsSinceEpoch + (++_clipIdCounter);
+    return ClipOverlapHandler.generateUniqueClipId();
   }
-  static int _clipIdCounter = 0;
 
   /// Handle recording completion - process audio and MIDI clips
   void handleRecordingComplete(RecordingResult result, {List<MidiNoteData> capturedNotes = const []}) {

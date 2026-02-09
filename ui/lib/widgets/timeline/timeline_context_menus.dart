@@ -378,7 +378,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   void splitMidiClipAtPlayhead(MidiClipData clip) {
     // Convert playhead from seconds to beats
     final beatsPerSecond = widget.tempo / 60.0;
-    final playheadBeats = widget.playheadPosition * beatsPerSecond;
+    final playheadBeats = widget.playheadNotifier.value * beatsPerSecond;
 
     // Check if playhead is within clip bounds
     if (playheadBeats <= clip.startTime || playheadBeats >= clip.endTime) {
@@ -460,7 +460,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
 
     // Paste at playhead position (convert from seconds to beats)
     final beatsPerSecond = widget.tempo / 60.0;
-    final pastePosition = widget.playheadPosition * beatsPerSecond;
+    final pastePosition = widget.playheadNotifier.value * beatsPerSecond;
     widget.onMidiClipCopied?.call(clipboardMidiClip!, pastePosition);
   }
 

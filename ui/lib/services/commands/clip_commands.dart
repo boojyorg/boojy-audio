@@ -431,6 +431,7 @@ class AddAudioClipCommand extends Command {
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     if (_createdClipId != null && _createdClipId! >= 0) {
+      engine.removeAudioClip(trackId, _createdClipId!);
       onClipRemoved?.call(_createdClipId!);
     }
   }
@@ -524,9 +525,11 @@ class DuplicateAudioClipCommand extends Command {
     }
 
     // Deep copy automation so duplicated clip has independent automation
+    // Preserve editData (warp, gain, transpose settings)
     final newClip = originalClip.copyWith(
       clipId: _duplicatedClipId,
       startTime: newStartTime,
+      editData: originalClip.editData,
       automation: originalClip.automation.deepCopy(),
     );
     onClipDuplicated?.call(newClip);
@@ -576,19 +579,27 @@ class ResizeAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    // Update engine position if startTime changed (left edge trim)
+    // Sync all changed properties to the engine
     if (newStartTime != null) {
       engine.setClipStartTime(trackId, clipId, newStartTime!);
     }
+    if (newOffset != null) {
+      engine.setClipOffset(trackId, clipId, newOffset!);
+    }
+    engine.setClipDuration(trackId, clipId, newDuration);
     onClipResized?.call(clipId, newDuration, newOffset, newStartTime);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    // Restore engine position if startTime changed
+    // Restore all properties to the engine
     if (oldStartTime != null) {
       engine.setClipStartTime(trackId, clipId, oldStartTime!);
     }
+    if (oldOffset != null) {
+      engine.setClipOffset(trackId, clipId, oldOffset!);
+    }
+    engine.setClipDuration(trackId, clipId, oldDuration);
     onClipResized?.call(clipId, oldDuration, oldOffset, oldStartTime);
   }
 

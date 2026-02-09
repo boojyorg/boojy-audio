@@ -26,7 +26,7 @@
 | 6 | Scale/key snapping in piano roll | Small | 3-4 | ✅ Done |
 | 7 | Windows build testing | Medium | 4-6 | 🟡 Build exists, needs testing |
 | 8 | Recording workflow (count-in, restart, etc.) | Medium | — | ✅ Done |
-| 9 | Start screen (new, open recent) | Medium | 4-6 | 🔴 Not started |
+| 9 | Start screen (new, open recent) | Medium | 4-6 | 🟡 Implemented, needs polishing |
 | 10 | Tooltips on all buttons | Small | 3-4 | 🔴 Not started |
 | | **Total** | | **44-59** | |
 

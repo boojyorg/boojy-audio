@@ -4,6 +4,7 @@ import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
 import '../../../services/commands/command.dart';
 import '../../../services/commands/clip_commands.dart';
+import '../../../utils/clip_overlap_handler.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../widgets/capture_midi_dialog.dart';
 import '../../daw_screen.dart';
@@ -45,6 +46,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle MIDI clip copy (Alt+drag)
   void onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
+    debugPrint('[OVERLAP] onMidiClipCopied: clip ${sourceClip.clipId} "${sourceClip.name}" → newStart=${newStartTime.toStringAsFixed(3)} beats, track ${sourceClip.trackId}');
     // Use undo/redo manager for arrangement operations
     final command = DuplicateMidiClipCommand(
       originalClip: sourceClip,
@@ -55,6 +57,24 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
           final updatedOriginal = sourceClip.copyWith(patternId: sharedPatternId);
           midiPlaybackManager?.updateClipInPlace(updatedOriginal);
         }
+
+        // Resolve overlaps at the copy's position
+        // Note: source clip is NOT excluded — if the copy overlaps the source,
+        // the source should be trimmed (standard DAW behavior).
+        final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
+          newStart: newStartTime,
+          newEnd: newStartTime + sourceClip.duration,
+          existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+          trackId: sourceClip.trackId,
+        );
+        ClipOverlapHandler.applyMidiResult(
+          result: overlapResult,
+          deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+          updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+          rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+          addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+          tempo: tempo,
+        );
 
         // Add new clip to manager and schedule for playback
         midiPlaybackManager?.addRecordedClip(newClip);
@@ -78,11 +98,32 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle audio clip copy (Alt+drag)
   void onAudioClipCopied(ClipData sourceClip, double newStartTime) {
+    debugPrint('[OVERLAP] onAudioClipCopied: clip ${sourceClip.clipId} → newStart=${newStartTime.toStringAsFixed(3)}s, track ${sourceClip.trackId}');
     final command = DuplicateAudioClipCommand(
       originalClip: sourceClip,
       newStartTime: newStartTime,
       onClipDuplicated: (newClip) {
-        // Add to timeline view's clip list
+        // Resolve overlaps at the copy's position
+        // Note: source clip is NOT excluded — if the copy overlaps the source,
+        // the source should be trimmed (standard DAW behavior).
+        final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
+          newStart: newStartTime,
+          newEnd: newStartTime + sourceClip.duration,
+          existingClips: List<ClipData>.from(timelineKey.currentState?.clips ?? []),
+          trackId: sourceClip.trackId,
+        );
+        ClipOverlapHandler.applyAudioResult(
+          result: overlapResult,
+          engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
+          engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
+          engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
+          engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
+          engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+          uiRemoveClip: (cId) => timelineKey.currentState?.removeClip(cId),
+          uiUpdateClip: (clip) => timelineKey.currentState?.updateClip(clip),
+          uiAddClip: (clip) => timelineKey.currentState?.addClip(clip),
+        );
+        // Add the copy to timeline
         timelineKey.currentState?.addClip(newClip);
         if (mounted) setState(() {});
       },
@@ -460,6 +501,21 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     final command = CreateMidiClipCommand(
       clipData: clip,
       onClipCreated: (newClip) {
+        // Resolve overlaps at the new clip's position
+        final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
+          newStart: startBeats,
+          newEnd: startBeats + durationBeats,
+          existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+          trackId: trackId,
+        );
+        ClipOverlapHandler.applyMidiResult(
+          result: overlapResult,
+          deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+          updateClipInPlace: (c) => midiPlaybackManager?.updateClipInPlace(c),
+          rescheduleClip: (c, t) => midiPlaybackManager?.rescheduleClip(c, t),
+          addClip: (c) => midiPlaybackManager?.addRecordedClip(c),
+          tempo: tempo,
+        );
         midiPlaybackManager?.addRecordedClip(newClip);
         midiPlaybackManager?.selectClip(newClip.clipId, newClip);
         if (mounted) setState(() {});

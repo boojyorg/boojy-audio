@@ -6,6 +6,7 @@ import '../../../models/midi_note_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/commands/clip_commands.dart';
+import '../../../utils/clip_overlap_handler.dart';
 import '../../../services/midi_file_service.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
@@ -345,6 +346,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
   /// Handle audio file dropped on existing track (with undo support)
   Future<void> onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
+    debugPrint('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
@@ -367,7 +369,25 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
         startTime: startTimeSeconds,
         clipName: fileName,
         onClipAdded: (clipId, duration, peaks) {
-          // Add to timeline view's clip list
+          // Resolve overlaps before adding the new clip
+          final result = ClipOverlapHandler.resolveAudioOverlaps(
+            newStart: startTimeSeconds,
+            newEnd: startTimeSeconds + duration,
+            existingClips: List<ClipData>.from(timelineKey.currentState?.clips ?? []),
+            trackId: trackId,
+          );
+          ClipOverlapHandler.applyAudioResult(
+            result: result,
+            engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
+            engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
+            engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
+            engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
+            engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+            uiRemoveClip: (cId) => timelineKey.currentState?.removeClip(cId),
+            uiUpdateClip: (clip) => timelineKey.currentState?.updateClip(clip),
+            uiAddClip: (clip) => timelineKey.currentState?.addClip(clip),
+          );
+          // Add the new clip to timeline
           timelineKey.currentState?.addClip(ClipData(
             clipId: clipId,
             trackId: trackId,
@@ -464,6 +484,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
   /// Handle MIDI file dropped on existing track
   Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
+    debugPrint('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
     if (!isMidiTrack(trackId)) return;
 
@@ -498,6 +519,22 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       duration: durationBeats,
       notes: result.notes,
       name: clipName,
+    );
+
+    // Resolve overlaps before adding the new clip
+    final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
+      newStart: startTimeBeats,
+      newEnd: startTimeBeats + durationBeats,
+      existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+      trackId: trackId,
+    );
+    ClipOverlapHandler.applyMidiResult(
+      result: overlapResult,
+      deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+      updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+      rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+      addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+      tempo: tempo,
     );
 
     midiPlaybackManager?.addRecordedClip(clipData);

@@ -4,13 +4,28 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **Timeline performance optimization**: Decouple playhead from full timeline rebuild (60fps → only playhead line repaints), add viewport culling for off-screen clips, skip unnecessary 2-second timer rebuilds when tracks haven't changed, add RepaintBoundary isolation for grid/tracks/playhead, remove playbackController from generic DAW screen listener
+- **Start screen visual refresh**: Use original-color logo images instead of monochrome text, move "Recent Projects" header outside grid box, style "Check for updates" as a button, increase bottom bar text size, reduce bottom gap so grid aligns flush with footer
+
 ### Bug Fixes
 
+- **Fix clip resize not affecting audio playback**: `ResizeAudioClipCommand` only updated clip start time in the engine but never called `setClipDuration()` or `setClipOffset()` — trimmed clips visually shortened but kept playing the full original audio. Now syncs duration and offset to the engine on both execute and undo.
+- **Fix playhead not following during playback**: `Positioned` widget inside `RepaintBoundary` broke parent data chain to `Stack` — playhead line stayed at x=0. Restructured so `Positioned` is the direct VLB child.
+- **Fix file drop not registering on correct track**: `handleFileDrop` used legacy `loadAudioFile` which added clips to the first available track in the engine, not the drop target. Replaced with `loadAudioFileToTrack` so clips are placed on the correct track at the correct position, fixing overlap resolution.
+- **Fix duplicated audio clips losing warp/stretch settings**: `duplicate_audio_clip()` in Rust only copied offset and duration — warp, gain, transpose, and stretched cache were lost. Dart side also didn't preserve `editData` in the `copyWith()` call. Both layers now copy all clip properties.
+- **Fix clip overlap prevention not working**: Overlap handling existed in mixin methods but was never called — `daw_screen.dart` had duplicate private methods without overlap logic that shadowed the mixin versions. Rewired all 4 TimelineView callbacks (`onAudioFileDroppedOnTrack`, `onMidiFileDroppedOnTrack`, `onMidiClipCopied`, `onAudioClipCopied`) to use the mixin methods with proper overlap resolution. Also fixed drag-move handler where a separate `setState` overwrote overlap-resolved clip positions.
+- **Fix clip overlap during Alt+drag duplication**: Overlap resolution now correctly trims existing clips (including the source) when placing a duplicated clip — standard DAW behavior where the new copy always wins.
+- **Fix undo leaving ghost audio**: `AddAudioClipCommand.undo()` only removed clip from UI but not from engine — undone clips kept playing invisibly. Now calls `engine.removeAudioClip()` before UI removal.
+- **Fix unnecessary "New Project" confirmation**: No longer shows the "Any unsaved changes will be lost" dialog when there is no active project (e.g., clicking New Project from the start screen on fresh launch)
 - **Fix sampler stereo bug**: Sampler was outputting mono to both channels. All 4 call sites in `audio_graph.rs` now use `process_sample_stereo()` for proper L/R separation.
 - **Fix sampler waveform rendering**: Waveform only showed top half and appeared offset. Root cause: `get_waveform_peaks()` returned single positive values (`.abs()`) instead of min/max pairs. Now returns `[min, max, ...]` matching Audio Editor format.
 
 ### Features
 
+- **Clip overlap prevention**: Clips on the same track can no longer overlap — "new clip always wins." When placing, copying, moving, or recording a clip over existing clips, overlapped clips are automatically trimmed, split, or deleted. Handles 4 overlap scenarios: complete cover (delete), end overlap (trim end), start overlap (trim start), and inside (split into two). Extracted shared `ClipOverlapHandler` utility from recording mixin and applied to all clip placement points (file drop, MIDI import, copy/duplicate, move, drag-to-create).
+- **Start screen modal**: Modal overlay on app launch showing recent projects as a responsive card grid with arrangement thumbnails. Two-column layout with branding, New Project/Open/Settings buttons on left and scrollable project cards on right. Cards show arrangement thumbnail preview, project name, and relative time. Hover reveals path metadata. Right-click context menu (Open, Show in Finder, Remove from Recent). Drag-and-drop .audio folders to open. Bottom bar with version and Sparkle update checker. Accessible via File > Start Screen menu. Thumbnail PNG auto-generated on every project save.
 - **Sampler**: Added volume, pitch transpose, fine cents, reverse, warp mode, BPM, and time signature parameters to engine with full FFI support and serialization
 - **Punch In/Out recording**: Re-record specific sections without affecting the rest. Reuses the loop bar for punch boundaries with 4 modes — free recording, loop, loop+punch, and single-pass punch. Transport bar gains →| (Punch In) and |→ (Punch Out) toggle buttons flanking the Loop button. Bar color changes to red when punch is active. Keyboard shortcuts: I (toggle punch in), O (toggle punch out). Engine auto-stops recording at punch-out boundary while playback continues.
 - **Scale/key snapping**: Add Lock toggle to piano roll controls bar — when active, note creation and movement snap to the selected scale. Works with all 11 scale types (Major, Minor, Dorian, Pentatonic, Blues, etc.) and 12 root notes. Combines with existing Highlight (dims out-of-scale rows) and Fold (hides non-scale keys) features.
