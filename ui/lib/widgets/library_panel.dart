@@ -114,17 +114,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isCollapsed) {
-      return _buildCollapsedPanel();
-    }
-
     final colors = context.colors;
 
     return Container(
           decoration: BoxDecoration(
-            color: colors.standard,
+            color: colors.dark,
             border: Border(
-              right: BorderSide(color: colors.elevated),
+              right: BorderSide(color: colors.divider),
             ),
           ),
           child: Column(
@@ -152,29 +148,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
             ],
           ),
         );
-  }
-
-  Widget _buildCollapsedPanel() {
-    final colors = context.colors;
-    return Container(
-      width: 40,
-      decoration: BoxDecoration(
-        color: colors.standard,
-        border: Border(
-          right: BorderSide(color: colors.elevated),
-        ),
-      ),
-      child: Column(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.library_music),
-            color: colors.textSecondary,
-            onPressed: widget.onToggle,
-            tooltip: 'Show Library (B)',
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCombinedHeader() {

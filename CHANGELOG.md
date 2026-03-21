@@ -4,6 +4,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- **UI redesign — Boojy Design System alignment**: Migrated entire colour palette from neutral greys to blue-tinted Boojy Design System colours (matching Boojy Notes). New deep blue-black editor background (#040412) for timeline and piano roll content areas. Chrome (sidebar, top bar, mixer) uses #2C2C32. All painters (grid, nav bar, rulers, automation) updated to design system colours.
+- **Top bar redesign**: Restructured transport bar from single row to 3-group layout (Left: logo/project/undo/redo/sidebar toggle | Centre: transport controls | Right: mixer toggle/status/help). Reduced height from 60px to 48px. Text-based "Audi●" logo with accent-coloured circle replaces image logo. SVG icons for undo/redo and panel toggles via flutter_svg. Engine status dot in top bar replaces bottom status bar.
+- **Star field background**: Animated star field renders behind the timeline content area, matching the Boojy visual identity from Notes. ~70 stars with gentle glow/fade pulsing at individual speeds. Uses CustomPainter with RepaintBoundary for performance isolation.
+- **Floating UI restyled**: Global popup menu theme updated with design system colours (#292B36 bg, #3A3D4A border, 8px radius, shadow). Tooltips restyled with dark bg and 200ms delay. Settings modal redesigned with accent-coloured section header lines (uppercase + accent line extending right), "Audi●" logo + version in sidebar bottom, and dark overlay with 12px border radius.
+
 ### Improvements
 
 - **Timeline performance optimization**: Decouple playhead from full timeline rebuild (60fps → only playhead line repaints), add viewport culling for off-screen clips, skip unnecessary 2-second timer rebuilds when tracks haven't changed, add RepaintBoundary isolation for grid/tracks/playhead, remove playbackController from generic DAW screen listener

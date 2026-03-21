@@ -199,16 +199,16 @@ class TrackAutomationPainter extends CustomPainter {
       double strokeWidth;
 
       if (isBar) {
-        lineColor = const Color(0xFF505050);
+        lineColor = const Color(0xFF4A4D5A); // BG.hover
         strokeWidth = 2.0;
       } else if (isBeat) {
-        lineColor = const Color(0xFF404040);
+        lineColor = const Color(0xFF3A3D4A); // BG.divider
         strokeWidth = 1.0;
       } else if (isHalfBeat) {
-        lineColor = const Color(0xFF363636);
+        lineColor = const Color(0xFF353845); // BG.surface
         strokeWidth = 0.5;
       } else {
-        lineColor = const Color(0xFF303030);
+        lineColor = const Color(0xFF292B36); // BG.elevated
         strokeWidth = 0.5;
       }
 

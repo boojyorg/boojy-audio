@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
@@ -26,6 +27,7 @@ class AppSettingsDialog extends StatefulWidget {
   static Future<void> show(BuildContext context, UserSettings settings, {AudioEngine? audioEngine}) {
     return showDialog(
       context: context,
+      barrierColor: const Color(0xF0141623),
       builder: (context) => AppSettingsDialog(settings: settings, audioEngine: audioEngine),
     );
   }
@@ -120,11 +122,47 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       width: 160,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: sections.map((section) {
-          final (id, label, icon) = section;
-          final isSelected = _selectedSection == id;
-          return _buildSidebarItem(id, label, icon, isSelected);
-        }).toList(),
+        children: [
+          ...sections.map((section) {
+            final (id, label, icon) = section;
+            final isSelected = _selectedSection == id;
+            return _buildSidebarItem(id, label, icon, isSelected);
+          }),
+          const Spacer(),
+          // Logo + version at bottom
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/images/boojy_audio_audi.svg',
+                  height: 16,
+                  colorFilter: ColorFilter.mode(
+                    context.colors.textMuted,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 1),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: context.colors.accent.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'v$_appVersion',
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -191,9 +229,15 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: context.colors.darkest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: context.colors.divider),
+      ),
+      elevation: 16,
+      shadowColor: Colors.black.withValues(alpha: 0.4),
       child: Container(
-        width: 850,
-        height: 650,
+        width: 680,
+        height: 550,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,22 +322,23 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
         Text(
-          title,
+          title.toUpperCase(),
           style: TextStyle(
-            color: context.colors.accent,
-            fontSize: 12,
+            color: context.colors.textSecondary,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
+            letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          height: 1,
-          color: context.colors.elevated,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: context.colors.accent.withValues(alpha: 0.4),
+          ),
         ),
       ],
     );

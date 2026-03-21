@@ -10,7 +10,7 @@ class AnimationConstants {
   // ============================================
 
   /// Standard hover transition duration (background color changes)
-  static const Duration hoverDuration = Duration(milliseconds: 100);
+  static const Duration hoverDuration = Duration(milliseconds: 150);
 
   /// Standard press transition duration (scale changes)
   static const Duration pressDuration = Duration(milliseconds: 150);
@@ -20,6 +20,9 @@ class AnimationConstants {
 
   /// Slower transition for larger animations
   static const Duration slowDuration = Duration(milliseconds: 200);
+
+  /// Panel show/hide transition duration
+  static const Duration panelDuration = Duration(milliseconds: 200);
 
   // ============================================
   // SCALE VALUES

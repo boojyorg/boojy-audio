@@ -884,10 +884,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     if (clipData == null && widget.selectedTrackId != null) {
       // If we're awaiting clip data (just switched tabs), show minimal empty state
       if (_switchedToPianoRollAwaitingData) {
-        return ColoredBox(color: context.colors.dark, child: const SizedBox());
+        return ColoredBox(color: context.colors.editor, child: const SizedBox());
       }
       return ColoredBox(
-        color: context.colors.dark,
+        color: context.colors.editor,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

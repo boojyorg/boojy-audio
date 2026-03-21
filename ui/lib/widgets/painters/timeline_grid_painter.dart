@@ -7,6 +7,10 @@ class TimelineGridPainter extends CustomPainter {
   final double loopStart;
   final double loopEnd;
   final int beatsPerBar;
+  final Color barLineColor;
+  final Color beatLineColor;
+  final Color subBeatLineColor;
+  final Color minorGridColor;
 
   TimelineGridPainter({
     required this.pixelsPerBeat,
@@ -14,6 +18,10 @@ class TimelineGridPainter extends CustomPainter {
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
     this.beatsPerBar = 4,
+    this.barLineColor = const Color(0xFF4A4D5A),
+    this.beatLineColor = const Color(0xFF3A3D4A),
+    this.subBeatLineColor = const Color(0xFF353845),
+    this.minorGridColor = const Color(0xFF292B36),
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
@@ -47,19 +55,19 @@ class TimelineGridPainter extends CustomPainter {
 
       if (isBar) {
         // Bar lines - thickest and brightest
-        paint.color = const Color(0xFF505050);
+        paint.color = barLineColor;
         paint.strokeWidth = 2.0;
       } else if (isBeat) {
         // Beat lines - medium
-        paint.color = const Color(0xFF404040);
+        paint.color = beatLineColor;
         paint.strokeWidth = 1.0;
       } else if (isHalfBeat) {
         // Half beat lines - thin
-        paint.color = const Color(0xFF363636);
+        paint.color = subBeatLineColor;
         paint.strokeWidth = 0.5;
       } else {
         // Subdivision lines - thinnest
-        paint.color = const Color(0xFF303030);
+        paint.color = minorGridColor;
         paint.strokeWidth = 0.5;
       }
 
@@ -101,6 +109,10 @@ class TimelineGridPainter extends CustomPainter {
         oldDelegate.loopEnabled != loopEnabled ||
         oldDelegate.loopStart != loopStart ||
         oldDelegate.loopEnd != loopEnd ||
-        oldDelegate.beatsPerBar != beatsPerBar;
+        oldDelegate.beatsPerBar != beatsPerBar ||
+        oldDelegate.barLineColor != barLineColor ||
+        oldDelegate.beatLineColor != beatLineColor ||
+        oldDelegate.subBeatLineColor != subBeatLineColor ||
+        oldDelegate.minorGridColor != minorGridColor;
   }
 }

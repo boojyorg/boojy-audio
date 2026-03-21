@@ -53,7 +53,7 @@ class UnifiedNavBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Draw dark background
-    final darkBgPaint = Paint()..color = const Color(0xFF1A1A1A);
+    final darkBgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
     // 2. Always draw the loop/punch region (grey when inactive)
@@ -109,9 +109,9 @@ class UnifiedNavBarPainter extends CustomPainter {
       hoverColor = const Color(0xFFFFB74D);
     } else {
       // Mode 1: All off — grey bar with darker grey edge
-      fillColor = const Color(0xFF333333);
-      borderColor = const Color(0xFF555555);
-      hoverColor = const Color(0xFF888888);
+      fillColor = const Color(0xFF292B36); // BG.elevated
+      borderColor = const Color(0xFF3A3D4A); // BG.divider
+      hoverColor = const Color(0xFF4A4D5A); // BG.hover
     }
 
     // Fill
@@ -176,7 +176,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       if (isBar) {
         // Bar line - taller tick
         final tickPaint = Paint()
-          ..color = const Color(0xFF707070)
+          ..color = const Color(0xFF646880) // TEXT.muted
           ..strokeWidth = 1.5;
         canvas.drawLine(
           Offset(x, size.height - 6),
@@ -203,7 +203,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       } else if (isBeat) {
         // Beat tick - medium height
         final tickPaint = Paint()
-          ..color = const Color(0xFF505050)
+          ..color = const Color(0xFF4A4D5A) // BG.hover
           ..strokeWidth = 1;
         canvas.drawLine(
           Offset(x, size.height - 4),
@@ -234,7 +234,7 @@ class UnifiedNavBarPainter extends CustomPainter {
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE8EAF0),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -248,7 +248,7 @@ class UnifiedNavBarPainter extends CustomPainter {
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF646880),
                   fontSize: 9,
                 ),
               );
@@ -260,7 +260,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       } else {
         // Subdivision tick - short
         final tickPaint = Paint()
-          ..color = const Color(0xFF404040)
+          ..color = const Color(0xFF3A3D4A) // BG.divider
           ..strokeWidth = 0.5;
         canvas.drawLine(
           Offset(x, size.height - 2),
@@ -294,7 +294,7 @@ class UnifiedNavBarPainter extends CustomPainter {
             textPainter.text = TextSpan(
               text: '$barNumber.$beatInBar.$subInBeat',
               style: TextStyle(
-                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF646880),
                 fontSize: 9,
               ),
             );

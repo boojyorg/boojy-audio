@@ -70,6 +70,9 @@ dependencies:
   # App version info
   package_info_plus: ^8.0.0
 
+  # SVG rendering for custom icons
+  flutter_svg: ^2.0.10+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -95,6 +98,7 @@ flutter:
   # Assets for Boojy Audio
   assets:
     - assets/images/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

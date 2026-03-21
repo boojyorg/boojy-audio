@@ -563,9 +563,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       child: Container(
         width: widget.panelWidth,
         decoration: BoxDecoration(
-          color: context.colors.standard,
+          color: context.colors.dark,
           border: Border(
-            left: BorderSide(color: context.colors.elevated),
+            left: BorderSide(color: context.colors.divider),
             top: _isAudioFileDragging
                 ? BorderSide(color: context.colors.success, width: 3)
                 : BorderSide.none,

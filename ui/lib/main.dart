@@ -64,9 +64,34 @@ class BoojyAudioApp extends StatelessWidget {
           surface: colors.standard,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: colors.standard,
+        scaffoldBackgroundColor: colors.dark,
         popupMenuTheme: PopupMenuThemeData(
           color: colors.elevated,
+          shadowColor: Colors.black.withValues(alpha: 0.4),
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: colors.divider, width: 1),
+          ),
+          textStyle: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 13,
+          ),
+        ),
+        dividerTheme: DividerThemeData(
+          color: colors.divider,
+          thickness: 1,
+        ),
+        tooltipTheme: TooltipThemeData(
+          decoration: BoxDecoration(
+            color: const Color(0xF0141419),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          textStyle: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 11,
+          ),
+          waitDuration: const Duration(milliseconds: 200),
         ),
       ),
       home: const DAWScreen(),

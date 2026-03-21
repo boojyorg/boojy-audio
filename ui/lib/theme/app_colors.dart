@@ -63,7 +63,10 @@ class BoojyColors {
   // BACKGROUND COLORS
   // ============================================
 
-  /// Deepest background color (e.g., main app background)
+  /// Content area background (deep blue-black, star field renders here)
+  Color get editor => _getBackgroundColor('editor');
+
+  /// Deepest background color (e.g., text inputs)
   Color get darkest => _getBackgroundColor('darkest');
 
   /// Dark background (main panel backgrounds)
@@ -209,47 +212,50 @@ class BoojyColors {
   // THEME COLOR PALETTES
   // ============================================
 
-  // --- DARK THEME ---
+  // --- DARK THEME (Boojy Design System) ---
   static const Map<String, Color> _darkBackgrounds = {
-    'darkest': Color(0xFF1A1A1A),
-    'dark': Color(0xFF222222),
-    'standard': Color(0xFF2A2A2A),
-    'elevated': Color(0xFF333333),
-    'surface': Color(0xFF3B3B3B),
-    'divider': Color(0xFF444444),
-    'hover': Color(0xFF505050),
+    'editor': Color(0xFF040412),   // BG.editor — deep content area
+    'darkest': Color(0xFF13151C),  // BG.darkest — text inputs
+    'dark': Color(0xFF2C2C32),     // BG.dark — chrome (sidebar, top bar)
+    'standard': Color(0xFF272A38), // BG.standard — forms, secondary surfaces
+    'elevated': Color(0xFF292B36), // BG.elevated — floating UI
+    'surface': Color(0xFF353845),  // BG.surface — hover, cards
+    'divider': Color(0xFF3A3D4A),  // BG.divider — borders
+    'hover': Color(0xFF4A4D5A),    // BG.hover — hover states
   };
 
   static const Map<String, Color> _darkText = {
-    'primary': Color(0xFFEBEBEB),
-    'secondary': Color(0xFFA0A0A0),
-    'muted': Color(0xFF707070),
+    'primary': Color(0xFFE8EAF0),
+    'secondary': Color(0xFF9B9EB0),
+    'muted': Color(0xFF646880),
   };
 
   static const Map<String, Color> _darkAccent = {
-    'primary': Color(0xFF38BDF8), // Boojy Blue
-    'hover': Color(0xFF5CCBFA),
+    'primary': Color(0xFF40B3E8), // Boojy Audio Blue
+    'hover': Color(0xFF5CC3F0),
   };
 
-  // --- HIGH CONTRAST DARK THEME ---
+  // --- HIGH CONTRAST DARK THEME (blue-tinted) ---
   static const Map<String, Color> _highContrastDarkBackgrounds = {
-    'darkest': Color(0xFF000000),
-    'dark': Color(0xFF0A0A0A),
-    'standard': Color(0xFF141414),
-    'elevated': Color(0xFF1E1E1E),
-    'surface': Color(0xFF282828),
-    'divider': Color(0xFF3C3C3C),
-    'hover': Color(0xFF4A4A4A),
+    'editor': Color(0xFF020210),
+    'darkest': Color(0xFF0A0C14),
+    'dark': Color(0xFF1E1E26),
+    'standard': Color(0xFF1A1C28),
+    'elevated': Color(0xFF1C1E2A),
+    'surface': Color(0xFF2A2D3A),
+    'divider': Color(0xFF3A3D4A),
+    'hover': Color(0xFF4A4D5A),
   };
 
   static const Map<String, Color> _highContrastDarkText = {
     'primary': Color(0xFFFFFFFF),
-    'secondary': Color(0xFFC0C0C0),
-    'muted': Color(0xFF808080),
+    'secondary': Color(0xFFC0C4D0),
+    'muted': Color(0xFF808498),
   };
 
   // --- LIGHT THEME ---
   static const Map<String, Color> _lightBackgrounds = {
+    'editor': Color(0xFFF8FAFC),
     'darkest': Color(0xFFFFFFFF),
     'dark': Color(0xFFF5F5F5),
     'standard': Color(0xFFEBEBEB),
@@ -272,6 +278,7 @@ class BoojyColors {
 
   // --- HIGH CONTRAST LIGHT THEME ---
   static const Map<String, Color> _highContrastLightBackgrounds = {
+    'editor': Color(0xFFFFFFFF),
     'darkest': Color(0xFFFFFFFF),
     'dark': Color(0xFFFAFAFA),
     'standard': Color(0xFFF0F0F0),

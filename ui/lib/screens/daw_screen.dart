@@ -3384,7 +3384,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           autofocus: true,
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
-        backgroundColor: context.colors.standard,
+        backgroundColor: context.colors.dark,
         body: Column(
           children: [
           // Transport bar (with logo and file/mixer buttons)
@@ -3470,6 +3470,22 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             beatUnit: projectMetadata.timeSignatureDenominator,
             onTimeSignatureChanged: _onTimeSignatureChanged,
             isLoading: isLoading,
+            isEngineReady: isAudioGraphInitialized,
+            // Sidebar-aligned divider
+            sidebarWidth: uiLayout.libraryPanelWidth,
+            onSidebarDividerDrag: (delta) {
+              setState(() {
+                uiLayout.resizeRightColumn(delta);
+                userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+                userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+              });
+            },
+            onSidebarDividerDoubleClick: () {
+              setState(() {
+                uiLayout.toggleLibraryPanel();
+                userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+              });
+            },
           ),
           ),
 
@@ -3481,14 +3497,32 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 Expanded(
                   child: Row(
                     children: [
-                      // Left: Library panel
-                      SizedBox(
-                        width: uiLayout.isLibraryPanelCollapsed ? 40 : uiLayout.libraryPanelWidth,
-                        child: libraryPreviewService != null
-                          ? ChangeNotifierProvider<LibraryPreviewService>.value(
-                              value: libraryPreviewService!,
-                              child: LibraryPanel(
-                                isCollapsed: uiLayout.isLibraryPanelCollapsed,
+                      // Left: Library panel (fully hidden when collapsed)
+                      if (!uiLayout.isLibraryPanelCollapsed) ...[
+                        SizedBox(
+                          width: uiLayout.libraryPanelWidth,
+                          child: libraryPreviewService != null
+                            ? ChangeNotifierProvider<LibraryPreviewService>.value(
+                                value: libraryPreviewService!,
+                                child: LibraryPanel(
+                                  isCollapsed: false,
+                                  onToggle: _toggleLibraryPanel,
+                                  availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                                  libraryService: libraryService,
+                                  onItemDoubleClick: _handleLibraryItemDoubleClick,
+                                  onVst3DoubleClick: _handleVst3DoubleClick,
+                                  onOpenInSampler: _handleOpenInSampler,
+                                  leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                                  onLeftColumnResize: (delta) {
+                                    setState(() {
+                                      uiLayout.resizeLeftColumn(delta);
+                                      userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                                    });
+                                  },
+                                ),
+                              )
+                            : LibraryPanel(
+                                isCollapsed: false,
                                 onToggle: _toggleLibraryPanel,
                                 availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
                                 libraryService: libraryService,
@@ -3503,44 +3537,27 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                                   });
                                 },
                               ),
-                            )
-                          : LibraryPanel(
-                              isCollapsed: uiLayout.isLibraryPanelCollapsed,
-                              onToggle: _toggleLibraryPanel,
-                              availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                              libraryService: libraryService,
-                              onItemDoubleClick: _handleLibraryItemDoubleClick,
-                              onVst3DoubleClick: _handleVst3DoubleClick,
-                              onOpenInSampler: _handleOpenInSampler,
-                              leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                              onLeftColumnResize: (delta) {
-                                setState(() {
-                                  uiLayout.resizeLeftColumn(delta);
-                                  userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
-                                });
-                              },
-                            ),
-                      ),
+                        ),
 
-                      // Divider: Library/Timeline
-                      // Outer divider only affects right column (left stays fixed)
-                      ResizableDivider(
-                        orientation: DividerOrientation.vertical,
-                        isCollapsed: uiLayout.isLibraryPanelCollapsed,
-                        onDrag: (delta) {
-                          setState(() {
-                            uiLayout.resizeRightColumn(delta);
-                            userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
-                            userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                          });
-                        },
-                        onDoubleClick: () {
-                          setState(() {
-                            uiLayout.toggleLibraryPanel();
-                            userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                          });
-                        },
-                      ),
+                        // Divider: Library/Timeline
+                        ResizableDivider(
+                          orientation: DividerOrientation.vertical,
+                          isCollapsed: false,
+                          onDrag: (delta) {
+                            setState(() {
+                              uiLayout.resizeRightColumn(delta);
+                              userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+                              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                            });
+                          },
+                          onDoubleClick: () {
+                            setState(() {
+                              uiLayout.toggleLibraryPanel();
+                              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                            });
+                          },
+                        ),
+                      ],
 
                       // Center: Timeline area
                       // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
@@ -3787,9 +3804,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                             },
                           ),
                         ),
-                      ] else ...[
-                        // Collapsed mixer bar - thin bar with arrow to expand
-                        _buildCollapsedMixerBar(),
                       ],
                     ],
                   ),
@@ -3901,54 +3915,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             ),
           ),
 
-          // Status bar
-          _buildStatusBar(),
         ],
       ),
           ),
         ),
-      ),
-    );
-  }
-
-  // Removed _buildTimelineView - now built inline in build method
-
-  /// Build collapsed mixer bar when mixer is hidden
-  Widget _buildCollapsedMixerBar() {
-    final colors = context.colors;
-    return Container(
-      width: 30,
-      decoration: BoxDecoration(
-        color: colors.elevated,
-        border: Border(
-          left: BorderSide(color: colors.divider),
-        ),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 4),
-          // Mixer icon to expand
-          Tooltip(
-            message: 'Show Mixer',
-            child: Material(
-              color: colors.standard,
-              child: InkWell(
-                onTap: _toggleMixer,
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.tune,
-                    color: colors.textPrimary,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -28,7 +28,7 @@ class LoopBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Full background - darker for non-loop areas
-    final darkBgPaint = Paint()..color = const Color(0xFF1A1A1A);
+    final darkBgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
     final hasPunch = punchInEnabled || punchOutEnabled;
@@ -39,7 +39,7 @@ class LoopBarPainter extends CustomPainter {
         text: const TextSpan(
           text: 'Drag to create loop',
           style: TextStyle(
-            color: Color(0xFF505050),
+            color: Color(0xFF4A4D5A), // BG.hover
             fontSize: 10,
           ),
         ),

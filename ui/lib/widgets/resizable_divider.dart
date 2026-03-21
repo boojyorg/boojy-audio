@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/theme_extension.dart';
 
 /// Orientation of the resizable divider
 enum DividerOrientation {
@@ -9,8 +10,9 @@ enum DividerOrientation {
 /// A subtle draggable divider that allows resizing panels
 ///
 /// Features:
-/// - Drag to resize (8px hit area)
-/// - 1px grey line idle, 3px accent line on hover/drag
+/// - Drag to resize (8px hit area for easy grabbing)
+/// - 4px visible colored strip centered within hit area
+/// - Divider color idle, accent color on hover/drag
 /// - Double-click to collapse/expand
 /// - Custom cursor on hover for discoverability
 class ResizableDivider extends StatefulWidget {
@@ -34,10 +36,8 @@ class ResizableDivider extends StatefulWidget {
 class _ResizableDividerState extends State<ResizableDivider> {
   // Hit area size (8px invisible grab zone)
   static const double _hitAreaSize = 8.0;
-
-  // Colors
-  static const Color _idleColor = Color(0xFF505050); // Grey idle
-  static const Color _activeColor = Color(0xFF38BDF8); // Accent on hover/drag
+  // Visible divider strip width
+  static const double _dividerWidth = 4.0;
 
   // State for visual feedback
   bool _isHovered = false;
@@ -45,11 +45,10 @@ class _ResizableDividerState extends State<ResizableDivider> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isVertical = widget.orientation == DividerOrientation.vertical;
-
-    // Line width: 1px idle, 3px on hover/drag
-    final lineWidth = (_isHovered || _isDragging) ? 3.0 : 1.0;
-    final lineColor = (_isHovered || _isDragging) ? _activeColor : _idleColor;
+    final isActive = _isHovered || _isDragging;
+    final dividerColor = isActive ? colors.accent : colors.divider;
 
     return GestureDetector(
       onPanStart: (_) => setState(() => _isDragging = true),
@@ -73,11 +72,11 @@ class _ResizableDividerState extends State<ResizableDivider> {
           height: isVertical ? double.infinity : _hitAreaSize,
           color: Colors.transparent,
           child: Center(
-            // Visible line centered within hit area
+            // 4px visible divider strip
             child: Container(
-              width: isVertical ? lineWidth : double.infinity,
-              height: isVertical ? double.infinity : lineWidth,
-              color: lineColor,
+              width: isVertical ? _dividerWidth : double.infinity,
+              height: isVertical ? double.infinity : _dividerWidth,
+              color: dividerColor,
             ),
           ),
         ),

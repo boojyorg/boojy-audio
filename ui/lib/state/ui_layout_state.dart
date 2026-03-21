@@ -115,8 +115,8 @@ class UILayoutState extends ChangeNotifier {
   // Minimum arrangement view width (protects timeline visibility)
   static const double minArrangementWidth = 200.0;
 
-  // Collapsed library width (icon strip)
-  static const double libraryCollapsedWidth = 40.0;
+  // Collapsed library width (fully hidden)
+  static const double libraryCollapsedWidth = 0.0;
 
   // Collapse threshold = separate from min (requires dragging further to collapse)
   static double get libraryCollapseThreshold => libraryMinWidth - 50.0;

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'star_field.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
@@ -1061,10 +1062,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       },
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: context.colors.standard,
-          border: Border.all(color: context.colors.elevated),
+          color: context.colors.editor,
+          border: Border.all(color: context.colors.divider),
         ),
-        child: Column(
+        child: Stack(
+        children: [
+          // Star field background
+          const Positioned.fill(
+            child: StarField(),
+          ),
+          // Main timeline content
+          Column(
         children: [
           // Unified nav bar (loop region + bar numbers + zoom controls)
           NavBarWithZoom(
@@ -1228,10 +1236,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             ),
           ),
         ],
-      ),
-      ),
-      ),
-    );
+      ), // end Column
+      ], // end Stack children
+      ), // end Stack (child of DecoratedBox)
+      ), // end DecoratedBox (child of Focus)
+      ), // end Focus (child of MouseRegion)
+    ); // end MouseRegion
   }
 
   Widget _buildTracks(double width, double totalBeats, {double emptyAreaHeight = 100.0}) {
@@ -1241,7 +1251,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       // Show empty state only if no audio engine
       return Container(
         height: 200,
-        color: context.colors.standard,
+        color: context.colors.editor,
         child: Center(
           child: Text(
             'Audio engine not initialized',
