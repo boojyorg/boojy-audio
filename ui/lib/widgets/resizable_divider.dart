@@ -20,6 +20,8 @@ class ResizableDivider extends StatefulWidget {
   final Function(double delta) onDrag;
   final VoidCallback onDoubleClick;
   final bool isCollapsed;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
 
   const ResizableDivider({
     super.key,
@@ -27,6 +29,8 @@ class ResizableDivider extends StatefulWidget {
     required this.onDrag,
     required this.onDoubleClick,
     this.isCollapsed = false,
+    this.onDragStart,
+    this.onDragEnd,
   });
 
   @override
@@ -51,14 +55,20 @@ class _ResizableDividerState extends State<ResizableDivider> {
     final dividerColor = isActive ? colors.accent : colors.divider;
 
     return GestureDetector(
-      onPanStart: (_) => setState(() => _isDragging = true),
+      onPanStart: (_) {
+        setState(() => _isDragging = true);
+        widget.onDragStart?.call();
+      },
       onPanUpdate: (details) {
         if (!widget.isCollapsed) {
           final delta = isVertical ? details.delta.dx : details.delta.dy;
           widget.onDrag(delta);
         }
       },
-      onPanEnd: (_) => setState(() => _isDragging = false),
+      onPanEnd: (_) {
+        setState(() => _isDragging = false);
+        widget.onDragEnd?.call();
+      },
       onDoubleTap: widget.onDoubleClick,
       child: MouseRegion(
         cursor: isVertical

@@ -65,6 +65,10 @@ class DAWScreen extends StatefulWidget {
 }
 
 class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin, DAWLibraryMixin, DAWProjectMixin, DAWBuildMixin {
+  // Drag state for disabling panel animations during resize
+  bool _isDraggingLibrary = false;
+  bool _isDraggingMixer = false;
+
   @override
   void initState() {
     super.initState();
@@ -3497,67 +3501,83 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 Expanded(
                   child: Row(
                     children: [
-                      // Left: Library panel (fully hidden when collapsed)
-                      if (!uiLayout.isLibraryPanelCollapsed) ...[
-                        SizedBox(
-                          width: uiLayout.libraryPanelWidth,
-                          child: libraryPreviewService != null
-                            ? ChangeNotifierProvider<LibraryPreviewService>.value(
-                                value: libraryPreviewService!,
-                                child: LibraryPanel(
-                                  isCollapsed: false,
-                                  onToggle: _toggleLibraryPanel,
-                                  availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                                  libraryService: libraryService,
-                                  onItemDoubleClick: _handleLibraryItemDoubleClick,
-                                  onVst3DoubleClick: _handleVst3DoubleClick,
-                                  onOpenInSampler: _handleOpenInSampler,
-                                  leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                                  onLeftColumnResize: (delta) {
-                                    setState(() {
-                                      uiLayout.resizeLeftColumn(delta);
-                                      userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
-                                    });
-                                  },
-                                ),
-                              )
-                            : LibraryPanel(
-                                isCollapsed: false,
-                                onToggle: _toggleLibraryPanel,
-                                availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                                libraryService: libraryService,
-                                onItemDoubleClick: _handleLibraryItemDoubleClick,
-                                onVst3DoubleClick: _handleVst3DoubleClick,
-                                onOpenInSampler: _handleOpenInSampler,
-                                leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                                onLeftColumnResize: (delta) {
+                      // Left: Library panel (animated width)
+                      AnimatedContainer(
+                        duration: _isDraggingLibrary ? Duration.zero : const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 8,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: const BoxDecoration(),
+                        child: OverflowBox(
+                          alignment: Alignment.centerLeft,
+                          maxWidth: uiLayout.libraryPanelWidth + 8,
+                          minWidth: uiLayout.libraryPanelWidth + 8,
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: uiLayout.libraryPanelWidth,
+                                child: libraryPreviewService != null
+                                  ? ChangeNotifierProvider<LibraryPreviewService>.value(
+                                      value: libraryPreviewService!,
+                                      child: LibraryPanel(
+                                        isCollapsed: false,
+                                        onToggle: _toggleLibraryPanel,
+                                        availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                                        libraryService: libraryService,
+                                        onItemDoubleClick: _handleLibraryItemDoubleClick,
+                                        onVst3DoubleClick: _handleVst3DoubleClick,
+                                        onOpenInSampler: _handleOpenInSampler,
+                                        leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                                        onLeftColumnResize: (delta) {
+                                          setState(() {
+                                            uiLayout.resizeLeftColumn(delta);
+                                            userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                                          });
+                                        },
+                                      ),
+                                    )
+                                  : LibraryPanel(
+                                      isCollapsed: false,
+                                      onToggle: _toggleLibraryPanel,
+                                      availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                                      libraryService: libraryService,
+                                      onItemDoubleClick: _handleLibraryItemDoubleClick,
+                                      onVst3DoubleClick: _handleVst3DoubleClick,
+                                      onOpenInSampler: _handleOpenInSampler,
+                                      leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                                      onLeftColumnResize: (delta) {
+                                        setState(() {
+                                          uiLayout.resizeLeftColumn(delta);
+                                          userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                                        });
+                                      },
+                                    ),
+                              ),
+
+                              // Divider: Library/Timeline
+                              ResizableDivider(
+                                orientation: DividerOrientation.vertical,
+                                isCollapsed: uiLayout.isLibraryPanelCollapsed,
+                                onDragStart: () => setState(() => _isDraggingLibrary = true),
+                                onDragEnd: () => setState(() => _isDraggingLibrary = false),
+                                onDrag: (delta) {
                                   setState(() {
-                                    uiLayout.resizeLeftColumn(delta);
-                                    userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                                    uiLayout.resizeRightColumn(delta);
+                                    userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+                                    userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                                  });
+                                },
+                                onDoubleClick: () {
+                                  setState(() {
+                                    uiLayout.toggleLibraryPanel();
+                                    userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
                                   });
                                 },
                               ),
+                            ],
+                          ),
                         ),
-
-                        // Divider: Library/Timeline
-                        ResizableDivider(
-                          orientation: DividerOrientation.vertical,
-                          isCollapsed: false,
-                          onDrag: (delta) {
-                            setState(() {
-                              uiLayout.resizeRightColumn(delta);
-                              userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
-                              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                            });
-                          },
-                          onDoubleClick: () {
-                            setState(() {
-                              uiLayout.toggleLibraryPanel();
-                              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                            });
-                          },
-                        ),
-                      ],
+                      ),
 
                       // Center: Timeline area
                       // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
@@ -3666,41 +3686,54 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                         ),
                       ),
 
-                      // Right: Track mixer panel (expanded or collapsed bar)
-                      if (uiLayout.isMixerVisible) ...[
-                        // Divider: Timeline/Mixer
-                        ResizableDivider(
-                          orientation: DividerOrientation.vertical,
-                          isCollapsed: false,
-                          onDrag: (delta) {
-                            final windowWidth = MediaQuery.of(context).size.width;
-                            final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
-                            setState(() {
-                              final newWidth = uiLayout.mixerPanelWidth - delta;
-                              // Snap collapse if dragged below threshold
-                              if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                                uiLayout.collapseMixer();
-                                userSettings.mixerVisible = false;
-                              } else {
-                                uiLayout.mixerPanelWidth = newWidth.clamp(
-                                  UILayoutState.mixerMinWidth,
-                                  maxWidth,
-                                );
-                                userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-                              }
-                            });
-                          },
-                          onDoubleClick: () {
-                            setState(() {
-                              uiLayout.toggleMixer();
-                              userSettings.mixerVisible = uiLayout.isMixerVisible;
-                            });
-                          },
-                        ),
+                      // Right: Track mixer panel (animated width)
+                      AnimatedContainer(
+                        duration: _isDraggingMixer ? Duration.zero : const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 8 : 0,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: const BoxDecoration(),
+                        child: OverflowBox(
+                          alignment: Alignment.centerRight,
+                          maxWidth: uiLayout.mixerPanelWidth + 8,
+                          minWidth: uiLayout.mixerPanelWidth + 8,
+                          child: Row(
+                            children: [
+                              // Divider: Timeline/Mixer
+                              ResizableDivider(
+                                orientation: DividerOrientation.vertical,
+                                isCollapsed: !uiLayout.isMixerVisible,
+                                onDragStart: () => setState(() => _isDraggingMixer = true),
+                                onDragEnd: () => setState(() => _isDraggingMixer = false),
+                                onDrag: (delta) {
+                                  final windowWidth = MediaQuery.of(context).size.width;
+                                  final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
+                                  setState(() {
+                                    final newWidth = uiLayout.mixerPanelWidth - delta;
+                                    // Snap collapse if dragged below threshold
+                                    if (newWidth < UILayoutState.mixerCollapseThreshold) {
+                                      uiLayout.collapseMixer();
+                                      userSettings.mixerVisible = false;
+                                    } else {
+                                      uiLayout.mixerPanelWidth = newWidth.clamp(
+                                        UILayoutState.mixerMinWidth,
+                                        maxWidth,
+                                      );
+                                      userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+                                    }
+                                  });
+                                },
+                                onDoubleClick: () {
+                                  setState(() {
+                                    uiLayout.toggleMixer();
+                                    userSettings.mixerVisible = uiLayout.isMixerVisible;
+                                  });
+                                },
+                              ),
 
-                        SizedBox(
-                          width: uiLayout.mixerPanelWidth,
-                          child: TrackMixerPanel(
+                              SizedBox(
+                                width: uiLayout.mixerPanelWidth,
+                                child: TrackMixerPanel(
                             key: mixerKey,
                             audioEngine: audioEngine,
                             isEngineReady: isAudioGraphInitialized,
@@ -3804,7 +3837,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                             },
                           ),
                         ),
-                      ],
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

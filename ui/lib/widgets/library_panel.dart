@@ -154,56 +154,28 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: colors.elevated,
         border: Border(
           bottom: BorderSide(color: colors.elevated),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.library_music,
-            color: colors.textPrimary,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'LIBRARY',
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: SearchField(
+              controller: _searchController,
+              expandedWidth: constraints.maxWidth,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SizedBox(
-              height: 26,
-              child: SearchField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (widget.onToggle != null)
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              color: colors.textSecondary,
-              iconSize: 18,
-              onPressed: widget.onToggle,
-              tooltip: 'Hide Library (B)',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-        ],
+          );
+        },
       ),
     );
   }

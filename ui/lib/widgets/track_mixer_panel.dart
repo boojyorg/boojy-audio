@@ -560,8 +560,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           _isAudioFileDragging = false;
         });
       },
-      child: Container(
-        width: widget.panelWidth,
+      child: ClipRect(
+        child: Container(
         decoration: BoxDecoration(
           color: context.colors.dark,
           border: Border(
@@ -629,6 +629,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               ),
           ],
         ),
+      ),
       ),
     );
   }
