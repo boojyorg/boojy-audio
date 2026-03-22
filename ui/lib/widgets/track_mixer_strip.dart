@@ -1503,7 +1503,6 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
 
     // Fixed sizes
     const double fontSize = 12.0;
-    const double iconSize = 14.0;
     const double dbFontSize = UIConstants.dbFontSize;
     const double dbContainerWidth = UIConstants.dbContainerWidth;
 
@@ -1540,7 +1539,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                   Row(
                     children: [
                       // Icon (headphones)
-                      Text('🎧', style: TextStyle(fontSize: iconSize)),
+                      const Text('🎧', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 6),
                       // "Master" text
                       Expanded(
