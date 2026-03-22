@@ -207,9 +207,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     libraryPreviewService?.dispose();
     uiLayout.dispose();
 
-    // Dispose divider notifiers
+    // Dispose notifiers
     _leftDividerActive.dispose();
     _rightDividerActive.dispose();
+    automationPreviewNotifier.dispose();
 
     // Dispose scroll controllers
     timelineVerticalScrollController.removeListener(onTimelineVerticalScroll);
@@ -355,10 +356,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   void _play() {
     // Clear automation preview values so display shows actual playback values
-    if (automationPreviewValues.isNotEmpty) {
-      setState(() {
-        automationPreviewValues.clear();
-      });
+    if (automationPreviewNotifier.value.isNotEmpty) {
+      automationPreviewNotifier.value = {};
     }
     playbackController.play(loadedClipId: loadedClipId);
   }
@@ -366,10 +365,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   /// Play with loop check - used by transport bar play button
   void _playWithLoopCheck() {
     // Clear automation preview values so display shows actual playback values
-    if (automationPreviewValues.isNotEmpty) {
-      setState(() {
-        automationPreviewValues.clear();
-      });
+    if (automationPreviewNotifier.value.isNotEmpty) {
+      automationPreviewNotifier.value = {};
     }
     if (uiLayout.loopPlaybackEnabled) {
       _playLoopRegion();
@@ -3870,7 +3867,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                                 syncVolumeAutomationToEngine(trackId);
                               }
                             },
-                            automationPreviewValues: automationPreviewValues,
+                            automationPreviewNotifier: automationPreviewNotifier,
                             onAutomationPreviewValue: onAutomationPreviewValue,
                             isRecording: recordingController.isRecording || recordingController.isCountingIn,
                             getSelectedParameter: (trackId) => automationController.visibleParameter,

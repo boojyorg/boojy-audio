@@ -86,8 +86,9 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
     bpm: 120.0,
   );
 
-  /// Live preview values for automation drag (trackId -> normalized value)
-  Map<int, double?> automationPreviewValues = {};
+  /// Live preview values for automation drag (trackId -> normalized value).
+  /// Uses ValueNotifier to avoid rebuilding entire DAWScreen at 60fps during drag.
+  final automationPreviewNotifier = ValueNotifier<Map<int, double?>>({});
 
   // ============================================
   // PLAYBACK CONVENIENCE GETTERS/SETTERS
@@ -153,13 +154,13 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   }
 
   void onAutomationPreviewValue(int trackId, double? value) {
-    setState(() {
-      if (value == null) {
-        automationPreviewValues.remove(trackId);
-      } else {
-        automationPreviewValues[trackId] = value;
-      }
-    });
+    final current = Map<int, double?>.from(automationPreviewNotifier.value);
+    if (value == null) {
+      current.remove(trackId);
+    } else {
+      current[trackId] = value;
+    }
+    automationPreviewNotifier.value = current;
   }
 
   void syncVolumeAutomationToEngine(int trackId) {

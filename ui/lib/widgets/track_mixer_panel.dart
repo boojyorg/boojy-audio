@@ -99,7 +99,7 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(int trackId)? onAddParameter;
 
   // Automation preview values (for live value display during drag)
-  final Map<int, double?> automationPreviewValues;
+  final ValueNotifier<Map<int, double?>>? automationPreviewNotifier;
   final Function(int trackId, double? value)? onAutomationPreviewValue;
 
   // Recording state (locks input selectors during recording)
@@ -158,7 +158,7 @@ class TrackMixerPanel extends StatefulWidget {
     this.onParameterChanged,
     this.onResetParameter,
     this.onAddParameter,
-    this.automationPreviewValues = const {},
+    this.automationPreviewNotifier,
     this.onAutomationPreviewValue,
     this.isRecording = false,
     this.getTrackIcon,
@@ -210,6 +210,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       _updatePeakLevels();
     });
+
+    // Listen to automation preview changes (rebuilds mixer, not entire DAWScreen)
+    widget.automationPreviewNotifier?.addListener(_onPreviewChanged);
+  }
+
+  void _onPreviewChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -219,10 +226,15 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     if (widget.audioEngine != null && oldWidget.audioEngine == null) {
       _loadTracksAsync();
     }
+    if (oldWidget.automationPreviewNotifier != widget.automationPreviewNotifier) {
+      oldWidget.automationPreviewNotifier?.removeListener(_onPreviewChanged);
+      widget.automationPreviewNotifier?.addListener(_onPreviewChanged);
+    }
   }
 
   @override
   void dispose() {
+    widget.automationPreviewNotifier?.removeListener(_onPreviewChanged);
     _refreshTimer?.cancel();
     _levelTimer?.cancel();
     super.dispose();
@@ -1070,7 +1082,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onAutomationPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(track.id, pointId, point),
       onAutomationPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(track.id, pointId),
       onPreviewValue: (value) => widget.onAutomationPreviewValue?.call(track.id, value),
-      previewParameterValue: widget.automationPreviewValues[track.id],
+      previewParameterValue: widget.automationPreviewNotifier?.value[track.id],
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
       onConvertToSampler: track.type.toLowerCase() == 'audio' && widget.onConvertToSampler != null
