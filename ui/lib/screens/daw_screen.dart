@@ -3239,6 +3239,484 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     );
   }
 
+  Widget _buildTransportBar() {
+    return ValueListenableBuilder<double>(
+      valueListenable: playbackController.playheadNotifier,
+      builder: (context, playheadPos, _) => TransportBar(
+        onPlay: _playWithLoopCheck,
+        onPause: _pause,
+        onStop: _stopPlayback,
+        onRecord: toggleRecording,
+        onPauseRecording: pauseRecording,
+        onStopRecording: stopRecordingAndReturn,
+        onCaptureMidi: _captureMidi,
+        onCountInChanged: _setCountInBars,
+        countInBars: userSettings.countInBars,
+        onMetronomeToggle: _toggleMetronome,
+        onPianoToggle: _toggleVirtualPiano,
+        playheadPosition: playheadPos,
+        isPlaying: isPlaying,
+        canPlay: true, // Always allow transport controls
+        isRecording: isRecording,
+        isCountingIn: isCountingIn,
+        countInBeat: recordingController.countInBeat,
+        countInProgress: recordingController.countInProgress,
+        hasArmedTracks: mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
+        metronomeEnabled: isMetronomeEnabled,
+        virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
+        tempo: tempo,
+        onTempoChanged: _onTempoChanged,
+        // MIDI device selection
+        midiDevices: midiDevices,
+        selectedMidiDeviceIndex: selectedMidiDeviceIndex,
+        onMidiDeviceSelected: _onMidiDeviceSelected,
+        onRefreshMidiDevices: _refreshMidiDevices,
+        // File menu callbacks
+        onNewProject: _newProject,
+        onOpenProject: _openProject,
+        onSaveProject: _saveProject,
+        onSaveProjectAs: _saveProjectAs,
+        onSaveNewVersion: _saveNewVersion,
+        onRenameProject: _renameProject,
+        onExportAudio: _exportAudio,
+        onExportMp3: _quickExportMp3,
+        onExportWav: _quickExportWav,
+        onExportMidi: _exportMidi,
+        onAppSettings: _appSettings, // App-wide settings (logo click)
+        onProjectSettings: _openProjectSettings, // Project-specific settings (song name click)
+        onCloseProject: _closeProject,
+        projectName: projectMetadata.name,
+        hasProject: projectManager?.hasProject ?? false,
+        // View menu parameters
+        onToggleLibrary: _toggleLibraryPanel,
+        onToggleMixer: _toggleMixer,
+        onToggleEditor: _toggleEditor,
+        onTogglePiano: _toggleVirtualPiano,
+        onResetPanelLayout: _resetPanelLayout,
+        libraryVisible: !uiLayout.isLibraryPanelCollapsed,
+        mixerVisible: uiLayout.isMixerVisible,
+        editorVisible: uiLayout.isEditorPanelVisible,
+        pianoVisible: uiLayout.isVirtualPianoEnabled,
+        onHelpPressed: _showKeyboardShortcuts,
+        // Edit menu (Undo/Redo) callbacks
+        onUndo: undoRedoManager.canUndo ? _performUndo : null,
+        onRedo: undoRedoManager.canRedo ? _performRedo : null,
+        canUndo: undoRedoManager.canUndo,
+        canRedo: undoRedoManager.canRedo,
+        undoDescription: undoRedoManager.undoDescription,
+        redoDescription: undoRedoManager.redoDescription,
+        // Snap control
+        arrangementSnap: uiLayout.arrangementSnap,
+        onSnapChanged: (value) => uiLayout.setArrangementSnap(value),
+        // Loop playback control
+        loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
+        onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
+        // Punch in/out
+        punchInEnabled: uiLayout.punchInEnabled,
+        punchOutEnabled: uiLayout.punchOutEnabled,
+        onPunchInToggle: uiLayout.togglePunchIn,
+        onPunchOutToggle: uiLayout.togglePunchOut,
+        // Time signature
+        beatsPerBar: projectMetadata.timeSignatureNumerator,
+        beatUnit: projectMetadata.timeSignatureDenominator,
+        onTimeSignatureChanged: _onTimeSignatureChanged,
+        isLoading: isLoading,
+        isEngineReady: isAudioGraphInitialized,
+        // Sidebar-aligned divider
+        sidebarWidth: uiLayout.libraryPanelWidth,
+        onSidebarDividerDrag: (delta) {
+          setState(() {
+            uiLayout.resizeRightColumn(delta);
+            userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+            userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+          });
+        },
+        onSidebarDividerDoubleClick: () {
+          setState(() {
+            uiLayout.toggleLibraryPanel();
+            userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+          });
+        },
+        onSidebarDividerDragStart: () => setState(() => _isDraggingLibrary = true),
+        onSidebarDividerDragEnd: () => setState(() => _isDraggingLibrary = false),
+        // Mixer-aligned divider
+        mixerWidth: uiLayout.mixerPanelWidth,
+        onMixerDividerDrag: (delta) {
+          final windowWidth = MediaQuery.of(context).size.width;
+          final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
+          setState(() {
+            final newWidth = uiLayout.mixerPanelWidth - delta;
+            if (newWidth < UILayoutState.mixerCollapseThreshold) {
+              uiLayout.collapseMixer();
+              userSettings.mixerVisible = false;
+            } else {
+              uiLayout.mixerPanelWidth = newWidth.clamp(
+                UILayoutState.mixerMinWidth,
+                maxWidth,
+              );
+              userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+            }
+          });
+        },
+        onMixerDividerDoubleClick: () {
+          setState(() {
+            uiLayout.toggleMixer();
+            userSettings.mixerVisible = uiLayout.isMixerVisible;
+          });
+        },
+        onMixerDividerDragStart: () => setState(() => _isDraggingMixer = true),
+        onMixerDividerDragEnd: () => setState(() => _isDraggingMixer = false),
+        // Synchronized divider hover
+        leftDividerNotifier: _leftDividerActive,
+        rightDividerNotifier: _rightDividerActive,
+      ),
+    );
+  }
+
+  Widget _buildLibrarySection() {
+    return AnimatedContainer(
+      duration: _isDraggingLibrary ? Duration.zero : const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 4,
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(),
+      child: OverflowBox(
+        alignment: Alignment.centerLeft,
+        maxWidth: uiLayout.libraryPanelWidth + 4,
+        minWidth: uiLayout.libraryPanelWidth + 4,
+        child: Row(
+          children: [
+            SizedBox(
+              width: uiLayout.libraryPanelWidth,
+              child: libraryPreviewService != null
+                ? ChangeNotifierProvider<LibraryPreviewService>.value(
+                    value: libraryPreviewService!,
+                    child: LibraryPanel(
+                      isCollapsed: false,
+                      onToggle: _toggleLibraryPanel,
+                      availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                      libraryService: libraryService,
+                      onItemDoubleClick: _handleLibraryItemDoubleClick,
+                      onVst3DoubleClick: _handleVst3DoubleClick,
+                      onOpenInSampler: _handleOpenInSampler,
+                      leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                      onLeftColumnResize: (delta) {
+                        setState(() {
+                          uiLayout.resizeLeftColumn(delta);
+                          userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                        });
+                      },
+                    ),
+                  )
+                : LibraryPanel(
+                    isCollapsed: false,
+                    onToggle: _toggleLibraryPanel,
+                    availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                    libraryService: libraryService,
+                    onItemDoubleClick: _handleLibraryItemDoubleClick,
+                    onVst3DoubleClick: _handleVst3DoubleClick,
+                    onOpenInSampler: _handleOpenInSampler,
+                    leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                    onLeftColumnResize: (delta) {
+                      setState(() {
+                        uiLayout.resizeLeftColumn(delta);
+                        userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                      });
+                    },
+                  ),
+            ),
+
+            // Divider: Library/Timeline
+            ResizableDivider(
+              orientation: DividerOrientation.vertical,
+              isCollapsed: uiLayout.isLibraryPanelCollapsed,
+              activeNotifier: _leftDividerActive,
+              onDragStart: () => setState(() => _isDraggingLibrary = true),
+              onDragEnd: () => setState(() => _isDraggingLibrary = false),
+              onDrag: (delta) {
+                setState(() {
+                  uiLayout.resizeRightColumn(delta);
+                  userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+                  userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                });
+              },
+              onDoubleClick: () {
+                setState(() {
+                  uiLayout.toggleLibraryPanel();
+                  userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineSection() {
+    return Expanded(
+      child: TimelineView(
+        key: timelineKey,
+        playheadNotifier: playbackController.playheadNotifier,
+        clipDuration: clipDuration,
+        waveformPeaks: waveformPeaks,
+        audioEngine: audioEngine,
+        tempo: tempo,
+        selectedMidiTrackId: selectedTrackId,
+        selectedMidiClipId: midiPlaybackManager?.selectedClipId,
+        currentEditingClip: midiPlaybackManager?.currentEditingClip,
+        midiClips: midiPlaybackManager?.midiClips ?? [], // Pass all MIDI clips for visualization
+        onMidiTrackSelected: _onTrackSelected,
+        onMidiClipSelected: _onMidiClipSelected,
+        onAudioClipSelected: _onAudioClipSelected,
+        onMidiClipUpdated: _onMidiClipUpdated,
+        onMidiClipCopied: onMidiClipCopied,
+        onAudioClipCopied: onAudioClipCopied,
+        getRustClipId: (dartClipId) => midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
+        onMidiOverlapResolved: (result) {
+          ClipOverlapHandler.applyMidiResult(
+            result: result,
+            deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+            updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+            rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+            addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+            tempo: tempo,
+          );
+        },
+        onMidiClipDeleted: _deleteMidiClip,
+        onMidiClipsBatchDeleted: _deleteMidiClipsBatch,
+        onAudioClipsBatchDeleted: _deleteAudioClipsBatch,
+        onInstrumentDropped: _onInstrumentDropped,
+        onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
+        onVst3InstrumentDropped: _onVst3InstrumentDropped,
+        onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
+        onMidiClipExported: _exportMidiClip,
+        onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
+        onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
+        onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+        onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
+        onCreateTrackWithClip: _onCreateTrackWithClip,
+        onCreateClipOnTrack: _onCreateClipOnTrack,
+        clipHeights: clipHeights,
+        automationHeights: automationHeights,
+        masterTrackHeight: masterTrackHeight,
+        trackOrder: trackController.trackOrder,
+        getTrackColor: getTrackColor,
+        onClipHeightChanged: setClipHeight,
+        onAutomationHeightChanged: setAutomationHeight,
+        onSeek: (position) {
+          audioEngine?.transportSeek(position);
+          playheadPosition = position;
+          // Update the notifier so ValueListenableBuilder rebuilds immediately
+          playbackController.playheadNotifier.value = position;
+        },
+        // Loop playback state
+        loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
+        loopStartBeats: uiLayout.loopStartBeats,
+        loopEndBeats: uiLayout.loopEndBeats,
+        punchInEnabled: uiLayout.punchInEnabled,
+        punchOutEnabled: uiLayout.punchOutEnabled,
+        onLoopRegionChanged: (start, end) {
+          // Mark as manual adjustment - disables auto-follow
+          uiLayout.setLoopRegion(start, end, manual: true);
+          // Update playback controller in real-time during playback
+          playbackController.updateLoopBounds(
+            loopStartBeats: start,
+            loopEndBeats: end,
+          );
+        },
+        // Vertical scroll sync with mixer panel
+        verticalScrollController: timelineVerticalScrollController,
+        // Tool mode (shared with piano roll)
+        toolMode: currentToolMode,
+        onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
+        // Recording state (for auto-scroll)
+        isRecording: isRecording,
+        // Automation state
+        automationVisibleTrackId: automationController.visibleTrackId,
+        getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+        onAutomationPointAdded: (trackId, point) {
+          automationController.addPoint(trackId, automationController.visibleParameter, point);
+          if (automationController.visibleParameter == AutomationParameter.volume) {
+            syncVolumeAutomationToEngine(trackId);
+          }
+        },
+        onAutomationPointUpdated: (trackId, pointId, point) {
+          automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
+          if (automationController.visibleParameter == AutomationParameter.volume) {
+            syncVolumeAutomationToEngine(trackId);
+          }
+        },
+        onAutomationPointDeleted: (trackId, pointId) {
+          automationController.removePoint(trackId, automationController.visibleParameter, pointId);
+          if (automationController.visibleParameter == AutomationParameter.volume) {
+            syncVolumeAutomationToEngine(trackId);
+          }
+        },
+        onAutomationPreviewValue: onAutomationPreviewValue,
+        automationScrollController: timelineKey.currentState?.scrollController,
+      ),
+    );
+  }
+
+  Widget _buildMixerSection() {
+    return AnimatedContainer(
+      duration: _isDraggingMixer ? Duration.zero : const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(),
+      child: OverflowBox(
+        alignment: Alignment.centerRight,
+        maxWidth: uiLayout.mixerPanelWidth + 4,
+        minWidth: uiLayout.mixerPanelWidth + 4,
+        child: Row(
+          children: [
+            // Divider: Timeline/Mixer
+            ResizableDivider(
+              orientation: DividerOrientation.vertical,
+              isCollapsed: !uiLayout.isMixerVisible,
+              activeNotifier: _rightDividerActive,
+              onDragStart: () => setState(() => _isDraggingMixer = true),
+              onDragEnd: () => setState(() => _isDraggingMixer = false),
+              onDrag: (delta) {
+                final windowWidth = MediaQuery.of(context).size.width;
+                final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
+                setState(() {
+                  final newWidth = uiLayout.mixerPanelWidth - delta;
+                  // Snap collapse if dragged below threshold
+                  if (newWidth < UILayoutState.mixerCollapseThreshold) {
+                    uiLayout.collapseMixer();
+                    userSettings.mixerVisible = false;
+                  } else {
+                    uiLayout.mixerPanelWidth = newWidth.clamp(
+                      UILayoutState.mixerMinWidth,
+                      maxWidth,
+                    );
+                    userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+                  }
+                });
+              },
+              onDoubleClick: () {
+                setState(() {
+                  uiLayout.toggleMixer();
+                  userSettings.mixerVisible = uiLayout.isMixerVisible;
+                });
+              },
+            ),
+
+            SizedBox(
+              width: uiLayout.mixerPanelWidth,
+              child: TrackMixerPanel(
+                key: mixerKey,
+                audioEngine: audioEngine,
+                isEngineReady: isAudioGraphInitialized,
+                scrollController: mixerVerticalScrollController,
+                selectedTrackId: selectedTrackId,
+                selectedTrackIds: selectedTrackIds,
+                onTrackSelected: _onTrackSelected,
+                onInstrumentSelected: _onInstrumentSelected,
+                onTrackDuplicated: _onTrackDuplicated,
+                onTrackDeleted: _onTrackDeleted,
+                onConvertToSampler: _convertAudioTrackToSampler,
+                trackInstruments: trackInstruments,
+                trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
+                onFxButtonPressed: _showVst3PluginBrowser, // M10
+                onVst3PluginDropped: _onVst3PluginDropped, // M10
+                onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
+                onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
+                onEditPluginsPressed: _showVst3PluginEditor, // M10
+                onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
+                onMidiTrackCreated: _createDefaultMidiClip,
+                onTrackCreated: _onTrackCreatedFromMixer,
+                onTrackReordered: _onTrackReordered,
+                trackOrder: trackController.trackOrder,
+                onTrackOrderSync: trackController.syncTrackOrder,
+                clipHeights: clipHeights,
+                automationHeights: automationHeights,
+                masterTrackHeight: masterTrackHeight,
+                onClipHeightChanged: setClipHeight,
+                onAutomationHeightChanged: setAutomationHeight,
+                onMasterTrackHeightChanged: setMasterTrackHeight,
+                panelWidth: uiLayout.mixerPanelWidth,
+                onTogglePanel: _toggleMixer,
+                getTrackColor: getTrackColor,
+                onTrackColorChanged: setTrackColor,
+                getTrackIcon: (trackId) => trackController.getTrackIcon(trackId),
+                onTrackIconChanged: (trackId, icon) {
+                  setState(() {
+                    trackController.setTrackIcon(trackId, icon);
+                  });
+                },
+                onTrackNameChanged: (trackId, newName) {
+                  // Mark track name as user-edited
+                  trackController.markTrackNameUserEdited(trackId, edited: true);
+                },
+                onTrackDoubleClick: (trackId) {
+                  // Select track and open editor
+                  _onTrackSelected(trackId);
+                  if (!uiLayout.isEditorPanelVisible) {
+                    _toggleEditor();
+                  }
+                },
+                automationVisibleTrackId: automationController.visibleTrackId,
+                onAutomationToggle: (trackId) {
+                  setState(() {
+                    automationController.toggleAutomationForTrack(trackId);
+                  });
+                },
+                getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+                pixelsPerBeat: timelineKey.currentState?.pixelsPerBeat ?? 20.0,
+                totalBeats: 256.0,
+                onAutomationPointAdded: (trackId, point) {
+                  automationController.addPoint(trackId, automationController.visibleParameter, point);
+                  if (automationController.visibleParameter == AutomationParameter.volume) {
+                    syncVolumeAutomationToEngine(trackId);
+                  }
+                },
+                onAutomationPointUpdated: (trackId, pointId, point) {
+                  automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
+                  if (automationController.visibleParameter == AutomationParameter.volume) {
+                    syncVolumeAutomationToEngine(trackId);
+                  }
+                },
+                onAutomationPointDeleted: (trackId, pointId) {
+                  automationController.removePoint(trackId, automationController.visibleParameter, pointId);
+                  if (automationController.visibleParameter == AutomationParameter.volume) {
+                    syncVolumeAutomationToEngine(trackId);
+                  }
+                },
+                automationPreviewNotifier: automationPreviewNotifier,
+                onAutomationPreviewValue: onAutomationPreviewValue,
+                isRecording: recordingController.isRecording || recordingController.isCountingIn,
+                getSelectedParameter: (trackId) => automationController.visibleParameter,
+                onParameterChanged: (trackId, param) {
+                  setState(() {
+                    automationController.setVisibleParameter(param);
+                  });
+                },
+                onResetParameter: (trackId) {
+                  // Reset the parameter to its default value
+                  final param = automationController.visibleParameter;
+                  if (param == AutomationParameter.volume) {
+                    audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
+                    setState(() {}); // Trigger UI update
+                  } else if (param == AutomationParameter.pan) {
+                    audioEngine?.setTrackPan(trackId, 0.0); // Center
+                    setState(() {}); // Trigger UI update
+                  }
+                },
+                onAddParameter: (trackId) {
+                  // TODO: Future feature - add another automation parameter lane
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final windowSize = MediaQuery.of(context).size;
@@ -3373,138 +3851,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           Column(
           children: [
           // Transport bar (with logo and file/mixer buttons)
-          // PERFORMANCE: Use ValueListenableBuilder for playhead-only updates
-          ValueListenableBuilder<double>(
-            valueListenable: playbackController.playheadNotifier,
-            builder: (context, playheadPos, _) => TransportBar(
-            onPlay: _playWithLoopCheck,
-            onPause: _pause,
-            onStop: _stopPlayback,
-            onRecord: toggleRecording,
-            onPauseRecording: pauseRecording,
-            onStopRecording: stopRecordingAndReturn,
-            onCaptureMidi: _captureMidi,
-            onCountInChanged: _setCountInBars,
-            countInBars: userSettings.countInBars,
-            onMetronomeToggle: _toggleMetronome,
-            onPianoToggle: _toggleVirtualPiano,
-            playheadPosition: playheadPos,
-            isPlaying: isPlaying,
-            canPlay: true, // Always allow transport controls
-            isRecording: isRecording,
-            isCountingIn: isCountingIn,
-            countInBeat: recordingController.countInBeat,
-            countInProgress: recordingController.countInProgress,
-            hasArmedTracks: mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
-            metronomeEnabled: isMetronomeEnabled,
-            virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
-            tempo: tempo,
-            onTempoChanged: _onTempoChanged,
-            // MIDI device selection
-            midiDevices: midiDevices,
-            selectedMidiDeviceIndex: selectedMidiDeviceIndex,
-            onMidiDeviceSelected: _onMidiDeviceSelected,
-            onRefreshMidiDevices: _refreshMidiDevices,
-            // File menu callbacks
-            onNewProject: _newProject,
-            onOpenProject: _openProject,
-            onSaveProject: _saveProject,
-            onSaveProjectAs: _saveProjectAs,
-            onSaveNewVersion: _saveNewVersion,
-            onRenameProject: _renameProject,
-            onExportAudio: _exportAudio,
-            onExportMp3: _quickExportMp3,
-            onExportWav: _quickExportWav,
-            onExportMidi: _exportMidi,
-            onAppSettings: _appSettings, // App-wide settings (logo click)
-            onProjectSettings: _openProjectSettings, // Project-specific settings (song name click)
-            onCloseProject: _closeProject,
-            projectName: projectMetadata.name,
-            hasProject: projectManager?.hasProject ?? false,
-            // View menu parameters
-            onToggleLibrary: _toggleLibraryPanel,
-            onToggleMixer: _toggleMixer,
-            onToggleEditor: _toggleEditor,
-            onTogglePiano: _toggleVirtualPiano,
-            onResetPanelLayout: _resetPanelLayout,
-            libraryVisible: !uiLayout.isLibraryPanelCollapsed,
-            mixerVisible: uiLayout.isMixerVisible,
-            editorVisible: uiLayout.isEditorPanelVisible,
-            pianoVisible: uiLayout.isVirtualPianoEnabled,
-            onHelpPressed: _showKeyboardShortcuts,
-            // Edit menu (Undo/Redo) callbacks
-            onUndo: undoRedoManager.canUndo ? _performUndo : null,
-            onRedo: undoRedoManager.canRedo ? _performRedo : null,
-            canUndo: undoRedoManager.canUndo,
-            canRedo: undoRedoManager.canRedo,
-            undoDescription: undoRedoManager.undoDescription,
-            redoDescription: undoRedoManager.redoDescription,
-            // Snap control
-            arrangementSnap: uiLayout.arrangementSnap,
-            onSnapChanged: (value) => uiLayout.setArrangementSnap(value),
-            // Loop playback control
-            loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
-            onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
-            // Punch in/out
-            punchInEnabled: uiLayout.punchInEnabled,
-            punchOutEnabled: uiLayout.punchOutEnabled,
-            onPunchInToggle: uiLayout.togglePunchIn,
-            onPunchOutToggle: uiLayout.togglePunchOut,
-            // Time signature
-            beatsPerBar: projectMetadata.timeSignatureNumerator,
-            beatUnit: projectMetadata.timeSignatureDenominator,
-            onTimeSignatureChanged: _onTimeSignatureChanged,
-            isLoading: isLoading,
-            isEngineReady: isAudioGraphInitialized,
-            // Sidebar-aligned divider
-            sidebarWidth: uiLayout.libraryPanelWidth,
-            onSidebarDividerDrag: (delta) {
-              setState(() {
-                uiLayout.resizeRightColumn(delta);
-                userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
-                userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-              });
-            },
-            onSidebarDividerDoubleClick: () {
-              setState(() {
-                uiLayout.toggleLibraryPanel();
-                userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-              });
-            },
-            onSidebarDividerDragStart: () => setState(() => _isDraggingLibrary = true),
-            onSidebarDividerDragEnd: () => setState(() => _isDraggingLibrary = false),
-            // Mixer-aligned divider
-            mixerWidth: uiLayout.mixerPanelWidth,
-            onMixerDividerDrag: (delta) {
-              final windowWidth = MediaQuery.of(context).size.width;
-              final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
-              setState(() {
-                final newWidth = uiLayout.mixerPanelWidth - delta;
-                if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                  uiLayout.collapseMixer();
-                  userSettings.mixerVisible = false;
-                } else {
-                  uiLayout.mixerPanelWidth = newWidth.clamp(
-                    UILayoutState.mixerMinWidth,
-                    maxWidth,
-                  );
-                  userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-                }
-              });
-            },
-            onMixerDividerDoubleClick: () {
-              setState(() {
-                uiLayout.toggleMixer();
-                userSettings.mixerVisible = uiLayout.isMixerVisible;
-              });
-            },
-            onMixerDividerDragStart: () => setState(() => _isDraggingMixer = true),
-            onMixerDividerDragEnd: () => setState(() => _isDraggingMixer = false),
-            // Synchronized divider hover
-            leftDividerNotifier: _leftDividerActive,
-            rightDividerNotifier: _rightDividerActive,
-          ),
-          ),
+          _buildTransportBar(),
 
           // Main content area - 3-column layout
           Expanded(
@@ -3515,347 +3862,15 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                   child: Row(
                     children: [
                       // Left: Library panel (animated width)
-                      AnimatedContainer(
-                        duration: _isDraggingLibrary ? Duration.zero : const Duration(milliseconds: 200),
-                        curve: Curves.easeInOut,
-                        width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 4,
-                        clipBehavior: Clip.hardEdge,
-                        decoration: const BoxDecoration(),
-                        child: OverflowBox(
-                          alignment: Alignment.centerLeft,
-                          maxWidth: uiLayout.libraryPanelWidth + 4,
-                          minWidth: uiLayout.libraryPanelWidth + 4,
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: uiLayout.libraryPanelWidth,
-                                child: libraryPreviewService != null
-                                  ? ChangeNotifierProvider<LibraryPreviewService>.value(
-                                      value: libraryPreviewService!,
-                                      child: LibraryPanel(
-                                        isCollapsed: false,
-                                        onToggle: _toggleLibraryPanel,
-                                        availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                                        libraryService: libraryService,
-                                        onItemDoubleClick: _handleLibraryItemDoubleClick,
-                                        onVst3DoubleClick: _handleVst3DoubleClick,
-                                        onOpenInSampler: _handleOpenInSampler,
-                                        leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                                        onLeftColumnResize: (delta) {
-                                          setState(() {
-                                            uiLayout.resizeLeftColumn(delta);
-                                            userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
-                                          });
-                                        },
-                                      ),
-                                    )
-                                  : LibraryPanel(
-                                      isCollapsed: false,
-                                      onToggle: _toggleLibraryPanel,
-                                      availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                                      libraryService: libraryService,
-                                      onItemDoubleClick: _handleLibraryItemDoubleClick,
-                                      onVst3DoubleClick: _handleVst3DoubleClick,
-                                      onOpenInSampler: _handleOpenInSampler,
-                                      leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                                      onLeftColumnResize: (delta) {
-                                        setState(() {
-                                          uiLayout.resizeLeftColumn(delta);
-                                          userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
-                                        });
-                                      },
-                                    ),
-                              ),
-
-                              // Divider: Library/Timeline
-                              ResizableDivider(
-                                orientation: DividerOrientation.vertical,
-                                isCollapsed: uiLayout.isLibraryPanelCollapsed,
-                                activeNotifier: _leftDividerActive,
-                                onDragStart: () => setState(() => _isDraggingLibrary = true),
-                                onDragEnd: () => setState(() => _isDraggingLibrary = false),
-                                onDrag: (delta) {
-                                  setState(() {
-                                    uiLayout.resizeRightColumn(delta);
-                                    userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
-                                    userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                                  });
-                                },
-                                onDoubleClick: () {
-                                  setState(() {
-                                    uiLayout.toggleLibraryPanel();
-                                    userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildLibrarySection(),
 
                       // Center: Timeline area
                       // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
                       // so playhead updates at 60fps do NOT rebuild the entire timeline
-                      Expanded(
-                        child: TimelineView(
-                          key: timelineKey,
-                          playheadNotifier: playbackController.playheadNotifier,
-                          clipDuration: clipDuration,
-                          waveformPeaks: waveformPeaks,
-                          audioEngine: audioEngine,
-                          tempo: tempo,
-                          selectedMidiTrackId: selectedTrackId,
-                          selectedMidiClipId: midiPlaybackManager?.selectedClipId,
-                          currentEditingClip: midiPlaybackManager?.currentEditingClip,
-                          midiClips: midiPlaybackManager?.midiClips ?? [], // Pass all MIDI clips for visualization
-                          onMidiTrackSelected: _onTrackSelected,
-                          onMidiClipSelected: _onMidiClipSelected,
-                          onAudioClipSelected: _onAudioClipSelected,
-                          onMidiClipUpdated: _onMidiClipUpdated,
-                          onMidiClipCopied: onMidiClipCopied,
-                          onAudioClipCopied: onAudioClipCopied,
-                          getRustClipId: (dartClipId) => midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
-                          onMidiOverlapResolved: (result) {
-                            ClipOverlapHandler.applyMidiResult(
-                              result: result,
-                              deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
-                              updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
-                              rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
-                              addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
-                              tempo: tempo,
-                            );
-                          },
-                          onMidiClipDeleted: _deleteMidiClip,
-                          onMidiClipsBatchDeleted: _deleteMidiClipsBatch,
-                          onAudioClipsBatchDeleted: _deleteAudioClipsBatch,
-                          onInstrumentDropped: _onInstrumentDropped,
-                          onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
-                          onVst3InstrumentDropped: _onVst3InstrumentDropped,
-                          onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
-                          onMidiClipExported: _exportMidiClip,
-                          onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
-                          onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
-                          onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
-                          onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
-                          onCreateTrackWithClip: _onCreateTrackWithClip,
-                          onCreateClipOnTrack: _onCreateClipOnTrack,
-                          clipHeights: clipHeights,
-                          automationHeights: automationHeights,
-                          masterTrackHeight: masterTrackHeight,
-                          trackOrder: trackController.trackOrder,
-                          getTrackColor: getTrackColor,
-                          onClipHeightChanged: setClipHeight,
-                          onAutomationHeightChanged: setAutomationHeight,
-                          onSeek: (position) {
-                            audioEngine?.transportSeek(position);
-                            playheadPosition = position;
-                            // Update the notifier so ValueListenableBuilder rebuilds immediately
-                            playbackController.playheadNotifier.value = position;
-                          },
-                          // Loop playback state
-                          loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
-                          loopStartBeats: uiLayout.loopStartBeats,
-                          loopEndBeats: uiLayout.loopEndBeats,
-                          punchInEnabled: uiLayout.punchInEnabled,
-                          punchOutEnabled: uiLayout.punchOutEnabled,
-                          onLoopRegionChanged: (start, end) {
-                            // Mark as manual adjustment - disables auto-follow
-                            uiLayout.setLoopRegion(start, end, manual: true);
-                            // Update playback controller in real-time during playback
-                            playbackController.updateLoopBounds(
-                              loopStartBeats: start,
-                              loopEndBeats: end,
-                            );
-                          },
-                          // Vertical scroll sync with mixer panel
-                          verticalScrollController: timelineVerticalScrollController,
-                          // Tool mode (shared with piano roll)
-                          toolMode: currentToolMode,
-                          onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
-                          // Recording state (for auto-scroll)
-                          isRecording: isRecording,
-                          // Automation state
-                          automationVisibleTrackId: automationController.visibleTrackId,
-                          getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
-                          onAutomationPointAdded: (trackId, point) {
-                            automationController.addPoint(trackId, automationController.visibleParameter, point);
-                            if (automationController.visibleParameter == AutomationParameter.volume) {
-                              syncVolumeAutomationToEngine(trackId);
-                            }
-                          },
-                          onAutomationPointUpdated: (trackId, pointId, point) {
-                            automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-                            if (automationController.visibleParameter == AutomationParameter.volume) {
-                              syncVolumeAutomationToEngine(trackId);
-                            }
-                          },
-                          onAutomationPointDeleted: (trackId, pointId) {
-                            automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-                            if (automationController.visibleParameter == AutomationParameter.volume) {
-                              syncVolumeAutomationToEngine(trackId);
-                            }
-                          },
-                          onAutomationPreviewValue: onAutomationPreviewValue,
-                          automationScrollController: timelineKey.currentState?.scrollController,
-                        ),
-                      ),
+                      _buildTimelineSection(),
 
                       // Right: Track mixer panel (animated width)
-                      AnimatedContainer(
-                        duration: _isDraggingMixer ? Duration.zero : const Duration(milliseconds: 200),
-                        curve: Curves.easeInOut,
-                        width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
-                        clipBehavior: Clip.hardEdge,
-                        decoration: const BoxDecoration(),
-                        child: OverflowBox(
-                          alignment: Alignment.centerRight,
-                          maxWidth: uiLayout.mixerPanelWidth + 4,
-                          minWidth: uiLayout.mixerPanelWidth + 4,
-                          child: Row(
-                            children: [
-                              // Divider: Timeline/Mixer
-                              ResizableDivider(
-                                orientation: DividerOrientation.vertical,
-                                isCollapsed: !uiLayout.isMixerVisible,
-                                activeNotifier: _rightDividerActive,
-                                onDragStart: () => setState(() => _isDraggingMixer = true),
-                                onDragEnd: () => setState(() => _isDraggingMixer = false),
-                                onDrag: (delta) {
-                                  final windowWidth = MediaQuery.of(context).size.width;
-                                  final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
-                                  setState(() {
-                                    final newWidth = uiLayout.mixerPanelWidth - delta;
-                                    // Snap collapse if dragged below threshold
-                                    if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                                      uiLayout.collapseMixer();
-                                      userSettings.mixerVisible = false;
-                                    } else {
-                                      uiLayout.mixerPanelWidth = newWidth.clamp(
-                                        UILayoutState.mixerMinWidth,
-                                        maxWidth,
-                                      );
-                                      userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-                                    }
-                                  });
-                                },
-                                onDoubleClick: () {
-                                  setState(() {
-                                    uiLayout.toggleMixer();
-                                    userSettings.mixerVisible = uiLayout.isMixerVisible;
-                                  });
-                                },
-                              ),
-
-                              SizedBox(
-                                width: uiLayout.mixerPanelWidth,
-                                child: TrackMixerPanel(
-                            key: mixerKey,
-                            audioEngine: audioEngine,
-                            isEngineReady: isAudioGraphInitialized,
-                            scrollController: mixerVerticalScrollController,
-                            selectedTrackId: selectedTrackId,
-                            selectedTrackIds: selectedTrackIds,
-                            onTrackSelected: _onTrackSelected,
-                            onInstrumentSelected: _onInstrumentSelected,
-                            onTrackDuplicated: _onTrackDuplicated,
-                            onTrackDeleted: _onTrackDeleted,
-                            onConvertToSampler: _convertAudioTrackToSampler,
-                            trackInstruments: trackInstruments,
-                            trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
-                            onFxButtonPressed: _showVst3PluginBrowser, // M10
-                            onVst3PluginDropped: _onVst3PluginDropped, // M10
-                            onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
-                            onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
-                            onEditPluginsPressed: _showVst3PluginEditor, // M10
-                            onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
-                            onMidiTrackCreated: _createDefaultMidiClip,
-                            onTrackCreated: _onTrackCreatedFromMixer,
-                            onTrackReordered: _onTrackReordered,
-                            trackOrder: trackController.trackOrder,
-                            onTrackOrderSync: trackController.syncTrackOrder,
-                            clipHeights: clipHeights,
-                            automationHeights: automationHeights,
-                            masterTrackHeight: masterTrackHeight,
-                            onClipHeightChanged: setClipHeight,
-                            onAutomationHeightChanged: setAutomationHeight,
-                            onMasterTrackHeightChanged: setMasterTrackHeight,
-                            panelWidth: uiLayout.mixerPanelWidth,
-                            onTogglePanel: _toggleMixer,
-                            getTrackColor: getTrackColor,
-                            onTrackColorChanged: setTrackColor,
-                            getTrackIcon: (trackId) => trackController.getTrackIcon(trackId),
-                            onTrackIconChanged: (trackId, icon) {
-                              setState(() {
-                                trackController.setTrackIcon(trackId, icon);
-                              });
-                            },
-                            onTrackNameChanged: (trackId, newName) {
-                              // Mark track name as user-edited
-                              trackController.markTrackNameUserEdited(trackId, edited: true);
-                            },
-                            onTrackDoubleClick: (trackId) {
-                              // Select track and open editor
-                              _onTrackSelected(trackId);
-                              if (!uiLayout.isEditorPanelVisible) {
-                                _toggleEditor();
-                              }
-                            },
-                            automationVisibleTrackId: automationController.visibleTrackId,
-                            onAutomationToggle: (trackId) {
-                              setState(() {
-                                automationController.toggleAutomationForTrack(trackId);
-                              });
-                            },
-                            getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
-                            pixelsPerBeat: timelineKey.currentState?.pixelsPerBeat ?? 20.0,
-                            totalBeats: 256.0,
-                            onAutomationPointAdded: (trackId, point) {
-                              automationController.addPoint(trackId, automationController.visibleParameter, point);
-                              if (automationController.visibleParameter == AutomationParameter.volume) {
-                                syncVolumeAutomationToEngine(trackId);
-                              }
-                            },
-                            onAutomationPointUpdated: (trackId, pointId, point) {
-                              automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-                              if (automationController.visibleParameter == AutomationParameter.volume) {
-                                syncVolumeAutomationToEngine(trackId);
-                              }
-                            },
-                            onAutomationPointDeleted: (trackId, pointId) {
-                              automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-                              if (automationController.visibleParameter == AutomationParameter.volume) {
-                                syncVolumeAutomationToEngine(trackId);
-                              }
-                            },
-                            automationPreviewNotifier: automationPreviewNotifier,
-                            onAutomationPreviewValue: onAutomationPreviewValue,
-                            isRecording: recordingController.isRecording || recordingController.isCountingIn,
-                            getSelectedParameter: (trackId) => automationController.visibleParameter,
-                            onParameterChanged: (trackId, param) {
-                              setState(() {
-                                automationController.setVisibleParameter(param);
-                              });
-                            },
-                            onResetParameter: (trackId) {
-                              // Reset the parameter to its default value
-                              final param = automationController.visibleParameter;
-                              if (param == AutomationParameter.volume) {
-                                audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
-                                setState(() {}); // Trigger UI update
-                              } else if (param == AutomationParameter.pan) {
-                                audioEngine?.setTrackPan(trackId, 0.0); // Center
-                                setState(() {}); // Trigger UI update
-                              }
-                            },
-                            onAddParameter: (trackId) {
-                              // TODO: Future feature - add another automation parameter lane
-                            },
-                          ),
-                        ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildMixerSection(),
                     ],
                   ),
                 ),
