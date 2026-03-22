@@ -4,6 +4,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Sampler editor crash**: Fixed `.single` on FilePicker result that would crash if no file was selected. Now uses safe `.first` access with `.isNotEmpty` guard.
+- **Sampler waveform division by zero**: Fixed `_pixelsPerBeat` calculation that produced NaN/Infinity when `originalBpm` was 0. Now returns fallback value.
+- **Clip overlap handler**: Fixed loop iterating all clips instead of pre-filtered track clips, causing unnecessary iteration and misleading debug logs.
+- **Recording negative duration**: Fixed count-in duration going negative when playhead seeked backward during recording. Now clamped to non-negative.
+
 ### Improvements
 
 - **Divider redesign**: Continuous full-height dividers spanning top bar through content area. 1px gray line at rest, 4px accent bar on hover with synchronized highlighting (both segments activate together). Transport bar restructured to 3-column grid layout with draggable left/right handles.
