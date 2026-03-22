@@ -6,6 +6,7 @@ import '../../../models/library_item.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
+// ignore: unused_import
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../services/midi_file_service.dart';
@@ -501,6 +502,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Import decoded MIDI notes as a clip on a track
+  // ignore: unused_element
   void _importMidiNotesToTrack(int trackId, String filePath, double startTimeBeats, MidiFileDecodeResult result) {
     // Find the max note end to determine clip duration
     double maxEnd = 0;
@@ -587,6 +589,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Add audio clip to existing track
+  // ignore: unused_element
   Future<void> addAudioClipToTrack(int trackId, String filePath) async {
     if (audioEngine == null) return;
 
@@ -618,6 +621,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Add built-in effect to track
+  // ignore: unused_element
   void addBuiltInEffectToTrack(int trackId, String effectType) {
     if (audioEngine == null) return;
 
@@ -632,6 +636,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Find instrument by name
+  // ignore: unused_element
   Instrument? findInstrumentByName(String name) {
     try {
       return availableInstruments.firstWhere(
@@ -643,6 +648,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Find instrument by ID
+  // ignore: unused_element
   Instrument? findInstrumentById(String id) {
     try {
       return availableInstruments.firstWhere(
@@ -654,12 +660,14 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Truncate a name to max length with ellipsis
+  // ignore: unused_element
   String truncateName(String name, int maxLength) {
     if (name.length <= maxLength) return name;
     return '${name.substring(0, maxLength - 3)}...';
   }
 
   /// Show snackbar message
+  // ignore: unused_element
   void showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
