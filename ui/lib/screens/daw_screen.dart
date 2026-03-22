@@ -92,14 +92,14 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Listen for undo/redo state changes to update menu
     undoRedoManager.addListener(_onUndoRedoChanged);
 
-    // Listen for controller state changes
-    // Note: playbackController is NOT included here — its frequent updates
-    // (play/pause/stop/seek) are handled via playheadNotifier inside TimelineView.
-    // Including it here would cause full DAW screen rebuilds on every transport change.
-    recordingController.addListener(_onControllerChanged);
-    trackController.addListener(_onControllerChanged);
-    midiClipController.addListener(_onControllerChanged);
-    uiLayout.addListener(_onControllerChanged);
+    // Listen for controller state changes that require UI rebuilds.
+    // Note: playbackController is NOT included — its frequent updates
+    // (play/pause/stop/seek) use playheadNotifier inside TimelineView.
+    // automationPreviewValues use ValueNotifier listened to by TrackMixerPanel only.
+    recordingController.addListener(_onRecordingStateChanged);
+    trackController.addListener(_onTrackStateChanged);
+    midiClipController.addListener(_onMidiClipStateChanged);
+    uiLayout.addListener(_onLayoutChanged);
 
     // Set up vertical scroll sync between timeline and mixer
     timelineVerticalScrollController.addListener(onTimelineVerticalScroll);
@@ -145,10 +145,24 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     });
   }
 
-  void _onControllerChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+  /// Recording state changed (arm, count-in, recording active).
+  void _onRecordingStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Track order, heights, or metadata changed.
+  void _onTrackStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// MIDI clip selection or editing state changed.
+  void _onMidiClipStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Panel visibility or sizes changed.
+  void _onLayoutChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onUndoRedoChanged() {
@@ -189,10 +203,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     undoRedoManager.removeListener(_onUndoRedoChanged);
 
     // Remove controller listeners
-    recordingController.removeListener(_onControllerChanged);
-    trackController.removeListener(_onControllerChanged);
-    midiClipController.removeListener(_onControllerChanged); // Was missing!
-    uiLayout.removeListener(_onControllerChanged);
+    recordingController.removeListener(_onRecordingStateChanged);
+    trackController.removeListener(_onTrackStateChanged);
+    midiClipController.removeListener(_onMidiClipStateChanged);
+    uiLayout.removeListener(_onLayoutChanged);
 
     // Clear callbacks to prevent memory leaks
     recordingController.onRecordingComplete = null;
