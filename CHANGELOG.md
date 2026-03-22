@@ -4,6 +4,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **Divider redesign**: Continuous full-height dividers spanning top bar through content area. 1px gray line at rest, 4px accent bar on hover with synchronized highlighting (both segments activate together). Transport bar restructured to 3-column grid layout with draggable left/right handles.
+- **Surface color simplification**: Reduced from 5 surface color levels (dark/standard/elevated/surface/divider) to 3 clean levels: `dark` for all chrome, `darkest` for content areas, `editor` for timeline. Unified visual hierarchy matching Boojy Notes.
+- **Mixer header simplified**: Removed collapse chevron, tune icon, and "TRACK MIXER" label — header now shows only the (+) add track button, right-aligned.
+- **Transport bar layout**: Sidebar toggle aligned to right edge near divider, help button pushed to far right corner.
+- **Centralized logging**: Replaced 161 `print`/`debugPrint` calls across 31 files with `Log` utility (silent in release builds). Categories: `Log.e()` for errors, `Log.d()` for debug, `Log.i()` for info.
+- **Magic numbers extracted**: MIDI constants (defaultVelocity, noteOffVelocity, maxMidiNote) and scroll thresholds moved to `UIConstants`. Removed 93 lines of dead code.
+- **Performance: automation preview**: Converted from setState (full DAWScreen rebuild at 60fps) to ValueNotifier (only mixer panel rebuilds during drag).
+- **Performance: status message**: Removed 35 wasteful setState calls for unused statusMessage field.
+- **Code decomposition**: Extracted DAWScreen build method into 4 named methods, timeline keyboard handler into separate method, piano roll content into 4 focused builders.
+- **Dev tool: Palette Editor**: Live color palette editor (Cmd+Shift+P in debug builds) with preset switching (Current/Neutral/Warm), hex input, and code export.
+
 ### Features
 
 - **UI redesign — Boojy Design System alignment**: Migrated entire colour palette from neutral greys to blue-tinted Boojy Design System colours (matching Boojy Notes). New deep blue-black editor background (#040412) for timeline and piano roll content areas. Chrome (sidebar, top bar, mixer) uses #2C2C32. All painters (grid, nav bar, rulers, automation) updated to design system colours.
