@@ -357,7 +357,7 @@ class RecordingController extends ChangeNotifier {
         // Transition to Recording (from CountingIn or WaitingForPunchIn)
         final wasWaiting = _isWaitingForPunchIn;
         final currentPosition = _audioEngine!.getPlayheadPosition();
-        _countInDurationSeconds = wasWaiting ? 0.0 : currentPosition - _recordingStartPosition;
+        _countInDurationSeconds = wasWaiting ? 0.0 : (currentPosition - _recordingStartPosition).clamp(0.0, double.infinity);
         Log.d('🎙️ [REC_CTRL] State timer: ${wasWaiting ? "WaitingForPunchIn" : "CountingIn"} → Recording (state=2)');
         Log.d('🎙️ [REC_CTRL]   countInDurationSeconds=${_countInDurationSeconds.toStringAsFixed(3)}s');
         Log.d('🎙️ [REC_CTRL]   currentPosition=${currentPosition.toStringAsFixed(3)}s');

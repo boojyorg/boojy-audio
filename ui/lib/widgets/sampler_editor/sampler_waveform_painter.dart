@@ -27,7 +27,10 @@ class SamplerWaveformPainter extends CustomPainter {
     this.beatsPerBar = 4,
   });
 
-  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+  double get _pixelsPerBeat {
+    if (originalBpm <= 0) return pixelsPerSecond;
+    return pixelsPerSecond * (60.0 / originalBpm);
+  }
 
   /// Adaptive grid division in beats — matches UnifiedNavBarPainter
   double _getGridDivision() {
@@ -272,7 +275,10 @@ class SamplerRulerPainter extends CustomPainter {
     this.hoverSeconds,
   });
 
-  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+  double get _pixelsPerBeat {
+    if (originalBpm <= 0) return pixelsPerSecond;
+    return pixelsPerSecond * (60.0 / originalBpm);
+  }
 
   /// Adaptive grid division — matches UnifiedNavBarPainter
   double _getGridDivision() {

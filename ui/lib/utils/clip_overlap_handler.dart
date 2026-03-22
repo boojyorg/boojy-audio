@@ -138,10 +138,7 @@ class ClipOverlapHandler {
     final trackClips = existingClips.where((c) => c.trackId == trackId && c.clipId != excludeClipId).toList();
     Log.d('[OVERLAP] resolveAudioOverlaps: new region ${newStart.toStringAsFixed(3)}-${newEnd.toStringAsFixed(3)}s on track $trackId, checking ${trackClips.length} clips (exclude=$excludeClipId)');
 
-    for (final clip in existingClips) {
-      if (clip.trackId != trackId) continue;
-      if (clip.clipId == excludeClipId) continue;
-
+    for (final clip in trackClips) {
       final clipEnd = clip.startTime + clip.duration;
 
       // No overlap — skip
@@ -255,10 +252,7 @@ class ClipOverlapHandler {
     final trackClips = existingClips.where((c) => c.trackId == trackId && c.clipId != excludeClipId).toList();
     Log.d('[OVERLAP] resolveMidiOverlaps: new region ${newStart.toStringAsFixed(3)}-${newEnd.toStringAsFixed(3)} beats on track $trackId, checking ${trackClips.length} clips (exclude=$excludeClipId)');
 
-    for (final clip in existingClips) {
-      if (clip.trackId != trackId) continue;
-      if (clip.clipId == excludeClipId) continue;
-
+    for (final clip in trackClips) {
       final clipEnd = clip.startTime + clip.duration;
 
       // No overlap — skip

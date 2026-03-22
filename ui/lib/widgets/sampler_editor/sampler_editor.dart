@@ -235,8 +235,8 @@ class _SamplerEditorState extends State<SamplerEditor> {
       dialogTitle: 'Select Sample',
     );
 
-    if (result != null && result.files.single.path != null) {
-      final path = result.files.single.path!;
+    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+      final path = result.files.first.path!;
       if (widget.audioEngine != null && widget.trackId != null) {
         widget.audioEngine!.loadSampleForTrack(widget.trackId!, path, _rootNote);
         _loadSampleData(); // Refresh
