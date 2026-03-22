@@ -310,8 +310,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       final playheadPixelX = widget.playheadNotifier.value * beatsPerSecond * pixelsPerBeat;
       final viewportRight = scrollController.offset + viewWidth;
       // Scroll when playhead passes 80% of the visible area
-      if (playheadPixelX > viewportRight - viewWidth * 0.2) {
-        final targetOffset = playheadPixelX - viewWidth * 0.3;
+      if (playheadPixelX > viewportRight - viewWidth * UIConstants.playheadScrollThreshold) {
+        final targetOffset = playheadPixelX - viewWidth * UIConstants.playheadScrollOffset;
         scrollController.jumpTo(targetOffset.clamp(0.0, scrollController.position.maxScrollExtent));
       }
     }

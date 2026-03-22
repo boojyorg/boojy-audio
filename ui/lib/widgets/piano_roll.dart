@@ -204,8 +204,8 @@ class _PianoRollState extends State<PianoRoll>
       final clipEndPixelX = (currentClip!.startTime + currentClip!.duration) * pixelsPerBeat;
       final viewportRight = horizontalScroll.offset + viewWidth;
       // Scroll when clip end passes 80% of the visible area
-      if (clipEndPixelX > viewportRight - viewWidth * 0.2) {
-        final targetOffset = clipEndPixelX - viewWidth * 0.3;
+      if (clipEndPixelX > viewportRight - viewWidth * UIConstants.playheadScrollThreshold) {
+        final targetOffset = clipEndPixelX - viewWidth * UIConstants.playheadScrollOffset;
         horizontalScroll.jumpTo(targetOffset.clamp(0.0, horizontalScroll.position.maxScrollExtent));
       }
     }
@@ -254,7 +254,7 @@ class _PianoRollState extends State<PianoRoll>
       if (transposedNote >= 0 && transposedNote <= 127) {
         newNotes.add(MidiNoteData(
           note: transposedNote,
-          velocity: 100,
+          velocity: UIConstants.defaultMidiVelocity,
           startTime: beat,
           duration: lastNoteDuration,
           isSelected: true,
@@ -1583,7 +1583,7 @@ class _PianoRollState extends State<PianoRoll>
       // Create single note (FL Studio style)
       final newNote = MidiNoteData(
         note: noteRow,
-        velocity: 100,
+        velocity: UIConstants.defaultMidiVelocity,
         startTime: snappedBeat,
         duration: lastNoteDuration,
         isSelected: true,  // Auto-select new note for immediate manipulation
@@ -1807,7 +1807,7 @@ class _PianoRollState extends State<PianoRoll>
       // Only if they're not clicking on a different note
       final createdNote = currentClip?.notes.firstWhere(
         (n) => n.id == justCreatedNoteId,
-        orElse: () => MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+        orElse: () => MidiNoteData(note: 60, velocity: UIConstants.defaultMidiVelocity, startTime: 0, duration: 1),
       );
 
       if (createdNote != null && createdNote.id == justCreatedNoteId) {
@@ -1966,7 +1966,7 @@ class _PianoRollState extends State<PianoRoll>
       if (currentBeat >= nextNoteBeat) {
         final newNote = MidiNoteData(
           note: paintNote!,
-          velocity: 100,
+          velocity: UIConstants.defaultMidiVelocity,
           startTime: nextNoteBeat,
           duration: lastNoteDuration,
         );
