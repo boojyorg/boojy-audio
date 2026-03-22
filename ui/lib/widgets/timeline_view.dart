@@ -886,6 +886,139 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     }
   }
 
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      // Handle Delete/Backspace to delete all selected clips
+      if (event.logicalKey == LogicalKeyboardKey.delete ||
+          event.logicalKey == LogicalKeyboardKey.backspace) {
+        bool handled = false;
+
+        // Delete all selected MIDI clips
+        if (selectedMidiClipIds.isNotEmpty) {
+          final clipsToDelete = <(int, int)>[];
+          for (final clipId in selectedMidiClipIds) {
+            final clip = widget.midiClips.where((c) => c.clipId == clipId).firstOrNull;
+            if (clip != null) {
+              clipsToDelete.add((clip.clipId, clip.trackId));
+            }
+          }
+          if (clipsToDelete.isNotEmpty) {
+            widget.onMidiClipsBatchDeleted?.call(clipsToDelete);
+            selectedMidiClipIds.clear();
+            handled = true;
+          }
+        }
+
+        // Delete all selected audio clips
+        if (selectedAudioClipIds.isNotEmpty) {
+          final clipsToDelete = <ClipData>[];
+          for (final clipId in selectedAudioClipIds) {
+            final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
+            if (clip != null) {
+              clipsToDelete.add(clip);
+            }
+          }
+          if (clipsToDelete.isNotEmpty) {
+            widget.onAudioClipsBatchDeleted?.call(clipsToDelete);
+            selectedAudioClipIds.clear();
+            handled = true;
+          }
+        }
+
+        if (handled) {
+          setState(() {});
+          return KeyEventResult.handled;
+        }
+      }
+
+      // Handle Escape to deselect all clips (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        deselectAllClips();
+        return KeyEventResult.handled;
+      }
+
+      // Cmd+D to duplicate selected clip (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyD &&
+          ModifierKeyState.current().isCtrlOrCmd) {
+        if (widget.selectedMidiClipId != null) {
+          final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+          if (clip != null) {
+            duplicateMidiClip(clip);
+            return KeyEventResult.handled;
+          }
+        }
+      }
+
+      // Cmd+A to select all clips (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyA &&
+          ModifierKeyState.current().isCtrlOrCmd) {
+        selectAllClips();
+        return KeyEventResult.handled;
+      }
+
+      // Q to quantize selected clip (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+        if (widget.selectedMidiClipId != null) {
+          final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+          if (clip != null) {
+            quantizeMidiClip(clip);
+            return KeyEventResult.handled;
+          }
+        }
+      }
+
+      // ============================================
+      // Tool shortcuts (Z, X, C, V, B)
+      // Press once to switch tool, stays active until switched again
+      // ============================================
+      final modifiers = ModifierKeyState.current();
+
+      // Z = Draw tool (without Cmd/Ctrl - Cmd+Z is undo)
+      if (event.logicalKey == LogicalKeyboardKey.keyZ && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.draw);
+        return KeyEventResult.handled;
+      }
+      // X = Select tool (without Cmd/Ctrl - Cmd+X is cut)
+      if (event.logicalKey == LogicalKeyboardKey.keyX && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.select);
+        return KeyEventResult.handled;
+      }
+      // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
+      if (event.logicalKey == LogicalKeyboardKey.keyC && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.eraser);
+        return KeyEventResult.handled;
+      }
+      // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
+      if (event.logicalKey == LogicalKeyboardKey.keyV && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.duplicate);
+        return KeyEventResult.handled;
+      }
+      // B = Slice tool
+      if (event.logicalKey == LogicalKeyboardKey.keyB && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.slice);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ============================================
+    // Modifier key handling for temporary tool override
+    // ============================================
+    // Update tempToolMode when Alt/Cmd/Ctrl keys change
+    if (event.logicalKey == LogicalKeyboardKey.alt ||
+        event.logicalKey == LogicalKeyboardKey.altLeft ||
+        event.logicalKey == LogicalKeyboardKey.altRight ||
+        event.logicalKey == LogicalKeyboardKey.meta ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight ||
+        event.logicalKey == LogicalKeyboardKey.control ||
+        event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight) {
+      updateTempToolMode();
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Update viewWidth for zoom calculations
@@ -929,138 +1062,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       cursor: currentCursor,
       child: Focus(
         autofocus: true,
-        onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          // Handle Delete/Backspace to delete all selected clips
-          if (event.logicalKey == LogicalKeyboardKey.delete ||
-              event.logicalKey == LogicalKeyboardKey.backspace) {
-            bool handled = false;
-
-            // Delete all selected MIDI clips
-            if (selectedMidiClipIds.isNotEmpty) {
-              final clipsToDelete = <(int, int)>[];
-              for (final clipId in selectedMidiClipIds) {
-                final clip = widget.midiClips.where((c) => c.clipId == clipId).firstOrNull;
-                if (clip != null) {
-                  clipsToDelete.add((clip.clipId, clip.trackId));
-                }
-              }
-              if (clipsToDelete.isNotEmpty) {
-                widget.onMidiClipsBatchDeleted?.call(clipsToDelete);
-                selectedMidiClipIds.clear();
-                handled = true;
-              }
-            }
-
-            // Delete all selected audio clips
-            if (selectedAudioClipIds.isNotEmpty) {
-              final clipsToDelete = <ClipData>[];
-              for (final clipId in selectedAudioClipIds) {
-                final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
-                if (clip != null) {
-                  clipsToDelete.add(clip);
-                }
-              }
-              if (clipsToDelete.isNotEmpty) {
-                widget.onAudioClipsBatchDeleted?.call(clipsToDelete);
-                selectedAudioClipIds.clear();
-                handled = true;
-              }
-            }
-
-            if (handled) {
-              setState(() {});
-              return KeyEventResult.handled;
-            }
-          }
-
-          // Handle Escape to deselect all clips (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
-            deselectAllClips();
-            return KeyEventResult.handled;
-          }
-
-          // Cmd+D to duplicate selected clip (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyD &&
-              ModifierKeyState.current().isCtrlOrCmd) {
-            if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
-              if (clip != null) {
-                duplicateMidiClip(clip);
-                return KeyEventResult.handled;
-              }
-            }
-          }
-
-          // Cmd+A to select all clips (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyA &&
-              ModifierKeyState.current().isCtrlOrCmd) {
-            selectAllClips();
-            return KeyEventResult.handled;
-          }
-
-          // Q to quantize selected clip (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyQ) {
-            if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
-              if (clip != null) {
-                quantizeMidiClip(clip);
-                return KeyEventResult.handled;
-              }
-            }
-          }
-
-          // ============================================
-          // Tool shortcuts (Z, X, C, V, B)
-          // Press once to switch tool, stays active until switched again
-          // ============================================
-          final modifiers = ModifierKeyState.current();
-
-          // Z = Draw tool (without Cmd/Ctrl - Cmd+Z is undo)
-          if (event.logicalKey == LogicalKeyboardKey.keyZ && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.draw);
-            return KeyEventResult.handled;
-          }
-          // X = Select tool (without Cmd/Ctrl - Cmd+X is cut)
-          if (event.logicalKey == LogicalKeyboardKey.keyX && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.select);
-            return KeyEventResult.handled;
-          }
-          // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
-          if (event.logicalKey == LogicalKeyboardKey.keyC && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.eraser);
-            return KeyEventResult.handled;
-          }
-          // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
-          if (event.logicalKey == LogicalKeyboardKey.keyV && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.duplicate);
-            return KeyEventResult.handled;
-          }
-          // B = Slice tool
-          if (event.logicalKey == LogicalKeyboardKey.keyB && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.slice);
-            return KeyEventResult.handled;
-          }
-        }
-
-        // ============================================
-        // Modifier key handling for temporary tool override
-        // ============================================
-        // Update tempToolMode when Alt/Cmd/Ctrl keys change
-        if (event.logicalKey == LogicalKeyboardKey.alt ||
-            event.logicalKey == LogicalKeyboardKey.altLeft ||
-            event.logicalKey == LogicalKeyboardKey.altRight ||
-            event.logicalKey == LogicalKeyboardKey.meta ||
-            event.logicalKey == LogicalKeyboardKey.metaLeft ||
-            event.logicalKey == LogicalKeyboardKey.metaRight ||
-            event.logicalKey == LogicalKeyboardKey.control ||
-            event.logicalKey == LogicalKeyboardKey.controlLeft ||
-            event.logicalKey == LogicalKeyboardKey.controlRight) {
-          updateTempToolMode();
-        }
-
-        return KeyEventResult.ignored;
-      },
+        onKeyEvent: _handleKeyEvent,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.colors.editor,
