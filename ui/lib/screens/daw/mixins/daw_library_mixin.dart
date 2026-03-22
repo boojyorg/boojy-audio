@@ -348,7 +348,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
   /// Handle audio file dropped on existing track (with undo support)
   Future<void> onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    Log.d('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split(\'/\').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
@@ -486,7 +486,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
   /// Handle MIDI file dropped on existing track
   Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    Log.d('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split(\'/\').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
     if (!isMidiTrack(trackId)) return;
 
