@@ -294,7 +294,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18, color: this.context.colors.textSecondary),
+              Icon(Icons.piano, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('MIDI Track'),
             ],
@@ -304,14 +304,14 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'audio',
           child: Row(
             children: [
-              Icon(Icons.audiotrack, size: 18, color: this.context.colors.textSecondary),
+              Icon(Icons.audiotrack, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Audio Track'),
             ],
           ),
         ),
       ],
-      color: this.context.colors.elevated,
+      color: context.colors.elevated,
     ).then((value) {
       if (value != null) {
         widget.onCreateTrackWithClip?.call(value, startBeats, durationBeats);

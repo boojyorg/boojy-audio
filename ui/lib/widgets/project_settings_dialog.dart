@@ -138,7 +138,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     ));
   }
 
-  void _createNewVersion() async {
+  Future<void> _createNewVersion() async {
     final result = await _showNewVersionDialog();
     if (result == null) return;
 
@@ -205,7 +205,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
-                  Container(
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       color: context.colors.standard,
                       borderRadius: BorderRadius.circular(4),
@@ -646,7 +646,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     final canRestore = _selectedVersion != null &&
         _selectedVersion!.versionNumber != widget.currentVersionNumber;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colors.standard,
         borderRadius: BorderRadius.circular(6),
@@ -672,11 +672,11 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? context.colors.accent.withOpacity(0.15)
+                            ? context.colors.accent.withValues(alpha: 0.15)
                             : Colors.transparent,
                         border: Border(
                           bottom: BorderSide(
-                            color: context.colors.elevated.withOpacity(0.5),
+                            color: context.colors.elevated.withValues(alpha: 0.5),
                             width: index < widget.versions.length - 1 ? 1 : 0,
                           ),
                         ),
@@ -709,7 +709,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: context.colors.accent.withOpacity(0.2),
+                                      color: context.colors.accent.withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(

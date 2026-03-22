@@ -153,14 +153,14 @@ class SamplerWaveformPainter extends CustomPainter {
     final path = Path();
 
     // Start at first peak's top
-    double firstMax = renderPeaks[1].clamp(-1.0, 1.0);
+    final firstMax = renderPeaks[1].clamp(-1.0, 1.0);
     final firstTopY = centerY - (firstMax * centerY * 0.9);
     path.moveTo(step / 2, firstTopY);
 
     // Trace TOP edge (max values) left to right
     for (int i = 1; i < peakCount; i++) {
       final x = i * step + step / 2;
-      double maxVal = renderPeaks[i * 2 + 1].clamp(-1.0, 1.0);
+      final maxVal = renderPeaks[i * 2 + 1].clamp(-1.0, 1.0);
       final topY = centerY - (maxVal * centerY * 0.9);
       path.lineTo(x, topY);
     }
@@ -168,7 +168,7 @@ class SamplerWaveformPainter extends CustomPainter {
     // Trace BOTTOM edge (min values) right to left
     for (int i = peakCount - 1; i >= 0; i--) {
       final x = i * step + step / 2;
-      double minVal = renderPeaks[i * 2].clamp(-1.0, 1.0);
+      final minVal = renderPeaks[i * 2].clamp(-1.0, 1.0);
       final bottomY = centerY - (minVal * centerY * 0.9);
       path.lineTo(x, bottomY);
     }

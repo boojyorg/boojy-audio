@@ -116,7 +116,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Container(
+    return ColoredBox(
           color: colors.dark,
           child: Column(
             children: [
@@ -199,7 +199,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
     final userFolders = widget.libraryService.userFolderPaths;
 
-    return Container(
+    return ColoredBox(
       color: colors.dark,
       child: ListView(
         controller: _leftScrollController,
@@ -376,7 +376,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   Widget _buildContentsView() {
     final colors = context.colors;
 
-    return Container(
+    return ColoredBox(
       color: colors.darkest,
       child: ListView(
         controller: _rightScrollController,

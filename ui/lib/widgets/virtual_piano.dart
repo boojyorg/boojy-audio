@@ -446,7 +446,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           const SizedBox(width: 12),
 
           // Octave controls group
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: context.colors.dark,
               borderRadius: BorderRadius.circular(4),

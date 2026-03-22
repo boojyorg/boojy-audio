@@ -574,7 +574,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
       },
       child: ClipRect(
-        child: Container(
+        child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.colors.dark,
           border: Border(

@@ -2245,7 +2245,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Red rejection overlay when dragging audio onto MIDI track
             if (isAudioFileRejected || platformDragOverMidiTrackId == track.id)
               Positioned.fill(
-                child: Container(
+                child: ColoredBox(
                   color: Colors.red.withValues(alpha: 0.15),
                   child: Center(
                     child: Icon(
@@ -2830,7 +2830,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       notchRadius: 4,
                       loopBoundaryXPositions: loopBoundaryPositions,
                     ),
-                    child: Container(
+                    child: SizedBox(
                       width: clipWidth,
                       height: totalHeight,
                       child: Column(

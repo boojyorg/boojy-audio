@@ -26,7 +26,7 @@ class RecentProjectsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.dark,
         borderRadius: BorderRadius.circular(8),
@@ -103,7 +103,7 @@ class RecentProjectsGrid extends StatelessWidget {
               onTap: onNewProject,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
-                child: Container(
+                child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
