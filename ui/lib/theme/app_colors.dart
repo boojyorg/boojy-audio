@@ -56,8 +56,9 @@ extension BoojyThemeExtension on BoojyTheme {
 /// All UI colors should be accessed through this class via the ThemeProvider
 class BoojyColors {
   final BoojyTheme theme;
+  final Map<String, Color>? overrides;
 
-  const BoojyColors(this.theme);
+  const BoojyColors(this.theme, {this.overrides});
 
   // ============================================
   // BACKGROUND COLORS
@@ -171,6 +172,8 @@ class BoojyColors {
   // ============================================
 
   Color _getBackgroundColor(String token) {
+    final override = overrides?[token];
+    if (override != null) return override;
     switch (theme) {
       case BoojyTheme.dark:
         return _darkBackgrounds[token]!;
@@ -184,6 +187,9 @@ class BoojyColors {
   }
 
   Color _getTextColor(String token) {
+    // Text overrides use 'text_' prefix
+    final override = overrides?['text_$token'];
+    if (override != null) return override;
     switch (theme) {
       case BoojyTheme.dark:
         return _darkText[token]!;
@@ -197,6 +203,9 @@ class BoojyColors {
   }
 
   Color _getAccentColor(String token) {
+    // Accent overrides use 'accent_' prefix
+    final override = overrides?['accent_$token'];
+    if (override != null) return override;
     switch (theme) {
       case BoojyTheme.dark:
       case BoojyTheme.highContrastDark:

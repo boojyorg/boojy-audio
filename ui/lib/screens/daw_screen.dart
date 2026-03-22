@@ -10,6 +10,7 @@ import 'daw_screen_io.dart' if (dart.library.js_interop) 'daw_screen_io_web.dart
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../widgets/transport_bar.dart';
+import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/track_mixer_panel.dart';
 import '../widgets/library_panel.dart';
@@ -72,6 +73,16 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   // Synchronized divider hover state (shared between transport bar and content)
   final _leftDividerActive = ValueNotifier<bool>(false);
   final _rightDividerActive = ValueNotifier<bool>(false);
+
+  // Palette editor (debug only)
+  bool _showPaletteEditor = false;
+
+  void _togglePaletteEditor() {
+    assert(() {
+      setState(() => _showPaletteEditor = !_showPaletteEditor);
+      return true;
+    }());
+  }
 
   @override
   void initState() {
@@ -3389,6 +3400,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           const SingleActivator(LogicalKeyboardKey.keyJ, meta: true): _consolidateSelectedClips,
           // Cmd+B to bounce MIDI to audio
           const SingleActivator(LogicalKeyboardKey.keyB, meta: true): _bounceMidiToAudio,
+          // Cmd+Shift+P to toggle palette editor (debug only)
+          const SingleActivator(LogicalKeyboardKey.keyP, meta: true, shift: true): _togglePaletteEditor,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields
@@ -3397,7 +3410,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
         backgroundColor: context.colors.dark,
-        body: Column(
+        body: Stack(
+          children: [
+          Column(
           children: [
           // Transport bar (with logo and file/mixer buttons)
           // PERFORMANCE: Use ValueListenableBuilder for playhead-only updates
@@ -3995,6 +4010,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
         ],
       ),
+          if (_showPaletteEditor)
+            PaletteEditor(onClose: _togglePaletteEditor),
+          ],
+        ),
           ),
         ),
       ),

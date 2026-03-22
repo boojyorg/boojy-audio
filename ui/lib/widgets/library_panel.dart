@@ -151,9 +151,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: colors.elevated,
+        color: colors.dark,
         border: Border(
-          bottom: BorderSide(color: colors.elevated),
+          bottom: BorderSide(color: colors.divider),
         ),
       ),
       child: LayoutBuilder(
@@ -377,7 +377,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
 
     return Container(
-      color: colors.standard,
+      color: colors.darkest,
       child: ListView(
         controller: _rightScrollController,
         padding: const EdgeInsets.symmetric(vertical: 4),

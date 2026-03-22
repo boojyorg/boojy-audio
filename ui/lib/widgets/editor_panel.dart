@@ -344,7 +344,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           Container(
             height: 40,
             decoration: BoxDecoration(
-              color: context.colors.standard,
+              color: context.colors.dark,
               border: Border(
                 bottom: BorderSide(color: context.colors.surface),
               ),
@@ -440,7 +440,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: context.colors.standard,
+        color: context.colors.dark,
         border: Border(
           top: BorderSide(color: context.colors.divider),
         ),

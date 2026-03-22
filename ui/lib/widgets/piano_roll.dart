@@ -336,7 +336,7 @@ class _PianoRollState extends State<PianoRoll>
         child: Stack(
           children: [
             ColoredBox(
-              color: context.colors.standard, // Dark background
+              color: context.colors.darkest, // Content area background
               child: Column(
                 children: [
                   _buildPianoRollContent(),
@@ -947,7 +947,7 @@ class _PianoRollState extends State<PianoRoll>
                 width: UIConstants.pianoKeysWidth,
                 height: effectiveHeight,
                 decoration: BoxDecoration(
-                  color: context.colors.standard,
+                  color: context.colors.darkest,
                   border: Border(
                     right: BorderSide(color: context.colors.surface, width: 1),
                   ),
@@ -1210,7 +1210,7 @@ class _PianoRollState extends State<PianoRoll>
       width: UIConstants.pianoKeysWidth, // Match piano keys width
       height: UIConstants.navBarHeight, // Match unified nav bar height
       decoration: BoxDecoration(
-        color: colors.standard,
+        color: colors.darkest,
         border: Border(
           right: BorderSide(color: colors.surface, width: 1),
           bottom: BorderSide(color: colors.surface, width: 1),

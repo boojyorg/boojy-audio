@@ -641,50 +641,13 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       height: 24, // Match timeline nav bar height
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: context.colors.elevated,
+        color: context.colors.dark,
         border: Border(
-          bottom: BorderSide(color: context.colors.elevated),
+          bottom: BorderSide(color: context.colors.divider),
         ),
       ),
       child: Row(
         children: [
-          // Toggle arrow button - points right to collapse (hide mixer)
-          Tooltip(
-            message: 'Hide Mixer',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onTogglePanel,
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: context.colors.textPrimary,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(
-            Icons.tune,
-            color: context.colors.textPrimary,
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'TRACK MIXER',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
           const Spacer(),
           // Add track button (disabled until engine ready)
           if (widget.isEngineReady)
