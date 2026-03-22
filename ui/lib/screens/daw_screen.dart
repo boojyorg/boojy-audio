@@ -346,10 +346,35 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Check for crash recovery
       _checkForCrashRecovery();
     } catch (e, _) {
+      Log.e('Audio engine initialization failed: $e');
       if (mounted) {
         statusMessage = 'Failed to initialize: $e';
+        _showInitError(e.toString());
       }
     }
+  }
+
+  void _showInitError(String error) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Audio Engine Error'),
+        content: Text('Failed to initialize the audio engine.\n\n$error'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _initAudioEngine(); // Retry
+            },
+            child: const Text('Retry'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Continue Without Audio'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _play() {
