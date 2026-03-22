@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import '../utils/logger.dart';
 import '../models/clip_data.dart';
 import '../models/project_view_state.dart';
 import 'web_storage_service.dart';
@@ -124,7 +125,7 @@ class ProjectManager extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('ProjectManager: Failed to initialize storage: $e');
+      Log.e('ProjectManager: Failed to initialize storage: $e');
     }
   }
 
@@ -134,7 +135,7 @@ class ProjectManager extends ChangeNotifier {
       _allProjects = await _storage.getAllProjects();
       notifyListeners();
     } catch (e) {
-      debugPrint('ProjectManager: Failed to refresh project list: $e');
+      Log.e('ProjectManager: Failed to refresh project list: $e');
     }
   }
 
@@ -175,7 +176,7 @@ class ProjectManager extends ChangeNotifier {
           final layoutJson = jsonDecode(project.uiLayoutJson!) as Map<String, dynamic>;
           uiLayout = UILayoutData.fromJson(layoutJson);
         } catch (e) {
-          debugPrint('ProjectManager: Failed to parse UI layout: $e');
+          Log.e('ProjectManager: Failed to parse UI layout: $e');
         }
       }
 

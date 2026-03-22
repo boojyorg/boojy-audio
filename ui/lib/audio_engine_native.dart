@@ -7,6 +7,7 @@ import 'package:ffi/ffi.dart';
 
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
+import 'utils/logger.dart';
 
 part 'audio_engine_base.dart';
 part 'audio_engine_transport.dart';

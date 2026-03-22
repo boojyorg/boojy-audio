@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import '../services/user_settings.dart';
+import '../utils/logger.dart';
 
 /// Export progress info from the engine
 class ExportProgressInfo {
@@ -114,7 +115,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
         _progressTimer?.cancel();
       }
     } catch (e) {
-      debugPrint('ExportDialog: Error polling export progress: $e');
+      Log.e('ExportDialog: Error polling export progress: $e');
     }
   }
 
@@ -605,7 +606,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   try {
                     widget.audioEngine.writeMp3Metadata(mp3Path, _options.metadataJson);
                   } catch (e) {
-                    debugPrint('ExportDialog: Error writing MP3 metadata: $e');
+                    Log.e('ExportDialog: Error writing MP3 metadata: $e');
                   }
                 }
               }

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../audio_engine.dart';
 import '../models/track_data.dart';
 import '../theme/theme_extension.dart';
+import '../utils/logger.dart';
 
 /// Mixer panel widget - slide-in from right
 class MixerPanel extends StatefulWidget {
@@ -86,7 +87,7 @@ class _MixerPanelState extends State<MixerPanel> {
         });
       }
     } catch (e) {
-      debugPrint('MixerPanel: Error loading tracks: $e');
+      Log.e('MixerPanel: Error loading tracks: $e');
     }
   }
 

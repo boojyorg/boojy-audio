@@ -27,6 +27,7 @@ import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/interactive_gutter.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
 import 'context_menus/note_context_menu.dart';
+import '../utils/logger.dart';
 
 /// Interaction modes for piano roll (internal tracking during gestures)
 enum InteractionMode { draw, select, move, resize }
@@ -404,7 +405,7 @@ class _PianoRollState extends State<PianoRoll>
               // When typing Start value: Keep LENGTH fixed, only change contentStartOffset
               // (Length is controlled separately by the Length field)
               final newStart = beats.clamp(0.0, double.infinity);
-              debugPrint('[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+              Log.d('[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
               setState(() {
                 loopStartBeats = newStart;
                 // Only update contentStartOffset - loopLength and duration stay the same
@@ -412,7 +413,7 @@ class _PianoRollState extends State<PianoRoll>
                   currentClip = currentClip!.copyWith(contentStartOffset: newStart);
                 }
               });
-              debugPrint('[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+              Log.d('[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
               notifyClipUpdated();
             },
             onLoopLengthChanged: (beats) {

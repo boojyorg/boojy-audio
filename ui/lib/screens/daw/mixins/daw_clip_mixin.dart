@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
@@ -46,7 +47,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle MIDI clip copy (Alt+drag)
   void onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
-    debugPrint('[OVERLAP] onMidiClipCopied: clip ${sourceClip.clipId} "${sourceClip.name}" → newStart=${newStartTime.toStringAsFixed(3)} beats, track ${sourceClip.trackId}');
+    Log.d('[OVERLAP] onMidiClipCopied: clip ${sourceClip.clipId} "${sourceClip.name}" → newStart=${newStartTime.toStringAsFixed(3)} beats, track ${sourceClip.trackId}');
     // Use undo/redo manager for arrangement operations
     final command = DuplicateMidiClipCommand(
       originalClip: sourceClip,
@@ -98,7 +99,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle audio clip copy (Alt+drag)
   void onAudioClipCopied(ClipData sourceClip, double newStartTime) {
-    debugPrint('[OVERLAP] onAudioClipCopied: clip ${sourceClip.clipId} → newStart=${newStartTime.toStringAsFixed(3)}s, track ${sourceClip.trackId}');
+    Log.d('[OVERLAP] onAudioClipCopied: clip ${sourceClip.clipId} → newStart=${newStartTime.toStringAsFixed(3)}s, track ${sourceClip.trackId}');
     final command = DuplicateAudioClipCommand(
       originalClip: sourceClip,
       newStartTime: newStartTime,

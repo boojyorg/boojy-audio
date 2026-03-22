@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
@@ -317,7 +318,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
     } catch (e) {
-      debugPrint('Failed to preview VST3 instrument: $e');
+      Log.e('Failed to preview VST3 instrument: $e');
     }
   }
 
@@ -379,7 +380,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       // Disarm other MIDI tracks (exclusive arm for new track)
       disarmOtherMidiTracks(trackId);
     } catch (e) {
-      debugPrint('Failed to create VST3 instrument track: $e');
+      Log.e('Failed to create VST3 instrument track: $e');
     }
   }
 

@@ -14,6 +14,7 @@ import '../services/commands/track_commands.dart';
 import 'platform_drop_target.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
+import '../utils/logger.dart';
 
 /// Track mixer panel - displays track mixer strips vertically aligned with timeline
 class TrackMixerPanel extends StatefulWidget {
@@ -387,7 +388,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         });
       }
     } catch (e) {
-      debugPrint('TrackMixerPanel: Error loading tracks: $e');
+      Log.e('TrackMixerPanel: Error loading tracks: $e');
     }
   }
 
@@ -496,7 +497,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
       _loadTracksAsync();
     } else {
-      debugPrint('TrackMixerPanel: Failed to duplicate track ${track.name}');
+      Log.e('TrackMixerPanel: Failed to duplicate track ${track.name}');
     }
   }
 

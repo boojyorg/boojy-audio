@@ -307,7 +307,7 @@ mixin _TracksMixin on _AudioEngineBase {
       );
       return result;
     } catch (e) {
-      print('❌ addExistingClipToTrack error: $e');
+      Log.e('addExistingClipToTrack error: $e');
       return -1;
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/library_item.dart';
 import '../../../models/midi_note_data.dart';
@@ -340,13 +341,13 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       // 7. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to add audio file to new track: $e');
+      Log.e('Failed to add audio file to new track: $e');
     }
   }
 
   /// Handle audio file dropped on existing track (with undo support)
   Future<void> onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    debugPrint('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split(\'/\').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
@@ -410,7 +411,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       // 5. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to add audio file to track: $e');
+      Log.e('Failed to add audio file to track: $e');
     }
   }
 
@@ -449,7 +450,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
         disarmOtherMidiTracks(trackId);
       }
     } catch (e) {
-      debugPrint('Failed to create track with clip: $e');
+      Log.e('Failed to create track with clip: $e');
     }
   }
 
@@ -478,13 +479,13 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
       _importMidiNotesToTrack(trackId, filePath, 0.0, result);
     } catch (e) {
-      debugPrint('Failed to import MIDI file to new track: $e');
+      Log.e('Failed to import MIDI file to new track: $e');
     }
   }
 
   /// Handle MIDI file dropped on existing track
   Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    debugPrint('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split(\'/\').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
     if (!isMidiTrack(trackId)) return;
 
@@ -495,7 +496,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
       _importMidiNotesToTrack(trackId, filePath, startTimeBeats, result);
     } catch (e) {
-      debugPrint('Failed to import MIDI file to track: $e');
+      Log.e('Failed to import MIDI file to track: $e');
     }
   }
 
@@ -628,7 +629,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
         });
       }
     } catch (e) {
-      debugPrint('Failed to add effect to track: $e');
+      Log.e('Failed to add effect to track: $e');
     }
   }
 

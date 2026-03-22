@@ -7,6 +7,7 @@ import '../../services/tool_mode_resolver.dart';
 import '../../theme/theme_extension.dart';
 import '../../utils/grid_utils.dart';
 import '../painters/clip_automation_painter.dart';
+import '../../utils/logger.dart';
 
 /// Clip automation lane widget for the Piano Roll.
 /// Displays automation curves for clip-based automation and handles point editing.
@@ -113,14 +114,14 @@ class _PianoRollClipAutomationLaneState
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[AutomationLane] BUILD METHOD CALLED - laneHeight=${widget.laneHeight}, clipDurationBeats=${widget.clipDurationBeats}');
+    Log.d('[AutomationLane] BUILD METHOD CALLED - laneHeight=${widget.laneHeight}, clipDurationBeats=${widget.clipDurationBeats}');
     final colors = context.colors;
     final canvasWidth = widget.clipDurationBeats * widget.pixelsPerBeat;
 
     // Wrap entire widget with Listener at top level to trace ALL pointer events
     return Listener(
       onPointerDown: (event) {
-        debugPrint('[AutomationLane] TOP-LEVEL Listener onPointerDown: ${event.localPosition}');
+        Log.d('[AutomationLane] TOP-LEVEL Listener onPointerDown: ${event.localPosition}');
       },
       child: Container(
       height: widget.laneHeight,
@@ -147,24 +148,24 @@ class _PianoRollClipAutomationLaneState
                   // NOTE: CustomPaint must be inside the builder (not child param)
                   // so that setState() triggers a rebuild of the painter with
                   // updated selectionStart, selectionEnd, selectedPointIds.
-                  debugPrint('[AutomationLane] BUILD: scrollOffset=$scrollOffset, laneHeight=${widget.laneHeight}');
+                  Log.d('[AutomationLane] BUILD: scrollOffset=$scrollOffset, laneHeight=${widget.laneHeight}');
                   return Transform.translate(
                     offset: Offset(-scrollOffset, 0),
                     child: Listener(
                       onPointerDown: (event) {
-                        debugPrint('[AutomationLane] LISTENER onPointerDown: ${event.localPosition}');
+                        Log.d('[AutomationLane] LISTENER onPointerDown: ${event.localPosition}');
                       },
                       child: MouseRegion(
                         cursor: _getCursor(),
                         onHover: (event) {
-                          debugPrint('[AutomationLane] HOVER: ${event.localPosition}');
+                          Log.d('[AutomationLane] HOVER: ${event.localPosition}');
                           _onHover(event);
                         },
                         onExit: (_) => setState(() => _hoveredPointId = null),
                         child: GestureDetector(
                           behavior: HitTestBehavior.translucent,
                           onTapDown: (details) {
-                            debugPrint('[AutomationLane] GestureDetector onTapDown: ${details.localPosition}');
+                            Log.d('[AutomationLane] GestureDetector onTapDown: ${details.localPosition}');
                             _onTapDown(details);
                           },
                           onPanStart: _onPanStart,
@@ -394,12 +395,12 @@ class _PianoRollClipAutomationLaneState
     final toolMode = _effectiveToolMode;
 
     // DEBUG: Trace what's happening with tool mode and hit detection
-    debugPrint('[AutomationLane] _onTapDown: toolMode=$toolMode, clickedPoint=${clickedPoint?.id}, localPos=${details.localPosition}');
-    debugPrint('[AutomationLane] Points in lane: ${_displayLane.points.length}');
+    Log.d('[AutomationLane] _onTapDown: toolMode=$toolMode, clickedPoint=${clickedPoint?.id}, localPos=${details.localPosition}');
+    Log.d('[AutomationLane] Points in lane: ${_displayLane.points.length}');
     for (final p in _displayLane.points) {
       final px = p.time * widget.pixelsPerBeat;
       final py = _valueToY(p.value);
-      debugPrint('[AutomationLane]   Point ${p.id}: time=${p.time}, value=${p.value}, screenPos=($px, $py)');
+      Log.d('[AutomationLane]   Point ${p.id}: time=${p.time}, value=${p.value}, screenPos=($px, $py)');
     }
 
     switch (toolMode) {
@@ -441,16 +442,16 @@ class _PianoRollClipAutomationLaneState
 
       case ToolMode.eraser:
         // Click on point to delete it
-        debugPrint('[AutomationLane] ERASER: clickedPoint=${clickedPoint?.id}');
+        Log.d('[AutomationLane] ERASER: clickedPoint=${clickedPoint?.id}');
         if (clickedPoint != null) {
-          debugPrint('[AutomationLane] ERASER: Calling onPointDeleted for ${clickedPoint.id}');
+          Log.d('[AutomationLane] ERASER: Calling onPointDeleted for ${clickedPoint.id}');
           widget.onPointDeleted?.call(clickedPoint.id);
           // Also remove from local selection
           setState(() {
             _selectedPointIds.remove(clickedPoint.id);
           });
         } else {
-          debugPrint('[AutomationLane] ERASER: No point found at click position!');
+          Log.d('[AutomationLane] ERASER: No point found at click position!');
         }
         break;
 

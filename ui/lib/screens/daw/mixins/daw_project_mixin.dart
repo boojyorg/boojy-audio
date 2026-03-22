@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
 import '../../../models/version_type.dart';
@@ -444,7 +445,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       await file.writeAsBytes(byteData.buffer.asUint8List());
     } catch (e) {
       // Non-critical — don't fail the save
-      debugPrint('Thumbnail generation failed: $e');
+      Log.e('Thumbnail generation failed: $e');
     }
   }
 
@@ -891,7 +892,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       await autoSaveService.clearRecoveryMarker();
     } catch (e) {
-      debugPrint('Failed to check for crash recovery: $e');
+      Log.e('Failed to check for crash recovery: $e');
     }
   }
 

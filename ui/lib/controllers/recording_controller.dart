@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
 import '../services/live_recording_notifier.dart';
+import '../utils/logger.dart';
 
 /// Result of a recording operation
 class RecordingResult {
@@ -114,7 +115,7 @@ class RecordingController extends ChangeNotifier {
       _tempo = 120.0;
       _isMetronomeEnabled = true;
     } catch (e) {
-      debugPrint('RecordingController: Failed to initialize recording settings: $e');
+      Log.e('RecordingController: Failed to initialize recording settings: $e');
     }
 
     // Load MIDI devices and start MIDI input
@@ -124,9 +125,9 @@ class RecordingController extends ChangeNotifier {
     // MIDI is routed to armed tracks for live playback
     try {
       _audioEngine!.startMidiInput();
-      debugPrint('RecordingController: MIDI input started (always-on mode)');
+      Log.d('RecordingController: MIDI input started (always-on mode)');
     } catch (e) {
-      debugPrint('RecordingController: Failed to start MIDI input: $e');
+      Log.e('RecordingController: Failed to start MIDI input: $e');
     }
   }
 
@@ -153,7 +154,7 @@ class RecordingController extends ChangeNotifier {
     double punchOutSeconds = 0.0,
   }) {
     if (_audioEngine == null) {
-      debugPrint('🎙️ [REC_CTRL] startRecording() — audioEngine is null, aborting');
+      Log.d('🎙️ [REC_CTRL] startRecording() — audioEngine is null, aborting');
       return;
     }
 
@@ -162,10 +163,10 @@ class RecordingController extends ChangeNotifier {
 
       // Save playhead position before starting — this is where the clip will be placed
       _recordingStartPosition = _audioEngine!.getPlayheadPosition();
-      debugPrint('🎙️ [REC_CTRL] startRecording(isAlreadyPlaying=$isAlreadyPlaying, '
+      Log.d('🎙️ [REC_CTRL] startRecording(isAlreadyPlaying=$isAlreadyPlaying, '
           'punchIn=$punchInEnabled, punchOut=$punchOutEnabled) called');
-      debugPrint('🎙️ [REC_CTRL]   tempo=$tempo, recordingStartPosition=${_recordingStartPosition.toStringAsFixed(4)}s');
-      debugPrint('🎙️ [REC_CTRL]   hasArmedAudioTracks=${hasArmedAudioTracks?.call() ?? "null callback"}');
+      Log.d('🎙️ [REC_CTRL]   tempo=$tempo, recordingStartPosition=${_recordingStartPosition.toStringAsFixed(4)}s');
+      Log.d('🎙️ [REC_CTRL]   hasArmedAudioTracks=${hasArmedAudioTracks?.call() ?? "null callback"}');
 
       // Configure engine punch state before starting
       if (punchInEnabled || punchOutEnabled) {
@@ -174,30 +175,30 @@ class RecordingController extends ChangeNotifier {
         _audioEngine!.setPunchInEnabled(enabled: punchInEnabled);
         _audioEngine!.setPunchOutEnabled(enabled: punchOutEnabled);
         _audioEngine!.setPunchRegion(punchInSeconds, punchOutSeconds);
-        debugPrint('🎙️ [REC_CTRL]   Punch configured: in=$punchInEnabled out=$punchOutEnabled '
+        Log.d('🎙️ [REC_CTRL]   Punch configured: in=$punchInEnabled out=$punchOutEnabled '
             'region=${punchInSeconds.toStringAsFixed(3)}s-${punchOutSeconds.toStringAsFixed(3)}s');
       }
 
       // For punch-in, the clip is placed at the punch-in point
       if (punchInEnabled) {
         _recordingStartPosition = punchInSeconds;
-        debugPrint('🎙️ [REC_CTRL]   Punch-in: recordingStartPosition overridden to ${punchInSeconds.toStringAsFixed(4)}s');
+        Log.d('🎙️ [REC_CTRL]   Punch-in: recordingStartPosition overridden to ${punchInSeconds.toStringAsFixed(4)}s');
       }
 
       // If already playing, disable count-in for immediate recording
       if (isAlreadyPlaying) {
         _audioEngine!.setCountInBars(0);
-        debugPrint('🎙️ [REC_CTRL]   Already playing - disabled count-in');
+        Log.d('🎙️ [REC_CTRL]   Already playing - disabled count-in');
       }
 
       // Always call startRecording — it starts the transport and count-in state machine.
       // Track whether we should process the audio result on stop.
       _audioRecordingStarted = hasArmedAudioTracks?.call() ?? false;
-      debugPrint('🎙️ [REC_CTRL]   _audioRecordingStarted=$_audioRecordingStarted');
+      Log.d('🎙️ [REC_CTRL]   _audioRecordingStarted=$_audioRecordingStarted');
       _audioEngine!.startRecording();
-      debugPrint('🎙️ [REC_CTRL]   engine.startRecording() done');
+      Log.d('🎙️ [REC_CTRL]   engine.startRecording() done');
       _audioEngine!.startMidiRecording();
-      debugPrint('🎙️ [REC_CTRL]   engine.startMidiRecording() done');
+      Log.d('🎙️ [REC_CTRL]   engine.startMidiRecording() done');
       // Note: MIDI input is always running (started in initialize)
 
       if (isAlreadyPlaying) {
@@ -216,15 +217,15 @@ class RecordingController extends ChangeNotifier {
       notifyListeners();
 
       _startRecordingStateTimer();
-      debugPrint('🎙️ [REC_CTRL]   Recording state timer started');
+      Log.d('🎙️ [REC_CTRL]   Recording state timer started');
     } catch (e) {
-      debugPrint('🎙️ [REC_CTRL] ⚠️ Failed to start recording: $e');
+      Log.e('🎙️ [REC_CTRL] ⚠️ Failed to start recording: $e');
     }
   }
 
   /// Restart recording: save current take and start new one with count-in
   RecordingResult restartRecording() {
-    debugPrint('🎙️ [REC_CTRL] restartRecording() called - saving current take and starting new one');
+    Log.d('🎙️ [REC_CTRL] restartRecording() called - saving current take and starting new one');
 
     // Stop current recording and get the result
     final result = stopRecording();
@@ -243,9 +244,9 @@ class RecordingController extends ChangeNotifier {
 
   /// Stop recording and return results
   RecordingResult stopRecording() {
-    debugPrint('🎙️ [REC_CTRL] stopRecording() called');
+    Log.d('🎙️ [REC_CTRL] stopRecording() called');
     if (_audioEngine == null) {
-      debugPrint('🎙️ [REC_CTRL]   audioEngine is null, returning empty result');
+      Log.d('🎙️ [REC_CTRL]   audioEngine is null, returning empty result');
       return RecordingResult();
     }
 
@@ -258,8 +259,8 @@ class RecordingController extends ChangeNotifier {
       final rawAudioClipId = _audioEngine!.stopRecording();
       final audioClipId = _audioRecordingStarted ? rawAudioClipId : -1;
       final midiClipId = _audioEngine!.stopMidiRecording();
-      debugPrint('🎙️ [REC_CTRL]   rawAudioClipId=$rawAudioClipId, audioRecordingStarted=$_audioRecordingStarted → audioClipId=$audioClipId');
-      debugPrint('🎙️ [REC_CTRL]   midiClipId=$midiClipId');
+      Log.d('🎙️ [REC_CTRL]   rawAudioClipId=$rawAudioClipId, audioRecordingStarted=$_audioRecordingStarted → audioClipId=$audioClipId');
+      Log.d('🎙️ [REC_CTRL]   midiClipId=$midiClipId');
       // Note: MIDI input stays running (always-on mode)
 
       _isRecording = false;
@@ -290,8 +291,8 @@ class RecordingController extends ChangeNotifier {
       final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
 
       final midiClipInfo = midiClipId >= 0 ? _audioEngine!.getMidiClipInfo(midiClipId) : null;
-      debugPrint('🎙️ [REC_CTRL]   duration=$duration, midiClipInfo="$midiClipInfo"');
-      debugPrint('🎙️ [REC_CTRL]   Result: audioClipId=${audioClipId >= 0 ? audioClipId : null}, '
+      Log.d('🎙️ [REC_CTRL]   duration=$duration, midiClipInfo="$midiClipInfo"');
+      Log.d('🎙️ [REC_CTRL]   Result: audioClipId=${audioClipId >= 0 ? audioClipId : null}, '
           'midiClipId=${midiClipId >= 0 ? midiClipId : null}');
 
       final result = RecordingResult(
@@ -302,11 +303,11 @@ class RecordingController extends ChangeNotifier {
         midiClipInfo: midiClipInfo,
       );
 
-      debugPrint('🎙️ [REC_CTRL]   Calling onRecordingComplete callback (${onRecordingComplete != null ? "set" : "NULL"})');
+      Log.d('🎙️ [REC_CTRL]   Calling onRecordingComplete callback (${onRecordingComplete != null ? "set" : "NULL"})');
       onRecordingComplete?.call(result);
       return result;
     } catch (e) {
-      debugPrint('🎙️ [REC_CTRL] ⚠️ stopRecording exception: $e');
+      Log.e('🎙️ [REC_CTRL] ⚠️ stopRecording exception: $e');
       _isRecording = false;
       _isCountingIn = false;
       _isWaitingForPunchIn = false;
@@ -338,14 +339,14 @@ class RecordingController extends ChangeNotifier {
         _countInBeat = _audioEngine!.getCountInBeat();
         _countInProgress = _audioEngine!.getCountInProgress();
         if (!_isCountingIn) {
-          debugPrint('🎙️ [REC_CTRL] State timer: → CountingIn (state=1)');
+          Log.d('🎙️ [REC_CTRL] State timer: → CountingIn (state=1)');
           _isCountingIn = true;
         }
         notifyListeners();
       } else if (state == 3) {
         // WaitingForPunchIn — transport playing, waiting for region start
         if (!_isWaitingForPunchIn) {
-          debugPrint('🎙️ [REC_CTRL] State timer: → WaitingForPunchIn (state=3)');
+          Log.d('🎙️ [REC_CTRL] State timer: → WaitingForPunchIn (state=3)');
           _isWaitingForPunchIn = true;
           _isCountingIn = false;
           _countInBeat = 0;
@@ -357,9 +358,9 @@ class RecordingController extends ChangeNotifier {
         final wasWaiting = _isWaitingForPunchIn;
         final currentPosition = _audioEngine!.getPlayheadPosition();
         _countInDurationSeconds = wasWaiting ? 0.0 : currentPosition - _recordingStartPosition;
-        debugPrint('🎙️ [REC_CTRL] State timer: ${wasWaiting ? "WaitingForPunchIn" : "CountingIn"} → Recording (state=2)');
-        debugPrint('🎙️ [REC_CTRL]   countInDurationSeconds=${_countInDurationSeconds.toStringAsFixed(3)}s');
-        debugPrint('🎙️ [REC_CTRL]   currentPosition=${currentPosition.toStringAsFixed(3)}s');
+        Log.d('🎙️ [REC_CTRL] State timer: ${wasWaiting ? "WaitingForPunchIn" : "CountingIn"} → Recording (state=2)');
+        Log.d('🎙️ [REC_CTRL]   countInDurationSeconds=${_countInDurationSeconds.toStringAsFixed(3)}s');
+        Log.d('🎙️ [REC_CTRL]   currentPosition=${currentPosition.toStringAsFixed(3)}s');
 
         _isCountingIn = false;
         _isWaitingForPunchIn = false;
@@ -370,7 +371,7 @@ class RecordingController extends ChangeNotifier {
         // Set record start position in PlaybackController (for Stop button behavior)
         // Use _recordingStartPosition (BEFORE count-in), not currentPosition (AFTER count-in)
         onRecordStartPositionChanged?.call(_recordingStartPosition);
-        debugPrint('🎙️ [REC_CTRL]   Called onRecordStartPositionChanged with ${_recordingStartPosition.toStringAsFixed(3)}s');
+        Log.d('🎙️ [REC_CTRL]   Called onRecordStartPositionChanged with ${_recordingStartPosition.toStringAsFixed(3)}s');
 
         // Initialize live recording notifier now that actual recording has started
         // Use saved recording start position (pre-count-in) so the live clip
@@ -379,16 +380,16 @@ class RecordingController extends ChangeNotifier {
           final startBeat = _recordingStartPosition * (_tempo / 60.0);
           final trackId = getFirstArmedMidiTrackId?.call() ?? 0;
           final clipName = getRecordingClipName?.call(trackId) ?? 'Recording';
-          debugPrint('🎙️ [REC_CTRL]   Live recording: startBeat=${startBeat.toStringAsFixed(3)}, '
+          Log.d('🎙️ [REC_CTRL]   Live recording: startBeat=${startBeat.toStringAsFixed(3)}, '
               'trackId=$trackId, clipName=$clipName');
-          debugPrint('🎙️ [REC_CTRL]   (recordingStartPosition=${_recordingStartPosition.toStringAsFixed(4)}s, tempo=$_tempo)');
+          Log.d('🎙️ [REC_CTRL]   (recordingStartPosition=${_recordingStartPosition.toStringAsFixed(4)}s, tempo=$_tempo)');
           _liveRecordingNotifier!.startRecording(
             startBeat: startBeat,
             trackId: trackId,
             clipName: clipName,
           );
         } else {
-          debugPrint('🎙️ [REC_CTRL]   ⚠️ liveRecordingNotifier is null!');
+          Log.e('🎙️ [REC_CTRL]   ⚠️ liveRecordingNotifier is null!');
         }
 
         notifyListeners();
@@ -401,7 +402,7 @@ class RecordingController extends ChangeNotifier {
           return;
         }
 
-        debugPrint('🎙️ [REC_CTRL] State timer: → Idle (state=0), was recording=$_isRecording, '
+        Log.d('🎙️ [REC_CTRL] State timer: → Idle (state=0), was recording=$_isRecording, '
             'countingIn=$_isCountingIn, waitingForPunch=$_isWaitingForPunchIn');
         timer.cancel();
         _recordingStateTimer = null;
@@ -428,7 +429,7 @@ class RecordingController extends ChangeNotifier {
 
   /// Handle auto-punch-out completion — recording stops but transport keeps playing
   void _handleAutoPunchComplete() {
-    debugPrint('🎙️ [REC_CTRL] Auto-punch-out complete');
+    Log.d('🎙️ [REC_CTRL] Auto-punch-out complete');
     _liveRecordingNotifier?.clear();
 
     // Get recording results from engine (recorder already went to Idle, but
@@ -436,7 +437,7 @@ class RecordingController extends ChangeNotifier {
     final rawAudioClipId = _audioEngine!.stopRecording();
     final audioClipId = _audioRecordingStarted ? rawAudioClipId : -1;
     final midiClipId = _audioEngine!.stopMidiRecording();
-    debugPrint('🎙️ [REC_CTRL]   audioClipId=$audioClipId, midiClipId=$midiClipId');
+    Log.d('🎙️ [REC_CTRL]   audioClipId=$audioClipId, midiClipId=$midiClipId');
 
     final duration = audioClipId >= 0 ? _audioEngine!.getClipDuration(audioClipId) : 0.0;
     final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
@@ -471,7 +472,7 @@ class RecordingController extends ChangeNotifier {
     notifyListeners();
 
     // Call punch-specific callback (transport continues running)
-    debugPrint('🎙️ [REC_CTRL]   Calling onPunchComplete callback (${onPunchComplete != null ? "set" : "NULL"})');
+    Log.d('🎙️ [REC_CTRL]   Calling onPunchComplete callback (${onPunchComplete != null ? "set" : "NULL"})');
     onPunchComplete?.call(result);
   }
 
@@ -485,7 +486,7 @@ class RecordingController extends ChangeNotifier {
       _isMetronomeEnabled = newState;
       notifyListeners();
     } catch (e) {
-      debugPrint('RecordingController: Failed to toggle metronome: $e');
+      Log.e('RecordingController: Failed to toggle metronome: $e');
     }
   }
 
@@ -500,7 +501,7 @@ class RecordingController extends ChangeNotifier {
       _tempo = clampedBpm;
       notifyListeners();
     } catch (e) {
-      debugPrint('RecordingController: Failed to set tempo: $e');
+      Log.e('RecordingController: Failed to set tempo: $e');
     }
   }
 
@@ -531,7 +532,7 @@ class RecordingController extends ChangeNotifier {
       try {
         _audioEngine!.refreshMidiDevices();
       } catch (e) {
-        debugPrint('RecordingController: MIDI device scan failed: $e');
+        Log.e('RecordingController: MIDI device scan failed: $e');
       }
       final devices = _audioEngine!.getMidiInputDevices();
       _midiDevices = devices;
@@ -546,7 +547,7 @@ class RecordingController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      debugPrint('RecordingController: Failed to load MIDI devices: $e');
+      Log.e('RecordingController: Failed to load MIDI devices: $e');
     }
   }
 
@@ -559,7 +560,7 @@ class RecordingController extends ChangeNotifier {
       _selectedMidiDeviceIndex = deviceIndex;
       notifyListeners();
     } catch (e) {
-      debugPrint('RecordingController: Failed to select MIDI device: $e');
+      Log.e('RecordingController: Failed to select MIDI device: $e');
     }
   }
 
@@ -571,7 +572,7 @@ class RecordingController extends ChangeNotifier {
       _audioEngine!.refreshMidiDevices();
       loadMidiDevices();
     } catch (e) {
-      debugPrint('RecordingController: Failed to refresh MIDI devices: $e');
+      Log.e('RecordingController: Failed to refresh MIDI devices: $e');
     }
   }
 

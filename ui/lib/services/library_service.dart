@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 import '../models/library_item.dart';
 import '../widgets/instrument_browser.dart';
 import '../screens/daw_screen_io.dart' if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
@@ -204,7 +205,7 @@ class LibraryService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('LibraryService: Error loading folder contents: $e');
+      Log.e('LibraryService: Error loading folder contents: $e');
     }
 
     // Sort: folders first, then files alphabetically

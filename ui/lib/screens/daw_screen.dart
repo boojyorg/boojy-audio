@@ -56,6 +56,7 @@ import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
+import '../utils/logger.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -257,7 +258,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         audioEngine!.setTempo(120.0);   // Default: 120 BPM
         audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
       } catch (e) {
-        debugPrint('Recording settings initialization failed: $e');
+        Log.e('Recording settings initialization failed: $e');
       }
 
       // Initialize buffer size from user settings
@@ -265,7 +266,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         final bufferPreset = _bufferSizeToPreset(userSettings.bufferSize);
         audioEngine!.setBufferSize(bufferPreset);
       } catch (e) {
-        debugPrint('Buffer size setting failed: $e');
+        Log.e('Buffer size setting failed: $e');
       }
 
       // Initialize output device from user settings
@@ -273,7 +274,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         try {
           audioEngine!.setAudioOutputDevice(userSettings.preferredOutputDevice!);
         } catch (e) {
-          debugPrint('Output device setting failed: $e');
+          Log.e('Output device setting failed: $e');
         }
       }
 
@@ -382,10 +383,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   void _stopPlayback() {
-    debugPrint('🛑 [DAW] _stopPlayback() called');
-    debugPrint('🛑 [DAW]   isPlaying=${playbackController.isPlaying}');
-    debugPrint('🛑 [DAW]   isRecording=${recordingController.isRecording}');
-    debugPrint('🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s');
+    Log.d('🛑 [DAW] _stopPlayback() called');
+    Log.d('🛑 [DAW]   isPlaying=${playbackController.isPlaying}');
+    Log.d('🛑 [DAW]   isRecording=${recordingController.isRecording}');
+    Log.d('🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s');
     stopPlayback(); // Use mixin method which handles idle vs playing state
     // Reset mixer meters when playback stops
     mixerKey.currentState?.resetMeters();
@@ -838,7 +839,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
     } catch (e) {
-      debugPrint('Failed to preview VST3 instrument: $e');
+      Log.e('Failed to preview VST3 instrument: $e');
     }
   }
 
@@ -899,7 +900,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Disarm other MIDI tracks (exclusive arm for new track)
       disarmOtherMidiTracks(trackId);
     } catch (e) {
-      debugPrint('Failed to create VST3 instrument track: $e');
+      Log.e('Failed to create VST3 instrument track: $e');
     }
   }
 
@@ -961,7 +962,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // 8. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to add audio file to new track: $e');
+      Log.e('Failed to add audio file to new track: $e');
     }
   }
 
@@ -1009,7 +1010,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to import MIDI file to new track: $e');
+      Log.e('Failed to import MIDI file to new track: $e');
     }
   }
 
@@ -1048,7 +1049,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         disarmOtherMidiTracks(trackId);
       }
     } catch (e) {
-      debugPrint('Failed to create track with clip: $e');
+      Log.e('Failed to create track with clip: $e');
     }
   }
 
@@ -1595,7 +1596,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         });
       }
     } catch (e) {
-      debugPrint('Failed to add effect to track: $e');
+      Log.e('Failed to add effect to track: $e');
     }
   }
 
@@ -2734,7 +2735,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Clear the recovery marker regardless of choice
       await autoSaveService.clearRecoveryMarker();
     } catch (e) {
-      debugPrint('Failed to check for crash recovery: $e');
+      Log.e('Failed to check for crash recovery: $e');
     }
   }
 

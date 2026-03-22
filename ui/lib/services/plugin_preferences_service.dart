@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 /// Display mode for VST3 plugin UI
 enum PluginDisplayMode { embedded, floating }
@@ -79,7 +79,7 @@ class PluginPreferencesService {
 
       _initialized = true;
     } catch (e) {
-      debugPrint('PluginPreferencesService: Error loading preferences: $e');
+      Log.e('PluginPreferencesService: Error loading preferences: $e');
       _preferences = {};
       _initialized = true;
     }
@@ -101,7 +101,7 @@ class PluginPreferencesService {
         const JsonEncoder.withIndent('  ').convert(json),
       );
     } catch (e) {
-      debugPrint('PluginPreferencesService: Error saving preferences: $e');
+      Log.e('PluginPreferencesService: Error saving preferences: $e');
     }
   }
 

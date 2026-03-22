@@ -1,6 +1,5 @@
-import 'package:flutter/foundation.dart';
-
 import '../../models/clip_data.dart';
+import '../../utils/logger.dart';
 import '../../models/midi_note_data.dart';
 import 'audio_engine_interface.dart';
 import 'command.dart';
@@ -459,7 +458,7 @@ class DeleteAudioClipCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
-    debugPrint('🗑️ [DeleteAudioClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
+    Log.d('[DeleteAudioClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
     engine.removeAudioClip(clipData.trackId, clipData.clipId);
     // Remove from UI
     onClipRemoved?.call(clipData.clipId);
@@ -714,7 +713,7 @@ class DeleteMidiClipFromArrangementCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
-    debugPrint('🗑️ [DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
+    Log.d('[DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
     engine.removeMidiClip(clipData.trackId, clipData.clipId);
     // Remove from UI
     onClipRemoved?.call(clipData.clipId, clipData.trackId);

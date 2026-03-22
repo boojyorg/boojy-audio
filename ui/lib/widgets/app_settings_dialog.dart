@@ -10,6 +10,7 @@ import '../services/user_settings.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
+import '../utils/logger.dart';
 
 /// Unified app-wide settings dialog
 ///
@@ -215,13 +216,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       _inputDevices = widget.audioEngine!.getAudioInputDevices();
       _selectedInputDevice = widget.settings.preferredInputDevice;
 
-      debugPrint('AppSettings: Driver: $_selectedDriver');
-      debugPrint('AppSettings: Loaded ${_outputDevices.length} output devices');
-      debugPrint('AppSettings: Loaded ${_inputDevices.length} input devices');
-      debugPrint('AppSettings: Selected output: $_selectedOutputDevice');
-      debugPrint('AppSettings: Selected input: $_selectedInputDevice');
+      Log.i('AppSettings: Driver: $_selectedDriver');
+      Log.i('AppSettings: Loaded ${_outputDevices.length} output devices');
+      Log.i('AppSettings: Loaded ${_inputDevices.length} input devices');
+      Log.i('AppSettings: Selected output: $_selectedOutputDevice');
+      Log.i('AppSettings: Selected input: $_selectedInputDevice');
     } else {
-      debugPrint('AppSettings: No audio engine provided');
+      Log.e('AppSettings: No audio engine provided');
     }
   }
 

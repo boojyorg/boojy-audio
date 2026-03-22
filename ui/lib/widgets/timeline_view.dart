@@ -34,6 +34,7 @@ import 'timeline/timeline_context_menus.dart';
 import '../services/live_recording_notifier.dart';
 import 'timeline/painters/painters.dart';
 import 'timeline/track_automation_lane_widget.dart';
+import '../utils/logger.dart';
 
 /// Track data model for timeline
 class TimelineTrackData {
@@ -881,7 +882,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         }
       }
     } catch (e) {
-      debugPrint('TimelineView: Error loading tracks: $e');
+      Log.e('TimelineView: Error loading tracks: $e');
     }
   }
 
@@ -2706,7 +2707,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
               // Only create command if position actually changed
               if ((newStartTime - selectedClip.startTime).abs() > 0.001) {
-                debugPrint('[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}');
+                Log.d('[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}');
                 // Update the moved clip's position first (before overlap resolution)
                 final index = clips.indexWhere((c) => c.clipId == selectedClip.clipId);
                 if (index >= 0) {
@@ -2757,7 +2758,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             for (final midiClip in selectedMidiClips) {
               final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
 
-              debugPrint('[OVERLAP] MIDI clip drag-end: clip ${midiClip.clipId} "${midiClip.name}" moved ${midiClip.startTime.toStringAsFixed(3)} → ${newStartBeats.toStringAsFixed(3)} beats on track ${midiClip.trackId}');
+              Log.d('[OVERLAP] MIDI clip drag-end: clip ${midiClip.clipId} "${midiClip.name}" moved ${midiClip.startTime.toStringAsFixed(3)} → ${newStartBeats.toStringAsFixed(3)} beats on track ${midiClip.trackId}');
               // Resolve MIDI overlaps at new position (exclude the moved clip)
               final midiOverlap = ClipOverlapHandler.resolveMidiOverlaps(
                 newStart: newStartBeats,
