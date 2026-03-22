@@ -122,6 +122,21 @@ class TransportBar extends StatefulWidget {
   final Function(double delta)? onSidebarDividerDrag;
   final VoidCallback? onSidebarDividerDoubleClick;
 
+  // Sidebar drag start/end (for disabling animation)
+  final VoidCallback? onSidebarDividerDragStart;
+  final VoidCallback? onSidebarDividerDragEnd;
+
+  // Mixer-aligned divider
+  final double mixerWidth;
+  final Function(double delta)? onMixerDividerDrag;
+  final VoidCallback? onMixerDividerDoubleClick;
+  final VoidCallback? onMixerDividerDragStart;
+  final VoidCallback? onMixerDividerDragEnd;
+
+  // Synchronized divider hover state
+  final ValueNotifier<bool>? leftDividerNotifier;
+  final ValueNotifier<bool>? rightDividerNotifier;
+
   const TransportBar({
     super.key,
     this.onPlay,
@@ -198,6 +213,15 @@ class TransportBar extends StatefulWidget {
     this.sidebarWidth = 208.0,
     this.onSidebarDividerDrag,
     this.onSidebarDividerDoubleClick,
+    this.onSidebarDividerDragStart,
+    this.onSidebarDividerDragEnd,
+    this.mixerWidth = 200.0,
+    this.onMixerDividerDrag,
+    this.onMixerDividerDoubleClick,
+    this.onMixerDividerDragStart,
+    this.onMixerDividerDragEnd,
+    this.leftDividerNotifier,
+    this.rightDividerNotifier,
   });
 
   @override
@@ -208,6 +232,43 @@ class _TransportBarState extends State<TransportBar> {
   bool _logoHovered = false;
   bool _sidebarHandleHovered = false;
   bool _sidebarHandleDragging = false;
+  bool _mixerHandleHovered = false;
+  bool _mixerHandleDragging = false;
+
+  void _onLeftNotifierChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onRightNotifierChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
+    widget.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+  }
+
+  @override
+  void didUpdateWidget(TransportBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.leftDividerNotifier != widget.leftDividerNotifier) {
+      oldWidget.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
+      widget.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
+    }
+    if (oldWidget.rightDividerNotifier != widget.rightDividerNotifier) {
+      oldWidget.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
+      widget.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
+    widget.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -233,69 +294,117 @@ class _TransportBarState extends State<TransportBar> {
             child: _buildLeftGroup(colors),
           ),
 
-          // === 4px SIDEBAR HANDLE (aligned with main divider below) ===
+          // === LEFT DIVIDER (aligned with content divider below) ===
           _buildSidebarHandle(colors),
 
-          // === CENTRE + RIGHT ===
+          // === CENTRE GROUP (expanded) ===
           Expanded(
-            child: Row(
-              children: [
-                // Centre group (transport controls)
-                Expanded(
-                  child: _buildCentreGroup(colors),
-                ),
+            child: _buildCentreGroup(colors),
+          ),
 
-                // Vertical divider before right group
-                _divider(colors),
+          // === RIGHT DIVIDER (aligned with mixer divider below) ===
+          _buildMixerHandle(colors),
 
-                // Right group: Mixer Toggle, Status, Help
-                _buildRightGroup(colors),
-              ],
-            ),
+          // === RIGHT GROUP: constrained to mixer width ===
+          SizedBox(
+            width: widget.mixerWidth,
+            child: _buildRightGroup(colors),
           ),
         ],
       ),
     );
   }
 
-  Widget _divider(BoojyColors colors) {
-    return Container(
-      width: 1,
-      height: 28,
-      color: colors.divider,
+  void _setSidebarHandleActive(bool hovered, bool dragging) {
+    setState(() {
+      _sidebarHandleHovered = hovered;
+      _sidebarHandleDragging = dragging;
+    });
+    widget.leftDividerNotifier?.value = hovered || dragging;
+  }
+
+  void _setMixerHandleActive(bool hovered, bool dragging) {
+    setState(() {
+      _mixerHandleHovered = hovered;
+      _mixerHandleDragging = dragging;
+    });
+    widget.rightDividerNotifier?.value = hovered || dragging;
+  }
+
+  Widget _buildDividerHandle({
+    required BoojyColors colors,
+    required bool isActive,
+    required Function(double) onDrag,
+    required VoidCallback onDoubleClick,
+    required void Function(bool hovered, bool dragging) setActive,
+    required bool isHovered,
+    required bool isDragging,
+    VoidCallback? onDragStart,
+    VoidCallback? onDragEnd,
+  }) {
+    return GestureDetector(
+      onPanStart: (_) {
+        setActive(isHovered, true);
+        onDragStart?.call();
+      },
+      onPanUpdate: (details) => onDrag(details.delta.dx),
+      onPanEnd: (_) {
+        setActive(isHovered, false);
+        onDragEnd?.call();
+      },
+      onDoubleTap: onDoubleClick,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        onEnter: (_) => setActive(true, isDragging),
+        onExit: (_) => setActive(false, isDragging),
+        child: Container(
+          width: 4,
+          color: isActive ? colors.accent : colors.dark,
+          child: isActive
+              ? null
+              : Center(
+                  child: SizedBox(
+                    width: 1,
+                    height: double.infinity,
+                    child: ColoredBox(color: colors.divider),
+                  ),
+                ),
+        ),
+      ),
     );
   }
 
   Widget _buildSidebarHandle(BoojyColors colors) {
-    final isActive = _sidebarHandleHovered || _sidebarHandleDragging;
+    final isActive = _sidebarHandleHovered || _sidebarHandleDragging
+        || (widget.leftDividerNotifier?.value ?? false);
 
-    return GestureDetector(
-      onPanStart: (_) => setState(() => _sidebarHandleDragging = true),
-      onPanUpdate: (details) {
-        widget.onSidebarDividerDrag?.call(details.delta.dx);
-      },
-      onPanEnd: (_) => setState(() => _sidebarHandleDragging = false),
-      onDoubleTap: widget.onSidebarDividerDoubleClick,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeColumn,
-        onEnter: (_) => setState(() => _sidebarHandleHovered = true),
-        onExit: (_) => setState(() => _sidebarHandleHovered = false),
-        child: Container(
-          width: 8,
-          color: Colors.transparent,
-          child: Center(
-            child: Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: isActive ? colors.accent : colors.dark,
-                border: Border(
-                  right: BorderSide(color: colors.divider, width: 1),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return _buildDividerHandle(
+      colors: colors,
+      isActive: isActive,
+      onDrag: (delta) => widget.onSidebarDividerDrag?.call(delta),
+      onDoubleClick: () => widget.onSidebarDividerDoubleClick?.call(),
+      setActive: _setSidebarHandleActive,
+      isHovered: _sidebarHandleHovered,
+      isDragging: _sidebarHandleDragging,
+      onDragStart: widget.onSidebarDividerDragStart,
+      onDragEnd: widget.onSidebarDividerDragEnd,
+    );
+  }
+
+  Widget _buildMixerHandle(BoojyColors colors) {
+    final isActive = _mixerHandleHovered || _mixerHandleDragging
+        || (widget.rightDividerNotifier?.value ?? false);
+
+    return _buildDividerHandle(
+      colors: colors,
+      isActive: isActive,
+      onDrag: (delta) => widget.onMixerDividerDrag?.call(delta),
+      onDoubleClick: () => widget.onMixerDividerDoubleClick?.call(),
+      setActive: _setMixerHandleActive,
+      isHovered: _mixerHandleHovered,
+      isDragging: _mixerHandleDragging,
+      onDragStart: widget.onMixerDividerDragStart,
+      onDragEnd: widget.onMixerDividerDragEnd,
     );
   }
 
@@ -308,7 +417,6 @@ class _TransportBarState extends State<TransportBar> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Logo: "Audi" text + blue circle
             _buildLogo(colors),
@@ -359,9 +467,9 @@ class _TransportBarState extends State<TransportBar> {
                   : 'Redo (⇧⌘Z)',
             ),
 
-            const SizedBox(width: 8),
+            const Spacer(),
 
-            // Sidebar toggle [|]
+            // Sidebar toggle [|] — right-aligned near divider
             _PanelToggleButton(
               assetPath: 'assets/icons/sidebar_toggle.svg',
               isActive: widget.libraryVisible,
@@ -615,7 +723,6 @@ class _TransportBarState extends State<TransportBar> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Mixer toggle (mirrored sidebar icon)
           _PanelToggleButton(
@@ -643,9 +750,9 @@ class _TransportBarState extends State<TransportBar> {
             ),
           ),
 
-          const SizedBox(width: 12),
+          const Spacer(),
 
-          // Help button
+          // Help button — far right
           _HelpButton(
             onTap: widget.onHelpPressed,
           ),

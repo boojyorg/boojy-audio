@@ -117,12 +117,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
 
     return Container(
-          decoration: BoxDecoration(
-            color: colors.dark,
-            border: Border(
-              right: BorderSide(color: colors.divider),
-            ),
-          ),
+          color: colors.dark,
           child: Column(
             children: [
               _buildCombinedHeader(),

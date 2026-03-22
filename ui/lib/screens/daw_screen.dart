@@ -69,6 +69,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   bool _isDraggingLibrary = false;
   bool _isDraggingMixer = false;
 
+  // Synchronized divider hover state (shared between transport bar and content)
+  final _leftDividerActive = ValueNotifier<bool>(false);
+  final _rightDividerActive = ValueNotifier<bool>(false);
+
   @override
   void initState() {
     super.initState();
@@ -190,6 +194,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     automationController.dispose();
     libraryPreviewService?.dispose();
     uiLayout.dispose();
+
+    // Dispose divider notifiers
+    _leftDividerActive.dispose();
+    _rightDividerActive.dispose();
 
     // Dispose scroll controllers
     timelineVerticalScrollController.removeListener(onTimelineVerticalScroll);
@@ -3490,6 +3498,38 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
               });
             },
+            onSidebarDividerDragStart: () => setState(() => _isDraggingLibrary = true),
+            onSidebarDividerDragEnd: () => setState(() => _isDraggingLibrary = false),
+            // Mixer-aligned divider
+            mixerWidth: uiLayout.mixerPanelWidth,
+            onMixerDividerDrag: (delta) {
+              final windowWidth = MediaQuery.of(context).size.width;
+              final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
+              setState(() {
+                final newWidth = uiLayout.mixerPanelWidth - delta;
+                if (newWidth < UILayoutState.mixerCollapseThreshold) {
+                  uiLayout.collapseMixer();
+                  userSettings.mixerVisible = false;
+                } else {
+                  uiLayout.mixerPanelWidth = newWidth.clamp(
+                    UILayoutState.mixerMinWidth,
+                    maxWidth,
+                  );
+                  userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+                }
+              });
+            },
+            onMixerDividerDoubleClick: () {
+              setState(() {
+                uiLayout.toggleMixer();
+                userSettings.mixerVisible = uiLayout.isMixerVisible;
+              });
+            },
+            onMixerDividerDragStart: () => setState(() => _isDraggingMixer = true),
+            onMixerDividerDragEnd: () => setState(() => _isDraggingMixer = false),
+            // Synchronized divider hover
+            leftDividerNotifier: _leftDividerActive,
+            rightDividerNotifier: _rightDividerActive,
           ),
           ),
 
@@ -3505,13 +3545,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                       AnimatedContainer(
                         duration: _isDraggingLibrary ? Duration.zero : const Duration(milliseconds: 200),
                         curve: Curves.easeInOut,
-                        width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 8,
+                        width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 4,
                         clipBehavior: Clip.hardEdge,
                         decoration: const BoxDecoration(),
                         child: OverflowBox(
                           alignment: Alignment.centerLeft,
-                          maxWidth: uiLayout.libraryPanelWidth + 8,
-                          minWidth: uiLayout.libraryPanelWidth + 8,
+                          maxWidth: uiLayout.libraryPanelWidth + 4,
+                          minWidth: uiLayout.libraryPanelWidth + 4,
                           child: Row(
                             children: [
                               SizedBox(
@@ -3558,6 +3598,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                               ResizableDivider(
                                 orientation: DividerOrientation.vertical,
                                 isCollapsed: uiLayout.isLibraryPanelCollapsed,
+                                activeNotifier: _leftDividerActive,
                                 onDragStart: () => setState(() => _isDraggingLibrary = true),
                                 onDragEnd: () => setState(() => _isDraggingLibrary = false),
                                 onDrag: (delta) {
@@ -3690,19 +3731,20 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                       AnimatedContainer(
                         duration: _isDraggingMixer ? Duration.zero : const Duration(milliseconds: 200),
                         curve: Curves.easeInOut,
-                        width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 8 : 0,
+                        width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
                         clipBehavior: Clip.hardEdge,
                         decoration: const BoxDecoration(),
                         child: OverflowBox(
                           alignment: Alignment.centerRight,
-                          maxWidth: uiLayout.mixerPanelWidth + 8,
-                          minWidth: uiLayout.mixerPanelWidth + 8,
+                          maxWidth: uiLayout.mixerPanelWidth + 4,
+                          minWidth: uiLayout.mixerPanelWidth + 4,
                           child: Row(
                             children: [
                               // Divider: Timeline/Mixer
                               ResizableDivider(
                                 orientation: DividerOrientation.vertical,
                                 isCollapsed: !uiLayout.isMixerVisible,
+                                activeNotifier: _rightDividerActive,
                                 onDragStart: () => setState(() => _isDraggingMixer = true),
                                 onDragEnd: () => setState(() => _isDraggingMixer = false),
                                 onDrag: (delta) {

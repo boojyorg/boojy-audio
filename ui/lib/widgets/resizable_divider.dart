@@ -10,11 +10,10 @@ enum DividerOrientation {
 /// A subtle draggable divider that allows resizing panels
 ///
 /// Features:
-/// - Drag to resize (8px hit area for easy grabbing)
-/// - 4px visible colored strip centered within hit area
-/// - Divider color idle, accent color on hover/drag
+/// - Drag to resize (4px grab zone)
+/// - 1px centered line at rest, 4px accent bar on hover/drag
 /// - Double-click to collapse/expand
-/// - Custom cursor on hover for discoverability
+/// - Optional [activeNotifier] for synchronized hover with linked dividers
 class ResizableDivider extends StatefulWidget {
   final DividerOrientation orientation;
   final Function(double delta) onDrag;
@@ -22,6 +21,7 @@ class ResizableDivider extends StatefulWidget {
   final bool isCollapsed;
   final VoidCallback? onDragStart;
   final VoidCallback? onDragEnd;
+  final ValueNotifier<bool>? activeNotifier;
 
   const ResizableDivider({
     super.key,
@@ -31,6 +31,7 @@ class ResizableDivider extends StatefulWidget {
     this.isCollapsed = false,
     this.onDragStart,
     this.onDragEnd,
+    this.activeNotifier,
   });
 
   @override
@@ -38,25 +39,53 @@ class ResizableDivider extends StatefulWidget {
 }
 
 class _ResizableDividerState extends State<ResizableDivider> {
-  // Hit area size (8px invisible grab zone)
-  static const double _hitAreaSize = 8.0;
-  // Visible divider strip width
   static const double _dividerWidth = 4.0;
 
-  // State for visual feedback
   bool _isHovered = false;
   bool _isDragging = false;
+
+  void _onNotifierChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.activeNotifier?.addListener(_onNotifierChanged);
+  }
+
+  @override
+  void didUpdateWidget(ResizableDivider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeNotifier != widget.activeNotifier) {
+      oldWidget.activeNotifier?.removeListener(_onNotifierChanged);
+      widget.activeNotifier?.addListener(_onNotifierChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.activeNotifier?.removeListener(_onNotifierChanged);
+    super.dispose();
+  }
+
+  void _setLocalActive(bool hovered, bool dragging) {
+    setState(() {
+      _isHovered = hovered;
+      _isDragging = dragging;
+    });
+    widget.activeNotifier?.value = hovered || dragging;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isVertical = widget.orientation == DividerOrientation.vertical;
-    final isActive = _isHovered || _isDragging;
-    final dividerColor = isActive ? colors.accent : colors.divider;
+    final isActive = _isHovered || _isDragging || (widget.activeNotifier?.value ?? false);
 
     return GestureDetector(
       onPanStart: (_) {
-        setState(() => _isDragging = true);
+        _setLocalActive(_isHovered, true);
         widget.onDragStart?.call();
       },
       onPanUpdate: (details) {
@@ -66,7 +95,7 @@ class _ResizableDividerState extends State<ResizableDivider> {
         }
       },
       onPanEnd: (_) {
-        setState(() => _isDragging = false);
+        _setLocalActive(_isHovered, false);
         widget.onDragEnd?.call();
       },
       onDoubleTap: widget.onDoubleClick,
@@ -74,21 +103,21 @@ class _ResizableDividerState extends State<ResizableDivider> {
         cursor: isVertical
             ? SystemMouseCursors.resizeColumn
             : SystemMouseCursors.resizeRow,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) => _setLocalActive(true, _isDragging),
+        onExit: (_) => _setLocalActive(false, _isDragging),
         child: Container(
-          // Invisible hit area for dragging
-          width: isVertical ? _hitAreaSize : double.infinity,
-          height: isVertical ? double.infinity : _hitAreaSize,
-          color: Colors.transparent,
-          child: Center(
-            // 4px visible divider strip
-            child: Container(
-              width: isVertical ? _dividerWidth : double.infinity,
-              height: isVertical ? double.infinity : _dividerWidth,
-              color: dividerColor,
-            ),
-          ),
+          width: isVertical ? _dividerWidth : double.infinity,
+          height: isVertical ? double.infinity : _dividerWidth,
+          color: isActive ? colors.accent : colors.dark,
+          child: isActive
+              ? null
+              : Center(
+                  child: SizedBox(
+                    width: isVertical ? 1.0 : double.infinity,
+                    height: isVertical ? double.infinity : 1.0,
+                    child: ColoredBox(color: colors.divider),
+                  ),
+                ),
         ),
       ),
     );
