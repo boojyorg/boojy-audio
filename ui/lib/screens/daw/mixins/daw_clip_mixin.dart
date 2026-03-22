@@ -160,9 +160,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     if (midiPlaybackManager?.selectedClipId != null) {
       final success = midiClipController.splitSelectedClipAtPlayhead(splitPosition);
       if (success && mounted) {
-        setState(() {
-          statusMessage = 'Split MIDI clip at playhead';
-        });
+        statusMessage = 'Split MIDI clip at playhead';
         return;
       }
     }
@@ -170,17 +168,13 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     // Try audio clip if no MIDI clip or MIDI split failed
     final audioSplit = timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
     if (audioSplit && mounted) {
-      setState(() {
-        statusMessage = 'Split audio clip at playhead';
-      });
+      statusMessage = 'Split audio clip at playhead';
       return;
     }
 
     // Neither worked
     if (mounted) {
-      setState(() {
-        statusMessage = 'Cannot split: select a clip and place playhead within it';
-      });
+      statusMessage = 'Cannot split: select a clip and place playhead within it';
     }
   }
 
@@ -199,9 +193,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     if (midiPlaybackManager?.selectedClipId != null) {
       final success = midiClipController.quantizeSelectedClip(gridSizeBeats);
       if (success && mounted) {
-        setState(() {
-          statusMessage = 'Quantized MIDI clip to grid';
-        });
+        statusMessage = 'Quantized MIDI clip to grid';
         return;
       }
     }
@@ -209,17 +201,13 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     // Try audio clip
     final audioQuantized = timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ?? false;
     if (audioQuantized && mounted) {
-      setState(() {
-        statusMessage = 'Quantized audio clip to grid';
-      });
+      statusMessage = 'Quantized audio clip to grid';
       return;
     }
 
     // Neither worked
     if (mounted) {
-      setState(() {
-        statusMessage = 'Cannot quantize: select a clip first';
-      });
+      statusMessage = 'Cannot quantize: select a clip first';
     }
   }
 
@@ -231,9 +219,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   void selectAllClips() {
     timelineKey.currentState?.selectAllClips();
     if (mounted) {
-      setState(() {
-        statusMessage = 'Selected all clips';
-      });
+      statusMessage = 'Selected all clips';
     }
   }
 
@@ -248,9 +234,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     final selectedClip = midiPlaybackManager?.currentEditingClip;
 
     if (selectedClipId == null || selectedClip == null) {
-      setState(() {
-        statusMessage = 'Select a MIDI clip to bounce to audio';
-      });
+      statusMessage = 'Select a MIDI clip to bounce to audio';
       return;
     }
 
@@ -296,18 +280,14 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     final selectedMidiClips = timelineState.selectedMidiClips;
 
     if (selectedMidiClips.length < 2) {
-      setState(() {
-        statusMessage = 'Select 2 or more MIDI clips to consolidate';
-      });
+      statusMessage = 'Select 2 or more MIDI clips to consolidate';
       return;
     }
 
     // Ensure all clips are on the same track
     final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
     if (trackIds.length > 1) {
-      setState(() {
-        statusMessage = 'Cannot consolidate clips from different tracks';
-      });
+      statusMessage = 'Cannot consolidate clips from different tracks';
       return;
     }
 
@@ -362,9 +342,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     midiPlaybackManager?.selectClip(consolidatedClip.clipId, consolidatedClip);
     timelineState.clearClipSelection();
 
-    setState(() {
-      statusMessage = 'Consolidated ${sortedClips.length} clips into one';
-    });
+    statusMessage = 'Consolidated ${sortedClips.length} clips into one';
   }
 
   // ============================================
@@ -617,9 +595,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   Future<void> performUndo() async {
     final success = await undoRedoManager.undo();
     if (success && mounted) {
-      setState(() {
-        statusMessage = 'Undo - ${undoRedoManager.redoDescription ?? "Action"}';
-      });
+      statusMessage = 'Undo - ${undoRedoManager.redoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }
@@ -628,9 +604,7 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   Future<void> performRedo() async {
     final success = await undoRedoManager.redo();
     if (success && mounted) {
-      setState(() {
-        statusMessage = 'Redo - ${undoRedoManager.undoDescription ?? "Action"}';
-      });
+      statusMessage = 'Redo - ${undoRedoManager.undoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }

@@ -624,9 +624,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     try {
       final effectId = audioEngine!.addEffectToTrack(trackId, effectType);
       if (effectId >= 0) {
-        setState(() {
-          statusMessage = 'Added $effectType to track';
-        });
+        statusMessage = 'Added $effectType to track';
       }
     } catch (e) {
       Log.e('Failed to add effect to track: $e');

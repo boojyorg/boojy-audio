@@ -347,9 +347,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       _checkForCrashRecovery();
     } catch (e, _) {
       if (mounted) {
-        setState(() {
-          statusMessage = 'Failed to initialize: $e';
-        });
+        statusMessage = 'Failed to initialize: $e';
       }
     }
   }
@@ -1588,9 +1586,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     try {
       final effectId = audioEngine!.addEffectToTrack(trackId, effectType);
       if (effectId >= 0) {
-        setState(() {
-          statusMessage = 'Added $effectType to track';
-        });
+        statusMessage = 'Added $effectType to track';
       }
     } catch (e) {
       Log.e('Failed to add effect to track: $e');
@@ -1616,16 +1612,12 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    setState(() {
-      statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
-    });
+    statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
 
     final result = await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
 
     if (mounted) {
-      setState(() {
-        statusMessage = result;
-      });
+      statusMessage = result;
     }
   }
 
@@ -1634,9 +1626,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     final result = vst3PluginManager!.addToTrack(trackId, plugin);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
 
     // Show snackbar based on result
     final colors = context.colors;
@@ -1654,9 +1644,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     final result = vst3PluginManager!.removeFromTrack(effectId);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
   }
 
   Future<void> _showVst3PluginBrowser(int trackId) async {
@@ -1968,9 +1956,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     if (midiPlaybackManager?.selectedClipId != null) {
       final success = midiClipController.splitSelectedClipAtPlayhead(splitPosition);
       if (success && mounted) {
-        setState(() {
-          statusMessage = 'Split MIDI clip at playhead';
-        });
+        statusMessage = 'Split MIDI clip at playhead';
         return;
       }
     }
@@ -1978,17 +1964,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Try audio clip if no MIDI clip or MIDI split failed
     final audioSplit = timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
     if (audioSplit && mounted) {
-      setState(() {
-        statusMessage = 'Split audio clip at playhead';
-      });
+      statusMessage = 'Split audio clip at playhead';
       return;
     }
 
     // Neither worked
     if (mounted) {
-      setState(() {
-        statusMessage = 'Cannot split: select a clip and place playhead within it';
-      });
+      statusMessage = 'Cannot split: select a clip and place playhead within it';
     }
   }
 
@@ -2002,9 +1984,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     if (midiPlaybackManager?.selectedClipId != null) {
       final success = midiClipController.quantizeSelectedClip(gridSizeBeats);
       if (success && mounted) {
-        setState(() {
-          statusMessage = 'Quantized MIDI clip to grid';
-        });
+        statusMessage = 'Quantized MIDI clip to grid';
         return;
       }
     }
@@ -2012,17 +1992,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Try audio clip
     final audioQuantized = timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ?? false;
     if (audioQuantized && mounted) {
-      setState(() {
-        statusMessage = 'Quantized audio clip to grid';
-      });
+      statusMessage = 'Quantized audio clip to grid';
       return;
     }
 
     // Neither worked
     if (mounted) {
-      setState(() {
-        statusMessage = 'Cannot quantize: select a clip first';
-      });
+      statusMessage = 'Cannot quantize: select a clip first';
     }
   }
 
@@ -2030,9 +2006,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   void _selectAllClips() {
     timelineKey.currentState?.selectAllClips();
     if (mounted) {
-      setState(() {
-        statusMessage = 'Selected all clips';
-      });
+      statusMessage = 'Selected all clips';
     }
   }
 
@@ -2044,9 +2018,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     final selectedClip = midiPlaybackManager?.currentEditingClip;
 
     if (selectedClipId == null || selectedClip == null) {
-      setState(() {
-        statusMessage = 'Select a MIDI clip to bounce to audio';
-      });
+      statusMessage = 'Select a MIDI clip to bounce to audio';
       return;
     }
 
@@ -2088,18 +2060,14 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     final selectedMidiClips = timelineState.selectedMidiClips;
 
     if (selectedMidiClips.length < 2) {
-      setState(() {
-        statusMessage = 'Select 2 or more MIDI clips to consolidate';
-      });
+      statusMessage = 'Select 2 or more MIDI clips to consolidate';
       return;
     }
 
     // Ensure all clips are on the same track
     final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
     if (trackIds.length > 1) {
-      setState(() {
-        statusMessage = 'Cannot consolidate clips from different tracks';
-      });
+      statusMessage = 'Cannot consolidate clips from different tracks';
       return;
     }
 
@@ -2154,9 +2122,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     midiPlaybackManager?.selectClip(consolidatedClip.clipId, consolidatedClip);
     timelineState.clearClipSelection();
 
-    setState(() {
-      statusMessage = 'Consolidated ${sortedClips.length} clips into one';
-    });
+    statusMessage = 'Consolidated ${sortedClips.length} clips into one';
   }
 
   void _deleteMidiClip(int clipId, int trackId) {
@@ -2287,9 +2253,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _performUndo() async {
     final success = await undoRedoManager.undo();
     if (success && mounted) {
-      setState(() {
-        statusMessage = 'Undo - ${undoRedoManager.redoDescription ?? "Action"}';
-      });
+      statusMessage = 'Undo - ${undoRedoManager.redoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }
@@ -2297,9 +2261,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _performRedo() async {
     final success = await undoRedoManager.redo();
     if (success && mounted) {
-      setState(() {
-        statusMessage = 'Redo - ${undoRedoManager.undoDescription ?? "Action"}';
-      });
+      statusMessage = 'Redo - ${undoRedoManager.undoDescription ?? "Action"}';
       refreshTrackWidgets();
     }
   }
@@ -2717,9 +2679,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           midiPlaybackManager?.clearClipIdMappings();
           midiPlaybackManager?.restoreClipsFromEngine(tempo);
 
-          setState(() {
-            statusMessage = 'Recovered from backup';
-          });
+          statusMessage = 'Recovered from backup';
           refreshTrackWidgets();
 
           // Apply UI layout if available

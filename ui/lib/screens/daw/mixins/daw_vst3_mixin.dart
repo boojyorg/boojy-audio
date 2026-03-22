@@ -23,16 +23,12 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   Future<void> scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    setState(() {
-      statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
-    });
+    statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
 
     final result = await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
 
     if (mounted) {
-      setState(() {
-        statusMessage = result;
-      });
+      statusMessage = result;
     }
   }
 
@@ -46,9 +42,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     final result = vst3PluginManager!.addToTrack(trackId, plugin);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
 
     // Show snackbar based on result
     final colors = context.colors;
@@ -67,9 +61,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     final result = vst3PluginManager!.removeFromTrack(effectId);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
   }
 
   /// Show VST3 plugin browser dialog

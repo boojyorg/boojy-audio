@@ -879,9 +879,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
           midiPlaybackManager?.clearClipIdMappings();
           midiPlaybackManager?.restoreClipsFromEngine(tempo);
 
-          setState(() {
-            statusMessage = 'Recovered from backup';
-          });
+          statusMessage = 'Recovered from backup';
           refreshTrackWidgets();
 
           if (result?.uiLayout != null) {
