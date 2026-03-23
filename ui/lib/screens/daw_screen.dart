@@ -13,9 +13,11 @@ import '../widgets/transport_bar.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/timeline/timeline_models.dart';
 import '../widgets/timeline_view.dart';
+import '../widgets/mixer/mixer_models.dart';
 import '../widgets/track_mixer_panel.dart';
 import '../widgets/library_panel.dart';
 import '../widgets/editor_panel.dart';
+import '../widgets/editor/editor_models.dart';
 import '../widgets/virtual_piano.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
@@ -3663,105 +3665,119 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
               child: TrackMixerPanel(
                 key: mixerKey,
                 audioEngine: audioEngine,
-                isEngineReady: isAudioGraphInitialized,
                 scrollController: mixerVerticalScrollController,
-                selectedTrackId: selectedTrackId,
-                selectedTrackIds: selectedTrackIds,
-                onTrackSelected: _onTrackSelected,
-                onInstrumentSelected: _onInstrumentSelected,
-                onTrackDuplicated: _onTrackDuplicated,
-                onTrackDeleted: _onTrackDeleted,
-                onConvertToSampler: _convertAudioTrackToSampler,
                 trackInstruments: trackInstruments,
                 trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
-                onFxButtonPressed: _showVst3PluginBrowser, // M10
-                onVst3PluginDropped: _onVst3PluginDropped, // M10
-                onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
-                onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
-                onEditPluginsPressed: _showVst3PluginEditor, // M10
                 onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
-                onMidiTrackCreated: _createDefaultMidiClip,
-                onTrackCreated: _onTrackCreatedFromMixer,
-                onTrackReordered: _onTrackReordered,
-                trackOrder: trackController.trackOrder,
-                onTrackOrderSync: trackController.syncTrackOrder,
-                clipHeights: clipHeights,
-                automationHeights: automationHeights,
-                masterTrackHeight: masterTrackHeight,
-                onClipHeightChanged: setClipHeight,
-                onAutomationHeightChanged: setAutomationHeight,
-                onMasterTrackHeightChanged: setMasterTrackHeight,
-                panelWidth: uiLayout.mixerPanelWidth,
-                onTogglePanel: _toggleMixer,
                 getTrackColor: getTrackColor,
-                onTrackColorChanged: setTrackColor,
                 getTrackIcon: (trackId) => trackController.getTrackIcon(trackId),
-                onTrackIconChanged: (trackId, icon) {
-                  setState(() {
-                    trackController.setTrackIcon(trackId, icon);
-                  });
-                },
-                onTrackNameChanged: (trackId, newName) {
-                  // Mark track name as user-edited
-                  trackController.markTrackNameUserEdited(trackId, edited: true);
-                },
-                onTrackDoubleClick: (trackId) {
-                  // Select track and open editor
-                  _onTrackSelected(trackId);
-                  if (!uiLayout.isEditorPanelVisible) {
-                    _toggleEditor();
-                  }
-                },
-                automationVisibleTrackId: automationController.visibleTrackId,
-                onAutomationToggle: (trackId) {
-                  setState(() {
-                    automationController.toggleAutomationForTrack(trackId);
-                  });
-                },
-                getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
-                pixelsPerBeat: timelineKey.currentState?.pixelsPerBeat ?? 20.0,
-                totalBeats: 256.0,
-                onAutomationPointAdded: (trackId, point) {
-                  automationController.addPoint(trackId, automationController.visibleParameter, point);
-                  if (automationController.visibleParameter == AutomationParameter.volume) {
-                    syncVolumeAutomationToEngine(trackId);
-                  }
-                },
-                onAutomationPointUpdated: (trackId, pointId, point) {
-                  automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-                  if (automationController.visibleParameter == AutomationParameter.volume) {
-                    syncVolumeAutomationToEngine(trackId);
-                  }
-                },
-                onAutomationPointDeleted: (trackId, pointId) {
-                  automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-                  if (automationController.visibleParameter == AutomationParameter.volume) {
-                    syncVolumeAutomationToEngine(trackId);
-                  }
-                },
-                automationPreviewNotifier: automationPreviewNotifier,
-                onAutomationPreviewValue: onAutomationPreviewValue,
-                isRecording: recordingController.isRecording || recordingController.isCountingIn,
-                getSelectedParameter: (trackId) => automationController.visibleParameter,
-                onParameterChanged: (trackId, param) {
-                  setState(() {
-                    automationController.setVisibleParameter(param);
-                  });
-                },
-                onResetParameter: (trackId) {
-                  // Reset the parameter to its default value
-                  final param = automationController.visibleParameter;
-                  if (param == AutomationParameter.volume) {
-                    audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
-                    setState(() {}); // Trigger UI update
-                  } else if (param == AutomationParameter.pan) {
-                    audioEngine?.setTrackPan(trackId, 0.0); // Center
-                    setState(() {}); // Trigger UI update
-                  }
-                },
-                onAddParameter: (trackId) {
-                  // Future: Additional automation params (send levels, plugin params) (v0.4.0)
-                },
+                config: MixerPanelConfig(
+                  isEngineReady: isAudioGraphInitialized,
+                  panelWidth: uiLayout.mixerPanelWidth,
+                  onTogglePanel: _toggleMixer,
+                  isRecording: recordingController.isRecording || recordingController.isCountingIn,
+                  trackOrder: trackController.trackOrder,
+                ),
+                selectionState: TrackSelectionState(
+                  selectedTrackId: selectedTrackId,
+                  selectedTrackIds: selectedTrackIds,
+                  onTrackSelected: _onTrackSelected,
+                ),
+                trackCallbacks: TrackManagementCallbacks(
+                  onDuplicated: _onTrackDuplicated,
+                  onDeleted: _onTrackDeleted,
+                  onMidiTrackCreated: _createDefaultMidiClip,
+                  onTrackCreated: _onTrackCreatedFromMixer,
+                  onReordered: _onTrackReordered,
+                  onOrderSync: trackController.syncTrackOrder,
+                  onDoubleClick: (trackId) {
+                    // Select track and open editor
+                    _onTrackSelected(trackId);
+                    if (!uiLayout.isEditorPanelVisible) {
+                      _toggleEditor();
+                    }
+                  },
+                  onNameChanged: (trackId, newName) {
+                    // Mark track name as user-edited
+                    trackController.markTrackNameUserEdited(trackId, edited: true);
+                  },
+                  onColorChanged: setTrackColor,
+                  onIconChanged: (trackId, icon) {
+                    setState(() {
+                      trackController.setTrackIcon(trackId, icon);
+                    });
+                  },
+                  onConvertToSampler: _convertAudioTrackToSampler,
+                ),
+                instrumentCallbacks: MixerInstrumentCallbacks(
+                  onInstrumentSelected: _onInstrumentSelected,
+                  onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
+                  onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
+                  onVst3PluginDropped: _onVst3PluginDropped, // M10
+                  onFxButtonPressed: _showVst3PluginBrowser, // M10
+                  onEditPluginsPressed: _showVst3PluginEditor, // M10
+                ),
+                trackHeightState: TrackHeightState(
+                  clipHeights: clipHeights,
+                  automationHeights: automationHeights,
+                  masterTrackHeight: masterTrackHeight,
+                  onClipHeightChanged: setClipHeight,
+                  onAutomationHeightChanged: setAutomationHeight,
+                ),
+                onMasterTrackHeightChanged: setMasterTrackHeight,
+                automationCallbacks: AutomationCallbacks(
+                  onPointAdded: (trackId, point) {
+                    automationController.addPoint(trackId, automationController.visibleParameter, point);
+                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                      syncVolumeAutomationToEngine(trackId);
+                    }
+                  },
+                  onPointUpdated: (trackId, pointId, point) {
+                    automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
+                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                      syncVolumeAutomationToEngine(trackId);
+                    }
+                  },
+                  onPointDeleted: (trackId, pointId) {
+                    automationController.removePoint(trackId, automationController.visibleParameter, pointId);
+                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                      syncVolumeAutomationToEngine(trackId);
+                    }
+                  },
+                  onPreviewValue: onAutomationPreviewValue,
+                  getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+                ),
+                automationState: MixerAutomationState(
+                  visibleTrackId: automationController.visibleTrackId,
+                  onToggle: (trackId) {
+                    setState(() {
+                      automationController.toggleAutomationForTrack(trackId);
+                    });
+                  },
+                  pixelsPerBeat: timelineKey.currentState?.pixelsPerBeat ?? 20.0,
+                  totalBeats: 256.0,
+                  getSelectedParameter: (trackId) => automationController.visibleParameter,
+                  onParameterChanged: (trackId, param) {
+                    setState(() {
+                      automationController.setVisibleParameter(param);
+                    });
+                  },
+                  onResetParameter: (trackId) {
+                    // Reset the parameter to its default value
+                    final param = automationController.visibleParameter;
+                    if (param == AutomationParameter.volume) {
+                      audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
+                      setState(() {}); // Trigger UI update
+                    } else if (param == AutomationParameter.pan) {
+                      audioEngine?.setTrackPan(trackId, 0.0); // Center
+                      setState(() {}); // Trigger UI update
+                    }
+                  },
+                  onAddParameter: (trackId) {
+                    // Future: Additional automation params (send levels, plugin params) (v0.4.0)
+                  },
+                  previewNotifier: automationPreviewNotifier,
+                ),
               ),
             ),
           ],
@@ -3968,24 +3984,38 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                   child: EditorPanel(
                     audioEngine: audioEngine,
                     virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
-                    selectedTrackId: selectedTrackId,
-                    selectedTrackName: _getSelectedTrackName(),
-                    selectedTrackType: _getSelectedTrackType(),
-                    currentInstrumentData: selectedTrackId != null
-                        ? trackInstruments[selectedTrackId]
-                        : null,
-                    onVirtualPianoClose: _toggleVirtualPiano,
-                    onVirtualPianoToggle: _toggleVirtualPiano,
-                    onClosePanel: () {
-                      setState(() {
-                        uiLayout.isEditorPanelVisible = false;
-                      });
-                    },
-                    onExpandPanel: () {
-                      setState(() {
-                        uiLayout.isEditorPanelVisible = true;
-                      });
-                    },
+                    trackContext: EditorPanelContext(
+                      selectedTrackId: selectedTrackId,
+                      selectedTrackName: _getSelectedTrackName(),
+                      selectedTrackType: _getSelectedTrackType(),
+                      currentInstrumentData: selectedTrackId != null
+                          ? trackInstruments[selectedTrackId]
+                          : null,
+                    ),
+                    callbacks: EditorPanelCallbacks(
+                      onVirtualPianoClose: _toggleVirtualPiano,
+                      onVirtualPianoToggle: _toggleVirtualPiano,
+                      onClosePanel: () {
+                        setState(() {
+                          uiLayout.isEditorPanelVisible = false;
+                        });
+                      },
+                      onExpandPanel: () {
+                        setState(() {
+                          uiLayout.isEditorPanelVisible = true;
+                        });
+                      },
+                      onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
+                    ),
+                    vst3Callbacks: Vst3EditorCallbacks(
+                      onVst3ParameterChanged: _onVst3ParameterChanged, // M10
+                      onVst3PluginRemoved: _removeVst3Plugin, // M10
+                      onVst3InstrumentDropped: (plugin) {
+                        if (selectedTrackId != null) {
+                          _onVst3InstrumentDropped(selectedTrackId!, plugin);
+                        }
+                      },
+                    ),
                     currentEditingClip: midiPlaybackManager?.currentEditingClip,
                     onMidiClipUpdated: _onMidiClipUpdated,
                     onInstrumentParameterChanged: _onInstrumentParameterChanged,
@@ -3994,13 +4024,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                     currentTrackPlugins: selectedTrackId != null // M10
                         ? _getTrackVst3Plugins(selectedTrackId!)
                         : null,
-                    onVst3ParameterChanged: _onVst3ParameterChanged, // M10
-                    onVst3PluginRemoved: _removeVst3Plugin, // M10
-                    onVst3InstrumentDropped: (plugin) {
-                      if (selectedTrackId != null) {
-                        _onVst3InstrumentDropped(selectedTrackId!, plugin);
-                      }
-                    },
                     onInstrumentDropped: (instrument) {
                       if (selectedTrackId != null) {
                         _onInstrumentDropped(selectedTrackId!, instrument);
@@ -4008,7 +4031,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                     },
                     isCollapsed: !uiLayout.isEditorPanelVisible,
                     toolMode: currentToolMode,
-                    onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
                     beatsPerBar: projectMetadata.timeSignatureNumerator,
                     beatUnit: projectMetadata.timeSignatureDenominator,
                     projectTempo: projectMetadata.bpm,
