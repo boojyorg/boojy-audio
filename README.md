@@ -6,130 +6,69 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 ## Download
 
-[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tyrbujac/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-mac.dmg)
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue?style=for-the-badge&logo=windows)](https://github.com/tyrbujac/boojy-audio/releases/latest/download/Boojy-Audio-v0.1.0-win.exe)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple)](https://github.com/tyrbujac/boojy-audio/releases/latest)
 
 Or visit [boojy.org](https://boojy.org) for more information.
-
-## Overview
-
-Boojy Audio combines professional workflows with beginner-friendly UX. Built with Flutter (UI) and Rust (audio engine), it's designed to work seamlessly across macOS, iPad, and eventually web, Windows, Linux, iOS, and Android.
 
 **Current Status:** Alpha (v0.1.5) — See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Features
 
-### Audio & Recording
-- Multi-track audio recording and playback
-- Metronome and count-in support
-- Configurable audio latency (buffer size)
-- WAV file export
+- **Multi-track recording** — Audio and MIDI, with count-in, punch in/out, and input monitoring
+- **Piano roll editor** — Note drawing, velocity editing, scale/key highlighting, real-time preview
+- **Mixing** — Per-track volume, pan, mute/solo, built-in EQ, compressor, reverb, delay, limiter
+- **Track automation** — Volume and pan lanes with draw, select, delete, duplicate, slice tools
+- **VST3 plugin support** — Scan, load, and host instruments and effects (docked or floating UI)
+- **Audio editing** — Warp/time-stretch, pitch shift, clip splitting, consolidation, looping
+- **Library browser** — Browse sounds, instruments, effects, and plugins with audio preview
+- **MIDI import/export** — Standard MIDI file support (.mid)
+- **Project management** — Save/load projects, auto-save, WAV/MP3/stem export
+- **Keyboard-driven workflow** — Command palette (Cmd+K) and shortcuts for everything
 
-### MIDI & Instruments
-- Piano roll editor with note preview
-- Built-in polyphonic synthesizer (8 voices)
-- ADSR envelope and lowpass filter
-- MIDI clip editing with bar-snapping
-
-### VST3 Plugin Support
-- Plugin scanning and loading
-- Plugin UI hosting (docked and floating windows)
-- Plugin state persistence with projects
-
-### Mixing
-- Built-in effects: EQ, Compressor, Reverb, Delay
-- Stereo level meters
-- Per-track volume, pan, mute, solo
-
-### User Interface
-- 3-panel layout: Library, Timeline, Mixer
-- Resizable panels and track heights
-- Native macOS menu bar integration
-- Keyboard shortcuts
-
-### Project Management
-- Project save/load
-- Track duplication
-- Inline track renaming
+See [ROADMAP.md](docs/ROADMAP.md) for the full feature tracker and version plan.
 
 ## Tech Stack
 
-- **UI:** Flutter (cross-platform)
-- **Audio Engine:** Rust (native + WASM-ready)
-- **Plugin Support:** VST3 (optional module)
-
-## Architecture
-
-```text
-┌─────────────────────────────────────┐
-│   UI Layer (Flutter)                │  ← Cross-platform UI
-└──────────────┬──────────────────────┘
-               │ flutter_rust_bridge
-┌──────────────▼──────────────────────┐
-│   Audio Engine Core (Rust)          │  ← Platform-agnostic DSP
-│   - Audio graph, DSP, automation    │
-│   - Built-in FX & instruments       │
-└──────────────┬──────────────────────┘
-               │
-    ┌──────────┴──────────┐
-    │                     │
-┌───▼─────┐         ┌────▼──────┐
-│ Native  │         │  Web      │
-│ I/O     │         │  I/O      │
-│ (CPAL)  │         │ (WebAudio)│
-└─────────┘         └───────────┘
-```
+- **UI:** Flutter (Dart)
+- **Audio Engine:** Rust (native performance, WASM-ready)
+- **FFI:** C bindings (Rust ↔ Dart via `dart:ffi`)
+- **Plugins:** VST3 hosting (C++ bridge)
 
 ## Project Structure
 
 ```text
-/engine         # Rust audio engine
-  /core         # Platform-agnostic DSP & graph
-  /dsp          # Built-in effects & instruments
-  /host-vst3    # VST3 hosting (optional)
-  /io           # I/O backends (native/web)
-  /bridge       # FFI glue for Flutter
-/ui             # Flutter application
-  /lib          # Dart code
-    /screens    # Main views
-    /widgets    # Reusable components
-    /state      # State management
-  /assets       # Icons, fonts, samples
-/docs           # Documentation
+/engine              # Rust audio engine
+  /src               # Core modules: audio graph, synth, effects, sampler, FFI
+  /vst3sdk           # VST3 SDK (submodule)
+  /vst3_host         # VST3 C++ bridge
+/ui                  # Flutter application
+  /lib               # Dart source
+    /screens          # Main views (DAW screen, mixins)
+    /widgets          # UI components (timeline, mixer, transport, piano roll)
+    /services         # Commands (undo/redo), audio engine interface
+    /theme            # Boojy Design System (colors, themes)
+    /state            # State management
+    /models           # Data models
+/docs                # Documentation
 ```
 
-## Setup Instructions
+## Documentation
+
+| Doc | What it covers |
+|-----|----------------|
+| [ROADMAP.md](docs/ROADMAP.md) | Feature tracker, version plan, milestones, design decisions |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, Flutter/Rust split, FFI patterns, folder structure |
+| [UI_DESIGN.md](docs/UI_DESIGN.md) | Layout specs, Boojy Design System colors, component details |
+| [v0.2-design.md](docs/v0.2-design.md) | Next version design spec (send/return, sampler, MIDI CC, tempo automation) |
+
+## Setup
 
 ### Prerequisites
 
 - **Rust:** `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Flutter:** [Install Flutter](https://docs.flutter.dev/get-started/install)
 - **macOS:** Xcode Command Line Tools
-- **Windows:** Visual Studio 2022 with "Desktop development with C++" + CMake
-
-### Windows VST3 Setup
-
-For VST3 plugin support on Windows:
-
-1. **Install Build Tools:**
-   - CMake: `winget install Kitware.CMake`
-   - Visual Studio 2022 Community with "Desktop development with C++" workload
-
-2. **Build VST3 C++ Libraries:**
-
-   ```powershell
-   cd engine/vst3_host
-   mkdir build_win
-   cd build_win
-   cmake -G "Visual Studio 17 2022" -A x64 ..
-   cmake --build . --config Release
-   cd ../../..
-   copy engine/vst3_host/build_win/lib/Release/*.lib engine/lib/
-   ```
-
-3. **VST3 Plugin Paths:**
-   - Default: `C:\Program Files\Common Files\VST3\`
-   - Custom paths can be added via plugin browser in app
+- **sccache (optional):** `brew install sccache` — speeds up Rust rebuilds
 
 ### Build & Run
 
@@ -138,44 +77,60 @@ For VST3 plugin support on Windows:
 git clone https://github.com/tyrbujac/boojy-audio.git
 cd boojy-audio
 
-# Build Rust engine
-cd engine
-cargo build --release
+# Build Rust engine (handles symlinking + dylib copies)
+./build.sh           # debug
+./build.sh release   # release
 
 # Run Flutter app
-cd ../ui
-flutter run -d macos    # macOS
-flutter run -d windows  # Windows
+cd ui
+flutter run -d macos
 ```
+
+### Windows VST3 Setup
+
+For VST3 plugin support on Windows:
+
+1. Install CMake: `winget install Kitware.CMake`
+2. Install Visual Studio 2022 with "Desktop development with C++" workload
+3. Build VST3 C++ libraries:
+
+   ```powershell
+   cd engine/vst3_host
+   mkdir build_win && cd build_win
+   cmake -G "Visual Studio 17 2022" -A x64 ..
+   cmake --build . --config Release
+   cd ../../..
+   copy engine/vst3_host/build_win/lib/Release/*.lib engine/lib/
+   ```
+
+4. VST3 plugin path: `C:\Program Files\Common Files\VST3\`
 
 ## Keyboard Shortcuts
 
-| Shortcut            | Action                            |
-|---------------------|-----------------------------------|
-| Space               | Play/Stop                         |
-| R                   | Record toggle                     |
-| B                   | Toggle Library Panel              |
-| M                   | Toggle Mixer Panel                |
-| Cmd+K               | Command Palette                   |
-| Cmd+S               | Save                              |
-| Cmd+Shift+S         | Save to Cloud                     |
-| Cmd+Z / Cmd+Shift+Z | Undo/Redo                         |
-| Tab                 | Toggle Piano Roll / Step Sequencer|
+| Shortcut | Action |
+|----------|--------|
+| Space | Play/Stop |
+| R | Record |
+| L | Toggle Loop |
+| B | Toggle Library |
+| M | Toggle Mixer |
+| Cmd+K | Command Palette |
+| Cmd+S | Save |
+| Cmd+E | Split clip |
+| Q | Quantize clip |
+| Cmd+J | Consolidate clips |
+| Cmd+Z / Cmd+Shift+Z | Undo / Redo |
 
 ## Contributing
 
-This project is currently in early development (pre-v1). Contributions will be welcomed after the initial public release.
+This project is in alpha. Contributions welcome — check [GitHub Issues](https://github.com/tyrbujac/boojy-audio/issues) for open tasks.
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT License — See [LICENSE](LICENSE) for details.
 
 ## Contact
 
 - **Email:** [tyr@boojy.org](mailto:tyr@boojy.org)
 - **GitHub:** [@tyrbujac](https://github.com/tyrbujac)
 - **Repository:** [boojy-audio](https://github.com/tyrbujac/boojy-audio)
-
----
-
-**Built with Rust and Flutter**
