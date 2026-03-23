@@ -46,7 +46,7 @@ pub fn get_synth_parameters(_track_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let _graph = graph_mutex.lock().map_err(|e| e.to_string())?;
 
-    // TODO: Return actual parameters once implemented
+    // Future: Return real synth params for UI (v0.5.0)
     Ok(String::new())
 }
 

@@ -331,7 +331,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         PlatformMenuItem(
           label: 'Boojy Audio Help',
           onSelected: () {
-            // TODO: Open help documentation
+            // Future: Help menu links to docs/tutorials (v0.6.0)
           },
         ),
       ],

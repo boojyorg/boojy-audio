@@ -34,25 +34,21 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           duplicateAudioClip(clip);
           break;
         case 'split':
-          // TODO: Implement split for audio clips
+          // Future: Audio clip split from context menu (v0.3.0)
           break;
         case 'cut':
-          // TODO: Implement cut for audio clips
-          break;
         case 'copy':
-          // TODO: Implement copy for audio clips
-          break;
         case 'paste':
-          // TODO: Implement paste for audio clips
+          // Future: Audio clip cut/copy/paste (v0.3.0)
           break;
         case 'mute':
-          // TODO: Implement mute for audio clips
+          // Future: Audio clip mute toggle (v0.3.0)
           break;
         case 'color':
-          // TODO: Implement color picker for audio clips
+          // Future: Clip color picker (v0.6.0)
           break;
         case 'rename':
-          // TODO: Implement rename for audio clips
+          // Future: Clip inline rename (v0.6.0)
           break;
       }
     });
@@ -93,7 +89,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           toggleMidiClipLoop(clip);
           break;
         case 'bounce':
-          // TODO: Implement bounce to audio
+          // Future: Bounce MIDI to audio (v0.3.0)
           break;
         case 'export_midi':
           widget.onMidiClipExported?.call(clip);
@@ -198,7 +194,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 16.0);
           break;
         case 'add_marker':
-          // TODO: Implement markers in future version
+          // Future: Timeline markers (v0.3.0)
           break;
       }
     });

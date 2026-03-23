@@ -57,11 +57,11 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
             if (isMidi) {
               // Swap/add instrument on selected MIDI track
               onInstrumentSelected(selectedTrack, instrument.id);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             } else {
               // Create new MIDI track with instrument
               onInstrumentDroppedOnEmpty(instrument);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             }
           }
         }

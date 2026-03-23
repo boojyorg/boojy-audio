@@ -23,7 +23,7 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
 
     // Get audio settings
     let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
-    let block_size = 512; // TODO: Get from config
+    let block_size = 512; // Hardcoded: should come from user settings (v0.6.0)
 
     // Load VST3 plugin
     let mut vst3_effect = VST3Effect::new(plugin_path, sample_rate, block_size)

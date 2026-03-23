@@ -86,7 +86,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     let _ = graph.stop();
 
     // Clear existing clips and tracks (except master)
-    // TODO: Add proper clear methods to AudioGraph
+    // Cleanup: AudioGraph needs explicit clear for new project
 
     // Load audio files from project folder
     let clips_mutex = get_audio_clips()?;

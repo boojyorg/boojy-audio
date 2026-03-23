@@ -975,10 +975,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       audioEngine: widget.audioEngine,
       trackName: widget.selectedTrackName,
       onVst3PopOut: (effectId) {
-        // TODO: Handle VST3 pop-out to floating window
+        // Future: VST3 pop-out to native floating window via platform channel (v0.3.0)
       },
       onVst3BringBack: (effectId) {
-        // TODO: Handle VST3 bring back from floating window
+        // Future: VST3 bring back from floating window (v0.3.0)
       },
     );
   }

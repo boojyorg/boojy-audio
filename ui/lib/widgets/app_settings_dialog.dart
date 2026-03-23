@@ -781,7 +781,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   });
                   widget.settings.preferredInputDevice =
                       value == '__no_input__' ? null : value;
-                  // TODO: Apply to audio engine when input device switching is implemented
+                  // Apply to engine immediately
+                  if (widget.audioEngine != null && value != '__no_input__') {
+                    final index = _inputDevices.indexWhere((d) => d['name'] == value);
+                    if (index >= 0) {
+                      widget.audioEngine!.setAudioInputDevice(index);
+                    }
+                  }
                 }
               },
             ),
@@ -843,7 +849,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   setState(() {
                     widget.settings.bufferSize = value;
                   });
-                  // TODO: Apply buffer size to audio engine
+                  // Apply to engine immediately
+                  if (widget.audioEngine != null) {
+                    final preset = _bufferSizeToPreset(value);
+                    widget.audioEngine!.setBufferSize(preset);
+                  }
                 }
               },
             ),
@@ -851,6 +861,17 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         ),
       ],
     );
+  }
+
+  int _bufferSizeToPreset(int bufferSize) {
+    switch (bufferSize) {
+      case 64: return 0;
+      case 128: return 1;
+      case 256: return 2;
+      case 512: return 3;
+      case 1024: return 4;
+      default: return 2; // Default to Balanced (256)
+    }
   }
 
   /// Check if a device name suggests high latency (Bluetooth, wireless)

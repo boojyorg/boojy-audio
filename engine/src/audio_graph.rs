@@ -1841,8 +1841,8 @@ impl AudioGraph {
                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                         ET::VST3(_vst3) => {
                             effect_type_str = "vst3".to_string();
-                            // TODO M7: Save VST3 plugin path and state
-                            // For now, just mark the type - full state persistence coming later
+                            // VST3 state is saved/restored via separate FFI calls (get/set_vst3_state).
+                            // This snapshot path serializes the effect slot type only.
                             parameters.insert("name".to_string(), 0.0); // Placeholder
                         }
                     }
@@ -2230,7 +2230,7 @@ impl AudioGraph {
 
                     // Load the VST3 plugin
                     let sample_rate = f64::from(TARGET_SAMPLE_RATE);
-                    let block_size = 512; // TODO: Get from config
+                    let block_size = 512; // Hardcoded: should come from user settings (v0.6.0)
 
                     match VST3Effect::new(&vst3_data.plugin_path, sample_rate, block_size) {
                         Ok(mut vst3_effect) => {

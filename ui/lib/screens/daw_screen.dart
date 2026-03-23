@@ -1231,11 +1231,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             if (isMidi) {
               // Swap/add instrument on selected MIDI track
               _onInstrumentSelected(selectedTrack, instrument.id);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             } else {
               // Create new MIDI track with instrument
               _onInstrumentDroppedOnEmpty(instrument);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             }
           }
         }
@@ -3445,6 +3445,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                           userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
                         });
                       },
+                      onLeftColumnDragStart: () => setState(() => _isDraggingLibrary = true),
+                      onLeftColumnDragEnd: () => setState(() => _isDraggingLibrary = false),
                     ),
                   )
                 : LibraryPanel(
@@ -3462,6 +3464,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                         userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
                       });
                     },
+                    onLeftColumnDragStart: () => setState(() => _isDraggingLibrary = true),
+                    onLeftColumnDragEnd: () => setState(() => _isDraggingLibrary = false),
                   ),
             ),
 
@@ -3746,7 +3750,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                   }
                 },
                 onAddParameter: (trackId) {
-                  // TODO: Future feature - add another automation parameter lane
+                  // Future: Additional automation params (send levels, plugin params) (v0.4.0)
                 },
               ),
             ),

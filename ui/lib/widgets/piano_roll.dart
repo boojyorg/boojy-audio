@@ -1217,7 +1217,7 @@ class _PianoRollState extends State<PianoRoll>
     // Note: pixelsPerNote is currently fixed in PianoRollStateMixin.
     // To enable vertical zoom, we would need to make it mutable.
     // For now, this is a no-op placeholder for future implementation.
-    // TODO: Make pixelsPerNote mutable in piano_roll_state.dart to enable vertical zoom
+    // Future: Vertical zoom via mutable pixelsPerNote (v0.3.0)
   }
 
   /// Handle tap on piano key (audition note).

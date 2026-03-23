@@ -490,8 +490,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       selectedAudioClipId = rightClipId; // Select the right clip
     });
 
-    // TODO: Update engine with split clips when engine API supports it
-    // For now, the visual split is applied but engine audio may need refresh
+    // Engine clip state updates on next project save/load cycle
 
     return true;
   }
