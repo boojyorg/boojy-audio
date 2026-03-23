@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/animation_constants.dart';
@@ -14,21 +16,20 @@ import 'transport_bar/metronome_split_button.dart';
 import 'transport_bar/file_menu_button.dart';
 
 import 'transport_bar/record_controls.dart';
+import 'transport_bar/transport_bar_models.dart';
+
+export 'transport_bar/transport_bar_models.dart';
 
 /// Transport control bar for play/pause/stop/record controls
 /// Layout: LEFT GROUP | CENTRE GROUP (expanded) | RIGHT GROUP
 class TransportBar extends StatefulWidget {
-  final VoidCallback? onPlay;
-  final VoidCallback? onPause;
-  final VoidCallback? onStop;
-  final VoidCallback? onRecord;
-  final VoidCallback? onPauseRecording;
-  final VoidCallback? onStopRecording;
-  final VoidCallback? onCaptureMidi;
-  final Function(int)? onCountInChanged;
-  final int countInBars;
-  final VoidCallback? onMetronomeToggle;
-  final VoidCallback? onPianoToggle;
+  // Grouped callback objects
+  final FileMenuCallbacks fileMenu;
+  final TransportCallbacks transport;
+  final PanelCallbacks panels;
+  final DividerState dividers;
+
+  // Playback state
   final double playheadPosition;
   final bool isPlaying;
   final bool canPlay;
@@ -38,6 +39,12 @@ class TransportBar extends StatefulWidget {
   final bool virtualPianoEnabled;
   final double tempo;
   final Function(double)? onTempoChanged;
+  final Function(int)? onCountInChanged;
+  final int countInBars;
+
+  // Count-in ring timer data
+  final int countInBeat;
+  final double countInProgress;
 
   // MIDI device selection
   final List<Map<String, dynamic>> midiDevices;
@@ -45,31 +52,9 @@ class TransportBar extends StatefulWidget {
   final Function(int)? onMidiDeviceSelected;
   final VoidCallback? onRefreshMidiDevices;
 
-  // File menu callbacks
-  final VoidCallback? onNewProject;
-  final VoidCallback? onOpenProject;
-  final VoidCallback? onSaveProject;
-  final VoidCallback? onSaveProjectAs;
-  final VoidCallback? onRenameProject;
-  final VoidCallback? onSaveNewVersion;
-  final VoidCallback? onExportAudio;
-  final VoidCallback? onExportMp3;
-  final VoidCallback? onExportWav;
-  final VoidCallback? onExportMidi;
-  final VoidCallback? onAppSettings;
-  final VoidCallback? onProjectSettings;
-  final VoidCallback? onCloseProject;
-
   // Project name
   final String projectName;
   final bool hasProject;
-
-  // View/panel toggle callbacks
-  final VoidCallback? onToggleLibrary;
-  final VoidCallback? onToggleMixer;
-  final VoidCallback? onToggleEditor;
-  final VoidCallback? onTogglePiano;
-  final VoidCallback? onResetPanelLayout;
 
   // Panel visibility state
   final bool libraryVisible;
@@ -77,12 +62,7 @@ class TransportBar extends StatefulWidget {
   final bool editorVisible;
   final bool pianoVisible;
 
-  // Help callback
-  final VoidCallback? onHelpPressed;
-
-  // Undo/Redo
-  final VoidCallback? onUndo;
-  final VoidCallback? onRedo;
+  // Undo/Redo state
   final bool canUndo;
   final bool canRedo;
   final bool hasArmedTracks;
@@ -95,13 +75,10 @@ class TransportBar extends StatefulWidget {
 
   // Loop playback
   final bool loopPlaybackEnabled;
-  final VoidCallback? onLoopPlaybackToggle;
 
   // Punch in/out
   final bool punchInEnabled;
   final bool punchOutEnabled;
-  final VoidCallback? onPunchInToggle;
-  final VoidCallback? onPunchOutToggle;
 
   // Time signature
   final int beatsPerBar;
@@ -110,46 +87,15 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Count-in ring timer data
-  final int countInBeat;
-  final double countInProgress;
-
   // Engine status (for status dot)
   final bool isEngineReady;
 
-  // Sidebar-aligned divider
-  final double sidebarWidth;
-  final Function(double delta)? onSidebarDividerDrag;
-  final VoidCallback? onSidebarDividerDoubleClick;
-
-  // Sidebar drag start/end (for disabling animation)
-  final VoidCallback? onSidebarDividerDragStart;
-  final VoidCallback? onSidebarDividerDragEnd;
-
-  // Mixer-aligned divider
-  final double mixerWidth;
-  final Function(double delta)? onMixerDividerDrag;
-  final VoidCallback? onMixerDividerDoubleClick;
-  final VoidCallback? onMixerDividerDragStart;
-  final VoidCallback? onMixerDividerDragEnd;
-
-  // Synchronized divider hover state
-  final ValueNotifier<bool>? leftDividerNotifier;
-  final ValueNotifier<bool>? rightDividerNotifier;
-
   const TransportBar({
     super.key,
-    this.onPlay,
-    this.onPause,
-    this.onStop,
-    this.onRecord,
-    this.onPauseRecording,
-    this.onStopRecording,
-    this.onCaptureMidi,
-    this.onCountInChanged,
-    this.countInBars = 1,
-    this.onMetronomeToggle,
-    this.onPianoToggle,
+    this.fileMenu = const FileMenuCallbacks(),
+    this.transport = const TransportCallbacks(),
+    this.panels = const PanelCallbacks(),
+    this.dividers = const DividerState(),
     required this.playheadPosition,
     this.isPlaying = false,
     this.canPlay = false,
@@ -159,37 +105,20 @@ class TransportBar extends StatefulWidget {
     this.virtualPianoEnabled = false,
     this.tempo = 120.0,
     this.onTempoChanged,
+    this.onCountInChanged,
+    this.countInBars = 1,
+    this.countInBeat = 0,
+    this.countInProgress = 0.0,
     this.midiDevices = const [],
     this.selectedMidiDeviceIndex = -1,
     this.onMidiDeviceSelected,
     this.onRefreshMidiDevices,
-    this.onNewProject,
-    this.onOpenProject,
-    this.onSaveProject,
-    this.onSaveProjectAs,
-    this.onRenameProject,
-    this.onSaveNewVersion,
-    this.onExportAudio,
-    this.onExportMp3,
-    this.onExportWav,
-    this.onExportMidi,
-    this.onAppSettings,
-    this.onProjectSettings,
-    this.onCloseProject,
     this.projectName = 'Untitled',
     this.hasProject = false,
-    this.onToggleLibrary,
-    this.onToggleMixer,
-    this.onToggleEditor,
-    this.onTogglePiano,
-    this.onResetPanelLayout,
     this.libraryVisible = true,
     this.mixerVisible = true,
     this.editorVisible = true,
     this.pianoVisible = false,
-    this.onHelpPressed,
-    this.onUndo,
-    this.onRedo,
     this.canUndo = false,
     this.canRedo = false,
     this.hasArmedTracks = true,
@@ -198,30 +127,13 @@ class TransportBar extends StatefulWidget {
     this.arrangementSnap = SnapValue.bar,
     this.onSnapChanged,
     this.loopPlaybackEnabled = false,
-    this.onLoopPlaybackToggle,
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
-    this.onPunchInToggle,
-    this.onPunchOutToggle,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.isLoading = false,
-    this.countInBeat = 0,
-    this.countInProgress = 0.0,
     this.isEngineReady = false,
-    this.sidebarWidth = 208.0,
-    this.onSidebarDividerDrag,
-    this.onSidebarDividerDoubleClick,
-    this.onSidebarDividerDragStart,
-    this.onSidebarDividerDragEnd,
-    this.mixerWidth = 200.0,
-    this.onMixerDividerDrag,
-    this.onMixerDividerDoubleClick,
-    this.onMixerDividerDragStart,
-    this.onMixerDividerDragEnd,
-    this.leftDividerNotifier,
-    this.rightDividerNotifier,
   });
 
   @override
@@ -246,27 +158,27 @@ class _TransportBarState extends State<TransportBar> {
   @override
   void initState() {
     super.initState();
-    widget.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
-    widget.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+    widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
+    widget.dividers.rightDividerNotifier?.addListener(_onRightNotifierChanged);
   }
 
   @override
   void didUpdateWidget(TransportBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.leftDividerNotifier != widget.leftDividerNotifier) {
-      oldWidget.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
-      widget.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
+    if (oldWidget.dividers.leftDividerNotifier != widget.dividers.leftDividerNotifier) {
+      oldWidget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
+      widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
     }
-    if (oldWidget.rightDividerNotifier != widget.rightDividerNotifier) {
-      oldWidget.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
-      widget.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+    if (oldWidget.dividers.rightDividerNotifier != widget.dividers.rightDividerNotifier) {
+      oldWidget.dividers.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
+      widget.dividers.rightDividerNotifier?.addListener(_onRightNotifierChanged);
     }
   }
 
   @override
   void dispose() {
-    widget.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
-    widget.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
+    widget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
+    widget.dividers.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
     super.dispose();
   }
 
@@ -288,9 +200,9 @@ class _TransportBarState extends State<TransportBar> {
       ),
       child: Row(
         children: [
-          // === LEFT GROUP: constrained to sidebar width ===
+          // === LEFT GROUP: constrained to sidebar width (min 150px) ===
           SizedBox(
-            width: widget.sidebarWidth,
+            width: math.max(widget.dividers.sidebarWidth, 200),
             child: _buildLeftGroup(colors),
           ),
 
@@ -307,7 +219,7 @@ class _TransportBarState extends State<TransportBar> {
 
           // === RIGHT GROUP: constrained to mixer width ===
           SizedBox(
-            width: widget.mixerWidth,
+            width: widget.dividers.mixerWidth,
             child: _buildRightGroup(colors),
           ),
         ],
@@ -320,7 +232,7 @@ class _TransportBarState extends State<TransportBar> {
       _sidebarHandleHovered = hovered;
       _sidebarHandleDragging = dragging;
     });
-    widget.leftDividerNotifier?.value = hovered || dragging;
+    widget.dividers.leftDividerNotifier?.value = hovered || dragging;
   }
 
   void _setMixerHandleActive(bool hovered, bool dragging) {
@@ -328,7 +240,7 @@ class _TransportBarState extends State<TransportBar> {
       _mixerHandleHovered = hovered;
       _mixerHandleDragging = dragging;
     });
-    widget.rightDividerNotifier?.value = hovered || dragging;
+    widget.dividers.rightDividerNotifier?.value = hovered || dragging;
   }
 
   Widget _buildDividerHandle({
@@ -376,35 +288,35 @@ class _TransportBarState extends State<TransportBar> {
 
   Widget _buildSidebarHandle(BoojyColors colors) {
     final isActive = _sidebarHandleHovered || _sidebarHandleDragging
-        || (widget.leftDividerNotifier?.value ?? false);
+        || (widget.dividers.leftDividerNotifier?.value ?? false);
 
     return _buildDividerHandle(
       colors: colors,
       isActive: isActive,
-      onDrag: (delta) => widget.onSidebarDividerDrag?.call(delta),
-      onDoubleClick: () => widget.onSidebarDividerDoubleClick?.call(),
+      onDrag: (delta) => widget.dividers.onSidebarDividerDrag?.call(delta),
+      onDoubleClick: () => widget.dividers.onSidebarDividerDoubleClick?.call(),
       setActive: _setSidebarHandleActive,
       isHovered: _sidebarHandleHovered,
       isDragging: _sidebarHandleDragging,
-      onDragStart: widget.onSidebarDividerDragStart,
-      onDragEnd: widget.onSidebarDividerDragEnd,
+      onDragStart: widget.dividers.onSidebarDividerDragStart,
+      onDragEnd: widget.dividers.onSidebarDividerDragEnd,
     );
   }
 
   Widget _buildMixerHandle(BoojyColors colors) {
     final isActive = _mixerHandleHovered || _mixerHandleDragging
-        || (widget.rightDividerNotifier?.value ?? false);
+        || (widget.dividers.rightDividerNotifier?.value ?? false);
 
     return _buildDividerHandle(
       colors: colors,
       isActive: isActive,
-      onDrag: (delta) => widget.onMixerDividerDrag?.call(delta),
-      onDoubleClick: () => widget.onMixerDividerDoubleClick?.call(),
+      onDrag: (delta) => widget.dividers.onMixerDividerDrag?.call(delta),
+      onDoubleClick: () => widget.dividers.onMixerDividerDoubleClick?.call(),
       setActive: _setMixerHandleActive,
       isHovered: _mixerHandleHovered,
       isDragging: _mixerHandleDragging,
-      onDragStart: widget.onMixerDividerDragStart,
-      onDragEnd: widget.onMixerDividerDragEnd,
+      onDragStart: widget.dividers.onMixerDividerDragStart,
+      onDragEnd: widget.dividers.onMixerDividerDragEnd,
     );
   }
 
@@ -413,87 +325,110 @@ class _TransportBarState extends State<TransportBar> {
   // ============================================
 
   Widget _buildLeftGroup(BoojyColors colors) {
-    return ClipRect(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            // Logo: "Audi" text + blue circle
-            _buildLogo(colors),
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = constraints.maxWidth;
 
-            const SizedBox(width: 12),
+          // Fixed: O(19)+gap(8)+gap(5)+undo(25)+gap(2)+redo(25)+minGap(5)+toggle(27)
+          const fixedWidth = 116.0;
+          const maxAudiClip = 77.5;
+          const nameComfortWidth = 120.0;
 
-            // Project name with File menu dropdown
-            Flexible(
-              child: FileMenuButton(
-                projectName: widget.projectName,
-                hasProject: widget.hasProject,
-                mode: ButtonDisplayMode.wide,
-                onNewProject: widget.onNewProject,
-                onOpenProject: widget.onOpenProject,
-                onSaveProject: widget.onSaveProject,
-                onSaveProjectAs: widget.onSaveProjectAs,
-                onRenameProject: widget.onRenameProject,
-                onSaveNewVersion: widget.onSaveNewVersion,
-                onExportAudio: widget.onExportAudio,
-                onExportMp3: widget.onExportMp3,
-                onExportWav: widget.onExportWav,
-                onExportMidi: widget.onExportMidi,
-                onCloseProject: widget.onCloseProject,
+          // Shrink priority: 1) spacer  2) audi clip  3) name truncate
+          final flexSpace = available - fixedWidth;
+          final audiClipWidth = math.min(maxAudiClip, math.max(0.0, flexSpace - nameComfortWidth));
+          final spacerWidth = math.max(0.0, flexSpace - nameComfortWidth - audiClipWidth);
+
+          return Row(
+            children: [
+              _buildLogo(colors, audiClipWidth: audiClipWidth),
+
+              const SizedBox(width: 8),
+
+              // Project name — only flexible item, truncates with ellipsis
+              Flexible(
+                child: FileMenuButton(
+                  projectName: widget.projectName,
+                  hasProject: widget.hasProject,
+                  mode: ButtonDisplayMode.wide,
+                  onNewProject: widget.fileMenu.onNewProject,
+                  onOpenProject: widget.fileMenu.onOpenProject,
+                  onSaveProject: widget.fileMenu.onSaveProject,
+                  onSaveProjectAs: widget.fileMenu.onSaveProjectAs,
+                  onRenameProject: widget.fileMenu.onRenameProject,
+                  onSaveNewVersion: widget.fileMenu.onSaveNewVersion,
+                  onExportAudio: widget.fileMenu.onExportAudio,
+                  onExportMp3: widget.fileMenu.onExportMp3,
+                  onExportWav: widget.fileMenu.onExportWav,
+                  onExportMidi: widget.fileMenu.onExportMidi,
+                  onCloseProject: widget.fileMenu.onCloseProject,
+                ),
               ),
-            ),
 
-            const SizedBox(width: 8),
+              const SizedBox(width: 5),
 
-            // Undo button (SVG icon)
-            _SvgIconButton(
-              assetPath: 'assets/icons/undo.svg',
-              enabled: widget.canUndo,
-              onTap: widget.onUndo,
-              tooltip: widget.canUndo && widget.undoDescription != null
-                  ? 'Undo: ${widget.undoDescription} (⌘Z)'
-                  : 'Undo (⌘Z)',
-            ),
+              // Undo button
+              _SvgIconButton(
+                assetPath: 'assets/icons/undo.svg',
+                enabled: widget.canUndo,
+                onTap: widget.transport.onUndo,
+                tooltip: widget.canUndo && widget.undoDescription != null
+                    ? 'Undo: ${widget.undoDescription} (⌘Z)'
+                    : 'Undo (⌘Z)',
+              ),
 
-            const SizedBox(width: 2),
+              const SizedBox(width: 2),
 
-            // Redo button (SVG icon)
-            _SvgIconButton(
-              assetPath: 'assets/icons/redo.svg',
-              enabled: widget.canRedo,
-              onTap: widget.onRedo,
-              tooltip: widget.canRedo && widget.redoDescription != null
-                  ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
-                  : 'Redo (⇧⌘Z)',
-            ),
+              // Redo button
+              _SvgIconButton(
+                assetPath: 'assets/icons/redo.svg',
+                enabled: widget.canRedo,
+                onTap: widget.transport.onRedo,
+                tooltip: widget.canRedo && widget.redoDescription != null
+                    ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
+                    : 'Redo (⇧⌘Z)',
+              ),
 
-            const Spacer(),
+              // Spacer between redo and toggle — shrinks first
+              SizedBox(width: 5 + spacerWidth),
 
-            // Sidebar toggle [|] — right-aligned near divider
-            _PanelToggleButton(
-              assetPath: 'assets/icons/sidebar_toggle.svg',
-              isActive: widget.libraryVisible,
-              onTap: widget.onToggleLibrary,
-              tooltip: widget.libraryVisible ? 'Hide Library' : 'Show Library',
-            ),
-          ],
-        ),
+              // Sidebar toggle [|]
+              _PanelToggleButton(
+                assetPath: 'assets/icons/sidebar_toggle.svg',
+                isActive: widget.libraryVisible,
+                onTap: widget.panels.onToggleLibrary,
+                tooltip: widget.libraryVisible ? 'Hide Library' : 'Show Library',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildLogo(BoojyColors colors) {
+  Widget _buildLogo(BoojyColors colors, {required double audiClipWidth}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 5),
-          child: SvgPicture.asset(
-            'assets/images/boojy_audio_audi.svg',
-            height: 27,
+        // "Audi" text: always rendered, smoothly clipped to available width
+        ClipRect(
+          child: SizedBox(
+            width: audiClipWidth,
+            child: OverflowBox(
+              alignment: AlignmentDirectional.centerStart,
+              maxWidth: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: SvgPicture.asset(
+                  'assets/images/boojy_audio_audi.svg',
+                  height: 27,
+                ),
+              ),
+            ),
           ),
         ),
-        const SizedBox(width: 1),
         // Blue circle "O" — settings button
         MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -502,7 +437,7 @@ class _TransportBarState extends State<TransportBar> {
           child: Tooltip(
             message: 'Settings',
             child: GestureDetector(
-              onTap: () => widget.onAppSettings?.call(),
+              onTap: () => widget.fileMenu.onAppSettings?.call(),
               child: AnimatedScale(
                 scale: _logoHovered ? 1.05 : 1.0,
                 duration: const Duration(milliseconds: 150),
@@ -552,7 +487,7 @@ class _TransportBarState extends State<TransportBar> {
                 _PunchButton(
                   label: '→|',
                   isActive: widget.punchInEnabled,
-                  onTap: widget.onPunchInToggle,
+                  onTap: widget.transport.onPunchInToggle,
                   tooltip: widget.punchInEnabled ? 'Punch In On (I)' : 'Punch In Off (I)',
                   mode: mode,
                 ),
@@ -565,7 +500,7 @@ class _TransportBarState extends State<TransportBar> {
                   label: isIconOnly ? '' : 'Loop',
                   isActive: widget.loopPlaybackEnabled,
                   mode: mode,
-                  onTap: widget.onLoopPlaybackToggle,
+                  onTap: widget.transport.onLoopPlaybackToggle,
                   tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
                   activeColor: colors.accent,
                 ),
@@ -576,7 +511,7 @@ class _TransportBarState extends State<TransportBar> {
                 _PunchButton(
                   label: '|→',
                   isActive: widget.punchOutEnabled,
-                  onTap: widget.onPunchOutToggle,
+                  onTap: widget.transport.onPunchOutToggle,
                   tooltip: widget.punchOutEnabled ? 'Punch Out On (O)' : 'Punch Out Off (O)',
                   mode: mode,
                 ),
@@ -597,7 +532,7 @@ class _TransportBarState extends State<TransportBar> {
                 MetronomeSplitButton(
                   isActive: widget.metronomeEnabled,
                   countInBars: widget.countInBars,
-                  onToggle: widget.onMetronomeToggle,
+                  onToggle: widget.transport.onMetronomeToggle,
                   onCountInChanged: widget.onCountInChanged,
                   mode: mode,
                 ),
@@ -611,11 +546,11 @@ class _TransportBarState extends State<TransportBar> {
                   enabledColor: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
                   onPressed: () {
                     if (widget.isRecording || widget.isCountingIn) {
-                      widget.onPauseRecording?.call();
+                      widget.transport.onPauseRecording?.call();
                     } else if (widget.isPlaying) {
-                      widget.onPause?.call();
+                      widget.transport.onPause?.call();
                     } else {
-                      widget.onPlay?.call();
+                      widget.transport.onPlay?.call();
                     }
                   },
                   tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
@@ -631,9 +566,9 @@ class _TransportBarState extends State<TransportBar> {
                   enabledColor: const Color(0xFFF97316),
                   onPressed: () {
                     if (widget.isRecording || widget.isCountingIn) {
-                      widget.onStopRecording?.call();
+                      widget.transport.onStopRecording?.call();
                     } else {
-                      widget.onStop?.call();
+                      widget.transport.onStop?.call();
                     }
                   },
                   tooltip: 'Stop',
@@ -651,7 +586,7 @@ class _TransportBarState extends State<TransportBar> {
                   countInProgress: widget.countInProgress,
                   beatsPerBar: widget.beatsPerBar,
                   onPressed: (widget.hasArmedTracks || widget.isRecording || widget.isCountingIn)
-                      ? widget.onRecord
+                      ? widget.transport.onRecord
                       : null,
                   onCountInChanged: widget.onCountInChanged,
                   size: 32,
@@ -728,7 +663,7 @@ class _TransportBarState extends State<TransportBar> {
           _PanelToggleButton(
             assetPath: 'assets/icons/sidebar_toggle.svg',
             isActive: widget.mixerVisible,
-            onTap: widget.onToggleMixer,
+            onTap: widget.panels.onToggleMixer,
             tooltip: widget.mixerVisible ? 'Hide Mixer' : 'Show Mixer',
             mirrored: true,
           ),
@@ -754,7 +689,7 @@ class _TransportBarState extends State<TransportBar> {
 
           // Help button — far right
           _HelpButton(
-            onTap: widget.onHelpPressed,
+            onTap: widget.panels.onHelpPressed,
           ),
         ],
       ),

@@ -8,3 +8,4 @@ export 'metronome_split_button.dart';
 export 'snap_split_button.dart';
 export 'view_menu_button.dart';
 export 'file_menu_button.dart';
+export 'transport_bar_models.dart';
