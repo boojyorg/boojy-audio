@@ -23,7 +23,7 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     // Handle MIDI files via callback
     if (ext == 'mid' || ext == 'midi') {
       final startBeats = calculateBeatPosition(localPosition);
-      widget.onMidiFileDroppedOnTrack?.call(trackId, filePath, startBeats);
+      widget.dragDropCallbacks.onMidiFileDroppedOnTrack?.call(trackId, filePath, startBeats);
       return;
     }
 

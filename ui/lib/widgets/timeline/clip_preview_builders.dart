@@ -496,7 +496,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
     }
 
     final clipX = preview.startTime * pixelsPerSecond;
-    final trackHeight = widget.clipHeights[preview.trackId] ?? UIConstants.defaultClipHeight;
+    final trackHeight = widget.trackHeightState.clipHeights[preview.trackId] ?? UIConstants.defaultClipHeight;
     final totalHeight = trackHeight - UIConstants.clipContentPadding;
     final headerHeight = preview.isMidi ? UIConstants.clipHeaderHeight : 20.0;
 

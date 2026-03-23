@@ -34,7 +34,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Notify parent about audio clip selection
     final selectedClip = selectedAudioClip;
-    widget.onAudioClipSelected?.call(selectedAudioClipId, selectedClip);
+    widget.audioClipCallbacks.onSelected?.call(selectedAudioClipId, selectedClip);
   }
 
   /// Check if a MIDI clip is selected
@@ -111,7 +111,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Notify parent about audio clip selection
     final selectedClip = selectedAudioClip;
-    widget.onAudioClipSelected?.call(selectedAudioClipId, selectedClip);
+    widget.audioClipCallbacks.onSelected?.call(selectedAudioClipId, selectedClip);
   }
 
   /// Clear all clip selections
@@ -159,7 +159,7 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
     });
 
     // Notify parent to clear MIDI clip selection (for piano roll)
-    widget.onMidiClipSelected?.call(null, null);
+    widget.midiClipCallbacks.onSelected?.call(null, null);
   }
 
   /// Update selection based on box selection rectangle.
@@ -199,14 +199,14 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
+        trackTop += widget.trackHeightState.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
+          trackTop += widget.trackHeightState.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
+      final trackHeight = widget.trackHeightState.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if track overlaps with selection Y range

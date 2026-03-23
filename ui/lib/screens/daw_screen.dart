@@ -11,6 +11,7 @@ import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/dev_tools/palette_editor.dart';
+import '../widgets/timeline/timeline_models.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/track_mixer_panel.dart';
 import '../widgets/library_panel.dart';
@@ -3507,45 +3508,75 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         selectedMidiTrackId: selectedTrackId,
         selectedMidiClipId: midiPlaybackManager?.selectedClipId,
         currentEditingClip: midiPlaybackManager?.currentEditingClip,
-        midiClips: midiPlaybackManager?.midiClips ?? [], // Pass all MIDI clips for visualization
+        midiClips: midiPlaybackManager?.midiClips ?? [],
         onMidiTrackSelected: _onTrackSelected,
-        onMidiClipSelected: _onMidiClipSelected,
-        onAudioClipSelected: _onAudioClipSelected,
-        onMidiClipUpdated: _onMidiClipUpdated,
-        onMidiClipCopied: onMidiClipCopied,
-        onAudioClipCopied: onAudioClipCopied,
         getRustClipId: (dartClipId) => midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
-        onMidiOverlapResolved: (result) {
-          ClipOverlapHandler.applyMidiResult(
-            result: result,
-            deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
-            updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
-            rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
-            addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
-            tempo: tempo,
-          );
-        },
-        onMidiClipDeleted: _deleteMidiClip,
-        onMidiClipsBatchDeleted: _deleteMidiClipsBatch,
-        onAudioClipsBatchDeleted: _deleteAudioClipsBatch,
-        onInstrumentDropped: _onInstrumentDropped,
-        onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
-        onVst3InstrumentDropped: _onVst3InstrumentDropped,
-        onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
-        onMidiClipExported: _exportMidiClip,
-        onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
-        onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
-        onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
-        onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
-        onCreateTrackWithClip: _onCreateTrackWithClip,
-        onCreateClipOnTrack: _onCreateClipOnTrack,
-        clipHeights: clipHeights,
-        automationHeights: automationHeights,
-        masterTrackHeight: masterTrackHeight,
+        midiClipCallbacks: MidiClipCallbacks(
+          onSelected: _onMidiClipSelected,
+          onUpdated: _onMidiClipUpdated,
+          onCopied: onMidiClipCopied,
+          onDeleted: _deleteMidiClip,
+          onBatchDeleted: _deleteMidiClipsBatch,
+          onExported: _exportMidiClip,
+          onOverlapResolved: (result) {
+            ClipOverlapHandler.applyMidiResult(
+              result: result,
+              deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+              updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
+              rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+              addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+              tempo: tempo,
+            );
+          },
+        ),
+        audioClipCallbacks: AudioClipCallbacks(
+          onSelected: _onAudioClipSelected,
+          onCopied: onAudioClipCopied,
+          onBatchDeleted: _deleteAudioClipsBatch,
+        ),
+        dragDropCallbacks: DragDropCallbacks(
+          onInstrumentDropped: _onInstrumentDropped,
+          onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
+          onVst3InstrumentDropped: _onVst3InstrumentDropped,
+          onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
+          onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
+          onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
+          onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+          onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
+          onCreateTrackWithClip: _onCreateTrackWithClip,
+          onCreateClipOnTrack: _onCreateClipOnTrack,
+        ),
+        automationCallbacks: AutomationCallbacks(
+          onPointAdded: (trackId, point) {
+            automationController.addPoint(trackId, automationController.visibleParameter, point);
+            if (automationController.visibleParameter == AutomationParameter.volume) {
+              syncVolumeAutomationToEngine(trackId);
+            }
+          },
+          onPointUpdated: (trackId, pointId, point) {
+            automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
+            if (automationController.visibleParameter == AutomationParameter.volume) {
+              syncVolumeAutomationToEngine(trackId);
+            }
+          },
+          onPointDeleted: (trackId, pointId) {
+            automationController.removePoint(trackId, automationController.visibleParameter, pointId);
+            if (automationController.visibleParameter == AutomationParameter.volume) {
+              syncVolumeAutomationToEngine(trackId);
+            }
+          },
+          onPreviewValue: onAutomationPreviewValue,
+          getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+        ),
+        trackHeightState: TrackHeightState(
+          clipHeights: clipHeights,
+          automationHeights: automationHeights,
+          masterTrackHeight: masterTrackHeight,
+          onClipHeightChanged: setClipHeight,
+          onAutomationHeightChanged: setAutomationHeight,
+        ),
         trackOrder: trackController.trackOrder,
         getTrackColor: getTrackColor,
-        onClipHeightChanged: setClipHeight,
-        onAutomationHeightChanged: setAutomationHeight,
         onSeek: (position) {
           audioEngine?.transportSeek(position);
           playheadPosition = position;
@@ -3576,26 +3607,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         isRecording: isRecording,
         // Automation state
         automationVisibleTrackId: automationController.visibleTrackId,
-        getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
-        onAutomationPointAdded: (trackId, point) {
-          automationController.addPoint(trackId, automationController.visibleParameter, point);
-          if (automationController.visibleParameter == AutomationParameter.volume) {
-            syncVolumeAutomationToEngine(trackId);
-          }
-        },
-        onAutomationPointUpdated: (trackId, pointId, point) {
-          automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-          if (automationController.visibleParameter == AutomationParameter.volume) {
-            syncVolumeAutomationToEngine(trackId);
-          }
-        },
-        onAutomationPointDeleted: (trackId, pointId) {
-          automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-          if (automationController.visibleParameter == AutomationParameter.volume) {
-            syncVolumeAutomationToEngine(trackId);
-          }
-        },
-        onAutomationPreviewValue: onAutomationPreviewValue,
         automationScrollController: timelineKey.currentState?.scrollController,
       ),
     );

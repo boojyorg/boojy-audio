@@ -65,7 +65,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
 
       switch (value) {
         case 'delete':
-          widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+          widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
           break;
         case 'duplicate':
           duplicateMidiClip(clip);
@@ -92,7 +92,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           // Future: Bounce MIDI to audio (v0.3.0)
           break;
         case 'export_midi':
-          widget.onMidiClipExported?.call(clip);
+          widget.midiClipCallbacks.onExported?.call(clip);
           break;
         case 'color':
           showColorPicker(clip);
@@ -261,7 +261,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       switch (value) {
         case 'create_clip':
           // Create a 1-bar MIDI clip at the clicked position
-          widget.onCreateClipOnTrack?.call(track.id, snappedBeat, 4.0);
+          widget.dragDropCallbacks.onCreateClipOnTrack?.call(track.id, snappedBeat, 4.0);
           break;
         case 'paste':
           if (clipboardMidiClip != null) {
@@ -310,7 +310,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       color: context.colors.elevated,
     ).then((value) {
       if (value != null) {
-        widget.onCreateTrackWithClip?.call(value, startBeats, durationBeats);
+        widget.dragDropCallbacks.onCreateTrackWithClip?.call(value, startBeats, durationBeats);
       }
     });
   }
@@ -348,13 +348,13 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   /// Duplicate an audio clip (place copy at specified position or after original)
   void duplicateAudioClip(ClipData clip, {double? atPosition}) {
     final newStartTime = atPosition ?? clip.startTime + clip.duration;
-    widget.onAudioClipCopied?.call(clip, newStartTime);
+    widget.audioClipCallbacks.onCopied?.call(clip, newStartTime);
   }
 
   /// Duplicate a MIDI clip
   void duplicateMidiClip(MidiClipData clip) {
     final newStartTime = clip.startTime + clip.duration;
-    widget.onMidiClipCopied?.call(clip, newStartTime);
+    widget.midiClipCallbacks.onCopied?.call(clip, newStartTime);
   }
 
   /// Quantize a MIDI clip
@@ -367,7 +367,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
     }
 
     final quantizedClip = clip.copyWith(startTime: quantizedStart);
-    widget.onMidiClipUpdated?.call(quantizedClip);
+    widget.midiClipCallbacks.onUpdated?.call(quantizedClip);
   }
 
   /// Split MIDI clip at playhead position
@@ -426,11 +426,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
     );
 
     // Delete original and add both new clips via callbacks
-    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+    widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
 
     // Add both new clips
-    widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
-    widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
+    widget.midiClipCallbacks.onCopied?.call(leftClip, leftClip.startTime);
+    widget.midiClipCallbacks.onCopied?.call(rightClip, rightClip.startTime);
   }
 
   // ========================================================================
@@ -445,7 +445,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   /// Cut a MIDI clip (copy to clipboard, then delete)
   void cutMidiClip(MidiClipData clip) {
     clipboardMidiClip = clip;
-    widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+    widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
   }
 
   /// Paste a MIDI clip from clipboard to track
@@ -457,7 +457,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
     // Paste at playhead position (convert from seconds to beats)
     final beatsPerSecond = widget.tempo / 60.0;
     final pastePosition = widget.playheadNotifier.value * beatsPerSecond;
-    widget.onMidiClipCopied?.call(clipboardMidiClip!, pastePosition);
+    widget.midiClipCallbacks.onCopied?.call(clipboardMidiClip!, pastePosition);
   }
 
   // ========================================================================
@@ -467,13 +467,13 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   /// Toggle mute state of a MIDI clip
   void toggleMidiClipMute(MidiClipData clip) {
     final mutedClip = clip.copyWith(isMuted: !clip.isMuted);
-    widget.onMidiClipUpdated?.call(mutedClip);
+    widget.midiClipCallbacks.onUpdated?.call(mutedClip);
   }
 
   /// Toggle loop state of a MIDI clip (controls if content can repeat when stretched)
   void toggleMidiClipLoop(MidiClipData clip) {
     final loopedClip = clip.copyWith(canRepeat: !clip.canRepeat);
-    widget.onMidiClipUpdated?.call(loopedClip);
+    widget.midiClipCallbacks.onUpdated?.call(loopedClip);
   }
 
   // ========================================================================
@@ -504,7 +504,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
             return GestureDetector(
               onTap: () {
                 final coloredClip = clip.copyWith(color: color);
-                widget.onMidiClipUpdated?.call(coloredClip);
+                widget.midiClipCallbacks.onUpdated?.call(coloredClip);
                 Navigator.of(context).pop();
               },
               child: Container(
@@ -550,7 +550,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           onSubmitted: (value) {
             if (value.isNotEmpty) {
               final renamedClip = clip.copyWith(name: value);
-              widget.onMidiClipUpdated?.call(renamedClip);
+              widget.midiClipCallbacks.onUpdated?.call(renamedClip);
               Navigator.of(context).pop();
             }
           },
@@ -565,7 +565,7 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
               final value = controller.text;
               if (value.isNotEmpty) {
                 final renamedClip = clip.copyWith(name: value);
-                widget.onMidiClipUpdated?.call(renamedClip);
+                widget.midiClipCallbacks.onUpdated?.call(renamedClip);
                 Navigator.of(context).pop();
               }
             },
