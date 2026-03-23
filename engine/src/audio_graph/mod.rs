@@ -5,7 +5,6 @@
 /// - `offline` — Offline rendering for export/bounce
 /// - `project` — Project serialization (save/load)
 /// - `device` — Audio device selection, buffer size, latency
-
 mod renderer;
 mod offline;
 mod project;

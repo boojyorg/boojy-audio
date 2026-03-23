@@ -1,5 +1,4 @@
 /// Real-time audio render callback — runs on the audio thread
-
 use super::{AudioGraph, TransportState, interpolate_automation_gain};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId};
@@ -17,16 +16,16 @@ impl AudioGraph {
         use cpal::SupportedBufferSize;
         use cpal::traits::HostTrait;
 
-        // Check if a specific device is selected
-        let selected_name = self.selected_output_device.lock()
-            .clone();
-
         // Helper to find device by name from a host
         fn find_device_in_host<H: HostTrait>(host: &H, name: &str) -> Option<H::Device> {
             host.output_devices().ok()?.find(|d| {
                 d.name().ok().as_ref().is_some_and(|n| n == name)
             })
         }
+
+        // Check if a specific device is selected
+        let selected_name = self.selected_output_device.lock()
+            .clone();
 
         // Determine if we should use ASIO host and get the device
         #[cfg(all(windows, feature = "asio"))]
@@ -109,7 +108,7 @@ impl AudioGraph {
         let buffer_size = match supported_config.buffer_size() {
             SupportedBufferSize::Range { min, max } => {
                 // Handle invalid range (e.g., iOS simulator reports [0-0])
-                if *max == 0 || *min == *max && *max == 0 {
+                if *max == 0 {
                     eprintln!("🔊 [AudioGraph] Buffer size: device reports invalid range [{min}-{max}], using default");
                     None
                 } else {
@@ -155,6 +154,27 @@ impl AudioGraph {
         let stream = device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                // OPTIMIZATION: Lock tracks ONCE and extract all data before frame loop
+                // This prevents locking for every frame (which causes UI freezing)
+                struct TrackSnapshot {
+                    id: u64,
+                    audio_clips: Vec<TimelineClip>,
+                    midi_clips: Vec<TimelineMidiClip>,
+                    volume_gain: f32, // Static volume (used when no automation)
+                    pan_left: f32,
+                    pan_right: f32,
+                    muted: bool,
+                    soloed: bool,
+                    fx_chain: Vec<u64>,
+                    volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
+                    // Input monitoring fields
+                    armed: bool,
+                    input_monitoring: bool,
+                    input_channel: u32,
+                    is_audio_track: bool,
+                    monitoring_fade_gain: f64,
+                }
+
                 // Track actual buffer size (frames = samples / 2 for stereo)
                 let frames = data.len() / 2;
                 actual_buffer_size.store(frames as u32, Ordering::Relaxed);
@@ -242,6 +262,7 @@ impl AudioGraph {
                                                 && track.track_type == crate::track::TrackType::Audio;
                                             let target = if should_monitor { 1.0f64 } else { 0.0f64 };
 
+                                            #[allow(clippy::float_cmp)]
                                             if track.monitoring_fade_gain != target {
                                                 let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
                                                 if target > track.monitoring_fade_gain {
@@ -385,28 +406,6 @@ impl AudioGraph {
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
 
                 // M5.5: Track-based mixing (replaces legacy clip mixing)
-
-                // OPTIMIZATION: Lock tracks ONCE and extract all data before frame loop
-                // This prevents locking for every frame (which causes UI freezing)
-
-                struct TrackSnapshot {
-                    id: u64,
-                    audio_clips: Vec<TimelineClip>,
-                    midi_clips: Vec<TimelineMidiClip>,
-                    volume_gain: f32, // Static volume (used when no automation)
-                    pan_left: f32,
-                    pan_right: f32,
-                    muted: bool,
-                    soloed: bool,
-                    fx_chain: Vec<u64>,
-                    volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
-                    // Input monitoring fields
-                    armed: bool,
-                    input_monitoring: bool,
-                    input_channel: u32,
-                    is_audio_track: bool,
-                    monitoring_fade_gain: f64,
-                }
 
                 let track_data_option = { let tm = track_manager.lock();
                     let has_solo_flag = tm.has_solo();
@@ -656,6 +655,7 @@ impl AudioGraph {
                             let should_monitor = track_snap.armed && track_snap.input_monitoring && track_snap.is_audio_track;
                             let target = if should_monitor { 1.0f64 } else { 0.0f64 };
 
+                            #[allow(clippy::float_cmp)]
                             if track_snap.monitoring_fade_gain != target {
                                 let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
                                 if target > track_snap.monitoring_fade_gain {

@@ -96,7 +96,7 @@ pub extern "C" fn set_punch_in_enabled_ffi(enabled: i32) -> *mut c_char {
 
 #[no_mangle]
 pub extern "C" fn is_punch_in_enabled_ffi() -> i32 {
-    api::is_punch_in_enabled().unwrap_or(false) as i32
+    i32::from(api::is_punch_in_enabled().unwrap_or(false))
 }
 
 #[no_mangle]
@@ -109,7 +109,7 @@ pub extern "C" fn set_punch_out_enabled_ffi(enabled: i32) -> *mut c_char {
 
 #[no_mangle]
 pub extern "C" fn is_punch_out_enabled_ffi() -> i32 {
-    api::is_punch_out_enabled().unwrap_or(false) as i32
+    i32::from(api::is_punch_out_enabled().unwrap_or(false))
 }
 
 #[no_mangle]
@@ -132,5 +132,5 @@ pub extern "C" fn get_punch_out_seconds_ffi() -> f64 {
 
 #[no_mangle]
 pub extern "C" fn is_punch_complete_ffi() -> i32 {
-    api::is_punch_complete().unwrap_or(false) as i32
+    i32::from(api::is_punch_complete().unwrap_or(false))
 }

@@ -26,7 +26,6 @@ pub enum LatencyTestState {
 impl From<u8> for LatencyTestState {
     fn from(value: u8) -> Self {
         match value {
-            0 => Self::Idle,
             1 => Self::WaitingForSilence,
             2 => Self::Playing,
             3 => Self::Listening,
@@ -99,14 +98,15 @@ pub struct LatencyTest {
 
 impl LatencyTest {
     pub fn new(sample_rate: u32) -> Self {
-        let mut config = LatencyTestConfig::default();
-        config.sample_rate = sample_rate;
-
         // Adjust durations based on sample rate
         let samples_per_100ms = sample_rate / 10;
-        config.tone_duration_samples = samples_per_100ms;
-        config.silence_wait_samples = samples_per_100ms;
-        config.max_listen_samples = sample_rate; // 1 second
+        let config = LatencyTestConfig {
+            sample_rate,
+            tone_duration_samples: samples_per_100ms,
+            silence_wait_samples: samples_per_100ms,
+            max_listen_samples: sample_rate, // 1 second
+            ..LatencyTestConfig::default()
+        };
 
         // Pre-allocate input buffer for 1 second of audio
         let buffer_size = sample_rate as usize;

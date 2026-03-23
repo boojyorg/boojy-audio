@@ -125,7 +125,7 @@ void main() {
     test('non-overridden colors use theme defaults', () {
       provider.setColorOverride('dark', const Color(0xFF111111));
       // editor should still be the default
-      final defaultColors = BoojyColors(BoojyTheme.dark);
+      const defaultColors = BoojyColors(BoojyTheme.dark);
       expect(provider.colors.editor, equals(defaultColors.editor));
     });
   });

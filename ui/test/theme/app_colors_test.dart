@@ -36,7 +36,7 @@ void main() {
     // 2. Dark theme specific hex values
     // -------------------------------------------------------
     test('dark theme has expected specific color values', () {
-      final colors = BoojyColors(BoojyTheme.dark);
+      const colors = BoojyColors(BoojyTheme.dark);
 
       expect(colors.editor, const Color(0xFF040412));
       expect(colors.dark, const Color(0xFF2C2C32));
@@ -63,7 +63,7 @@ void main() {
     // -------------------------------------------------------
     test('overrides map replaces background defaults', () {
       const overrideColor = Color(0xFFABCDEF);
-      final colors = BoojyColors(
+      const colors = BoojyColors(
         BoojyTheme.dark,
         overrides: {'editor': overrideColor},
       );
@@ -78,7 +78,7 @@ void main() {
     // -------------------------------------------------------
     test('text overrides use text_ prefix', () {
       const overrideColor = Color(0xFF112233);
-      final colors = BoojyColors(
+      const colors = BoojyColors(
         BoojyTheme.dark,
         overrides: {'text_primary': overrideColor},
       );
@@ -93,7 +93,7 @@ void main() {
     // -------------------------------------------------------
     test('accent overrides use accent_ prefix', () {
       const overrideColor = Color(0xFF445566);
-      final colors = BoojyColors(
+      const colors = BoojyColors(
         BoojyTheme.dark,
         overrides: {'accent_primary': overrideColor},
       );

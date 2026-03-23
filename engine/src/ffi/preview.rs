@@ -15,9 +15,8 @@ pub extern "C" fn preview_load_audio_ffi(path: *const c_char) -> *mut c_char {
     }
 
     let c_str = unsafe { CStr::from_ptr(path) };
-    let path_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return safe_cstring("Error: invalid UTF-8".to_string()).into_raw(),
+    let Ok(path_str) = c_str.to_str() else {
+        return safe_cstring("Error: invalid UTF-8".to_string()).into_raw();
     };
 
     match api::preview_load_audio(path_str.to_string()) {

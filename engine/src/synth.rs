@@ -1,6 +1,5 @@
 /// Minimal per-track synthesizer
 /// Clean rewrite: 1 oscillator, ADSR envelope, simple filter, 8-voice polyphony
-
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -23,13 +22,13 @@ pub enum OscillatorType {
 }
 
 impl OscillatorType {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "sine" => OscillatorType::Sine,
-            "saw" => OscillatorType::Saw,
             "square" => OscillatorType::Square,
             "triangle" => OscillatorType::Triangle,
-            _ => OscillatorType::Saw, // Default
+            // "saw" and any unrecognized string default to Saw
+            _ => OscillatorType::Saw,
         }
     }
 }
@@ -203,7 +202,7 @@ impl Voice {
         }
 
         self.env_time += time_step;
-        self.env_level.max(0.0).min(1.0)
+        self.env_level.clamp(0.0, 1.0)
     }
 }
 
@@ -289,7 +288,7 @@ impl Synth {
 
         match key {
             "osc_type" | "osc1_type" => {
-                self.osc_type = OscillatorType::from_str(value);
+                self.osc_type = OscillatorType::parse(value);
                 println!("  → osc_type = {:?}", self.osc_type);
             }
             "filter_cutoff" => {
@@ -431,21 +430,21 @@ impl TrackInstrument {
     pub fn as_synth(&self) -> Option<&Synth> {
         match self {
             TrackInstrument::Synth(s) => Some(s),
-            _ => None,
+            TrackInstrument::Sampler(_) => None,
         }
     }
 
     pub fn as_sampler(&self) -> Option<&Sampler> {
         match self {
             TrackInstrument::Sampler(s) => Some(s),
-            _ => None,
+            TrackInstrument::Synth(_) => None,
         }
     }
 
     pub fn as_sampler_mut(&mut self) -> Option<&mut Sampler> {
         match self {
             TrackInstrument::Sampler(s) => Some(s),
-            _ => None,
+            TrackInstrument::Synth(_) => None,
         }
     }
 }
@@ -649,20 +648,20 @@ impl TrackSynthManager {
         if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
             Some(SamplerInfo {
                 duration_seconds: sampler.sample_duration_seconds(),
-                sample_rate: sampler.sample_sample_rate() as f64,
+                sample_rate: f64::from(sampler.sample_sample_rate()),
                 loop_enabled: sampler.loop_enabled,
                 loop_start_seconds: sampler.frames_to_seconds(sampler.loop_start),
                 loop_end_seconds: sampler.frames_to_seconds(sampler.loop_end),
-                root_note: sampler.root_note as i32,
-                attack_ms: sampler.envelope.attack_ms as f64,
-                release_ms: sampler.envelope.release_ms as f64,
-                volume_db: sampler.volume_db as f64,
+                root_note: i32::from(sampler.root_note),
+                attack_ms: f64::from(sampler.envelope.attack_ms),
+                release_ms: f64::from(sampler.envelope.release_ms),
+                volume_db: f64::from(sampler.volume_db),
                 transpose_semitones: sampler.transpose_semitones,
                 fine_cents: sampler.fine_cents,
                 reversed: sampler.reversed,
                 original_bpm: sampler.original_bpm,
                 warp_enabled: sampler.warp_enabled,
-                warp_mode: sampler.warp_mode as i32,
+                warp_mode: i32::from(sampler.warp_mode),
                 beats_per_bar: sampler.beats_per_bar,
                 beat_unit: sampler.beat_unit,
             })

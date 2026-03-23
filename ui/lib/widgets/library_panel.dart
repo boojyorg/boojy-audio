@@ -28,6 +28,8 @@ class LibraryPanel extends StatefulWidget {
   /// Callback when inner divider is dragged
   /// Only affects left column - right column absorbs the difference
   final void Function(double delta)? onLeftColumnResize;
+  final VoidCallback? onLeftColumnDragStart;
+  final VoidCallback? onLeftColumnDragEnd;
 
   const LibraryPanel({
     super.key,
@@ -40,6 +42,8 @@ class LibraryPanel extends StatefulWidget {
     this.onOpenInSampler,
     this.leftColumnWidth = 100.0,
     this.onLeftColumnResize,
+    this.onLeftColumnDragStart,
+    this.onLeftColumnDragEnd,
   });
 
   @override
@@ -183,6 +187,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
         // Right column absorbs the difference (via Expanded widget)
         widget.onLeftColumnResize?.call(delta);
       },
+      onDragStart: widget.onLeftColumnDragStart,
+      onDragEnd: widget.onLeftColumnDragEnd,
       onDoubleClick: () {
         // Toggle between compact (100px) and comfortable (150px)
         final target = widget.leftColumnWidth > 125.0 ? 100.0 : 150.0;

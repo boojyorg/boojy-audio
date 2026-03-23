@@ -192,7 +192,7 @@ pub fn start_recording() -> Result<String, String> {
     // and start_capture() calls stream.play() which may wait for the audio callback.
     eprintln!("🎙️  [API] Attempting to acquire input_manager lock...");
     let audio_input_started = {
-        let mut input_manager = if let Some(guard) = graph.input_manager.try_lock() { guard } else {
+        let Some(mut input_manager) = graph.input_manager.try_lock() else {
             eprintln!("⚠️  [API] Could not acquire input_manager lock, skipping audio input");
             return Ok(format!("Recording started (MIDI only, input busy): {state:?}"));
         };
@@ -343,10 +343,10 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
 
 /// Get current recording state (0=Idle, 1=CountingIn, 2=Recording, 3=WaitingForPunchIn)
 pub fn get_recording_state() -> Result<i32, String> {
+    use crate::recorder::RecordingState;
+
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
-
-    use crate::recorder::RecordingState;
     let state = match graph.recorder.get_state() {
         RecordingState::Idle => 0,
         RecordingState::CountingIn => 1,

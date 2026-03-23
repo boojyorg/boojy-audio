@@ -753,6 +753,8 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       await versionManager!.refresh();
     }
 
+    if (!mounted) return;
+
     final result = await ProjectSettingsDialog.show(
       context,
       metadata: projectMetadata,

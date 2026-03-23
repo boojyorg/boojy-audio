@@ -6,7 +6,6 @@
 /// - Looping for short files (< 3 seconds)
 /// - Fade in/out to prevent clicks
 /// - Waveform peak extraction for UI
-
 use crate::audio_file::{load_audio_file, AudioClip, TARGET_SAMPLE_RATE};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -148,9 +147,8 @@ impl PreviewPlayer {
             return (0.0, 0.0);
         }
 
-        let clip = match &self.clip {
-            Some(c) => c,
-            None => return (0.0, 0.0),
+        let Some(clip) = &self.clip else {
+            return (0.0, 0.0);
         };
 
         let position = self.position_samples.load(Ordering::SeqCst);
@@ -200,16 +198,18 @@ impl PreviewPlayer {
 
     /// Calculate fade gain (0.0 to 1.0)
     fn calculate_fade_gain(&self) -> f32 {
-        if self.fade_samples_remaining > 0 {
-            // Fade in: progress from 0 to 1
-            let progress = 1.0 - (self.fade_samples_remaining as f32 / FADE_SAMPLES as f32);
-            progress.clamp(0.0, 1.0)
-        } else if self.fade_samples_remaining < 0 {
-            // Fade out: progress from 1 to 0
-            let remaining = (-self.fade_samples_remaining) as f32;
-            (remaining / FADE_SAMPLES as f32).clamp(0.0, 1.0)
-        } else {
-            1.0 // No fade active
+        match self.fade_samples_remaining.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                // Fade in: progress from 0 to 1
+                let progress = 1.0 - (self.fade_samples_remaining as f32 / FADE_SAMPLES as f32);
+                progress.clamp(0.0, 1.0)
+            }
+            std::cmp::Ordering::Less => {
+                // Fade out: progress from 1 to 0
+                let remaining = (-self.fade_samples_remaining) as f32;
+                (remaining / FADE_SAMPLES as f32).clamp(0.0, 1.0)
+            }
+            std::cmp::Ordering::Equal => 1.0, // No fade active
         }
     }
 }

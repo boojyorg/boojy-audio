@@ -1,5 +1,4 @@
 /// Audio device selection, buffer size management, and latency control
-
 use super::{AudioGraph, BufferSizePreset};
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use std::sync::atomic::Ordering;
@@ -322,7 +321,7 @@ impl AudioGraph {
         // Update selected device
         {
             let mut selected = self.selected_output_device.lock();
-            *selected = device_name.clone();
+            (*selected).clone_from(&device_name);
         }
 
         // Restart stream to apply new device

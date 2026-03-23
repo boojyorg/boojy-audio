@@ -26,13 +26,13 @@ pub fn export_wav(
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
     eprintln!(
-        "🎵 [WAV Export] Starting export to {output_path:?}"
+        "🎵 [WAV Export] Starting export to {}", output_path.display()
     );
 
     // Get bit depth from options
     let bit_depth = match &options.format {
         super::options::ExportFormat::Wav { bit_depth } => *bit_depth,
-        _ => return Err("export_wav called with non-WAV format".to_string()),
+        super::options::ExportFormat::Mp3 { .. } => return Err("export_wav called with non-WAV format".to_string()),
     };
 
     // Make a mutable copy of samples for processing

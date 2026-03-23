@@ -21,8 +21,7 @@ use crate::track::{ClipId, TrackId, TrackType};
 pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, String> {
     let track_type = match track_type_str.to_lowercase().as_str() {
         "audio" => TrackType::Audio,
-        "midi" => TrackType::Midi,
-        "sampler" => TrackType::Midi,  // Sampler is an instrument on MIDI tracks, not a track type
+        "midi" | "sampler" => TrackType::Midi,
         "return" => TrackType::Return,
         "group" => TrackType::Group,
         "master" => return Err("Cannot create additional master tracks".to_string()),
@@ -142,7 +141,7 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock();
-        track.name = name.clone();
+        track.name.clone_from(&name);
         Ok(format!("Track {track_id} renamed to '{name}'"))
     } else {
         Err(format!("Track {track_id} not found"))
@@ -258,8 +257,8 @@ pub fn get_all_track_ids() -> Result<String, String> {
     let track_manager = graph.track_manager.lock();
 
     let all_tracks = track_manager.get_all_tracks();
-    let ids: Vec<String> = all_tracks.iter().filter_map(|track_arc| {
-        Some(track_arc.lock().id.to_string())
+    let ids: Vec<String> = all_tracks.iter().map(|track_arc| {
+        track_arc.lock().id.to_string()
     }).collect();
 
     Ok(ids.join(","))
@@ -277,8 +276,7 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
         let track = track_arc.lock();
         let type_str = match track.track_type {
             TrackType::Audio => "Audio",
-            TrackType::Midi => "MIDI",
-            TrackType::Sampler => "MIDI",  // Legacy: old loaded projects report as MIDI
+            TrackType::Midi | TrackType::Sampler => "MIDI",
             TrackType::Return => "Return",
             TrackType::Group => "Group",
             TrackType::Master => "Master",

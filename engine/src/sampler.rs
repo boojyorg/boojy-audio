@@ -2,7 +2,6 @@
 /// Similar to Synth but uses sample playback instead of oscillators
 /// Supports pitch shifting based on root note and Attack/Release envelope
 /// Supports loop mode (sustain-loop) and one-shot mode (default)
-
 use std::sync::Arc;
 use crate::audio_file::AudioClip;
 
@@ -120,10 +119,10 @@ impl SamplerVoice {
                 }
             }
             // Check loop start boundary (reversed loops from end to start)
-            if loop_enabled && self.env_state != EnvelopeState::Release && loop_start >= 0.0 {
-                if self.playback_position < loop_start {
-                    self.playback_position = loop_end.min(frame_count as f64 - 1.0);
-                }
+            if loop_enabled && self.env_state != EnvelopeState::Release && loop_start >= 0.0
+                && self.playback_position < loop_start
+            {
+                self.playback_position = loop_end.min(frame_count as f64 - 1.0);
             }
         } else {
             if self.playback_position as usize >= frame_count {
@@ -140,10 +139,10 @@ impl SamplerVoice {
                 }
             }
             // Check loop end boundary (when looping)
-            if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0 {
-                if self.playback_position >= loop_end {
-                    self.playback_position = loop_start;
-                }
+            if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0
+                && self.playback_position >= loop_end
+            {
+                self.playback_position = loop_start;
             }
         }
 
@@ -228,7 +227,7 @@ impl SamplerVoice {
         }
 
         self.env_time += time_step;
-        self.env_level.max(0.0).min(1.0)
+        self.env_level.clamp(0.0, 1.0)
     }
 }
 
@@ -321,13 +320,13 @@ impl Sampler {
 
     /// Convert seconds to frames using loaded sample's sample rate
     fn seconds_to_frames(&self, seconds: f64) -> f64 {
-        let sr = self.sample.as_ref().map_or(self.sample_rate as f64, |s| f64::from(s.sample_rate));
+        let sr = self.sample.as_ref().map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
         seconds * sr
     }
 
     /// Convert frames to seconds using loaded sample's sample rate
     pub fn frames_to_seconds(&self, frames: f64) -> f64 {
-        let sr = self.sample.as_ref().map_or(self.sample_rate as f64, |s| f64::from(s.sample_rate));
+        let sr = self.sample.as_ref().map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
         if sr > 0.0 { frames / sr } else { 0.0 }
     }
 
@@ -533,15 +532,6 @@ impl Sampler {
 
     pub fn active_voice_count(&self) -> usize {
         self.voices.iter().filter(|v| v.is_active).count()
-    }
-
-    /// Calculate playback rate for pitch shifting
-    /// `root_note` = note that plays at original pitch
-    /// `target_note` = note being triggered
-    fn calculate_playback_rate(root_note: u8, target_note: u8) -> f64 {
-        // Pitch ratio = 2^(semitones/12)
-        let semitone_diff = f64::from(target_note) - f64::from(root_note);
-        2.0_f64.powf(semitone_diff / 12.0)
     }
 
     /// Get waveform peaks from the loaded sample as min/max pairs.

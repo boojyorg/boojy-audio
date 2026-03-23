@@ -52,7 +52,6 @@ import '../services/version_manager.dart';
 import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
 import '../widgets/capture_midi_dialog.dart';
-import '../widgets/dialogs/latency_settings_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
@@ -3106,6 +3105,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       versionManager ??= VersionManager(projectFolder);
       await versionManager!.refresh();
     }
+
+    if (!mounted) return;
 
     // Open project-specific settings dialog (accessed via clicking song name)
     final result = await ProjectSettingsDialog.show(

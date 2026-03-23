@@ -324,12 +324,12 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
 
 /// Get current MIDI recording state (0=Idle, 1=Recording)
 pub fn get_midi_recording_state() -> Result<i32, String> {
+    use crate::midi_recorder::MidiRecordingState;
+
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
     let midi_recorder = graph.midi_recorder.lock();
-
-    use crate::midi_recorder::MidiRecordingState;
     let state = match midi_recorder.get_state() {
         MidiRecordingState::Idle => 0,
         MidiRecordingState::Recording => 1,
@@ -368,10 +368,12 @@ pub fn get_midi_recorder_live_events() -> Result<String, String> {
         }
         match &event.event_type {
             MidiEventType::NoteOn { note, velocity } => {
-                result.push_str(&format!("{},{},1,{}", note, velocity, event.timestamp_samples));
+                use std::fmt::Write;
+                let _ = write!(result, "{},{},1,{}", note, velocity, event.timestamp_samples);
             }
             MidiEventType::NoteOff { note, velocity } => {
-                result.push_str(&format!("{},{},0,{}", note, velocity, event.timestamp_samples));
+                use std::fmt::Write;
+                let _ = write!(result, "{},{},0,{}", note, velocity, event.timestamp_samples);
             }
         }
     }

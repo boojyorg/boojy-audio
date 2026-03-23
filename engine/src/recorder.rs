@@ -522,7 +522,7 @@ impl RecorderCallbackRefs {
                     samples.push(input_right);
 
                     // Log every second of recording
-                    if samples.len() % 96000 == 0 {
+                    if samples.len().is_multiple_of(96000) {
                         eprintln!("🎙️  [Recorder] Recording... {} samples ({:.1}s)",
                             samples.len(), samples.len() as f32 / (TARGET_SAMPLE_RATE as f32 * 2.0));
                     }

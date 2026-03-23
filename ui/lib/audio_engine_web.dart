@@ -449,6 +449,7 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) => -1;
+  @override
   int removeMidiClip(int trackId, int clipId) => 0;
   String clearMidiClip(int clipId) => 'OK';
 

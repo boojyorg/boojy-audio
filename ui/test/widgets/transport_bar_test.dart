@@ -25,9 +25,9 @@ void main() {
     // Suppress overflow errors (TransportBar is layout-sensitive)
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) return;
+      if (details.exceptionAsString().contains('overflowed')) { return; }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) return;
+          details.toString().toLowerCase().contains('asset')) { return; }
       originalOnError(details);
     };
 
@@ -50,9 +50,9 @@ void main() {
 
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) return;
+      if (details.exceptionAsString().contains('overflowed')) { return; }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) return;
+          details.toString().toLowerCase().contains('asset')) { return; }
       originalOnError(details);
     };
 
@@ -76,9 +76,9 @@ void main() {
 
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) return;
+      if (details.exceptionAsString().contains('overflowed')) { return; }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) return;
+          details.toString().toLowerCase().contains('asset')) { return; }
       originalOnError(details);
     };
 

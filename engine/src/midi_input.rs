@@ -1,6 +1,5 @@
 /// MIDI input device management
 /// Uses midir on desktop platforms, stub on iOS (midir not supported)
-
 use crate::midi::MidiEvent;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;

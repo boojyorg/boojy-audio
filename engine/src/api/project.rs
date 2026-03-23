@@ -24,7 +24,7 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     let project_path = Path::new(&project_path_str);
 
     eprintln!(
-        "💾 [API] Saving project '{project_name}' to {project_path:?}"
+        "💾 [API] Saving project '{project_name}' to {}", project_path.display()
     );
 
     // Get audio graph
@@ -57,7 +57,7 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     project::save_project(&project_data, project_path).map_err(|e| e.to_string())?;
 
     eprintln!("✅ [API] Project saved successfully");
-    Ok(format!("Project saved to {project_path:?}"))
+    Ok(format!("Project saved to {}", project_path.display()))
 }
 
 /// Load project from .audio folder
@@ -73,7 +73,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 
     let project_path = Path::new(&project_path_str);
 
-    eprintln!("📂 [API] Loading project from {project_path:?}");
+    eprintln!("📂 [API] Loading project from {}", project_path.display());
 
     // Load project data from JSON
     let project_data = project::load_project(project_path).map_err(|e| e.to_string())?;
@@ -99,11 +99,11 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
         let audio_file_path =
             project::resolve_audio_file_path(project_path, &audio_file_data.relative_path);
 
-        eprintln!("📁 [API] Loading audio file: {audio_file_path:?}");
+        eprintln!("📁 [API] Loading audio file: {}", audio_file_path.display());
 
         // Load the audio file
         let clip = load_audio_file(&audio_file_path)
-            .map_err(|e| format!("Failed to load audio file {audio_file_path:?}: {e}"))?;
+            .map_err(|e| format!("Failed to load audio file {}: {e}", audio_file_path.display()))?;
 
         let clip_arc = Arc::new(clip);
         clips_map.insert(audio_file_data.id, clip_arc);
@@ -160,7 +160,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String, String> {
     let output_path = Path::new(&output_path_str);
 
-    eprintln!("🎵 [API] Exporting to WAV: {output_path:?}");
+    eprintln!("🎵 [API] Exporting to WAV: {}", output_path.display());
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
@@ -258,7 +258,7 @@ pub fn export_audio(output_path_str: String, options_json: String) -> Result<Str
 
     let output_path = Path::new(&output_path_str);
 
-    eprintln!("🎵 [API] Exporting audio to: {output_path:?}");
+    eprintln!("🎵 [API] Exporting audio to: {}", output_path.display());
     eprintln!("🎵 [API] Options: {options_json}");
 
     // Parse options from JSON
@@ -338,7 +338,7 @@ pub fn export_wav_with_options(
         .with_mono(mono);
 
     eprintln!(
-        "🎵 [API] Exporting WAV: {output_path:?}, {bit_depth}-bit, {sample_rate}Hz"
+        "🎵 [API] Exporting WAV: {}, {bit_depth}-bit, {sample_rate}Hz", output_path.display()
     );
 
     // Check for cancellation
@@ -439,7 +439,7 @@ pub fn export_mp3_with_options(
         .with_mono(mono);
 
     eprintln!(
-        "🎵 [API] Exporting MP3: {output_path:?}, {bitrate} kbps, {sample_rate}Hz"
+        "🎵 [API] Exporting MP3: {}, {bitrate} kbps, {sample_rate}Hz", output_path.display()
     );
 
     // Check for cancellation
@@ -571,7 +571,7 @@ pub fn export_stems(
 
     let output_path = Path::new(&output_dir);
 
-    eprintln!("🎚️ [API] Exporting stems to: {output_path:?}");
+    eprintln!("🎚️ [API] Exporting stems to: {}", output_path.display());
 
     // Parse options
     let options: ExportOptions = match serde_json::from_str(&options_json) {

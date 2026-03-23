@@ -11,9 +11,8 @@ pub extern "C" fn load_audio_file_to_track_ffi(path: *const c_char, track_id: u6
     }
 
     let c_str = unsafe { CStr::from_ptr(path) };
-    let path_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return -1,
+    let Ok(path_str) = c_str.to_str() else {
+        return -1;
     };
 
     match api::load_audio_file_to_track_api(path_str.to_string(), track_id, start_time) {
@@ -33,9 +32,8 @@ pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
     }
 
     let c_str = unsafe { CStr::from_ptr(path) };
-    let path_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return -1,
+    let Ok(path_str) = c_str.to_str() else {
+        return -1;
     };
 
     match api::load_audio_file_api(path_str.to_string()) {

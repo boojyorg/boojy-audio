@@ -5,7 +5,6 @@
 /// - project.json (all metadata)
 /// - audio/ (imported audio files)
 /// - cache/ (waveform peaks, etc.)
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -232,7 +231,7 @@ impl Default for SynthData {
 
 /// Save project to `.audio` folder
 pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<()> {
-    eprintln!("💾 [Project] Saving project to: {project_path:?}");
+    eprintln!("💾 [Project] Saving project to: {}", project_path.display());
 
     // Create project folder structure
     fs::create_dir_all(project_path)
@@ -261,7 +260,7 @@ pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<(
 
 /// Load project from `.audio` folder
 pub fn load_project(project_path: &Path) -> Result<ProjectData> {
-    eprintln!("📂 [Project] Loading project from: {project_path:?}");
+    eprintln!("📂 [Project] Loading project from: {}", project_path.display());
 
     // Read project.json
     let json_path = project_path.join("project.json");

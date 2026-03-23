@@ -1,5 +1,4 @@
 /// Project serialization: export_to_project_data, restore_from_project_data
-
 use super::{AudioGraph, BufferSizePreset};
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use crate::midi::MidiClip;
@@ -310,8 +309,7 @@ impl AudioGraph {
             // Parse track type
             let track_type = match track_data.track_type.as_str() {
                 "Audio" => TrackType::Audio,
-                "Midi" => TrackType::Midi,
-                "Sampler" => TrackType::Midi,  // Legacy migration: old Sampler tracks become MIDI
+                "Midi" | "Sampler" => TrackType::Midi,
                 "Return" => TrackType::Return,
                 "Group" => TrackType::Group,
                 "Master" => TrackType::Master,
@@ -606,7 +604,9 @@ pub(crate) fn convert_midi_events_to_notes(
             MidiEventType::NoteOn { note, velocity } if velocity > 0 => {
                 active_notes.insert(note, (time_seconds, velocity));
             }
-            MidiEventType::NoteOff { note, .. } => {
+            // NoteOff or NoteOn with velocity 0 are both treated as NoteOff
+            MidiEventType::NoteOff { note, .. }
+            | MidiEventType::NoteOn { note, velocity: 0 } => {
                 if let Some((start, vel)) = active_notes.remove(&note) {
                     notes.push(MidiNoteData {
                         note,
@@ -616,18 +616,7 @@ pub(crate) fn convert_midi_events_to_notes(
                     });
                 }
             }
-            // NoteOn with velocity 0 is treated as NoteOff
-            MidiEventType::NoteOn { note, velocity: 0 } => {
-                if let Some((start, vel)) = active_notes.remove(&note) {
-                    notes.push(MidiNoteData {
-                        note,
-                        velocity: vel,
-                        start_time: start,
-                        duration: time_seconds - start,
-                    });
-                }
-            }
-            _ => {}
+            MidiEventType::NoteOn { .. } => {}
         }
     }
 

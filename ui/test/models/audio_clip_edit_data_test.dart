@@ -284,7 +284,7 @@ void main() {
       });
 
       test('fromJson handles missing fields with defaults', () {
-        final data = AudioClipEditData.fromJson({});
+        final data = AudioClipEditData.fromJson(const {});
 
         expect(data.loopEnabled, true);
         expect(data.startOffsetBeats, 0.0);
@@ -295,7 +295,7 @@ void main() {
       });
 
       test('fromJson handles unknown warpMode with default', () {
-        final data = AudioClipEditData.fromJson({'warpMode': 'unknown'});
+        final data = AudioClipEditData.fromJson(const {'warpMode': 'unknown'});
         expect(data.warpMode, WarpMode.warp);
       });
     });

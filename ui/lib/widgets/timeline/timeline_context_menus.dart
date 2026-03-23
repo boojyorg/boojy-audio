@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_positional_boolean_parameters
 import 'package:flutter/material.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';

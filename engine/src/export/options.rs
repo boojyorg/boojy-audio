@@ -30,7 +30,7 @@ impl WavBitDepth {
     }
 
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "16" | "int16" | "16-bit" => Some(Self::Int16),
             "24" | "int24" | "24-bit" => Some(Self::Int24),
@@ -106,10 +106,10 @@ impl PlatformTarget {
     pub fn target_lufs(&self) -> Option<f64> {
         match self {
             PlatformTarget::None => None,
-            PlatformTarget::Spotify => Some(-14.0),
-            PlatformTarget::YouTube => Some(-14.0),
+            PlatformTarget::Spotify
+            | PlatformTarget::YouTube
+            | PlatformTarget::SoundCloud => Some(-14.0),
             PlatformTarget::AppleMusic => Some(-16.0),
-            PlatformTarget::SoundCloud => Some(-14.0),
             PlatformTarget::Custom(lufs) => Some(*lufs),
         }
     }

@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_positional_boolean_parameters
 part of 'audio_engine_native.dart';
 
 mixin _PluginsMixin on _AudioEngineBase {

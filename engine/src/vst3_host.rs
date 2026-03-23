@@ -214,8 +214,6 @@ impl VST3Host {
     where
         F: FnMut(&VST3PluginInfo),
     {
-        let dir_cstr = CString::new(directory).map_err(|e| e.to_string())?;
-
         extern "C" fn scan_callback<F>(info: *const VST3PluginInfo, user_data: *mut c_void)
         where
             F: FnMut(&VST3PluginInfo),
@@ -227,6 +225,8 @@ impl VST3Host {
                 }
             }
         }
+
+        let dir_cstr = CString::new(directory).map_err(|e| e.to_string())?;
 
         unsafe {
             let count = vst3_scan_directory(

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import '../../models/instrument_data.dart';
 import '../../models/tool_mode.dart';
 import '../../models/vst3_plugin_data.dart';
-import '../instrument_browser.dart';
 
 /// Track context information for the editor panel
 class EditorPanelContext {

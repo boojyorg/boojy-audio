@@ -82,7 +82,7 @@ impl AudioInputManager {
             });
         }
 
-        self.devices = devices.clone();
+        self.devices.clone_from(&devices);
 
         // Auto-select default device
         if let Some(default_idx) = devices.iter().position(|d| d.is_default) {
@@ -116,6 +116,8 @@ impl AudioInputManager {
     /// Start capturing audio from the selected input device
     /// This creates an input stream and begins filling the ring buffer
     pub fn start_capture(&mut self, buffer_size_seconds: f64) -> Result<()> {
+        use cpal::traits::StreamTrait;
+
         let device_index = self.selected_device_index
             .ok_or_else(|| anyhow::anyhow!("No input device selected"))?;
 
@@ -194,7 +196,6 @@ impl AudioInputManager {
             None,
         )?;
 
-        use cpal::traits::StreamTrait;
         stream.play()?;
 
         self.input_stream = Some(stream);

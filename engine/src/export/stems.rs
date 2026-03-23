@@ -114,7 +114,7 @@ pub fn export_stem(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎚️ [Stem Export] Exporting stem to {output_path:?}");
+    eprintln!("🎚️ [Stem Export] Exporting stem to {}", output_path.display());
 
     match &options.format {
         super::options::ExportFormat::Wav { .. } => export_wav(samples, output_path, options),
@@ -139,9 +139,9 @@ pub fn export_stems(
     options: &ExportOptions,
 ) -> Result<StemExportResult, String> {
     eprintln!(
-        "🎚️ [Stem Export] Exporting {} tracks to {:?}",
+        "🎚️ [Stem Export] Exporting {} tracks to {}",
         tracks.len(),
-        output_dir
+        output_dir.display()
     );
 
     // Create output directory if it doesn't exist

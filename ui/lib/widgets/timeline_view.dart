@@ -3145,7 +3145,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     const headerHeight = UIConstants.clipHeaderHeight;
     final totalHeight = trackHeight - UIConstants.clipContentPadding; // Track height minus padding
     final isLiveRecording = midiClip.clipId == LiveRecordingNotifier.liveClipId;
-    final recordingColor = const Color(0xFFE53935); // Red for recording indicator
+    const recordingColor = Color(0xFFE53935); // Red for recording indicator
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewMidiClipId == midiClip.clipId;

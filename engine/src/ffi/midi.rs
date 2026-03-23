@@ -78,8 +78,7 @@ pub extern "C" fn start_midi_recording_ffi() -> *mut c_char {
 pub extern "C" fn stop_midi_recording_ffi() -> i64 {
     match api::stop_midi_recording() {
         Ok(Some(clip_id)) => clip_id as i64,
-        Ok(None) => -1,
-        Err(_) => -1,
+        Ok(None) | Err(_) => -1,
     }
 }
 

@@ -5,7 +5,6 @@
 /// - Per-track controls: volume, pan, mute, solo
 /// - Send routing (track → return track)
 /// - FX chain (ordered list of effects per track)
-
 use std::sync::Arc;
 use crate::audio_file::AudioClip;
 use crate::midi::MidiClip;

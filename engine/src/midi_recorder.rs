@@ -137,7 +137,7 @@ impl MidiRecorder {
                         );
                         MidiEvent::note_on(note, velocity, 0)
                     }
-                    _ => unreachable!(), // held_notes only stores NoteOn
+                    MidiEventType::NoteOff { .. } => unreachable!(), // held_notes only stores NoteOn
                 }
             }).collect();
             for e in held {
@@ -177,7 +177,7 @@ impl MidiRecorder {
 
     /// Set tempo (BPM) for quantization calculations
     pub fn set_tempo(&mut self, tempo: f64) {
-        self.tempo = tempo.max(20.0).min(300.0);
+        self.tempo = tempo.clamp(20.0, 300.0);
         self.update_quantize_grid();
     }
 

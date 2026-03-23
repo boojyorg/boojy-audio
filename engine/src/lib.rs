@@ -13,7 +13,19 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::too_many_lines,
-    clippy::similar_names
+    clippy::similar_names,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    clippy::needless_pass_by_value,
+    clippy::return_self_not_must_use,
+    clippy::struct_excessive_bools,
+    clippy::too_many_arguments,
+    clippy::doc_overindented_list_items,
+    clippy::doc_markdown,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::not_unsafe_ptr_arg_deref
 )]
 
 // ============================================
@@ -128,6 +140,7 @@ pub struct AudioEngine {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl AudioEngine {
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
             is_running: Arc::new(AtomicBool::new(false)),

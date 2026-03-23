@@ -7,7 +7,6 @@
 /// - Delay (tempo-synced or time-based)
 /// - Limiter (brick-wall, for master track)
 /// - Chorus (modulated delay with LFO)
-
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use std::f32::consts::PI;
 
@@ -523,7 +522,7 @@ impl Reverb {
         input: f32,
         room_size: f32,
         damping: f32,
-        buffer: &mut Vec<f32>,
+        buffer: &mut [f32],
         pos: &mut usize,
         filter_state: &mut f32,
     ) -> f32 {
@@ -541,7 +540,7 @@ impl Reverb {
 
     fn process_allpass(
         input: f32,
-        buffer: &mut Vec<f32>,
+        buffer: &mut [f32],
         pos: &mut usize,
     ) -> f32 {
         let delayed = buffer[*pos];

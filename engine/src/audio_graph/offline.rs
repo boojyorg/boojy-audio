@@ -1,5 +1,4 @@
 /// Offline rendering for export and bounce
-
 use super::{AudioGraph, interpolate_automation_gain};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip};
@@ -11,18 +10,6 @@ impl AudioGraph {
     /// Render the entire project offline to a buffer of stereo f32 samples
     /// Returns interleaved stereo audio (L, R, L, R, ...)
     pub fn render_offline(&self, duration_seconds: f64) -> Vec<f32> {
-        let sample_rate = TARGET_SAMPLE_RATE;
-        let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
-        let mut output = Vec::with_capacity(total_frames * 2); // stereo interleaved
-
-        eprintln!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
-
-        // Get tempo for timeline positioning
-        // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
-        let current_tempo = self.recorder.get_tempo();
-        let tempo_ratio = current_tempo / 120.0;
-        eprintln!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
-
         // Create track snapshots (same as real-time rendering)
         struct TrackSnapshot {
             id: u64,
@@ -36,6 +23,18 @@ impl AudioGraph {
             fx_chain: Vec<u64>,
             volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
         }
+
+        let sample_rate = TARGET_SAMPLE_RATE;
+        let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
+        let mut output = Vec::with_capacity(total_frames * 2); // stereo interleaved
+
+        eprintln!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
+
+        // Get tempo for timeline positioning
+        // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
+        let current_tempo = self.recorder.get_tempo();
+        let tempo_ratio = current_tempo / 120.0;
+        eprintln!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
 
         let (track_snapshots, has_solo, master_snapshot) = {
             let tm = self.track_manager.lock();
@@ -316,6 +315,17 @@ impl AudioGraph {
     /// Returns interleaved stereo audio (L, R, L, R, ...)
     /// This renders the track in isolation without master bus processing
     pub fn render_track_offline(&self, track_id: u64, duration_seconds: f64) -> Vec<f32> {
+        // Get track snapshot
+        struct TrackSnapshot {
+            audio_clips: Vec<TimelineClip>,
+            midi_clips: Vec<TimelineMidiClip>,
+            volume_gain: f32,
+            pan_left: f32,
+            pan_right: f32,
+            fx_chain: Vec<u64>,
+            volume_automation: Vec<AutomationPoint>,
+        }
+
         let sample_rate = TARGET_SAMPLE_RATE;
         let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
         let mut output = Vec::with_capacity(total_frames * 2);
@@ -327,17 +337,6 @@ impl AudioGraph {
         // Get tempo for timeline positioning
         let current_tempo = self.recorder.get_tempo();
         let tempo_ratio = current_tempo / 120.0;
-
-        // Get track snapshot
-        struct TrackSnapshot {
-            audio_clips: Vec<TimelineClip>,
-            midi_clips: Vec<TimelineMidiClip>,
-            volume_gain: f32,
-            pan_left: f32,
-            pan_right: f32,
-            fx_chain: Vec<u64>,
-            volume_automation: Vec<AutomationPoint>,
-        }
 
         let track_snapshot = {
             let tm = self.track_manager.lock();
@@ -573,8 +572,8 @@ impl AudioGraph {
 
                     let type_str = match track.track_type {
                         crate::track::TrackType::Audio => "audio",
-                        crate::track::TrackType::Midi => "midi",
-                        crate::track::TrackType::Sampler => "midi",  // Legacy: treat as MIDI
+                        crate::track::TrackType::Midi
+                        | crate::track::TrackType::Sampler => "midi",
                         crate::track::TrackType::Return => "return",
                         crate::track::TrackType::Group => "group",
                         crate::track::TrackType::Master => "master",

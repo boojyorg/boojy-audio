@@ -169,13 +169,13 @@ fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> St
 /// Send MIDI note on event directly to synthesizer (for virtual piano)
 /// Also records the event if MIDI recording is active
 pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
+    use crate::midi::{MidiEvent, MidiEventType};
+
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
-
-    use crate::midi::{MidiEvent, MidiEventType};
     let event = MidiEvent {
         event_type: MidiEventType::NoteOn { note, velocity },
         timestamp_samples,
@@ -226,13 +226,13 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
 /// Send MIDI note off event directly to synthesizer (for virtual piano)
 /// Also records the event if MIDI recording is active
 pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
+    use crate::midi::{MidiEvent, MidiEventType};
+
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
-
-    use crate::midi::{MidiEvent, MidiEventType};
     let event = MidiEvent {
         event_type: MidiEventType::NoteOff { note, velocity },
         timestamp_samples,

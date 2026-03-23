@@ -122,7 +122,7 @@ void main() {
       final original = ClipAutomationLane(
         id: 'empty-lane',
         parameter: AutomationParameter.volume,
-        points: [],
+        points: const [],
       );
       final json = original.toJson();
       final restored = ClipAutomationLane.fromJson(json);
@@ -554,7 +554,7 @@ void main() {
         id: 'tal-empty',
         trackId: 2,
         parameter: AutomationParameter.volume,
-        points: [],
+        points: const [],
         isExpanded: true,
       );
 

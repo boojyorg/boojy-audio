@@ -218,7 +218,7 @@ pub extern "C" fn get_sampler_info_ffi(
             unsafe {
                 if !out_duration_seconds.is_null() { *out_duration_seconds = info.duration_seconds; }
                 if !out_sample_rate.is_null() { *out_sample_rate = info.sample_rate; }
-                if !out_loop_enabled.is_null() { *out_loop_enabled = if info.loop_enabled { 1 } else { 0 }; }
+                if !out_loop_enabled.is_null() { *out_loop_enabled = i32::from(info.loop_enabled); }
                 if !out_loop_start_seconds.is_null() { *out_loop_start_seconds = info.loop_start_seconds; }
                 if !out_loop_end_seconds.is_null() { *out_loop_end_seconds = info.loop_end_seconds; }
                 if !out_root_note.is_null() { *out_root_note = info.root_note; }
@@ -227,9 +227,9 @@ pub extern "C" fn get_sampler_info_ffi(
                 if !out_volume_db.is_null() { *out_volume_db = info.volume_db; }
                 if !out_transpose_semitones.is_null() { *out_transpose_semitones = info.transpose_semitones; }
                 if !out_fine_cents.is_null() { *out_fine_cents = info.fine_cents; }
-                if !out_reversed.is_null() { *out_reversed = if info.reversed { 1 } else { 0 }; }
+                if !out_reversed.is_null() { *out_reversed = i32::from(info.reversed); }
                 if !out_original_bpm.is_null() { *out_original_bpm = info.original_bpm; }
-                if !out_warp_enabled.is_null() { *out_warp_enabled = if info.warp_enabled { 1 } else { 0 }; }
+                if !out_warp_enabled.is_null() { *out_warp_enabled = i32::from(info.warp_enabled); }
                 if !out_warp_mode.is_null() { *out_warp_mode = info.warp_mode; }
                 if !out_beats_per_bar.is_null() { *out_beats_per_bar = info.beats_per_bar; }
                 if !out_beat_unit.is_null() { *out_beat_unit = info.beat_unit; }

@@ -100,7 +100,6 @@ pub extern "C" fn get_latency_test_status_ffi(
 pub extern "C" fn get_latency_test_error_ffi() -> *mut c_char {
     match api::get_latency_test_error() {
         Ok(Some(msg)) => safe_cstring(msg).into_raw(),
-        Ok(None) => std::ptr::null_mut(),
-        Err(_) => std::ptr::null_mut(),
+        Ok(None) | Err(_) => std::ptr::null_mut(),
     }
 }

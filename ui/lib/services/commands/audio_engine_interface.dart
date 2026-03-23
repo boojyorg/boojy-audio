@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_positional_boolean_parameters
 import '../../models/sampler_info.dart';
 
 /// Abstract interface for AudioEngine to enable testing.

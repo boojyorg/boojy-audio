@@ -573,7 +573,7 @@ void main() {
       });
 
       test('applyLayout restores panel sizes with clamping', () {
-        final data = UILayoutData(
+        const data = UILayoutData(
           libraryWidth: 350.0,
           mixerWidth: 420.0,
           bottomHeight: 280.0,
@@ -589,7 +589,7 @@ void main() {
       });
 
       test('applyLayout clamps extreme values', () {
-        final data = UILayoutData(
+        const data = UILayoutData(
           libraryWidth: 9999.0,
           mixerWidth: 9999.0,
           bottomHeight: 9999.0,

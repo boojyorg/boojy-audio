@@ -184,10 +184,9 @@ pub extern "C" fn vst3_attach_editor_ffi(
     effect_id: i64,
     parent_ptr: *mut std::os::raw::c_void,
 ) -> *mut c_char {
-    println!("🎨 [FFI] Attaching VST3 editor for effect {effect_id} to parent {parent_ptr:?}");
-
-    // Flush stdout to ensure logs appear before potential crash
     use std::io::Write;
+
+    println!("🎨 [FFI] Attaching VST3 editor for effect {effect_id} to parent {parent_ptr:?}");
     let _ = std::io::stdout().flush();
 
     println!("🔍 [FFI] About to call api::vst3_attach_editor...");
