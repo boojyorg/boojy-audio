@@ -17,9 +17,9 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
     use crate::vst3_host::VST3Effect;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
-    let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+    let mut effect_manager = graph.effect_manager.lock();
 
     // Get audio settings
     let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
@@ -41,7 +41,7 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
 
     // Add effect to track's FX chain
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.fx_chain.push(effect_id);
         eprintln!(
             "🎛️ [API] Added VST3 plugin from {plugin_path} (ID: {effect_id}) to track {track_id}"
@@ -58,11 +58,11 @@ pub fn get_vst3_parameter_count(effect_id: u64) -> Result<u32, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.get_parameter_count() as u32)
@@ -80,11 +80,11 @@ pub fn get_vst3_parameter_info(effect_id: u64, param_index: u32) -> Result<Strin
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             let info = vst3.get_parameter_info(param_index as i32)?;
@@ -104,11 +104,11 @@ pub fn get_vst3_parameter_value(effect_id: u64, param_index: u32) -> Result<f64,
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.get_parameter_value(param_index))
@@ -130,11 +130,11 @@ pub fn set_vst3_parameter_value(
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let mut effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let mut effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.set_parameter_value(param_index, value)?;
@@ -157,11 +157,11 @@ pub fn vst3_has_editor(effect_id: u64) -> Result<bool, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             Ok(vst3.has_editor())
@@ -179,11 +179,11 @@ pub fn vst3_open_editor(effect_id: u64) -> Result<String, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             vst3.open_editor()?;
@@ -202,11 +202,11 @@ pub fn vst3_close_editor(effect_id: u64) -> Result<(), String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             vst3.close_editor();
@@ -225,11 +225,11 @@ pub fn vst3_get_editor_size(effect_id: u64) -> Result<String, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             let (width, height) = vst3.get_editor_size()?;
@@ -263,15 +263,15 @@ pub fn vst3_attach_editor(
         let graph_mutex = get_audio_graph()?;
         eprintln!("🔧 [API] Got audio graph mutex");
 
-        let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+        let graph = graph_mutex.lock();
         eprintln!("🔧 [API] Locked audio graph");
 
-        let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+        let effect_manager = graph.effect_manager.lock();
         eprintln!("🔧 [API] Locked effect manager, looking for effect {effect_id}");
 
         if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
             eprintln!("🔧 [API] Found effect, acquiring lock");
-            let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+            let effect = effect_arc.lock();
             eprintln!("🔧 [API] Locked effect, checking type");
 
             if let EffectType::VST3(vst3) = &*effect {
@@ -391,11 +391,11 @@ pub fn vst3_send_midi_note(
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let mut effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let mut effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.process_midi_event(event_type, channel, note, velocity, 0)?;
@@ -431,11 +431,11 @@ pub fn get_vst3_state(effect_id: u64) -> Result<Vec<u8>, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &*effect {
             vst3.get_state()
@@ -453,11 +453,11 @@ pub fn set_vst3_state(effect_id: u64, data: &[u8]) -> Result<(), String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let mut effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let mut effect = effect_arc.lock();
 
         if let EffectType::VST3(vst3) = &mut *effect {
             vst3.set_state(data)

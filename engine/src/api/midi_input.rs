@@ -15,9 +15,9 @@ use std::sync::Arc;
 /// Get list of available MIDI input devices
 pub fn get_midi_input_devices() -> Result<Vec<(String, String, bool)>, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let midi_manager = graph.midi_input_manager.lock().map_err(|e| e.to_string())?;
+    let midi_manager = graph.midi_input_manager.lock();
     let devices = midi_manager.get_devices();
 
     // Convert to tuple format: (id, name, is_default)
@@ -33,9 +33,8 @@ pub fn get_midi_input_devices() -> Result<Vec<(String, String, bool)>, String> {
 /// Re-queries the OS MIDI system to detect newly plugged/unplugged devices
 pub fn refresh_midi_devices() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut midi_manager = graph.midi_input_manager.lock()
-        .map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut midi_manager = graph.midi_input_manager.lock();
 
     midi_manager.refresh_devices()
         .map_err(|e| format!("Failed to refresh MIDI devices: {e}"))?;
@@ -51,9 +50,8 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
     }
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut midi_manager = graph.midi_input_manager.lock()
-        .map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut midi_manager = graph.midi_input_manager.lock();
 
     // Validate device index
     let device_count = midi_manager.get_devices().len();
@@ -83,9 +81,9 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
 /// 3. All VST3 instruments in armed tracks' FX chains
 pub fn start_midi_input() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut midi_manager = graph.midi_input_manager.lock().map_err(|e| e.to_string())?;
+    let mut midi_manager = graph.midi_input_manager.lock();
 
     // Clone all needed Arc references for the callback
     let midi_recorder = graph.midi_recorder.clone();
@@ -108,9 +106,7 @@ pub fn start_midi_input() -> Result<String, String> {
         let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
         // Check if we're currently recording
-        let is_recording = midi_recorder.lock()
-            .map(|r| r.is_recording())
-            .unwrap_or(false);
+        let is_recording = midi_recorder.lock().is_recording();
 
         // LATENCY COMPENSATION (only for live monitoring, NOT during recording):
         // During recording: Use raw playhead - entire system has consistent latency
@@ -120,7 +116,7 @@ pub fn start_midi_input() -> Result<String, String> {
             current_playhead
         } else {
             // Live monitoring: compensate for output latency
-            let output_latency_ms = *hardware_output_latency_ms.lock().expect("mutex poisoned");
+            let output_latency_ms = *hardware_output_latency_ms.lock();
             let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
             current_playhead.saturating_add(output_latency_samples)
         };
@@ -130,7 +126,7 @@ pub fn start_midi_input() -> Result<String, String> {
 
         // 1. Record to MIDI recorder if recording
         if is_recording {
-            if let Ok(mut recorder) = midi_recorder.lock() {
+            { let mut recorder = midi_recorder.lock();
                 recorder.record_event(engine_event);
             }
         }
@@ -138,23 +134,19 @@ pub fn start_midi_input() -> Result<String, String> {
         // 2. Route to all armed MIDI track synthesizers and VST3 instruments
         // Collect armed tracks with their FX chains (MIDI and Sampler tracks can receive MIDI)
         let armed_tracks_with_fx: Vec<(TrackId, Vec<u64>)> = {
-            if let Ok(tm) = track_manager.lock() {
+            { let tm = track_manager.lock();
                 tm.get_all_tracks()
                     .iter()
                     .filter_map(|track_arc| {
-                        if let Ok(track) = track_arc.lock() {
+                        { let track = track_arc.lock();
                             if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
                                 Some((track.id, track.fx_chain.clone()))
                             } else {
                                 None
                             }
-                        } else {
-                            None
                         }
                     })
                     .collect()
-            } else {
-                vec![]
             }
         };
 
@@ -165,7 +157,7 @@ pub fn start_midi_input() -> Result<String, String> {
 
             // Only route to built-in synth if NO VST3 plugins in the chain
             if !has_vst3 {
-                if let Ok(mut sm) = synth_manager.lock() {
+                { let mut sm = synth_manager.lock();
                     match &engine_event.event_type {
                         MidiEventType::NoteOn { note, velocity } => {
                             sm.note_on(track_id, *note, *velocity);
@@ -180,10 +172,10 @@ pub fn start_midi_input() -> Result<String, String> {
             // Route to VST3 instruments in the track's FX chain
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             if has_vst3 {
-                if let Ok(em) = effect_manager.lock() {
+                { let em = effect_manager.lock();
                     for effect_id in fx_chain {
                         if let Some(effect_arc) = em.get_effect(effect_id) {
-                            if let Ok(mut effect) = effect_arc.lock() {
+                            { let mut effect = effect_arc.lock();
                                 if let EffectType::VST3(ref mut vst3) = *effect {
                                     match &engine_event.event_type {
                                         MidiEventType::NoteOn { note, velocity } => {
@@ -216,9 +208,9 @@ pub fn start_midi_input() -> Result<String, String> {
 /// Stop capturing MIDI input
 pub fn stop_midi_input() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut midi_manager = graph.midi_input_manager.lock().map_err(|e| e.to_string())?;
+    let mut midi_manager = graph.midi_input_manager.lock();
     midi_manager.stop_capture().map_err(|e| e.to_string())?;
 
     Ok("MIDI input stopped".to_string())
@@ -233,7 +225,7 @@ pub fn stop_midi_input() -> Result<String, String> {
 /// MIDI events during count-in are discarded and timestamps are correct.
 pub fn start_midi_recording() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate recording start (after count-in), matching audio recorder logic
     // Use the ORIGINAL playhead position (where user pressed Record), not current playhead!
@@ -269,7 +261,7 @@ pub fn start_midi_recording() -> Result<String, String> {
     eprintln!("  seekback_seconds: {seekback_seconds:.3}s");
     eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE));
 
-    let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+    let mut midi_recorder = graph.midi_recorder.lock();
     midi_recorder.set_recording_start(recording_start);
     midi_recorder.start_recording()?;
     Ok("MIDI recording started".to_string())
@@ -279,9 +271,9 @@ pub fn start_midi_recording() -> Result<String, String> {
 /// Adds the clip to all armed MIDI tracks at the recording start position (after count-in)
 pub fn stop_midi_recording() -> Result<Option<u64>, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+    let mut midi_recorder = graph.midi_recorder.lock();
     let clip_option = midi_recorder.stop_recording()?;
 
     if let Some(clip) = clip_option {
@@ -293,18 +285,16 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
 
         // Find all armed MIDI/Sampler tracks
         let armed_midi_track_ids: Vec<TrackId> = {
-            let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+            let track_manager = graph.track_manager.lock();
             track_manager.get_all_tracks()
                 .iter()
                 .filter_map(|track_arc| {
-                    if let Ok(track) = track_arc.lock() {
+                    { let track = track_arc.lock();
                         if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
                             Some(track.id)
                         } else {
                             None
                         }
-                    } else {
-                        None
                     }
                 })
                 .collect()
@@ -335,9 +325,9 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
 /// Get current MIDI recording state (0=Idle, 1=Recording)
 pub fn get_midi_recording_state() -> Result<i32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+    let midi_recorder = graph.midi_recorder.lock();
 
     use crate::midi_recorder::MidiRecordingState;
     let state = match midi_recorder.get_state() {
@@ -357,9 +347,9 @@ pub fn get_midi_recording_state() -> Result<i32, String> {
 /// Returns empty string if not recording or no events
 pub fn get_midi_recorder_live_events() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let midi_recorder = graph.midi_recorder.lock().map_err(|e| e.to_string())?;
+    let midi_recorder = graph.midi_recorder.lock();
 
     if !midi_recorder.is_recording() {
         return Ok(String::new());

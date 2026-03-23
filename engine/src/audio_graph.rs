@@ -5,7 +5,8 @@ use crate::synth::TrackSynthManager;
 use crate::track::{AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager};  // Import from track module
 use crate::effects::{Effect, EffectManager, Limiter};  // Import from effects module
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 // Native-only imports
@@ -283,9 +284,9 @@ impl AudioGraph {
 
     /// Add a clip to the timeline
     pub fn add_clip(&self, clip: Arc<AudioClip>, start_time: f64) -> ClipId {
-        let mut clips = self.clips.lock().expect("mutex poisoned");
+        let mut clips = self.clips.lock();
         let id = {
-            let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
+            let mut next_id = self.next_clip_id.lock();
             let id = *next_id;
             *next_id += 1;
             id
@@ -314,9 +315,9 @@ impl AudioGraph {
 
     /// Add a MIDI clip to the timeline
     pub fn add_midi_clip(&self, clip: Arc<MidiClip>, start_time: f64) -> ClipId {
-        let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+        let mut midi_clips = self.midi_clips.lock();
         let id = {
-            let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
+            let mut next_id = self.next_clip_id.lock();
             let id = *next_id;
             *next_id += 1;
             id
@@ -350,15 +351,15 @@ impl AudioGraph {
         duration: Option<f64>,
     ) -> Option<ClipId> {
         let id = {
-            let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
+            let mut next_id = self.next_clip_id.lock();
             let id = *next_id;
             *next_id += 1;
             id
         };
 
-        let track_manager = self.track_manager.lock().expect("mutex poisoned");
+        let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
-            let mut track = track_arc.lock().expect("mutex poisoned");
+            let mut track = track_arc.lock();
             track.audio_clips.push(TimelineClip {
                 id,
                 clip,
@@ -393,9 +394,9 @@ impl AudioGraph {
         offset: f64,
         duration: Option<f64>,
     ) -> bool {
-        let track_manager = self.track_manager.lock().expect("mutex poisoned");
+        let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
-            let mut track = track_arc.lock().expect("mutex poisoned");
+            let mut track = track_arc.lock();
             track.audio_clips.push(TimelineClip {
                 id: clip_id,
                 clip,
@@ -422,9 +423,9 @@ impl AudioGraph {
     /// Add a MIDI clip to a specific track (M5.5)
     /// Uses the provided `clip_id` to ensure consistency with global storage
     pub fn add_midi_clip_to_track(&self, track_id: TrackId, clip: Arc<MidiClip>, start_time: f64, clip_id: ClipId) -> Option<ClipId> {
-        let track_manager = self.track_manager.lock().expect("mutex poisoned");
+        let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
-            let mut track = track_arc.lock().expect("mutex poisoned");
+            let mut track = track_arc.lock();
             track.midi_clips.push(TimelineMidiClip {
                 id: clip_id,  // Use the same ID as in global storage
                 clip,
@@ -444,7 +445,7 @@ impl AudioGraph {
     pub fn sync_midi_clip_to_track(&self, clip_id: ClipId) {
         // Get the updated clip from global storage
         let updated_clip = {
-            let midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+            let midi_clips = self.midi_clips.lock();
             midi_clips.iter()
                 .find(|c| c.id == clip_id)
                 .map(|c| (c.clip.clone(), c.track_id, c.clip.events.len()))
@@ -452,9 +453,9 @@ impl AudioGraph {
 
         if let Some((clip_arc, Some(track_id), _event_count)) = updated_clip {
             // Update the track's copy
-            let track_manager = self.track_manager.lock().expect("mutex poisoned");
+            let track_manager = self.track_manager.lock();
             if let Some(track_arc) = track_manager.get_track(track_id) {
-                let mut track = track_arc.lock().expect("mutex poisoned");
+                let mut track = track_arc.lock();
                 // Find and update the MIDI clip in the track
                 if let Some(timeline_clip) = track.midi_clips.iter_mut().find(|c| c.id == clip_id) {
                     timeline_clip.clip = clip_arc;
@@ -467,7 +468,7 @@ impl AudioGraph {
     pub fn remove_clip(&self, clip_id: ClipId) -> bool {
         // Try to remove from audio clips
         {
-            let mut clips = self.clips.lock().expect("mutex poisoned");
+            let mut clips = self.clips.lock();
             if let Some(pos) = clips.iter().position(|c| c.id == clip_id) {
                 clips.remove(pos);
                 return true;
@@ -476,7 +477,7 @@ impl AudioGraph {
 
         // Try to remove from MIDI clips
         {
-            let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+            let mut midi_clips = self.midi_clips.lock();
             if let Some(pos) = midi_clips.iter().position(|c| c.id == clip_id) {
                 midi_clips.remove(pos);
                 return true;
@@ -488,7 +489,7 @@ impl AudioGraph {
 
     /// Remove all MIDI clips belonging to a specific track
     pub fn remove_midi_clips_for_track(&self, track_id: TrackId) -> usize {
-        let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+        let mut midi_clips = self.midi_clips.lock();
         let initial_count = midi_clips.len();
         midi_clips.retain(|clip| clip.track_id != Some(track_id));
         
@@ -542,7 +543,7 @@ impl AudioGraph {
         // Silence all synthesizers to prevent stuck notes/drone when loop wraps
         // This ensures notes that were playing at the old position don't continue
         // droning after we jump to a new position
-        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+        { let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
         }
 
@@ -588,19 +589,19 @@ impl AudioGraph {
         // Stream keeps running for MIDI preview
 
         // Silence all synthesizers to prevent stuck notes/drone
-        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+        { let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
             eprintln!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
-        if let Ok(track_mgr) = self.track_manager.lock() {
-            if let Ok(effect_mgr) = self.effect_manager.lock() {
+        { let track_mgr = self.track_manager.lock();
+            { let effect_mgr = self.effect_manager.lock();
                 for track_arc in track_mgr.get_all_tracks() {
-                    if let Ok(track) = track_arc.lock() {
+                    { let track = track_arc.lock();
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                if let Ok(mut effect) = effect_arc.lock() {
+                                { let mut effect = effect_arc.lock();
                                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                         // Send note-off for all 128 MIDI notes
@@ -629,19 +630,19 @@ impl AudioGraph {
         // Stream keeps running for MIDI preview
 
         // Silence all synthesizers to prevent stuck notes/drone
-        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+        { let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
             eprintln!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
-        if let Ok(track_mgr) = self.track_manager.lock() {
-            if let Ok(effect_mgr) = self.effect_manager.lock() {
+        { let track_mgr = self.track_manager.lock();
+            { let effect_mgr = self.effect_manager.lock();
                 for track_arc in track_mgr.get_all_tracks() {
-                    if let Ok(track) = track_arc.lock() {
+                    { let track = track_arc.lock();
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                if let Ok(mut effect) = effect_arc.lock() {
+                                { let mut effect = effect_arc.lock();
                                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                     if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                         // Send note-off for all 128 MIDI notes
@@ -676,7 +677,7 @@ impl AudioGraph {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn set_buffer_size(&mut self, preset: BufferSizePreset) -> anyhow::Result<()> {
         {
-            let mut current = self.preferred_buffer_size.lock().expect("mutex poisoned");
+            let mut current = self.preferred_buffer_size.lock();
             if *current == preset {
                 return Ok(()); // No change needed
             }
@@ -694,7 +695,7 @@ impl AudioGraph {
 
     /// Get the current buffer size preset
     pub fn get_buffer_size_preset(&self) -> BufferSizePreset {
-        *self.preferred_buffer_size.lock().expect("mutex poisoned")
+        *self.preferred_buffer_size.lock()
     }
 
     /// Get the actual buffer size being used (in samples)
@@ -708,8 +709,8 @@ impl AudioGraph {
         let buffer_samples = self.get_actual_buffer_size();
 
         // Use hardware-measured latency values (queried from CoreAudio on macOS)
-        let input_latency_ms = *self.hardware_input_latency_ms.lock().expect("mutex poisoned");
-        let output_latency_ms = *self.hardware_output_latency_ms.lock().expect("mutex poisoned");
+        let input_latency_ms = *self.hardware_input_latency_ms.lock();
+        let output_latency_ms = *self.hardware_output_latency_ms.lock();
 
         // Total roundtrip = input + output + buffer latency
         let buffer_latency_ms = buffer_samples as f32 / TARGET_SAMPLE_RATE as f32 * 1000.0;
@@ -839,8 +840,8 @@ impl AudioGraph {
         eprintln!("🎚️ [LATENCY] Hardware latency: input={input_latency_ms:.2}ms, output={output_latency_ms:.2}ms");
 
         // Update stored values
-        *self.hardware_input_latency_ms.lock().expect("mutex poisoned") = input_latency_ms;
-        *self.hardware_output_latency_ms.lock().expect("mutex poisoned") = output_latency_ms;
+        *self.hardware_input_latency_ms.lock() = input_latency_ms;
+        *self.hardware_output_latency_ms.lock() = output_latency_ms;
 
         Ok(())
     }
@@ -852,8 +853,8 @@ impl AudioGraph {
         let sample_rate = TARGET_SAMPLE_RATE as f32;
         let estimated_latency_ms = buffer_samples as f32 / sample_rate * 1000.0;
 
-        *self.hardware_input_latency_ms.lock().expect("mutex poisoned") = estimated_latency_ms;
-        *self.hardware_output_latency_ms.lock().expect("mutex poisoned") = estimated_latency_ms;
+        *self.hardware_input_latency_ms.lock() = estimated_latency_ms;
+        *self.hardware_output_latency_ms.lock() = estimated_latency_ms;
 
         eprintln!("🎚️ [LATENCY] Estimated latency (non-macOS): {:.2}ms", estimated_latency_ms);
         Ok(())
@@ -894,7 +895,6 @@ impl AudioGraph {
 
         // Check if a specific device is selected
         let selected_name = self.selected_output_device.lock()
-            .expect("mutex poisoned")
             .clone();
 
         // Helper to find device by name from a host
@@ -979,7 +979,6 @@ impl AudioGraph {
 
         // Get preferred buffer size
         let preferred_samples = self.preferred_buffer_size.lock()
-            .expect("mutex poisoned")
             .samples();
 
         // Check if device supports our preferred buffer size
@@ -1048,12 +1047,12 @@ impl AudioGraph {
                     let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
                     // Lock synth manager once for the entire buffer
-                    let mut synth_guard = track_synth_manager.lock().ok();
+                    let mut synth_guard = Some(track_synth_manager.lock());
 
                     for frame_idx in 0..frames {
                         // Get input samples (if recording)
                         // Use try_lock() to avoid deadlock - if lock is held by API thread, just skip this frame
-                        let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
+                        let (input_left, input_right) = if let Some(input_mgr) = input_manager.try_lock() {
                             let channels = input_mgr.get_input_channels();
 
                             if channels == 1 {
@@ -1092,11 +1091,11 @@ impl AudioGraph {
                         // 1. Per-track synthesizer output from MIDI input
                         // 2. VST3 instruments that need continuous process() calls
                         // 3. Track-level metering for level meters in UI
-                        if let Ok(effect_mgr) = effect_manager.lock() {
-                            if let Ok(tm) = track_manager.lock() {
+                        { let effect_mgr = effect_manager.lock();
+                            { let tm = track_manager.lock();
                                 let has_solo = tm.has_solo();
                                 for track_arc in tm.get_all_tracks() {
-                                    if let Ok(mut track) = track_arc.lock() {
+                                    { let mut track = track_arc.lock();
                                         // Skip master track in per-track processing
                                         if track.track_type == crate::track::TrackType::Master {
                                             continue;
@@ -1141,7 +1140,7 @@ impl AudioGraph {
                                             // Still process FX to keep VST3 alive, but don't mix
                                             for effect_id in &track.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                    { let mut effect = effect_arc.lock();
                                                         let _ = effect.process_frame(0.0, 0.0);
                                                     }
                                                 }
@@ -1156,7 +1155,7 @@ impl AudioGraph {
                                             // Still process FX to keep VST3 alive
                                             for effect_id in &track.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                    { let mut effect = effect_arc.lock();
                                                         let _ = effect.process_frame(0.0, 0.0);
                                                     }
                                                 }
@@ -1175,7 +1174,7 @@ impl AudioGraph {
                                                 continue;
                                             }
                                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                if let Ok(mut effect) = effect_arc.lock() {
+                                                { let mut effect = effect_arc.lock();
                                                     let (fx_l, fx_r) = effect.process_frame(track_left, track_right);
                                                     track_left = fx_l;
                                                     track_right = fx_r;
@@ -1212,7 +1211,7 @@ impl AudioGraph {
                                 // Update master track peaks at end of buffer
                                 if frame_idx == frames - 1 {
                                     let master_arc = tm.get_master_track();
-                                    if let Ok(mut master) = master_arc.lock() {
+                                    { let mut master = master_arc.lock();
                                         master.update_peaks(master_peak_left, master_peak_right);
                                     };
                                 }
@@ -1243,20 +1242,20 @@ impl AudioGraph {
 
                 // Get clips (lock briefly) - keeping for potential future use
                 let _clips_snapshot = {
-                    let clips_lock = clips.lock().expect("mutex poisoned");
+                    let clips_lock = clips.lock();
                     clips_lock.clone()
                 };
 
                 // Get MIDI clips (lock briefly) - kept for potential future use
                 let _midi_clips_snapshot = {
-                    let midi_clips_lock = midi_clips.lock().expect("mutex poisoned");
+                    let midi_clips_lock = midi_clips.lock();
                     midi_clips_lock.clone()
                 };
 
                 // Get current tempo for playback scaling
                 // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
                 // At other tempos, the playhead must advance faster/slower through the timeline
-                let current_tempo = *recorder_refs.tempo.lock().expect("mutex poisoned");
+                let current_tempo = *recorder_refs.tempo.lock();
                 let tempo_ratio = current_tempo / 120.0;
 
                 // NOTE: Legacy MIDI clip processing removed - all MIDI now handled per-track
@@ -1285,14 +1284,14 @@ impl AudioGraph {
                     monitoring_fade_gain: f64,
                 }
 
-                let track_data_option = if let Ok(tm) = track_manager.lock() {
+                let track_data_option = { let tm = track_manager.lock();
                     let has_solo_flag = tm.has_solo();
                     let all_tracks = tm.get_all_tracks();
                     let mut snapshots = Vec::new();
                     let mut master_snap = None;
 
                     for track_arc in all_tracks {
-                        if let Ok(track) = track_arc.lock() {
+                        { let track = track_arc.lock();
                             // Extract all data we need from this track
                             let snap = TrackSnapshot {
                                 id: track.id,
@@ -1321,8 +1320,6 @@ impl AudioGraph {
                     }
 
                     Some((snapshots, has_solo_flag, master_snap))
-                } else {
-                    None // Lock failed, use empty track list
                 }; // All locks released here!
 
                 let (mut track_snapshots, has_solo, master_snapshot) = track_data_option
@@ -1335,12 +1332,10 @@ impl AudioGraph {
 
                 // OPTIMIZATION: Lock synth manager ONCE before the frame loop
                 // This prevents lock contention that causes audio dropouts
-                let mut synth_guard = track_synth_manager.lock().ok();
+                let mut synth_guard = Some(track_synth_manager.lock());
 
                 // Check if recording is active (skip clip playback on armed tracks)
-                let is_recording = recorder_refs.state.lock()
-                    .map(|s| *s == crate::recorder::RecordingState::Recording)
-                    .unwrap_or(false);
+                let is_recording = *recorder_refs.state.lock() == crate::recorder::RecordingState::Recording;
 
                 // Process each frame (using snapshots - NO LOCKS in hot path!)
                 for frame_idx in 0..frames {
@@ -1355,7 +1350,7 @@ impl AudioGraph {
                     let mut mix_right = 0.0;
 
                     // Read input samples FIRST (needed for both recording and input monitoring)
-                    let (input_left, input_right) = if let Ok(input_mgr) = input_manager.try_lock() {
+                    let (input_left, input_right) = if let Some(input_mgr) = input_manager.try_lock() {
                         let channels = input_mgr.get_input_channels();
                         if channels == 1 {
                             if let Some(samples) = input_mgr.read_samples(1) {
@@ -1483,10 +1478,10 @@ impl AudioGraph {
 
                                                     // Send to VST3 instruments in FX chain
                                                     if has_vst3 {
-                                                        if let Ok(effect_mgr) = effect_manager.lock() {
+                                                        { let effect_mgr = effect_manager.lock();
                                                             for effect_id in &track_snap.fx_chain {
                                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                                    { let mut effect = effect_arc.lock();
                                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                             let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
@@ -1505,10 +1500,10 @@ impl AudioGraph {
 
                                                     // Send to VST3 instruments in FX chain
                                                     if has_vst3 {
-                                                        if let Ok(effect_mgr) = effect_manager.lock() {
+                                                        { let effect_mgr = effect_manager.lock();
                                                             for effect_id in &track_snap.fx_chain {
                                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                                    { let mut effect = effect_arc.lock();
                                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                             let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
@@ -1560,14 +1555,14 @@ impl AudioGraph {
                         let mut fx_left = track_left;
                         let mut fx_right = track_right;
 
-                        if let Ok(effect_mgr) = effect_manager.lock() {
+                        { let effect_mgr = effect_manager.lock();
                             for effect_id in &track_snap.fx_chain {
                                 // Skip bypassed effects (audio passes through unchanged)
                                 if effect_mgr.is_bypassed(*effect_id) {
                                     continue;
                                 }
                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                    if let Ok(mut effect) = effect_arc.lock() {
+                                    { let mut effect = effect_arc.lock();
                                         let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
                                         fx_left = out_l;
                                         fx_right = out_r;
@@ -1652,14 +1647,14 @@ impl AudioGraph {
                         master_right *= master_snap.pan_right;
 
                         // Process master FX chain
-                        if let Ok(effect_mgr) = effect_manager.lock() {
+                        { let effect_mgr = effect_manager.lock();
                             for effect_id in &master_snap.fx_chain {
                                 // Skip bypassed effects (audio passes through unchanged)
                                 if effect_mgr.is_bypassed(*effect_id) {
                                     continue;
                                 }
                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                    if let Ok(mut effect) = effect_arc.lock() {
+                                    { let mut effect = effect_arc.lock();
                                         let (out_l, out_r) = effect.process_frame(master_left, master_right);
                                         master_left = out_l;
                                         master_right = out_r;
@@ -1670,10 +1665,8 @@ impl AudioGraph {
                     }
 
                     // Apply master limiter to prevent clipping
-                    let (limited_left, limited_right) = if let Ok(mut limiter) = master_limiter.lock() {
+                    let (limited_left, limited_right) = { let mut limiter = master_limiter.lock();
                         limiter.process_frame(master_left, master_right)
-                    } else {
-                        (master_left.clamp(-1.0, 1.0), master_right.clamp(-1.0, 1.0))
                     };
 
                     // Update master peak levels for metering (before metronome is added)
@@ -1702,17 +1695,17 @@ impl AudioGraph {
                 }
 
                 // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
-                if let Ok(tm) = track_manager.lock() {
+                { let tm = track_manager.lock();
                     for track_snap in &track_snapshots {
                         if let Some(track_arc) = tm.get_track(track_snap.id) {
-                            if let Ok(mut track) = track_arc.lock() {
+                            { let mut track = track_arc.lock();
                                 track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
                             }
                         }
                     }
                     for (track_id, (peak_l, peak_r)) in &track_peaks {
                         if let Some(track_arc) = tm.get_track(*track_id) {
-                            if let Ok(mut track) = track_arc.lock() {
+                            { let mut track = track_arc.lock();
                                 track.update_peaks(*peak_l, *peak_r);
                             }
                         }
@@ -1720,7 +1713,7 @@ impl AudioGraph {
                     // Update master track peaks
                     {
                         let master_arc = tm.get_master_track();
-                        if let Ok(mut master) = master_arc.lock() {
+                        { let mut master = master_arc.lock();
                             master.update_peaks(master_peak_left, master_peak_right);
                         };
                     }
@@ -1740,12 +1733,12 @@ impl AudioGraph {
 
     /// Get number of audio clips
     pub fn clip_count(&self) -> usize {
-        self.clips.lock().expect("mutex poisoned").len()
+        self.clips.lock().len()
     }
 
     /// Get number of MIDI clips
     pub fn midi_clip_count(&self) -> usize {
-        self.midi_clips.lock().expect("mutex poisoned").len()
+        self.midi_clips.lock().len()
     }
 
     /// Get access to audio clips (for editing in API)
@@ -1777,19 +1770,19 @@ impl AudioGraph {
         use base64::Engine as _;
 
         // Get all tracks
-        let track_manager = self.track_manager.lock().expect("mutex poisoned");
-        let effect_manager = self.effect_manager.lock().expect("mutex poisoned");
-        let synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+        let track_manager = self.track_manager.lock();
+        let effect_manager = self.effect_manager.lock();
+        let synth_manager = self.track_synth_manager.lock();
 
         let all_tracks = track_manager.get_all_tracks();
         let tracks_data: Vec<TrackData> = all_tracks.iter().map(|track_arc| {
-            let track = track_arc.lock().expect("mutex poisoned");
+            let track = track_arc.lock();
 
             // Get effect chain for this track
             let fx_chain: Vec<EffectData> = track.fx_chain.iter().filter_map(|effect_id| {
                 // Get effect from effect manager
                 if let Some(effect_arc) = effect_manager.get_effect(*effect_id) {
-                    let effect = effect_arc.lock().expect("mutex poisoned");
+                    let effect = effect_arc.lock();
                     let mut parameters = HashMap::new();
                     let effect_type_str;
 
@@ -1911,7 +1904,7 @@ impl AudioGraph {
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             let vst3_plugins: Vec<Vst3PluginData> = track.fx_chain.iter().filter_map(|effect_id| {
                 if let Some(effect_arc) = effect_manager.get_effect(*effect_id) {
-                    let effect = effect_arc.lock().expect("mutex poisoned");
+                    let effect = effect_arc.lock();
                     if let ET::VST3(vst3) = &*effect {
                         // Get plugin state
                         let state_data = vst3.get_state().unwrap_or_default();
@@ -1957,7 +1950,7 @@ impl AudioGraph {
 
         // Collect audio files from all tracks' audio clips (not the legacy self.clips)
         let audio_files: Vec<AudioFileData> = all_tracks.iter().flat_map(|track_arc| {
-            let track = track_arc.lock().expect("mutex poisoned");
+            let track = track_arc.lock();
             track.audio_clips.iter().map(|timeline_clip| {
                 // Extract just the filename from the path for cleaner storage
                 let filename = std::path::Path::new(&timeline_clip.clip.file_path)
@@ -2013,14 +2006,14 @@ impl AudioGraph {
 
         // Clear existing tracks (except master will be kept and updated)
         {
-            let mut track_manager = self.track_manager.lock().expect("mutex poisoned");
-            let _effect_manager = self.effect_manager.lock().expect("mutex poisoned");
+            let mut track_manager = self.track_manager.lock();
+            let _effect_manager = self.effect_manager.lock();
 
             // Get all track IDs except master (ID 0)
             let all_tracks = track_manager.get_all_tracks();
             let track_ids_to_remove: Vec<u64> = all_tracks.iter()
                 .filter_map(|track_arc| {
-                    let track = track_arc.lock().expect("mutex poisoned");
+                    let track = track_arc.lock();
                     if track.id != 0 { Some(track.id) } else { None }
                 })
                 .collect();
@@ -2060,8 +2053,8 @@ impl AudioGraph {
 
         // Recreate tracks and effects
         for track_data in project_data.tracks {
-            let track_manager = self.track_manager.lock().expect("mutex poisoned");
-            let mut effect_manager = self.effect_manager.lock().expect("mutex poisoned");
+            let track_manager = self.track_manager.lock();
+            let mut effect_manager = self.effect_manager.lock();
 
             // Parse track type
             let track_type = match track_data.track_type.as_str() {
@@ -2080,7 +2073,7 @@ impl AudioGraph {
             // Handle master track specially (update existing)
             if track_type == TrackType::Master {
                 if let Some(master_track_arc) = track_manager.get_track(0) {
-                    let mut master = master_track_arc.lock().expect("mutex poisoned");
+                    let mut master = master_track_arc.lock();
                     master.volume_db = track_data.volume_db;
                     master.pan = track_data.pan;
                     master.mute = track_data.mute;
@@ -2093,15 +2086,15 @@ impl AudioGraph {
             // Create new track
             drop(track_manager); // Release lock before creating track
             let track_id = {
-                let mut tm = self.track_manager.lock().expect("mutex poisoned");
+                let mut tm = self.track_manager.lock();
                 tm.create_track(track_type, track_data.name.clone())
             };
 
             // Update track properties
             {
-                let tm = self.track_manager.lock().expect("mutex poisoned");
+                let tm = self.track_manager.lock();
                 if let Some(track_arc) = tm.get_track(track_id) {
-                    let mut track = track_arc.lock().expect("mutex poisoned");
+                    let mut track = track_arc.lock();
                     track.volume_db = track_data.volume_db;
                     track.pan = track_data.pan;
                     track.mute = track_data.mute;
@@ -2126,11 +2119,11 @@ impl AudioGraph {
             // Restore instrument for MIDI tracks (synth or sampler)
             if track_type == TrackType::Midi {
                 if let Some(synth_data) = &track_data.synth_settings {
-                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    let mut synth_manager = self.track_synth_manager.lock();
                     synth_manager.create_synth(track_id);
                     synth_manager.restore_synth_parameters(track_id, synth_data);
                 } else if let Some(sampler_data) = &track_data.sampler_settings {
-                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    let mut synth_manager = self.track_synth_manager.lock();
                     synth_manager.create_sampler(track_id);
                     // Load the sample file first, then restore parameters
                     if !sampler_data.sample_path.is_empty() {
@@ -2141,7 +2134,7 @@ impl AudioGraph {
                     synth_manager.restore_sampler_parameters(track_id, sampler_data);
                 } else if track_data.track_type == "Sampler" {
                     // Legacy: old project with Sampler type but no sampler_settings
-                    let mut synth_manager = self.track_synth_manager.lock().expect("mutex poisoned");
+                    let mut synth_manager = self.track_synth_manager.lock();
                     synth_manager.create_sampler(track_id);
                 }
             }
@@ -2211,9 +2204,9 @@ impl AudioGraph {
                 let effect_id = effect_manager.create_effect(effect);
 
                 // Add to track's FX chain
-                let tm = self.track_manager.lock().expect("mutex poisoned");
+                let tm = self.track_manager.lock();
                 if let Some(track_arc) = tm.get_track(track_id) {
-                    let mut track = track_arc.lock().expect("mutex poisoned");
+                    let mut track = track_arc.lock();
                     track.fx_chain.push(effect_id);
                 }
             }
@@ -2261,9 +2254,9 @@ impl AudioGraph {
                             let effect_id = effect_manager.create_effect(effect);
 
                             // Add to track's FX chain
-                            let tm = self.track_manager.lock().expect("mutex poisoned");
+                            let tm = self.track_manager.lock();
                             if let Some(track_arc) = tm.get_track(track_id) {
-                                let mut track = track_arc.lock().expect("mutex poisoned");
+                                let mut track = track_arc.lock();
                                 track.fx_chain.push(effect_id);
                             }
 
@@ -2290,7 +2283,7 @@ impl AudioGraph {
 
                     // Generate a new clip ID
                     let clip_id = {
-                        let mut next_id = self.next_clip_id.lock().expect("mutex poisoned");
+                        let mut next_id = self.next_clip_id.lock();
                         let id = *next_id;
                         *next_id += 1;
                         id
@@ -2298,7 +2291,7 @@ impl AudioGraph {
 
                     // Add to global MIDI clips storage
                     {
-                        let mut midi_clips = self.midi_clips.lock().expect("mutex poisoned");
+                        let mut midi_clips = self.midi_clips.lock();
                         midi_clips.push(TimelineMidiClip {
                             id: clip_id,
                             clip: clip_arc.clone(),
@@ -2310,9 +2303,9 @@ impl AudioGraph {
                     }
 
                     // Add to track's MIDI clips
-                    let tm = self.track_manager.lock().expect("mutex poisoned");
+                    let tm = self.track_manager.lock();
                     if let Some(track_arc) = tm.get_track(track_id) {
-                        let mut track = track_arc.lock().expect("mutex poisoned");
+                        let mut track = track_arc.lock();
                         track.midi_clips.push(TimelineMidiClip {
                             id: clip_id,
                             clip: clip_arc,
@@ -2370,14 +2363,14 @@ impl AudioGraph {
         }
 
         let (track_snapshots, has_solo, master_snapshot) = {
-            let tm = self.track_manager.lock().expect("mutex poisoned");
+            let tm = self.track_manager.lock();
             let has_solo_flag = tm.has_solo();
             let all_tracks = tm.get_all_tracks();
             let mut snapshots = Vec::new();
             let mut master_snap = None;
 
             for track_arc in all_tracks {
-                if let Ok(track) = track_arc.lock() {
+                { let track = track_arc.lock();
                     let snap = TrackSnapshot {
                         id: track.id,
                         audio_clips: track.audio_clips.clone(),
@@ -2505,16 +2498,16 @@ impl AudioGraph {
                                     crate::midi::MidiEventType::NoteOn { note, velocity } => {
                                         // Send to built-in synth ONLY if no VST3 plugins
                                         if !has_vst3 {
-                                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                            { let mut synth_manager = self.track_synth_manager.lock();
                                                 synth_manager.note_on(track_snap.id, note, velocity);
                                             }
                                         }
                                         // Send to VST3 instruments in FX chain
                                         if has_vst3 {
-                                            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                            { let effect_mgr = self.effect_manager.lock();
                                                 for effect_id in &track_snap.fx_chain {
                                                     if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                        if let Ok(mut effect) = effect_arc.lock() {
+                                                        { let mut effect = effect_arc.lock();
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                 let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
@@ -2528,16 +2521,16 @@ impl AudioGraph {
                                     crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
                                         // Send to built-in synth ONLY if no VST3 plugins
                                         if !has_vst3 {
-                                            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                            { let mut synth_manager = self.track_synth_manager.lock();
                                                 synth_manager.note_off(track_snap.id, note);
                                             }
                                         }
                                         // Send to VST3 instruments in FX chain
                                         if has_vst3 {
-                                            if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                            { let effect_mgr = self.effect_manager.lock();
                                                 for effect_id in &track_snap.fx_chain {
                                                     if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                        if let Ok(mut effect) = effect_arc.lock() {
+                                                        { let mut effect = effect_arc.lock();
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                 let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
@@ -2555,7 +2548,7 @@ impl AudioGraph {
                 }
 
                 // Add synthesizer output
-                if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                { let mut synth_manager = self.track_synth_manager.lock();
                     let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_snap.id);
                     track_left += synth_left;
                     track_right += synth_right;
@@ -2578,10 +2571,10 @@ impl AudioGraph {
                 let mut fx_left = track_left;
                 let mut fx_right = track_right;
 
-                if let Ok(effect_mgr) = self.effect_manager.lock() {
+                { let effect_mgr = self.effect_manager.lock();
                     for effect_id in &track_snap.fx_chain {
                         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                            if let Ok(mut effect) = effect_arc.lock() {
+                            { let mut effect = effect_arc.lock();
                                 let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
                                 fx_left = out_l;
                                 fx_right = out_r;
@@ -2611,10 +2604,10 @@ impl AudioGraph {
                 master_right = temp_r;
 
                 // Process master FX chain
-                if let Ok(effect_mgr) = self.effect_manager.lock() {
+                { let effect_mgr = self.effect_manager.lock();
                     for effect_id in &master_snap.fx_chain {
                         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                            if let Ok(mut effect) = effect_arc.lock() {
+                            { let mut effect = effect_arc.lock();
                                 let (out_l, out_r) = effect.process_frame(master_left, master_right);
                                 master_left = out_l;
                                 master_right = out_r;
@@ -2625,10 +2618,8 @@ impl AudioGraph {
             }
 
             // Apply master limiter
-            let (limited_left, limited_right) = if let Ok(mut limiter) = self.master_limiter.lock() {
+            let (limited_left, limited_right) = { let mut limiter = self.master_limiter.lock();
                 limiter.process_frame(master_left, master_right)
-            } else {
-                (master_left.clamp(-1.0, 1.0), master_right.clamp(-1.0, 1.0))
             };
 
             // Write to output buffer (interleaved stereo)
@@ -2674,11 +2665,11 @@ impl AudioGraph {
         }
 
         let track_snapshot = {
-            let tm = self.track_manager.lock().expect("mutex poisoned");
+            let tm = self.track_manager.lock();
             let mut snapshot = None;
 
             for track_arc in tm.get_all_tracks() {
-                if let Ok(track) = track_arc.lock() {
+                { let track = track_arc.lock();
                     if track.id == track_id {
                         snapshot = Some(TrackSnapshot {
                             audio_clips: track.audio_clips.clone(),
@@ -2789,16 +2780,16 @@ impl AudioGraph {
                                 crate::midi::MidiEventType::NoteOn { note, velocity } => {
                                     // Send to built-in synth ONLY if no VST3 plugins
                                     if !has_vst3 {
-                                        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                        { let mut synth_manager = self.track_synth_manager.lock();
                                             synth_manager.note_on(track_id, note, velocity);
                                         }
                                     }
                                     // Send to VST3 instruments in FX chain
                                     if has_vst3 {
-                                        if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                        { let effect_mgr = self.effect_manager.lock();
                                             for effect_id in &track_snap.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                    { let mut effect = effect_arc.lock();
                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                             let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
@@ -2812,16 +2803,16 @@ impl AudioGraph {
                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
                                     // Send to built-in synth ONLY if no VST3 plugins
                                     if !has_vst3 {
-                                        if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+                                        { let mut synth_manager = self.track_synth_manager.lock();
                                             synth_manager.note_off(track_id, note);
                                         }
                                     }
                                     // Send to VST3 instruments in FX chain
                                     if has_vst3 {
-                                        if let Ok(effect_mgr) = self.effect_manager.lock() {
+                                        { let effect_mgr = self.effect_manager.lock();
                                             for effect_id in &track_snap.fx_chain {
                                                 if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    if let Ok(mut effect) = effect_arc.lock() {
+                                                    { let mut effect = effect_arc.lock();
                                                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                         if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                             let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
@@ -2839,7 +2830,7 @@ impl AudioGraph {
             }
 
             // Add synthesizer output
-            if let Ok(mut synth_manager) = self.track_synth_manager.lock() {
+            { let mut synth_manager = self.track_synth_manager.lock();
                 let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_id);
                 track_left += synth_left;
                 track_right += synth_right;
@@ -2862,10 +2853,10 @@ impl AudioGraph {
             let mut fx_left = track_left;
             let mut fx_right = track_right;
 
-            if let Ok(effect_mgr) = self.effect_manager.lock() {
+            { let effect_mgr = self.effect_manager.lock();
                 for effect_id in &track_snap.fx_chain {
                     if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                        if let Ok(mut effect) = effect_arc.lock() {
+                        { let mut effect = effect_arc.lock();
                             let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
                             fx_left = out_l;
                             fx_right = out_r;
@@ -2897,9 +2888,9 @@ impl AudioGraph {
     pub fn get_tracks_for_stem_export(&self) -> Vec<(u64, String, String)> {
         let mut tracks = Vec::new();
 
-        if let Ok(tm) = self.track_manager.lock() {
+        { let tm = self.track_manager.lock();
             for track_arc in tm.get_all_tracks() {
-                if let Ok(track) = track_arc.lock() {
+                { let track = track_arc.lock();
                     // Skip master track
                     if track.track_type == crate::track::TrackType::Master {
                         continue;
@@ -2927,9 +2918,9 @@ impl AudioGraph {
         let mut max_end_time = 0.0f64;
 
         // Check all tracks for clips
-        if let Ok(tm) = self.track_manager.lock() {
+        { let tm = self.track_manager.lock();
             for track_arc in tm.get_all_tracks() {
-                if let Ok(track) = track_arc.lock() {
+                { let track = track_arc.lock();
                     // Audio clips
                     for clip in &track.audio_clips {
                         let clip_end = clip.start_time + clip.duration.unwrap_or(clip.clip.duration_seconds);
@@ -3053,7 +3044,7 @@ impl AudioGraph {
 
         // Update selected device
         {
-            let mut selected = self.selected_output_device.lock().expect("mutex poisoned");
+            let mut selected = self.selected_output_device.lock();
             *selected = device_name.clone();
         }
 
@@ -3072,7 +3063,6 @@ impl AudioGraph {
     /// Get the currently selected output device name (None = system default)
     pub fn get_selected_output_device(&self) -> Option<String> {
         self.selected_output_device.lock()
-            .expect("mutex poisoned")
             .clone()
     }
 }

@@ -1,7 +1,8 @@
 /// Recording engine with metronome and count-in support
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// Recording state
@@ -101,7 +102,7 @@ impl Recorder {
 
     /// Start recording with optional count-in
     pub fn start_recording(&self) -> Result<(), String> {
-        let mut state = self.state.lock().map_err(|e| e.to_string())?;
+        let mut state = self.state.lock();
 
         if *state != RecordingState::Idle {
             return Err("Already recording or counting in".to_string());
@@ -109,7 +110,7 @@ impl Recorder {
 
         // Clear previous recording
         {
-            let mut samples = self.recorded_samples.lock().map_err(|e| e.to_string())?;
+            let mut samples = self.recorded_samples.lock();
             samples.clear();
             eprintln!("🎙️  [Recorder] Cleared {} previous samples", samples.len());
         }
@@ -118,7 +119,7 @@ impl Recorder {
         self.punch_complete.store(false, Ordering::SeqCst);
 
         // Check if count-in is enabled
-        let count_in = *self.count_in_bars.lock().map_err(|e| e.to_string())?;
+        let count_in = *self.count_in_bars.lock();
         let punch_in = self.punch_in_enabled.load(Ordering::SeqCst);
 
         if count_in > 0 {
@@ -138,7 +139,7 @@ impl Recorder {
 
     /// Stop recording and return the recorded audio clip
     pub fn stop_recording(&self) -> Result<Option<AudioClip>, String> {
-        let mut state = self.state.lock().map_err(|e| e.to_string())?;
+        let mut state = self.state.lock();
         let punch_completed = self.punch_complete.load(Ordering::SeqCst);
 
         // If idle and no auto-punch-out fired, nothing to return
@@ -160,7 +161,7 @@ impl Recorder {
 
         // Get recorded samples
         let samples = {
-            let samples_lock = self.recorded_samples.lock().map_err(|e| e.to_string())?;
+            let samples_lock = self.recorded_samples.lock();
             samples_lock.clone()
         };
 
@@ -190,27 +191,27 @@ impl Recorder {
 
     /// Get current recording state
     pub fn get_state(&self) -> RecordingState {
-        *self.state.lock().expect("mutex poisoned")
+        *self.state.lock()
     }
 
     /// Set count-in duration in bars
     pub fn set_count_in_bars(&self, bars: u32) {
-        *self.count_in_bars.lock().expect("mutex poisoned") = bars;
+        *self.count_in_bars.lock() = bars;
     }
 
     /// Get count-in duration in bars
     pub fn get_count_in_bars(&self) -> u32 {
-        *self.count_in_bars.lock().expect("mutex poisoned")
+        *self.count_in_bars.lock()
     }
 
     /// Set tempo in BPM
     pub fn set_tempo(&self, bpm: f64) {
-        *self.tempo.lock().expect("mutex poisoned") = bpm.clamp(20.0, 300.0);
+        *self.tempo.lock() = bpm.clamp(20.0, 300.0);
     }
 
     /// Get tempo in BPM
     pub fn get_tempo(&self) -> f64 {
-        *self.tempo.lock().expect("mutex poisoned")
+        *self.tempo.lock()
     }
 
     /// Enable/disable metronome
@@ -225,7 +226,7 @@ impl Recorder {
 
     /// Get recorded sample count
     pub fn get_recorded_sample_count(&self) -> usize {
-        self.recorded_samples.lock().expect("mutex poisoned").len()
+        self.recorded_samples.lock().len()
     }
 
     /// Get recorded duration in seconds
@@ -239,39 +240,36 @@ impl Recorder {
     /// Returns a list of peak values suitable for UI display
     /// Each peak represents multiple samples averaged together
     pub fn get_recording_waveform(&self, num_peaks: usize) -> Vec<f32> {
-        if let Ok(samples) = self.recorded_samples.lock() {
-            if samples.is_empty() || num_peaks == 0 {
-                return Vec::new();
-            }
-
-            let frame_count = samples.len() / 2; // Stereo interleaved
-            let frames_per_peak = (frame_count / num_peaks).max(1);
-            let mut peaks = Vec::with_capacity(num_peaks);
-
-            for i in 0..num_peaks {
-                let start_frame = i * frames_per_peak;
-                let end_frame = ((i + 1) * frames_per_peak).min(frame_count);
-
-                if start_frame >= frame_count {
-                    break;
-                }
-
-                let mut max_amplitude: f32 = 0.0;
-                for frame in start_frame..end_frame {
-                    let left = samples.get(frame * 2).copied().unwrap_or(0.0).abs();
-                    let right = samples.get(frame * 2 + 1).copied().unwrap_or(0.0).abs();
-                    let amplitude = left.max(right);
-                    if amplitude > max_amplitude {
-                        max_amplitude = amplitude;
-                    }
-                }
-                peaks.push(max_amplitude);
-            }
-
-            peaks
-        } else {
-            Vec::new()
+        let samples = self.recorded_samples.lock();
+        if samples.is_empty() || num_peaks == 0 {
+            return Vec::new();
         }
+
+        let frame_count = samples.len() / 2; // Stereo interleaved
+        let frames_per_peak = (frame_count / num_peaks).max(1);
+        let mut peaks = Vec::with_capacity(num_peaks);
+
+        for i in 0..num_peaks {
+            let start_frame = i * frames_per_peak;
+            let end_frame = ((i + 1) * frames_per_peak).min(frame_count);
+
+            if start_frame >= frame_count {
+                break;
+            }
+
+            let mut max_amplitude: f32 = 0.0;
+            for frame in start_frame..end_frame {
+                let left = samples.get(frame * 2).copied().unwrap_or(0.0).abs();
+                let right = samples.get(frame * 2 + 1).copied().unwrap_or(0.0).abs();
+                let amplitude = left.max(right);
+                if amplitude > max_amplitude {
+                    max_amplitude = amplitude;
+                }
+            }
+            peaks.push(max_amplitude);
+        }
+
+        peaks
     }
 
     /// Reset metronome beat position (called when transport stops)
@@ -293,25 +291,25 @@ impl Recorder {
 
     /// Set time signature (beats per bar)
     pub fn set_time_signature(&self, beats_per_bar: u32) {
-        let mut ts = self.time_signature.lock().expect("mutex poisoned");
+        let mut ts = self.time_signature.lock();
         *ts = beats_per_bar;
         eprintln!("⏱️  [Recorder] Time signature set to {beats_per_bar}/4");
     }
 
     /// Get time signature (beats per bar)
     pub fn get_time_signature(&self) -> u32 {
-        *self.time_signature.lock().expect("mutex poisoned")
+        *self.time_signature.lock()
     }
 
     /// Set the timeline position (in seconds) where the recording should be placed
     pub fn set_recording_start_seconds(&self, seconds: f64) {
-        *self.recording_start_seconds.lock().expect("mutex poisoned") = seconds;
+        *self.recording_start_seconds.lock() = seconds;
         eprintln!("🎙️  [Recorder] Recording start position set to {seconds:.3}s");
     }
 
     /// Get the timeline position (in seconds) where the recording should be placed
     pub fn get_recording_start_seconds(&self) -> f64 {
-        *self.recording_start_seconds.lock().expect("mutex poisoned")
+        *self.recording_start_seconds.lock()
     }
 
     /// Get current count-in beat number (1-indexed, 0 when not counting in)
@@ -343,16 +341,16 @@ impl Recorder {
     }
 
     pub fn set_punch_region(&self, in_seconds: f64, out_seconds: f64) {
-        *self.punch_in_seconds.lock().expect("mutex poisoned") = in_seconds;
-        *self.punch_out_seconds.lock().expect("mutex poisoned") = out_seconds;
+        *self.punch_in_seconds.lock() = in_seconds;
+        *self.punch_out_seconds.lock() = out_seconds;
     }
 
     pub fn get_punch_in_seconds(&self) -> f64 {
-        *self.punch_in_seconds.lock().expect("mutex poisoned")
+        *self.punch_in_seconds.lock()
     }
 
     pub fn get_punch_out_seconds(&self) -> f64 {
-        *self.punch_out_seconds.lock().expect("mutex poisoned")
+        *self.punch_out_seconds.lock()
     }
 
     pub fn is_punch_complete(&self) -> bool {
@@ -395,7 +393,7 @@ impl RecorderCallbackRefs {
     ) -> (f32, f32) {
         // Read state once and drop lock immediately to avoid blocking UI thread
         let current_state = {
-            let state = self.state.lock().expect("mutex poisoned");
+            let state = self.state.lock();
             *state
         }; // Lock released here
 
@@ -409,8 +407,8 @@ impl RecorderCallbackRefs {
             self.sample_counter.load(Ordering::SeqCst)
         };
 
-        let tempo = *self.tempo.lock().expect("mutex poisoned");
-        let time_sig = *self.time_signature.lock().expect("mutex poisoned");
+        let tempo = *self.tempo.lock();
+        let time_sig = *self.time_signature.lock();
         let metronome_enabled = self.metronome_enabled.load(Ordering::SeqCst);
 
         // Calculate beat information
@@ -448,7 +446,7 @@ impl RecorderCallbackRefs {
         // Handle count-in and recording state transitions
         match current_state {
             RecordingState::CountingIn => {
-                let count_in_bars = *self.count_in_bars.lock().expect("mutex poisoned");
+                let count_in_bars = *self.count_in_bars.lock();
                 let count_in_samples = samples_per_bar * u64::from(count_in_bars);
 
                 // Calculate and store beat/progress for UI ring timer
@@ -463,16 +461,16 @@ impl RecorderCallbackRefs {
 
                     if punch_in {
                         // Punch-in enabled: wait for playhead to reach region start
-                        let punch_in_s = *self.punch_in_seconds.lock().expect("mutex poisoned");
+                        let punch_in_s = *self.punch_in_seconds.lock();
                         if playhead_seconds >= punch_in_s {
                             // Already past punch-in point, start recording immediately
                             eprintln!("✅ [Recorder] Count-in complete, already past punch-in ({playhead_seconds:.3}s >= {punch_in_s:.3}s). Recording immediately.");
-                            let mut state = self.state.lock().expect("mutex poisoned");
+                            let mut state = self.state.lock();
                             *state = RecordingState::Recording;
                             drop(state);
                         } else {
                             eprintln!("✅ [Recorder] Count-in complete, waiting for punch-in at {punch_in_s:.3}s (playhead: {playhead_seconds:.3}s)");
-                            let mut state = self.state.lock().expect("mutex poisoned");
+                            let mut state = self.state.lock();
                             *state = RecordingState::WaitingForPunchIn;
                             drop(state);
                         }
@@ -480,7 +478,7 @@ impl RecorderCallbackRefs {
                     } else {
                         // No punch-in: start recording immediately (existing behavior)
                         eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {sample_idx})");
-                        let mut state = self.state.lock().expect("mutex poisoned");
+                        let mut state = self.state.lock();
                         *state = RecordingState::Recording;
                         drop(state);
                         self.sample_counter.store(0, Ordering::SeqCst);
@@ -490,15 +488,15 @@ impl RecorderCallbackRefs {
             }
             RecordingState::WaitingForPunchIn => {
                 // Transport is playing, waiting for playhead to reach punch-in point
-                let punch_in_s = *self.punch_in_seconds.lock().expect("mutex poisoned");
+                let punch_in_s = *self.punch_in_seconds.lock();
                 if playhead_seconds >= punch_in_s {
                     eprintln!("🎯 [Recorder] Punch-in! Playhead {playhead_seconds:.3}s reached punch point {punch_in_s:.3}s");
                     // Clear buffer and start recording
-                    if let Ok(mut samples) = self.recorded_samples.lock() {
+                    { let mut samples = self.recorded_samples.lock();
                         samples.clear();
                     }
                     self.sample_counter.store(0, Ordering::SeqCst);
-                    let mut state = self.state.lock().expect("mutex poisoned");
+                    let mut state = self.state.lock();
                     *state = RecordingState::Recording;
                 }
                 // Continue metronome during wait
@@ -506,10 +504,10 @@ impl RecorderCallbackRefs {
             RecordingState::Recording => {
                 // Check punch-out boundary
                 if punch_out {
-                    let punch_out_s = *self.punch_out_seconds.lock().expect("mutex poisoned");
+                    let punch_out_s = *self.punch_out_seconds.lock();
                     if playhead_seconds >= punch_out_s {
                         eprintln!("🎯 [Recorder] Punch-out! Playhead {playhead_seconds:.3}s reached punch point {punch_out_s:.3}s");
-                        let mut state = self.state.lock().expect("mutex poisoned");
+                        let mut state = self.state.lock();
                         *state = RecordingState::Idle;
                         drop(state);
                         self.punch_complete.store(true, Ordering::SeqCst);
@@ -519,7 +517,7 @@ impl RecorderCallbackRefs {
                 }
 
                 // Record input samples
-                if let Ok(mut samples) = self.recorded_samples.lock() {
+                { let mut samples = self.recorded_samples.lock();
                     samples.push(input_left);
                     samples.push(input_right);
 

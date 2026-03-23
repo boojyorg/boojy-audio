@@ -121,10 +121,10 @@ pub fn load_audio_file_to_track_api(
     let clip_arc = Arc::new(clip);
 
     let clips_mutex = clips()?;
-    let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let mut clips_map = clips_mutex.lock();
 
     let graph_mutex = graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let clip_id = graph
         .add_clip_to_track(track_id, clip_arc.clone(), start_time)
@@ -141,21 +141,21 @@ pub fn load_audio_file_api(path: String) -> Result<u64, String> {
     let clip_arc = Arc::new(clip);
 
     let clips_mutex = clips()?;
-    let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let mut clips_map = clips_mutex.lock();
 
     let graph_mutex = graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Find armed audio track first, then any audio track
     let target_track_id = {
-        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let track_manager = graph.track_manager.lock();
         let all_tracks = track_manager.get_all_tracks();
 
         let mut armed_track_id = None;
         let mut any_audio_track_id = None;
 
         for track_arc in all_tracks {
-            let track = track_arc.lock().map_err(|e| e.to_string())?;
+            let track = track_arc.lock();
             if track.track_type == crate::track::TrackType::Audio {
                 if any_audio_track_id.is_none() {
                     any_audio_track_id = Some(track.id);
@@ -173,7 +173,7 @@ pub fn load_audio_file_api(path: String) -> Result<u64, String> {
             id
         } else {
             drop(track_manager);
-            let mut tm = graph.track_manager.lock().map_err(|e| e.to_string())?;
+            let mut tm = graph.track_manager.lock();
             tm.create_track(crate::track::TrackType::Audio, "Audio 1".to_string())
         }
     };

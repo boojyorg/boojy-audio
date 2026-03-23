@@ -29,14 +29,14 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Export audio graph state to ProjectData
     let mut project_data = graph.export_to_project_data(project_name);
 
     // Copy audio files to project folder and update paths
     let clips_mutex = get_audio_clips()?;
-    let clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let clips_map = clips_mutex.lock();
 
     for audio_file in &mut project_data.audio_files {
         // Find the corresponding clip
@@ -80,7 +80,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut graph = graph_mutex.lock();
 
     // Stop playback if running
     let _ = graph.stop();
@@ -90,7 +90,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
 
     // Load audio files from project folder
     let clips_mutex = get_audio_clips()?;
-    let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let mut clips_map = clips_mutex.lock();
 
     // Clear existing clips
     clips_map.clear();
@@ -164,7 +164,7 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate project duration
     let duration = graph.calculate_project_duration();
@@ -267,7 +267,7 @@ pub fn export_audio(output_path_str: String, options_json: String) -> Result<Str
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate project duration
     let duration = graph.calculate_project_duration();
@@ -351,7 +351,7 @@ pub fn export_wav_with_options(
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate project duration
     let duration = graph.calculate_project_duration();
@@ -452,7 +452,7 @@ pub fn export_mp3_with_options(
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate project duration
     let duration = graph.calculate_project_duration();
@@ -528,7 +528,7 @@ pub fn write_mp3_metadata(file_path_str: String, metadata_json: String) -> Resul
 /// Returns JSON array of {id, name, type} objects
 pub fn get_tracks_for_stems() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let tracks = graph.get_tracks_for_stem_export();
 
@@ -608,7 +608,7 @@ pub fn export_stems(
 
     // Get audio graph
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Calculate project duration
     let duration = graph.calculate_project_duration();

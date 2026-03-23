@@ -7,7 +7,7 @@
 //! 4. Calculating latency from sample offset
 
 use std::sync::atomic::{AtomicU8, AtomicU64, AtomicU32, Ordering};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::f32::consts::PI;
 
 /// Test states
@@ -137,13 +137,13 @@ impl LatencyTest {
         self.detected_sample.store(0, Ordering::SeqCst);
         self.phase_counter.store(0, Ordering::SeqCst);
 
-        if let Ok(mut result) = self.result_ms.lock() {
+        { let mut result = self.result_ms.lock();
             *result = None;
         }
-        if let Ok(mut error) = self.error_message.lock() {
+        { let mut error = self.error_message.lock();
             *error = None;
         }
-        if let Ok(mut buffer) = self.input_buffer.lock() {
+        { let mut buffer = self.input_buffer.lock();
             buffer.fill(0.0);
         }
         self.input_write_pos.store(0, Ordering::SeqCst);
@@ -168,20 +168,14 @@ impl LatencyTest {
 
     /// Get result in milliseconds (if available)
     pub fn get_result(&self) -> Option<f32> {
-        if let Ok(result) = self.result_ms.lock() {
-            *result
-        } else {
-            None
-        }
+        let result = self.result_ms.lock();
+        *result
     }
 
     /// Get error message (if any)
     pub fn get_error(&self) -> Option<String> {
-        if let Ok(error) = self.error_message.lock() {
-            error.clone()
-        } else {
-            None
-        }
+        let error = self.error_message.lock();
+        error.clone()
     }
 
     /// Generate test tone sample (called from audio callback)
@@ -249,7 +243,7 @@ impl LatencyTest {
 
             LatencyTestState::Playing | LatencyTestState::Listening => {
                 // Store input for analysis
-                if let Ok(mut buffer) = self.input_buffer.lock() {
+                { let mut buffer = self.input_buffer.lock();
                     let pos = self.input_write_pos.fetch_add(1, Ordering::SeqCst) as usize;
                     if pos < buffer.len() {
                         buffer[pos] = input_sample;
@@ -271,7 +265,7 @@ impl LatencyTest {
                     } else if counter >= self.config.max_listen_samples {
                         // Timeout - no tone detected
                         self.state.store(LatencyTestState::Error as u8, Ordering::SeqCst);
-                        if let Ok(mut error) = self.error_message.lock() {
+                        { let mut error = self.error_message.lock();
                             *error = Some("Timeout: No audio detected. Check loopback connection.".to_string());
                         }
                         eprintln!("🎚️ [LatencyTest] Timeout - no tone detected");
@@ -292,7 +286,7 @@ impl LatencyTest {
             let latency_samples = detected - tone_start;
             let latency_ms = (latency_samples as f32 / self.config.sample_rate as f32) * 1000.0;
 
-            if let Ok(mut result) = self.result_ms.lock() {
+            { let mut result = self.result_ms.lock();
                 *result = Some(latency_ms);
             }
 
@@ -300,7 +294,7 @@ impl LatencyTest {
             eprintln!("🎚️ [LatencyTest] Result: {latency_ms:.1}ms ({latency_samples} samples)");
         } else {
             self.state.store(LatencyTestState::Error as u8, Ordering::SeqCst);
-            if let Ok(mut error) = self.error_message.lock() {
+            { let mut error = self.error_message.lock();
                 *error = Some("Invalid sample timing".to_string());
             }
         }

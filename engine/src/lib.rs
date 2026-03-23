@@ -115,7 +115,8 @@ use cpal::Stream;
 // Native AudioEngine implementation (cpal-based)
 // ============================================
 #[cfg(not(target_arch = "wasm32"))]
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use parking_lot::Mutex;
 
 /// Simple audio engine that outputs silence to default device (native platforms)
 #[cfg(not(target_arch = "wasm32"))]
@@ -165,7 +166,7 @@ impl AudioEngine {
         self.is_running.store(true, Ordering::SeqCst);
 
         // Store stream to keep it alive (and allow cleanup on drop)
-        if let Ok(mut stream_guard) = self.stream.lock() {
+        { let mut stream_guard = self.stream.lock();
             *stream_guard = Some(stream);
         }
 
@@ -176,7 +177,7 @@ impl AudioEngine {
     pub fn stop(&self) {
         self.is_running.store(false, Ordering::SeqCst);
         // Drop the stream to release audio resources
-        if let Ok(mut stream_guard) = self.stream.lock() {
+        { let mut stream_guard = self.stream.lock();
             *stream_guard = None;
         }
     }

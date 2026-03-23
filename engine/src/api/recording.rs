@@ -12,9 +12,9 @@ use std::sync::Arc;
 /// Get list of available audio input devices
 pub fn get_audio_input_devices() -> Result<Vec<(String, String, bool)>, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let input_manager = graph.input_manager.lock();
     let devices = input_manager.get_devices();
 
     // Convert to tuple format: (id, name, is_default)
@@ -33,9 +33,9 @@ pub fn set_audio_input_device(device_index: i32) -> Result<String, String> {
     }
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let mut input_manager = graph.input_manager.lock();
     input_manager.select_device(device_index as usize).map_err(|e| e.to_string())?;
 
     Ok(format!("Selected input device {device_index}"))
@@ -51,7 +51,7 @@ pub fn get_audio_output_devices() -> Result<Vec<(String, String, bool)>, String>
 /// Pass empty string to use system default
 pub fn set_audio_output_device(device_name: &str) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut graph = graph_mutex.lock();
 
     let name = if device_name.is_empty() {
         None
@@ -67,7 +67,7 @@ pub fn set_audio_output_device(device_name: &str) -> Result<String, String> {
 /// Get currently selected output device name (empty string = system default)
 pub fn get_selected_audio_output_device() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.get_selected_output_device().unwrap_or_default())
 }
@@ -86,18 +86,18 @@ pub fn get_sample_rate() -> u32 {
 /// Returns peak amplitude (0.0 to 1.0+) for the specified channel (0=left, 1=right)
 pub fn get_input_channel_level(channel: u32) -> Result<f32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let input_manager = graph.input_manager.lock();
     Ok(input_manager.get_channel_peak(channel))
 }
 
 /// Get number of input channels for the current device
 pub fn get_input_channel_count() -> Result<u32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let input_manager = graph.input_manager.lock();
     Ok(u32::from(input_manager.get_input_channels()))
 }
 
@@ -108,9 +108,9 @@ pub fn get_input_channel_count() -> Result<u32, String> {
 /// Start capturing audio from the selected input device
 pub fn start_audio_input() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let mut input_manager = graph.input_manager.lock();
 
     // Start capturing with 10 seconds of buffer
     input_manager.start_capture(10.0).map_err(|e| e.to_string())?;
@@ -121,9 +121,9 @@ pub fn start_audio_input() -> Result<String, String> {
 /// Stop capturing audio
 pub fn stop_audio_input() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
-    let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+    let mut input_manager = graph.input_manager.lock();
     input_manager.stop_capture().map_err(|e| e.to_string())?;
 
     Ok("Audio input stopped".to_string())
@@ -138,7 +138,7 @@ pub fn stop_audio_input() -> Result<String, String> {
 /// Note: Audio input capture failures are non-fatal - MIDI recording can still proceed.
 pub fn start_recording() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut graph = graph_mutex.lock();
 
     // Capture playhead position BEFORE starting playback
     // This is where the recorded clip will be placed on the timeline
@@ -192,7 +192,7 @@ pub fn start_recording() -> Result<String, String> {
     // and start_capture() calls stream.play() which may wait for the audio callback.
     eprintln!("🎙️  [API] Attempting to acquire input_manager lock...");
     let audio_input_started = {
-        let mut input_manager = if let Ok(guard) = graph.input_manager.try_lock() { guard } else {
+        let mut input_manager = if let Some(guard) = graph.input_manager.try_lock() { guard } else {
             eprintln!("⚠️  [API] Could not acquire input_manager lock, skipping audio input");
             return Ok(format!("Recording started (MIDI only, input busy): {state:?}"));
         };
@@ -233,13 +233,13 @@ pub fn start_recording() -> Result<String, String> {
 /// Stop recording and return the recorded clip ID
 pub fn stop_recording() -> Result<Option<u64>, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let clip_option = graph.recorder.stop_recording()?;
 
     // Stop audio input to prevent buffer overflow
     {
-        let mut input_manager = graph.input_manager.lock().map_err(|e| e.to_string())?;
+        let mut input_manager = graph.input_manager.lock();
         if input_manager.is_capturing() {
             eprintln!("🛑 [API] Stopping audio input after recording...");
             input_manager.stop_capture().map_err(|e| e.to_string())?;
@@ -250,18 +250,16 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
         // Find armed audio tracks — only place audio clips on explicitly armed tracks.
         // If no audio tracks are armed, discard the audio clip (MIDI-only recording).
         let armed_tracks: Vec<(u64, u32)> = {
-            let tm = graph.track_manager.lock().map_err(|e| e.to_string())?;
+            let tm = graph.track_manager.lock();
             let armed: Vec<(u64, u32)> = tm.get_all_tracks()
                 .into_iter()
                 .filter_map(|t| {
-                    if let Ok(track) = t.lock() {
+                    { let track = t.lock();
                         if track.track_type == crate::track::TrackType::Audio && track.armed {
                             Some((track.id, track.input_channel))
                         } else {
                             None
                         }
-                    } else {
-                        None
                     }
                 })
                 .collect();
@@ -289,7 +287,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
 
         let mut first_clip_id = None;
         let clips_mutex = get_audio_clips()?;
-        let mut clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+        let mut clips_map = clips_mutex.lock();
 
         for (track_id, input_channel) in &armed_tracks {
             // Extract this track's assigned input channel from the stereo recording
@@ -346,7 +344,7 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
 /// Get current recording state (0=Idle, 1=CountingIn, 2=Recording, 3=WaitingForPunchIn)
 pub fn get_recording_state() -> Result<i32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     use crate::recorder::RecordingState;
     let state = match graph.recorder.get_state() {
@@ -362,7 +360,7 @@ pub fn get_recording_state() -> Result<i32, String> {
 /// Get recorded duration in seconds
 pub fn get_recorded_duration() -> Result<f64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_recorded_duration())
 }
@@ -371,7 +369,7 @@ pub fn get_recorded_duration() -> Result<f64, String> {
 /// Returns CSV of peak values (0.0-1.0) for UI display
 pub fn get_recording_waveform(num_peaks: usize) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let peaks = graph.recorder.get_recording_waveform(num_peaks);
     let csv = peaks.iter()
@@ -385,7 +383,7 @@ pub fn get_recording_waveform(num_peaks: usize) -> Result<String, String> {
 /// Set count-in duration in bars
 pub fn set_count_in_bars(bars: u32) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     graph.recorder.set_count_in_bars(bars);
     Ok(format!("Count-in set to {bars} bars"))
@@ -394,7 +392,7 @@ pub fn set_count_in_bars(bars: u32) -> Result<String, String> {
 /// Get count-in duration in bars
 pub fn get_count_in_bars() -> Result<u32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_count_in_bars())
 }
@@ -402,7 +400,7 @@ pub fn get_count_in_bars() -> Result<u32, String> {
 /// Get current count-in beat number (1-indexed, 0 when not counting in)
 pub fn get_count_in_beat() -> Result<u32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_count_in_beat())
 }
@@ -410,7 +408,7 @@ pub fn get_count_in_beat() -> Result<u32, String> {
 /// Get count-in progress (0.0-1.0, ring depletion amount)
 pub fn get_count_in_progress() -> Result<f32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_count_in_progress())
 }
@@ -421,51 +419,51 @@ pub fn get_count_in_progress() -> Result<f32, String> {
 
 pub fn set_punch_in_enabled(enabled: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     graph.recorder.set_punch_in_enabled(enabled);
     Ok(format!("Punch-in {}", if enabled { "enabled" } else { "disabled" }))
 }
 
 pub fn is_punch_in_enabled() -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     Ok(graph.recorder.is_punch_in_enabled())
 }
 
 pub fn set_punch_out_enabled(enabled: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     graph.recorder.set_punch_out_enabled(enabled);
     Ok(format!("Punch-out {}", if enabled { "enabled" } else { "disabled" }))
 }
 
 pub fn is_punch_out_enabled() -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     Ok(graph.recorder.is_punch_out_enabled())
 }
 
 pub fn set_punch_region(in_seconds: f64, out_seconds: f64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     graph.recorder.set_punch_region(in_seconds, out_seconds);
     Ok(format!("Punch region set: {in_seconds:.3}s - {out_seconds:.3}s"))
 }
 
 pub fn get_punch_in_seconds() -> Result<f64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     Ok(graph.recorder.get_punch_in_seconds())
 }
 
 pub fn get_punch_out_seconds() -> Result<f64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     Ok(graph.recorder.get_punch_out_seconds())
 }
 
 pub fn is_punch_complete() -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     Ok(graph.recorder.is_punch_complete())
 }

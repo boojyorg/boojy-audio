@@ -12,7 +12,7 @@ use super::helpers::get_audio_graph;
 /// Adjusts playhead position so visual position stays the same (no jump when tempo changes)
 pub fn set_tempo(bpm: f64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get current tempo and playhead before changing
     let old_tempo = graph.recorder.get_tempo();
@@ -37,7 +37,7 @@ pub fn set_tempo(bpm: f64) -> Result<String, String> {
 /// Get tempo in BPM
 pub fn get_tempo() -> Result<f64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_tempo())
 }
@@ -49,7 +49,7 @@ pub fn get_tempo() -> Result<f64, String> {
 /// Enable or disable metronome
 pub fn set_metronome_enabled(enabled: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     graph.recorder.set_metronome_enabled(enabled);
     Ok(format!("Metronome {}", if enabled { "enabled" } else { "disabled" }))
@@ -58,7 +58,7 @@ pub fn set_metronome_enabled(enabled: bool) -> Result<String, String> {
 /// Check if metronome is enabled
 pub fn is_metronome_enabled() -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.is_metronome_enabled())
 }
@@ -70,7 +70,7 @@ pub fn is_metronome_enabled() -> Result<bool, String> {
 /// Set time signature (beats per bar)
 pub fn set_time_signature(beats_per_bar: u32) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     graph.recorder.set_time_signature(beats_per_bar);
     Ok(format!("Time signature set to {beats_per_bar}/4"))
@@ -79,7 +79,7 @@ pub fn set_time_signature(beats_per_bar: u32) -> Result<String, String> {
 /// Get time signature (beats per bar)
 pub fn get_time_signature() -> Result<u32, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.recorder.get_time_signature())
 }

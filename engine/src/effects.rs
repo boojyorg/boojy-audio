@@ -868,7 +868,8 @@ impl EffectType {
 // EFFECT MANAGER
 // ========================================================================
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 
 /// Effect manager: holds all effect instances
@@ -952,7 +953,7 @@ impl EffectManager {
     /// Returns new effect ID on success, None if source effect not found
     pub fn duplicate_effect(&mut self, source_effect_id: EffectId) -> Option<EffectId> {
         if let Some(source_effect_arc) = self.effects.get(&source_effect_id) {
-            let source_effect = source_effect_arc.lock().expect("mutex poisoned");
+            let source_effect = source_effect_arc.lock();
 
             // Clone the effect (deep copy)
             let cloned_effect = source_effect.clone();
@@ -964,7 +965,7 @@ impl EffectManager {
 
             self.effects.insert(new_id, Arc::new(Mutex::new(cloned_effect)));
             eprintln!("🎛️ [EffectManager] Duplicated effect {} → {} ({})",
-                      source_effect_id, new_id, self.effects.get(&new_id).unwrap().lock().expect("mutex poisoned").name());
+                      source_effect_id, new_id, self.effects.get(&new_id).unwrap().lock().name());
 
             Some(new_id)
         } else {

@@ -1,7 +1,8 @@
 /// Audio input and recording functionality
 use cpal::traits::{DeviceTrait, HostTrait};
 use ringbuf::{traits::{Observer, Consumer, Producer}, HeapRb};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 use anyhow::Result;
 
@@ -177,7 +178,7 @@ impl AudioInputManager {
                 peak_right.store(max_right.to_bits(), Ordering::Relaxed);
 
                 // Write input samples to ring buffer
-                if let Ok(mut buffer) = ring_buffer_clone.lock() {
+                { let mut buffer = ring_buffer_clone.lock();
                     for &sample in data {
                         // If buffer is full, drop oldest samples
                         if buffer.is_full() {
@@ -222,7 +223,7 @@ impl AudioInputManager {
     /// Returns samples in interleaved stereo format
     pub fn read_samples(&self, num_samples: usize) -> Option<Vec<f32>> {
         if let Some(buffer_arc) = &self.input_buffer {
-            if let Ok(mut buffer) = buffer_arc.lock() {
+            { let mut buffer = buffer_arc.lock();
                 let mut samples = Vec::with_capacity(num_samples);
                 for _ in 0..num_samples {
                     if let Some(sample) = buffer.try_pop() {
@@ -240,7 +241,7 @@ impl AudioInputManager {
     /// Get the number of samples currently in the buffer
     pub fn get_buffer_fill(&self) -> usize {
         if let Some(buffer_arc) = &self.input_buffer {
-            if let Ok(buffer) = buffer_arc.lock() {
+            { let buffer = buffer_arc.lock();
                 return buffer.occupied_len();
             }
         }
@@ -250,7 +251,7 @@ impl AudioInputManager {
     /// Clear the input buffer
     pub fn clear_buffer(&self) {
         if let Some(buffer_arc) = &self.input_buffer {
-            if let Ok(mut buffer) = buffer_arc.lock() {
+            { let mut buffer = buffer_arc.lock();
                 buffer.clear();
             }
         }
