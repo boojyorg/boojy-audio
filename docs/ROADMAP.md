@@ -4,6 +4,22 @@
 
 ---
 
+## Vision
+
+Boojy Audio is a free, open-source, cross-platform DAW designed to fill the gap between beginner-friendly but limited tools (GarageBand) and powerful but overwhelming professional software (Ableton, Logic, Pro Tools).
+
+Part of the larger **Boojy creative software suite**, it aims to be the first DAW that is simultaneously accessible to beginners and capable enough for serious production.
+
+### Core Principles
+
+- **Performance first** — Runs smoothly on modest hardware
+- **Minimal but complete** — Every feature polished, nothing half-done
+- **Progressive disclosure** — Simple by default, powerful when needed
+- **Cross-platform** — Same experience on Mac, Windows, Linux, and Web
+- **Ecosystem thinking** — Designed as part of the Boojy suite from day one
+
+---
+
 ## What's Next
 
 ### v0.2.0 — Recording & Mixing Essentials
@@ -13,12 +29,12 @@
 - [ ] MIDI CC recording (sustain pedal + pitch bend)
 - [x] Input monitoring (hear live input through DAW) — done in v0.1.5
 - [ ] Tempo automation (master tempo track)
-- [ ] Punch in/out recording
+- [x] Punch in/out recording — done in v0.1.5
 - [ ] Freeze/bounce track (non-destructive)
-- [ ] Scale/key snapping in piano roll
+- [x] Scale/key snapping in piano roll — done in v0.1.5
 - [ ] MIDI Learn (map hardware controllers to parameters)
 
-See [docs/v0.2-design.md](v0.2-design.md) for full design spec with mockups.
+See [v0.2-design.md](v0.2-design.md) for full design spec with mockups.
 
 ---
 
@@ -45,8 +61,8 @@ Focus: Core functionality, stability, audio clip features
 - [x] Sampler track type (basic)
 - [x] Project rename and versioning
 - [x] Pitch control (semitones/cents)
-- [x] Track automation (volume/pan) — see v0.2.0 Details
-- [x] Velocity UI improvements — see v0.2.0 Details
+- [x] Track automation (volume/pan)
+- [x] Velocity UI improvements
 
 ---
 
@@ -176,7 +192,7 @@ Focus: Built-in instruments that sound good
 
 ---
 
-### v0.5.0 — Polish & UX
+### v0.6.0 — Polish & UX
 
 Focus: Make it feel professional
 
@@ -200,19 +216,333 @@ Focus: Ready for real users
 
 ---
 
-## Vision
+## v1.0 Feature Progress
 
-Boojy Audio is a free, open-source, cross-platform DAW designed to fill the gap between beginner-friendly but limited tools (GarageBand) and powerful but overwhelming professional software (Ableton, Logic, Pro Tools).
+Detailed tracker of all v1.0 features and their status.
 
-Part of the larger **Boojy creative software suite**, it aims to be the first DAW that is simultaneously accessible to beginners and capable enough for serious production.
+### Views & Workflow
 
-### Core Principles
+**Arrangement View:**
+- [x] Linear timeline for composing
+- [x] Multi-track display with track headers
+- [x] Time ruler with bars/beats
+- [x] Playhead indicator (blue, draggable)
+- [x] Horizontal scrolling and zooming
+- [x] Loop region markers (with draggable handles)
+- [x] Snap dropdown (Off/Bar/Beat/1/2/1/4)
+- [x] Loop toggle button (L keyboard shortcut)
+- [x] Context menus (clips, empty area, ruler)
+- [ ] Arranger track (drag sections to rearrange)
 
-- **Performance first** — Runs smoothly on modest hardware
-- **Minimal but complete** — Every feature polished, nothing half-done
-- **Progressive disclosure** — Simple by default, powerful when needed
-- **Cross-platform** — Same experience on Mac, Windows, Linux, and Web
-- **Ecosystem thinking** — Designed as part of the Boojy suite from day one
+**Mixer:**
+- [x] Always-visible mixer panel (right side)
+- [x] Volume faders per track
+- [x] Pan controls per track
+- [x] Mute/Solo buttons
+- [x] Master track with limiter
+- [x] Stereo level meters
+- [ ] Track grouping (link tracks together)
+- [ ] Bus/Aux sends UI
+
+**UI & Themes:**
+- [x] 3-panel layout (Library | Timeline | Mixer)
+- [x] Resizable panels with drag dividers
+- [x] Dark theme (Boojy Design System)
+- [x] Bottom panel (Piano Roll / FX Chain / Instrument)
+- [ ] High contrast themes (Light HC, Dark HC)
+- [ ] Multiple monitor support (plugin windows on second monitor)
+
+### Recording
+
+**Audio Recording:**
+- [x] Record from mic/interface
+- [x] Input selection per track
+- [x] Record arm button
+- [x] Count-in metronome (1 bar)
+- [x] Punch in/out
+- [x] Input monitoring (auto mode)
+- [ ] Loop recording (multiple takes)
+- [ ] Comping / take lanes
+- [ ] Pre-roll / Post-roll
+
+**MIDI Recording:**
+- [x] Record from MIDI controller
+- [x] Virtual piano keyboard input
+- [x] Computer keyboard mapping (ASDF keys)
+- [ ] Capture MIDI (retroactive recording)
+
+### MIDI Editing
+
+**Piano Roll:**
+- [x] Basic note drawing and editing
+- [x] Velocity lane
+- [x] Note preview on click/drag (FL Studio-style)
+- [x] Real-time pitch audition while moving notes
+- [x] Delete notes (right-click or delete key)
+- [x] Multi-note selection
+- [x] Scale/key highlighting
+- [ ] Ghost notes (show notes from other clips)
+- [ ] Chord detection and tools
+- [ ] Quantize options (1/4, 1/8, 1/16, 1/32)
+- [ ] Humanize
+
+**Step Sequencer:**
+- [ ] 16-step grid editor
+- [ ] Default for drum instruments
+- [ ] Per-step velocity editing
+- [ ] Swing control
+- [ ] Pattern length selector
+
+### Audio Editing
+
+**Clip Operations:**
+- [x] Cut/copy/paste clips
+- [x] Split clips at playhead (Cmd+E)
+- [x] Move clips
+- [x] Delete clips
+- [x] Quantize clips to grid (Q key)
+- [x] Multi-selection (Shift+click, Cmd+click)
+- [x] Consolidate clips (Cmd+J)
+- [ ] Merge clips
+- [ ] Duplicate clips
+
+**Clip Trimming:**
+- [x] Audio clip left/right edge trim
+- [x] MIDI clip left edge trim
+- [x] Non-destructive trimming (offset)
+- [x] Grid snapping for trim operations
+- [ ] Crossfades between clips
+
+**Audio Processing:**
+- [x] Fade in/out (basic)
+- [x] Warp/time stretch
+- [x] Pitch shift (semitones/cents)
+- [ ] Reverse audio
+- [ ] Normalize
+- [ ] Transient detection
+
+### Automation
+
+- [x] Basic automation lanes (volume/pan)
+- [x] Draw automation points
+- [ ] Automation shapes (sine, square, ramp)
+- [ ] Per-parameter automation lanes
+
+### Mixing
+
+**Track Controls:**
+- [x] Volume faders
+- [x] Pan controls (proper stereo imaging)
+- [x] Mute/Solo/Record buttons
+- [x] Track height resizing (from mixer)
+- [ ] Track colors (auto-assign from palette)
+- [ ] Track icons
+
+**Routing:**
+- [ ] Sidechain routing UI
+- [ ] Pre/Post fader sends
+- [ ] Track folders/groups
+- [ ] Summing groups (folder + bus)
+
+**Metering:**
+- [x] Peak metering (stereo)
+- [ ] RMS metering
+- [ ] LUFS metering with platform targets
+- [ ] Mastering meter UI (Spotify/Apple Music targets)
+
+**Effects:**
+- [x] EQ
+- [x] Compressor
+- [x] Reverb
+- [x] Delay
+- [x] Limiter (master)
+- [x] FX Chain view (horizontal signal flow)
+- [x] Effect bypass toggle
+- [x] Drag-to-reorder effects
+- [ ] Chorus
+- [ ] Plugin delay compensation
+
+### Tempo & Time
+
+- [x] Fixed tempo (BPM display)
+- [ ] Time signature changes
+- [ ] Tempo automation
+- [ ] Tap tempo
+- [ ] Swing (0-100% slider)
+
+### Tracks & Organization
+
+- [x] Audio tracks
+- [x] MIDI tracks
+- [x] Master track (always at bottom)
+- [x] Add track menu (Audio/MIDI dropdown)
+- [ ] Aux/Bus tracks
+- [ ] Freeze tracks (save CPU)
+- [ ] Bounce in place
+- [ ] Track templates
+- [ ] Markers/Locators
+
+### Browser & Library
+
+- [x] Library panel (left side)
+- [x] Expandable categories (Sounds, Instruments, Effects, Plugins)
+- [x] Drag instruments to timeline (auto-create track)
+- [x] Preview/Audition sounds
+- [ ] File browser
+- [ ] Sync preview to tempo
+- [ ] Favorites
+- [ ] Search
+- [ ] Collections
+
+### Project & File
+
+**Save/Load:**
+- [x] Save projects (.boojy format)
+- [x] Load projects
+- [x] Auto-save
+- [ ] Backup versions
+- [ ] Version history
+- [ ] Project templates
+- [ ] Collect all and save
+
+**Export:**
+- [x] Export WAV (16/24/32-bit)
+- [x] Export MP3 (128/192/320 kbps)
+- [x] Stem export (per-track)
+- [x] Export MIDI
+- [x] Import MIDI
+- [ ] Export with LUFS normalization
+- [ ] Export progress tracking
+- [ ] ID3 metadata for MP3
+- [ ] Export FLAC
+
+### Plugins
+
+**VST3 Support:**
+- [x] Scan installed VST3 plugins
+- [x] Load VST3 instruments
+- [x] Load VST3 effects
+- [x] Plugin UI embedded in bottom panel
+- [x] Floating plugin windows
+- [x] Plugin state save/load with projects
+- [x] Per-plugin display preferences (embed/float)
+- [ ] Plugin preset browsing
+- [ ] AU support (Mac)
+- [ ] VST2 support (legacy)
+- [ ] Plugin manager
+
+### Stock Instruments
+
+- [ ] Basic synthesizer (8-voice, ADSR, filter)
+- [ ] Boojy Synth (wavetable, Serum-style)
+- [ ] Boojy Sampler (simple/advanced modes)
+- [ ] Boojy Drums (pad grid + step sequencer)
+- [ ] Preset Player (piano, strings, etc.)
+
+### Keyboard Shortcuts
+
+- [x] Space = Play/Pause
+- [x] R = Record
+- [x] L = Toggle Loop
+- [x] B = Toggle Library Panel
+- [x] M = Toggle Mixer Panel
+- [x] Cmd+S = Save
+- [x] Cmd+E = Split clip
+- [x] Q = Quantize clip
+- [x] Cmd+J = Consolidate clips
+- [x] Cmd+Z / Cmd+Shift+Z = Undo/Redo
+- [x] Cmd+K = Command Palette
+- [x] Native macOS menu bar shortcuts
+- [ ] ? = Show keyboard shortcuts overlay
+- [ ] Customizable shortcuts
+
+### Accessibility & Performance
+
+- [x] CPU meter display
+- [x] Undo/Redo
+- [ ] Undo history panel
+- [ ] Tooltips on all buttons
+- [ ] Built-in tutorial (Quick Start + Full Course)
+- [ ] First launch onboarding
+
+### Platforms
+
+- [x] macOS (Intel + Apple Silicon)
+- [x] iOS/iPad (basic support)
+- [ ] Windows
+- [ ] Linux (future)
+
+---
+
+## Remaining Milestones
+
+### M8: Stock Instruments (3 weeks)
+
+**Goal:** Add 5 built-in instruments (Piano, Synth, Sampler, Drums, Bass).
+
+**Tasks:**
+- Rust: Create `Instrument` trait, integrate into audio graph
+- Piano: Multi-sample player with velocity layers, sustain pedal, ADSR
+- Synth: 2-oscillator subtractive, ADSR, low-pass filter with resonance, LFO
+- Sampler: Multi-sample support, velocity layers, loop points, ADSR
+- Drums: 16-pad machine (4×4), pre-loaded kits (808, 909, Acoustic)
+- Bass: Sub bass synthesizer (808-style), pitch envelope, saturation, filter
+- Flutter: Instrument selector dropdown on MIDI track headers
+
+### M9: Polish & UX (2 weeks)
+
+**Goal:** Final UX polish, tooltips, error handling, keyboard shortcuts, preferences.
+
+**Tasks:**
+- Tooltips on all buttons with keyboard shortcut hints
+- Toast notifications for minor events, banner warnings for critical errors
+- Preferences window (Cmd+,): Audio, MIDI, File, Appearance tabs
+- Track colors (auto-assign from palette)
+- Clip naming (auto from filename, double-click to rename)
+- UI polish: spacing, alignment, animations
+- Bug fixes and performance profiling
+
+### M10: Beta Testing & Launch (2 weeks)
+
+**Goal:** Private beta → public beta → v1.0 launch.
+
+**Week 1:** Private beta with 5-10 testers, feedback form, fix critical bugs
+**Week 2:** Public beta tag, Reddit/social posts, YouTube tutorials, launch day
+
+---
+
+## Future Versions (Post-1.0)
+
+### v1.1 — iPad & Accessibility
+
+- Touch-optimized UI
+- Apple Pencil support
+- Screen reader support
+- CLAP plugin support
+- Automation curves (Bezier)
+- Groove presets (MPC, SP-1200, TR-808, etc.)
+
+### v1.2 — Advanced Features
+
+- Pitch correction (Melodyne-style)
+- Stem separation (ML-based)
+- MIDI effects (arpeggiator, chord, scale)
+- Dolby Atmos
+- Smart tempo (detect tempo from audio)
+- Customizable keyboard shortcuts
+
+### v1.3 — Collaboration
+
+- Cloud sync (Boojy Cloud)
+- Real-time collaboration
+- Video import for scoring
+- Notation view
+
+### v2.0 — Live Performance
+
+- DJ Mode (two decks, crossfader)
+- Session View (Ableton-style clip launcher)
+- Live audio looping
 
 ---
 
@@ -235,34 +565,19 @@ Each major feature draws inspiration from the best existing implementation:
 
 ---
 
-## Future Versions (Post-1.0)
+## Not Including (Design Decisions)
 
-### v1.1 — iPad & Accessibility
-
-- Touch-optimized UI
-- Apple Pencil support
-- Screen reader support
-- CLAP plugin support
-
-### v1.2 — Advanced Features
-
-- Pitch correction (Melodyne-style)
-- Stem separation (ML-based)
-- MIDI effects (arpeggiator, chord, scale)
-- Dolby Atmos
-
-### v1.3 — Collaboration
-
-- Cloud sync (Boojy Cloud)
-- Real-time collaboration
-- Video import for scoring
-- Notation view
-
-### v2.0 — Live Performance
-
-- DJ Mode (two decks, crossfader)
-- Session View (Ableton-style clip launcher)
-- Live audio looping
+| Feature | Reason |
+|---------|--------|
+| Detachable windows | Keep UI simple, beginner-friendly |
+| Pattern-based workflow | Use arranger track instead |
+| Tagging system | Keep library simple |
+| Read/Write automation modes | Too complex for beginners |
+| Drummer/Session Player | Focus on great instruments |
+| AI auto-mastering | Give users control with guidance |
+| Complex groove pool | Too overwhelming, use swing + presets |
+| Info panel | Use tooltips instead |
+| Sync preview to key | Too complex for v1.0 |
 
 ---
 
@@ -291,7 +606,7 @@ Each major feature draws inspiration from the best existing implementation:
 
 ## Contributing
 
-Boojy Audio is open-source (GPL v3). Contributions welcome!
+Boojy Audio is open-source (MIT). Contributions welcome!
 
 - Report bugs: [GitHub Issues](https://github.com/tyrbujac/boojy-audio/issues)
 - Suggest features: [GitHub Discussions](https://github.com/tyrbujac/boojy-audio/discussions)
@@ -301,4 +616,4 @@ Boojy Audio is open-source (GPL v3). Contributions welcome!
 
 ## Historical Milestones
 
-For the original milestone-based development history (M0-M10), see [docs/archive/MILESTONES.md](archive/MILESTONES.md).
+For the original milestone-based development history (M0-M10), see [archive/MILESTONES.md](archive/MILESTONES.md) and [archive/IMPLEMENTATION.md](archive/IMPLEMENTATION.md).

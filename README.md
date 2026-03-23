@@ -15,7 +15,7 @@ Or visit [boojy.org](https://boojy.org) for more information.
 
 Boojy Audio combines professional workflows with beginner-friendly UX. Built with Flutter (UI) and Rust (audio engine), it's designed to work seamlessly across macOS, iPad, and eventually web, Windows, Linux, iOS, and Android.
 
-**Current Status:** Early Alpha (v0.1.0) — See [CHANGELOG.md](CHANGELOG.md) for details.
+**Current Status:** Alpha (v0.1.5) — See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Features
 
@@ -95,7 +95,6 @@ Boojy Audio combines professional workflows with beginner-friendly UX. Built wit
     /widgets    # Reusable components
     /state      # State management
   /assets       # Icons, fonts, samples
-/packs          # Starter sample packs
 /docs           # Documentation
 ```
 

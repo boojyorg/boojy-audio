@@ -1,13 +1,12 @@
 # Boojy Audio - UI Design Notes
 
-**Last Updated:** December 30, 2025
-**Current Version:** M7 (VST3 Plugin Support Complete)
+**Last Updated:** March 2026
+**Current Version:** v0.1.5 (Alpha)
 
 **Related Documentation:**
 
-- [FEATURES.md](FEATURES.md) — Complete feature specification for all versions
-- [ROADMAP.md](ROADMAP.md) — Vision, timeline, and development progress
-- [IMPLEMENTATION.md](IMPLEMENTATION.md) — Detailed development tasks
+- [ROADMAP.md](ROADMAP.md) — Features, versions, and development progress
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System design and code organization
 
 ---
 
@@ -15,7 +14,7 @@
 
 ### Layout Overview
 
-Boojy Audio now has a professional 3-panel DAW interface similar to Ableton Live:
+Boojy Audio has a professional 3-panel DAW interface:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -31,36 +30,87 @@ Boojy Audio now has a professional 3-panel DAW interface similar to Ableton Live
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Color Scheme (Light Grey Theme)
+---
 
-#### Side Panels
-- **Background:** `#707070` (medium grey)
-- **Headers:** `#656565` (slightly darker for hierarchy)
-- **Borders:** `#909090` (light grey, subtle separation)
-- **Use:** Library panel (left), Mixer panel (right), Transport bar (top), Bottom panel
+## Boojy Design System (Color Scheme)
 
-#### Center Timeline (Focus Area)
-- **Background:** `#909090` (light grey - **lighter than sides**)
-- **Track Rows:** `#9A9A9A` (even lighter for individual tracks)
-- **Borders:** `#AAAAAA` (very subtle)
-- **Grid Lines:** `#A0A0A0` (subtle grid)
-- **Use:** Main timeline area where user works
+The app uses the `BoojyColors` class with four theme variants. Colors are accessed via `context.colors.propertyName`.
 
-#### Text Colors (Dark on Light)
-- **Primary Text:** `#202020` (very dark grey, almost black)
-- **Secondary Text:** `#353535` (dark grey for less important text)
-- **Tertiary/Disabled:** `#505050` (medium-dark for disabled elements)
-- **Icons:** `#404040` (medium-dark)
+**Files:**
+- `ui/lib/theme/app_colors.dart` — Main BoojyColors class (theme palettes)
+- `ui/lib/theme/theme_provider.dart` — Theme state management
+- `ui/lib/theme/theme_extension.dart` — BuildContext extensions
+- `ui/lib/utils/track_colors.dart` — Track-specific colors and palettes
 
-#### Special Elements
-- **Status Bar:** `#606060` background, `#808080` border (darker to anchor bottom)
-- **Master Track:** `#606060` background with `#4CAF50` green border
+### Themes
 
-#### Accent Colors (Unchanged from Dark Theme)
-- **Green:** `#4CAF50` (play, success, active)
-- **Red:** `#FF5722` (record, error, danger)
-- **Yellow:** `#FFC107` (warning, solo active)
-- **Blue:** `#2196F3` (metronome, info)
+Four available themes: `dark` (default), `highContrastDark`, `light`, `highContrastLight`.
+
+### Dark Theme (Default)
+
+**Backgrounds:**
+- `editor`: `#040412` — deep content area (star field)
+- `darkest`: `#13151C` — text inputs
+- `dark`: `#2C2C32` — chrome (sidebar, top bar)
+- `standard`: `#272A38` — forms, secondary surfaces
+- `elevated`: `#292B36` — floating UI
+- `surface`: `#353845` — hover, cards
+- `divider`: `#3A3D4A` — borders
+- `hover`: `#4A4D5A` — hover states
+
+**Text:**
+- `textPrimary`: `#E8EAF0`
+- `textSecondary`: `#9B9EB0`
+- `textMuted`: `#646880`
+
+**Accent:**
+- `accent`: `#40B3E8` — Boojy Audio Blue (primary)
+- `accentHover`: `#5CC3F0`
+
+### Light Theme
+
+**Backgrounds:**
+- `editor`: `#F8FAFC`
+- `darkest`: `#FFFFFF`
+- `dark`: `#F5F5F5`
+- `standard`: `#EBEBEB`
+- `elevated`: `#E0E0E0`
+- `surface`: `#D5D5D5`
+- `divider`: `#C0C0C0`
+- `hover`: `#B0B0B0`
+
+**Text:**
+- `textPrimary`: `#1A1A1A`
+- `textSecondary`: `#4A4A4A`
+- `textMuted`: `#707070`
+
+**Accent:**
+- `accent`: `#0284C7`
+- `accentHover`: `#0369A1`
+
+### Semantic Colors (All Themes)
+
+- `success`: `#4CAF50` (green)
+- `warning`: `#FFC107` (yellow/amber)
+- `error`: `#FF5722` (red/orange)
+
+### Component Colors (All Themes)
+
+**Level Meters:** `meterGreen` (#4CAF50), `meterYellow` (#FFC107), `meterRed` (#FF5722)
+**Button States:** `soloActive` (#3B82F6), `muteActive` (#FACC15), `recordActive` (#EF4444), `buttonInactive` (#909090)
+**Timeline:** `playhead` (#FF5252), `selection` (accent @ 30% opacity), `gridLine` (divider @ 50% opacity), `waveform` (accent)
+**Piano:** `pianoWhiteKey` (#F5F5F5), `pianoBlackKey` (#2A2A2A)
+
+### Track Colors
+
+**Auto-detection by category:**
+- drums: `#EF4444` (red), bass: `#F97316` (orange), synth: `#22C55E` (green)
+- guitar: `#3B82F6` (blue), vocals: `#9775FA` (purple), fx: `#EC4899` (pink)
+- audio: `#9CA3AF` (grey), master: `#3B82F6` (blue)
+
+**Manual palette (16 colors):**
+- Soft: #FFA8A8, #FFC078, #FFF3BF, #96F2D7, #74C0FC, #B197FC, #FCC2D7, #CED4DA
+- Vibrant: #FF6B6B, #FF922B, #FFD43B, #69DB7C, #4DABF7, #9775FA, #F06595, #868E96
 
 ---
 
@@ -69,337 +119,87 @@ Boojy Audio now has a professional 3-panel DAW interface similar to Ableton Live
 ### 1. Transport Bar (Top)
 **File:** `ui/lib/widgets/transport_bar.dart`
 
-**Features:**
 - Logo (left side)
 - Transport controls: ⏮ ⏺ ▶ ⏹ ⏭
-- Metronome toggle 🎵
-- Virtual Piano toggle 🎹
-- Tempo display (♩120 BPM)
-- Time display (00:00.000)
-- Position display (bar.beat.subdivision like "1.1.1")
+- Metronome toggle, Virtual Piano toggle
+- Tempo display (♩120 BPM), Time display (00:00.000)
+- Position display (bar.beat.subdivision)
 - CPU usage indicator (with color coding)
-- Status indicator (Recording/Playing/Stopped)
-- File menu button 📁
-- Mixer toggle button ⚙️
-- Loading spinner (when saving/loading)
-
-**Layout:** Single 60px height bar with all controls
+- File menu button, Mixer toggle button
+- 60px height
 
 ### 2. Library Panel (Left)
 **File:** `ui/lib/widgets/library_panel.dart`
 
-**Features:**
 - 200px width (collapsible to 40px)
-- 4 categories with expansion:
-  - 🎵 **Sounds** - Audio samples, loops, one-shots
-  - 🎹 **Instruments** - Piano, Synth, Drums, Bass, Sampler
-  - 📊 **Effects** - EQ, Compressor, Reverb, Delay, Chorus, Limiter
-  - 🧩 **Plug-Ins** - VST3 plugins (placeholder)
-- Collapsible categories (click to expand/collapse)
-- Items are clickable (future: drag to timeline)
-
-**Status:** Basic structure complete, no drag-and-drop yet
+- 4 categories: Sounds, Instruments, Effects, Plug-Ins
+- Collapsible categories
+- Audio preview with waveform visualization
+- Drag instruments to timeline
 
 ### 3. Timeline (Center)
 **File:** `ui/lib/widgets/timeline_view.dart`
 
-**Features:**
-- Time ruler at top (shows bars/beats)
-- Multi-track display with track headers on left
-- Horizontal scroll for long projects
-- Zoom controls at bottom
-- Grid lines for bars and beats
-- Playhead indicator (red line)
-- Track rows with 100px height
-- Default: 1 audio track + master track
-
-**Track Header Features:**
-- Track emoji/icon
-- Track name
-- [S] Solo button
-- [M] Mute button
-- Level meter (vertical bars with color coding)
+- Time ruler (bars/beats)
+- Multi-track display with track headers
+- Horizontal scroll and zoom
+- Grid lines, playhead indicator
+- Loop region markers
+- Context menus on clips, empty area, ruler
 
 ### 4. Mixer Panel (Right)
 **File:** `ui/lib/widgets/mixer_panel.dart`
 
-**Features:**
-- 300px width, always visible
-- Track strips (100px each) with:
-  - Track name and type
-  - Volume fader (vertical)
-  - Pan knob (horizontal slider)
-  - [M] Mute button
-  - [S] Solo button
-  - [FX] Effects button (opens bottom panel)
-  - Delete button (×)
-- Master track strip (120px, special styling)
-- Add Track buttons at bottom (Audio | MIDI)
-- Horizontal scroll if many tracks
+- 300px width, always visible (toggleable)
+- Track strips: name, volume fader, pan, M/S/R buttons, FX button
+- Master track strip at bottom
+- Add Track buttons (Audio | MIDI)
+- Input selector per track with live level meters
 
 ### 5. Bottom Panel (Tabs)
 **File:** `ui/lib/widgets/bottom_panel.dart`
 
-**Features:**
-- 250px height
-- 3 tabs:
-  1. **Piano Roll** - Placeholder "Coming in M6"
-  2. **FX Chain** - Shows effects for selected track
-  3. **Virtual Piano** - 2-octave keyboard
-- Auto-switches to relevant tab when needed
-- Shows when FX button clicked or Virtual Piano enabled
+- 250px height (resizable)
+- Tabs: Piano Roll, FX Chain, Virtual Piano
+- Auto-switches to relevant tab
 
 ### 6. Status Bar (Bottom)
-**Part of:** `ui/lib/screens/daw_screen.dart`
 
-**Features:**
 - 24px height
-- Shows audio engine status (✓ Ready or ⚠ Initializing)
-- Project name display
-- System status messages
+- Audio engine status, project name, system messages
 
 ---
 
-## Completed UI Work (M5.5)
+## Panel Behavior
 
-### ✅ Layout Changes
-- [x] Removed separate AppBar, consolidated into transport bar
-- [x] Created 3-panel layout (Library | Timeline | Mixer)
-- [x] Made mixer always visible (300px on right)
-- [x] Added library panel (200px on left)
-- [x] Added bottom tabbed panel (250px height)
-- [x] Moved logo to transport bar
-- [x] Moved file menu to transport bar
-- [x] Moved mixer toggle to transport bar
+### Resizable Dividers
+- 1px lines that expand to 3px on hover
+- Drag to resize, double-click to collapse/expand
+- Sizes saved in `ui_layout.json` per project
+- Constraints: Library 40-400px, Mixer 200-600px, Bottom 100-500px
 
-### ✅ New Widgets Created
-- [x] `LibraryPanel` - 4 categories with expansion
-- [x] `TrackHeader` - Timeline track headers with S/M/meters
-- [x] `BottomPanel` - Tabbed interface for tools
-
-### ✅ Theme Changes
-- [x] Changed from dark theme to light grey theme
-- [x] Updated all backgrounds to medium/light grey
-- [x] Changed all text from light to dark
-- [x] Updated borders to be lighter than backgrounds
-- [x] Made timeline lighter than side panels (focus)
-- [x] Updated 7+ widget files with new color scheme
-
-### ✅ Transport Bar Enhancements
-- [x] Added tempo display (BPM)
-- [x] Added position display (bar.beat.subdivision)
-- [x] Added CPU usage indicator
-- [x] Consolidated logo + controls into single bar
-
-### ✅ Resizable Panels (M5.5.1 - October 27, 2025)
-- [x] Created ResizableDivider widget (vertical and horizontal)
-- [x] Added draggable divider between Library and Timeline
-- [x] Added draggable divider between Timeline and Mixer
-- [x] Added draggable divider between Timeline and Bottom Panel
-- [x] Double-click dividers to collapse/expand panels
-- [x] Subtle hover effects (line highlights, cursor changes)
-- [x] Panel sizes saved to ui_layout.json per project
-- [x] Panel sizes restored when project reopened
-- [x] Min/max constraints (Library: 40-400px, Mixer: 200-600px, Bottom: 100-500px)
-
-### ✅ Master Track Repositioning (M5.5.1 - October 27, 2025)
-- [x] Moved master track to bottom of timeline
-- [x] Moved master track to bottom of mixer panel
-- [x] Used Spacer widget to push master to bottom
-- [x] Master stays at bottom even with no other tracks
-
-### ✅ UI Improvements (M5.5.1 - October 27, 2025)
-- [x] Moved zoom controls from bottom bar to top-right corner (+40px vertical space)
-- [x] Replaced bottom Audio/MIDI buttons with + button in mixer header
-- [x] Added dropdown menu for track creation (Audio Track / MIDI Track)
-- [x] Improved track creation UX (more discoverable for beginners)
+### Panel Proportions
+- **Balanced (default):** Library 12% | Timeline 63% | Mixer 25%
+- **Pro mode:** Library 0% | Timeline 75% | Mixer 25%
+- **Mix mode:** Library 0% | Timeline 50% | Mixer 50%
+- **Edit mode:** Library 12% | Timeline 88% | Mixer 0%
 
 ---
 
 ## Remaining UI Tasks
 
-### High Priority (Next Session)
-- [x] **Panel Collapsibility** ✅ DONE
-  - [x] ~~Add keyboard shortcut `B` to toggle library panel~~ (double-click divider works)
-  - [x] ~~Add keyboard shortcut `M` to toggle mixer panel~~ (double-click divider works)
-  - [x] ~~Add keyboard shortcut `P` to toggle bottom panel~~ (double-click divider works)
-  - [x] Save panel visibility state in preferences (saved in ui_layout.json)
-
-- [ ] **Track Colors**
-  - [ ] Auto-assign colors to tracks (red, orange, yellow, green, blue, purple)
-  - [ ] Show track color in track header
-  - [ ] Show track color in timeline clips
-  - [ ] Show track color in mixer strip
-
-- [ ] **Timeline Improvements**
-  - [x] ~~Add zoom slider (visible, not just +/- buttons)~~ ✅ DONE (compact controls in top-right)
-  - [ ] Add loop region markers
-  - [ ] Add position ruler labels (clearer bar numbers)
-  - [ ] Add snap-to-grid visual feedback
-
-- [ ] **Library Panel**
-  - [ ] Add search/filter bar at top
-  - [ ] Implement drag-and-drop to timeline
-  - [ ] Show waveform preview on hover (for audio)
-  - [ ] Add "Recent" and "Favorites" sections
+### High Priority
+- [ ] Track colors (auto-assign from palette, show in header/clips/mixer)
+- [ ] Library search/filter bar
+- [ ] Tooltips with keyboard shortcut hints
 
 ### Medium Priority
-- [ ] **Transport Bar**
-  - [ ] Make tempo clickable to edit (dialog or inline)
-  - [ ] Add loop on/off toggle button
-  - [ ] Add undo/redo buttons
-  - [ ] Show project name in title area
-
-- [ ] **Mixer Panel**
-  - [ ] Add "narrow view" mode (faders only)
-  - [ ] Add track input selector (for recording source)
-  - [ ] Add track routing display
-  - [ ] Add group/folder support
-
-- [ ] **Bottom Panel**
-  - [x] ~~Make height adjustable (drag divider)~~ ✅ DONE
-  - [ ] Add 4th tab for Automation
-  - [ ] Add maximize button (full-screen mode)
-  - [ ] Remember tab selection per track
-
-### Low Priority (Polish)
-- [ ] **Tooltips**
-  - [ ] Add keyboard shortcut hints to all buttons
-  - [ ] Add hover tooltips throughout
-  - [ ] Add context-sensitive help
-
-- [ ] **Context Menus**
-  - [ ] Right-click track header → Duplicate, Delete, Rename, Color
-  - [ ] Right-click timeline → Add Marker, Split Clip
-  - [ ] Right-click mixer strip → Reset, Copy Settings
-
-- [ ] **Onboarding**
-  - [ ] First launch tour overlay
-  - [ ] Empty state guidance
-  - [ ] Quick start video link
-
-- [ ] **Accessibility**
-  - [ ] Larger text option
-  - [ ] High contrast mode
-  - [ ] Keyboard navigation for all controls
-
----
-
-## Design Rationale
-
-### Why Light Grey Theme?
-- **Better visibility:** Light backgrounds reduce eye strain in well-lit environments
-- **Modern aesthetic:** Aligns with Ableton, Logic Pro X, and other modern DAWs
-- **Text contrast:** Dark text on light background is easier to read
-- **Professional look:** Clean, minimal, focused
-
-### Why Center Timeline is Lighter?
-- **Draw attention:** Lighter center focuses user on main workspace
-- **Visual hierarchy:** Side panels recede, timeline pops
-- **Ableton pattern:** Industry-standard approach for DAWs
-
-### Why Always-Visible Mixer?
-- **Quick access:** No need to toggle to adjust levels/pan
-- **Context awareness:** Always see what's in your mix
-- **Pro workflow:** Matches Logic Pro, Pro Tools convention
-- **Note:** Still toggleable for users who want max timeline space
-
-### Panel Proportions
-- **Library 12%** (~200px) - Enough for category names and items
-- **Timeline 63%** (flexible) - Maximum workspace for editing
-- **Mixer 25%** (~300px) - 3-4 track strips visible
-- **Flexible:** Users can collapse library or mixer for more space
-
-### Resizable Dividers
-- **Dividers:** 1px grey lines that expand to 3px on hover
-- **Interaction:** Drag to resize, double-click to collapse/expand
-- **Visual feedback:** Green highlight when dragging, hover changes cursor
-- **Persistence:** Sizes saved in `ui_layout.json` per project
-- **Smart constraints:** Min/max limits prevent broken layouts
-  - Library: 40px (collapsed) - 400px (max)
-  - Mixer: 200px (min) - 600px (max)
-  - Bottom Panel: 100px (min) - 500px (max)
-- **UX inspiration:** Ableton Live, Logic Pro X, VS Code
-
----
-
-## Known Issues / Quirks
-
-### Visual
-- ⚠️ Track headers don't sync with actual audio engine tracks yet
-- ⚠️ Level meters show static value (not real-time)
-- ⚠️ Master track height is different from audio tracks
-- ⚠️ Grid lines in timeline don't align with ruler perfectly
-
-### Interaction
-- ⚠️ Library items are not draggable yet
-- ⚠️ Track headers Solo/Mute don't have callbacks yet
-- ⚠️ No keyboard shortcuts for panel toggling yet
-- ⚠️ Bottom panel doesn't remember which tab was selected
-
-### Consistency
-- ⚠️ Some buttons use different shades of grey (audit needed)
-- ⚠️ Icon sizes vary slightly across panels
-- ⚠️ Spacing not perfectly uniform everywhere
-
----
-
-## References
-
-### Color Values Quick Reference
-```dart
-// Side panels
-0xFF707070  // Background (medium grey)
-0xFF656565  // Headers (darker)
-0xFF909090  // Borders (light grey)
-
-// Center timeline
-0xFF909090  // Background (light grey)
-0xFF9A9A9A  // Tracks (even lighter)
-0xFFAAAAAA  // Borders (very light)
-
-// Text
-0xFF202020  // Primary (very dark)
-0xFF353535  // Secondary (dark)
-0xFF505050  // Tertiary (medium-dark)
-0xFF404040  // Icons
-
-// Accents
-0xFF4CAF50  // Green
-0xFFFF5722  // Red
-0xFFFFC107  // Yellow
-0xFF2196F3  // Blue
-```
-
-### Mockup Reference
-ASCII mockup file: `docs/IMPLEMENTATION_PLAN.md` (in UI/UX section)
-
-User's original mockup image:
-`/var/folders/rh/7f3gz0ls3fxfxv0jdmdsxn0m0000gn/T/TemporaryItems/NSIRD_screencaptureui_nNmyIP/Captura de pantalla 2025-10-26 a las 19.12.03.png`
-
----
-
-## Next Steps (v1.0)
-
-Priority tasks for v1.0 release:
-
-### UI High Priority
-
-- [ ] Track colors (auto-assign from palette)
-- [ ] Loop region markers on timeline
-- [ ] Library search/filter bar
-- [ ] Drag-and-drop from library to timeline
-
-### UI Medium Priority
-
 - [ ] Tempo click-to-edit
-- [ ] Loop on/off toggle in transport
 - [ ] Undo/redo buttons in transport
 - [ ] Narrow mixer view mode
+- [ ] Track input routing display
 
-### UI Low Priority (Polish)
-
-- [ ] Tooltips with keyboard shortcuts
+### Low Priority (Polish)
 - [ ] Context menus (right-click actions)
 - [ ] First-launch onboarding tour
-- [ ] High contrast accessibility mode
+- [ ] Accessibility: larger text, keyboard navigation
