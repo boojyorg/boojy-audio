@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'instrument_browser.dart';
@@ -9,6 +11,7 @@ import '../models/library_item.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/library_preview_service.dart';
 import '../services/library_service.dart';
+import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
 import '../utils/text_utils.dart';
 
@@ -51,8 +54,18 @@ class LibraryPanel extends StatefulWidget {
 }
 
 class _LibraryPanelState extends State<LibraryPanel> {
-  // Currently selected category in left column
-  String _selectedCategory = 'sounds';
+  // Currently selected category in left column (null = no selection)
+  String? _selectedCategory;
+
+  // Currently selected item in right column (for blue pill highlight)
+  String? _selectedItemId;
+
+  // Per-category memory (saved state for each category)
+  final Map<String, _CategoryState> _categoryStates = {};
+
+  // Keyboard navigation
+  final FocusNode _libraryFocusNode = FocusNode();
+  bool _focusOnRightPanel = false; // false = left panel, true = right panel
 
   // Expanded items in right column (subcategories and folders)
   final Set<String> _expandedItems = {};
@@ -80,6 +93,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     _searchController.dispose();
     _leftScrollController.dispose();
     _rightScrollController.dispose();
+    _libraryFocusNode.dispose();
     super.dispose();
   }
 
@@ -120,7 +134,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return ColoredBox(
+    return GestureDetector(
+        onTap: () => _libraryFocusNode.requestFocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Focus(
+          focusNode: _libraryFocusNode,
+          onKeyEvent: _handleKeyEvent,
+          child: ColoredBox(
           color: colors.dark,
           child: Column(
             children: [
@@ -137,20 +157,330 @@ class _LibraryPanelState extends State<LibraryPanel> {
                           ),
                           // Draggable divider
                           _buildDivider(),
-                          // Right column - Contents + Preview
+                          // Right column - Contents only (preview bar moved to full width)
                           Expanded(
-                            child: _buildContentsColumn(),
+                            child: _buildContentsView(),
                           ),
                         ],
                       ),
               ),
+              // Preview bar — full width below both columns
+              const LibraryPreviewBar(),
             ],
           ),
+        ),
+        ),
         );
+  }
+
+  /// Get ordered list of category IDs for keyboard navigation
+  List<String> _getCategoryIds() {
+    final ids = <String>['favorites', 'sounds', 'samples', 'instruments', 'effects', 'plugins'];
+    for (final path in widget.libraryService.userFolderPaths) {
+      ids.add('folder_${path.hashCode}');
+    }
+    return ids;
+  }
+
+  /// Get ordered list of item IDs in the current right panel view
+  List<String> _getRightPanelItemIds() {
+    if (_selectedCategory == null) return [];
+    final ids = <String>[];
+    final builtInCategories = widget.libraryService.getBuiltInCategories();
+    for (final cat in builtInCategories) {
+      if (cat.id != _selectedCategory) continue;
+      for (final sub in cat.subcategories) {
+        for (final item in sub.items) {
+          ids.add(item.id);
+        }
+      }
+      for (final item in cat.items) {
+        ids.add(item.id);
+      }
+    }
+    // Add VST3 plugin IDs for plugins category
+    if (_selectedCategory == 'plugins') {
+      for (final plugin in widget.availableVst3Plugins) {
+        ids.add('vst3_${plugin['path']}');
+      }
+    }
+    // Add user folder contents (recursively include nested folder contents)
+    if (_selectedCategory?.startsWith('folder_') ?? false) {
+      _collectFolderItemIds(_selectedCategory!, ids);
+    }
+    return ids;
+  }
+
+  /// Recursively collect non-folder item IDs from cached folder contents
+  void _collectFolderItemIds(String folderId, List<String> ids) {
+    final contents = _folderContentsCache[folderId];
+    if (contents == null) return;
+    for (final item in contents) {
+      if (item is FolderItem) {
+        final nestedId = 'nested_folder_${item.folderPath.hashCode}';
+        _collectFolderItemIds(nestedId, ids);
+      } else {
+        ids.add(item.id);
+      }
+    }
+  }
+
+  /// Handle keyboard events for arrow navigation
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final key = event.logicalKey;
+
+    if (_focusOnRightPanel) {
+      // Right panel navigation
+      final itemIds = _getRightPanelItemIds();
+      if (itemIds.isEmpty) return KeyEventResult.ignored;
+
+      final currentIndex = _selectedItemId != null ? itemIds.indexOf(_selectedItemId!) : -1;
+
+      if (key == LogicalKeyboardKey.arrowDown) {
+        final next = (currentIndex + 1).clamp(0, itemIds.length - 1);
+        setState(() => _selectedItemId = itemIds[next]);
+        print('[LIBRARY-NAV] Arrow down → selected: ${itemIds[next]}, previewing...');
+        _previewSelectedItem();
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.arrowUp) {
+        final prev = (currentIndex - 1).clamp(0, itemIds.length - 1);
+        setState(() => _selectedItemId = itemIds[prev]);
+        print('[LIBRARY-NAV] Arrow up → selected: ${itemIds[prev]}, previewing...');
+        _previewSelectedItem();
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.arrowLeft) {
+        // Return focus to left panel
+        setState(() => _focusOnRightPanel = false);
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.enter) {
+        // Load the item (same as double-click)
+        if (_selectedItemId != null) {
+          _loadSelectedItem();
+        }
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.space) {
+        // Preview the item (same as single-click)
+        if (_selectedItemId != null) {
+          _previewSelectedItem();
+        }
+        return KeyEventResult.handled;
+      }
+    } else {
+      // Left panel navigation
+      final categoryIds = _getCategoryIds();
+      final currentIndex = _selectedCategory != null ? categoryIds.indexOf(_selectedCategory!) : -1;
+
+      if (key == LogicalKeyboardKey.arrowDown) {
+        final next = (currentIndex + 1).clamp(0, categoryIds.length - 1);
+        _switchToCategory(categoryIds[next]);
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.arrowUp) {
+        final prev = (currentIndex - 1).clamp(0, categoryIds.length - 1);
+        _switchToCategory(categoryIds[prev]);
+        return KeyEventResult.handled;
+      } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.enter) {
+        // Move focus to right panel
+        if (_selectedCategory != null) {
+          setState(() {
+            _focusOnRightPanel = true;
+            // Select first item if nothing selected
+            if (_selectedItemId == null) {
+              final itemIds = _getRightPanelItemIds();
+              if (itemIds.isNotEmpty) {
+                _selectedItemId = itemIds.first;
+              }
+            }
+          });
+        }
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _switchToCategory(String categoryId) {
+    setState(() {
+      _saveCurrentCategoryState();
+      _selectedCategory = categoryId;
+      _restoreCategoryState(categoryId);
+    });
+    // Load user folder contents if not cached
+    if (categoryId.startsWith('folder_') && !_folderContentsCache.containsKey(categoryId)) {
+      final userFolders = widget.libraryService.userFolderPaths;
+      for (final path in userFolders) {
+        if ('folder_${path.hashCode}' == categoryId) {
+          widget.libraryService.scanFolder(path).then((contents) {
+            if (mounted) {
+              setState(() {
+                _folderContentsCache[categoryId] = contents;
+              });
+            }
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  void _loadSelectedItem() {
+    final itemId = _selectedItemId;
+    if (itemId == null) return;
+
+    // Find the item and trigger double-click
+    final builtInCategories = widget.libraryService.getBuiltInCategories();
+    for (final cat in builtInCategories) {
+      for (final sub in cat.subcategories) {
+        for (final item in sub.items) {
+          if (item.id == itemId) {
+            widget.onItemDoubleClick?.call(item);
+            return;
+          }
+        }
+      }
+      for (final item in cat.items) {
+        if (item.id == itemId) {
+          widget.onItemDoubleClick?.call(item);
+          return;
+        }
+      }
+    }
+
+    // Check VST3 plugins
+    if (itemId.startsWith('vst3_')) {
+      for (final plugin in widget.availableVst3Plugins) {
+        if ('vst3_${plugin['path']}' == itemId) {
+          widget.onVst3DoubleClick?.call(Vst3Plugin.fromMap(plugin));
+          return;
+        }
+      }
+    }
+
+    // Check user folder contents
+    for (final contents in _folderContentsCache.values) {
+      final item = _findItemInContents(contents, itemId);
+      if (item != null) {
+        widget.onItemDoubleClick?.call(item);
+        return;
+      }
+    }
+  }
+
+  void _previewSelectedItem() {
+    final itemId = _selectedItemId;
+    if (itemId == null) return;
+
+    // Search built-in categories
+    final builtInCategories = widget.libraryService.getBuiltInCategories();
+    for (final cat in builtInCategories) {
+      for (final sub in cat.subcategories) {
+        for (final item in sub.items) {
+          if (item.id == itemId) {
+            _handleItemClick(item);
+            return;
+          }
+        }
+      }
+      for (final item in cat.items) {
+        if (item.id == itemId) {
+          _handleItemClick(item);
+          return;
+        }
+      }
+    }
+
+    // Search user folder contents
+    for (final contents in _folderContentsCache.values) {
+      final item = _findItemInContents(contents, itemId);
+      if (item != null) {
+        _handleItemClick(item);
+        return;
+      }
+    }
+  }
+
+  /// Recursively find an item by ID in folder contents
+  LibraryItem? _findItemInContents(List<LibraryItem> contents, String itemId) {
+    for (final item in contents) {
+      if (item.id == itemId) return item;
+      if (item is FolderItem) {
+        final nestedId = 'nested_folder_${item.folderPath.hashCode}';
+        final nestedContents = _folderContentsCache[nestedId];
+        if (nestedContents != null) {
+          final found = _findItemInContents(nestedContents, itemId);
+          if (found != null) return found;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Save the current category's state (selected item, scroll, expanded folders)
+  void _saveCurrentCategoryState() {
+    final cat = _selectedCategory;
+    if (cat == null) return;
+    _categoryStates[cat] = _CategoryState(
+      selectedItemId: _selectedItemId,
+      scrollOffset: _rightScrollController.hasClients ? _rightScrollController.offset : 0.0,
+      expandedFolders: Set.of(_expandedItems),
+    );
+  }
+
+  /// Restore a category's saved state
+  void _restoreCategoryState(String categoryId) {
+    final saved = _categoryStates[categoryId];
+    if (saved != null) {
+      _selectedItemId = saved.selectedItemId;
+      _expandedItems
+        ..clear()
+        ..addAll(saved.expandedFolders);
+      // Restore scroll position after the frame builds
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_rightScrollController.hasClients && saved.scrollOffset > 0) {
+          _rightScrollController.jumpTo(
+            saved.scrollOffset.clamp(0.0, _rightScrollController.position.maxScrollExtent),
+          );
+        }
+      });
+    } else {
+      _selectedItemId = null;
+    }
+  }
+
+  /// Returns (icon, label) for a category ID, or null for user folders
+  (IconData, String)? _categoryMeta(String? id) {
+    return switch (id) {
+      'favorites'   => (Icons.star, 'Favorites'),
+      'sounds'      => (Icons.music_note, 'Sounds'),
+      'samples'     => (Icons.graphic_eq, 'Samples'),
+      'instruments' => (Icons.piano, 'Instruments'),
+      'effects'     => (Icons.bolt, 'Effects'),
+      'plugins'     => (Icons.extension, 'Plugins'),
+      _ => null,
+    };
+  }
+
+  /// Returns the display name for a category (including user folders)
+  String _categoryLabel(String id) {
+    final meta = _categoryMeta(id);
+    if (meta != null) return meta.$2;
+    // User folder — extract folder name from path
+    final userFolders = widget.libraryService.userFolderPaths;
+    for (final path in userFolders) {
+      if ('folder_${path.hashCode}' == id) {
+        return path.split('/').last;
+      }
+    }
+    return 'Library';
   }
 
   Widget _buildCombinedHeader() {
     final colors = context.colors;
+    final showChip = _searchQuery.isNotEmpty && _selectedCategory != null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -160,21 +490,75 @@ class _LibraryPanelState extends State<LibraryPanel> {
           bottom: BorderSide(color: colors.divider),
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: SearchField(
-              controller: _searchController,
-              expandedWidth: constraints.maxWidth,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final placeholder = _selectedCategory != null
+                  ? 'Search ${_categoryLabel(_selectedCategory!).toLowerCase()}...'
+                  : 'Search all...';
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: SearchField(
+                  controller: _searchController,
+                  expandedWidth: constraints.maxWidth,
+                  hintText: placeholder,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+          // Scoped search chip
+          if (showChip) ...[
+            const SizedBox(height: 6),
+            _buildSearchScopeChip(colors),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchScopeChip(BoojyColors colors) {
+    final meta = _categoryMeta(_selectedCategory);
+    final icon = meta?.$1 ?? Icons.folder;
+    final label = _selectedCategory != null
+        ? _categoryLabel(_selectedCategory!)
+        : 'All';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.elevated,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colors.textMuted),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: colors.textSecondary,
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedCategory = null;
+              });
+            },
+            child: Icon(Icons.close, size: 12, color: colors.textMuted),
+          ),
+        ],
       ),
     );
   }
@@ -214,7 +598,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           // System categories
           _buildCategoryItem('favorites', Icons.star, 'Favorites'),
           _buildCategoryItem('sounds', Icons.music_note, 'Sounds'),
-          _buildCategoryItem('samples', Icons.grid_view, 'Samples'),
+          _buildCategoryItem('samples', Icons.graphic_eq, 'Samples'),
           _buildCategoryItem('instruments', Icons.piano, 'Instruments'),
           _buildCategoryItem('effects', Icons.bolt, 'Effects'),
           _buildCategoryItem('plugins', Icons.extension, 'Plugins'),
@@ -247,15 +631,30 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   Widget _buildCategoryItem(String id, IconData icon, String label, {bool isUserFolder = false, String? folderPath}) {
     final isSelected = _selectedCategory == id;
-    final colors = context.colors;
+    final hasChildSelected = isSelected && _selectedItemId != null;
 
-    return GestureDetector(
+    return _CategoryItemWidget(
+      icon: icon,
+      label: label,
+      isSelected: isSelected,
+      hasChildSelected: hasChildSelected,
       onTap: () {
         setState(() {
-          _selectedCategory = id;
+          if (_selectedCategory == id) {
+            // Deselect — save state first
+            _saveCurrentCategoryState();
+            _selectedCategory = null;
+            _selectedItemId = null;
+          } else {
+            // Save outgoing category state
+            _saveCurrentCategoryState();
+            // Switch to new category
+            _selectedCategory = id;
+            // Restore incoming category state
+            _restoreCategoryState(id);
+          }
         });
-        // If it's a user folder, load contents
-        if (isUserFolder && folderPath != null && !_folderContentsCache.containsKey(id)) {
+        if (_selectedCategory == id && isUserFolder && folderPath != null && !_folderContentsCache.containsKey(id)) {
           widget.libraryService.scanFolder(folderPath).then((contents) {
             if (mounted) {
               setState(() {
@@ -268,40 +667,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
       onSecondaryTapUp: isUserFolder && folderPath != null
           ? (details) => _showFolderContextMenu(details, folderPath)
           : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.elevated : Colors.transparent,
-          border: Border(
-            left: BorderSide(
-              color: isSelected ? colors.accent : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? colors.accent : colors.textMuted,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected ? colors.textPrimary : colors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -310,11 +675,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
     return GestureDetector(
       onTap: _addUserFolder,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        margin: const EdgeInsets.only(left: 5, right: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: Row(
           children: [
-            Icon(Icons.add, size: 14, color: colors.textMuted),
-            const SizedBox(width: 6),
+            Icon(Icons.add, size: 16, color: colors.textMuted),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Add Folder',
@@ -352,6 +718,16 @@ class _LibraryPanelState extends State<LibraryPanel> {
         PopupMenuItem(
           child: const Row(
             children: [
+              Icon(Icons.folder_open, size: 16),
+              SizedBox(width: 8),
+              Text('Show in Finder'),
+            ],
+          ),
+          onTap: () => Process.run('open', ['-R', path]),
+        ),
+        PopupMenuItem(
+          child: const Row(
+            children: [
               Icon(Icons.delete, size: 16),
               SizedBox(width: 8),
               Text('Remove from Library'),
@@ -367,27 +743,31 @@ class _LibraryPanelState extends State<LibraryPanel> {
   // RIGHT COLUMN - Contents View
   // ==========================================================================
 
-  Widget _buildContentsColumn() {
-    return Column(
-      children: [
-        Expanded(
-          child: _buildContentsView(),
-        ),
-        // Preview bar at bottom of right column
-        const LibraryPreviewBar(),
-      ],
-    );
-  }
-
   Widget _buildContentsView() {
     final colors = context.colors;
+
+    if (_selectedCategory == null) {
+      return ColoredBox(
+        color: colors.darkest,
+        child: Center(
+          child: Text(
+            'Select a category\nor search to browse.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: colors.textMuted,
+            ),
+          ),
+        ),
+      );
+    }
 
     return ColoredBox(
       color: colors.darkest,
       child: ListView(
         controller: _rightScrollController,
         padding: const EdgeInsets.symmetric(vertical: 4),
-        children: _buildContentsForCategory(_selectedCategory),
+        children: _buildContentsForCategory(_selectedCategory!),
       ),
     );
   }
@@ -425,7 +805,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final favoriteItems = widget.libraryService.getFavoriteItems(builtInCategories);
 
     if (favoriteItems.isEmpty) {
-      return [_buildEmptyState('No favorites yet')];
+      return [_buildEmptyState('No favorites yet.', subtitle: 'Right-click any item to add it here.')];
     }
 
     return favoriteItems.map((item) => _buildLibraryItem(item)).toList();
@@ -433,7 +813,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   List<Widget> _buildNestedCategoryContents(LibraryCategory category) {
     if (category.subcategories.isEmpty) {
-      return [_buildEmptyState('No ${category.name.toLowerCase()} yet')];
+      return [_buildEmptyState('No ${category.name.toLowerCase()} yet.')];
     }
 
     final widgets = <Widget>[];
@@ -477,7 +857,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         .toList();
 
     if (vst3Instruments.isEmpty && vst3Effects.isEmpty) {
-      return [_buildEmptyState('No plugins found')];
+      return [_buildEmptyState('No plugins found.', subtitle: 'Install VST3 plugins to see them here.')];
     }
 
     final widgets = <Widget>[];
@@ -609,50 +989,41 @@ class _LibraryPanelState extends State<LibraryPanel> {
     required bool isExpanded,
     required VoidCallback onTap,
   }) {
-    final colors = context.colors;
-
-    return GestureDetector(
+    return _ExpandableHeaderWidget(
+      icon: icon,
+      title: title,
+      isExpanded: isExpanded,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Icon(
-              isExpanded ? Icons.expand_more : Icons.chevron_right,
-              size: 14,
-              color: colors.textMuted,
-            ),
-            const SizedBox(width: 4),
-            Icon(icon, size: 14, color: colors.textSecondary),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildEmptyState(String message) {
+  Widget _buildEmptyState(String message, {String? subtitle}) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Center(
-        child: Text(
-          message,
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: context.colors.textMuted,
+                fontSize: 13,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -666,7 +1037,6 @@ class _LibraryPanelState extends State<LibraryPanel> {
         style: TextStyle(
           color: context.colors.textMuted,
           fontSize: 11,
-          fontStyle: FontStyle.italic,
         ),
       ),
     );
@@ -679,171 +1049,97 @@ class _LibraryPanelState extends State<LibraryPanel> {
   Widget _buildSearchResults() {
     final builtInCategories = widget.libraryService.getBuiltInCategories();
     final results = <_SearchResult>[];
+    final query = _searchQuery.toLowerCase();
+    final scope = _selectedCategory;
 
-    // Search through all categories
+    // Determine which categories to search
+    bool shouldSearchCategory(String categoryId) {
+      if (scope == null) return true; // search everything
+      if (scope.startsWith('folder_')) return false; // user folder scope — handled below
+      return scope == categoryId;
+    }
+
+    // Search built-in categories
     for (final category in builtInCategories) {
+      if (!shouldSearchCategory(category.id)) continue;
       for (final sub in category.subcategories) {
         for (final item in sub.items) {
           if (item.matchesSearch(_searchQuery)) {
-            results.add(_SearchResult(
-              item: item,
-              categoryPath: '${category.name} > ${sub.name}',
-            ));
+            results.add(_SearchResult(item: item));
           }
         }
       }
       for (final item in category.items) {
         if (item.matchesSearch(_searchQuery)) {
-          results.add(_SearchResult(
-            item: item,
-            categoryPath: category.name,
-          ));
+          results.add(_SearchResult(item: item));
         }
       }
     }
 
     // Search VST3 plugins
-    for (final plugin in widget.availableVst3Plugins) {
-      final name = plugin['name']?.toLowerCase() ?? '';
-      if (name.contains(_searchQuery.toLowerCase())) {
-        final isInstrument = plugin['is_instrument'] == '1';
-        results.add(_SearchResult(
-          vst3Plugin: plugin,
-          categoryPath: 'Plugins > ${isInstrument ? 'Instruments' : 'Effects'}',
-        ));
+    if (shouldSearchCategory('plugins')) {
+      for (final plugin in widget.availableVst3Plugins) {
+        final name = plugin['name']?.toLowerCase() ?? '';
+        if (name.contains(query)) {
+          results.add(_SearchResult(vst3Plugin: plugin));
+        }
       }
     }
 
     // Search user folder contents
-    for (final entry in _folderContentsCache.entries) {
-      for (final item in entry.value) {
-        if (item.matchesSearch(_searchQuery)) {
-          results.add(_SearchResult(
-            item: item,
-            categoryPath: 'Folders',
-          ));
+    if (scope == null || scope.startsWith('folder_')) {
+      for (final entry in _folderContentsCache.entries) {
+        // If scoped to a specific folder, only search that folder
+        if (scope != null && entry.key != scope) continue;
+        for (final item in entry.value) {
+          if (item.matchesSearch(_searchQuery)) {
+            results.add(_SearchResult(item: item));
+          }
         }
       }
     }
 
     if (results.isEmpty) {
-      return Column(
-        children: [
-          Expanded(child: _buildEmptyState('No results for "$_searchQuery"')),
-          const LibraryPreviewBar(),
-        ],
-      );
+      return _buildEmptyState('No results for "$_searchQuery"');
     }
 
+    // Sort A-Z by display name
+    results.sort((a, b) {
+      final nameA = a.displayName.toLowerCase();
+      final nameB = b.displayName.toLowerCase();
+      return nameA.compareTo(nameB);
+    });
+
+    final colors = context.colors;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Result count header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+          child: Text(
+            '${results.length} result${results.length == 1 ? '' : 's'}',
+            style: TextStyle(fontSize: 11, color: colors.textMuted),
+          ),
+        ),
+        // Flat A-Z list with type icons
         Expanded(
           child: ListView.builder(
             itemCount: results.length,
             itemBuilder: (context, index) {
               final result = results[index];
               if (result.item != null) {
-                return _buildSearchResultItem(result.item!, result.categoryPath);
+                return _buildLibraryItem(result.item!);
               } else if (result.vst3Plugin != null) {
-                return _buildSearchResultVst3(result.vst3Plugin!, result.categoryPath);
+                final isInstrument = result.vst3Plugin!['is_instrument'] == '1';
+                return _buildVst3PluginItem(result.vst3Plugin!, isInstrument);
               }
               return const SizedBox.shrink();
             },
           ),
         ),
-        const LibraryPreviewBar(),
       ],
-    );
-  }
-
-  Widget _buildSearchResultItem(LibraryItem item, String categoryPath) {
-    final colors = context.colors;
-    final previewService = _tryGetPreviewService(listen: true);
-    final isCurrentlyPreviewing = previewService != null &&
-        item is AudioFileItem &&
-        previewService.currentFilePath == item.filePath &&
-        previewService.isPlaying;
-
-    return GestureDetector(
-      onTap: () => _handleItemClick(item),
-      onDoubleTap: () => widget.onItemDoubleClick?.call(item),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            if (isCurrentlyPreviewing) ...[
-              Icon(Icons.volume_up, size: 12, color: colors.accent),
-              const SizedBox(width: 4),
-            ],
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textStyle = TextStyle(
-                    fontSize: 12,
-                    color: isCurrentlyPreviewing ? colors.accent : colors.textPrimary,
-                  );
-                  return Text(
-                    TextUtils.truncateMiddleToFit(
-                      filename: item.displayName,
-                      maxWidth: constraints.maxWidth,
-                      style: textStyle,
-                    ),
-                    style: textStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              categoryPath,
-              style: TextStyle(
-                fontSize: 10,
-                color: colors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchResultVst3(Map<String, String> plugin, String categoryPath) {
-    final colors = context.colors;
-    final name = plugin['name'] ?? 'Unknown';
-
-    return GestureDetector(
-      onDoubleTap: () => widget.onVst3DoubleClick?.call(Vst3Plugin.fromMap(plugin)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textStyle = TextStyle(fontSize: 12, color: colors.textPrimary);
-                  return Text(
-                    TextUtils.truncateMiddleToFit(
-                      filename: name,
-                      maxWidth: constraints.maxWidth,
-                      style: textStyle,
-                    ),
-                    style: textStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              categoryPath,
-              style: TextStyle(fontSize: 10, color: colors.textMuted),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -883,14 +1179,24 @@ class _LibraryPanelState extends State<LibraryPanel> {
         previewService.isPlaying;
 
     Widget child = GestureDetector(
-      onTap: () => _handleItemClick(item),
+      onTap: () {
+        _libraryFocusNode.requestFocus();
+        setState(() {
+          _selectedItemId = item.id;
+          _focusOnRightPanel = true;
+        });
+        _handleItemClick(item);
+      },
       onDoubleTap: () => widget.onItemDoubleClick?.call(item),
       onSecondaryTapUp: (details) => _showItemContextMenu(details, item),
       child: _LibraryItemWidget(
+        key: ValueKey(item.id),
         name: item.displayName,
         indent: indent,
         isFavorite: widget.libraryService.isFavorite(item.id),
         isPreviewing: isCurrentlyPreviewing,
+        isSelected: _selectedItemId == item.id,
+        typeIcon: _typeIconFor(item),
       ),
     );
 
@@ -917,8 +1223,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else if (item.type == LibraryItemType.audioFile && item is AudioFileItem) {
       child = Draggable<AudioFileItem>(
         data: item,
-        // Use invisible feedback - the preview clip in timeline view provides visual feedback
-        feedback: const SizedBox.shrink(),
+        feedback: _buildDragFeedback(item.displayName, Icons.graphic_eq),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
@@ -926,7 +1231,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else if (item.type == LibraryItemType.midiFile && item is MidiFileItem) {
       child = Draggable<MidiFileItem>(
         data: item,
-        feedback: const SizedBox.shrink(),
+        feedback: _buildDragFeedback(item.displayName, Icons.music_note),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
@@ -945,44 +1250,62 @@ class _LibraryPanelState extends State<LibraryPanel> {
       feedback: _buildDragFeedback(name, isInstrument ? Icons.piano : Icons.graphic_eq),
       childWhenDragging: Opacity(
         opacity: 0.5,
-        child: _LibraryItemWidget(name: name, indent: indent),
+        child: _LibraryItemWidget(name: name, indent: indent, typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq),
       ),
       child: GestureDetector(
+        onTap: () => setState(() {
+          _selectedItemId = 'vst3_${plugin.path}';
+          _focusOnRightPanel = true;
+        }),
         onDoubleTap: () => widget.onVst3DoubleClick?.call(plugin),
         onSecondaryTapUp: (details) => _showVst3ContextMenu(details, plugin),
         child: _LibraryItemWidget(
+          key: ValueKey('vst3_${plugin.path}'),
           name: name,
           indent: indent,
           isFavorite: widget.libraryService.isFavorite('vst3_${plugin.path}'),
+          isSelected: _selectedItemId == 'vst3_${plugin.path}',
+          typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq,
         ),
       ),
     );
   }
 
   Widget _buildDragFeedback(String name, IconData icon) {
+    final colors = context.colors;
     return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.colors.accent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+      color: Colors.transparent,
+      child: Opacity(
+        opacity: 0.75,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: colors.elevated,
+            border: Border.all(color: colors.divider),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                offset: Offset(0, 4),
+                blurRadius: 16,
+                color: Color.fromRGBO(0, 0, 0, 0.4),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: colors.textMuted, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -992,6 +1315,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
     final isAudioFile = item.type == LibraryItemType.audioFile || item.type == LibraryItemType.sample;
+    final isInstrument = item.type == LibraryItemType.instrument;
+    final isEffect = item.type == LibraryItemType.effect;
+    final hasFilePath = item is AudioFileItem || item is SampleItem;
 
     showMenu(
       context: context,
@@ -999,7 +1325,32 @@ class _LibraryPanelState extends State<LibraryPanel> {
         details.globalPosition & const Size(40, 40),
         Offset.zero & overlay.size,
       ),
-      items: [
+      items: <PopupMenuEntry>[
+        // Load actions for instruments
+        if (isInstrument)
+          PopupMenuItem(
+            child: const Row(
+              children: [
+                Icon(Icons.play_arrow, size: 16),
+                SizedBox(width: 8),
+                Text('Load on Selected Track'),
+              ],
+            ),
+            onTap: () => widget.onItemDoubleClick?.call(item),
+          ),
+        // Add action for effects
+        if (isEffect)
+          PopupMenuItem(
+            child: const Row(
+              children: [
+                Icon(Icons.add, size: 16),
+                SizedBox(width: 8),
+                Text('Add to Selected Track'),
+              ],
+            ),
+            onTap: () => widget.onItemDoubleClick?.call(item),
+          ),
+        // Open in Sampler for audio files
         if (isAudioFile && widget.onOpenInSampler != null)
           PopupMenuItem(
             child: const Row(
@@ -1011,6 +1362,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             ),
             onTap: () => widget.onOpenInSampler?.call(item),
           ),
+        // Favorites toggle
         PopupMenuItem(
           child: Row(
             children: [
@@ -1025,6 +1377,36 @@ class _LibraryPanelState extends State<LibraryPanel> {
           ),
           onTap: () => widget.libraryService.toggleFavorite(item.id),
         ),
+        // File actions
+        if (hasFilePath) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            child: const Row(
+              children: [
+                Icon(Icons.folder_open, size: 16),
+                SizedBox(width: 8),
+                Text('Show in Finder'),
+              ],
+            ),
+            onTap: () {
+              final path = item is AudioFileItem ? item.filePath : (item as SampleItem).filePath;
+              Process.run('open', ['-R', path]);
+            },
+          ),
+          PopupMenuItem(
+            child: const Row(
+              children: [
+                Icon(Icons.copy, size: 16),
+                SizedBox(width: 8),
+                Text('Copy Path'),
+              ],
+            ),
+            onTap: () {
+              final path = item is AudioFileItem ? item.filePath : (item as SampleItem).filePath;
+              Clipboard.setData(ClipboardData(text: path));
+            },
+          ),
+        ],
       ],
     );
   }
@@ -1041,6 +1423,16 @@ class _LibraryPanelState extends State<LibraryPanel> {
         Offset.zero & overlay.size,
       ),
       items: [
+        PopupMenuItem(
+          child: const Row(
+            children: [
+              Icon(Icons.play_arrow, size: 16),
+              SizedBox(width: 8),
+              Text('Load on Selected Track'),
+            ],
+          ),
+          onTap: () => widget.onVst3DoubleClick?.call(plugin),
+        ),
         PopupMenuItem(
           child: Row(
             children: [
@@ -1059,6 +1451,28 @@ class _LibraryPanelState extends State<LibraryPanel> {
     );
   }
 
+  /// Returns the type icon for a library item
+  IconData _typeIconFor(LibraryItem item) {
+    switch (item.type) {
+      case LibraryItemType.preset:
+        return Icons.music_note;
+      case LibraryItemType.sample:
+      case LibraryItemType.audioFile:
+        return Icons.graphic_eq;
+      case LibraryItemType.instrument:
+        return Icons.piano;
+      case LibraryItemType.effect:
+        return Icons.bolt;
+      case LibraryItemType.vst3Instrument:
+      case LibraryItemType.vst3Effect:
+        return Icons.extension;
+      case LibraryItemType.folder:
+        return Icons.folder;
+      case LibraryItemType.midiFile:
+        return Icons.music_note;
+    }
+  }
+
   Instrument? _findInstrumentByName(String name) {
     try {
       return availableInstruments.firstWhere(
@@ -1070,17 +1484,188 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 }
 
+/// Category item widget with hover and selection pill
+class _CategoryItemWidget extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final bool hasChildSelected;
+  final VoidCallback onTap;
+  final void Function(TapUpDetails)? onSecondaryTapUp;
+
+  const _CategoryItemWidget({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    this.hasChildSelected = false,
+    required this.onTap,
+    this.onSecondaryTapUp,
+  });
+
+  @override
+  State<_CategoryItemWidget> createState() => _CategoryItemWidgetState();
+}
+
+class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isSelected = widget.isSelected;
+
+    final faded = widget.hasChildSelected;
+    final isActive = isSelected && !faded;
+    final isInactive = isSelected && faded;
+
+    // Pill states: active > inactive > hover > default
+    Color bgColor;
+    List<BoxShadow>? shadow;
+    if (isActive) {
+      bgColor = colors.accent.withValues(alpha: 0.4);
+      shadow = [BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8)];
+    } else if (isInactive) {
+      bgColor = colors.accent.withValues(alpha: 0.15);
+    } else if (_isHovered) {
+      bgColor = colors.accent.withValues(alpha: 0.12);
+    } else {
+      bgColor = Colors.transparent;
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onSecondaryTapUp: widget.onSecondaryTapUp,
+        child: Container(
+          margin: const EdgeInsets.only(left: 5, right: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: shadow,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 16,
+                color: isActive ? colors.accent : colors.textMuted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isActive || _isHovered ? colors.textPrimary : colors.textSecondary,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Expandable header widget with hover pill
+class _ExpandableHeaderWidget extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _ExpandableHeaderWidget({
+    required this.icon,
+    required this.title,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  State<_ExpandableHeaderWidget> createState() => _ExpandableHeaderWidgetState();
+}
+
+class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          margin: const EdgeInsets.only(left: 5, right: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: _isHovered ? colors.accent.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.isExpanded ? Icons.expand_more : Icons.chevron_right,
+                size: 14,
+                color: colors.textMuted,
+              ),
+              const SizedBox(width: 4),
+              Icon(widget.icon, size: 14, color: colors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _isHovered ? colors.textPrimary : colors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Saved state for a category (for per-category memory)
+class _CategoryState {
+  String? selectedItemId;
+  double scrollOffset;
+  Set<String> expandedFolders;
+
+  _CategoryState({
+    this.selectedItemId,
+    this.scrollOffset = 0.0,
+    Set<String>? expandedFolders,
+  }) : expandedFolders = expandedFolders ?? {};
+}
+
 /// Search result wrapper
 class _SearchResult {
   final LibraryItem? item;
   final Map<String, String>? vst3Plugin;
-  final String categoryPath;
 
   _SearchResult({
     this.item,
     this.vst3Plugin,
-    required this.categoryPath,
   });
+
+  String get displayName =>
+      item?.displayName ?? vst3Plugin?['name'] ?? 'Unknown';
 }
 
 /// Library item widget with hover and indentation
@@ -1089,12 +1674,17 @@ class _LibraryItemWidget extends StatefulWidget {
   final int indent;
   final bool isFavorite;
   final bool isPreviewing;
+  final bool isSelected;
+  final IconData? typeIcon;
 
   const _LibraryItemWidget({
+    super.key,
     required this.name,
     this.indent = 0,
     this.isFavorite = false,
     this.isPreviewing = false,
+    this.isSelected = false,
+    this.typeIcon,
   });
 
   @override
@@ -1107,38 +1697,54 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final leftPadding = 8.0 + (widget.indent * 12.0);
+
+    final isActive = widget.isSelected;
+
+    // Pill states: active > hover > default (same as category widget)
+    Color bgColor;
+    List<BoxShadow>? shadow;
+    if (isActive) {
+      bgColor = colors.accent.withValues(alpha: 0.4);
+      shadow = [BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8)];
+    } else if (_isHovered) {
+      bgColor = colors.accent.withValues(alpha: 0.12);
+    } else {
+      bgColor = Colors.transparent;
+    }
+
+    // Icon color: active = accent, previewing = accent, default = muted
+    final iconColor = isActive || widget.isPreviewing ? colors.accent : colors.textMuted;
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.only(left: leftPadding, right: 8, top: 5, bottom: 5),
+      child: Container(
+        margin: EdgeInsets.only(left: 5.0 + (widget.indent * 16.0), right: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: _isHovered ? colors.elevated : Colors.transparent,
-          border: Border(
-            left: BorderSide(
-              color: _isHovered ? colors.accent : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: shadow,
         ),
         child: Row(
           children: [
             if (widget.isPreviewing) ...[
-              Icon(Icons.volume_up, size: 12, color: colors.accent),
-              const SizedBox(width: 4),
+              Icon(Icons.volume_up, size: 14, color: iconColor),
+              const SizedBox(width: 6),
+            ] else if (widget.typeIcon != null) ...[
+              Icon(widget.typeIcon, size: 14, color: iconColor),
+              const SizedBox(width: 6),
             ],
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final textStyle = TextStyle(
-                    color: widget.isPreviewing
-                        ? colors.accent
+                    color: isActive || widget.isPreviewing
+                        ? colors.textPrimary
                         : (_isHovered ? colors.textPrimary : colors.textSecondary),
-                    fontSize: 12,
+                    fontSize: 14,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   );
                   return Text(
                     TextUtils.truncateMiddleToFit(

@@ -766,25 +766,33 @@ impl VST3Effect {
 // Implement the Effect trait for VST3Effect
 impl crate::effects::Effect for VST3Effect {
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        let plugin = self.plugin.lock();
+        // Fallback for single-sample calls; prefer process_block for efficiency
+        let mut l = [left];
+        let mut r = [right];
+        self.process_block(&mut l, &mut r);
+        (l[0], r[0])
+    }
 
-        // For now, create single-sample buffers
-        // TODO: Optimize by batching frames
-        let input_left = [left];
-        let input_right = [right];
-        let mut output_left = [0.0f32];
-        let mut output_right = [0.0f32];
+    fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
+        let plugin = self.plugin.lock(); // Single lock for entire block
+
+        let len = left.len().min(right.len());
+        let mut out_left = vec![0.0f32; len];
+        let mut out_right = vec![0.0f32; len];
 
         match plugin.process_audio(
-            &input_left,
-            &input_right,
-            &mut output_left,
-            &mut output_right,
+            &left[..len],
+            &right[..len],
+            &mut out_left,
+            &mut out_right,
         ) {
-            Ok(()) => (output_left[0], output_right[0]),
+            Ok(()) => {
+                left[..len].copy_from_slice(&out_left);
+                right[..len].copy_from_slice(&out_right);
+            }
             Err(e) => {
                 eprintln!("VST3 processing error: {e}");
-                (left, right) // Pass through on error
+                // Pass through on error (left/right unchanged)
             }
         }
     }

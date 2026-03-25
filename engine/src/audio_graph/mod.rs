@@ -192,9 +192,12 @@ pub struct AudioGraph {
     pub latency_test: Arc<crate::latency_test::LatencyTest>,
 }
 
-// SAFETY: AudioGraph is only accessed through a Mutex in the API layer,
-// ensuring thread-safe access even though cpal::Stream is not Send.
-// The stream is created and used only within the context of the Mutex lock.
+// SAFETY: AudioGraph is stored in a Mutex<Option<AudioGraph>> in the API layer.
+// cpal::Stream is !Send because it contains platform-specific thread handles,
+// but we only create and drop it on the main thread while holding the API mutex.
+// The audio callback runs on a separate OS thread but communicates only through
+// Arc<AtomicU64>/Arc<Mutex<_>> fields that are independently Send+Sync.
+// The Stream itself is never moved between threads after construction.
 unsafe impl Send for AudioGraph {}
 
 impl AudioGraph {

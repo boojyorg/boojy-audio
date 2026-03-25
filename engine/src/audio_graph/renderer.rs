@@ -97,6 +97,27 @@ impl AudioGraph {
             eprintln!("🔊 [AudioGraph] Using device: {name}");
         }
 
+        // Track snapshot data extracted from locked tracks for lock-free audio processing.
+        // Defined at function scope so pre-allocated Vec<TrackSnapshot> can reference it.
+        #[allow(clippy::items_after_statements)]
+        struct TrackSnapshot {
+            id: u64,
+            audio_clips: Vec<TimelineClip>,
+            midi_clips: Vec<TimelineMidiClip>,
+            volume_gain: f32, // Static volume (used when no automation)
+            pan_left: f32,
+            pan_right: f32,
+            muted: bool,
+            soloed: bool,
+            fx_chain: Vec<u64>,
+            volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
+            armed: bool,
+            input_monitoring: bool,
+            input_channel: u32,
+            is_audio_track: bool,
+            monitoring_fade_gain: f64,
+        }
+
         let supported_config = device.default_output_config()?;
         eprintln!("🔊 [AudioGraph] Device config: {supported_config:?}");
 
@@ -151,30 +172,14 @@ impl AudioGraph {
         // Latency test
         let latency_test = self.latency_test.clone();
 
+        // Pre-allocate reusable buffers for the audio callback to avoid
+        // per-callback allocations on the audio thread
+        let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
+        let mut peak_buf: HashMap<TrackId, (f32, f32)> = HashMap::with_capacity(16);
+
         let stream = device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                // OPTIMIZATION: Lock tracks ONCE and extract all data before frame loop
-                // This prevents locking for every frame (which causes UI freezing)
-                struct TrackSnapshot {
-                    id: u64,
-                    audio_clips: Vec<TimelineClip>,
-                    midi_clips: Vec<TimelineMidiClip>,
-                    volume_gain: f32, // Static volume (used when no automation)
-                    pan_left: f32,
-                    pan_right: f32,
-                    muted: bool,
-                    soloed: bool,
-                    fx_chain: Vec<u64>,
-                    volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
-                    // Input monitoring fields
-                    armed: bool,
-                    input_monitoring: bool,
-                    input_channel: u32,
-                    is_audio_track: bool,
-                    monitoring_fade_gain: f64,
-                }
-
                 // Track actual buffer size (frames = samples / 2 for stereo)
                 let frames = data.len() / 2;
                 actual_buffer_size.store(frames as u32, Ordering::Relaxed);
@@ -407,15 +412,17 @@ impl AudioGraph {
 
                 // M5.5: Track-based mixing (replaces legacy clip mixing)
 
-                let track_data_option = { let tm = track_manager.lock();
+                // Reuse pre-allocated buffers (clear without deallocating)
+                snapshot_buf.clear();
+                peak_buf.clear();
+
+                let (has_solo, master_snapshot) = { let tm = track_manager.lock();
                     let has_solo_flag = tm.has_solo();
                     let all_tracks = tm.get_all_tracks();
-                    let mut snapshots = Vec::new();
                     let mut master_snap = None;
 
                     for track_arc in all_tracks {
                         { let track = track_arc.lock();
-                            // Extract all data we need from this track
                             let snap = TrackSnapshot {
                                 id: track.id,
                                 audio_clips: track.audio_clips.clone(),
@@ -437,19 +444,13 @@ impl AudioGraph {
                             if track.track_type == crate::track::TrackType::Master {
                                 master_snap = Some(snap);
                             } else {
-                                snapshots.push(snap);
+                                snapshot_buf.push(snap);
                             }
                         }
                     }
 
-                    Some((snapshots, has_solo_flag, master_snap))
+                    (has_solo_flag, master_snap)
                 }; // All locks released here!
-
-                let (mut track_snapshots, has_solo, master_snapshot) = track_data_option
-                    .unwrap_or_else(|| (Vec::new(), false, None));
-
-                // Track peak levels per track for metering (track_id -> (max_left, max_right))
-                let mut track_peaks: HashMap<TrackId, (f32, f32)> = HashMap::new();
                 let mut master_peak_left = 0.0f32;
                 let mut master_peak_right = 0.0f32;
 
@@ -493,7 +494,7 @@ impl AudioGraph {
                     };
 
                     // Mix all tracks using snapshots (no locking!)
-                    for track_snap in &mut track_snapshots {
+                    for track_snap in &mut snapshot_buf {
                         // Handle mute/solo logic
                         if track_snap.muted {
                             continue; // Muted tracks produce no sound
@@ -712,7 +713,7 @@ impl AudioGraph {
                         fx_right *= track_snap.pan_right;
 
                         // Update track peak levels for metering
-                        let entry = track_peaks.entry(track_snap.id).or_insert((0.0, 0.0));
+                        let entry = peak_buf.entry(track_snap.id).or_insert((0.0, 0.0));
                         entry.0 = entry.0.max(fx_left.abs());
                         entry.1 = entry.1.max(fx_right.abs());
 
@@ -820,14 +821,14 @@ impl AudioGraph {
 
                 // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
                 { let tm = track_manager.lock();
-                    for track_snap in &track_snapshots {
+                    for track_snap in &snapshot_buf {
                         if let Some(track_arc) = tm.get_track(track_snap.id) {
                             { let mut track = track_arc.lock();
                                 track.monitoring_fade_gain = track_snap.monitoring_fade_gain;
                             }
                         }
                     }
-                    for (track_id, (peak_l, peak_r)) in &track_peaks {
+                    for (track_id, (peak_l, peak_r)) in &peak_buf {
                         if let Some(track_arc) = tm.get_track(*track_id) {
                             { let mut track = track_arc.lock();
                                 track.update_peaks(*peak_l, *peak_r);

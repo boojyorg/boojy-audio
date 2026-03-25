@@ -30,6 +30,10 @@ class LibraryPreviewService extends ChangeNotifier {
   // Recording state (to disable preview during recording)
   bool _isRecording = false;
 
+  // Async loading state
+  bool _isLoading = false;
+  DateTime? _loadStartTime; // DEBUG: timing
+
   LibraryPreviewService(this._audioEngine) {
     _loadAuditionPreference();
   }
@@ -43,6 +47,7 @@ class LibraryPreviewService extends ChangeNotifier {
   double get duration => _duration;
   List<double> get waveformPeaks => _waveformPeaks;
   bool get hasLoadedFile => _currentFilePath != null;
+  bool get isLoading => _isLoading;
 
   /// Load audition preference from shared preferences
   Future<void> _loadAuditionPreference() async {
@@ -92,34 +97,23 @@ class LibraryPreviewService extends ChangeNotifier {
     if (!_auditionEnabled) return;
 
     // Stop any current preview
-    _stopPositionTimer();
-    _stopNoteOffTimer();
+    stop();
 
-    // Load the file
-    final result = _audioEngine.previewLoadAudio(path);
-    if (result.startsWith('Error')) {
-      return;
-    }
-
+    // Set loading state immediately — UI stays responsive
     _currentFilePath = path;
     _currentFileName = name;
-    _duration = _audioEngine.previewGetDuration();
+    _isLoading = true;
+    _waveformPeaks = [];
     _position = 0.0;
+    _duration = 0.0;
 
-    // Set looping based on duration (< 3 seconds = loop)
-    final shouldLoop = _duration < 3.0;
-    _audioEngine.previewSetLooping(shouldLoop);
+    // Start async load in Rust background thread (returns immediately)
+    _loadStartTime = DateTime.now();
+    print('[PREVIEW-DART] Starting async load for: $name');
+    _audioEngine.previewLoadAudioAsync(path);
 
-    // Get waveform (resolution based on typical preview bar width)
-    _waveformPeaks = _audioEngine.previewGetWaveform(200);
-
-    // Start playback
-    _audioEngine.previewPlay();
-    _isPlaying = true;
-
-    // Start position timer
+    // Start timer to poll for load completion
     _startPositionTimer();
-
     notifyListeners();
   }
 
@@ -172,6 +166,10 @@ class LibraryPreviewService extends ChangeNotifier {
   void seek(double positionSeconds) {
     _audioEngine.previewSeek(positionSeconds);
     _position = positionSeconds;
+    // Auto-play from seek position
+    if (!_isPlaying) {
+      play();
+    }
     notifyListeners();
   }
 
@@ -190,22 +188,57 @@ class LibraryPreviewService extends ChangeNotifier {
   /// Start position update timer
   void _startPositionTimer() {
     _stopPositionTimer();
-    _positionTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+    _positionTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      // Check if async load has completed
+      if (_isLoading) {
+        try {
+          if (_audioEngine.previewIsLoaded()) {
+            final elapsed = _loadStartTime != null
+                ? DateTime.now().difference(_loadStartTime!).inMilliseconds
+                : -1;
+            print('[PREVIEW-DART] Loaded! Total wait: ${elapsed}ms');
+            _isLoading = false;
+            _duration = _audioEngine.previewGetDuration();
+            _audioEngine.previewSetLooping(false);
+            // Start playback immediately — fetch waveform after
+            _audioEngine.previewPlay();
+            _isPlaying = true;
+            print('[PREVIEW-DART] Play started at +${DateTime.now().difference(_loadStartTime!).inMilliseconds}ms');
+            // Fetch waveform in next microtask so play isn't delayed
+            Future.microtask(() {
+              _waveformPeaks = _audioEngine.previewGetWaveform(200);
+              notifyListeners();
+            });
+          }
+        } catch (_) {
+          _isLoading = false;
+          _currentFilePath = null;
+          _currentFileName = null;
+        }
+        notifyListeners();
+        return;
+      }
+
       if (!_isPlaying) {
         _stopPositionTimer();
         return;
       }
 
-      _position = _audioEngine.previewGetPosition();
-      final isStillPlaying = _audioEngine.previewIsPlaying();
+      try {
+        _position = _audioEngine.previewGetPosition();
+        final isStillPlaying = _audioEngine.previewIsPlaying();
 
-      if (!isStillPlaying) {
-        // Playback ended
+        if (!isStillPlaying) {
+          _isPlaying = false;
+          _stopPositionTimer();
+        }
+
+        notifyListeners();
+      } catch (_) {
         _isPlaying = false;
         _stopPositionTimer();
+        notifyListeners();
       }
-
-      notifyListeners();
     });
   }
 

@@ -135,41 +135,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
         }
 
         setState(() => isLoading = true);
-
-        // Load via project manager
-        final loadResult = await projectManager!.loadProject(path);
-
-        // Clear MIDI clip ID mappings since Rust side has reset
-        midiPlaybackManager?.clearClipIdMappings();
-        undoRedoManager.clear();
-
-        // Restore MIDI clips from engine for UI display
-        midiPlaybackManager?.restoreClipsFromEngine(tempo);
-
-        // Apply UI layout if available
-        if (loadResult.uiLayout != null) {
-          applyUILayout(loadResult.uiLayout!);
-        }
-
-        // Refresh track widgets to show loaded tracks
-        refreshTrackWidgets();
-
-        // Add to recent projects
-        userSettings.addRecentProject(path, projectManager!.currentName);
-
-        // Update window title and metadata with project name
-        WindowTitleService.setProjectName(projectManager!.currentName);
-
-        setState(() {
-          projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
-          statusMessage = 'Project loaded: ${projectManager!.currentName}';
-          isLoading = false;
-        });
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loadResult.result.message)),
-        );
+        await _loadAndApplyProject(path);
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -195,41 +161,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
     try {
       setState(() => isLoading = true);
-
-      // Load via project manager
-      final loadResult = await projectManager!.loadProject(path);
-
-      // Clear MIDI clip ID mappings since Rust side has reset
-      midiPlaybackManager?.clearClipIdMappings();
-      undoRedoManager.clear();
-
-      // Restore MIDI clips from engine for UI display
-      midiPlaybackManager?.restoreClipsFromEngine(tempo);
-
-      // Apply UI layout if available
-      if (loadResult.uiLayout != null) {
-        applyUILayout(loadResult.uiLayout!);
-      }
-
-      // Refresh track widgets to show loaded tracks
-      refreshTrackWidgets();
-
-      // Update recent projects (moves to top)
-      userSettings.addRecentProject(path, projectManager!.currentName);
-
-      // Update window title and metadata with project name
-      WindowTitleService.setProjectName(projectManager!.currentName);
-
-      setState(() {
-        projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
-        statusMessage = 'Project loaded: ${projectManager!.currentName}';
-        isLoading = false;
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loadResult.result.message)),
-      );
+      await _loadAndApplyProject(path);
     } catch (e) {
       setState(() => isLoading = false);
       if (!mounted) return;
@@ -237,6 +169,43 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
         SnackBar(content: Text('Failed to open project: $e')),
       );
     }
+  }
+
+  /// Shared project loading logic used by both openProject and openRecentProject
+  Future<void> _loadAndApplyProject(String path) async {
+    final loadResult = await projectManager!.loadProject(path);
+
+    // Clear MIDI clip ID mappings since Rust side has reset
+    midiPlaybackManager?.clearClipIdMappings();
+    undoRedoManager.clear();
+
+    // Restore MIDI clips from engine for UI display
+    midiPlaybackManager?.restoreClipsFromEngine(tempo);
+
+    // Apply UI layout if available
+    if (loadResult.uiLayout != null) {
+      applyUILayout(loadResult.uiLayout!);
+    }
+
+    // Refresh track widgets to show loaded tracks
+    refreshTrackWidgets();
+
+    // Add/update recent projects
+    userSettings.addRecentProject(path, projectManager!.currentName);
+
+    // Update window title and metadata with project name
+    WindowTitleService.setProjectName(projectManager!.currentName);
+
+    setState(() {
+      projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
+      statusMessage = 'Project loaded: ${projectManager!.currentName}';
+      isLoading = false;
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loadResult.result.message)),
+    );
   }
 
   // ============================================

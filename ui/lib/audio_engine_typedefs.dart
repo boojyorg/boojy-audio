@@ -492,6 +492,15 @@ typedef _GetSampleRateFfi = int Function();
 typedef _PreviewLoadAudioFfiNative = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
 typedef _PreviewLoadAudioFfi = ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Char>);
 
+typedef _PreviewLoadAudioAsyncFfiNative = ffi.Void Function(ffi.Pointer<ffi.Char>);
+typedef _PreviewLoadAudioAsyncFfi = void Function(ffi.Pointer<ffi.Char>);
+
+typedef _PreviewIsLoadedFfiNative = ffi.Bool Function();
+typedef _PreviewIsLoadedFfi = bool Function();
+
+typedef _PreviewCheckFullClipFfiNative = ffi.Bool Function();
+typedef _PreviewCheckFullClipFfi = bool Function();
+
 typedef _PreviewPlayFfiNative = ffi.Void Function();
 typedef _PreviewPlayFfi = void Function();
 

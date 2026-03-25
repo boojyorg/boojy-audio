@@ -178,10 +178,10 @@ impl Recorder {
             channels: 2,
             sample_rate: TARGET_SAMPLE_RATE,
             duration_seconds,
-            file_path: format!("recorded_{}.wav", 
+            file_path: format!("recorded_{}.wav",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_default()
                     .as_secs()
             ),
         };

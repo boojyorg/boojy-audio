@@ -15,6 +15,18 @@ pub trait Effect: Send {
     /// Process a stereo frame (left, right) → (`left_out`, `right_out`)
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32);
 
+    /// Process a block of stereo frames in-place.
+    /// Default implementation calls `process_frame` per sample.
+    /// Override for effects that benefit from batched processing (e.g., VST3 plugins).
+    fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
+        let len = left.len().min(right.len());
+        for i in 0..len {
+            let (l, r) = self.process_frame(left[i], right[i]);
+            left[i] = l;
+            right[i] = r;
+        }
+    }
+
     /// Reset internal state (clear buffers, etc.)
     fn reset(&mut self);
 

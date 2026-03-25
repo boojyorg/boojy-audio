@@ -389,6 +389,15 @@ class AudioEngine implements AudioEngineInterface {
   String previewLoadAudio(String path) => throw UnsupportedError('stub');
 
   @override
+  void previewLoadAudioAsync(String path) => throw UnsupportedError('stub');
+
+  @override
+  bool previewIsLoaded() => throw UnsupportedError('stub');
+
+  @override
+  bool previewCheckFullClip() => throw UnsupportedError('stub');
+
+  @override
   void previewPlay() => throw UnsupportedError('stub');
 
   @override

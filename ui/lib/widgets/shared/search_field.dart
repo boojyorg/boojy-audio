@@ -101,7 +101,7 @@ class _SearchFieldState extends State<SearchField> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        width: _isExpanded ? widget.expandedWidth : 95,
+        width: _isExpanded ? widget.expandedWidth : 105,
         height: 28,
         decoration: BoxDecoration(
           color: colors.darkest,

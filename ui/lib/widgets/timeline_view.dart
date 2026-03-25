@@ -1548,11 +1548,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                             // ignore: use_decorated_box
                             Container(
                               decoration: BoxDecoration(
-                                color: context.colors.success.withValues(alpha: 0.1),
+                                color: context.colors.accent.withValues(alpha: 0.08),
                                 border: Border.all(
-                                  color: context.colors.success,
-                                  width: 3,
-                                  style: BorderStyle.solid,
+                                  color: context.colors.accent.withValues(alpha: 0.5),
+                                  width: 2,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1560,7 +1559,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: context.colors.success,
+                                    color: context.colors.accent.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -2110,12 +2109,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         decoration: BoxDecoration(
           // Transparent background to show grid through
           color: isHovered
-              ? context.colors.elevated.withValues(alpha: 0.2)
+              ? context.colors.accent.withValues(alpha: 0.1)
               : Colors.transparent,
           border: Border(
+            top: isHovered
+                ? BorderSide(color: context.colors.accent.withValues(alpha: 0.5), width: 2)
+                : BorderSide.none,
             bottom: BorderSide(
-              color: context.colors.hover,
-              width: 1,
+              color: isHovered
+                  ? context.colors.accent.withValues(alpha: 0.5)
+                  : context.colors.hover,
+              width: isHovered ? 2 : 1,
             ),
           ),
         ),

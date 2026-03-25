@@ -4,7 +4,6 @@ import '../../../models/instrument_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../theme/theme_extension.dart';
-import '../../../widgets/vst3_plugin_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
@@ -64,26 +63,10 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     statusMessage = result.message;
   }
 
-  /// Show VST3 plugin browser dialog
-  Future<void> showVst3PluginBrowserDialog(int trackId) async {
-    if (vst3PluginManager == null) return;
-
-    final vst3Browser = await showVst3PluginBrowser(
-      context,
-      availablePlugins: vst3PluginManager!.availablePlugins,
-      isScanning: vst3PluginManager!.isScanning,
-      onRescanRequested: () {
-        scanVst3Plugins(forceRescan: true);
-      },
-    );
-
-    if (vst3Browser != null) {
-      addVst3PluginToTrack(trackId, {
-        'name': vst3Browser.name,
-        'path': vst3Browser.path,
-        'vendor': vst3Browser.vendor ?? '',
-      });
-    }
+  /// Open the library sidebar to the Plugins category for VST3 browsing
+  void showVst3PluginBrowserDialog(int trackId) {
+    // Plugins are now browsed via the library sidebar's Plugins category
+    // VST3 plugins can be loaded via double-click or drag-and-drop
   }
 
   /// Handle VST3 plugin dropped on track

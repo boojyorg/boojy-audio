@@ -747,6 +747,15 @@ class AudioEngine implements AudioEngineInterface {
   String previewLoadAudio(String path) => 'Not available on web';
 
   @override
+  void previewLoadAudioAsync(String path) {}
+
+  @override
+  bool previewIsLoaded() => false;
+
+  @override
+  bool previewCheckFullClip() => false;
+
+  @override
   void previewPlay() {}
 
   @override

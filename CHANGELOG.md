@@ -10,8 +10,18 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Sampler waveform division by zero**: Fixed `_pixelsPerBeat` calculation that produced NaN/Infinity when `originalBpm` was 0. Now returns fallback value.
 - **Clip overlap handler**: Fixed loop iterating all clips instead of pre-filtered track clips, causing unnecessary iteration and misleading debug logs.
 - **Recording negative duration**: Fixed count-in duration going negative when playhead seeked backward during recording. Now clamped to non-negative.
+- **FFI heap corruption**: Fixed `Vec::from_raw_parts` capacity mismatch in waveform peak free functions — used `Box<[f32]>` via `into_boxed_slice()` to guarantee capacity == length.
+- **Recorder timestamp panic**: Replaced `.unwrap()` with `.unwrap_or_default()` on `SystemTime::duration_since(UNIX_EPOCH)` to prevent panic if system clock is invalid.
+- **Recording listener leak**: Added defensive `removeListener` before `addListener` in `startRecording()` to prevent listener accumulation on rapid start/stop cycles.
 
 ### Improvements
+
+- **FFI panic safety**: Wrapped all 164 `extern "C"` FFI functions in `catch_unwind` to prevent Rust panics from crossing the C boundary (which is undefined behavior). Added `ffi_catch` helper with per-function default values.
+- **VST3 block processing**: Added `process_block` method to Effect trait with default per-sample fallback. VST3Effect overrides with batched lock acquisition and buffer-level processing, reducing lock contention from per-sample to per-buffer.
+- **Audio thread allocation**: Pre-allocated `Vec<TrackSnapshot>` and `HashMap` buffers outside the audio callback, reusing them each frame instead of allocating on every callback invocation.
+- **Project load dedup**: Extracted shared post-load logic (`_loadAndApplyProject`) from `openProject()` and `openRecentProject()`, eliminating ~80% code duplication. Also deduplicated matching private methods in `daw_screen.dart`.
+- **Engine version sync**: Updated engine `Cargo.toml` version from 0.1.0 to 0.1.5 to match Flutter app version.
+- **AudioGraph safety comment**: Updated `unsafe impl Send` comment to accurately describe the thread-safety invariant.
 
 - **Divider redesign**: Continuous full-height dividers spanning top bar through content area. 1px gray line at rest, 4px accent bar on hover with synchronized highlighting (both segments activate together). Transport bar restructured to 3-column grid layout with draggable left/right handles.
 - **Surface color simplification**: Reduced from 5 surface color levels (dark/standard/elevated/surface/divider) to 3 clean levels: `dark` for all chrome, `darkest` for content areas, `editor` for timeline. Unified visual hierarchy matching Boojy Notes.

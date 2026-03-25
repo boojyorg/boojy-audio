@@ -21,7 +21,6 @@ import '../widgets/editor/editor_models.dart';
 import '../widgets/virtual_piano.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
-import '../widgets/vst3_plugin_browser.dart';
 import '../widgets/keyboard_shortcuts_overlay.dart';
 import '../models/midi_note_data.dart';
 import '../models/instrument_data.dart';
@@ -1662,24 +1661,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
   }
 
-  void _addVst3PluginToTrack(int trackId, Map<String, String> plugin) {
-    if (vst3PluginManager == null) return;
-
-    final result = vst3PluginManager!.addToTrack(trackId, plugin);
-
-    statusMessage = result.message;
-
-    // Show snackbar based on result
-    final colors = context.colors;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.success ? '✅ ${result.message}' : '❌ ${result.message}'),
-        duration: Duration(seconds: result.success ? 2 : 3),
-        backgroundColor: result.success ? colors.success : colors.error,
-      ),
-    );
-  }
-
   void _removeVst3Plugin(int effectId) {
     if (vst3PluginManager == null) return;
 
@@ -1688,25 +1669,15 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     statusMessage = result.message;
   }
 
-  Future<void> _showVst3PluginBrowser(int trackId) async {
-    if (vst3PluginManager == null) return;
-
-    final vst3Browser = await showVst3PluginBrowser(
-      context,
-      availablePlugins: vst3PluginManager!.availablePlugins,
-      isScanning: vst3PluginManager!.isScanning,
-      onRescanRequested: () {
-        _scanVst3Plugins(forceRescan: true);
-      },
-    );
-
-    if (vst3Browser != null) {
-      _addVst3PluginToTrack(trackId, {
-        'name': vst3Browser.name,
-        'path': vst3Browser.path,
-        'vendor': vst3Browser.vendor ?? '',
-      });
-    }
+  void _showVst3PluginBrowser(int trackId) {
+    // Open the library sidebar and select the Plugins category
+    setState(() {
+      if (uiLayout.isLibraryPanelCollapsed) {
+        uiLayout.isLibraryPanelCollapsed = false;
+      }
+    });
+    // The library panel's Plugins category handles browsing and loading
+    // VST3 plugins can be loaded via double-click or drag-and-drop from the sidebar
   }
 
   void _onVst3PluginDropped(int trackId, Vst3Plugin plugin) {
@@ -2325,140 +2296,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   void _newProject() => newProject();
 
-  Future<void> _openProject() async {
-    try {
-      // Get default projects folder
-      final defaultFolder = await _getDefaultProjectsFolder();
-
-      // Use macOS native file picker with default location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)" default location POSIX file "$defaultFolder")'
-      ]);
-
-      if (result.exitCode == 0) {
-        var path = result.stdout.toString().trim();
-        // Remove trailing slash if present
-        if (path.endsWith('/')) {
-          path = path.substring(0, path.length - 1);
-        }
-
-        if (path.isEmpty) {
-          return;
-        }
-
-        if (!path.endsWith('.audio')) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a .audio folder')),
-          );
-          return;
-        }
-
-        setState(() => isLoading = true);
-
-        // Load via project manager
-        final loadResult = await projectManager!.loadProject(path);
-
-        // Clear MIDI clip ID mappings since Rust side has reset
-        midiPlaybackManager?.clearClipIdMappings();
-        undoRedoManager.clear();
-
-        // Restore MIDI clips from engine for UI display
-        midiPlaybackManager?.restoreClipsFromEngine(tempo);
-
-        // Apply UI layout if available
-        if (loadResult.uiLayout != null) {
-          _applyUILayout(loadResult.uiLayout!);
-        }
-
-        // Refresh track widgets to show loaded tracks
-        refreshTrackWidgets();
-
-        // Add to recent projects
-        userSettings.addRecentProject(path, projectManager!.currentName);
-
-        // Update window title and metadata with project name
-        WindowTitleService.setProjectName(projectManager!.currentName);
-
-        setState(() {
-          projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
-          statusMessage = 'Project loaded: ${projectManager!.currentName}';
-          isLoading = false;
-        });
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loadResult.result.message)),
-        );
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open project: $e')),
-      );
-    }
-  }
+  Future<void> _openProject() => openProject();
 
   /// Open a project from a specific path (used by Open Recent)
-  Future<void> _openRecentProject(String path) async {
-    // Check if path still exists
-    final dir = Directory(path);
-    if (!await dir.exists()) {
-      userSettings.removeRecentProject(path);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Project no longer exists')),
-      );
-      return;
-    }
-
-    try {
-      setState(() => isLoading = true);
-
-      // Load via project manager
-      final loadResult = await projectManager!.loadProject(path);
-
-      // Clear MIDI clip ID mappings since Rust side has reset
-      midiPlaybackManager?.clearClipIdMappings();
-      undoRedoManager.clear();
-
-      // Restore MIDI clips from engine for UI display
-      midiPlaybackManager?.restoreClipsFromEngine(tempo);
-
-      // Apply UI layout if available
-      if (loadResult.uiLayout != null) {
-        _applyUILayout(loadResult.uiLayout!);
-      }
-
-      // Refresh track widgets to show loaded tracks
-      refreshTrackWidgets();
-
-      // Update recent projects (moves to top)
-      userSettings.addRecentProject(path, projectManager!.currentName);
-
-      // Update window title and metadata with project name
-      WindowTitleService.setProjectName(projectManager!.currentName);
-
-      setState(() {
-        projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
-        statusMessage = 'Project loaded: ${projectManager!.currentName}';
-        isLoading = false;
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loadResult.result.message)),
-      );
-    } catch (e) {
-      setState(() => isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open project: $e')),
-      );
-    }
-  }
+  Future<void> _openRecentProject(String path) => openRecentProject(path);
 
   /// Build the Open Recent submenu items
   List<PlatformMenuItem> _buildRecentProjectsMenu() {
@@ -2586,71 +2427,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   /// Apply UI layout from loaded project
-  void _applyUILayout(UILayoutData layout) {
-    setState(() {
-      // Apply panel sizes and visibility from layout
-      uiLayout.applyLayout(layout);
-    });
-
-    // Restore view state if "continue where I left off" is enabled
-    if (userSettings.continueWhereLeftOff && layout.viewState != null) {
-      _restoreViewState(layout.viewState!);
-    }
-
-    // Restore audio clips if available
-    if (layout.audioClips != null && layout.audioClips!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final timelineState = timelineKey.currentState;
-        if (timelineState != null) {
-          timelineState.restoreAudioClips(layout.audioClips!);
-        }
-      });
-    }
-
-    // Restore automation data if available
-    automationController.loadFromJson(layout.automationData);
-
-    // Sync all volume automation lanes to engine
-    _syncAllVolumeAutomationToEngine();
-  }
-
-  /// Sync all volume automation lanes to engine (called on project load)
-  void _syncAllVolumeAutomationToEngine() {
-    if (audioEngine == null) return;
-    for (final trackId in automationController.allTrackIds) {
-      syncVolumeAutomationToEngine(trackId);
-    }
-  }
-
-  /// Restore view state (zoom, scroll, panels, playhead)
-  void _restoreViewState(ProjectViewState viewState) {
-    // Need to wait for next frame so timeline widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final timelineState = timelineKey.currentState;
-
-      if (timelineState != null) {
-        // Restore zoom and scroll
-        timelineState.setPixelsPerBeat(viewState.zoom);
-        timelineState.setScrollOffset(viewState.horizontalScroll);
-      }
-
-      // Restore panel visibility
-      setState(() {
-        uiLayout.isLibraryPanelCollapsed = !viewState.libraryVisible;
-        uiLayout.isMixerVisible = viewState.mixerVisible;
-        uiLayout.isEditorPanelVisible = viewState.editorVisible;
-        uiLayout.isVirtualPianoEnabled = viewState.virtualPianoVisible;
-      });
-
-      // Restore selected track
-      if (viewState.selectedTrackId != null) {
-        selectedTrackId = viewState.selectedTrackId;
-      }
-
-      // Restore playhead position
-      playheadPosition = viewState.playheadPosition;
-    });
-  }
+  void _applyUILayout(UILayoutData layout) => applyUILayout(layout);
 
   /// Get current UI layout for saving
   UILayoutData _getCurrentUILayout() {
@@ -3920,8 +3697,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           children: [
           Column(
           children: [
-          // Transport bar (with logo and file/mixer buttons)
-          _buildTransportBar(),
+          // Top padding to reserve space for transport bar (rendered in Stack above)
+          const SizedBox(height: 48),
 
           // Main content area - 3-column layout
           Expanded(
@@ -4059,6 +3836,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
         ],
       ),
+          // Transport bar: rendered in Stack (after Column) so its shadow paints on top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildTransportBar(),
+          ),
           if (_showPaletteEditor)
             PaletteEditor(onClose: _togglePaletteEditor),
           ],

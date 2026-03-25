@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_positional_boolean_parameters
+// ignore_for_file: avoid_positional_boolean_parameters, avoid_print
 part of 'audio_engine_native.dart';
 
 mixin _PluginsMixin on _AudioEngineBase {
@@ -736,6 +736,35 @@ mixin _PluginsMixin on _AudioEngineBase {
       return result;
     } catch (e) {
       return 'Error: $e';
+    }
+  }
+
+  /// Start loading an audio file asynchronously (returns immediately)
+  void previewLoadAudioAsync(String path) {
+    try {
+      final pathPtr = path.toNativeUtf8().cast<ffi.Char>();
+      _previewLoadAudioAsync(pathPtr);
+      calloc.free(pathPtr);
+    } catch (e) {
+      print('[PREVIEW] Error starting async load: $e');
+    }
+  }
+
+  /// Check if async load has completed and clip is ready
+  bool previewIsLoaded() {
+    try {
+      return _previewIsLoaded();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if full clip is ready to hot-swap after partial decode
+  bool previewCheckFullClip() {
+    try {
+      return _previewCheckFullClip();
+    } catch (e) {
+      return false;
     }
   }
 

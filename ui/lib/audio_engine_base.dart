@@ -181,6 +181,9 @@ class _AudioEngineBase {
 
   // Library Preview functions
   late final _PreviewLoadAudioFfi _previewLoadAudio;
+  late final _PreviewLoadAudioAsyncFfi _previewLoadAudioAsync;
+  late final _PreviewIsLoadedFfi _previewIsLoaded;
+  late final _PreviewCheckFullClipFfi _previewCheckFullClip;
   late final _PreviewPlayFfi _previewPlay;
   late final _PreviewStopFfi _previewStop;
   late final _PreviewSeekFfi _previewSeek;
@@ -1011,6 +1014,21 @@ class _AudioEngineBase {
       _previewLoadAudio = _lib
           .lookup<ffi.NativeFunction<_PreviewLoadAudioFfiNative>>(
               'preview_load_audio_ffi')
+          .asFunction();
+
+      _previewLoadAudioAsync = _lib
+          .lookup<ffi.NativeFunction<_PreviewLoadAudioAsyncFfiNative>>(
+              'preview_load_audio_async_ffi')
+          .asFunction();
+
+      _previewIsLoaded = _lib
+          .lookup<ffi.NativeFunction<_PreviewIsLoadedFfiNative>>(
+              'preview_is_loaded_ffi')
+          .asFunction();
+
+      _previewCheckFullClip = _lib
+          .lookup<ffi.NativeFunction<_PreviewCheckFullClipFfiNative>>(
+              'preview_check_full_clip_ffi')
           .asFunction();
 
       _previewPlay = _lib

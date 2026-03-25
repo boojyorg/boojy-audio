@@ -10,35 +10,46 @@
 
 The transport and app controls. Logo, project name, undo/redo, sidebar toggles, transport controls, tempo, help.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
-**What gets removed:**
--
+## **What gets removed:**
 
 ---
 
-## 2. Left Sidebar — Library
+## 2. Left Sidebar — Library ✅
 
 Browse sounds, instruments, effects, plugins, and user folders. Two-panel: categories on left, folder tree on right.
 
+**Status:** Seems good — needs more testing.
+
 **Current issues:**
--
+
+- Synth preset preview is stubbed out (commented-out code in `LibraryPreviewService.previewSynthPreset`) — planned for v0.5.0
+- `preview_check_full_clip_ffi` was missing from engine, causing init failure (fixed)
+- Keyboard nav uses `print()` debug statements (`[LIBRARY-NAV]` logs) — should be removed or switched to `Log.d()`
+- `LibraryPreviewService` has debug `print()` statements (`[PREVIEW-DART]`) — same cleanup needed
 
 **What stays:**
--
 
-**What changes:**
--
+- Two-column layout: categories on left, contents on right with resizable divider
+- Six built-in categories: Favorites, Sounds, Samples, Instruments, Effects, Plugins
+- User folders with recursive scanning and nested folder expansion
+- Per-category state memory (selected item, scroll position, expanded folders)
+- Keyboard navigation: arrow keys to browse, Enter to load, Space to preview, Left/Right to switch columns
+- Search field with pill-shaped expand/collapse animation and Escape to clear
+- Preview bar at bottom: audition toggle, play/stop, waveform display with seek
+- Async audio loading with polling timer for responsive UI
+- Drag-and-drop support (stops preview on drag start)
+- Audition enabled/disabled preference persisted via SharedPreferences
+- VST3 plugin browsing and double-click to load
 
-**What gets removed:**
--
+## **What changes:**
+
+## **What gets removed:**
 
 ---
 
@@ -46,17 +57,13 @@ Browse sounds, instruments, effects, plugins, and user folders. Two-panel: categ
 
 Per-track volume, pan, mute/solo/record, effects chain, automation toggle. Master track at bottom.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
-**What gets removed:**
--
+## **What gets removed:**
 
 ---
 
@@ -64,17 +71,13 @@ Per-track volume, pan, mute/solo/record, effects chain, automation toggle. Maste
 
 Horizontal timeline with tracks, clips (MIDI and audio), track headers, time ruler, loop region, playhead.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
-**What gets removed:**
--
+## **What gets removed:**
 
 ---
 
@@ -86,14 +89,11 @@ The bottom panel switches between different editors depending on context. Each e
 
 MIDI note editor for melodic instruments. Grid with notes, velocity lane, snap/quantize.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -101,14 +101,11 @@ MIDI note editor for melodic instruments. Grid with notes, velocity lane, snap/q
 
 Step sequencer / drum grid for percussion. Rows = drum sounds, columns = steps. Drum-mode view of MIDI data.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -116,14 +113,11 @@ Step sequencer / drum grid for percussion. Rows = drum sounds, columns = steps. 
 
 FX chain view. Horizontal signal flow of effects on the selected track. Add, remove, reorder, bypass effects.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -131,14 +125,11 @@ FX chain view. Horizontal signal flow of effects on the selected track. Add, rem
 
 View and control the instrument loaded on the selected track. Built-in synth UI or sampler controls.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -146,14 +137,11 @@ View and control the instrument loaded on the selected track. Built-in synth UI 
 
 Third-party VST3/AU plugin UI. Embedded in bottom panel or floating window.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -161,14 +149,11 @@ Third-party VST3/AU plugin UI. Embedded in bottom panel or floating window.
 
 Waveform view for audio clips. Trimming, fades, basic audio operations.
 
-**Current issues:**
--
+## **Current issues:**
 
-**What stays:**
--
+## **What stays:**
 
-**What changes:**
--
+## **What changes:**
 
 ---
 
@@ -176,8 +161,7 @@ Waveform view for audio clips. Trimming, fades, basic audio operations.
 
 Things that appear across multiple sections: context menus, tooltips, keyboard shortcuts, drag-and-drop behaviour, selection behaviour.
 
-**Notes:**
--
+## **Notes:**
 
 ---
 
@@ -185,4 +169,5 @@ Things that appear across multiple sections: context menus, tooltips, keyboard s
 
 Things still to decide:
 
--
+- 
+

@@ -14,6 +14,20 @@ pub fn get_preview_player() -> &'static Arc<Mutex<PreviewPlayer>> {
     PREVIEW_PLAYER.get_or_init(|| Arc::new(Mutex::new(PreviewPlayer::new())))
 }
 
+/// Load an audio file for preview asynchronously (returns immediately)
+pub fn preview_load_audio_async(path: String) {
+    let player = get_preview_player();
+    let mut guard = player.lock();
+    guard.load_file_async(&path);
+}
+
+/// Check if the async load has completed and the clip is ready
+pub fn preview_is_loaded() -> bool {
+    let player = get_preview_player();
+    let mut guard = player.lock();
+    guard.check_async_loaded()
+}
+
 /// Load an audio file for preview
 pub fn preview_load_audio(path: String) -> Result<(), String> {
     let player = get_preview_player();
@@ -81,10 +95,17 @@ pub fn preview_is_looping() -> bool {
     guard.is_looping()
 }
 
+/// Check if full clip is ready to hot-swap (after partial decode started playing)
+pub fn preview_check_full_clip() -> bool {
+    let player = get_preview_player();
+    let guard = player.lock();
+    !guard.is_async_loading()
+}
+
 /// Get waveform peaks for UI display
 pub fn preview_get_waveform(resolution: i32) -> Vec<f32> {
     let player = get_preview_player();
-    let guard = player.lock();
+    let mut guard = player.lock();
     guard.get_waveform_peaks(resolution.max(1) as usize)
 }
 
