@@ -297,7 +297,8 @@ mod tests {
         // May fail if no MIDI devices available, which is OK for testing
         match result {
             Ok(manager) => {
-                assert!(manager.ports.len() >= 0);
+                // Verify ports list is accessible (usize is always >= 0)
+                let _ = manager.ports.len();
             }
             Err(e) => {
                 eprintln!("No MIDI devices available: {e}");
@@ -318,7 +319,7 @@ mod tests {
                 assert_eq!(note, 60);
                 assert_eq!(velocity, 100);
             }
-            _ => panic!("Expected NoteOn"),
+            MidiEventType::NoteOff { .. } => panic!("Expected NoteOn"),
         }
     }
 
@@ -335,7 +336,7 @@ mod tests {
                 assert_eq!(note, 60);
                 assert_eq!(velocity, 64);
             }
-            _ => panic!("Expected NoteOff"),
+            MidiEventType::NoteOn { .. } => panic!("Expected NoteOff"),
         }
     }
 
@@ -352,7 +353,7 @@ mod tests {
                 assert_eq!(note, 60);
                 assert_eq!(velocity, 0);
             }
-            _ => panic!("Expected NoteOff"),
+            MidiEventType::NoteOn { .. } => panic!("Expected NoteOff"),
         }
     }
 }

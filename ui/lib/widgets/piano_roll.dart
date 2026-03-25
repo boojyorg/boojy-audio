@@ -724,8 +724,9 @@ class _PianoRollState extends State<PianoRoll>
                       },
                       onPointerDown: (event) {
                         if (event.buttons == kSecondaryMouseButton) {
-                          if (widget.isRecording)
+                          if (widget.isRecording) {
                             return; // No context menu during recording
+                          }
                           rightClickStartPosition = event.localPosition;
                           rightClickNote = _findNoteAtPosition(
                             event.localPosition,
@@ -737,8 +738,9 @@ class _PianoRollState extends State<PianoRoll>
                             event.position.dy,
                           );
                         } else if (event.buttons == kPrimaryMouseButton) {
-                          if (widget.isRecording)
+                          if (widget.isRecording) {
                             return; // Read-only during recording
+                          }
                           // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
                           final modifiers = ModifierKeyState.current();
                           final tool =
@@ -755,8 +757,9 @@ class _PianoRollState extends State<PianoRoll>
                           updateDragZoom(event.position.dy);
                           return;
                         }
-                        if (widget.isRecording)
+                        if (widget.isRecording) {
                           return; // Read-only during recording
+                        }
                         if (event.buttons == kPrimaryMouseButton) {
                           // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
                           final modifiers = ModifierKeyState.current();

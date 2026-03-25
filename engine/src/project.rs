@@ -325,7 +325,7 @@ mod tests {
 
         let parsed: ProjectData = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "Test Project");
-        assert_eq!(parsed.tempo, 120.0);
+        assert!((parsed.tempo - 120.0).abs() < 1e-6);
     }
 
     #[test]
@@ -345,7 +345,7 @@ mod tests {
         // Load
         let loaded = load_project(&temp_dir).unwrap();
         assert_eq!(loaded.name, "Test Save/Load");
-        assert_eq!(loaded.tempo, 140.0);
+        assert!((loaded.tempo - 140.0).abs() < 1e-6);
 
         // Clean up
         fs::remove_dir_all(&temp_dir).unwrap();

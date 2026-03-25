@@ -646,8 +646,8 @@ mod tests {
         assert_eq!(track.id, 1);
         assert_eq!(track.track_type, TrackType::Audio);
         assert_eq!(track.name, "Audio 1");
-        assert_eq!(track.volume_db, 0.0);
-        assert_eq!(track.pan, 0.0);
+        assert!(track.volume_db.abs() < f32::EPSILON);
+        assert!(track.pan.abs() < f32::EPSILON);
     }
 
     #[test]
@@ -664,7 +664,7 @@ mod tests {
 
         // -∞ dB = 0 gain
         track.volume_db = -100.0;
-        assert_eq!(track.get_gain(), 0.0);
+        assert!(track.get_gain().abs() < f32::EPSILON);
     }
 
     #[test]

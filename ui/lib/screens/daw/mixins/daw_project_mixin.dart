@@ -553,8 +553,9 @@ mixin DAWProjectMixin
 
     if (newName == null ||
         newName.isEmpty ||
-        newName == projectManager!.currentName)
+        newName == projectManager!.currentName) {
       return;
+    }
 
     try {
       final currentPath = projectManager!.currentPath!;

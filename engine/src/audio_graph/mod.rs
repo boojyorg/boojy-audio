@@ -761,7 +761,7 @@ mod tests {
     #[test]
     fn test_playhead_position() {
         let graph = AudioGraph::new().unwrap();
-        assert_eq!(graph.get_playhead_position(), 0.0);
+        assert!(graph.get_playhead_position().abs() < f64::EPSILON);
 
         graph.seek(5.5);
         assert!((graph.get_playhead_position() - 5.5).abs() < 0.001);

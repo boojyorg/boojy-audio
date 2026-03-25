@@ -726,7 +726,8 @@ mod tests {
 
         synth.note_off(60);
         // Voice still active during release
-        assert!(synth.active_voice_count() >= 0);
+        // Voice may still be active during release phase
+        let _count = synth.active_voice_count();
     }
 
     #[test]
@@ -756,8 +757,7 @@ mod tests {
         manager.set_parameter(1, "osc_type", "sine");
         manager.note_on(1, 60, 100);
 
-        let sample = manager.process_sample(1);
-        // Should produce some audio
-        assert!(sample.abs() > 0.0 || true); // May be 0 during attack
+        // Should produce some audio (may be 0 during attack phase)
+        let _ = manager.process_sample(1);
     }
 }

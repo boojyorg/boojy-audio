@@ -576,13 +576,13 @@ mod tests {
     fn test_tempo() {
         let recorder = Recorder::new();
         recorder.set_tempo(140.0);
-        assert_eq!(recorder.get_tempo(), 140.0);
+        assert!((recorder.get_tempo() - 140.0).abs() < 1e-6);
 
         recorder.set_tempo(500.0);
-        assert_eq!(recorder.get_tempo(), 300.0);
+        assert!((recorder.get_tempo() - 300.0).abs() < 1e-6);
 
         recorder.set_tempo(10.0);
-        assert_eq!(recorder.get_tempo(), 20.0);
+        assert!((recorder.get_tempo() - 20.0).abs() < 1e-6);
     }
 
     #[test]

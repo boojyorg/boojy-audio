@@ -185,8 +185,11 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Update selection based on box selection rectangle.
   /// Called during drag to provide live selection feedback.
   void updateBoxSelection() {
-    if (!isBoxSelecting || boxSelectionStart == null || boxSelectionEnd == null)
+    if (!isBoxSelecting ||
+        boxSelectionStart == null ||
+        boxSelectionEnd == null) {
       return;
+    }
 
     // Skip if box is too small (essentially a click, not a drag)
     // Use 10px minimum to avoid accidental selection during click

@@ -13,6 +13,7 @@ import '../services/library_preview_service.dart';
 import '../services/library_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
+import '../utils/logger.dart';
 import '../utils/text_utils.dart';
 
 /// Library panel widget - two-column layout with categories on left, contents on right
@@ -253,7 +254,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       if (key == LogicalKeyboardKey.arrowDown) {
         final next = (currentIndex + 1).clamp(0, itemIds.length - 1);
         setState(() => _selectedItemId = itemIds[next]);
-        print(
+        Log.d(
           '[LIBRARY-NAV] Arrow down → selected: ${itemIds[next]}, previewing...',
         );
         _previewSelectedItem();
@@ -261,7 +262,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       } else if (key == LogicalKeyboardKey.arrowUp) {
         final prev = (currentIndex - 1).clamp(0, itemIds.length - 1);
         setState(() => _selectedItemId = itemIds[prev]);
-        print(
+        Log.d(
           '[LIBRARY-NAV] Arrow up → selected: ${itemIds[prev]}, previewing...',
         );
         _previewSelectedItem();
@@ -1123,8 +1124,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     // Determine which categories to search
     bool shouldSearchCategory(String categoryId) {
       if (scope == null) return true; // search everything
-      if (scope.startsWith('folder_'))
+      if (scope.startsWith('folder_')) {
         return false; // user folder scope — handled below
+      }
       return scope == categoryId;
     }
 

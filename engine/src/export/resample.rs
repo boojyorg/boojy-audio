@@ -244,10 +244,10 @@ mod tests {
         let stereo = mono_to_stereo(&mono);
 
         assert_eq!(stereo.len(), 6);
-        assert_eq!(stereo[0], 0.5);
-        assert_eq!(stereo[1], 0.5);
-        assert_eq!(stereo[2], 0.3);
-        assert_eq!(stereo[3], 0.3);
+        assert!((stereo[0] - 0.5).abs() < f32::EPSILON);
+        assert!((stereo[1] - 0.5).abs() < f32::EPSILON);
+        assert!((stereo[2] - 0.3).abs() < f32::EPSILON);
+        assert!((stereo[3] - 0.3).abs() < f32::EPSILON);
     }
 
     #[test]

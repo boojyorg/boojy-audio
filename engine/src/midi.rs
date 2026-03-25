@@ -296,7 +296,7 @@ mod tests {
                 assert_eq!(note, 60);
                 assert_eq!(velocity, 100);
             }
-            _ => panic!("Expected NoteOn"),
+            MidiEventType::NoteOff { .. } => panic!("Expected NoteOn"),
         }
     }
 }

@@ -739,8 +739,8 @@ mod tests {
         assert_eq!(sampler.root_note, 60);
         assert_eq!(sampler.active_voice_count(), 0);
         assert!(!sampler.loop_enabled);
-        assert_eq!(sampler.loop_start, 0.0);
-        assert_eq!(sampler.loop_end, 0.0);
+        assert!(sampler.loop_start.abs() < f64::EPSILON);
+        assert!(sampler.loop_end.abs() < f64::EPSILON);
     }
 
     #[test]
@@ -749,15 +749,15 @@ mod tests {
         // Should not crash when no sample loaded
         sampler.note_on(60, 100);
         let (left, right) = sampler.process_sample();
-        assert_eq!(left, 0.0);
-        assert_eq!(right, 0.0);
+        assert!(left.abs() < f32::EPSILON);
+        assert!(right.abs() < f32::EPSILON);
     }
 
     #[test]
     fn test_envelope_defaults() {
         let env = SamplerEnvelope::default();
-        assert_eq!(env.attack_ms, 1.0);
-        assert_eq!(env.release_ms, 50.0);
+        assert!((env.attack_ms - 1.0).abs() < 1e-4);
+        assert!((env.release_ms - 50.0).abs() < 1e-4);
     }
 
     #[test]
@@ -801,14 +801,14 @@ mod tests {
         }"#).unwrap();
         // New fields should have serde defaults
         assert!(!data.loop_enabled);
-        assert_eq!(data.loop_start_seconds, 0.0);
-        assert_eq!(data.loop_end_seconds, 0.0);
+        assert!(data.loop_start_seconds.abs() < f64::EPSILON);
+        assert!(data.loop_end_seconds.abs() < f64::EPSILON);
         // Audio manipulation defaults
-        assert_eq!(data.volume_db, 0.0);
+        assert!(data.volume_db.abs() < f32::EPSILON);
         assert_eq!(data.transpose_semitones, 0);
         assert_eq!(data.fine_cents, 0);
         assert!(!data.reversed);
-        assert_eq!(data.original_bpm, 120.0);
+        assert!((data.original_bpm - 120.0).abs() < 1e-6);
         assert!(!data.warp_enabled);
         assert_eq!(data.warp_mode, 0);
         assert_eq!(data.beats_per_bar, 4);
@@ -823,9 +823,9 @@ mod tests {
 
         // Clamping
         sampler.set_parameter("volume_db", "-100.0");
-        assert_eq!(sampler.volume_db, -70.0);
+        assert!((sampler.volume_db - (-70.0)).abs() < 1e-4);
         sampler.set_parameter("volume_db", "30.0");
-        assert_eq!(sampler.volume_db, 24.0);
+        assert!((sampler.volume_db - 24.0).abs() < 1e-4);
     }
 
     #[test]
@@ -869,7 +869,7 @@ mod tests {
 
         // BPM clamping
         sampler.set_parameter("original_bpm", "5.0");
-        assert_eq!(sampler.original_bpm, 20.0);
+        assert!((sampler.original_bpm - 20.0).abs() < 1e-6);
     }
 
     #[test]
@@ -890,11 +890,11 @@ mod tests {
     #[test]
     fn test_new_defaults() {
         let sampler = Sampler::new(48000.0);
-        assert_eq!(sampler.volume_db, 0.0);
+        assert!(sampler.volume_db.abs() < f32::EPSILON);
         assert_eq!(sampler.transpose_semitones, 0);
         assert_eq!(sampler.fine_cents, 0);
         assert!(!sampler.reversed);
-        assert_eq!(sampler.original_bpm, 120.0);
+        assert!((sampler.original_bpm - 120.0).abs() < 1e-6);
         assert!(!sampler.warp_enabled);
         assert_eq!(sampler.warp_mode, 0);
         assert_eq!(sampler.beats_per_bar, 4);

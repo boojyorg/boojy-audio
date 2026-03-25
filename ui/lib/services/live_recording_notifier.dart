@@ -101,8 +101,9 @@ class LiveRecordingNotifier extends ChangeNotifier {
       if (note == null ||
           velocity == null ||
           type == null ||
-          timestampSamples == null)
+          timestampSamples == null) {
         continue;
+      }
 
       // Convert sample timestamp to beats (relative to clip start = beat 0)
       final beatPosition = (timestampSamples / _sampleRate) * beatsPerSecond;

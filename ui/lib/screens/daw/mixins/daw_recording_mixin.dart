@@ -123,8 +123,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   void pauseRecording() {
     if (!isRecording &&
         !isCountingIn &&
-        !recordingController.isWaitingForPunchIn)
+        !recordingController.isWaitingForPunchIn) {
       return;
+    }
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
@@ -139,8 +140,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   void stopRecordingAndReturn() {
     if (!isRecording &&
         !isCountingIn &&
-        !recordingController.isWaitingForPunchIn)
+        !recordingController.isWaitingForPunchIn) {
       return;
+    }
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();

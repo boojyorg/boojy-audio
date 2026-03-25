@@ -805,8 +805,9 @@ class TimelineViewState extends State<TimelineView>
     for (int i = 0; i < a.length; i++) {
       if (a[i].id != b[i].id ||
           a[i].name != b[i].name ||
-          a[i].type != b[i].type)
+          a[i].type != b[i].type) {
         return false;
+      }
     }
     return true;
   }
@@ -3468,8 +3469,9 @@ class TimelineViewState extends State<TimelineView>
                         },
                         onHorizontalDragUpdate: (details) {
                           if (trimmingAudioClipId != clip.clipId ||
-                              !isTrimmingLeftEdge)
+                              !isTrimmingLeftEdge) {
                             return;
+                          }
                           final deltaX =
                               details.globalPosition.dx - audioTrimStartX;
                           final deltaSeconds = deltaX / pixelsPerSecond;
@@ -3607,8 +3609,9 @@ class TimelineViewState extends State<TimelineView>
                             },
                             onHorizontalDragUpdate: (details) {
                               if (trimmingAudioClipId != clip.clipId ||
-                                  isTrimmingLeftEdge)
+                                  isTrimmingLeftEdge) {
                                 return;
+                              }
                               final deltaX =
                                   details.globalPosition.dx - audioTrimStartX;
                               final deltaSeconds = deltaX / pixelsPerSecond;
@@ -4012,8 +4015,9 @@ class TimelineViewState extends State<TimelineView>
 
                     // Skip in eraser/slice mode (Draw mode allows moving)
                     final tool = effectiveToolMode;
-                    if (tool == ToolMode.eraser || tool == ToolMode.slice)
+                    if (tool == ToolMode.eraser || tool == ToolMode.slice) {
                       return;
+                    }
 
                     // Shift bypasses snap (spec v2.0)
                     final bypassSnap =

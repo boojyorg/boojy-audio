@@ -516,8 +516,8 @@ mod tests {
     fn test_preview_player_creation() {
         let player = PreviewPlayer::new();
         assert!(!player.is_playing());
-        assert_eq!(player.get_position(), 0.0);
-        assert_eq!(player.get_duration(), 0.0);
+        assert!(player.get_position().abs() < f64::EPSILON);
+        assert!(player.get_duration().abs() < f64::EPSILON);
     }
 
     #[test]
@@ -526,7 +526,7 @@ mod tests {
 
         // No fade
         player.fade_samples_remaining = 0;
-        assert_eq!(player.calculate_fade_gain(), 1.0);
+        assert!((player.calculate_fade_gain() - 1.0).abs() < f32::EPSILON);
 
         // Fade in at start
         player.fade_samples_remaining = FADE_SAMPLES as i32;

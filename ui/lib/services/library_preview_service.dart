@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/library_item.dart';
+import '../utils/logger.dart';
 import 'commands/audio_engine_interface.dart';
 
 /// Service for managing library audio preview playback.
@@ -109,7 +110,7 @@ class LibraryPreviewService extends ChangeNotifier {
 
     // Start async load in Rust background thread (returns immediately)
     _loadStartTime = DateTime.now();
-    print('[PREVIEW-DART] Starting async load for: $name');
+    Log.d('[PREVIEW-DART] Starting async load for: $name');
     _audioEngine.previewLoadAudioAsync(path);
 
     // Start timer to poll for load completion
@@ -196,14 +197,14 @@ class LibraryPreviewService extends ChangeNotifier {
             final elapsed = _loadStartTime != null
                 ? DateTime.now().difference(_loadStartTime!).inMilliseconds
                 : -1;
-            print('[PREVIEW-DART] Loaded! Total wait: ${elapsed}ms');
+            Log.d('[PREVIEW-DART] Loaded! Total wait: ${elapsed}ms');
             _isLoading = false;
             _duration = _audioEngine.previewGetDuration();
             _audioEngine.previewSetLooping(false);
             // Start playback immediately — fetch waveform after
             _audioEngine.previewPlay();
             _isPlaying = true;
-            print(
+            Log.d(
               '[PREVIEW-DART] Play started at +${DateTime.now().difference(_loadStartTime!).inMilliseconds}ms',
             );
             // Fetch waveform in next microtask so play isn't delayed
