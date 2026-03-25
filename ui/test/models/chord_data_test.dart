@@ -198,7 +198,7 @@ void main() {
   group('ChordConfiguration', () {
     group('constructor', () {
       test('creates with required fields', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -208,7 +208,7 @@ void main() {
       });
 
       test('uses default inversion 0', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -217,7 +217,7 @@ void main() {
       });
 
       test('uses default octave 4', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -226,7 +226,7 @@ void main() {
       });
 
       test('creates with all fields', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.fSharp,
           type: ChordType.minor7,
           inversion: 2,
@@ -242,7 +242,7 @@ void main() {
 
     group('midiNotes', () {
       test('C major root position at octave 4', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 4,
@@ -252,7 +252,7 @@ void main() {
       });
 
       test('C minor root position at octave 4', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.minor,
           octave: 4,
@@ -262,7 +262,7 @@ void main() {
       });
 
       test('G major at octave 4', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.g,
           type: ChordType.major,
           octave: 4,
@@ -272,7 +272,7 @@ void main() {
       });
 
       test('C7 at octave 4', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.dominant7,
           octave: 4,
@@ -282,7 +282,7 @@ void main() {
       });
 
       test('C major first inversion', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 1,
@@ -294,7 +294,7 @@ void main() {
       });
 
       test('C major second inversion', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 2,
@@ -306,7 +306,7 @@ void main() {
       });
 
       test('C7 first inversion', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.dominant7,
           inversion: 1,
@@ -318,13 +318,13 @@ void main() {
       });
 
       test('different octaves', () {
-        final chordOctave3 = ChordConfiguration(
+        const chordOctave3 = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 3,
         );
 
-        final chordOctave5 = ChordConfiguration(
+        const chordOctave5 = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 5,
@@ -335,7 +335,7 @@ void main() {
       });
 
       test('augmented chord', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.augmented,
           octave: 4,
@@ -345,7 +345,7 @@ void main() {
       });
 
       test('diminished chord', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.diminished,
           octave: 4,
@@ -355,7 +355,7 @@ void main() {
       });
 
       test('sus2 chord', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.sus2,
           octave: 4,
@@ -365,7 +365,7 @@ void main() {
       });
 
       test('sus4 chord', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.sus4,
           octave: 4,
@@ -377,7 +377,7 @@ void main() {
 
     group('displayName', () {
       test('C major displays as C Maj', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -386,7 +386,7 @@ void main() {
       });
 
       test('F# minor7 displays as F# Min7', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.fSharp,
           type: ChordType.minor7,
         );
@@ -395,7 +395,7 @@ void main() {
       });
 
       test('G dominant7 displays as G 7', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.g,
           type: ChordType.dominant7,
         );
@@ -406,7 +406,7 @@ void main() {
 
     group('fullDisplayName', () {
       test('root position shows only chord name', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 0,
@@ -416,7 +416,7 @@ void main() {
       });
 
       test('first inversion shows 1st inv', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 1,
@@ -426,7 +426,7 @@ void main() {
       });
 
       test('second inversion shows 2nd inv', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 2,
@@ -436,7 +436,7 @@ void main() {
       });
 
       test('third inversion shows 3rd inv', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.dominant7,
           inversion: 3,
@@ -446,7 +446,7 @@ void main() {
       });
 
       test('higher inversions show nth inv', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 4,
@@ -458,7 +458,7 @@ void main() {
 
     group('copyWith', () {
       test('copies all fields when none specified', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 1,
@@ -474,7 +474,7 @@ void main() {
       });
 
       test('updates root only', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -486,7 +486,7 @@ void main() {
       });
 
       test('updates type only', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
         );
@@ -498,7 +498,7 @@ void main() {
       });
 
       test('updates inversion only', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 0,
@@ -510,7 +510,7 @@ void main() {
       });
 
       test('updates octave only', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 4,
@@ -522,7 +522,7 @@ void main() {
       });
 
       test('updates multiple fields', () {
-        final original = ChordConfiguration(
+        const original = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           inversion: 0,
@@ -545,7 +545,7 @@ void main() {
 
     group('edge cases', () {
       test('handles low octave', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 0,
@@ -555,7 +555,7 @@ void main() {
       });
 
       test('handles high octave', () {
-        final chord = ChordConfiguration(
+        const chord = ChordConfiguration(
           root: ChordRoot.c,
           type: ChordType.major,
           octave: 8,

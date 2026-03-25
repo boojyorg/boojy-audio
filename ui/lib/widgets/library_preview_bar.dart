@@ -20,13 +20,14 @@ class LibraryPreviewBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Only show when a file is loaded
+    // Only show when a file is loaded or loading
     if (!previewService.hasLoadedFile) {
       return const SizedBox.shrink();
     }
 
     // Capture non-null reference for closures
     final service = previewService;
+    final isLoading = previewService.isLoading;
 
     return Container(
       height: 48,
@@ -36,7 +37,18 @@ class LibraryPreviewBar extends StatelessWidget {
           top: BorderSide(color: context.colors.divider),
         ),
       ),
-      child: Row(
+      child: isLoading
+          ? Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.colors.accent,
+                ),
+              ),
+            )
+          : Row(
         children: [
           // Audition toggle button
           _AuditionToggleButton(

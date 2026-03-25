@@ -28,7 +28,7 @@ class TimeRulerPainter extends CustomPainter {
     final totalBeats = (size.width / pixelsPerBeat).ceil() + 4;
 
     final paint = Paint()
-      ..color = const Color(0xFF3a3a3a)
+      ..color = const Color(0xFF3A3D4A) // BG.divider
       ..strokeWidth = 1;
 
     final textPainter = TextPainter(
@@ -70,7 +70,7 @@ class TimeRulerPainter extends CustomPainter {
         textPainter.text = TextSpan(
           text: '$barNumber',
           style: const TextStyle(
-            color: Color(0xFF9E9E9E),
+            color: Color(0xFF9B9EB0), // TEXT.secondary
             fontSize: 11,
             fontWeight: FontWeight.w500,
             fontFeatures: [FontFeature.tabularFigures()],
@@ -91,7 +91,7 @@ class TimeRulerPainter extends CustomPainter {
           textPainter.text = TextSpan(
             text: '$barNumber.$beatInBar',
             style: const TextStyle(
-              color: Color(0xFF707070),
+              color: Color(0xFF646880), // TEXT.muted
               fontSize: 9,
               fontFeatures: [FontFeature.tabularFigures()],
             ),

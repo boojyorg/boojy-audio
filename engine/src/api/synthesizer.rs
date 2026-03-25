@@ -15,8 +15,8 @@ use crate::effects::EffectType;
 /// Returns instrument ID or -1 on error
 pub fn set_track_instrument(track_id: u64, _instrument_type: String) -> Result<i64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
 
     let instrument_id = synth_manager.create_synth(track_id);
     println!(
@@ -32,8 +32,8 @@ pub fn set_synth_parameter(
     value: String,
 ) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
 
     synth_manager.set_parameter(track_id, &param_name, &value);
     Ok(format!(
@@ -44,9 +44,9 @@ pub fn set_synth_parameter(
 /// Get synthesizer parameters for a track
 pub fn get_synth_parameters(_track_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let _graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let _graph = graph_mutex.lock();
 
-    // TODO: Return actual parameters once implemented
+    // Future: Return real synth params for UI (v0.5.0)
     Ok(String::new())
 }
 
@@ -54,13 +54,13 @@ pub fn get_synth_parameters(_track_id: u64) -> Result<String, String> {
 /// Also records the event if MIDI recording is active
 pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
 
     // Record to MIDI recorder if recording is active
-    if let Ok(mut recorder) = graph.midi_recorder.lock() {
+    { let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             use crate::midi::{MidiEvent, MidiEventType};
             let event = MidiEvent {
@@ -72,15 +72,15 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
     }
 
     // Send to track synthesizer for live playback (built-in synth)
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let mut synth_manager = graph.track_synth_manager.lock();
     synth_manager.note_on(track_id, note, velocity);
 
     // Also send to VST3 instruments in the track's FX chain
     // Get the track's FX chain and send MIDI to any VST3 plugins
     let fx_chain: Vec<u64> = {
-        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let track_manager = graph.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
-            let track = track_arc.lock().map_err(|e| e.to_string())?;
+            let track = track_arc.lock();
             track.fx_chain.clone()
         } else {
             Vec::new()
@@ -89,10 +89,10 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
 
     // Send MIDI to VST3 plugins in the FX chain
     if !fx_chain.is_empty() {
-        let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+        let effect_manager = graph.effect_manager.lock();
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-                if let Ok(mut effect) = effect_arc.lock() {
+                { let mut effect = effect_arc.lock();
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 0 = note on
@@ -112,13 +112,13 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
 /// Also records the event if MIDI recording is active
 pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
 
     // Record to MIDI recorder if recording is active
-    if let Ok(mut recorder) = graph.midi_recorder.lock() {
+    { let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             use crate::midi::{MidiEvent, MidiEventType};
             let event = MidiEvent {
@@ -130,14 +130,14 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
     }
 
     // Send to track synthesizer for live playback (built-in synth)
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let mut synth_manager = graph.track_synth_manager.lock();
     synth_manager.note_off(track_id, note);
 
     // Also send to VST3 instruments in the track's FX chain
     let fx_chain: Vec<u64> = {
-        let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let track_manager = graph.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
-            let track = track_arc.lock().map_err(|e| e.to_string())?;
+            let track = track_arc.lock();
             track.fx_chain.clone()
         } else {
             Vec::new()
@@ -146,10 +146,10 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
 
     // Send MIDI to VST3 plugins in the FX chain
     if !fx_chain.is_empty() {
-        let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+        let effect_manager = graph.effect_manager.lock();
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-                if let Ok(mut effect) = effect_arc.lock() {
+                { let mut effect = effect_arc.lock();
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 1 = note off
@@ -173,8 +173,8 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
 /// Returns instrument ID or -1 on error
 pub fn create_sampler_for_track(track_id: u64) -> Result<i64, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
 
     let instrument_id = synth_manager.create_sampler(track_id);
     println!("✅ Created sampler for track {track_id}");
@@ -193,8 +193,8 @@ pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Resu
 
     // Get the audio graph and load into sampler
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
 
     if synth_manager.load_sample(track_id, clip_arc, root_note) {
         Ok(format!(
@@ -212,8 +212,8 @@ pub fn set_sampler_parameter(
     value: String,
 ) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
 
     // Check if this is a sampler track
     if !synth_manager.has_sampler(track_id) {
@@ -229,8 +229,8 @@ pub fn set_sampler_parameter(
 /// Check if a track has a sampler instrument
 pub fn is_sampler_track(track_id: u64) -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
 
     Ok(synth_manager.has_sampler(track_id))
 }
@@ -238,8 +238,8 @@ pub fn is_sampler_track(track_id: u64) -> Result<bool, String> {
 /// Get sampler info for UI synchronization
 pub fn get_sampler_info(track_id: u64) -> Result<crate::synth::SamplerInfo, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
 
     synth_manager.get_sampler_info(track_id)
         .ok_or_else(|| format!("Track {track_id} is not a sampler track"))
@@ -248,8 +248,8 @@ pub fn get_sampler_info(track_id: u64) -> Result<crate::synth::SamplerInfo, Stri
 /// Get waveform peaks from sampler's loaded sample
 pub fn get_sampler_waveform_peaks(track_id: u64, resolution: usize) -> Result<Vec<f32>, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
 
     synth_manager.get_sampler_waveform_peaks(track_id, resolution)
         .ok_or_else(|| format!("Track {track_id} has no sampler or no sample loaded"))

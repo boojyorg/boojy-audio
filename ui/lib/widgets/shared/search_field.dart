@@ -1,40 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
 
-/// A styled search field with consistent appearance.
+/// A styled search field matching the Boojy Notes pill-shaped design.
 ///
 /// Features:
-/// - Search icon prefix
-/// - Clear button suffix when text is present
-/// - Consistent styling across the app
-/// - Optional onSubmitted callback
+/// - Compact 95px pill when idle (icon + "Search" hint)
+/// - Expands to [expandedWidth] when focused or has text
+/// - Dark filled background with pill border
+/// - Clear button (✕) when text is present
+/// - Escape key clears text and blurs
 class SearchField extends StatefulWidget {
-  /// Controller for the text field
   final TextEditingController? controller;
-
-  /// Called when the text changes
   final ValueChanged<String>? onChanged;
-
-  /// Called when the user submits (presses enter)
   final ValueChanged<String>? onSubmitted;
-
-  /// Placeholder text
   final String hintText;
-
-  /// Whether the field should autofocus
   final bool autofocus;
-
-  /// Whether to show the clear button
   final bool showClearButton;
+  final double expandedWidth;
 
   const SearchField({
     super.key,
     this.controller,
     this.onChanged,
     this.onSubmitted,
-    this.hintText = 'Search...',
+    this.hintText = 'Search',
     this.autofocus = false,
     this.showClearButton = true,
+    this.expandedWidth = 300,
   });
 
   @override
@@ -43,7 +36,10 @@ class SearchField extends StatefulWidget {
 
 class _SearchFieldState extends State<SearchField> {
   late TextEditingController _controller;
+  late FocusNode _focusNode;
   bool _hasText = false;
+  bool _isFocused = false;
+  bool _clearHovered = false;
 
   @override
   void initState() {
@@ -51,10 +47,14 @@ class _SearchFieldState extends State<SearchField> {
     _controller = widget.controller ?? TextEditingController();
     _hasText = _controller.text.isNotEmpty;
     _controller.addListener(_onTextChanged);
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
     if (widget.controller == null) {
       _controller.dispose();
     } else {
@@ -70,61 +70,110 @@ class _SearchFieldState extends State<SearchField> {
     }
   }
 
+  void _onFocusChanged() {
+    setState(() => _isFocused = _focusNode.hasFocus);
+  }
+
   void _clear() {
     _controller.clear();
     widget.onChanged?.call('');
+    _focusNode.unfocus();
   }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      _clear();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  bool get _isExpanded => _isFocused || _hasText;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return TextField(
-      controller: _controller,
-      autofocus: widget.autofocus,
-      onChanged: widget.onChanged,
-      onSubmitted: widget.onSubmitted,
-      style: TextStyle(
-        color: colors.textPrimary,
-        fontSize: 12,
-      ),
-      decoration: InputDecoration(
-        hintText: widget.hintText,
-        hintStyle: TextStyle(
-          color: colors.textMuted,
-          fontSize: 12,
+    return GestureDetector(
+      onTap: () => _focusNode.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        width: _isExpanded ? widget.expandedWidth : 105,
+        height: 28,
+        decoration: BoxDecoration(
+          color: colors.darkest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _isFocused
+                ? colors.accent.withValues(alpha: 0.37)
+                : colors.divider,
+          ),
         ),
-        prefixIcon: Icon(
-          Icons.search,
-          color: colors.textMuted,
-          size: 16,
-        ),
-        prefixIconConstraints: const BoxConstraints(
-          minWidth: 28,
-          minHeight: 28,
-        ),
-        suffixIcon: widget.showClearButton && _hasText
-            ? GestureDetector(
-                onTap: _clear,
-                child: Icon(
-                  Icons.close,
-                  color: colors.textMuted,
-                  size: 14,
+        clipBehavior: Clip.hardEdge,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.search,
+              size: 15.4,
+              color: Color(0xFF646880),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Focus(
+                onKeyEvent: _handleKeyEvent,
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  autofocus: widget.autofocus,
+                  onChanged: widget.onChanged,
+                  onSubmitted: widget.onSubmitted,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: widget.hintText,
+                    hintStyle: TextStyle(
+                      color: colors.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
                 ),
-              )
-            : null,
-        suffixIconConstraints: const BoxConstraints(
-          minWidth: 28,
-          minHeight: 28,
+              ),
+            ),
+            if (widget.showClearButton && _hasText) ...[
+              const SizedBox(width: 4),
+              MouseRegion(
+                onEnter: (_) => setState(() => _clearHovered = true),
+                onExit: (_) => setState(() => _clearHovered = false),
+                child: GestureDetector(
+                  onTap: _clear,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Text(
+                      '\u2715',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _clearHovered
+                            ? colors.textPrimary
+                            : colors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
-        filled: true,
-        fillColor: colors.darkest,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide.none,
-        ),
-        isDense: true,
       ),
     );
   }
@@ -132,20 +181,15 @@ class _SearchFieldState extends State<SearchField> {
 
 /// A search field wrapped in a container with consistent panel styling.
 class SearchFieldPanel extends StatelessWidget {
-  /// Controller for the text field
   final TextEditingController? controller;
-
-  /// Called when the text changes
   final ValueChanged<String>? onChanged;
-
-  /// Placeholder text
   final String hintText;
 
   const SearchFieldPanel({
     super.key,
     this.controller,
     this.onChanged,
-    this.hintText = 'Search...',
+    this.hintText = 'Search',
   });
 
   @override

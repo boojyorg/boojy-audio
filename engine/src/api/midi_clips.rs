@@ -14,7 +14,7 @@ use std::sync::Arc;
 /// Get number of MIDI clips on timeline
 pub fn get_midi_clip_count() -> Result<usize, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     Ok(graph.midi_clip_count())
 }
@@ -24,12 +24,12 @@ pub fn get_midi_clip_count() -> Result<usize, String> {
 /// Each clip: "`clip_id,track_id,start_time,duration,note_count`"
 pub fn get_all_midi_clips_info() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let mut clips_info = Vec::new();
 
     // Get clips from global MIDI clips storage
-    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let midi_clips = graph.get_midi_clips().lock();
     for timeline_clip in midi_clips.iter() {
         let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
         let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
@@ -41,9 +41,9 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
     drop(midi_clips);
 
     // Also get clips from tracks (they might have different IDs)
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     for track in track_manager.get_all_tracks() {
-        if let Ok(track_lock) = track.lock() {
+        { let track_lock = track.lock();
             for timeline_clip in &track_lock.midi_clips {
                 // Check if we already have this clip
                 let already_added = clips_info.iter().any(|info| {
@@ -68,10 +68,10 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
 /// `track_id` is -1 if not assigned to a track
 pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // First check global MIDI clips
-    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let midi_clips = graph.get_midi_clips().lock();
     if let Some(timeline_clip) = midi_clips.iter().find(|c| c.id == clip_id) {
         let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
         let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
@@ -83,9 +83,9 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     drop(midi_clips);
 
     // Also check track-specific MIDI clips
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     for track in track_manager.get_all_tracks() {
-        if let Ok(track_lock) = track.lock() {
+        { let track_lock = track.lock();
             for timeline_clip in &track_lock.midi_clips {
                 if timeline_clip.id == clip_id {
                     let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
@@ -105,12 +105,12 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
 /// Returns semicolon-separated list of notes: "`note,velocity,start_time,duration`"
 pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let sample_rate = crate::audio_graph::AudioGraph::get_sample_rate();
 
     // First check global MIDI clips
-    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let midi_clips = graph.get_midi_clips().lock();
     if let Some(timeline_clip) = midi_clips.iter().find(|c| c.id == clip_id) {
         let notes = extract_notes_from_clip(&timeline_clip.clip, sample_rate);
         return Ok(notes);
@@ -118,9 +118,9 @@ pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
     drop(midi_clips);
 
     // Also check track-specific MIDI clips
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     for track in track_manager.get_all_tracks() {
-        if let Ok(track_lock) = track.lock() {
+        { let track_lock = track.lock();
             for timeline_clip in &track_lock.midi_clips {
                 if timeline_clip.id == clip_id {
                     let notes = extract_notes_from_clip(&timeline_clip.clip, sample_rate);
@@ -169,20 +169,20 @@ fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> St
 /// Send MIDI note on event directly to synthesizer (for virtual piano)
 /// Also records the event if MIDI recording is active
 pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
+    use crate::midi::{MidiEvent, MidiEventType};
+
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
-
-    use crate::midi::{MidiEvent, MidiEventType};
     let event = MidiEvent {
         event_type: MidiEventType::NoteOn { note, velocity },
         timestamp_samples,
     };
 
     // Record to MIDI recorder if recording is active
-    if let Ok(mut recorder) = graph.midi_recorder.lock() {
+    { let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             recorder.record_event(event);
         }
@@ -190,14 +190,14 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
 
     // Send to per-track synthesizer for live playback
     // Route to first armed MIDI/Sampler track (or first one if none armed)
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     let tracks = track_manager.get_all_tracks();
 
     let mut target_track_id: Option<TrackId> = None;
     let mut first_midi_track_id: Option<TrackId> = None;
 
     for track_arc in tracks {
-        if let Ok(track) = track_arc.lock() {
+        { let track = track_arc.lock();
             // Both MIDI and Sampler tracks can receive MIDI notes
             if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
@@ -216,7 +216,7 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
     let target = target_track_id.or(first_midi_track_id);
 
     if let Some(track_id) = target {
-        let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+        let mut synth_manager = graph.track_synth_manager.lock();
         synth_manager.note_on(track_id, note, velocity);
     }
 
@@ -226,20 +226,20 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
 /// Send MIDI note off event directly to synthesizer (for virtual piano)
 /// Also records the event if MIDI recording is active
 pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
+    use crate::midi::{MidiEvent, MidiEventType};
+
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get current playhead position for timestamping
     let timestamp_samples = graph.get_playhead_samples();
-
-    use crate::midi::{MidiEvent, MidiEventType};
     let event = MidiEvent {
         event_type: MidiEventType::NoteOff { note, velocity },
         timestamp_samples,
     };
 
     // Record to MIDI recorder if recording is active
-    if let Ok(mut recorder) = graph.midi_recorder.lock() {
+    { let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             recorder.record_event(event);
         }
@@ -247,14 +247,14 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
 
     // Send to per-track synthesizer for live playback
     // Route to first armed MIDI/Sampler track (or first one if none armed)
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     let tracks = track_manager.get_all_tracks();
 
     let mut target_track_id: Option<TrackId> = None;
     let mut first_midi_track_id: Option<TrackId> = None;
 
     for track_arc in tracks {
-        if let Ok(track) = track_arc.lock() {
+        { let track = track_arc.lock();
             // Both MIDI and Sampler tracks can receive MIDI notes
             if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
@@ -273,7 +273,7 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
     let target = target_track_id.or(first_midi_track_id);
 
     if let Some(track_id) = target {
-        let mut synth_manager = graph.track_synth_manager.lock().map_err(|e| e.to_string())?;
+        let mut synth_manager = graph.track_synth_manager.lock();
         synth_manager.note_off(track_id, note);
     }
 
@@ -289,7 +289,7 @@ pub fn create_midi_clip() -> Result<u64, String> {
     use crate::midi::MidiClip;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Create empty MIDI clip
     let clip = MidiClip::new(crate::audio_file::TARGET_SAMPLE_RATE);
@@ -319,11 +319,11 @@ pub fn add_midi_note_to_clip(
     use crate::midi::MidiEvent;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip and modify it
     {
-        let mut midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+        let mut midi_clips = graph.get_midi_clips().lock();
         let timeline_clip = midi_clips
             .iter_mut()
             .find(|c| c.id == clip_id)
@@ -359,10 +359,10 @@ pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, Str
     use crate::midi::MidiEventType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip
-    let midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let midi_clips = graph.get_midi_clips().lock();
     let timeline_clip = midi_clips
         .iter()
         .find(|c| c.id == clip_id)
@@ -389,10 +389,10 @@ pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, Str
 /// Remove a MIDI event at the specified index
 pub fn remove_midi_event(clip_id: u64, event_index: usize) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip
-    let mut midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let mut midi_clips = graph.get_midi_clips().lock();
     let timeline_clip = midi_clips
         .iter_mut()
         .find(|c| c.id == clip_id)
@@ -411,11 +411,11 @@ pub fn remove_midi_event(clip_id: u64, event_index: usize) -> Result<String, Str
 /// Clear all MIDI events from a clip
 pub fn clear_midi_clip(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip and clear it
     {
-        let mut midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+        let mut midi_clips = graph.get_midi_clips().lock();
         let timeline_clip = midi_clips
             .iter_mut()
             .find(|c| c.id == clip_id)
@@ -441,10 +441,10 @@ pub fn clear_midi_clip(clip_id: u64) -> Result<String, String> {
 /// * `grid_division` - Grid division (4 = quarter note, 8 = eighth note, 16 = sixteenth note, etc.)
 pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip
-    let mut midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+    let mut midi_clips = graph.get_midi_clips().lock();
     let timeline_clip = midi_clips
         .iter_mut()
         .find(|c| c.id == clip_id)
@@ -477,11 +477,11 @@ pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, St
 /// * `start_time_seconds` - Start time on the timeline in seconds
 pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_seconds: f64) -> Result<(), String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Get the MIDI clip from global storage and update its track_id
     let clip_arc = {
-        let mut midi_clips = graph.get_midi_clips().lock().map_err(|e| e.to_string())?;
+        let mut midi_clips = graph.get_midi_clips().lock();
         let timeline_clip = midi_clips
             .iter_mut()
             .find(|c| c.id == clip_id)
@@ -508,12 +508,12 @@ pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_second
 /// * `clip_id` - The MIDI clip ID to remove
 pub fn remove_midi_clip(track_id: u64, clip_id: u64) -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     // Remove from track's timeline
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let track_manager = graph.track_manager.lock();
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.midi_clips.retain(|c| c.id != clip_id);
     }
     drop(track_manager);

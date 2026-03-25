@@ -7,6 +7,7 @@ import '../../utils/clip_overlap_handler.dart';
 import '../../theme/theme_extension.dart';
 import 'timeline_state.dart';
 import '../timeline_view.dart';
+import '../../utils/logger.dart';
 
 /// Mixin containing file drop and preview loading methods for TimelineView.
 /// Separates file handling logic from main timeline code.
@@ -22,7 +23,7 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
     // Handle MIDI files via callback
     if (ext == 'mid' || ext == 'midi') {
       final startBeats = calculateBeatPosition(localPosition);
-      widget.onMidiFileDroppedOnTrack?.call(trackId, filePath, startBeats);
+      widget.dragDropCallbacks.onMidiFileDroppedOnTrack?.call(trackId, filePath, startBeats);
       return;
     }
 
@@ -87,7 +88,7 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
       });
 
     } catch (e) {
-      debugPrint('TimelineView: Error loading audio file: $e');
+      Log.e('TimelineView: Error loading audio file: $e');
     }
   }
 
@@ -153,7 +154,7 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
         });
       }
     } catch (e) {
-      debugPrint('TimelineView: Error loading MIDI preview: $e');
+      Log.e('TimelineView: Error loading MIDI preview: $e');
     }
   }
 

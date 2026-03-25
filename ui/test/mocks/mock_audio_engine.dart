@@ -270,6 +270,21 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  void previewLoadAudioAsync(String path) => _record('previewLoadAudioAsync');
+
+  @override
+  bool previewIsLoaded() {
+    _record('previewIsLoaded');
+    return true;
+  }
+
+  @override
+  bool previewCheckFullClip() {
+    _record('previewCheckFullClip');
+    return false;
+  }
+
+  @override
   void previewPlay() => _record('previewPlay');
 
   @override

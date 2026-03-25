@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../constants/ui_constants.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/tool_mode.dart';
 import '../../piano_roll.dart';
@@ -217,7 +218,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
       // Create single note
       final newNote = MidiNoteData(
         note: noteRow,
-        velocity: 100,
+        velocity: UIConstants.defaultMidiVelocity,
         startTime: snappedBeat,
         duration: lastNoteDuration,
         isSelected: true,
@@ -259,7 +260,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     if (currentlyHeldNote != null) {
       final trackId = currentClip?.trackId;
       if (trackId != null && widget.audioEngine != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
       }
       currentlyHeldNote = null;
     }
@@ -273,7 +274,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     final trackId = currentClip?.trackId;
     if (trackId != null && widget.audioEngine != null) {
       if (currentlyHeldNote != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
       }
       widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
       currentlyHeldNote = newMidiNote;
@@ -291,7 +292,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     }
     Future.delayed(const Duration(milliseconds: 500), () {
       for (final midiNote in midiNotes) {
-        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 64);
+        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, UIConstants.midiNoteOffVelocity);
       }
     });
   }
@@ -312,7 +313,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
       if (transposedNote >= 0 && transposedNote <= 127) {
         newNotes.add(MidiNoteData(
           note: transposedNote,
-          velocity: 100,
+          velocity: UIConstants.defaultMidiVelocity,
           startTime: beat,
           duration: lastNoteDuration,
           isSelected: true,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../audio_engine.dart';
+import '../utils/logger.dart';
 import '../models/vst3_plugin_data.dart';
 
 /// Manages VST3 plugin scanning, caching, and track effects.
@@ -79,7 +80,7 @@ class Vst3PluginManager extends ChangeNotifier {
             parameterValues: parameterValues,
           ));
         } catch (e) {
-          debugPrint('VST3PluginManager: Error getting plugin info for effect $effectId: $e');
+          Log.e('VST3PluginManager: Error getting plugin info for effect $effectId: $e');
         }
       }
     }
@@ -122,7 +123,7 @@ class Vst3PluginManager extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('VST3PluginManager: Error loading cached plugins: $e');
+      Log.e('VST3PluginManager: Error loading cached plugins: $e');
     }
   }
 
@@ -135,7 +136,7 @@ class Vst3PluginManager extends ChangeNotifier {
       await prefs.setInt('vst3_scan_timestamp', DateTime.now().millisecondsSinceEpoch);
       await prefs.setInt('vst3_cache_version', _cacheVersion);
     } catch (e) {
-      debugPrint('VST3PluginManager: Error saving plugin cache: $e');
+      Log.e('VST3PluginManager: Error saving plugin cache: $e');
     }
   }
 

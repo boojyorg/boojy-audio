@@ -7,6 +7,7 @@ import 'dart:js_interop_unsafe';
 
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
+import 'utils/logger.dart';
 
 /// JS interop for the Boojy WASM engine
 @JS('window.boojyEngine')
@@ -62,7 +63,7 @@ int _jsToInt(JSAny? value) {
     final num = _jsNumber(value).toDartDouble;
     return num.toInt();
   } catch (e) {
-    print('_jsToInt error: $e for ${value.runtimeType}');
+    Log.e('_jsToInt error: $e for ${value.runtimeType}');
     return -1;
   }
 }
@@ -448,6 +449,7 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) => -1;
+  @override
   int removeMidiClip(int trackId, int clipId) => 0;
   String clearMidiClip(int clipId) => 'OK';
 
@@ -491,7 +493,7 @@ class AudioEngine implements AudioEngineInterface {
     try {
       final result = _callEngineWith('create_track', [name.toJS]);
       final trackId = _jsToInt(result);
-      print('createTrack($trackType, $name) => $trackId (raw: ${result?.runtimeType})');
+      Log.d('createTrack($trackType, $name) => $trackId (raw: ${result?.runtimeType})');
 
       // If WASM returned a valid ID, use it
       if (trackId > 0) {
@@ -504,10 +506,10 @@ class AudioEngine implements AudioEngineInterface {
 
       // Fallback: generate our own ID if WASM fails or returns invalid
       final fallbackId = _nextTrackId++;
-      print('createTrack fallback: using generated ID $fallbackId');
+      Log.d('createTrack fallback: using generated ID $fallbackId');
       return fallbackId;
     } catch (e) {
-      print('createTrack error: $e');
+      Log.e('createTrack error: $e');
       // Fallback on error
       return _nextTrackId++;
     }
@@ -743,6 +745,15 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   String previewLoadAudio(String path) => 'Not available on web';
+
+  @override
+  void previewLoadAudioAsync(String path) {}
+
+  @override
+  bool previewIsLoaded() => false;
+
+  @override
+  bool previewCheckFullClip() => false;
 
   @override
   void previewPlay() {}

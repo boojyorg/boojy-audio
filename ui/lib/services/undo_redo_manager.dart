@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import 'commands/audio_engine_interface.dart';
 import 'commands/command.dart';
 import 'user_settings.dart';
@@ -86,7 +87,7 @@ class UndoRedoManager extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('UndoRedoManager: Error executing command: $e');
+      Log.e('UndoRedoManager: Error executing command: $e');
     } finally {
       _releaseLock();
     }

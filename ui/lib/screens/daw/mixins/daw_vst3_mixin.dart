@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../theme/theme_extension.dart';
-import '../../../widgets/vst3_plugin_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
@@ -22,16 +22,12 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   Future<void> scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    setState(() {
-      statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
-    });
+    statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
 
     final result = await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
 
     if (mounted) {
-      setState(() {
-        statusMessage = result;
-      });
+      statusMessage = result;
     }
   }
 
@@ -45,9 +41,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     final result = vst3PluginManager!.addToTrack(trackId, plugin);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
 
     // Show snackbar based on result
     final colors = context.colors;
@@ -66,31 +60,13 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     final result = vst3PluginManager!.removeFromTrack(effectId);
 
-    setState(() {
-      statusMessage = result.message;
-    });
+    statusMessage = result.message;
   }
 
-  /// Show VST3 plugin browser dialog
-  Future<void> showVst3PluginBrowserDialog(int trackId) async {
-    if (vst3PluginManager == null) return;
-
-    final vst3Browser = await showVst3PluginBrowser(
-      context,
-      availablePlugins: vst3PluginManager!.availablePlugins,
-      isScanning: vst3PluginManager!.isScanning,
-      onRescanRequested: () {
-        scanVst3Plugins(forceRescan: true);
-      },
-    );
-
-    if (vst3Browser != null) {
-      addVst3PluginToTrack(trackId, {
-        'name': vst3Browser.name,
-        'path': vst3Browser.path,
-        'vendor': vst3Browser.vendor ?? '',
-      });
-    }
+  /// Open the library sidebar to the Plugins category for VST3 browsing
+  void showVst3PluginBrowserDialog(int trackId) {
+    // Plugins are now browsed via the library sidebar's Plugins category
+    // VST3 plugins can be loaded via double-click or drag-and-drop
   }
 
   /// Handle VST3 plugin dropped on track
@@ -317,7 +293,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
     } catch (e) {
-      debugPrint('Failed to preview VST3 instrument: $e');
+      Log.e('Failed to preview VST3 instrument: $e');
     }
   }
 
@@ -379,7 +355,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       // Disarm other MIDI tracks (exclusive arm for new track)
       disarmOtherMidiTracks(trackId);
     } catch (e) {
-      debugPrint('Failed to create VST3 instrument track: $e');
+      Log.e('Failed to create VST3 instrument track: $e');
     }
   }
 

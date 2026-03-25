@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_positional_boolean_parameters
 import '../../models/sampler_info.dart';
 
 /// Abstract interface for AudioEngine to enable testing.
@@ -60,6 +61,9 @@ abstract class AudioEngineInterface {
 
   // Library preview operations
   String previewLoadAudio(String path);
+  void previewLoadAudioAsync(String path);
+  bool previewIsLoaded();
+  bool previewCheckFullClip();
   void previewPlay();
   void previewStop();
   void previewSeek(double positionSeconds);

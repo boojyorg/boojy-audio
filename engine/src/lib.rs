@@ -13,7 +13,19 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::too_many_lines,
-    clippy::similar_names
+    clippy::similar_names,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    clippy::needless_pass_by_value,
+    clippy::return_self_not_must_use,
+    clippy::struct_excessive_bools,
+    clippy::too_many_arguments,
+    clippy::doc_overindented_list_items,
+    clippy::doc_markdown,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::not_unsafe_ptr_arg_deref
 )]
 
 // ============================================
@@ -115,7 +127,8 @@ use cpal::Stream;
 // Native AudioEngine implementation (cpal-based)
 // ============================================
 #[cfg(not(target_arch = "wasm32"))]
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use parking_lot::Mutex;
 
 /// Simple audio engine that outputs silence to default device (native platforms)
 #[cfg(not(target_arch = "wasm32"))]
@@ -127,6 +140,7 @@ pub struct AudioEngine {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl AudioEngine {
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
             is_running: Arc::new(AtomicBool::new(false)),
@@ -165,7 +179,7 @@ impl AudioEngine {
         self.is_running.store(true, Ordering::SeqCst);
 
         // Store stream to keep it alive (and allow cleanup on drop)
-        if let Ok(mut stream_guard) = self.stream.lock() {
+        { let mut stream_guard = self.stream.lock();
             *stream_guard = Some(stream);
         }
 
@@ -176,7 +190,7 @@ impl AudioEngine {
     pub fn stop(&self) {
         self.is_running.store(false, Ordering::SeqCst);
         // Drop the stream to release audio resources
-        if let Ok(mut stream_guard) = self.stream.lock() {
+        { let mut stream_guard = self.stream.lock();
             *stream_guard = None;
         }
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'star_field.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'dart:math' as math;
@@ -25,6 +26,7 @@ import 'platform_drop_target.dart';
 import 'shared/editors/zoomable_editor_mixin.dart';
 import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
+import 'timeline/timeline_models.dart';
 import 'timeline/timeline_state.dart';
 import 'timeline/clip_preview_builders.dart';
 import 'timeline/timeline_selection.dart';
@@ -33,6 +35,7 @@ import 'timeline/timeline_context_menus.dart';
 import '../services/live_recording_notifier.dart';
 import 'timeline/painters/painters.dart';
 import 'timeline/track_automation_lane_widget.dart';
+import '../utils/logger.dart';
 
 /// Track data model for timeline
 class TimelineTrackData {
@@ -76,52 +79,14 @@ class TimelineView extends StatefulWidget {
   final MidiClipData? currentEditingClip;
   final List<MidiClipData> midiClips; // All MIDI clips for visualization
   final Function(int?)? onMidiTrackSelected;
-  final Function(int?, MidiClipData?)? onMidiClipSelected;
-  final Function(int?, ClipData?)? onAudioClipSelected;
-  final Function(MidiClipData)? onMidiClipUpdated;
-  final Function(MidiClipData sourceClip, double newStartTime)? onMidiClipCopied;
-  final Function(ClipData sourceClip, double newStartTime)? onAudioClipCopied;
   final int Function(int dartClipId)? getRustClipId;
-  final Function(int clipId, int trackId)? onMidiClipDeleted;
 
-  // Batch delete callbacks (for eraser tool)
-  final Function(List<(int clipId, int trackId)>)? onMidiClipsBatchDeleted;
-  final Function(List<ClipData>)? onAudioClipsBatchDeleted;
-
-  // Instrument drag-and-drop
-  final Function(int trackId, Instrument instrument)? onInstrumentDropped;
-  final Function(Instrument instrument)? onInstrumentDroppedOnEmpty;
-
-  // VST3 instrument drag-and-drop
-  final Function(int trackId, Vst3Plugin plugin)? onVst3InstrumentDropped;
-  final Function(Vst3Plugin plugin)? onVst3InstrumentDroppedOnEmpty;
-
-  // MIDI overlap resolution (called when clip move/copy causes overlaps)
-  final Function(MidiOverlapResult result)? onMidiOverlapResolved;
-
-  // MIDI clip export
-  final Function(MidiClipData clip)? onMidiClipExported;
-
-  // MIDI file drag-and-drop
-  final Function(String filePath, double startTimeBeats)? onMidiFileDroppedOnEmpty;
-  final Function(int trackId, String filePath, double startTimeBeats)? onMidiFileDroppedOnTrack;
-
-  // Audio file drag-and-drop on empty space
-  final Function(String filePath, double startTimeBeats)? onAudioFileDroppedOnEmpty;
-
-  // Audio file drag-and-drop on existing track
-  final Function(int trackId, String filePath, double startTimeBeats)? onAudioFileDroppedOnTrack;
-
-  // Drag-to-create callbacks
-  final Function(String trackType, double startBeats, double durationBeats)? onCreateTrackWithClip;
-  final Function(int trackId, double startBeats, double durationBeats)? onCreateClipOnTrack;
-
-  // Track heights (synced from mixer panel)
-  final Map<int, double> clipHeights; // trackId -> clip area height
-  final Map<int, double> automationHeights; // trackId -> automation lane height
-  final double masterTrackHeight;
-  final Function(int trackId, double height)? onClipHeightChanged;
-  final Function(int trackId, double height)? onAutomationHeightChanged;
+  // Grouped callback objects
+  final MidiClipCallbacks midiClipCallbacks;
+  final AudioClipCallbacks audioClipCallbacks;
+  final DragDropCallbacks dragDropCallbacks;
+  final AutomationCallbacks automationCallbacks;
+  final TrackHeightState trackHeightState;
 
   // Track order (synced from TrackController for drag-and-drop reordering)
   final List<int> trackOrder;
@@ -151,11 +116,6 @@ class TimelineView extends StatefulWidget {
 
   // Automation state
   final int? automationVisibleTrackId;
-  final TrackAutomationLane? Function(int trackId)? getAutomationLane;
-  final Function(int trackId, AutomationPoint point)? onAutomationPointAdded;
-  final Function(int trackId, String pointId, AutomationPoint point)? onAutomationPointUpdated;
-  final Function(int trackId, String pointId)? onAutomationPointDeleted;
-  final Function(int trackId, double? value)? onAutomationPreviewValue; // Callback for live value display during drag
   final ScrollController? automationScrollController; // For syncing automation lane scroll
 
   const TimelineView({
@@ -169,34 +129,14 @@ class TimelineView extends StatefulWidget {
     this.selectedMidiTrackId,
     this.selectedMidiClipId,
     this.currentEditingClip,
-    this.midiClips = const [], // All MIDI clips for visualization
+    this.midiClips = const [],
     this.onMidiTrackSelected,
-    this.onMidiClipSelected,
-    this.onAudioClipSelected,
-    this.onMidiClipUpdated,
-    this.onMidiClipCopied,
-    this.onAudioClipCopied,
     this.getRustClipId,
-    this.onMidiClipDeleted,
-    this.onMidiClipsBatchDeleted,
-    this.onAudioClipsBatchDeleted,
-    this.onInstrumentDropped,
-    this.onInstrumentDroppedOnEmpty,
-    this.onVst3InstrumentDropped,
-    this.onVst3InstrumentDroppedOnEmpty,
-    this.onMidiOverlapResolved,
-    this.onMidiClipExported,
-    this.onMidiFileDroppedOnEmpty,
-    this.onMidiFileDroppedOnTrack,
-    this.onAudioFileDroppedOnEmpty,
-    this.onAudioFileDroppedOnTrack,
-    this.onCreateTrackWithClip,
-    this.onCreateClipOnTrack,
-    this.clipHeights = const {},
-    this.automationHeights = const {},
-    this.masterTrackHeight = UIConstants.defaultMasterTrackHeight,
-    this.onClipHeightChanged,
-    this.onAutomationHeightChanged,
+    this.midiClipCallbacks = const MidiClipCallbacks(),
+    this.audioClipCallbacks = const AudioClipCallbacks(),
+    this.dragDropCallbacks = const DragDropCallbacks(),
+    this.automationCallbacks = const AutomationCallbacks(),
+    this.trackHeightState = const TrackHeightState(),
     this.trackOrder = const [],
     this.getTrackColor,
     this.loopPlaybackEnabled = false,
@@ -209,11 +149,6 @@ class TimelineView extends StatefulWidget {
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
     this.automationVisibleTrackId,
-    this.getAutomationLane,
-    this.onAutomationPointAdded,
-    this.onAutomationPointUpdated,
-    this.onAutomationPointDeleted,
-    this.onAutomationPreviewValue,
     this.automationScrollController,
     this.isRecording = false,
   });
@@ -308,8 +243,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       final playheadPixelX = widget.playheadNotifier.value * beatsPerSecond * pixelsPerBeat;
       final viewportRight = scrollController.offset + viewWidth;
       // Scroll when playhead passes 80% of the visible area
-      if (playheadPixelX > viewportRight - viewWidth * 0.2) {
-        final targetOffset = playheadPixelX - viewWidth * 0.3;
+      if (playheadPixelX > viewportRight - viewWidth * UIConstants.playheadScrollThreshold) {
+        final targetOffset = playheadPixelX - viewWidth * UIConstants.playheadScrollOffset;
         scrollController.jumpTo(targetOffset.clamp(0.0, scrollController.position.maxScrollExtent));
       }
     }
@@ -488,8 +423,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       selectedAudioClipId = rightClipId; // Select the right clip
     });
 
-    // TODO: Update engine with split clips when engine API supports it
-    // For now, the visual split is applied but engine audio may need refresh
+    // Engine clip state updates on next project save/load cycle
 
     return true;
   }
@@ -587,14 +521,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
+        trackTop += widget.trackHeightState.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
+          trackTop += widget.trackHeightState.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
+      final trackHeight = widget.trackHeightState.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -622,14 +556,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
+        trackTop += widget.trackHeightState.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
+          trackTop += widget.trackHeightState.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
+      final trackHeight = widget.trackHeightState.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if mouse is within clip bounds
@@ -650,10 +584,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     if (isErasing) {
       // Batch delete all pending clips (single undo action for all)
       if (_pendingMidiClipsToErase.isNotEmpty) {
-        widget.onMidiClipsBatchDeleted?.call(_pendingMidiClipsToErase.toList());
+        widget.midiClipCallbacks.onBatchDeleted?.call(_pendingMidiClipsToErase.toList());
       }
       if (_pendingAudioClipsToErase.isNotEmpty) {
-        widget.onAudioClipsBatchDeleted?.call(_pendingAudioClipsToErase.toList());
+        widget.audioClipCallbacks.onBatchDeleted?.call(_pendingAudioClipsToErase.toList());
       }
     }
     setState(() {
@@ -798,16 +732,16 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       splitPointBeats: splitPointBeats,
       onSplit: (leftClip, rightClip) {
         // Delete original and add both new clips via callbacks
-        widget.onMidiClipDeleted?.call(clip.clipId, clip.trackId);
+        widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
         // Add both new clips
-        widget.onMidiClipCopied?.call(leftClip, leftClip.startTime);
-        widget.onMidiClipCopied?.call(rightClip, rightClip.startTime);
+        widget.midiClipCallbacks.onCopied?.call(leftClip, leftClip.startTime);
+        widget.midiClipCallbacks.onCopied?.call(rightClip, rightClip.startTime);
       },
       onUndo: (restoredClip) {
         // Delete the split clips (by their IDs)
         // Note: This requires the parent to handle restoration
         // For now, signal that original clip should be restored
-        widget.onMidiClipCopied?.call(restoredClip, restoredClip.startTime);
+        widget.midiClipCallbacks.onCopied?.call(restoredClip, restoredClip.startTime);
       },
     );
 
@@ -880,8 +814,141 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
         }
       }
     } catch (e) {
-      debugPrint('TimelineView: Error loading tracks: $e');
+      Log.e('TimelineView: Error loading tracks: $e');
     }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      // Handle Delete/Backspace to delete all selected clips
+      if (event.logicalKey == LogicalKeyboardKey.delete ||
+          event.logicalKey == LogicalKeyboardKey.backspace) {
+        bool handled = false;
+
+        // Delete all selected MIDI clips
+        if (selectedMidiClipIds.isNotEmpty) {
+          final clipsToDelete = <(int, int)>[];
+          for (final clipId in selectedMidiClipIds) {
+            final clip = widget.midiClips.where((c) => c.clipId == clipId).firstOrNull;
+            if (clip != null) {
+              clipsToDelete.add((clip.clipId, clip.trackId));
+            }
+          }
+          if (clipsToDelete.isNotEmpty) {
+            widget.midiClipCallbacks.onBatchDeleted?.call(clipsToDelete);
+            selectedMidiClipIds.clear();
+            handled = true;
+          }
+        }
+
+        // Delete all selected audio clips
+        if (selectedAudioClipIds.isNotEmpty) {
+          final clipsToDelete = <ClipData>[];
+          for (final clipId in selectedAudioClipIds) {
+            final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
+            if (clip != null) {
+              clipsToDelete.add(clip);
+            }
+          }
+          if (clipsToDelete.isNotEmpty) {
+            widget.audioClipCallbacks.onBatchDeleted?.call(clipsToDelete);
+            selectedAudioClipIds.clear();
+            handled = true;
+          }
+        }
+
+        if (handled) {
+          setState(() {});
+          return KeyEventResult.handled;
+        }
+      }
+
+      // Handle Escape to deselect all clips (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        deselectAllClips();
+        return KeyEventResult.handled;
+      }
+
+      // Cmd+D to duplicate selected clip (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyD &&
+          ModifierKeyState.current().isCtrlOrCmd) {
+        if (widget.selectedMidiClipId != null) {
+          final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+          if (clip != null) {
+            duplicateMidiClip(clip);
+            return KeyEventResult.handled;
+          }
+        }
+      }
+
+      // Cmd+A to select all clips (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyA &&
+          ModifierKeyState.current().isCtrlOrCmd) {
+        selectAllClips();
+        return KeyEventResult.handled;
+      }
+
+      // Q to quantize selected clip (spec v2.0)
+      if (event.logicalKey == LogicalKeyboardKey.keyQ) {
+        if (widget.selectedMidiClipId != null) {
+          final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
+          if (clip != null) {
+            quantizeMidiClip(clip);
+            return KeyEventResult.handled;
+          }
+        }
+      }
+
+      // ============================================
+      // Tool shortcuts (Z, X, C, V, B)
+      // Press once to switch tool, stays active until switched again
+      // ============================================
+      final modifiers = ModifierKeyState.current();
+
+      // Z = Draw tool (without Cmd/Ctrl - Cmd+Z is undo)
+      if (event.logicalKey == LogicalKeyboardKey.keyZ && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.draw);
+        return KeyEventResult.handled;
+      }
+      // X = Select tool (without Cmd/Ctrl - Cmd+X is cut)
+      if (event.logicalKey == LogicalKeyboardKey.keyX && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.select);
+        return KeyEventResult.handled;
+      }
+      // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
+      if (event.logicalKey == LogicalKeyboardKey.keyC && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.eraser);
+        return KeyEventResult.handled;
+      }
+      // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
+      if (event.logicalKey == LogicalKeyboardKey.keyV && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.duplicate);
+        return KeyEventResult.handled;
+      }
+      // B = Slice tool
+      if (event.logicalKey == LogicalKeyboardKey.keyB && !modifiers.isCtrlOrCmd) {
+        widget.onToolModeChanged?.call(ToolMode.slice);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // ============================================
+    // Modifier key handling for temporary tool override
+    // ============================================
+    // Update tempToolMode when Alt/Cmd/Ctrl keys change
+    if (event.logicalKey == LogicalKeyboardKey.alt ||
+        event.logicalKey == LogicalKeyboardKey.altLeft ||
+        event.logicalKey == LogicalKeyboardKey.altRight ||
+        event.logicalKey == LogicalKeyboardKey.meta ||
+        event.logicalKey == LogicalKeyboardKey.metaLeft ||
+        event.logicalKey == LogicalKeyboardKey.metaRight ||
+        event.logicalKey == LogicalKeyboardKey.control ||
+        event.logicalKey == LogicalKeyboardKey.controlLeft ||
+        event.logicalKey == LogicalKeyboardKey.controlRight) {
+      updateTempToolMode();
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -915,10 +982,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     );
     double totalTracksHeight = 0.0;
     for (final track in regularTracks) {
-      totalTracksHeight += widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
+      totalTracksHeight += widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
       // Add automation lane height if visible for this track
       if (widget.automationVisibleTrackId == track.id) {
-        totalTracksHeight += widget.automationHeights[track.id] ?? UIConstants.defaultAutomationHeight;
+        totalTracksHeight += widget.trackHeightState.automationHeights[track.id] ?? UIConstants.defaultAutomationHeight;
       }
     }
     final actualTracksHeight = totalTracksHeight; // Before adding empty area
@@ -927,144 +994,20 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       cursor: currentCursor,
       child: Focus(
         autofocus: true,
-        onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          // Handle Delete/Backspace to delete all selected clips
-          if (event.logicalKey == LogicalKeyboardKey.delete ||
-              event.logicalKey == LogicalKeyboardKey.backspace) {
-            bool handled = false;
-
-            // Delete all selected MIDI clips
-            if (selectedMidiClipIds.isNotEmpty) {
-              final clipsToDelete = <(int, int)>[];
-              for (final clipId in selectedMidiClipIds) {
-                final clip = widget.midiClips.where((c) => c.clipId == clipId).firstOrNull;
-                if (clip != null) {
-                  clipsToDelete.add((clip.clipId, clip.trackId));
-                }
-              }
-              if (clipsToDelete.isNotEmpty) {
-                widget.onMidiClipsBatchDeleted?.call(clipsToDelete);
-                selectedMidiClipIds.clear();
-                handled = true;
-              }
-            }
-
-            // Delete all selected audio clips
-            if (selectedAudioClipIds.isNotEmpty) {
-              final clipsToDelete = <ClipData>[];
-              for (final clipId in selectedAudioClipIds) {
-                final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
-                if (clip != null) {
-                  clipsToDelete.add(clip);
-                }
-              }
-              if (clipsToDelete.isNotEmpty) {
-                widget.onAudioClipsBatchDeleted?.call(clipsToDelete);
-                selectedAudioClipIds.clear();
-                handled = true;
-              }
-            }
-
-            if (handled) {
-              setState(() {});
-              return KeyEventResult.handled;
-            }
-          }
-
-          // Handle Escape to deselect all clips (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
-            deselectAllClips();
-            return KeyEventResult.handled;
-          }
-
-          // Cmd+D to duplicate selected clip (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyD &&
-              ModifierKeyState.current().isCtrlOrCmd) {
-            if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
-              if (clip != null) {
-                duplicateMidiClip(clip);
-                return KeyEventResult.handled;
-              }
-            }
-          }
-
-          // Cmd+A to select all clips (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyA &&
-              ModifierKeyState.current().isCtrlOrCmd) {
-            selectAllClips();
-            return KeyEventResult.handled;
-          }
-
-          // Q to quantize selected clip (spec v2.0)
-          if (event.logicalKey == LogicalKeyboardKey.keyQ) {
-            if (widget.selectedMidiClipId != null) {
-              final clip = widget.midiClips.where((c) => c.clipId == widget.selectedMidiClipId).firstOrNull;
-              if (clip != null) {
-                quantizeMidiClip(clip);
-                return KeyEventResult.handled;
-              }
-            }
-          }
-
-          // ============================================
-          // Tool shortcuts (Z, X, C, V, B)
-          // Press once to switch tool, stays active until switched again
-          // ============================================
-          final modifiers = ModifierKeyState.current();
-
-          // Z = Draw tool (without Cmd/Ctrl - Cmd+Z is undo)
-          if (event.logicalKey == LogicalKeyboardKey.keyZ && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.draw);
-            return KeyEventResult.handled;
-          }
-          // X = Select tool (without Cmd/Ctrl - Cmd+X is cut)
-          if (event.logicalKey == LogicalKeyboardKey.keyX && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.select);
-            return KeyEventResult.handled;
-          }
-          // C = Erase tool (without Cmd/Ctrl - Cmd+C is copy)
-          if (event.logicalKey == LogicalKeyboardKey.keyC && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.eraser);
-            return KeyEventResult.handled;
-          }
-          // V = Duplicate tool (without Cmd/Ctrl - Cmd+V is paste)
-          if (event.logicalKey == LogicalKeyboardKey.keyV && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.duplicate);
-            return KeyEventResult.handled;
-          }
-          // B = Slice tool
-          if (event.logicalKey == LogicalKeyboardKey.keyB && !modifiers.isCtrlOrCmd) {
-            widget.onToolModeChanged?.call(ToolMode.slice);
-            return KeyEventResult.handled;
-          }
-        }
-
-        // ============================================
-        // Modifier key handling for temporary tool override
-        // ============================================
-        // Update tempToolMode when Alt/Cmd/Ctrl keys change
-        if (event.logicalKey == LogicalKeyboardKey.alt ||
-            event.logicalKey == LogicalKeyboardKey.altLeft ||
-            event.logicalKey == LogicalKeyboardKey.altRight ||
-            event.logicalKey == LogicalKeyboardKey.meta ||
-            event.logicalKey == LogicalKeyboardKey.metaLeft ||
-            event.logicalKey == LogicalKeyboardKey.metaRight ||
-            event.logicalKey == LogicalKeyboardKey.control ||
-            event.logicalKey == LogicalKeyboardKey.controlLeft ||
-            event.logicalKey == LogicalKeyboardKey.controlRight) {
-          updateTempToolMode();
-        }
-
-        return KeyEventResult.ignored;
-      },
+        onKeyEvent: _handleKeyEvent,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: context.colors.standard,
-          border: Border.all(color: context.colors.elevated),
+          color: context.colors.editor,
+          border: Border.all(color: context.colors.divider),
         ),
-        child: Column(
+        child: Stack(
+        children: [
+          // Star field background
+          const Positioned.fill(
+            child: StarField(),
+          ),
+          // Main timeline content
+          Column(
         children: [
           // Unified nav bar (loop region + bar numbers + zoom controls)
           NavBarWithZoom(
@@ -1228,10 +1171,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             ),
           ),
         ],
-      ),
-      ),
-      ),
-    );
+      ), // end Column
+      ], // end Stack children
+      ), // end Stack (child of DecoratedBox)
+      ), // end DecoratedBox (child of Focus)
+      ), // end Focus (child of MouseRegion)
+    ); // end MouseRegion
   }
 
   Widget _buildTracks(double width, double totalBeats, {double emptyAreaHeight = 100.0}) {
@@ -1241,7 +1186,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       // Show empty state only if no audio engine
       return Container(
         height: 200,
-        color: context.colors.standard,
+        color: context.colors.editor,
         child: Center(
           child: Text(
             'Audio engine not initialized',
@@ -1402,7 +1347,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   previewClip = null;
                   isMidiFileDraggingOverEmpty = false;
                 });
-                widget.onMidiFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
+                widget.dragDropCallbacks.onMidiFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
               },
               builder: (context, candidateMidiFiles, rejectedMidiFiles) {
 
@@ -1464,7 +1409,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   previewClip = null;
                   isAudioFileDraggingOverEmpty = false;
                 });
-                widget.onAudioFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
+                widget.dragDropCallbacks.onAudioFileDroppedOnEmpty?.call(details.data.filePath, snappedBeats);
               },
               builder: (context, candidateLibraryAudioFiles, rejectedLibraryAudioFiles) {
                 final isLibraryAudioHovering = candidateLibraryAudioFiles.isNotEmpty;
@@ -1486,11 +1431,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 for (final file in details.files) {
                   final ext = file.path.split('.').last.toLowerCase();
                   if (['mid', 'midi'].contains(ext)) {
-                    widget.onMidiFileDroppedOnEmpty?.call(file.path, snappedBeats);
+                    widget.dragDropCallbacks.onMidiFileDroppedOnEmpty?.call(file.path, snappedBeats);
                     return;
                   }
                   if (['wav', 'mp3', 'flac', 'aif', 'aiff'].contains(ext)) {
-                    widget.onAudioFileDroppedOnEmpty?.call(file.path, snappedBeats);
+                    widget.dragDropCallbacks.onAudioFileDroppedOnEmpty?.call(file.path, snappedBeats);
                     return;
                   }
                 }
@@ -1510,7 +1455,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   return details.data.isInstrument; // Only accept VST3 instruments
                 },
                 onAcceptWithDetails: (details) {
-                  widget.onVst3InstrumentDroppedOnEmpty?.call(details.data);
+                  widget.dragDropCallbacks.onVst3InstrumentDroppedOnEmpty?.call(details.data);
                 },
                 builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
                   final isVst3PluginHovering = candidateVst3Plugins.isNotEmpty;
@@ -1520,7 +1465,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       return true; // Always accept instruments
                     },
                     onAcceptWithDetails: (details) {
-                      widget.onInstrumentDroppedOnEmpty?.call(details.data);
+                      widget.dragDropCallbacks.onInstrumentDroppedOnEmpty?.call(details.data);
                     },
                     builder: (context, candidateInstruments, rejectedInstruments) {
                       final isInstrumentHovering = candidateInstruments.isNotEmpty || isVst3PluginHovering;
@@ -1603,11 +1548,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                             // ignore: use_decorated_box
                             Container(
                               decoration: BoxDecoration(
-                                color: context.colors.success.withValues(alpha: 0.1),
+                                color: context.colors.accent.withValues(alpha: 0.08),
                                 border: Border.all(
-                                  color: context.colors.success,
-                                  width: 3,
-                                  style: BorderStyle.solid,
+                                  color: context.colors.accent.withValues(alpha: 0.5),
+                                  width: 2,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1615,7 +1559,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: context.colors.success,
+                                    color: context.colors.accent.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -1691,8 +1635,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
   /// Build automation lane for a track in the timeline
   Widget _buildAutomationLane(int trackId, Color trackColor, double width, double totalBeats) {
-    final lane = widget.getAutomationLane?.call(trackId);
-    final automationHeight = widget.automationHeights[trackId] ?? UIConstants.defaultAutomationHeight;
+    final lane = widget.automationCallbacks.getAutomationLane?.call(trackId);
+    final automationHeight = widget.trackHeightState.automationHeights[trackId] ?? UIConstants.defaultAutomationHeight;
 
     // Create empty lane if none provided
     final automationLane = lane ??
@@ -1713,11 +1657,11 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
       snapEnabled: !snapBypassActive,
       snapResolution: getGridSnapResolution(),
       beatsPerBar: 4,
-      onPointAdded: (point) => widget.onAutomationPointAdded?.call(trackId, point),
-      onPointUpdated: (pointId, point) => widget.onAutomationPointUpdated?.call(trackId, pointId, point),
-      onPointDeleted: (pointId) => widget.onAutomationPointDeleted?.call(trackId, pointId),
-      onHeightChanged: (newHeight) => widget.onAutomationHeightChanged?.call(trackId, newHeight),
-      onPreviewValue: (value) => widget.onAutomationPreviewValue?.call(trackId, value),
+      onPointAdded: (point) => widget.automationCallbacks.onPointAdded?.call(trackId, point),
+      onPointUpdated: (pointId, point) => widget.automationCallbacks.onPointUpdated?.call(trackId, pointId, point),
+      onPointDeleted: (pointId) => widget.automationCallbacks.onPointDeleted?.call(trackId, pointId),
+      onHeightChanged: (newHeight) => widget.trackHeightState.onAutomationHeightChanged?.call(trackId, newHeight),
+      onPreviewValue: (value) => widget.automationCallbacks.onPreviewValue?.call(trackId, value),
     );
   }
 
@@ -1735,7 +1679,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     final trackMidiClips = widget.midiClips.where((c) => c.trackId == track.id).toList();
     final isHovered = dragHoveredTrackId == track.id;
     final isMidiTrack = track.type.toLowerCase() == 'midi';
-    final clipHeight = widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
+    final clipHeight = widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight;
 
     // Detect active recording region on this track (for visual masking)
     double? recStartBeat;
@@ -1822,7 +1766,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           rawBeats,
           GridUtils.getTimelineGridResolution(pixelsPerBeat),
         );
-        widget.onMidiFileDroppedOnTrack?.call(
+        widget.dragDropCallbacks.onMidiFileDroppedOnTrack?.call(
           track.id,
           details.data.filePath,
           snappedBeats.clamp(0.0, double.infinity),
@@ -1901,7 +1845,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           GridUtils.getTimelineGridResolution(pixelsPerBeat),
         );
 
-        widget.onAudioFileDroppedOnTrack?.call(
+        widget.dragDropCallbacks.onAudioFileDroppedOnTrack?.call(
           track.id,
           details.data.filePath,
           snappedBeats.clamp(0.0, double.infinity),
@@ -1916,7 +1860,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             return isMidiTrack && details.data.isInstrument;
           },
           onAcceptWithDetails: (details) {
-            widget.onVst3InstrumentDropped?.call(track.id, details.data);
+            widget.dragDropCallbacks.onVst3InstrumentDropped?.call(track.id, details.data);
           },
           builder: (context, candidateVst3Plugins, rejectedVst3Plugins) {
             // Note: candidateVst3Plugins/rejectedVst3Plugins available for visual feedback
@@ -1927,7 +1871,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 return isMidiTrack;
               },
               onAcceptWithDetails: (details) {
-                widget.onInstrumentDropped?.call(track.id, details.data);
+                widget.dragDropCallbacks.onInstrumentDropped?.call(track.id, details.data);
               },
               builder: (context, candidateInstruments, rejectedInstruments) {
                 // Note: candidateInstruments/rejectedInstruments and isVst3PluginHovering/Rejected
@@ -1994,8 +1938,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
               selectedMidiClipIds.clear();
               selectedAudioClipId = null;
             });
-            widget.onMidiClipSelected?.call(null, null);
-            widget.onAudioClipSelected?.call(null, null);
+            widget.midiClipCallbacks.onSelected?.call(null, null);
+            widget.audioClipCallbacks.onSelected?.call(null, null);
           }
         },
         onTapUp: (details) {
@@ -2013,7 +1957,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                   // Create a 1-bar clip at the clicked position (snapped to grid)
                   final startBeats = snapToGrid(beatPosition);
                   const durationBeats = 4.0; // 1 bar (spec v2.0)
-                  widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+                  widget.dragDropCallbacks.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
                 }
               }
             : null,
@@ -2030,10 +1974,10 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             final trackIndex = regularTracks.indexWhere((t) => t.id == track.id);
             double trackYOffset = 0.0;
             for (int i = 0; i < trackIndex; i++) {
-              trackYOffset += widget.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
+              trackYOffset += widget.trackHeightState.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
               // Include automation height if visible for this track
               if (widget.automationVisibleTrackId == regularTracks[i].id) {
-                trackYOffset += widget.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
+                trackYOffset += widget.trackHeightState.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
               }
             }
 
@@ -2115,8 +2059,8 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           if (isBoxSelecting) {
             // If nothing was selected, notify parent to deselect current clip
             if (selectedMidiClipIds.isEmpty && selectedAudioClipIds.isEmpty) {
-              widget.onMidiClipSelected?.call(null, null);
-              widget.onAudioClipSelected?.call(null, null);
+              widget.midiClipCallbacks.onSelected?.call(null, null);
+              widget.audioClipCallbacks.onSelected?.call(null, null);
             }
             setState(() {
               isBoxSelecting = false;
@@ -2135,7 +2079,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // Minimum clip length is 1 bar (4 beats)
             if (durationBeats >= UIConstants.minDragCreateDurationBeats) {
-              widget.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
+              widget.dragDropCallbacks.onCreateClipOnTrack?.call(track.id, startBeats, durationBeats);
             }
 
             setState(() {
@@ -2161,16 +2105,21 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           }
         },
         child: Container(
-        height: widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
+        height: widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
         decoration: BoxDecoration(
           // Transparent background to show grid through
           color: isHovered
-              ? context.colors.elevated.withValues(alpha: 0.2)
+              ? context.colors.accent.withValues(alpha: 0.1)
               : Colors.transparent,
           border: Border(
+            top: isHovered
+                ? BorderSide(color: context.colors.accent.withValues(alpha: 0.5), width: 2)
+                : BorderSide.none,
             bottom: BorderSide(
-              color: context.colors.hover,
-              width: 1,
+              color: isHovered
+                  ? context.colors.accent.withValues(alpha: 0.5)
+                  : context.colors.hover,
+              width: isHovered ? 2 : 1,
             ),
           ),
         ),
@@ -2187,17 +2136,17 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             ...trackClips
                 .where((clip) => !erasedAudioClipIds.contains(clip.clipId))
                 .where((clip) => isClipVisible(clip.startTime * pixelsPerSecond, clip.duration * pixelsPerSecond))
-                .map((clip) => _buildClip(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
+                .map((clip) => _buildClip(clip, trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight, recStartBeat: recStartBeat, recEndBeat: recEndBeat)),
 
             // Ghost preview for audio clip copy drag (all selected clips)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => buildAudioCopyDragPreviews(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
+                .expand((clip) => buildAudioCopyDragPreviews(clip, trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Ghost preview for audio clips during MIDI drag (cross-type)
             ...trackClips
                 .where((clip) => isCopyDrag && draggingMidiClipId != null && selectedAudioClipIds.contains(clip.clipId))
-                .expand((clip) => buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
+                .expand((clip) => buildAudioCopyDragPreviewsForMidiDrag(clip, trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Render MIDI clips for this track (hide erased + cull off-screen)
             ...trackMidiClips
@@ -2206,7 +2155,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 .map((midiClip) => _buildMidiClip(
                   midiClip,
                   trackColor,
-                  widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
+                  widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight,
                   recStartBeat: recStartBeat,
                   recEndBeat: recEndBeat,
                 )),
@@ -2214,12 +2163,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Ghost preview for MIDI clip copy drag (all selected clips)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingMidiClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => buildCopyDragPreviews(midiClip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
+                .expand((midiClip) => buildCopyDragPreviews(midiClip, trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Ghost preview for MIDI clips during audio drag (cross-type)
             ...trackMidiClips
                 .where((midiClip) => isCopyDrag && draggingClipId != null && selectedMidiClipIds.contains(midiClip.clipId))
-                .expand((midiClip) => buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
+                .expand((midiClip) => buildMidiCopyDragPreviewsForAudioDrag(midiClip, trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight)),
 
             // Show preview clip if hovering over this track
             if (previewClip != null && previewClip!.trackId == track.id)
@@ -2227,12 +2176,12 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // Drag-to-create preview for this track
             if (isDraggingNewClip && newClipTrackId == track.id)
-              buildDragToCreatePreviewOnTrack(trackColor, widget.clipHeights[track.id] ?? UIConstants.defaultClipHeight),
+              buildDragToCreatePreviewOnTrack(trackColor, widget.trackHeightState.clipHeights[track.id] ?? UIConstants.defaultClipHeight),
 
             // Red rejection overlay when dragging audio onto MIDI track
             if (isAudioFileRejected || platformDragOverMidiTrackId == track.id)
               Positioned.fill(
-                child: Container(
+                child: ColoredBox(
                   color: Colors.red.withValues(alpha: 0.15),
                   child: Center(
                     child: Icon(
@@ -2281,7 +2230,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 child: GestureDetector(
                   onVerticalDragUpdate: (details) {
                     final newHeight = (clipHeight + details.delta.dy).clamp(UIConstants.trackMinHeight, UIConstants.trackMaxHeight);
-                    widget.onClipHeightChanged?.call(track.id, newHeight);
+                    widget.trackHeightState.onClipHeightChanged?.call(track.id, newHeight);
                   },
                   child: Container(color: Colors.transparent),
                 ),
@@ -2303,7 +2252,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     // Content area is transparent so grid shows through from behind
     return Container(
       width: width,
-      height: widget.masterTrackHeight,
+      height: widget.trackHeightState.masterTrackHeight,
       margin: const EdgeInsets.only(left: 2, right: 2, top: 1, bottom: 1),
       decoration: BoxDecoration(
         // Rounded corners like clips
@@ -2515,7 +2464,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             );
           }
           // Deselect any MIDI clip (notify parent)
-          widget.onMidiClipSelected?.call(null, null);
+          widget.midiClipCallbacks.onSelected?.call(null, null);
         },
         onTapUp: (details) {
           // Stop erasing if in eraser mode (single click delete)
@@ -2641,7 +2590,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // Duplicate ALL selected MIDI clips with same offset delta (in beats)
             for (final midiClip in midiClipsToCopy) {
               final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
-              widget.onMidiClipCopied?.call(midiClip, newStartBeats);
+              widget.midiClipCallbacks.onCopied?.call(midiClip, newStartBeats);
             }
 
             // After all copies are made, select the new clips
@@ -2696,7 +2645,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
               // Only create command if position actually changed
               if ((newStartTime - selectedClip.startTime).abs() > 0.001) {
-                debugPrint('[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}');
+                Log.d('[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}');
                 // Update the moved clip's position first (before overlap resolution)
                 final index = clips.indexWhere((c) => c.clipId == selectedClip.clipId);
                 if (index >= 0) {
@@ -2747,7 +2696,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             for (final midiClip in selectedMidiClips) {
               final newStartBeats = (midiClip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
 
-              debugPrint('[OVERLAP] MIDI clip drag-end: clip ${midiClip.clipId} "${midiClip.name}" moved ${midiClip.startTime.toStringAsFixed(3)} → ${newStartBeats.toStringAsFixed(3)} beats on track ${midiClip.trackId}');
+              Log.d('[OVERLAP] MIDI clip drag-end: clip ${midiClip.clipId} "${midiClip.name}" moved ${midiClip.startTime.toStringAsFixed(3)} → ${newStartBeats.toStringAsFixed(3)} beats on track ${midiClip.trackId}');
               // Resolve MIDI overlaps at new position (exclude the moved clip)
               final midiOverlap = ClipOverlapHandler.resolveMidiOverlaps(
                 newStart: newStartBeats,
@@ -2757,14 +2706,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 excludeClipId: midiClip.clipId,
               );
               if (midiOverlap.hasChanges) {
-                widget.onMidiOverlapResolved?.call(midiOverlap);
+                widget.midiClipCallbacks.onOverlapResolved?.call(midiOverlap);
               }
 
               final newStartTimeSeconds = newStartBeats / beatsPerSecond;
               final rustClipId = widget.getRustClipId?.call(midiClip.clipId) ?? midiClip.clipId;
               widget.audioEngine?.setClipStartTime(midiClip.trackId, rustClipId, newStartTimeSeconds);
               final updatedClip = midiClip.copyWith(startTime: newStartBeats);
-              widget.onMidiClipUpdated?.call(updatedClip);
+              widget.midiClipCallbacks.onUpdated?.call(updatedClip);
             }
 
             // Force UI refresh after parent processes MIDI updates
@@ -2817,7 +2766,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       notchRadius: 4,
                       loopBoundaryXPositions: loopBoundaryPositions,
                     ),
-                    child: Container(
+                    child: SizedBox(
                       width: clipWidth,
                       height: totalHeight,
                       child: Column(
@@ -3200,7 +3149,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
     const headerHeight = UIConstants.clipHeaderHeight;
     final totalHeight = trackHeight - UIConstants.clipContentPadding; // Track height minus padding
     final isLiveRecording = midiClip.clipId == LiveRecordingNotifier.liveClipId;
-    final recordingColor = const Color(0xFFE53935); // Red for recording indicator
+    const recordingColor = Color(0xFFE53935); // Red for recording indicator
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewMidiClipId == midiClip.clipId;
@@ -3276,9 +3225,9 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
 
             // Notify parent about selection
             if (!modifiers.isShiftPressed || selectedMidiClipIds.contains(midiClip.clipId)) {
-              widget.onMidiClipSelected?.call(midiClip.clipId, midiClip);
+              widget.midiClipCallbacks.onSelected?.call(midiClip.clipId, midiClip);
             } else if (selectedMidiClipIds.isEmpty) {
-              widget.onMidiClipSelected?.call(null, null);
+              widget.midiClipCallbacks.onSelected?.call(null, null);
             }
           }
         },
@@ -3297,7 +3246,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
           // now reduce to single selection since no drag occurred
           if (pendingMidiClipTapSelection == midiClip.clipId) {
             selectMidiClipMulti(midiClip.clipId, forceSelect: true);
-            widget.onMidiClipSelected?.call(midiClip.clipId, midiClip);
+            widget.midiClipCallbacks.onSelected?.call(midiClip.clipId, midiClip);
           }
           pendingMidiClipTapSelection = null;
         },
@@ -3409,7 +3358,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
             // The parent will handle selecting the new clips via onMidiClipCopied callback
             for (final clip in midiClipsToCopy) {
               final newStartBeats = (clip.startTime + snappedDeltaBeats).clamp(0.0, double.infinity);
-              widget.onMidiClipCopied?.call(clip, newStartBeats);
+              widget.midiClipCallbacks.onCopied?.call(clip, newStartBeats);
             }
 
             // Copy ALL selected audio clips with same offset delta (in seconds)
@@ -3476,14 +3425,14 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                 excludeClipId: clip.clipId,
               );
               if (midiOverlap.hasChanges) {
-                widget.onMidiOverlapResolved?.call(midiOverlap);
+                widget.midiClipCallbacks.onOverlapResolved?.call(midiOverlap);
               }
 
               final newStartTimeSeconds = newStartBeats / beatsPerSecond;
               final rustClipId = widget.getRustClipId?.call(clip.clipId) ?? clip.clipId;
               widget.audioEngine?.setClipStartTime(clip.trackId, rustClipId, newStartTimeSeconds);
               final updatedClip = clip.copyWith(startTime: newStartBeats);
-              widget.onMidiClipUpdated?.call(updatedClip);
+              widget.midiClipCallbacks.onUpdated?.call(updatedClip);
             }
 
             // Force UI refresh after parent processes MIDI updates
@@ -3735,7 +3684,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                       loopLength: newDuration.clamp(0.25, midiClip.loopLength),
                       notes: filteredNotes,
                     );
-                    widget.onMidiClipUpdated?.call(updatedClip);
+                    widget.midiClipCallbacks.onUpdated?.call(updatedClip);
                   },
                   onHorizontalDragEnd: (details) {
                     setState(() {
@@ -3798,7 +3747,7 @@ class TimelineViewState extends State<TimelineView> with ZoomableEditorMixin, Ti
                     }
 
                     final updatedClip = midiClip.copyWith(duration: newDuration);
-                    widget.onMidiClipUpdated?.call(updatedClip);
+                    widget.midiClipCallbacks.onUpdated?.call(updatedClip);
                   },
                   onHorizontalDragEnd: (details) {
                     setState(() {

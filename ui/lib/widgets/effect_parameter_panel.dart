@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
+import '../utils/logger.dart';
 
 /// Effect data model
 class EffectData {
@@ -111,7 +112,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
         _effects = effects;
       });
     } catch (e) {
-      debugPrint('EffectParameterPanel: Error loading effects: $e');
+      Log.e('EffectParameterPanel: Error loading effects: $e');
     }
   }
 

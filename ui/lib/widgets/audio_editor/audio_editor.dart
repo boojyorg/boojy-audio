@@ -242,7 +242,7 @@ class _AudioEditorState extends State<AudioEditor>
           loopStart: loopStartBeats,
           loopEnd: loopEndBeats,
           insertMarkerPosition: null, // No insert marker for audio editor
-          playheadPosition: null, // TODO: Connect to actual playhead
+          playheadPosition: null, // Future: Wire playhead position from PlaybackController
         ),
         callbacks: UnifiedNavBarCallbacks(
           onHorizontalScroll: _handleNavBarScroll,

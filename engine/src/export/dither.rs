@@ -15,7 +15,7 @@ impl DitherRng {
     /// Create a new RNG with the given seed
     fn new(seed: u64) -> Self {
         Self {
-            state: AtomicU64::new(if seed == 0 { 0xDEADBEEF } else { seed }),
+            state: AtomicU64::new(if seed == 0 { 0xDEAD_BEEF } else { seed }),
         }
     }
 
@@ -28,7 +28,7 @@ impl DitherRng {
         self.state.store(state, Ordering::Relaxed);
 
         // Convert to 0.0-1.0 range
-        (state & 0xFFFFFF) as f32 / 0xFFFFFF as f32
+        (state & 0x00FF_FFFF) as f32 / 0x00FF_FFFF as f32
     }
 
     /// Generate TPDF noise (-1.0 to 1.0, triangular distribution)
@@ -72,14 +72,14 @@ pub fn dither_to_16bit(sample: f32, dither_noise: f32) -> i16 {
 pub fn dither_to_24bit(sample: f32, dither_noise: f32) -> i32 {
     // 24-bit range: -8388608 to 8388607
     // 1 LSB = 1/8388608
-    const LSB: f32 = 1.0 / 8388608.0;
+    const LSB: f32 = 1.0 / 8_388_608.0;
 
     // Scale sample to 24-bit range and add dither
-    let scaled = sample * 8388607.0;
-    let dithered = scaled + dither_noise * LSB * 8388607.0;
+    let scaled = sample * 8_388_607.0;
+    let dithered = scaled + dither_noise * LSB * 8_388_607.0;
 
     // Quantize and clamp
-    dithered.round().clamp(-8388608.0, 8388607.0) as i32
+    dithered.round().clamp(-8_388_608.0, 8_388_607.0) as i32
 }
 
 /// Convert 32-bit float samples to 16-bit with optional dithering
@@ -91,7 +91,7 @@ pub fn dither_to_24bit(sample: f32, dither_noise: f32) -> i32 {
 /// # Returns
 /// 16-bit samples (stereo interleaved)
 pub fn convert_to_16bit(samples: &[f32], apply_dither: bool) -> Vec<i16> {
-    let rng = DitherRng::new(0x12345678);
+    let rng = DitherRng::new(0x1234_5678);
 
     samples
         .iter()
@@ -115,7 +115,7 @@ pub fn convert_to_16bit(samples: &[f32], apply_dither: bool) -> Vec<i16> {
 /// # Returns
 /// 24-bit samples as i32 (stereo interleaved, lower 24 bits used)
 pub fn convert_to_24bit(samples: &[f32], apply_dither: bool) -> Vec<i32> {
-    let rng = DitherRng::new(0x87654321);
+    let rng = DitherRng::new(0x8765_4321);
 
     samples
         .iter()
@@ -124,7 +124,7 @@ pub fn convert_to_24bit(samples: &[f32], apply_dither: bool) -> Vec<i32> {
                 dither_to_24bit(sample, rng.next_tpdf())
             } else {
                 // Simple quantization without dither
-                (sample * 8388607.0).round().clamp(-8388608.0, 8388607.0) as i32
+                (sample * 8_388_607.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
             }
         })
         .collect()

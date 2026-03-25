@@ -267,7 +267,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
   }
 
   Widget _buildVersionTypeSelector() {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(4),

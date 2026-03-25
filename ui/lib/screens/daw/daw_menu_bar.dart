@@ -126,9 +126,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
         if (_isMacOS)
           const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
-        PlatformMenuItem(
+        const PlatformMenuItem(
           label: 'Quit Audio',
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
+          shortcut: SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
           onSelected: _exitApp,
         ),
       ],
@@ -331,7 +331,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         PlatformMenuItem(
           label: 'Boojy Audio Help',
           onSelected: () {
-            // TODO: Open help documentation
+            // Future: Help menu links to docs/tutorials (v0.6.0)
           },
         ),
       ],

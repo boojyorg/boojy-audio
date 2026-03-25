@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 /// Recent project entry
 class RecentProject {
@@ -683,7 +684,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setInt(_keyUndoLimit, _undoLimit);
       await _prefs!.setInt(_keyAutoSaveMinutes, _autoSaveMinutes);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save settings: $e');
+      Log.e('UserSettings: Failed to save settings: $e');
     }
   }
 
@@ -695,7 +696,7 @@ class UserSettings extends ChangeNotifier {
       final jsonList = _recentProjects.map((p) => p.toJson()).toList();
       await _prefs!.setString(_keyRecentProjects, jsonEncode(jsonList));
     } catch (e) {
-      debugPrint('UserSettings: Failed to save recent projects: $e');
+      Log.e('UserSettings: Failed to save recent projects: $e');
     }
   }
 
@@ -717,7 +718,7 @@ class UserSettings extends ChangeNotifier {
         await _prefs!.remove(_keyExportArtist);
       }
     } catch (e) {
-      debugPrint('UserSettings: Failed to save export settings: $e');
+      Log.e('UserSettings: Failed to save export settings: $e');
     }
   }
 
@@ -745,7 +746,7 @@ class UserSettings extends ChangeNotifier {
           MapEntry(key, value.toJson()));
       await _prefs!.setString(_keyDevicePerDriver, jsonEncode(devicePerDriverMap));
     } catch (e) {
-      debugPrint('UserSettings: Failed to save audio settings: $e');
+      Log.e('UserSettings: Failed to save audio settings: $e');
     }
   }
 
@@ -760,7 +761,7 @@ class UserSettings extends ChangeNotifier {
         await _prefs!.remove(_keyPreferredMidiInput);
       }
     } catch (e) {
-      debugPrint('UserSettings: Failed to save MIDI settings: $e');
+      Log.e('UserSettings: Failed to save MIDI settings: $e');
     }
   }
 
@@ -771,7 +772,7 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setInt(_keyCountInBars, _countInBars);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save recording settings: $e');
+      Log.e('UserSettings: Failed to save recording settings: $e');
     }
   }
 
@@ -783,7 +784,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setBool(_keyContinueWhereLeftOff, _continueWhereLeftOff);
       await _prefs!.setBool(_keyCopySamplesToProject, _copySamplesToProject);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save project settings: $e');
+      Log.e('UserSettings: Failed to save project settings: $e');
     }
   }
 
@@ -804,7 +805,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setDouble(_keyEditorHeight, _editorHeight);
       await _prefs!.setDouble(_keyPianoRollSidebarWidth, _pianoRollSidebarWidth);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save panel settings: $e');
+      Log.e('UserSettings: Failed to save panel settings: $e');
     }
   }
 
@@ -815,7 +816,7 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setString(_keyTheme, _theme);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save appearance settings: $e');
+      Log.e('UserSettings: Failed to save appearance settings: $e');
     }
   }
 
@@ -827,7 +828,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setBool(_keyCrashReportingEnabled, _crashReportingEnabled);
       await _prefs!.setBool(_keyCrashReportingAsked, _crashReportingAsked);
     } catch (e) {
-      debugPrint('UserSettings: Failed to save privacy settings: $e');
+      Log.e('UserSettings: Failed to save privacy settings: $e');
     }
   }
 
@@ -873,7 +874,7 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setInt(_keyLastCleanExit, DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
-      debugPrint('UserSettings: Failed to record clean exit: $e');
+      Log.e('UserSettings: Failed to record clean exit: $e');
     }
   }
 
@@ -885,7 +886,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.remove(_keyLastCleanExit);
       _lastCleanExit = null;
     } catch (e) {
-      debugPrint('UserSettings: Failed to clear clean exit: $e');
+      Log.e('UserSettings: Failed to clear clean exit: $e');
     }
   }
 

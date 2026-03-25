@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../utils/logger.dart';
 import '../../../services/project_manager.dart';
 
 /// Controller for project-level operations.
@@ -60,7 +61,7 @@ class ProjectOperationsController extends ChangeNotifier {
       return true;
     } catch (e) {
       _lastError = 'Failed to create new project: $e';
-      debugPrint('ProjectOperations: $e');
+      Log.e('ProjectOperations: $e');
       return false;
     } finally {
       _setOperationInProgress(false);
@@ -93,7 +94,7 @@ class ProjectOperationsController extends ChangeNotifier {
       }
     } catch (e) {
       _lastError = 'Failed to save project: $e';
-      debugPrint('ProjectOperations: $e');
+      Log.e('ProjectOperations: $e');
       return false;
     } finally {
       _setOperationInProgress(false);
@@ -118,7 +119,7 @@ class ProjectOperationsController extends ChangeNotifier {
       return true;
     } catch (e) {
       _lastError = 'Failed to save project: $e';
-      debugPrint('ProjectOperations: $e');
+      Log.e('ProjectOperations: $e');
       return false;
     } finally {
       _setOperationInProgress(false);
@@ -147,7 +148,7 @@ class ProjectOperationsController extends ChangeNotifier {
       return result.result;
     } catch (e) {
       _lastError = 'Failed to load project: $e';
-      debugPrint('ProjectOperations: $e');
+      Log.e('ProjectOperations: $e');
       return ProjectResult(
         success: false,
         message: 'Failed to load project: $e',

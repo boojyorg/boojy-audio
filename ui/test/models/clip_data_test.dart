@@ -367,12 +367,12 @@ void main() {
   group('PreviewClip', () {
     group('constructor', () {
       test('creates instance with all required fields', () {
-        final preview = PreviewClip(
+        const preview = PreviewClip(
           fileName: 'drums.wav',
           filePath: '/path/to/drums.wav',
           startTime: 2.0,
           trackId: 3,
-          mousePosition: const Offset(100.0, 200.0),
+          mousePosition: Offset(100.0, 200.0),
         );
 
         expect(preview.fileName, 'drums.wav');
@@ -382,7 +382,7 @@ void main() {
       });
 
       test('handles zero values', () {
-        final preview = PreviewClip(
+        const preview = PreviewClip(
           fileName: 'sample.wav',
           filePath: '/path/to/sample.wav',
           startTime: 0.0,
@@ -396,12 +396,12 @@ void main() {
       });
 
       test('handles negative mouse position', () {
-        final preview = PreviewClip(
+        const preview = PreviewClip(
           fileName: 'sample.wav',
           filePath: '/path/to/sample.wav',
           startTime: 0.0,
           trackId: 1,
-          mousePosition: const Offset(-10.0, -20.0),
+          mousePosition: Offset(-10.0, -20.0),
         );
 
         expect(preview.mousePosition.dx, -10.0);

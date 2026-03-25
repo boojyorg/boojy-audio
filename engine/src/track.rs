@@ -5,7 +5,6 @@
 /// - Per-track controls: volume, pan, mute, solo
 /// - Send routing (track → return track)
 /// - FX chain (ordered list of effects per track)
-
 use std::sync::Arc;
 use crate::audio_file::AudioClip;
 use crate::midi::MidiClip;
@@ -556,7 +555,7 @@ impl Track {
 /// Track manager: handles all tracks in a project
 pub struct TrackManager {
     /// All tracks (including master)
-    tracks: Vec<Arc<std::sync::Mutex<Track>>>,
+    tracks: Vec<Arc<parking_lot::Mutex<Track>>>,
     /// Next track ID
     next_id: TrackId,
     /// Master track ID (always exists)
@@ -572,7 +571,7 @@ impl Default for TrackManager {
 impl TrackManager {
     /// Create a new track manager with a master track
     pub fn new() -> Self {
-        let master_track = Arc::new(std::sync::Mutex::new(
+        let master_track = Arc::new(parking_lot::Mutex::new(
             Track::new(0, TrackType::Master, "Master".to_string())
         ));
 
@@ -590,7 +589,7 @@ impl TrackManager {
 
         // New tracks are armed by default (Ableton-style)
         // Multiple tracks can be armed simultaneously
-        let track = Arc::new(std::sync::Mutex::new(
+        let track = Arc::new(parking_lot::Mutex::new(
             Track::new(id, track_type, name)
         ));
 
@@ -600,19 +599,19 @@ impl TrackManager {
     }
 
     /// Get a track by ID
-    pub fn get_track(&self, id: TrackId) -> Option<Arc<std::sync::Mutex<Track>>> {
+    pub fn get_track(&self, id: TrackId) -> Option<Arc<parking_lot::Mutex<Track>>> {
         self.tracks.iter()
-            .find(|t| t.lock().expect("mutex poisoned").id == id)
+            .find(|t| t.lock().id == id)
             .cloned()
     }
 
     /// Get master track
-    pub fn get_master_track(&self) -> Arc<std::sync::Mutex<Track>> {
+    pub fn get_master_track(&self) -> Arc<parking_lot::Mutex<Track>> {
         self.get_track(self.master_track_id).unwrap()
     }
 
     /// Get all tracks
-    pub fn get_all_tracks(&self) -> Vec<Arc<std::sync::Mutex<Track>>> {
+    pub fn get_all_tracks(&self) -> Vec<Arc<parking_lot::Mutex<Track>>> {
         self.tracks.clone()
     }
 
@@ -622,7 +621,7 @@ impl TrackManager {
             return false;
         }
 
-        if let Some(pos) = self.tracks.iter().position(|t| t.lock().expect("mutex poisoned").id == id) {
+        if let Some(pos) = self.tracks.iter().position(|t| t.lock().id == id) {
             self.tracks.remove(pos);
             true
         } else {
@@ -633,7 +632,7 @@ impl TrackManager {
     /// Check if any tracks are soloed
     pub fn has_solo(&self) -> bool {
         self.tracks.iter()
-            .any(|t| t.lock().expect("mutex poisoned").solo)
+            .any(|t| t.lock().solo)
     }
 }
 

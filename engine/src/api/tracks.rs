@@ -21,8 +21,7 @@ use crate::track::{ClipId, TrackId, TrackType};
 pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, String> {
     let track_type = match track_type_str.to_lowercase().as_str() {
         "audio" => TrackType::Audio,
-        "midi" => TrackType::Midi,
-        "sampler" => TrackType::Midi,  // Sampler is an instrument on MIDI tracks, not a track type
+        "midi" | "sampler" => TrackType::Midi,
         "return" => TrackType::Return,
         "group" => TrackType::Group,
         "master" => return Err("Cannot create additional master tracks".to_string()),
@@ -30,10 +29,10 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
     };
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
 
     let track_id = {
-        let mut track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+        let mut track_manager = graph.track_manager.lock();
         track_manager.create_track(track_type, name)
     };
 
@@ -55,11 +54,11 @@ pub fn create_track(track_type_str: &str, name: String) -> Result<TrackId, Strin
 pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, String> {
     eprintln!("🎚️ set_track_volume called: track={track_id}, volume_db={volume_db:.2}");
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.volume_db = volume_db.clamp(-96.0, 6.0);
         eprintln!("🎚️ Track {} volume now = {:.2} dB, gain = {:.4}", track_id, track.volume_db, track.get_gain());
         Ok(format!("Track {} volume set to {:.2} dB", track_id, track.volume_db))
@@ -75,11 +74,11 @@ pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, Str
 /// * `pan` - Pan position (-1.0 = left, 0.0 = center, +1.0 = right)
 pub fn set_track_pan(track_id: TrackId, pan: f32) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.pan = pan.clamp(-1.0, 1.0);
         Ok(format!("Track {} pan set to {:.2}", track_id, track.pan))
     } else {
@@ -90,11 +89,11 @@ pub fn set_track_pan(track_id: TrackId, pan: f32) -> Result<String, String> {
 /// Set track mute state
 pub fn set_track_mute(track_id: TrackId, mute: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.mute = mute;
         Ok(format!("Track {track_id} mute: {mute}"))
     } else {
@@ -105,11 +104,11 @@ pub fn set_track_mute(track_id: TrackId, mute: bool) -> Result<String, String> {
 /// Set track armed state (for recording)
 pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.armed = armed;
         // Auto-mode: armed = monitoring (hear input when armed)
         track.input_monitoring = armed;
@@ -122,11 +121,11 @@ pub fn set_track_armed(track_id: TrackId, armed: bool) -> Result<String, String>
 /// Set track solo state
 pub fn set_track_solo(track_id: TrackId, solo: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.solo = solo;
         Ok(format!("Track {track_id} solo: {solo}"))
     } else {
@@ -137,12 +136,12 @@ pub fn set_track_solo(track_id: TrackId, solo: bool) -> Result<String, String> {
 /// Set track name
 pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
-        track.name = name.clone();
+        let mut track = track_arc.lock();
+        track.name.clone_from(&name);
         Ok(format!("Track {track_id} renamed to '{name}'"))
     } else {
         Err(format!("Track {track_id} not found"))
@@ -160,11 +159,11 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
 pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<String, String> {
     eprintln!("🎚️ set_track_volume_automation: track={}, csv_len={}", track_id, csv.len());
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.set_volume_automation_csv(csv);
         let point_count = track.volume_automation.len();
         eprintln!("🎚️ Track {track_id} automation set: {point_count} points");
@@ -186,11 +185,11 @@ pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<Strin
 /// * `channel` - Channel index within the device (0-based, mono)
 pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         if device_index < 0 {
             track.input_device_index = None;
             track.input_channel = 0;
@@ -210,11 +209,11 @@ pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Re
 /// Returns: "`device_index,channel`" (-1 if no input assigned)
 pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock().map_err(|e| e.to_string())?;
+        let track = track_arc.lock();
         let device_idx = track.input_device_index.map_or(-1, |i| i as i32);
         Ok(format!("{},{}", device_idx, track.input_channel))
     } else {
@@ -225,11 +224,11 @@ pub fn get_track_input(track_id: TrackId) -> Result<String, String> {
 /// Set input monitoring for a track (hear input through track when armed)
 pub fn set_track_input_monitoring(track_id: TrackId, enabled: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.input_monitoring = enabled;
         Ok(format!("Track {track_id} input monitoring: {enabled}"))
     } else {
@@ -244,8 +243,8 @@ pub fn set_track_input_monitoring(track_id: TrackId, enabled: bool) -> Result<St
 /// Get total number of tracks (including master)
 pub fn get_track_count() -> Result<usize, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     let count = track_manager.get_all_tracks().len();
     Ok(count)
@@ -254,12 +253,12 @@ pub fn get_track_count() -> Result<usize, String> {
 /// Get all track IDs as comma-separated string
 pub fn get_all_track_ids() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     let all_tracks = track_manager.get_all_tracks();
-    let ids: Vec<String> = all_tracks.iter().filter_map(|track_arc| {
-        track_arc.lock().ok().map(|track| track.id.to_string())
+    let ids: Vec<String> = all_tracks.iter().map(|track_arc| {
+        track_arc.lock().id.to_string()
     }).collect();
 
     Ok(ids.join(","))
@@ -270,15 +269,14 @@ pub fn get_all_track_ids() -> Result<String, String> {
 /// Returns: "`track_id,name,type,volume_db,pan,mute,solo,armed`"
 pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock().map_err(|e| e.to_string())?;
+        let track = track_arc.lock();
         let type_str = match track.track_type {
             TrackType::Audio => "Audio",
-            TrackType::Midi => "MIDI",
-            TrackType::Sampler => "MIDI",  // Legacy: old loaded projects report as MIDI
+            TrackType::Midi | TrackType::Sampler => "MIDI",
             TrackType::Return => "Return",
             TrackType::Group => "Group",
             TrackType::Master => "Master",
@@ -306,11 +304,11 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
 /// Returns CSV: "`peak_left_db,peak_right_db`"
 pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock().map_err(|e| e.to_string())?;
+        let track = track_arc.lock();
         let (peak_left_db, peak_right_db) = track.get_peak_db();
         Ok(format!("{peak_left_db:.2},{peak_right_db:.2}"))
     } else {
@@ -327,11 +325,11 @@ pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
 /// This migrates clips from the legacy global timeline to track-based system
 pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     // Find the clip in the global timeline
-    let mut clips = graph.get_clips().lock().map_err(|e| e.to_string())?;
+    let mut clips = graph.get_clips().lock();
     let clip_idx = clips.iter().position(|c| c.id == clip_id)
         .ok_or(format!("Clip {clip_id} not found in global timeline"))?;
 
@@ -340,7 +338,7 @@ pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, 
 
     // Add to track
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
 
         // Verify track type matches clip type
         if track.track_type != TrackType::Audio && track.track_type != TrackType::Group {

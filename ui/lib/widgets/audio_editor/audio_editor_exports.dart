@@ -1,5 +1,5 @@
 /// Barrel export file for audio_editor widgets and utilities.
-library audio_editor;
+library;
 
 export 'audio_editor.dart';
 export 'audio_editor_state.dart';

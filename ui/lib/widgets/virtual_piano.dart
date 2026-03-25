@@ -446,7 +446,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           const SizedBox(width: 12),
 
           // Octave controls group
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: context.colors.dark,
               borderRadius: BorderRadius.circular(4),
@@ -804,8 +804,8 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  isValidNote ? const Color(0xFF2A2A2A) : const Color(0xFF1A1A1A),
-                  isValidNote ? const Color(0xFF1A1A1A) : const Color(0xFF0A0A0A),
+                  if (isValidNote) const Color(0xFF2A2A2A) else const Color(0xFF1A1A1A),
+                  if (isValidNote) const Color(0xFF1A1A1A) else const Color(0xFF0A0A0A),
                 ],
               ),
               color: isPressed ? this.context.colors.accent : null,

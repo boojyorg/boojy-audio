@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../constants/ui_constants.dart';
 import '../piano_roll.dart';
 import 'piano_roll_state.dart';
 
@@ -28,7 +29,7 @@ mixin AuditionMixin on State<PianoRoll>, PianoRollStateMixin {
     if (currentlyHeldNote != null) {
       final trackId = currentClip?.trackId;
       if (trackId != null && widget.audioEngine != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
       }
       currentlyHeldNote = null;
     }
@@ -43,7 +44,7 @@ mixin AuditionMixin on State<PianoRoll>, PianoRollStateMixin {
     if (trackId != null && widget.audioEngine != null) {
       // Stop old note
       if (currentlyHeldNote != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, 64);
+        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
       }
       // Start new note
       widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
@@ -71,7 +72,7 @@ mixin AuditionMixin on State<PianoRoll>, PianoRollStateMixin {
     // Stop notes after a short delay
     Future.delayed(const Duration(milliseconds: 500), () {
       for (final midiNote in midiNotes) {
-        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, 64);
+        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, UIConstants.midiNoteOffVelocity);
       }
     });
   }

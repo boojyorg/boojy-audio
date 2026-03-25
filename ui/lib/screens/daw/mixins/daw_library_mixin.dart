@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../../utils/logger.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/library_item.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
+// ignore: unused_import
 import '../../../services/commands/clip_commands.dart';
 import '../../../utils/clip_overlap_handler.dart';
 import '../../../services/midi_file_service.dart';
@@ -55,11 +57,11 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
             if (isMidi) {
               // Swap/add instrument on selected MIDI track
               onInstrumentSelected(selectedTrack, instrument.id);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             } else {
               // Create new MIDI track with instrument
               onInstrumentDroppedOnEmpty(instrument);
-              // TODO: Load preset data when presets are implemented
+              // Preset loading deferred to v0.5.0 (Stock Instruments milestone)
             }
           }
         }
@@ -340,13 +342,13 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       // 7. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to add audio file to new track: $e');
+      Log.e('Failed to add audio file to new track: $e');
     }
   }
 
   /// Handle audio file dropped on existing track (with undo support)
   Future<void> onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    debugPrint('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
@@ -410,7 +412,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       // 5. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
-      debugPrint('Failed to add audio file to track: $e');
+      Log.e('Failed to add audio file to track: $e');
     }
   }
 
@@ -449,7 +451,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
         disarmOtherMidiTracks(trackId);
       }
     } catch (e) {
-      debugPrint('Failed to create track with clip: $e');
+      Log.e('Failed to create track with clip: $e');
     }
   }
 
@@ -478,13 +480,13 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
       _importMidiNotesToTrack(trackId, filePath, 0.0, result);
     } catch (e) {
-      debugPrint('Failed to import MIDI file to new track: $e');
+      Log.e('Failed to import MIDI file to new track: $e');
     }
   }
 
   /// Handle MIDI file dropped on existing track
   Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    debugPrint('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split('/').last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+    Log.d('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
     if (audioEngine == null) return;
     if (!isMidiTrack(trackId)) return;
 
@@ -495,11 +497,12 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
       _importMidiNotesToTrack(trackId, filePath, startTimeBeats, result);
     } catch (e) {
-      debugPrint('Failed to import MIDI file to track: $e');
+      Log.e('Failed to import MIDI file to track: $e');
     }
   }
 
   /// Import decoded MIDI notes as a clip on a track
+  // ignore: unused_element
   void _importMidiNotesToTrack(int trackId, String filePath, double startTimeBeats, MidiFileDecodeResult result) {
     // Find the max note end to determine clip duration
     double maxEnd = 0;
@@ -586,6 +589,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Add audio clip to existing track
+  // ignore: unused_element
   Future<void> addAudioClipToTrack(int trackId, String filePath) async {
     if (audioEngine == null) return;
 
@@ -617,22 +621,22 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Add built-in effect to track
+  // ignore: unused_element
   void addBuiltInEffectToTrack(int trackId, String effectType) {
     if (audioEngine == null) return;
 
     try {
       final effectId = audioEngine!.addEffectToTrack(trackId, effectType);
       if (effectId >= 0) {
-        setState(() {
-          statusMessage = 'Added $effectType to track';
-        });
+        statusMessage = 'Added $effectType to track';
       }
     } catch (e) {
-      debugPrint('Failed to add effect to track: $e');
+      Log.e('Failed to add effect to track: $e');
     }
   }
 
   /// Find instrument by name
+  // ignore: unused_element
   Instrument? findInstrumentByName(String name) {
     try {
       return availableInstruments.firstWhere(
@@ -644,6 +648,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Find instrument by ID
+  // ignore: unused_element
   Instrument? findInstrumentById(String id) {
     try {
       return availableInstruments.firstWhere(
@@ -655,12 +660,14 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Truncate a name to max length with ellipsis
+  // ignore: unused_element
   String truncateName(String name, int maxLength) {
     if (name.length <= maxLength) return name;
     return '${name.substring(0, maxLength - 3)}...';
   }
 
   /// Show snackbar message
+  // ignore: unused_element
   void showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

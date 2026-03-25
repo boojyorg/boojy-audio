@@ -33,7 +33,7 @@ class BarRulerPainter extends CustomPainter {
       textPainter.text = TextSpan(
         text: '$barNumber',
         style: const TextStyle(
-          color: Color(0xFFE0E0E0), // Light text on dark background
+          color: Color(0xFFE8EAF0), // TEXT.primary
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
@@ -50,7 +50,7 @@ class BarRulerPainter extends CustomPainter {
       for (int beat = 0; beat < beatsPerBar; beat++) {
         final beatX = (barStartBeat + beat) * pixelsPerBeat;
         final tickPaint = Paint()
-          ..color = const Color(0xFF606060) // Dark grey ticks
+          ..color = const Color(0xFF4A4D5A) // BG.hover
           ..strokeWidth = 1;
 
         canvas.drawLine(

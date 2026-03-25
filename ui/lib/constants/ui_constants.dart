@@ -100,4 +100,32 @@ class UIConstants {
 
   /// Font size for the dB value readout (pixels).
   static const double dbFontSize = 10.0;
+
+  // ============================================
+  // MIDI CONSTANTS
+  // ============================================
+
+  /// Default velocity for new MIDI notes.
+  static const int defaultMidiVelocity = 100;
+
+  /// Standard MIDI note-off release velocity.
+  static const int midiNoteOffVelocity = 64;
+
+  /// Maximum MIDI note number (0-127 range).
+  static const int maxMidiNote = 127;
+
+  /// Minimum MIDI note number.
+  static const int minMidiNote = 0;
+
+  // ============================================
+  // SCROLL / AUTO-SCROLL CONSTANTS
+  // ============================================
+
+  /// Fraction of viewport width that triggers auto-scroll during playback.
+  /// e.g. 0.2 means scroll when playhead is within 20% of the right edge.
+  static const double playheadScrollThreshold = 0.2;
+
+  /// Fraction of viewport width to offset after auto-scroll snap.
+  /// e.g. 0.3 means place playhead at 30% from left after snapping.
+  static const double playheadScrollOffset = 0.3;
 }

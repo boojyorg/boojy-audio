@@ -98,7 +98,7 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       editData.fineCents,
     );
 
-    // TODO: Future FFI calls for additional parameters:
+    // Future: FFI for reverse and normalize (v0.3.0)
     // - setAudioClipReverse(trackId, clipId, reversed)
     // - setAudioClipNormalize(trackId, clipId, targetDb)
   }

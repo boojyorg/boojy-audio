@@ -4,6 +4,43 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Sampler editor crash**: Fixed `.single` on FilePicker result that would crash if no file was selected. Now uses safe `.first` access with `.isNotEmpty` guard.
+- **Sampler waveform division by zero**: Fixed `_pixelsPerBeat` calculation that produced NaN/Infinity when `originalBpm` was 0. Now returns fallback value.
+- **Clip overlap handler**: Fixed loop iterating all clips instead of pre-filtered track clips, causing unnecessary iteration and misleading debug logs.
+- **Recording negative duration**: Fixed count-in duration going negative when playhead seeked backward during recording. Now clamped to non-negative.
+- **FFI heap corruption**: Fixed `Vec::from_raw_parts` capacity mismatch in waveform peak free functions — used `Box<[f32]>` via `into_boxed_slice()` to guarantee capacity == length.
+- **Recorder timestamp panic**: Replaced `.unwrap()` with `.unwrap_or_default()` on `SystemTime::duration_since(UNIX_EPOCH)` to prevent panic if system clock is invalid.
+- **Recording listener leak**: Added defensive `removeListener` before `addListener` in `startRecording()` to prevent listener accumulation on rapid start/stop cycles.
+
+### Improvements
+
+- **FFI panic safety**: Wrapped all 164 `extern "C"` FFI functions in `catch_unwind` to prevent Rust panics from crossing the C boundary (which is undefined behavior). Added `ffi_catch` helper with per-function default values.
+- **VST3 block processing**: Added `process_block` method to Effect trait with default per-sample fallback. VST3Effect overrides with batched lock acquisition and buffer-level processing, reducing lock contention from per-sample to per-buffer.
+- **Audio thread allocation**: Pre-allocated `Vec<TrackSnapshot>` and `HashMap` buffers outside the audio callback, reusing them each frame instead of allocating on every callback invocation.
+- **Project load dedup**: Extracted shared post-load logic (`_loadAndApplyProject`) from `openProject()` and `openRecentProject()`, eliminating ~80% code duplication. Also deduplicated matching private methods in `daw_screen.dart`.
+- **Engine version sync**: Updated engine `Cargo.toml` version from 0.1.0 to 0.1.5 to match Flutter app version.
+- **AudioGraph safety comment**: Updated `unsafe impl Send` comment to accurately describe the thread-safety invariant.
+
+- **Divider redesign**: Continuous full-height dividers spanning top bar through content area. 1px gray line at rest, 4px accent bar on hover with synchronized highlighting (both segments activate together). Transport bar restructured to 3-column grid layout with draggable left/right handles.
+- **Surface color simplification**: Reduced from 5 surface color levels (dark/standard/elevated/surface/divider) to 3 clean levels: `dark` for all chrome, `darkest` for content areas, `editor` for timeline. Unified visual hierarchy matching Boojy Notes.
+- **Mixer header simplified**: Removed collapse chevron, tune icon, and "TRACK MIXER" label — header now shows only the (+) add track button, right-aligned.
+- **Transport bar layout**: Sidebar toggle aligned to right edge near divider, help button pushed to far right corner.
+- **Centralized logging**: Replaced 161 `print`/`debugPrint` calls across 31 files with `Log` utility (silent in release builds). Categories: `Log.e()` for errors, `Log.d()` for debug, `Log.i()` for info.
+- **Magic numbers extracted**: MIDI constants (defaultVelocity, noteOffVelocity, maxMidiNote) and scroll thresholds moved to `UIConstants`. Removed 93 lines of dead code.
+- **Performance: automation preview**: Converted from setState (full DAWScreen rebuild at 60fps) to ValueNotifier (only mixer panel rebuilds during drag).
+- **Performance: status message**: Removed 35 wasteful setState calls for unused statusMessage field.
+- **Code decomposition**: Extracted DAWScreen build method into 4 named methods, timeline keyboard handler into separate method, piano roll content into 4 focused builders.
+- **Dev tool: Palette Editor**: Live color palette editor (Cmd+Shift+P in debug builds) with preset switching (Current/Neutral/Warm), hex input, and code export.
+
+### Features
+
+- **UI redesign — Boojy Design System alignment**: Migrated entire colour palette from neutral greys to blue-tinted Boojy Design System colours (matching Boojy Notes). New deep blue-black editor background (#040412) for timeline and piano roll content areas. Chrome (sidebar, top bar, mixer) uses #2C2C32. All painters (grid, nav bar, rulers, automation) updated to design system colours.
+- **Top bar redesign**: Restructured transport bar from single row to 3-group layout (Left: logo/project/undo/redo/sidebar toggle | Centre: transport controls | Right: mixer toggle/status/help). Reduced height from 60px to 48px. Text-based "Audi●" logo with accent-coloured circle replaces image logo. SVG icons for undo/redo and panel toggles via flutter_svg. Engine status dot in top bar replaces bottom status bar.
+- **Star field background**: Animated star field renders behind the timeline content area, matching the Boojy visual identity from Notes. ~70 stars with gentle glow/fade pulsing at individual speeds. Uses CustomPainter with RepaintBoundary for performance isolation.
+- **Floating UI restyled**: Global popup menu theme updated with design system colours (#292B36 bg, #3A3D4A border, 8px radius, shadow). Tooltips restyled with dark bg and 200ms delay. Settings modal redesigned with accent-coloured section header lines (uppercase + accent line extending right), "Audi●" logo + version in sidebar bottom, and dark overlay with 12px border radius.
+
 ### Improvements
 
 - **Timeline performance optimization**: Decouple playhead from full timeline rebuild (60fps → only playhead line repaints), add viewport culling for off-screen clips, skip unnecessary 2-second timer rebuilds when tracks haven't changed, add RepaintBoundary isolation for grid/tracks/playhead, remove playbackController from generic DAW screen listener

@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_positional_boolean_parameters
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,7 @@ import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
 import 'input_selector_dropdown.dart';
+import '../utils/logger.dart';
 
 /// Unified track strip combining track info and mixer controls
 /// Displayed on the right side of timeline, aligned with each track row
@@ -876,11 +878,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   void _showContextMenu(BuildContext context, Offset position) {
     // Don't show context menu for master track
     if (widget.trackType.toLowerCase() == 'master') {
-      debugPrint('TrackMixerStrip: Skipping context menu for master track');
+      Log.d('TrackMixerStrip: Skipping context menu for master track');
       return;
     }
 
-    debugPrint('TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}');
+    Log.d('TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}');
 
     // Use listen: false to avoid provider error in callback context
     final colors = Provider.of<ThemeProvider>(context, listen: false).colors;
@@ -1502,7 +1504,6 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
 
     // Fixed sizes
     const double fontSize = 12.0;
-    const double iconSize = 14.0;
     const double dbFontSize = UIConstants.dbFontSize;
     const double dbContainerWidth = UIConstants.dbContainerWidth;
 
@@ -1539,7 +1540,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                   Row(
                     children: [
                       // Icon (headphones)
-                      Text('🎧', style: TextStyle(fontSize: iconSize)),
+                      const Text('🎧', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 6),
                       // "Master" text
                       Expanded(

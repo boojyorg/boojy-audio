@@ -1,5 +1,5 @@
-/// Stub implementation of VST3EditorService for web platform.
-/// VST3 plugins are not supported on web, so all methods are no-ops.
+// Stub implementation of VST3EditorService for web platform.
+// VST3 plugins are not supported on web, so all methods are no-ops.
 
 import '../audio_engine.dart';
 

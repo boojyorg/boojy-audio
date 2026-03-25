@@ -23,12 +23,12 @@ class VelocityLanePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Draw background
-    final bgPaint = Paint()..color = const Color(0xFF1E1E1E);
+    final bgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Draw horizontal grid lines at 25%, 50%, 75%, 100%
     final gridPaint = Paint()
-      ..color = const Color(0xFF333333)
+      ..color = const Color(0xFF292B36) // BG.elevated
       ..strokeWidth = 1;
 
     for (var i = 1; i <= 4; i++) {
@@ -38,7 +38,7 @@ class VelocityLanePainter extends CustomPainter {
 
     // Draw vertical bar lines (every 4 beats)
     final barPaint = Paint()
-      ..color = const Color(0xFF404040)
+      ..color = const Color(0xFF3A3D4A) // BG.divider
       ..strokeWidth = 1;
 
     for (double beat = 0; beat <= totalBeats; beat += 4) {

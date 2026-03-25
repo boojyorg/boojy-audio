@@ -7,7 +7,6 @@
 /// - Delay (tempo-synced or time-based)
 /// - Limiter (brick-wall, for master track)
 /// - Chorus (modulated delay with LFO)
-
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use std::f32::consts::PI;
 
@@ -15,6 +14,18 @@ use std::f32::consts::PI;
 pub trait Effect: Send {
     /// Process a stereo frame (left, right) → (`left_out`, `right_out`)
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32);
+
+    /// Process a block of stereo frames in-place.
+    /// Default implementation calls `process_frame` per sample.
+    /// Override for effects that benefit from batched processing (e.g., VST3 plugins).
+    fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
+        let len = left.len().min(right.len());
+        for i in 0..len {
+            let (l, r) = self.process_frame(left[i], right[i]);
+            left[i] = l;
+            right[i] = r;
+        }
+    }
 
     /// Reset internal state (clear buffers, etc.)
     fn reset(&mut self);
@@ -523,7 +534,7 @@ impl Reverb {
         input: f32,
         room_size: f32,
         damping: f32,
-        buffer: &mut Vec<f32>,
+        buffer: &mut [f32],
         pos: &mut usize,
         filter_state: &mut f32,
     ) -> f32 {
@@ -541,7 +552,7 @@ impl Reverb {
 
     fn process_allpass(
         input: f32,
-        buffer: &mut Vec<f32>,
+        buffer: &mut [f32],
         pos: &mut usize,
     ) -> f32 {
         let delayed = buffer[*pos];
@@ -868,7 +879,8 @@ impl EffectType {
 // EFFECT MANAGER
 // ========================================================================
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 
 /// Effect manager: holds all effect instances
@@ -952,7 +964,7 @@ impl EffectManager {
     /// Returns new effect ID on success, None if source effect not found
     pub fn duplicate_effect(&mut self, source_effect_id: EffectId) -> Option<EffectId> {
         if let Some(source_effect_arc) = self.effects.get(&source_effect_id) {
-            let source_effect = source_effect_arc.lock().expect("mutex poisoned");
+            let source_effect = source_effect_arc.lock();
 
             // Clone the effect (deep copy)
             let cloned_effect = source_effect.clone();
@@ -964,7 +976,7 @@ impl EffectManager {
 
             self.effects.insert(new_id, Arc::new(Mutex::new(cloned_effect)));
             eprintln!("🎛️ [EffectManager] Duplicated effect {} → {} ({})",
-                      source_effect_id, new_id, self.effects.get(&new_id).unwrap().lock().expect("mutex poisoned").name());
+                      source_effect_id, new_id, self.effects.get(&new_id).unwrap().lock().name());
 
             Some(new_id)
         } else {

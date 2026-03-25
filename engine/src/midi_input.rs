@@ -1,9 +1,9 @@
 /// MIDI input device management
 /// Uses midir on desktop platforms, stub on iOS (midir not supported)
-
 use crate::midi::MidiEvent;
 use anyhow::{anyhow, Result};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::Mutex;
 
 /// MIDI device information
 #[derive(Debug, Clone)]
@@ -211,7 +211,7 @@ impl MidiInputManager {
                 if let Some(event) = parse_midi_message(message, timestamp) {
                     // Call the event callback if set
                     if let Some(ref cb) = callback {
-                        if let Ok(mut cb) = cb.lock() {
+                        { let mut cb = cb.lock();
                             cb(event);
                         }
                     }

@@ -39,6 +39,11 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     // Block preview playback during recording
     libraryPreviewService?.setRecordingState(true);
 
+    // Defensively remove stale listeners from a previous recording cycle
+    // (removeListener is a no-op if not registered)
+    liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
+    recordingController.removeListener(_onRecordingStateChanged);
+
     // Listen for live recording updates (real-time MIDI note display)
     liveRecordingNotifier.addListener(_onLiveRecordingUpdate);
 

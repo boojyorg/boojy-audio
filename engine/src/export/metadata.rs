@@ -21,7 +21,7 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
         return Ok(());
     }
 
-    eprintln!("🏷️ [Metadata] Writing ID3 tags to {mp3_path:?}");
+    eprintln!("🏷️ [Metadata] Writing ID3 tags to {}", mp3_path.display());
 
     let mut tag = Tag::new();
 
@@ -120,6 +120,7 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
 ///
 /// # Returns
 /// `ExportMetadata` with read values
+#[allow(clippy::field_reassign_with_default)]
 pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
     let tag = Tag::read_from_path(mp3_path)
         .map_err(|e| format!("Failed to read ID3 tags: {e}"))?;

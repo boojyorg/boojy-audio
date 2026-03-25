@@ -34,7 +34,7 @@ pub fn export_mp3(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎵 [MP3 Export] Starting export to {output_path:?}");
+    eprintln!("🎵 [MP3 Export] Starting export to {}", output_path.display());
 
     // Check ffmpeg availability
     if !is_ffmpeg_available() {
@@ -49,7 +49,7 @@ pub fn export_mp3(
     // Get bitrate from options
     let bitrate = match &options.format {
         super::options::ExportFormat::Mp3 { bitrate } => *bitrate,
-        _ => return Err("export_mp3 called with non-MP3 format".to_string()),
+        super::options::ExportFormat::Wav { .. } => return Err("export_mp3 called with non-MP3 format".to_string()),
     };
 
     // Make a mutable copy of samples for processing

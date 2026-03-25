@@ -6,7 +6,8 @@ use crate::audio_file::AudioClip;
 use crate::audio_graph::AudioGraph;
 use crate::track::ClipId;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
+use parking_lot::Mutex;
 
 // ============================================================================
 // GLOBAL STATE
@@ -40,7 +41,7 @@ where
     F: FnOnce(&AudioGraph) -> Result<R, String>,
 {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
     f(&graph)
 }
 
@@ -50,7 +51,7 @@ where
     F: FnOnce(&mut AudioGraph) -> Result<R, String>,
 {
     let graph_mutex = get_audio_graph()?;
-    let mut graph = graph_mutex.lock().map_err(|e| e.to_string())?;
+    let mut graph = graph_mutex.lock();
     f(&mut graph)
 }
 
@@ -62,16 +63,15 @@ where
 {
     let graph_mutex = get_audio_graph()?;
 
-    if let Ok(mut graph) = graph_mutex.try_lock() { f(&mut graph) } else {
+    if let Some(mut graph) = graph_mutex.try_lock() { f(&mut graph) } else {
         // Lock is busy - spawn thread to retry (UI won't freeze)
         let action = action_name.to_string();
         eprintln!("⚠️ [API] {action}: lock busy, spawning thread");
         std::thread::spawn(move || {
             if let Some(m) = AUDIO_GRAPH.get() {
-                if let Ok(mut g) = m.lock() {
-                    let _ = f(&mut g);
-                    eprintln!("✅ [API] {action}: completed in background thread");
-                }
+                let mut g = m.lock();
+                let _ = f(&mut g);
+                eprintln!("✅ [API] {action}: completed in background thread");
             }
         });
         Ok(queued_msg.to_string())

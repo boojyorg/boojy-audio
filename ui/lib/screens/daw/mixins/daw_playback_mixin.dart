@@ -8,10 +8,8 @@ mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Start playback
   void play() {
     // Clear automation preview values so display shows actual playback values
-    if (automationPreviewValues.isNotEmpty) {
-      setState(() {
-        automationPreviewValues.clear();
-      });
+    if (automationPreviewNotifier.value.isNotEmpty) {
+      automationPreviewNotifier.value = {};
     }
     playbackController.play(loadedClipId: loadedClipId);
   }
@@ -19,10 +17,8 @@ mixin DAWPlaybackMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// Play with loop check - used by transport bar play button
   void playWithLoopCheck() {
     // Clear automation preview values so display shows actual playback values
-    if (automationPreviewValues.isNotEmpty) {
-      setState(() {
-        automationPreviewValues.clear();
-      });
+    if (automationPreviewNotifier.value.isNotEmpty) {
+      automationPreviewNotifier.value = {};
     }
     if (uiLayout.loopPlaybackEnabled) {
       playLoopRegion();

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.2+1
+version: 0.1.5+1
 
 environment:
   sdk: ^3.9.2
@@ -70,6 +70,9 @@ dependencies:
   # App version info
   package_info_plus: ^8.0.0
 
+  # SVG rendering for custom icons
+  flutter_svg: ^2.0.10+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -95,6 +98,7 @@ flutter:
   # Assets for Boojy Audio
   assets:
     - assets/images/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

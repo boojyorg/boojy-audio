@@ -46,11 +46,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Truncate based on mode: narrow = shorter truncation
-    final maxLength = widget.mode == ButtonDisplayMode.narrow ? 8 : 20;
-    final displayName = widget.projectName.length > maxLength
-        ? '${widget.projectName.substring(0, maxLength - 2)}...'
-        : widget.projectName;
+    final displayName = widget.projectName;
 
     return PopupMenuButton<String>(
       tooltip: 'File Menu',
@@ -113,7 +109,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             ],
           ),
         ),
-        // TODO: Open Recent submenu would go here
+        // Future: Open Recent submenu (v0.6.0)
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'save',
@@ -233,6 +229,8 @@ class _FileMenuButtonState extends State<FileMenuButton> {
           ),
           child: Text(
             displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: _isHovered
                   ? context.colors.textPrimary

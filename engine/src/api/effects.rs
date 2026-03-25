@@ -14,9 +14,9 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
     use crate::effects::{EffectType, ParametricEQ, Compressor, Reverb, Delay, Chorus, Limiter};
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
-    let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+    let mut effect_manager = graph.effect_manager.lock();
 
     // Create the effect
     let effect = match effect_type_str.to_lowercase().as_str() {
@@ -34,7 +34,7 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
 
     // Add effect to track's FX chain
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         track.fx_chain.push(effect_id);
         eprintln!(
             "🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}"
@@ -48,13 +48,13 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
 /// Remove an effect from a track's FX chain
 pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
-    let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+    let mut effect_manager = graph.effect_manager.lock();
 
     // Remove from track's FX chain
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
         if let Some(pos) = track.fx_chain.iter().position(|&id| id == effect_id) {
             track.fx_chain.remove(pos);
             // Remove from effect manager
@@ -76,11 +76,11 @@ pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<Str
 /// Get all effects on a track (returns CSV: "`effect_id,effect_id`,...")
 pub fn get_track_effects(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock().map_err(|e| e.to_string())?;
+        let track = track_arc.lock();
         let ids: Vec<String> = track.fx_chain.iter().map(ToString::to_string).collect();
         Ok(ids.join(","))
     } else {
@@ -93,15 +93,15 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
     use crate::effects::{EffectType, Effect};
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     // Get bypass state
     let bypassed = effect_manager.is_bypassed(effect_id);
     let bypass_str = if bypassed { "1" } else { "0" };
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let effect = effect_arc.lock();
 
         let info = match &*effect {
             EffectType::EQ(eq) => format!(
@@ -144,8 +144,8 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
 /// Set effect bypass state
 pub fn set_effect_bypass(effect_id: u64, bypassed: bool) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let mut effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let mut effect_manager = graph.effect_manager.lock();
 
     if effect_manager.set_bypass(effect_id, bypassed) {
         Ok(format!(
@@ -161,8 +161,8 @@ pub fn set_effect_bypass(effect_id: u64, bypassed: bool) -> Result<String, Strin
 /// Get effect bypass state
 pub fn get_effect_bypass(effect_id: u64) -> Result<bool, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     effect_manager
         .get_bypass(effect_id)
@@ -173,8 +173,8 @@ pub fn get_effect_bypass(effect_id: u64) -> Result<bool, String> {
 /// Takes a comma-separated list of effect IDs in the desired order
 pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let track_manager = graph.track_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
 
     // Parse the effect IDs
     let new_order: Vec<u64> = effect_ids_csv
@@ -184,7 +184,7 @@ pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<Stri
         .collect();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let mut track = track_arc.lock().map_err(|e| e.to_string())?;
+        let mut track = track_arc.lock();
 
         // Validate that all IDs in new_order are in the current fx_chain
         for id in &new_order {
@@ -221,11 +221,11 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
-    let graph = graph_mutex.lock().map_err(|e| e.to_string())?;
-    let effect_manager = graph.effect_manager.lock().map_err(|e| e.to_string())?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
 
     if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-        let mut effect = effect_arc.lock().map_err(|e| e.to_string())?;
+        let mut effect = effect_arc.lock();
 
         match &mut *effect {
             EffectType::EQ(eq) => match param_name {

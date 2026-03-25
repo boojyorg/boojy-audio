@@ -27,6 +27,7 @@ import 'shared/editors/unified_nav_bar.dart';
 import 'shared/editors/interactive_gutter.dart';
 import 'shared/editors/nav_bar_with_zoom.dart';
 import 'context_menus/note_context_menu.dart';
+import '../utils/logger.dart';
 
 /// Interaction modes for piano roll (internal tracking during gestures)
 enum InteractionMode { draw, select, move, resize }
@@ -203,8 +204,8 @@ class _PianoRollState extends State<PianoRoll>
       final clipEndPixelX = (currentClip!.startTime + currentClip!.duration) * pixelsPerBeat;
       final viewportRight = horizontalScroll.offset + viewWidth;
       // Scroll when clip end passes 80% of the visible area
-      if (clipEndPixelX > viewportRight - viewWidth * 0.2) {
-        final targetOffset = clipEndPixelX - viewWidth * 0.3;
+      if (clipEndPixelX > viewportRight - viewWidth * UIConstants.playheadScrollThreshold) {
+        final targetOffset = clipEndPixelX - viewWidth * UIConstants.playheadScrollOffset;
         horizontalScroll.jumpTo(targetOffset.clamp(0.0, horizontalScroll.position.maxScrollExtent));
       }
     }
@@ -253,7 +254,7 @@ class _PianoRollState extends State<PianoRoll>
       if (transposedNote >= 0 && transposedNote <= 127) {
         newNotes.add(MidiNoteData(
           note: transposedNote,
-          velocity: 100,
+          velocity: UIConstants.defaultMidiVelocity,
           startTime: beat,
           duration: lastNoteDuration,
           isSelected: true,
@@ -336,7 +337,7 @@ class _PianoRollState extends State<PianoRoll>
         child: Stack(
           children: [
             ColoredBox(
-              color: context.colors.standard, // Dark background
+              color: context.colors.darkest, // Content area background
               child: Column(
                 children: [
                   _buildPianoRollContent(),
@@ -386,105 +387,7 @@ class _PianoRollState extends State<PianoRoll>
       child: Column(
         children: [
           // Horizontal controls bar (replaces left sidebar)
-          PianoRollControlsBar(
-            // Clip section - loopEnabled controls clip's canRepeat property
-            loopEnabled: currentClip?.canRepeat ?? true,
-            loopStartBeats: loopStartBeats,
-            loopLengthBeats: getLoopLength(),
-            beatsPerBar: beatsPerBar,
-            beatUnit: beatUnit,
-            onLoopToggle: () {
-              if (currentClip == null) return;
-              setState(() {
-                currentClip = currentClip!.copyWith(canRepeat: !currentClip!.canRepeat);
-              });
-              notifyClipUpdated();
-            },
-            onLoopStartChanged: (beats) {
-              // When typing Start value: Keep LENGTH fixed, only change contentStartOffset
-              // (Length is controlled separately by the Length field)
-              final newStart = beats.clamp(0.0, double.infinity);
-              debugPrint('[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
-              setState(() {
-                loopStartBeats = newStart;
-                // Only update contentStartOffset - loopLength and duration stay the same
-                if (currentClip != null) {
-                  currentClip = currentClip!.copyWith(contentStartOffset: newStart);
-                }
-              });
-              debugPrint('[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
-              notifyClipUpdated();
-            },
-            onLoopLengthChanged: (beats) {
-              if (currentClip == null) return;
-              // Allow very small loops (1/16th note = 0.25 beats)
-              final newLength = beats.clamp(0.25, 256.0);
-              setState(() {
-                // Update both loopLength AND duration for one-way sync
-                // Piano Roll loop length changes sync to Arrangement clip duration
-                currentClip = currentClip!.copyWith(
-                  loopLength: newLength,
-                  duration: newLength,
-                );
-              });
-              notifyClipUpdated();
-            },
-            onBeatsPerBarChanged: (value) => setState(() => beatsPerBar = value),
-            onBeatUnitChanged: (value) => setState(() => beatUnit = value),
-            // Grid section
-            snapEnabled: snapEnabled,
-            gridDivision: gridDivision,
-            adaptiveGridEnabled: adaptiveGridEnabled,
-            snapTripletEnabled: snapTripletEnabled,
-            effectiveGridDivision: getEffectiveGridDivision(),
-            onSnapToggle: toggleSnap,
-            onGridDivisionChanged: (division) {
-              setState(() {
-                if (division == null) {
-                  // Adaptive mode
-                  adaptiveGridEnabled = true;
-                } else {
-                  // Fixed division
-                  adaptiveGridEnabled = false;
-                  gridDivision = division;
-                }
-              });
-            },
-            onSnapTripletToggle: () => setState(() => snapTripletEnabled = !snapTripletEnabled),
-            onQuantize: quantizeSelectedNotes,
-            quantizeDivision: quantizeDivision,
-            quantizeTripletEnabled: quantizeTripletEnabled,
-            onQuantizeDivisionChanged: (div) => setState(() => quantizeDivision = div),
-            onQuantizeTripletToggle: () => setState(() => quantizeTripletEnabled = !quantizeTripletEnabled),
-            // View section
-            foldEnabled: foldViewEnabled,
-            ghostNotesEnabled: ghostNotesEnabled,
-            onFoldToggle: () => setState(() => foldViewEnabled = !foldViewEnabled),
-            onGhostNotesToggle: () => setState(() => ghostNotesEnabled = !ghostNotesEnabled),
-            // Scale section
-            scaleRoot: scaleRoot,
-            scaleType: scaleType,
-            highlightEnabled: scaleHighlightEnabled,
-            lockEnabled: scaleLockEnabled,
-            onRootChanged: (root) => setState(() => scaleRoot = root),
-            onTypeChanged: (type) => setState(() => scaleType = type),
-            onHighlightToggle: () => setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
-            onLockToggle: () => setState(() => scaleLockEnabled = !scaleLockEnabled),
-            // Transform section
-            stretchAmount: stretchAmount,
-            onLegato: applyLegato,
-            onStretchChanged: (v) => setState(() => stretchAmount = v),
-            onStretchApply: applyStretch,
-            onReverse: reverseNotes,
-            // Lane visibility toggles (Randomize/CC type are in lane headers)
-            velocityLaneVisible: velocityLaneExpanded,
-            onVelocityLaneToggle: toggleVelocityLane,
-            clipAutomationLaneVisible: clipAutomationLaneExpanded,
-            onClipAutomationLaneToggle: () => setState(() => clipAutomationLaneExpanded = !clipAutomationLaneExpanded),
-            // Virtual Piano toggle
-            virtualPianoVisible: widget.virtualPianoVisible,
-            onVirtualPianoToggle: widget.onVirtualPianoToggle,
-          ),
+          _buildControlsBar(),
           // Main content area
           Expanded(
             child: LayoutBuilder(
@@ -518,236 +421,9 @@ class _PianoRollState extends State<PianoRoll>
                 return Column(
                   children: [
                     // Unified navigation bar (loop region + bar numbers + playhead)
-                    Row(
-                  children: [
-                    // Audition button (aligned with piano keys width)
-                    _buildAuditionCorner(context),
-                    // UnifiedNavBar with zoom controls overlaid
-                    Expanded(
-                      child: NavBarWithZoom(
-                        scrollController: navBarScroll,
-                        onZoomIn: zoomIn,
-                        onZoomOut: zoomOut,
-                        height: UIConstants.navBarHeight,
-                        child: UnifiedNavBar(
-                          config: UnifiedNavBarConfig(
-                            pixelsPerBeat: pixelsPerBeat,
-                            totalBeats: totalBeats,
-                            loopEnabled: loopEnabled,
-                            loopStart: loopStartBeats,
-                            loopEnd: loopStartBeats + getLoopLength(),
-                            insertMarkerPosition: insertMarkerBeats,
-                            playheadPosition: insertMarkerBeats, // Use insert marker as playhead
-                          ),
-                          callbacks: UnifiedNavBarCallbacks(
-                            onHorizontalScroll: _handleNavBarScroll,
-                            onZoom: _handleNavBarZoom,
-                            onPlayheadSet: _handleNavBarPlayheadSet,
-                            onPlayheadDrag: _handleNavBarPlayheadSet, // Same as click
-                            onLoopRegionChanged: _handleNavBarLoopRegionChanged,
-                          ),
-                          scrollController: navBarScroll,
-                          height: UIConstants.navBarHeight,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    _buildNavBarRow(totalBeats),
                 // Content row - piano keys gutter + grid with shared vertical scroll
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Piano keys with InteractiveGutter for drag navigation
-                      InteractiveGutter(
-                        config: InteractiveGutterConfig(
-                          width: UIConstants.pianoKeysWidth,
-                          itemCount: visibleRowCount,
-                          scrollOffset: verticalScroll.hasClients ? verticalScroll.offset : 0.0,
-                          tapEnabled: auditionEnabled,
-                        ),
-                        callbacks: InteractiveGutterCallbacks(
-                          onVerticalScroll: _handleGutterVerticalScroll,
-                          onVerticalFling: _handleGutterVerticalFling,
-                          onItemHeightZoom: _handleGutterHeightZoom,
-                          onItemTap: _handleGutterTap,
-                          onItemTapUp: _handleGutterTapUp,
-                        ),
-                        itemBuilder: (index, height) => _buildPianoKey(foldedPitches[index]),
-                        itemHeight: pixelsPerNote,
-                        scrollController: verticalScroll,
-                      ),
-                      // Grid with vertical + horizontal scroll
-                      Expanded(
-                        child: Scrollbar(
-                          controller: verticalScroll,
-                          child: SingleChildScrollView(
-                            controller: verticalScroll,
-                            scrollDirection: Axis.vertical,
-                            child: SizedBox(
-                              height: canvasHeight,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  // Capture view width for dynamic zoom limits
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (viewWidth != constraints.maxWidth && constraints.maxWidth > 0) {
-                                      setState(() {
-                                        viewWidth = constraints.maxWidth;
-                                      });
-                                    }
-                                  });
-                                  return SingleChildScrollView(
-                                    controller: horizontalScroll,
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width: canvasWidth,
-                                      height: canvasHeight,
-                                      // Listener captures right-click, scroll wheel, and middle mouse for eraser/delete
-                                      child: Listener(
-                                      onPointerSignal: (event) {
-                                        // Scroll wheel = scroll octaves vertically (no modifier needed)
-                                        if (event is PointerScrollEvent) {
-                                          if (!verticalScroll.hasClients) return;
-                                          final maxScroll = verticalScroll.position.maxScrollExtent;
-                                          final newOffset = (verticalScroll.offset + event.scrollDelta.dy).clamp(0.0, maxScroll);
-                                          verticalScroll.jumpTo(newOffset);
-                                        }
-                                      },
-                                      onPointerDown: (event) {
-                                        if (event.buttons == kSecondaryMouseButton) {
-                                          if (widget.isRecording) return; // No context menu during recording
-                                          rightClickStartPosition = event.localPosition;
-                                          rightClickNote = _findNoteAtPosition(event.localPosition);
-                                        } else if (event.buttons == kMiddleMouseButton) {
-                                          // Middle mouse button: start drag zoom (Ableton-style)
-                                          startDragZoom(event.localPosition.dx, event.position.dy);
-                                        } else if (event.buttons == kPrimaryMouseButton) {
-                                          if (widget.isRecording) return; // Read-only during recording
-                                          // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
-                                          final modifiers = ModifierKeyState.current();
-                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
-                                          if (tool == ToolMode.eraser) {
-                                            _startErasing(event.localPosition);
-                                          }
-                                        }
-                                      },
-                                      onPointerMove: (event) {
-                                        // Handle drag zoom with middle mouse button
-                                        if (isDragZooming) {
-                                          updateDragZoom(event.position.dy);
-                                          return;
-                                        }
-                                        if (widget.isRecording) return; // Read-only during recording
-                                        if (event.buttons == kPrimaryMouseButton) {
-                                          // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
-                                          final modifiers = ModifierKeyState.current();
-                                          final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
-                                          if (tool == ToolMode.eraser) {
-                                            if (!isErasing) {
-                                              _startErasing(event.localPosition);
-                                            } else {
-                                              _eraseNotesAt(event.localPosition);
-                                            }
-                                          }
-                                        }
-                                      },
-                                      onPointerUp: (event) {
-                                        // End drag zoom if active
-                                        if (isDragZooming) {
-                                          endDragZoom();
-                                          return;
-                                        }
-                                        if (rightClickNote != null && rightClickStartPosition != null) {
-                                          final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-                                          if (renderBox != null) {
-                                            final globalPosition = renderBox.localToGlobal(rightClickStartPosition!);
-                                            _showNoteContextMenu(globalPosition, rightClickNote!);
-                                          }
-                                        }
-                                        rightClickStartPosition = null;
-                                        rightClickNote = null;
-                                        if (isErasing) {
-                                          _stopErasing();
-                                        }
-                                        stopAudition();
-                                      },
-                                      child: MouseRegion(
-                                        cursor: currentCursor,
-                                        onHover: _onHover,
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.translucent,
-                                          onTapDown: widget.isRecording ? null : _onTapDown,
-                                          onTapUp: widget.isRecording ? null : _onTapUp,
-                                          onTapCancel: widget.isRecording ? null : () {
-                                            stopAudition();
-                                            pendingNoteTapSelection = null;
-                                          },
-                                          onPanStart: widget.isRecording ? null : _onPanStart,
-                                          onPanUpdate: widget.isRecording ? null : _onPanUpdate,
-                                          onPanEnd: widget.isRecording ? null : _onPanEnd,
-                                          child: ColoredBox(
-                                            color: Colors.transparent,
-                                            child: Stack(
-                                              children: [
-                                                CustomPaint(
-                                                  size: Size(canvasWidth, canvasHeight),
-                                                  painter: GridPainter(
-                                                    pixelsPerBeat: pixelsPerBeat,
-                                                    pixelsPerNote: pixelsPerNote,
-                                                    gridDivision: getEffectiveGridDivision(),
-                                                    maxMidiNote: PianoRollStateMixin.maxMidiNote,
-                                                    minMidiNote: PianoRollStateMixin.minMidiNote,
-                                                    totalBeats: totalBeats,
-                                                    activeBeats: activeBeats,
-                                                    loopEnabled: loopEnabled,
-                                                    loopStart: loopStartBeats,
-                                                    loopEnd: loopStartBeats + getLoopLength(),
-                                                    beatsPerBar: beatsPerBar,
-                                                    tripletEnabled: snapTripletEnabled,
-                                                    blackKeyBackground: context.colors.standard,
-                                                    whiteKeyBackground: context.colors.elevated,
-                                                    separatorLine: context.colors.elevated,
-                                                    subdivisionGridLine: context.colors.surface,
-                                                    beatGridLine: context.colors.hover,
-                                                    barGridLine: context.colors.textMuted,
-                                                    scaleHighlightEnabled: scaleHighlightEnabled,
-                                                    scaleRootMidi: ScaleRoot.midiNoteFromName(scaleRoot),
-                                                    scaleIntervals: scaleType.intervals,
-                                                    foldedPitches: foldViewEnabled ? foldedPitches : null,
-                                                  ),
-                                                ),
-                                                CustomPaint(
-                                                  size: Size(canvasWidth, canvasHeight),
-                                                  painter: NotePainter(
-                                                    notes: currentClip?.notes ?? [],
-                                                    previewNote: previewNote,
-                                                    pixelsPerBeat: pixelsPerBeat,
-                                                    pixelsPerNote: pixelsPerNote,
-                                                    maxMidiNote: PianoRollStateMixin.maxMidiNote,
-                                                    selectionStart: selectionStart,
-                                                    selectionEnd: selectionEnd,
-                                                    ghostNotes: widget.ghostNotes,
-                                                    showGhostNotes: ghostNotesEnabled,
-                                                    foldedPitches: foldViewEnabled ? foldedPitches : null,
-                                                  ),
-                                                ),
-                                                _buildInsertMarker(canvasHeight),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildPianoKeysAndGrid(canvasWidth, canvasHeight, totalBeats, activeBeats),
                 // Velocity editing lane (Ableton-style)
                 if (velocityLaneExpanded)
                   _buildVelocityLane(totalBeats, canvasWidth, effectiveVelocityHeight),
@@ -763,6 +439,361 @@ class _PianoRollState extends State<PianoRoll>
           ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Build the horizontal controls bar (clip, grid, view, scale, transform settings)
+  Widget _buildControlsBar() {
+    return PianoRollControlsBar(
+      // Clip section - loopEnabled controls clip's canRepeat property
+      loopEnabled: currentClip?.canRepeat ?? true,
+      loopStartBeats: loopStartBeats,
+      loopLengthBeats: getLoopLength(),
+      beatsPerBar: beatsPerBar,
+      beatUnit: beatUnit,
+      onLoopToggle: () {
+        if (currentClip == null) return;
+        setState(() {
+          currentClip = currentClip!.copyWith(canRepeat: !currentClip!.canRepeat);
+        });
+        notifyClipUpdated();
+      },
+      onLoopStartChanged: (beats) {
+        // When typing Start value: Keep LENGTH fixed, only change contentStartOffset
+        // (Length is controlled separately by the Length field)
+        final newStart = beats.clamp(0.0, double.infinity);
+        Log.d('[onLoopStartChanged] newStart=$newStart, before: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+        setState(() {
+          loopStartBeats = newStart;
+          // Only update contentStartOffset - loopLength and duration stay the same
+          if (currentClip != null) {
+            currentClip = currentClip!.copyWith(contentStartOffset: newStart);
+          }
+        });
+        Log.d('[onLoopStartChanged] after: duration=${currentClip?.duration}, loopLength=${currentClip?.loopLength}');
+        notifyClipUpdated();
+      },
+      onLoopLengthChanged: (beats) {
+        if (currentClip == null) return;
+        // Allow very small loops (1/16th note = 0.25 beats)
+        final newLength = beats.clamp(0.25, 256.0);
+        setState(() {
+          // Update both loopLength AND duration for one-way sync
+          // Piano Roll loop length changes sync to Arrangement clip duration
+          currentClip = currentClip!.copyWith(
+            loopLength: newLength,
+            duration: newLength,
+          );
+        });
+        notifyClipUpdated();
+      },
+      onBeatsPerBarChanged: (value) => setState(() => beatsPerBar = value),
+      onBeatUnitChanged: (value) => setState(() => beatUnit = value),
+      // Grid section
+      snapEnabled: snapEnabled,
+      gridDivision: gridDivision,
+      adaptiveGridEnabled: adaptiveGridEnabled,
+      snapTripletEnabled: snapTripletEnabled,
+      effectiveGridDivision: getEffectiveGridDivision(),
+      onSnapToggle: toggleSnap,
+      onGridDivisionChanged: (division) {
+        setState(() {
+          if (division == null) {
+            // Adaptive mode
+            adaptiveGridEnabled = true;
+          } else {
+            // Fixed division
+            adaptiveGridEnabled = false;
+            gridDivision = division;
+          }
+        });
+      },
+      onSnapTripletToggle: () => setState(() => snapTripletEnabled = !snapTripletEnabled),
+      onQuantize: quantizeSelectedNotes,
+      quantizeDivision: quantizeDivision,
+      quantizeTripletEnabled: quantizeTripletEnabled,
+      onQuantizeDivisionChanged: (div) => setState(() => quantizeDivision = div),
+      onQuantizeTripletToggle: () => setState(() => quantizeTripletEnabled = !quantizeTripletEnabled),
+      // View section
+      foldEnabled: foldViewEnabled,
+      ghostNotesEnabled: ghostNotesEnabled,
+      onFoldToggle: () => setState(() => foldViewEnabled = !foldViewEnabled),
+      onGhostNotesToggle: () => setState(() => ghostNotesEnabled = !ghostNotesEnabled),
+      // Scale section
+      scaleRoot: scaleRoot,
+      scaleType: scaleType,
+      highlightEnabled: scaleHighlightEnabled,
+      lockEnabled: scaleLockEnabled,
+      onRootChanged: (root) => setState(() => scaleRoot = root),
+      onTypeChanged: (type) => setState(() => scaleType = type),
+      onHighlightToggle: () => setState(() => scaleHighlightEnabled = !scaleHighlightEnabled),
+      onLockToggle: () => setState(() => scaleLockEnabled = !scaleLockEnabled),
+      // Transform section
+      stretchAmount: stretchAmount,
+      onLegato: applyLegato,
+      onStretchChanged: (v) => setState(() => stretchAmount = v),
+      onStretchApply: applyStretch,
+      onReverse: reverseNotes,
+      // Lane visibility toggles (Randomize/CC type are in lane headers)
+      velocityLaneVisible: velocityLaneExpanded,
+      onVelocityLaneToggle: toggleVelocityLane,
+      clipAutomationLaneVisible: clipAutomationLaneExpanded,
+      onClipAutomationLaneToggle: () => setState(() => clipAutomationLaneExpanded = !clipAutomationLaneExpanded),
+      // Virtual Piano toggle
+      virtualPianoVisible: widget.virtualPianoVisible,
+      onVirtualPianoToggle: widget.onVirtualPianoToggle,
+    );
+  }
+
+  /// Build the unified navigation bar row (audition corner + bar numbers + playhead)
+  Widget _buildNavBarRow(double totalBeats) {
+    return Row(
+      children: [
+        // Audition button (aligned with piano keys width)
+        _buildAuditionCorner(context),
+        // UnifiedNavBar with zoom controls overlaid
+        Expanded(
+          child: NavBarWithZoom(
+            scrollController: navBarScroll,
+            onZoomIn: zoomIn,
+            onZoomOut: zoomOut,
+            height: UIConstants.navBarHeight,
+            child: UnifiedNavBar(
+              config: UnifiedNavBarConfig(
+                pixelsPerBeat: pixelsPerBeat,
+                totalBeats: totalBeats,
+                loopEnabled: loopEnabled,
+                loopStart: loopStartBeats,
+                loopEnd: loopStartBeats + getLoopLength(),
+                insertMarkerPosition: insertMarkerBeats,
+                playheadPosition: insertMarkerBeats, // Use insert marker as playhead
+              ),
+              callbacks: UnifiedNavBarCallbacks(
+                onHorizontalScroll: _handleNavBarScroll,
+                onZoom: _handleNavBarZoom,
+                onPlayheadSet: _handleNavBarPlayheadSet,
+                onPlayheadDrag: _handleNavBarPlayheadSet, // Same as click
+                onLoopRegionChanged: _handleNavBarLoopRegionChanged,
+              ),
+              scrollController: navBarScroll,
+              height: UIConstants.navBarHeight,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build the piano keys gutter + note grid area with shared vertical scroll
+  Widget _buildPianoKeysAndGrid(
+    double canvasWidth,
+    double canvasHeight,
+    double totalBeats,
+    double activeBeats,
+  ) {
+    return Expanded(
+      child: Row(
+        children: [
+          // Piano keys with InteractiveGutter for drag navigation
+          InteractiveGutter(
+            config: InteractiveGutterConfig(
+              width: UIConstants.pianoKeysWidth,
+              itemCount: visibleRowCount,
+              scrollOffset: verticalScroll.hasClients ? verticalScroll.offset : 0.0,
+              tapEnabled: auditionEnabled,
+            ),
+            callbacks: InteractiveGutterCallbacks(
+              onVerticalScroll: _handleGutterVerticalScroll,
+              onVerticalFling: _handleGutterVerticalFling,
+              onItemHeightZoom: _handleGutterHeightZoom,
+              onItemTap: _handleGutterTap,
+              onItemTapUp: _handleGutterTapUp,
+            ),
+            itemBuilder: (index, height) => _buildPianoKey(foldedPitches[index]),
+            itemHeight: pixelsPerNote,
+            scrollController: verticalScroll,
+          ),
+          // Grid with vertical + horizontal scroll
+          _buildNoteGridArea(canvasWidth, canvasHeight, totalBeats, activeBeats),
+        ],
+      ),
+    );
+  }
+
+  /// Build the scrollable note grid area with gesture handling and painters
+  Widget _buildNoteGridArea(
+    double canvasWidth,
+    double canvasHeight,
+    double totalBeats,
+    double activeBeats,
+  ) {
+    return Expanded(
+      child: Scrollbar(
+        controller: verticalScroll,
+        child: SingleChildScrollView(
+          controller: verticalScroll,
+          scrollDirection: Axis.vertical,
+          child: SizedBox(
+            height: canvasHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Capture view width for dynamic zoom limits
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (viewWidth != constraints.maxWidth && constraints.maxWidth > 0) {
+                    setState(() {
+                      viewWidth = constraints.maxWidth;
+                    });
+                  }
+                });
+                return SingleChildScrollView(
+                  controller: horizontalScroll,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: canvasWidth,
+                    height: canvasHeight,
+                    // Listener captures right-click, scroll wheel, and middle mouse for eraser/delete
+                    child: Listener(
+                    onPointerSignal: (event) {
+                      // Scroll wheel = scroll octaves vertically (no modifier needed)
+                      if (event is PointerScrollEvent) {
+                        if (!verticalScroll.hasClients) return;
+                        final maxScroll = verticalScroll.position.maxScrollExtent;
+                        final newOffset = (verticalScroll.offset + event.scrollDelta.dy).clamp(0.0, maxScroll);
+                        verticalScroll.jumpTo(newOffset);
+                      }
+                    },
+                    onPointerDown: (event) {
+                      if (event.buttons == kSecondaryMouseButton) {
+                        if (widget.isRecording) return; // No context menu during recording
+                        rightClickStartPosition = event.localPosition;
+                        rightClickNote = _findNoteAtPosition(event.localPosition);
+                      } else if (event.buttons == kMiddleMouseButton) {
+                        // Middle mouse button: start drag zoom (Ableton-style)
+                        startDragZoom(event.localPosition.dx, event.position.dy);
+                      } else if (event.buttons == kPrimaryMouseButton) {
+                        if (widget.isRecording) return; // Read-only during recording
+                        // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
+                        final modifiers = ModifierKeyState.current();
+                        final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                        if (tool == ToolMode.eraser) {
+                          _startErasing(event.localPosition);
+                        }
+                      }
+                    },
+                    onPointerMove: (event) {
+                      // Handle drag zoom with middle mouse button
+                      if (isDragZooming) {
+                        updateDragZoom(event.position.dy);
+                        return;
+                      }
+                      if (widget.isRecording) return; // Read-only during recording
+                      if (event.buttons == kPrimaryMouseButton) {
+                        // Eraser tool (toolbar OR Alt modifier) = drag-to-erase
+                        final modifiers = ModifierKeyState.current();
+                        final tool = modifiers.getOverrideToolMode() ?? widget.toolMode;
+                        if (tool == ToolMode.eraser) {
+                          if (!isErasing) {
+                            _startErasing(event.localPosition);
+                          } else {
+                            _eraseNotesAt(event.localPosition);
+                          }
+                        }
+                      }
+                    },
+                    onPointerUp: (event) {
+                      // End drag zoom if active
+                      if (isDragZooming) {
+                        endDragZoom();
+                        return;
+                      }
+                      if (rightClickNote != null && rightClickStartPosition != null) {
+                        final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+                        if (renderBox != null) {
+                          final globalPosition = renderBox.localToGlobal(rightClickStartPosition!);
+                          _showNoteContextMenu(globalPosition, rightClickNote!);
+                        }
+                      }
+                      rightClickStartPosition = null;
+                      rightClickNote = null;
+                      if (isErasing) {
+                        _stopErasing();
+                      }
+                      stopAudition();
+                    },
+                    child: MouseRegion(
+                      cursor: currentCursor,
+                      onHover: _onHover,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTapDown: widget.isRecording ? null : _onTapDown,
+                        onTapUp: widget.isRecording ? null : _onTapUp,
+                        onTapCancel: widget.isRecording ? null : () {
+                          stopAudition();
+                          pendingNoteTapSelection = null;
+                        },
+                        onPanStart: widget.isRecording ? null : _onPanStart,
+                        onPanUpdate: widget.isRecording ? null : _onPanUpdate,
+                        onPanEnd: widget.isRecording ? null : _onPanEnd,
+                        child: ColoredBox(
+                          color: Colors.transparent,
+                          child: Stack(
+                            children: [
+                              CustomPaint(
+                                size: Size(canvasWidth, canvasHeight),
+                                painter: GridPainter(
+                                  pixelsPerBeat: pixelsPerBeat,
+                                  pixelsPerNote: pixelsPerNote,
+                                  gridDivision: getEffectiveGridDivision(),
+                                  maxMidiNote: PianoRollStateMixin.maxMidiNote,
+                                  minMidiNote: PianoRollStateMixin.minMidiNote,
+                                  totalBeats: totalBeats,
+                                  activeBeats: activeBeats,
+                                  loopEnabled: loopEnabled,
+                                  loopStart: loopStartBeats,
+                                  loopEnd: loopStartBeats + getLoopLength(),
+                                  beatsPerBar: beatsPerBar,
+                                  tripletEnabled: snapTripletEnabled,
+                                  blackKeyBackground: context.colors.standard,
+                                  whiteKeyBackground: context.colors.elevated,
+                                  separatorLine: context.colors.elevated,
+                                  subdivisionGridLine: context.colors.surface,
+                                  beatGridLine: context.colors.hover,
+                                  barGridLine: context.colors.textMuted,
+                                  scaleHighlightEnabled: scaleHighlightEnabled,
+                                  scaleRootMidi: ScaleRoot.midiNoteFromName(scaleRoot),
+                                  scaleIntervals: scaleType.intervals,
+                                  foldedPitches: foldViewEnabled ? foldedPitches : null,
+                                ),
+                              ),
+                              CustomPaint(
+                                size: Size(canvasWidth, canvasHeight),
+                                painter: NotePainter(
+                                  notes: currentClip?.notes ?? [],
+                                  previewNote: previewNote,
+                                  pixelsPerBeat: pixelsPerBeat,
+                                  pixelsPerNote: pixelsPerNote,
+                                  maxMidiNote: PianoRollStateMixin.maxMidiNote,
+                                  selectionStart: selectionStart,
+                                  selectionEnd: selectionEnd,
+                                  ghostNotes: widget.ghostNotes,
+                                  showGhostNotes: ghostNotesEnabled,
+                                  foldedPitches: foldViewEnabled ? foldedPitches : null,
+                                ),
+                              ),
+                              _buildInsertMarker(canvasHeight),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -947,7 +978,7 @@ class _PianoRollState extends State<PianoRoll>
                 width: UIConstants.pianoKeysWidth,
                 height: effectiveHeight,
                 decoration: BoxDecoration(
-                  color: context.colors.standard,
+                  color: context.colors.darkest,
                   border: Border(
                     right: BorderSide(color: context.colors.surface, width: 1),
                   ),
@@ -1186,7 +1217,7 @@ class _PianoRollState extends State<PianoRoll>
     // Note: pixelsPerNote is currently fixed in PianoRollStateMixin.
     // To enable vertical zoom, we would need to make it mutable.
     // For now, this is a no-op placeholder for future implementation.
-    // TODO: Make pixelsPerNote mutable in piano_roll_state.dart to enable vertical zoom
+    // Future: Vertical zoom via mutable pixelsPerNote (v0.3.0)
   }
 
   /// Handle tap on piano key (audition note).
@@ -1210,7 +1241,7 @@ class _PianoRollState extends State<PianoRoll>
       width: UIConstants.pianoKeysWidth, // Match piano keys width
       height: UIConstants.navBarHeight, // Match unified nav bar height
       decoration: BoxDecoration(
-        color: colors.standard,
+        color: colors.darkest,
         border: Border(
           right: BorderSide(color: colors.surface, width: 1),
           bottom: BorderSide(color: colors.surface, width: 1),
@@ -1582,7 +1613,7 @@ class _PianoRollState extends State<PianoRoll>
       // Create single note (FL Studio style)
       final newNote = MidiNoteData(
         note: noteRow,
-        velocity: 100,
+        velocity: UIConstants.defaultMidiVelocity,
         startTime: snappedBeat,
         duration: lastNoteDuration,
         isSelected: true,  // Auto-select new note for immediate manipulation
@@ -1806,7 +1837,7 @@ class _PianoRollState extends State<PianoRoll>
       // Only if they're not clicking on a different note
       final createdNote = currentClip?.notes.firstWhere(
         (n) => n.id == justCreatedNoteId,
-        orElse: () => MidiNoteData(note: 60, velocity: 100, startTime: 0, duration: 1),
+        orElse: () => MidiNoteData(note: 60, velocity: UIConstants.defaultMidiVelocity, startTime: 0, duration: 1),
       );
 
       if (createdNote != null && createdNote.id == justCreatedNoteId) {
@@ -1965,7 +1996,7 @@ class _PianoRollState extends State<PianoRoll>
       if (currentBeat >= nextNoteBeat) {
         final newNote = MidiNoteData(
           note: paintNote!,
-          velocity: 100,
+          velocity: UIConstants.defaultMidiVelocity,
           startTime: nextNoteBeat,
           duration: lastNoteDuration,
         );

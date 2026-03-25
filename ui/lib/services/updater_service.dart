@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
+import '../utils/logger.dart';
 
 /// Service for managing application updates.
 /// Uses Sparkle on macOS and WinSparkle on Windows.
@@ -21,7 +22,7 @@ class UpdaterService {
     try {
       await _channel.invokeMethod('checkForUpdates');
     } on PlatformException catch (e) {
-      debugPrint('UpdaterService: Failed to check for updates: ${e.message}');
+      Log.e('UpdaterService: Failed to check for updates: ${e.message}');
     }
   }
 
@@ -31,7 +32,7 @@ class UpdaterService {
     try {
       await _channel.invokeMethod('setAutoCheck', enabled);
     } on PlatformException catch (e) {
-      debugPrint('UpdaterService: Failed to set auto-check: ${e.message}');
+      Log.e('UpdaterService: Failed to set auto-check: ${e.message}');
     }
   }
 
@@ -42,7 +43,7 @@ class UpdaterService {
       final result = await _channel.invokeMethod<bool>('getAutoCheck');
       return result ?? true;
     } on PlatformException catch (e) {
-      debugPrint('UpdaterService: Failed to get auto-check: ${e.message}');
+      Log.e('UpdaterService: Failed to get auto-check: ${e.message}');
       return true; // Default to enabled
     }
   }
@@ -54,7 +55,7 @@ class UpdaterService {
       final result = await _channel.invokeMethod<bool>('isUpdateInProgress');
       return result ?? false;
     } on PlatformException catch (e) {
-      debugPrint('UpdaterService: Failed to check update progress: ${e.message}');
+      Log.e('UpdaterService: Failed to check update progress: ${e.message}');
       return false;
     }
   }
@@ -70,7 +71,7 @@ class UpdaterService {
       }
       return null;
     } on PlatformException catch (e) {
-      debugPrint('UpdaterService: Failed to get last check date: ${e.message}');
+      Log.e('UpdaterService: Failed to get last check date: ${e.message}');
       return null;
     }
   }

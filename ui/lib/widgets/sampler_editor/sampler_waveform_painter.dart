@@ -27,7 +27,10 @@ class SamplerWaveformPainter extends CustomPainter {
     this.beatsPerBar = 4,
   });
 
-  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+  double get _pixelsPerBeat {
+    if (originalBpm <= 0) return pixelsPerSecond;
+    return pixelsPerSecond * (60.0 / originalBpm);
+  }
 
   /// Adaptive grid division in beats — matches UnifiedNavBarPainter
   double _getGridDivision() {
@@ -153,14 +156,14 @@ class SamplerWaveformPainter extends CustomPainter {
     final path = Path();
 
     // Start at first peak's top
-    double firstMax = renderPeaks[1].clamp(-1.0, 1.0);
+    final firstMax = renderPeaks[1].clamp(-1.0, 1.0);
     final firstTopY = centerY - (firstMax * centerY * 0.9);
     path.moveTo(step / 2, firstTopY);
 
     // Trace TOP edge (max values) left to right
     for (int i = 1; i < peakCount; i++) {
       final x = i * step + step / 2;
-      double maxVal = renderPeaks[i * 2 + 1].clamp(-1.0, 1.0);
+      final maxVal = renderPeaks[i * 2 + 1].clamp(-1.0, 1.0);
       final topY = centerY - (maxVal * centerY * 0.9);
       path.lineTo(x, topY);
     }
@@ -168,7 +171,7 @@ class SamplerWaveformPainter extends CustomPainter {
     // Trace BOTTOM edge (min values) right to left
     for (int i = peakCount - 1; i >= 0; i--) {
       final x = i * step + step / 2;
-      double minVal = renderPeaks[i * 2].clamp(-1.0, 1.0);
+      final minVal = renderPeaks[i * 2].clamp(-1.0, 1.0);
       final bottomY = centerY - (minVal * centerY * 0.9);
       path.lineTo(x, bottomY);
     }
@@ -272,7 +275,10 @@ class SamplerRulerPainter extends CustomPainter {
     this.hoverSeconds,
   });
 
-  double get _pixelsPerBeat => pixelsPerSecond * (60.0 / originalBpm);
+  double get _pixelsPerBeat {
+    if (originalBpm <= 0) return pixelsPerSecond;
+    return pixelsPerSecond * (60.0 / originalBpm);
+  }
 
   /// Adaptive grid division — matches UnifiedNavBarPainter
   double _getGridDivision() {

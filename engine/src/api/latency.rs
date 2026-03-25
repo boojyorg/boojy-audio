@@ -59,7 +59,7 @@ pub fn get_actual_buffer_size() -> Result<u32, String> {
 /// Returns: (`buffer_size_samples`, `input_latency_ms`, `output_latency_ms`, `total_roundtrip_ms`)
 pub fn get_latency_info() -> Option<(u32, f32, f32, f32)> {
     let graph_mutex = get_audio_graph().ok()?;
-    let graph = graph_mutex.lock().ok()?;
+    let graph = graph_mutex.lock();
     Some(graph.get_latency_info())
 }
 
@@ -105,7 +105,7 @@ pub fn get_latency_test_error() -> Result<Option<String>, String> {
 /// Returns downsampled peaks (min/max pairs) for rendering
 pub fn get_waveform_peaks(clip_id: u64, resolution: usize) -> Result<Vec<f32>, String> {
     let clips_mutex = get_audio_clips()?;
-    let clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let clips_map = clips_mutex.lock();
 
     let clip = clips_map
         .get(&clip_id)
@@ -146,7 +146,7 @@ pub fn get_waveform_peaks(clip_id: u64, resolution: usize) -> Result<Vec<f32>, S
 /// Get clip duration in seconds
 pub fn get_clip_duration(clip_id: u64) -> Result<f64, String> {
     let clips_mutex = get_audio_clips()?;
-    let clips_map = clips_mutex.lock().map_err(|e| e.to_string())?;
+    let clips_map = clips_mutex.lock();
 
     let clip = clips_map
         .get(&clip_id)

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
+import '../utils/logger.dart';
 import '../models/clip_data.dart';
 import '../models/project_view_state.dart';
 
@@ -294,7 +295,7 @@ class ProjectManager extends ChangeNotifier {
       final uiLayoutFile = File('$projectPath/ui_layout.json');
       uiLayoutFile.writeAsStringSync(jsonString);
     } catch (e) {
-      debugPrint('ProjectManager: Error saving UI layout: $e');
+      Log.e('ProjectManager: Error saving UI layout: $e');
     }
   }
 

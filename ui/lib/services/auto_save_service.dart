@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 import 'project_manager.dart';
 import 'user_settings.dart';
 
@@ -107,7 +108,7 @@ class AutoSaveService extends ChangeNotifier {
       _lastAutoSave = DateTime.now();
       _autoSaveCompleter!.complete();
     } catch (e) {
-      debugPrint('AutoSaveService: Auto-save failed: $e');
+      Log.e('AutoSaveService: Auto-save failed: $e');
       _autoSaveCompleter!.completeError(e);
     } finally {
       notifyListeners();
@@ -119,7 +120,7 @@ class AutoSaveService extends ChangeNotifier {
     try {
       _backupDirectory = await getBackupDirectoryPath();
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to init backup directory: $e');
+      Log.e('AutoSaveService: Failed to init backup directory: $e');
     }
   }
 
@@ -143,7 +144,7 @@ class AutoSaveService extends ChangeNotifier {
       // Rotate old backups
       await _rotateBackups();
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to create backup: $e');
+      Log.e('AutoSaveService: Failed to create backup: $e');
     }
   }
 
@@ -154,7 +155,7 @@ class AutoSaveService extends ChangeNotifier {
     try {
       await writeFileAsString('$_backupDirectory/crash_recovery.marker', latestBackupPath);
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to update recovery marker: $e');
+      Log.e('AutoSaveService: Failed to update recovery marker: $e');
     }
   }
 
@@ -180,7 +181,7 @@ class AutoSaveService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to rotate backups: $e');
+      Log.e('AutoSaveService: Failed to rotate backups: $e');
     }
   }
 
@@ -201,7 +202,7 @@ class AutoSaveService extends ChangeNotifier {
         return trimmedPath;
       }
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to check for recovery: $e');
+      Log.e('AutoSaveService: Failed to check for recovery: $e');
     }
 
     return null;
@@ -217,7 +218,7 @@ class AutoSaveService extends ChangeNotifier {
         await deleteFile(markerPath);
       }
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to clear recovery marker: $e');
+      Log.e('AutoSaveService: Failed to clear recovery marker: $e');
     }
   }
 
@@ -236,7 +237,7 @@ class AutoSaveService extends ChangeNotifier {
       // }
 
     } catch (e) {
-      debugPrint('AutoSaveService: Failed to cleanup backups: $e');
+      Log.e('AutoSaveService: Failed to cleanup backups: $e');
     }
   }
 

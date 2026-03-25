@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
@@ -9,6 +10,7 @@ import '../services/user_settings.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
+import '../utils/logger.dart';
 
 /// Unified app-wide settings dialog
 ///
@@ -26,6 +28,7 @@ class AppSettingsDialog extends StatefulWidget {
   static Future<void> show(BuildContext context, UserSettings settings, {AudioEngine? audioEngine}) {
     return showDialog(
       context: context,
+      barrierColor: const Color(0xF0141623),
       builder: (context) => AppSettingsDialog(settings: settings, audioEngine: audioEngine),
     );
   }
@@ -120,11 +123,47 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       width: 160,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: sections.map((section) {
-          final (id, label, icon) = section;
-          final isSelected = _selectedSection == id;
-          return _buildSidebarItem(id, label, icon, isSelected);
-        }).toList(),
+        children: [
+          ...sections.map((section) {
+            final (id, label, icon) = section;
+            final isSelected = _selectedSection == id;
+            return _buildSidebarItem(id, label, icon, isSelected);
+          }),
+          const Spacer(),
+          // Logo + version at bottom
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/images/boojy_audio_audi.svg',
+                  height: 16,
+                  colorFilter: ColorFilter.mode(
+                    context.colors.textMuted,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 1),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: context.colors.accent.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'v$_appVersion',
+                  style: TextStyle(
+                    color: context.colors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -177,13 +216,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       _inputDevices = widget.audioEngine!.getAudioInputDevices();
       _selectedInputDevice = widget.settings.preferredInputDevice;
 
-      debugPrint('AppSettings: Driver: $_selectedDriver');
-      debugPrint('AppSettings: Loaded ${_outputDevices.length} output devices');
-      debugPrint('AppSettings: Loaded ${_inputDevices.length} input devices');
-      debugPrint('AppSettings: Selected output: $_selectedOutputDevice');
-      debugPrint('AppSettings: Selected input: $_selectedInputDevice');
+      Log.i('AppSettings: Driver: $_selectedDriver');
+      Log.i('AppSettings: Loaded ${_outputDevices.length} output devices');
+      Log.i('AppSettings: Loaded ${_inputDevices.length} input devices');
+      Log.i('AppSettings: Selected output: $_selectedOutputDevice');
+      Log.i('AppSettings: Selected input: $_selectedInputDevice');
     } else {
-      debugPrint('AppSettings: No audio engine provided');
+      Log.e('AppSettings: No audio engine provided');
     }
   }
 
@@ -191,9 +230,15 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: context.colors.darkest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: context.colors.divider),
+      ),
+      elevation: 16,
+      shadowColor: Colors.black.withValues(alpha: 0.4),
       child: Container(
-        width: 850,
-        height: 650,
+        width: 680,
+        height: 550,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -278,22 +323,23 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
         Text(
-          title,
+          title.toUpperCase(),
           style: TextStyle(
-            color: context.colors.accent,
-            fontSize: 12,
+            color: context.colors.textSecondary,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
+            letterSpacing: 1.5,
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          height: 1,
-          color: context.colors.elevated,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: context.colors.accent.withValues(alpha: 0.4),
+          ),
         ),
       ],
     );
@@ -735,7 +781,13 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   });
                   widget.settings.preferredInputDevice =
                       value == '__no_input__' ? null : value;
-                  // TODO: Apply to audio engine when input device switching is implemented
+                  // Apply to engine immediately
+                  if (widget.audioEngine != null && value != '__no_input__') {
+                    final index = _inputDevices.indexWhere((d) => d['name'] == value);
+                    if (index >= 0) {
+                      widget.audioEngine!.setAudioInputDevice(index);
+                    }
+                  }
                 }
               },
             ),
@@ -797,7 +849,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   setState(() {
                     widget.settings.bufferSize = value;
                   });
-                  // TODO: Apply buffer size to audio engine
+                  // Apply to engine immediately
+                  if (widget.audioEngine != null) {
+                    final preset = _bufferSizeToPreset(value);
+                    widget.audioEngine!.setBufferSize(preset);
+                  }
                 }
               },
             ),
@@ -805,6 +861,17 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         ),
       ],
     );
+  }
+
+  int _bufferSizeToPreset(int bufferSize) {
+    switch (bufferSize) {
+      case 64: return 0;
+      case 128: return 1;
+      case 256: return 2;
+      case 512: return 3;
+      case 1024: return 4;
+      default: return 2; // Default to Balanced (256)
+    }
   }
 
   /// Check if a device name suggests high latency (Bluetooth, wireless)

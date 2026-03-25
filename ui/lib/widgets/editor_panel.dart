@@ -15,18 +15,22 @@ import '../models/midi_note_data.dart';
 import '../models/clip_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
+import 'editor/editor_models.dart';
 
 /// Editor panel widget - tabbed interface for Piano Roll/Audio Editor, Effects, Instrument
 class EditorPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool virtualPianoEnabled;
-  final int? selectedTrackId; // Unified track selection
-  final String? selectedTrackName; // Track name for display
-  final String? selectedTrackType; // Track type: "MIDI", "Audio", or "Master"
-  final InstrumentData? currentInstrumentData;
-  final VoidCallback? onVirtualPianoClose;
-  final VoidCallback? onVirtualPianoToggle; // Toggle virtual piano visibility
-  final VoidCallback? onClosePanel; // Close the entire editor panel
+
+  // Grouped: track context
+  final EditorPanelContext trackContext;
+
+  // Grouped: panel UI callbacks
+  final EditorPanelCallbacks callbacks;
+
+  // Grouped: VST3-specific callbacks
+  final Vst3EditorCallbacks vst3Callbacks;
+
   final MidiClipData? currentEditingClip;
   final Function(MidiClipData)? onMidiClipUpdated;
   final Function(InstrumentData)? onInstrumentParameterChanged;
@@ -40,21 +44,15 @@ class EditorPanel extends StatefulWidget {
 
   // M10: VST3 Plugin support
   final List<Vst3PluginInstance>? currentTrackPlugins;
-  final Function(int effectId, int paramIndex, double value)? onVst3ParameterChanged;
-  final Function(int effectId)? onVst3PluginRemoved;
 
   // Collapsed bar mode
   final bool isCollapsed;
-  final VoidCallback? onExpandPanel;
-  final Function(int tabIndex)? onTabAndExpand; // Select tab AND expand
 
-  // Instrument swap via drag-and-drop
-  final Function(Vst3Plugin)? onVst3InstrumentDropped;
+  // Instrument swap via drag-and-drop (non-VST3)
   final Function(Instrument)? onInstrumentDropped;
 
   // Tool mode (shared with arrangement view)
   final ToolMode toolMode;
-  final Function(ToolMode)? onToolModeChanged;
 
   // Time signature (from project settings)
   final int beatsPerBar;
@@ -74,13 +72,9 @@ class EditorPanel extends StatefulWidget {
     super.key,
     this.audioEngine,
     this.virtualPianoEnabled = false,
-    this.selectedTrackId,
-    this.selectedTrackName,
-    this.selectedTrackType,
-    this.currentInstrumentData,
-    this.onVirtualPianoClose,
-    this.onVirtualPianoToggle,
-    this.onClosePanel,
+    this.trackContext = const EditorPanelContext(),
+    this.callbacks = const EditorPanelCallbacks(),
+    this.vst3Callbacks = const Vst3EditorCallbacks(),
     this.currentEditingClip,
     this.onMidiClipUpdated,
     this.onInstrumentParameterChanged,
@@ -88,15 +82,9 @@ class EditorPanel extends StatefulWidget {
     this.currentEditingAudioClip,
     this.onAudioClipUpdated,
     this.currentTrackPlugins,
-    this.onVst3ParameterChanged,
-    this.onVst3PluginRemoved,
     this.isCollapsed = false,
-    this.onExpandPanel,
-    this.onTabAndExpand,
-    this.onVst3InstrumentDropped,
     this.onInstrumentDropped,
     this.toolMode = ToolMode.draw,
-    this.onToolModeChanged,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.projectTempo = 120.0,
@@ -131,17 +119,17 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   int? _highlightedNote;
 
   /// Whether the selected track is an audio track
-  bool get _isAudioTrack => widget.selectedTrackType?.toLowerCase() == 'audio';
+  bool get _isAudioTrack => widget.trackContext.selectedTrackType?.toLowerCase() == 'audio';
 
   /// Whether the selected track has a sampler instrument (checked via engine)
   bool get _isSamplerTrack =>
       widget.audioEngine != null &&
-      widget.selectedTrackId != null &&
-      widget.audioEngine!.isSamplerTrack(widget.selectedTrackId!);
+      widget.trackContext.selectedTrackId != null &&
+      widget.audioEngine!.isSamplerTrack(widget.trackContext.selectedTrackId!);
 
   /// Whether the selected track is a MIDI track without sampler instrument
   bool get _isMidiTrack =>
-      widget.selectedTrackType?.toLowerCase() == 'midi' && !_isSamplerTrack;
+      widget.trackContext.selectedTrackType?.toLowerCase() == 'midi' && !_isSamplerTrack;
 
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)
@@ -220,8 +208,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     super.didUpdateWidget(oldWidget);
 
     // Check if track type changed (switching between audio, MIDI, or sampler tracks)
-    final oldType = oldWidget.selectedTrackType?.toLowerCase();
-    final newType = widget.selectedTrackType?.toLowerCase();
+    final oldType = oldWidget.trackContext.selectedTrackType?.toLowerCase();
+    final newType = widget.trackContext.selectedTrackType?.toLowerCase();
     if (oldType != newType) {
       // Recreate tab controller with new length - wrap in setState to ensure rebuild
       setState(() {
@@ -236,17 +224,17 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         _userManuallySelectedTab = false; // Reset manual flag on track type change
         _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
       });
-      _lastTrackId = widget.selectedTrackId;
+      _lastTrackId = widget.trackContext.selectedTrackId;
       _lastClipId = _getCurrentClipId();
       return; // Exit early to avoid setting index on newly created controller
     }
 
-    final trackChanged = widget.selectedTrackId != _lastTrackId;
+    final trackChanged = widget.trackContext.selectedTrackId != _lastTrackId;
     final currentClipId = _getCurrentClipId();
     final clipChanged = currentClipId != _lastClipId;
 
     // Track changed → reset to Instrument tab (tab 0) for MIDI/Sampler
-    if (trackChanged && widget.selectedTrackId != null) {
+    if (trackChanged && widget.trackContext.selectedTrackId != null) {
       _userManuallySelectedTab = false; // Reset manual flag on track change
       _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
       if (_isMidiTrack || _isSamplerTrack) {
@@ -276,7 +264,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     }
 
     // Update tracking state
-    _lastTrackId = widget.selectedTrackId;
+    _lastTrackId = widget.trackContext.selectedTrackId;
     _lastClipId = currentClipId;
   }
 
@@ -313,7 +301,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
     // Check if current track is MIDI (can accept instrument drops)
     // Note: selectedTrackType can be 'MIDI', 'midi', 'Audio', etc.
-    final isMidiTrack = widget.selectedTrackType?.toLowerCase() == 'midi';
+    final isMidiTrack = widget.trackContext.selectedTrackType?.toLowerCase() == 'midi';
 
     // Wrap with DragTargets for instrument swapping
     return DragTarget<Vst3Plugin>(
@@ -322,7 +310,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         return isMidiTrack && details.data.isInstrument;
       },
       onAcceptWithDetails: (details) {
-        widget.onVst3InstrumentDropped?.call(details.data);
+        widget.vst3Callbacks.onVst3InstrumentDropped?.call(details.data);
       },
       builder: (context, candidateVst3, rejectedVst3) {
         return DragTarget<Instrument>(
@@ -344,7 +332,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           Container(
             height: 40,
             decoration: BoxDecoration(
-              color: context.colors.standard,
+              color: context.colors.dark,
               border: Border(
                 bottom: BorderSide(color: context.colors.surface),
               ),
@@ -397,7 +385,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: widget.onClosePanel,
+                            onTap: widget.callbacks.onClosePanel,
                             borderRadius: BorderRadius.circular(4),
                             child: Container(
                               width: 28,
@@ -440,7 +428,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: context.colors.standard,
+        color: context.colors.dark,
         border: Border(
           top: BorderSide(color: context.colors.divider),
         ),
@@ -493,7 +481,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: widget.onExpandPanel,
+                      onTap: widget.callbacks.onExpandPanel,
                       borderRadius: BorderRadius.circular(4),
                       child: Container(
                         width: 28,
@@ -555,7 +543,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       child: InkWell(
         onTap: () {
           _onManualTabTap(index);
-          widget.onTabAndExpand?.call(index);
+          widget.callbacks.onTabAndExpand?.call(index);
         },
         borderRadius: BorderRadius.circular(6),
         child: Container(
@@ -590,11 +578,11 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Get dynamic instrument tab label based on current instrument
   String _getInstrumentTabLabel() {
-    if (widget.currentInstrumentData == null) {
+    if (widget.trackContext.currentInstrumentData == null) {
       return 'Instrument';
     }
-    if (widget.currentInstrumentData!.isVst3) {
-      final name = widget.currentInstrumentData!.pluginName ?? 'Plugin';
+    if (widget.trackContext.currentInstrumentData!.isVst3) {
+      final name = widget.trackContext.currentInstrumentData!.pluginName ?? 'Plugin';
       // Truncate to max 15 characters with ellipsis
       return name.length > 15 ? '${name.substring(0, 12)}...' : name;
     }
@@ -667,8 +655,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   Widget _buildSamplerEditorTab() {
     return SamplerEditor(
       audioEngine: widget.audioEngine,
-      trackId: widget.selectedTrackId,
-      onClose: widget.onClosePanel,
+      trackId: widget.trackContext.selectedTrackId,
+      onClose: widget.callbacks.onClosePanel,
     );
   }
 
@@ -742,7 +730,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
-        onTap: () => widget.onToolModeChanged?.call(mode),
+        onTap: () => widget.callbacks.onToolModeChanged?.call(mode),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
@@ -770,7 +758,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     return Tooltip(
       message: 'Virtual Piano (P)',
       child: GestureDetector(
-        onTap: widget.onVirtualPianoToggle,
+        onTap: widget.callbacks.onVirtualPianoToggle,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
@@ -860,7 +848,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       clipData: clipData,
       onClipUpdated: widget.onAudioClipUpdated,
       toolMode: widget.toolMode,
-      onToolModeChanged: widget.onToolModeChanged,
+      onToolModeChanged: widget.callbacks.onToolModeChanged,
       projectTempo: widget.projectTempo,
       onProjectTempoChanged: widget.onProjectTempoChanged,
       onCreateSamplerFromClip: widget.onCreateSamplerFromClip != null
@@ -881,13 +869,13 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     // Track selected but no clip - show "Click to create" message
     // BUT: if we just switched to Piano Roll expecting clip data, show empty state
     // to avoid flashing the placeholder while data propagates
-    if (clipData == null && widget.selectedTrackId != null) {
+    if (clipData == null && widget.trackContext.selectedTrackId != null) {
       // If we're awaiting clip data (just switched tabs), show minimal empty state
       if (_switchedToPianoRollAwaitingData) {
-        return ColoredBox(color: context.colors.dark, child: const SizedBox());
+        return ColoredBox(color: context.colors.editor, child: const SizedBox());
       }
       return ColoredBox(
-        color: context.colors.dark,
+        color: context.colors.editor,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -954,10 +942,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       onClipUpdated: widget.onMidiClipUpdated,
       ghostNotes: widget.ghostNotes,
       toolMode: widget.toolMode,
-      onToolModeChanged: widget.onToolModeChanged,
+      onToolModeChanged: widget.callbacks.onToolModeChanged,
       highlightedNote: _highlightedNote,
       virtualPianoVisible: widget.virtualPianoEnabled,
-      onVirtualPianoToggle: widget.onVirtualPianoToggle,
+      onVirtualPianoToggle: widget.callbacks.onVirtualPianoToggle,
       beatsPerBar: widget.beatsPerBar,
       beatUnit: widget.beatUnit,
       isRecording: widget.isRecording,
@@ -971,20 +959,20 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   Widget _buildFXChainTab() {
     // Use the new horizontal FxChainView
     return FxChainView(
-      selectedTrackId: widget.selectedTrackId,
+      selectedTrackId: widget.trackContext.selectedTrackId,
       audioEngine: widget.audioEngine,
-      trackName: widget.selectedTrackName,
+      trackName: widget.trackContext.selectedTrackName,
       onVst3PopOut: (effectId) {
-        // TODO: Handle VST3 pop-out to floating window
+        // Future: VST3 pop-out to native floating window via platform channel (v0.3.0)
       },
       onVst3BringBack: (effectId) {
-        // TODO: Handle VST3 bring back from floating window
+        // Future: VST3 bring back from floating window (v0.3.0)
       },
     );
   }
 
   Widget _buildInstrumentTab() {
-    if (widget.selectedTrackId == null || widget.currentInstrumentData == null) {
+    if (widget.trackContext.selectedTrackId == null || widget.trackContext.currentInstrumentData == null) {
       return ColoredBox(
         color: context.colors.dark,
         child: Center(
@@ -1021,11 +1009,11 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     }
 
     // Check if this is a VST3 instrument
-    if (widget.currentInstrumentData!.isVst3) {
+    if (widget.trackContext.currentInstrumentData!.isVst3) {
       // Create Vst3PluginInstance from the track's instrument data
       // This ensures the Instruments panel shows the VST3 instrument,
       // not the FX chain plugins
-      final effectId = widget.currentInstrumentData!.effectId!;
+      final effectId = widget.trackContext.currentInstrumentData!.effectId!;
 
       // Fetch parameter count and info from the audio engine
       final paramCount = widget.audioEngine?.getVst3ParameterCount(effectId) ?? 0;
@@ -1050,8 +1038,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
       final vst3Instrument = Vst3PluginInstance(
         effectId: effectId,
-        pluginName: widget.currentInstrumentData!.pluginName ?? 'VST3 Instrument',
-        pluginPath: widget.currentInstrumentData!.pluginPath ?? '',
+        pluginName: widget.trackContext.currentInstrumentData!.pluginName ?? 'VST3 Instrument',
+        pluginPath: widget.trackContext.currentInstrumentData!.pluginPath ?? '',
         parameters: parameters,
         parameterValues: parameterValues,
       );
@@ -1059,18 +1047,18 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       // Show VST3 plugin parameter panel for VST3 instruments
       return Vst3PluginParameterPanel(
         audioEngine: widget.audioEngine,
-        trackId: widget.selectedTrackId!,
+        trackId: widget.trackContext.selectedTrackId!,
         plugins: [vst3Instrument],
-        onParameterChanged: widget.onVst3ParameterChanged,
-        onRemovePlugin: widget.onVst3PluginRemoved,
+        onParameterChanged: widget.vst3Callbacks.onVst3ParameterChanged,
+        onRemovePlugin: widget.vst3Callbacks.onVst3PluginRemoved,
       );
     }
 
     // Show synthesizer panel for built-in instruments
     return SynthesizerPanel(
       audioEngine: widget.audioEngine,
-      trackId: widget.selectedTrackId!,
-      instrumentData: widget.currentInstrumentData,
+      trackId: widget.trackContext.selectedTrackId!,
+      instrumentData: widget.trackContext.currentInstrumentData,
       onParameterChanged: (instrumentData) {
         widget.onInstrumentParameterChanged?.call(instrumentData);
       },

@@ -1,6 +1,7 @@
 // Timeline module exports
 // This file re-exports all timeline components for easy importing
 
+export 'timeline_models.dart';
 export 'timeline_state.dart';
 export 'timeline_selection.dart';
 export 'timeline_file_handlers.dart';
