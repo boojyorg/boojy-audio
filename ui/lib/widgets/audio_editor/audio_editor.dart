@@ -59,8 +59,7 @@ class AudioEditor extends StatefulWidget {
 }
 
 class _AudioEditorState extends State<AudioEditor>
-    with AudioEditorStateMixin,
-         ParameterOperationsMixin {
+    with AudioEditorStateMixin, ParameterOperationsMixin {
   @override
   void initState() {
     super.initState();
@@ -195,11 +194,7 @@ class _AudioEditorState extends State<AudioEditor>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.audio_file,
-              size: 64,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.audio_file, size: 64, color: colors.textMuted),
             const SizedBox(height: 16),
             Text(
               'Audio Editor',
@@ -212,10 +207,7 @@ class _AudioEditorState extends State<AudioEditor>
             const SizedBox(height: 8),
             Text(
               'Select an audio clip to start editing',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: colors.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -242,7 +234,8 @@ class _AudioEditorState extends State<AudioEditor>
           loopStart: loopStartBeats,
           loopEnd: loopEndBeats,
           insertMarkerPosition: null, // No insert marker for audio editor
-          playheadPosition: null, // Future: Wire playhead position from PlaybackController
+          playheadPosition:
+              null, // Future: Wire playhead position from PlaybackController
         ),
         callbacks: UnifiedNavBarCallbacks(
           onHorizontalScroll: _handleNavBarScroll,
@@ -294,10 +287,7 @@ class _AudioEditorState extends State<AudioEditor>
     setState(() {
       loopStartBeats = start;
       loopEndBeats = end;
-      editData = editData.copyWith(
-        loopStartBeats: start,
-        loopEndBeats: end,
-      );
+      editData = editData.copyWith(loopStartBeats: start, loopEndBeats: end);
     });
     notifyClipUpdated();
   }
@@ -336,7 +326,8 @@ class _AudioEditorState extends State<AudioEditor>
                         peaks: waveformPeaks,
                         pixelsPerBeat: pixelsPerBeat,
                         totalBeats: totalBeats,
-                        contentBeats: contentDurationBeats, // Use full audio duration, not loop length
+                        contentBeats:
+                            contentDurationBeats, // Use full audio duration, not loop length
                         activeBeats: getLoopLength(),
                         loopEnabled: loopEnabled,
                         loopStart: loopStartBeats,
@@ -366,7 +357,8 @@ class _AudioEditorState extends State<AudioEditor>
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
       // Undo/Redo
-      final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+      final isCtrlOrCmd =
+          HardwareKeyboard.instance.isMetaPressed ||
           HardwareKeyboard.instance.isControlPressed;
 
       if (isCtrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyZ) {
@@ -414,9 +406,7 @@ class _AudioEditorState extends State<AudioEditor>
     // Waveform stays the same length - only loop region changes
     setState(() {
       loopEndBeats = loopStartBeats + beats;
-      editData = editData.copyWith(
-        loopEndBeats: loopStartBeats + beats,
-      );
+      editData = editData.copyWith(loopEndBeats: loopStartBeats + beats);
     });
     notifyClipUpdated();
   }

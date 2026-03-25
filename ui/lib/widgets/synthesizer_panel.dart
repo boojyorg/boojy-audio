@@ -31,7 +31,8 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
   @override
   void initState() {
     super.initState();
-    _currentData = widget.instrumentData ??
+    _currentData =
+        widget.instrumentData ??
         InstrumentData.defaultSynthesizer(widget.trackId);
   }
 
@@ -61,9 +62,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: context.colors.standard,
-        border: Border(
-          left: BorderSide(color: context.colors.surface),
-        ),
+        border: Border(left: BorderSide(color: context.colors.surface)),
       ),
       child: Column(
         children: [
@@ -96,9 +95,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.colors.darkest,
-        border: Border(
-          bottom: BorderSide(color: context.colors.surface),
-        ),
+        border: Border(bottom: BorderSide(color: context.colors.surface)),
       ),
       child: Row(
         children: [
@@ -114,7 +111,10 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               elevation: 8,
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: context.colors.success,
                   borderRadius: BorderRadius.circular(8),
@@ -122,7 +122,11 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.graphic_eq, color: context.colors.textPrimary, size: 20),
+                    Icon(
+                      Icons.graphic_eq,
+                      color: context.colors.textPrimary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Synthesizer',
@@ -213,11 +217,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header with waveform preview
           Row(
             children: [
-              Icon(
-                Icons.graphic_eq,
-                color: context.colors.success,
-                size: 18,
-              ),
+              Icon(Icons.graphic_eq, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'OSCILLATOR',
@@ -237,12 +237,12 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           const SizedBox(height: 16),
 
           // Waveform type dropdown
-          _buildDropdown(
-            'Type',
-            type,
-            ['sine', 'saw', 'square', 'triangle'],
-            (value) => _updateParameter('osc_type', value),
-          ),
+          _buildDropdown('Type', type, [
+            'sine',
+            'saw',
+            'square',
+            'triangle',
+          ], (value) => _updateParameter('osc_type', value)),
         ],
       ),
     );
@@ -257,7 +257,10 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
         border: Border.all(color: context.colors.surface),
       ),
       child: CustomPaint(
-        painter: WaveformPainter(waveType: waveType, color: context.colors.success),
+        painter: WaveformPainter(
+          waveType: waveType,
+          color: context.colors.success,
+        ),
         size: const Size(double.infinity, 60),
       ),
     );
@@ -280,11 +283,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header
           Row(
             children: [
-              Icon(
-                Icons.filter_alt,
-                color: context.colors.success,
-                size: 18,
-              ),
+              Icon(Icons.filter_alt, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'FILTER (LOWPASS)',
@@ -340,11 +339,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header
           Row(
             children: [
-              Icon(
-                Icons.show_chart,
-                color: context.colors.success,
-                size: 18,
-              ),
+              Icon(Icons.show_chart, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'ENVELOPE (ADSR)',
@@ -411,7 +406,11 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
   }
 
   Widget _buildADSRPreview(
-      double attack, double decay, double sustain, double release) {
+    double attack,
+    double decay,
+    double sustain,
+    double release,
+  ) {
     return Container(
       height: 80,
       decoration: BoxDecoration(
@@ -444,10 +443,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: context.colors.textMuted, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Container(
@@ -462,10 +458,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: context.colors.standard,
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
             items: options.map((String option) {
               return DropdownMenuItem<String>(
                 value: option,
@@ -491,7 +484,9 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
     Function(double) onChanged, {
     String Function(double)? formatter,
   }) {
-    final displayValue = formatter != null ? formatter(value) : value.toStringAsFixed(2);
+    final displayValue = formatter != null
+        ? formatter(value)
+        : value.toStringAsFixed(2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,10 +496,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: context.colors.textMuted, fontSize: 12),
             ),
             Text(
               displayValue,
@@ -519,12 +511,8 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
         SliderTheme(
           data: SliderThemeData(
             trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(
-              enabledThumbRadius: 7,
-            ),
-            overlayShape: const RoundSliderOverlayShape(
-              overlayRadius: 14,
-            ),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
             activeTrackColor: context.colors.success,
             inactiveTrackColor: context.colors.surface,
             thumbColor: context.colors.textSecondary,
@@ -569,14 +557,18 @@ class WaveformPainter extends CustomPainter {
           y = centerY + amplitude * sin(normalizedX);
           break;
         case 'saw':
-          y = centerY + amplitude * (2 * ((normalizedX / (2 * 3.14159)) % 1) - 1);
+          y =
+              centerY +
+              amplitude * (2 * ((normalizedX / (2 * 3.14159)) % 1) - 1);
           break;
         case 'square':
           y = centerY + amplitude * (sin(normalizedX) > 0 ? 1 : -1);
           break;
         case 'triangle':
           final phase = (normalizedX / (2 * 3.14159)) % 1;
-          y = centerY + amplitude * (phase < 0.5 ? 4 * phase - 1 : 3 - 4 * phase);
+          y =
+              centerY +
+              amplitude * (phase < 0.5 ? 4 * phase - 1 : 3 - 4 * phase);
           break;
         default:
           y = centerY;
@@ -630,7 +622,8 @@ class ADSRPainter extends CustomPainter {
     final path = Path();
 
     // Calculate time proportions
-    final totalTime = attack + decay + 0.5 + release; // 0.5s for sustain display
+    final totalTime =
+        attack + decay + 0.5 + release; // 0.5s for sustain display
     final attackWidth = (attack / totalTime) * size.width;
     final decayWidth = (decay / totalTime) * size.width;
     final sustainWidth = (0.5 / totalTime) * size.width;
@@ -658,17 +651,12 @@ class ADSRPainter extends CustomPainter {
     canvas.drawPath(path, paint);
 
     // Draw labels
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     void drawLabel(String text, double x, double y) {
       textPainter.text = TextSpan(
         text: text,
-        style: TextStyle(
-          color: labelColor,
-          fontSize: 10,
-        ),
+        style: TextStyle(color: labelColor, fontSize: 10),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(x - textPainter.width / 2, y));
@@ -678,7 +666,10 @@ class ADSRPainter extends CustomPainter {
     drawLabel('D', attackWidth + decayWidth / 2, bottom + 5);
     drawLabel('S', attackWidth + decayWidth + sustainWidth / 2, bottom + 5);
     drawLabel(
-        'R', attackWidth + decayWidth + sustainWidth + releaseWidth / 2, bottom + 5);
+      'R',
+      attackWidth + decayWidth + sustainWidth + releaseWidth / 2,
+      bottom + 5,
+    );
   }
 
   @override

@@ -20,10 +20,7 @@ void main() {
     });
 
     test('has correct description for MIDI track', () {
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'Piano',
-      );
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'Piano');
 
       expect(command.description, 'Create MIDI Track');
     });

@@ -242,7 +242,12 @@ mixin _TransportMixin on _AudioEngineBase {
     final roundtripPtr = calloc<ffi.Float>();
 
     try {
-      _getLatencyInfo(bufferSizePtr, inputLatencyPtr, outputLatencyPtr, roundtripPtr);
+      _getLatencyInfo(
+        bufferSizePtr,
+        inputLatencyPtr,
+        outputLatencyPtr,
+        roundtripPtr,
+      );
 
       return {
         'bufferSize': bufferSizePtr.value.toDouble(),
@@ -422,9 +427,21 @@ mixin _TransportMixin on _AudioEngineBase {
   /// Set audio clip warp settings for tempo sync
   /// Used to enable/disable time-stretching in the Audio Editor
   /// warpMode: 0 = warp (pitch preserved), 1 = repitch (pitch follows speed)
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) {
+  String setAudioClipWarp(
+    int trackId,
+    int clipId,
+    bool warpEnabled,
+    double stretchFactor,
+    int warpMode,
+  ) {
     try {
-      final result = _setAudioClipWarp(trackId, clipId, warpEnabled, stretchFactor, warpMode);
+      final result = _setAudioClipWarp(
+        trackId,
+        clipId,
+        warpEnabled,
+        stretchFactor,
+        warpMode,
+      );
       final str = result.toDartString();
       _freeRustString(result);
       return str;
@@ -436,7 +453,12 @@ mixin _TransportMixin on _AudioEngineBase {
   /// Set audio clip transpose (pitch shift)
   /// semitones: -48 to +48
   /// cents: -50 to +50
-  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) {
+  String setAudioClipTranspose(
+    int trackId,
+    int clipId,
+    int semitones,
+    int cents,
+  ) {
     try {
       final result = _setAudioClipTranspose(trackId, clipId, semitones, cents);
       final str = result.toDartString();

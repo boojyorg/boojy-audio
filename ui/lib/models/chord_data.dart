@@ -90,7 +90,9 @@ class ChordConfiguration {
   String get fullDisplayName {
     if (inversion == 0) return displayName;
     final invNames = ['', '1st', '2nd', '3rd'];
-    final invName = inversion < invNames.length ? invNames[inversion] : '${inversion}th';
+    final invName = inversion < invNames.length
+        ? invNames[inversion]
+        : '${inversion}th';
     return '$displayName ($invName inv)';
   }
 

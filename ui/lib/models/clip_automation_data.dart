@@ -46,11 +46,7 @@ class ClipAutomationPoint {
   int get hashCode => Object.hash(id, time, value, isSelected);
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'time': time,
-      'value': value,
-    };
+    return {'id': id, 'time': time, 'value': value};
   }
 
   factory ClipAutomationPoint.fromJson(Map<String, dynamic> json) {
@@ -74,8 +70,8 @@ class ClipAutomationLane {
     String? id,
     required this.parameter,
     List<ClipAutomationPoint>? points,
-  })  : id = id ?? const Uuid().v4(),
-        points = points ?? [];
+  }) : id = id ?? const Uuid().v4(),
+       points = points ?? [];
 
   /// Create an empty lane for a parameter
   factory ClipAutomationLane.empty(AutomationParameter parameter) {
@@ -206,10 +202,7 @@ class ClipAutomationLane {
     final pointsBefore = sorted.where((p) => p.time < splitBeat).toList();
 
     // Add edge node at split position if we have any automation
-    final edgePoint = ClipAutomationPoint(
-      time: splitBeat,
-      value: valueAtSplit,
-    );
+    final edgePoint = ClipAutomationPoint(time: splitBeat, value: valueAtSplit);
 
     return copyWith(points: [...pointsBefore, edgePoint]);
   }
@@ -227,17 +220,16 @@ class ClipAutomationLane {
     // Get all points after the split, shift times to be relative to new clip start
     final pointsAfter = sorted
         .where((p) => p.time > splitBeat)
-        .map((p) => p.copyWith(
-              id: const Uuid().v4(), // New ID for the copied point
-              time: p.time - splitBeat,
-            ))
+        .map(
+          (p) => p.copyWith(
+            id: const Uuid().v4(), // New ID for the copied point
+            time: p.time - splitBeat,
+          ),
+        )
         .toList();
 
     // Add edge node at position 0 (start of new clip)
-    final edgePoint = ClipAutomationPoint(
-      time: 0.0,
-      value: valueAtSplit,
-    );
+    final edgePoint = ClipAutomationPoint(time: 0.0, value: valueAtSplit);
 
     return copyWith(points: [edgePoint, ...pointsAfter]);
   }
@@ -257,12 +249,14 @@ class ClipAutomationLane {
       id: const Uuid().v4(),
       parameter: parameter,
       points: points
-          .map((p) => ClipAutomationPoint(
-                id: const Uuid().v4(),
-                time: p.time,
-                value: p.value,
-                isSelected: false,
-              ))
+          .map(
+            (p) => ClipAutomationPoint(
+              id: const Uuid().v4(),
+              time: p.time,
+              value: p.value,
+              isSelected: false,
+            ),
+          )
           .toList(),
     );
   }
@@ -311,9 +305,12 @@ class ClipAutomationLane {
     return ClipAutomationLane(
       id: json['id'] as String?,
       parameter: parameter,
-      points: (json['points'] as List<dynamic>?)
-              ?.map((dynamic p) =>
-                  ClipAutomationPoint.fromJson(p as Map<String, dynamic>))
+      points:
+          (json['points'] as List<dynamic>?)
+              ?.map(
+                (dynamic p) =>
+                    ClipAutomationPoint.fromJson(p as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
@@ -327,14 +324,16 @@ class ClipAutomationLane {
     if (points.isEmpty) return '';
 
     final sorted = sortedPoints;
-    return sorted.map((p) {
-      // Convert beats to seconds: seconds = beats * 60 / tempo
-      // Add clip start time to get absolute timeline position
-      final timeSeconds = clipStartSeconds + (p.time * 60.0 / tempo);
-      // Convert normalized (0-1) to dB
-      final db = VolumeConversion.normalizedToDb(p.value);
-      return '${timeSeconds.toStringAsFixed(6)},${db.toStringAsFixed(2)}';
-    }).join(';');
+    return sorted
+        .map((p) {
+          // Convert beats to seconds: seconds = beats * 60 / tempo
+          // Add clip start time to get absolute timeline position
+          final timeSeconds = clipStartSeconds + (p.time * 60.0 / tempo);
+          // Convert normalized (0-1) to dB
+          final db = VolumeConversion.normalizedToDb(p.value);
+          return '${timeSeconds.toStringAsFixed(6)},${db.toStringAsFixed(2)}';
+        })
+        .join(';');
   }
 }
 
@@ -343,9 +342,7 @@ class ClipAutomationLane {
 class ClipAutomation {
   final Map<AutomationParameter, ClipAutomationLane> lanes;
 
-  const ClipAutomation({
-    this.lanes = const {},
-  });
+  const ClipAutomation({this.lanes = const {}});
 
   /// Create empty automation
   factory ClipAutomation.empty() => const ClipAutomation();
@@ -359,10 +356,11 @@ class ClipAutomation {
   }
 
   /// Update lane for a parameter
-  ClipAutomation updateLane(AutomationParameter parameter, ClipAutomationLane lane) {
-    return ClipAutomation(
-      lanes: {...lanes, parameter: lane},
-    );
+  ClipAutomation updateLane(
+    AutomationParameter parameter,
+    ClipAutomationLane lane,
+  ) {
+    return ClipAutomation(lanes: {...lanes, parameter: lane});
   }
 
   /// Remove lane for a parameter
@@ -375,14 +373,18 @@ class ClipAutomation {
   /// Slice all automation lanes at a specific beat position (left portion)
   ClipAutomation sliceLeft(double splitBeat) {
     return ClipAutomation(
-      lanes: lanes.map((param, lane) => MapEntry(param, lane.sliceLeft(splitBeat))),
+      lanes: lanes.map(
+        (param, lane) => MapEntry(param, lane.sliceLeft(splitBeat)),
+      ),
     );
   }
 
   /// Slice all automation lanes at a specific beat position (right portion)
   ClipAutomation sliceRight(double splitBeat) {
     return ClipAutomation(
-      lanes: lanes.map((param, lane) => MapEntry(param, lane.sliceRight(splitBeat))),
+      lanes: lanes.map(
+        (param, lane) => MapEntry(param, lane.sliceRight(splitBeat)),
+      ),
     );
   }
 
@@ -403,9 +405,7 @@ class ClipAutomation {
   ClipAutomation copyWith({
     Map<AutomationParameter, ClipAutomationLane>? lanes,
   }) {
-    return ClipAutomation(
-      lanes: lanes ?? this.lanes,
-    );
+    return ClipAutomation(lanes: lanes ?? this.lanes);
   }
 
   @override
@@ -436,7 +436,9 @@ class ClipAutomation {
         (p) => p.name == entry.key,
         orElse: () => AutomationParameter.volume,
       );
-      lanes[parameter] = ClipAutomationLane.fromJson(entry.value as Map<String, dynamic>);
+      lanes[parameter] = ClipAutomationLane.fromJson(
+        entry.value as Map<String, dynamic>,
+      );
     }
 
     return ClipAutomation(lanes: lanes);

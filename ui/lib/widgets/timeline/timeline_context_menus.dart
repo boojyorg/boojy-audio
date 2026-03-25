@@ -12,8 +12,8 @@ import '../timeline_view.dart';
 
 /// Mixin containing context menu and clip operation methods for TimelineView.
 /// Separates menu/dialog UI and clip manipulation from main timeline code.
-mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, TimelineSelectionMixin {
-
+mixin TimelineContextMenusMixin
+    on State<TimelineView>, TimelineViewStateMixin, TimelineSelectionMixin {
   // ========================================================================
   // CONTEXT MENUS
   // ========================================================================
@@ -107,10 +107,13 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
 
   /// Show context menu for the time ruler
   void showRulerContextMenu(Offset globalPosition, Offset localPosition) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
     // Calculate beat position from click
-    final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+    final scrollOffset = scrollController.hasClients
+        ? scrollController.offset
+        : 0.0;
     final xInContent = localPosition.dx + scrollOffset;
     final clickedBeat = xInContent / pixelsPerBeat;
 
@@ -125,7 +128,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'set_loop_start',
           child: Row(
             children: [
-              Icon(Icons.first_page, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.first_page,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Set Loop Start Here'),
             ],
@@ -135,7 +142,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'set_loop_end',
           child: Row(
             children: [
-              Icon(Icons.last_page, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.last_page,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Set Loop End Here'),
             ],
@@ -146,7 +157,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'set_loop_1_bar',
           child: Row(
             children: [
-              Icon(Icons.crop_square, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.crop_square,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Set 1 Bar Loop Here'),
             ],
@@ -156,7 +171,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'set_loop_4_bars',
           child: Row(
             children: [
-              Icon(Icons.view_module, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.view_module,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Set 4 Bar Loop Here'),
             ],
@@ -168,9 +187,16 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           enabled: false, // Placeholder for future feature
           child: Row(
             children: [
-              Icon(Icons.bookmark_add, size: 18, color: context.colors.textMuted),
+              Icon(
+                Icons.bookmark_add,
+                size: 18,
+                color: context.colors.textMuted,
+              ),
               const SizedBox(width: 8),
-              Text('Add Marker', style: TextStyle(color: context.colors.textMuted)),
+              Text(
+                'Add Marker',
+                style: TextStyle(color: context.colors.textMuted),
+              ),
             ],
           ),
         ),
@@ -186,7 +212,10 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           widget.onLoopRegionChanged?.call(snappedBeat, widget.loopEndBeats);
           break;
         case 'set_loop_end':
-          widget.onLoopRegionChanged?.call(widget.loopStartBeats, snappedBeat + 4.0);
+          widget.onLoopRegionChanged?.call(
+            widget.loopStartBeats,
+            snappedBeat + 4.0,
+          );
           break;
         case 'set_loop_1_bar':
           widget.onLoopRegionChanged?.call(snappedBeat, snappedBeat + 4.0);
@@ -202,8 +231,14 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   }
 
   /// Show context menu for empty track area
-  void showEmptyAreaContextMenu(Offset globalPosition, Offset localPosition, TimelineTrackData track, bool isMidiTrack) {
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  void showEmptyAreaContextMenu(
+    Offset globalPosition,
+    Offset localPosition,
+    TimelineTrackData track,
+    bool isMidiTrack,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
     // Calculate beat position from click
     final beatPosition = calculateBeatPosition(localPosition);
@@ -221,11 +256,21 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
             value: 'create_clip',
             child: Row(
               children: [
-                Icon(Icons.add_box, size: 18, color: context.colors.textSecondary),
+                Icon(
+                  Icons.add_box,
+                  size: 18,
+                  color: context.colors.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 const Text('Create MIDI Clip Here'),
                 const Spacer(),
-                Text('Double-click', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+                Text(
+                  'Double-click',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.colors.textMuted,
+                  ),
+                ),
               ],
             ),
           ),
@@ -234,11 +279,27 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           enabled: clipboardMidiClip != null,
           child: Row(
             children: [
-              Icon(Icons.paste, size: 18, color: clipboardMidiClip != null ? context.colors.textSecondary : context.colors.textMuted),
+              Icon(
+                Icons.paste,
+                size: 18,
+                color: clipboardMidiClip != null
+                    ? context.colors.textSecondary
+                    : context.colors.textMuted,
+              ),
               const SizedBox(width: 8),
-              Text('Paste', style: TextStyle(color: clipboardMidiClip != null ? null : context.colors.textMuted)),
+              Text(
+                'Paste',
+                style: TextStyle(
+                  color: clipboardMidiClip != null
+                      ? null
+                      : context.colors.textMuted,
+                ),
+              ),
               const Spacer(),
-              Text('⌘V', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+              Text(
+                '⌘V',
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
+              ),
             ],
           ),
         ),
@@ -247,11 +308,18 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'select_all',
           child: Row(
             children: [
-              Icon(Icons.select_all, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.select_all,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Select All Clips'),
               const Spacer(),
-              Text('⌘A', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+              Text(
+                '⌘A',
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
+              ),
             ],
           ),
         ),
@@ -262,7 +330,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       switch (value) {
         case 'create_clip':
           // Create a 1-bar MIDI clip at the clicked position
-          widget.dragDropCallbacks.onCreateClipOnTrack?.call(track.id, snappedBeat, 4.0);
+          widget.dragDropCallbacks.onCreateClipOnTrack?.call(
+            track.id,
+            snappedBeat,
+            4.0,
+          );
           break;
         case 'paste':
           if (clipboardMidiClip != null) {
@@ -277,8 +349,14 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   }
 
   /// Show track type selection popup after drag-to-create
-  void showTrackTypePopup(BuildContext ctx, Offset globalPosition, double startBeats, double durationBeats) {
-    final RenderBox overlay = Overlay.of(ctx).context.findRenderObject() as RenderBox;
+  void showTrackTypePopup(
+    BuildContext ctx,
+    Offset globalPosition,
+    double startBeats,
+    double durationBeats,
+  ) {
+    final RenderBox overlay =
+        Overlay.of(ctx).context.findRenderObject() as RenderBox;
 
     showMenu<String>(
       context: ctx,
@@ -301,7 +379,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
           value: 'audio',
           child: Row(
             children: [
-              Icon(Icons.audiotrack, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.audiotrack,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               const Text('Audio Track'),
             ],
@@ -311,7 +393,11 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       color: context.colors.elevated,
     ).then((value) {
       if (value != null) {
-        widget.dragDropCallbacks.onCreateTrackWithClip?.call(value, startBeats, durationBeats);
+        widget.dragDropCallbacks.onCreateTrackWithClip?.call(
+          value,
+          startBeats,
+          durationBeats,
+        );
       }
     });
   }
@@ -361,7 +447,8 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
   /// Quantize a MIDI clip
   void quantizeMidiClip(MidiClipData clip) {
     const gridSizeBeats = 1.0; // 1 beat
-    final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
+    final quantizedStart =
+        (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
 
     if ((quantizedStart - clip.startTime).abs() < 0.001) {
       return;
@@ -393,15 +480,17 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       if (note.endTime <= splitPointBeats) {
         leftNotes.add(note);
       } else if (note.startTime >= splitPointBeats) {
-        rightNotes.add(note.copyWith(
-          startTime: note.startTime - splitPointBeats,
-          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
+        rightNotes.add(
+          note.copyWith(
+            startTime: note.startTime - splitPointBeats,
+            id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
       } else {
         // Note straddles split - truncate to left
-        leftNotes.add(note.copyWith(
-          duration: splitPointBeats - note.startTime,
-        ));
+        leftNotes.add(
+          note.copyWith(duration: splitPointBeats - note.startTime),
+        );
       }
     }
 
@@ -421,7 +510,10 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
       clipId: rightClipId,
       startTime: clip.startTime + splitPointBeats,
       duration: clip.duration - splitPointBeats,
-      loopLength: (clip.duration - splitPointBeats).clamp(0.25, clip.loopLength),
+      loopLength: (clip.duration - splitPointBeats).clamp(
+        0.25,
+        clip.loopLength,
+      ),
       notes: rightNotes,
       name: '${clip.name} (R)',
     );
@@ -515,7 +607,9 @@ mixin TimelineContextMenusMixin on State<TimelineView>, TimelineViewStateMixin, 
                   color: color,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: clip.color == color ? this.context.colors.textPrimary : this.context.colors.dark,
+                    color: clip.color == color
+                        ? this.context.colors.textPrimary
+                        : this.context.colors.dark,
                     width: 3,
                   ),
                 ),

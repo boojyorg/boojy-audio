@@ -54,18 +54,12 @@ class PanelHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? colors.elevated,
         border: showBorder
-            ? Border(
-                bottom: BorderSide(color: colors.elevated),
-              )
+            ? Border(bottom: BorderSide(color: colors.elevated))
             : null,
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: colors.textPrimary,
-            size: 18,
-          ),
+          Icon(icon, color: colors.textPrimary, size: 18),
           const SizedBox(width: 8),
           Text(
             uppercase ? title.toUpperCase() : title,
@@ -128,17 +122,11 @@ class CollapsiblePanelHeader extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: backgroundColor ?? colors.elevated,
-        border: Border(
-          bottom: BorderSide(color: colors.elevated),
-        ),
+        border: Border(bottom: BorderSide(color: colors.elevated)),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: colors.textPrimary,
-            size: 18,
-          ),
+          Icon(icon, color: colors.textPrimary, size: 18),
           const SizedBox(width: 8),
           Text(
             title.toUpperCase(),
@@ -204,11 +192,7 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              color: colors.textMuted,
-              size: 14,
-            ),
+            Icon(icon, color: colors.textMuted, size: 14),
             const SizedBox(width: 6),
           ],
           Text(
@@ -219,10 +203,7 @@ class SectionHeader extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (trailing != null) ...[
-            const Spacer(),
-            trailing!,
-          ],
+          if (trailing != null) ...[const Spacer(), trailing!],
         ],
       ),
     );

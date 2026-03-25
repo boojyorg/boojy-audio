@@ -34,7 +34,9 @@ class ClipNamingService {
     String? patternId,
   ) {
     if (patternId == null) return 1;
-    return clips.where((c) => c.trackId == trackId && c.patternId == patternId).length;
+    return clips
+        .where((c) => c.trackId == trackId && c.patternId == patternId)
+        .length;
   }
 
   /// Count total clips on a track with the same name

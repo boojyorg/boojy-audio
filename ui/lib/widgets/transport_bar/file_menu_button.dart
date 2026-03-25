@@ -157,8 +157,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
               ],
             ),
           ),
-        if (widget.hasProject)
-          const PopupMenuDivider(),
+        if (widget.hasProject) const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'export_mp3',
           child: Row(
@@ -222,9 +221,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: _isHovered
-                ? context.colors.elevated
-                : Colors.transparent,
+            color: _isHovered ? context.colors.elevated : Colors.transparent,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Text(

@@ -26,7 +26,8 @@ class VirtualPiano extends StatefulWidget {
   State<VirtualPiano> createState() => _VirtualPianoState();
 }
 
-class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderStateMixin {
+class _VirtualPianoState extends State<VirtualPiano>
+    with SingleTickerProviderStateMixin {
   // Height constraints
   static const double _minHeight = 56.0;
   static const double _maxHeight = 150.0;
@@ -70,34 +71,33 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   // Focus node for keyboard input
   final FocusNode _focusNode = FocusNode();
 
-
   // White key keyboard mapping (A-\ keys) -> relative MIDI notes from C
   static final Map<LogicalKeyboardKey, int> _whiteKeyMapping = {
-    LogicalKeyboardKey.keyA: 0,   // C
-    LogicalKeyboardKey.keyS: 2,   // D
-    LogicalKeyboardKey.keyD: 4,   // E
-    LogicalKeyboardKey.keyF: 5,   // F
-    LogicalKeyboardKey.keyG: 7,   // G
-    LogicalKeyboardKey.keyH: 9,   // A
-    LogicalKeyboardKey.keyJ: 11,  // B
-    LogicalKeyboardKey.keyK: 12,  // C (next octave)
-    LogicalKeyboardKey.keyL: 14,  // D
-    LogicalKeyboardKey.semicolon: 16,  // E
-    LogicalKeyboardKey.quoteSingle: 17,  // F
-    LogicalKeyboardKey.backslash: 19,  // G
+    LogicalKeyboardKey.keyA: 0, // C
+    LogicalKeyboardKey.keyS: 2, // D
+    LogicalKeyboardKey.keyD: 4, // E
+    LogicalKeyboardKey.keyF: 5, // F
+    LogicalKeyboardKey.keyG: 7, // G
+    LogicalKeyboardKey.keyH: 9, // A
+    LogicalKeyboardKey.keyJ: 11, // B
+    LogicalKeyboardKey.keyK: 12, // C (next octave)
+    LogicalKeyboardKey.keyL: 14, // D
+    LogicalKeyboardKey.semicolon: 16, // E
+    LogicalKeyboardKey.quoteSingle: 17, // F
+    LogicalKeyboardKey.backslash: 19, // G
   };
 
   // Black key keyboard mapping (W/E/T/Y/U/O/P/]/=) -> relative MIDI notes from C
   static final Map<LogicalKeyboardKey, int> _blackKeyMapping = {
-    LogicalKeyboardKey.keyW: 1,   // C#
-    LogicalKeyboardKey.keyE: 3,   // D#
-    LogicalKeyboardKey.keyT: 6,   // F#
-    LogicalKeyboardKey.keyY: 8,   // G#
-    LogicalKeyboardKey.keyU: 10,  // A#
-    LogicalKeyboardKey.keyO: 13,  // C# (next octave)
-    LogicalKeyboardKey.keyP: 15,  // D#
-    LogicalKeyboardKey.bracketRight: 18,  // F#
-    LogicalKeyboardKey.equal: 20,  // G#
+    LogicalKeyboardKey.keyW: 1, // C#
+    LogicalKeyboardKey.keyE: 3, // D#
+    LogicalKeyboardKey.keyT: 6, // F#
+    LogicalKeyboardKey.keyY: 8, // G#
+    LogicalKeyboardKey.keyU: 10, // A#
+    LogicalKeyboardKey.keyO: 13, // C# (next octave)
+    LogicalKeyboardKey.keyP: 15, // D#
+    LogicalKeyboardKey.bracketRight: 18, // F#
+    LogicalKeyboardKey.equal: 20, // G#
   };
 
   // Combined keyboard mapping (computed with current octave offset)
@@ -127,7 +127,18 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
 
   // Note names (without octave number)
   static const List<String> _noteNamesInOctave = [
-    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+    'C',
+    'C#',
+    'D',
+    'D#',
+    'E',
+    'F',
+    'F#',
+    'G',
+    'G#',
+    'A',
+    'A#',
+    'B',
   ];
 
   String _getNoteNameWithoutOctave(int midiNote) {
@@ -206,7 +217,8 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     final key = event.logicalKey;
 
     // Handle Shift key for sustain
-    if (key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight) {
+    if (key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight) {
       if (event is KeyDownEvent) {
         setState(() {
           _sustainActive = true;
@@ -289,7 +301,11 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     // Send MIDI note on to selected track's instrument
     if (widget.selectedTrackId != null) {
       try {
-        widget.audioEngine?.sendTrackMidiNoteOn(widget.selectedTrackId!, midiNote, _velocity);
+        widget.audioEngine?.sendTrackMidiNoteOn(
+          widget.selectedTrackId!,
+          midiNote,
+          _velocity,
+        );
       } catch (e) {
         // FFI call - ignore MIDI send errors silently
       }
@@ -321,7 +337,11 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     // Send MIDI note off to selected track's instrument
     if (widget.selectedTrackId != null) {
       try {
-        widget.audioEngine?.sendTrackMidiNoteOff(widget.selectedTrackId!, midiNote, 0);
+        widget.audioEngine?.sendTrackMidiNoteOff(
+          widget.selectedTrackId!,
+          midiNote,
+          0,
+        );
       } catch (e) {
         // FFI call - ignore MIDI send errors silently
       }
@@ -377,9 +397,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
                     _buildControls(),
 
                     // Piano keyboard
-                    Expanded(
-                      child: _buildKeyboard(),
-                    ),
+                    Expanded(child: _buildKeyboard()),
                   ],
                 ),
               ),
@@ -418,10 +436,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           color: Colors.transparent,
           child: Center(
             // Visible line centered within hit area
-            child: Container(
-              height: lineHeight,
-              color: lineColor,
-            ),
+            child: Container(height: lineHeight, color: lineColor),
           ),
         ),
       ),
@@ -502,14 +517,13 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
               Icon(
                 icon,
                 size: 14,
-                color: isEnabled ? context.colors.textPrimary : context.colors.textMuted,
+                color: isEnabled
+                    ? context.colors.textPrimary
+                    : context.colors.textMuted,
               ),
               Text(
                 sublabel,
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 8,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 8),
               ),
             ],
           ),
@@ -534,10 +548,7 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           ),
           child: Text(
             'Vel $_velocity',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 9,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 9),
           ),
         ),
         // Divider
@@ -605,17 +616,23 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: _keyboardEnabled ? context.colors.accent.withValues(alpha: 0.2) : context.colors.dark,
+          color: _keyboardEnabled
+              ? context.colors.accent.withValues(alpha: 0.2)
+              : context.colors.dark,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _keyboardEnabled ? context.colors.accent : context.colors.elevated,
+            color: _keyboardEnabled
+                ? context.colors.accent
+                : context.colors.elevated,
             width: 1,
           ),
         ),
         child: Icon(
           Icons.keyboard,
           size: 18,
-          color: _keyboardEnabled ? context.colors.accent : context.colors.textMuted,
+          color: _keyboardEnabled
+              ? context.colors.accent
+              : context.colors.textMuted,
         ),
       ),
     );
@@ -652,12 +669,12 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
 
     // White keys: C D E F G A B C D E F G (12 white keys)
     final whiteNotes = <int>[
-      baseNote,      // C
-      baseNote + 2,  // D
-      baseNote + 4,  // E
-      baseNote + 5,  // F
-      baseNote + 7,  // G
-      baseNote + 9,  // A
+      baseNote, // C
+      baseNote + 2, // D
+      baseNote + 4, // E
+      baseNote + 5, // F
+      baseNote + 7, // G
+      baseNote + 9, // A
       baseNote + 11, // B
       baseNote + 12, // C (next octave)
       baseNote + 14, // D
@@ -669,13 +686,13 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
     // Black keys with their positions (between white keys)
     // Position is the index of the white key after which this black key appears
     final blackKeys = <Map<String, int>>[
-      {'note': baseNote + 1, 'afterWhiteIndex': 0},   // C#
-      {'note': baseNote + 3, 'afterWhiteIndex': 1},   // D#
-      {'note': baseNote + 6, 'afterWhiteIndex': 3},   // F#
-      {'note': baseNote + 8, 'afterWhiteIndex': 4},   // G#
-      {'note': baseNote + 10, 'afterWhiteIndex': 5},  // A#
-      {'note': baseNote + 13, 'afterWhiteIndex': 7},  // C# (next octave)
-      {'note': baseNote + 15, 'afterWhiteIndex': 8},  // D#
+      {'note': baseNote + 1, 'afterWhiteIndex': 0}, // C#
+      {'note': baseNote + 3, 'afterWhiteIndex': 1}, // D#
+      {'note': baseNote + 6, 'afterWhiteIndex': 3}, // F#
+      {'note': baseNote + 8, 'afterWhiteIndex': 4}, // G#
+      {'note': baseNote + 10, 'afterWhiteIndex': 5}, // A#
+      {'note': baseNote + 13, 'afterWhiteIndex': 7}, // C# (next octave)
+      {'note': baseNote + 15, 'afterWhiteIndex': 8}, // D#
       {'note': baseNote + 18, 'afterWhiteIndex': 10}, // F#
       {'note': baseNote + 20, 'afterWhiteIndex': 11}, // G#
     ];
@@ -717,7 +734,8 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   }
 
   Widget _buildWhiteKey(int midiNote, int relativeNote) {
-    final isPressed = _pressedNotes.contains(midiNote) || _sustainedNotes.contains(midiNote);
+    final isPressed =
+        _pressedNotes.contains(midiNote) || _sustainedNotes.contains(midiNote);
     final keyLabel = _keyLabels[relativeNote] ?? '';
     final noteName = _getNoteNameWithoutOctave(midiNote);
     final isValidNote = midiNote >= 0 && midiNote <= 127;
@@ -732,18 +750,22 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
           decoration: BoxDecoration(
             color: isPressed
                 ? context.colors.accent
-                : (isValidNote ? const Color(0xFFF5F5F5) : context.colors.surface),
+                : (isValidNote
+                      ? const Color(0xFFF5F5F5)
+                      : context.colors.surface),
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(4),
               bottomRight: Radius.circular(4),
             ),
-            boxShadow: isPressed ? null : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                offset: const Offset(0, 2),
-                blurRadius: 2,
-              ),
-            ],
+            boxShadow: isPressed
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      offset: const Offset(0, 2),
+                      blurRadius: 2,
+                    ),
+                  ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -783,7 +805,8 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
   }
 
   Widget _buildBlackKey(int midiNote, int relativeNote, double width) {
-    final isPressed = _pressedNotes.contains(midiNote) || _sustainedNotes.contains(midiNote);
+    final isPressed =
+        _pressedNotes.contains(midiNote) || _sustainedNotes.contains(midiNote);
     final keyLabel = _keyLabels[relativeNote] ?? '';
     final isValidNote = midiNote >= 0 && midiNote <= 127;
 
@@ -800,14 +823,22 @@ class _VirtualPianoState extends State<VirtualPiano> with SingleTickerProviderSt
             width: width,
             height: keyHeight.clamp(24.0, 80.0),
             decoration: BoxDecoration(
-              gradient: isPressed ? null : LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  if (isValidNote) const Color(0xFF2A2A2A) else const Color(0xFF1A1A1A),
-                  if (isValidNote) const Color(0xFF1A1A1A) else const Color(0xFF0A0A0A),
-                ],
-              ),
+              gradient: isPressed
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        if (isValidNote)
+                          const Color(0xFF2A2A2A)
+                        else
+                          const Color(0xFF1A1A1A),
+                        if (isValidNote)
+                          const Color(0xFF1A1A1A)
+                        else
+                          const Color(0xFF0A0A0A),
+                      ],
+                    ),
               color: isPressed ? this.context.colors.accent : null,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(3),
@@ -935,7 +966,10 @@ class _VelocityKnobPopupState extends State<_VelocityKnobPopup> {
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.accent,
                           borderRadius: BorderRadius.circular(3),

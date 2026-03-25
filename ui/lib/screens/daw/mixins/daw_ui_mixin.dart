@@ -9,7 +9,12 @@ import 'daw_recording_mixin.dart';
 
 /// Mixin containing UI-related methods for DAWScreen.
 /// Handles panel toggles, keyboard shortcuts, and general UI operations.
-mixin DAWUIMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin {
+mixin DAWUIMixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWPlaybackMixin,
+        DAWRecordingMixin {
   // ============================================
   // PANEL TOGGLE METHODS
   // ============================================
@@ -95,7 +100,8 @@ mixin DAWUIMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, DAW
   ///
   /// Note: Methods like quantizeSelectedClip() must be implemented in DAWClipMixin
   /// and made available through the class that uses this mixin.
-  KeyEventResult handleSingleKeyShortcut(KeyEvent event, {
+  KeyEventResult handleSingleKeyShortcut(
+    KeyEvent event, {
     required VoidCallback onQuantizeClip,
   }) {
     // Only handle KeyDownEvent, not KeyUpEvent or KeyRepeatEvent
@@ -143,7 +149,11 @@ mixin DAWUIMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, DAW
 
     if (!mounted) return;
 
-    await AppSettingsDialog.show(context, userSettings, audioEngine: audioEngine);
+    await AppSettingsDialog.show(
+      context,
+      userSettings,
+      audioEngine: audioEngine,
+    );
   }
 
   // ============================================

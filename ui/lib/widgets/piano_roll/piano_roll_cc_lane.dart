@@ -62,9 +62,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
       height: widget.laneHeight,
       decoration: BoxDecoration(
         color: colors.darkest,
-        border: Border(
-          top: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(top: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
@@ -76,7 +74,8 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
               child: AnimatedBuilder(
                 animation: widget.horizontalScrollController,
                 builder: (context, child) {
-                  final scrollOffset = widget.horizontalScrollController.hasClients
+                  final scrollOffset =
+                      widget.horizontalScrollController.hasClients
                       ? widget.horizontalScrollController.offset
                       : 0.0;
                   return Transform.translate(
@@ -121,9 +120,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
       height: widget.laneHeight,
       decoration: BoxDecoration(
         color: colors.standard,
-        border: Border(
-          right: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(right: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -155,10 +152,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
                   children: [
                     Text(
                       _getShortCCName(widget.lane.ccType),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 9,
-                      ),
+                      style: TextStyle(color: colors.textPrimary, fontSize: 9),
                     ),
                     const SizedBox(width: 2),
                     Icon(
@@ -218,7 +212,9 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 11,
-              fontWeight: type == widget.lane.ccType ? FontWeight.bold : FontWeight.normal,
+              fontWeight: type == widget.lane.ccType
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         );
@@ -269,10 +265,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
       });
     } else {
       // Add new point
-      final newPoint = MidiCCPoint(
-        time: time,
-        value: value,
-      );
+      final newPoint = MidiCCPoint(time: time, value: value);
       widget.onPointAdded?.call(newPoint);
     }
   }

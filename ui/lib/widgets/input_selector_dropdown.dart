@@ -149,63 +149,77 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
 
     // "No Input" option
     final noInputSelected = widget.currentDeviceIndex < 0;
-    items.add(_buildMenuItem(
-      icon: Icons.block,
-      label: 'No Input',
-      isSelected: noInputSelected,
-      onTap: () => widget.onSelected(-1, 0),
-    ));
+    items.add(
+      _buildMenuItem(
+        icon: Icons.block,
+        label: 'No Input',
+        isSelected: noInputSelected,
+        onTap: () => widget.onSelected(-1, 0),
+      ),
+    );
 
     items.add(Divider(height: 1, color: colors.hover));
 
     // Devices and channels
-    for (int deviceIdx = 0; deviceIdx < widget.inputDevices.length; deviceIdx++) {
+    for (
+      int deviceIdx = 0;
+      deviceIdx < widget.inputDevices.length;
+      deviceIdx++
+    ) {
       final device = widget.inputDevices[deviceIdx];
       final deviceName = device['name'] as String? ?? 'Input Device $deviceIdx';
       final isDefault = device['isDefault'] as bool? ?? false;
 
       // Device header
-      items.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Text(
-          '${isDefault ? "★ " : ""}$deviceName',
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
+      items.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            '${isDefault ? "★ " : ""}$deviceName',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
-      ));
+      );
 
       // Channel options with live meters
       const channelCount = 2;
       for (int ch = 0; ch < channelCount; ch++) {
-        final isSelected = widget.currentDeviceIndex == deviceIdx && widget.currentChannel == ch;
+        final isSelected =
+            widget.currentDeviceIndex == deviceIdx &&
+            widget.currentChannel == ch;
         final level = _channelLevels[ch] ?? 0.0;
 
-        items.add(_buildChannelItem(
-          channel: ch,
-          isSelected: isSelected,
-          level: level,
-          onTap: () => widget.onSelected(deviceIdx, ch),
-        ));
+        items.add(
+          _buildChannelItem(
+            channel: ch,
+            isSelected: isSelected,
+            level: level,
+            onTap: () => widget.onSelected(deviceIdx, ch),
+          ),
+        );
       }
     }
 
     // No devices message
     if (widget.inputDevices.isEmpty) {
-      items.add(Container(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          'No audio input devices found',
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
+      items.add(
+        Container(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            'No audio input devices found',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ),
-      ));
+      );
     }
 
     return items;
@@ -261,7 +275,9 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
               size: 14,
               color: isSelected ? colors.accent : colors.textSecondary,
             ),
@@ -276,9 +292,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
             ),
             const SizedBox(width: 8),
             // Live level meter
-            Expanded(
-              child: _LiveMeterBar(level: level),
-            ),
+            Expanded(child: _LiveMeterBar(level: level)),
           ],
         ),
       ),
@@ -321,7 +335,8 @@ class _LiveMeterBar extends StatelessWidget {
                           const Color(0xFFeab308) // Yellow at high levels
                         else
                           const Color(0xFF22c55e),
-                        if (level > 0.9) const Color(0xFFef4444), // Red at clipping
+                        if (level > 0.9)
+                          const Color(0xFFef4444), // Red at clipping
                       ],
                     ),
                   ),

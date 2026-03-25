@@ -69,13 +69,15 @@ class NotePainter extends CustomPainter {
 
       // Fill
       final fillPaint = Paint()
-        ..color = const Color(0xFF00BCD4).withValues(alpha: 0.2) // Cyan fill
+        ..color = const Color(0xFF00BCD4)
+            .withValues(alpha: 0.2) // Cyan fill
         ..style = PaintingStyle.fill;
       canvas.drawRect(rect, fillPaint);
 
       // Border
       final borderPaint = Paint()
-        ..color = const Color(0xFF00BCD4) // Cyan border
+        ..color =
+            const Color(0xFF00BCD4) // Cyan border
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawRect(rect, borderPaint);
@@ -108,8 +110,12 @@ class NotePainter extends CustomPainter {
     canvas.drawRRect(rect, borderPaint);
   }
 
-  void _drawNote(Canvas canvas, MidiNoteData note,
-      {bool isSelected = false, bool isPreview = false}) {
+  void _drawNote(
+    Canvas canvas,
+    MidiNoteData note, {
+    bool isSelected = false,
+    bool isPreview = false,
+  }) {
     final x = note.startTime * pixelsPerBeat;
     final y = _calculateNoteY(note.note);
     if (y < 0) return; // Skip notes not visible in fold mode
@@ -178,8 +184,9 @@ class NotePainter extends CustomPainter {
       textPainter.text = TextSpan(
         text: note.noteName, // e.g., "G5", "D#4", "C3"
         style: TextStyle(
-          color:
-              Colors.white.withValues(alpha: 0.9), // White text on cyan background
+          color: Colors.white.withValues(
+            alpha: 0.9,
+          ), // White text on cyan background
           fontSize: 10,
           fontWeight: FontWeight.w600,
         ),
@@ -193,7 +200,6 @@ class NotePainter extends CustomPainter {
 
       textPainter.paint(canvas, Offset(textX, textY));
     }
-
   }
 
   /// Compare two lists for equality (used for foldedPitches)

@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/library_item.dart';
 import '../widgets/instrument_browser.dart';
-import '../screens/daw_screen_io.dart' if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
+import '../screens/daw_screen_io.dart'
+    if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
 
 /// Service for managing library content, favorites, and user folders
 class LibraryService extends ChangeNotifier {
@@ -32,7 +33,7 @@ class LibraryService extends ChangeNotifier {
       // On web/iOS, we can't use HOME environment variable
       // Use the app's documents directory which is sandboxed
       // This will be set during initialization
-      return '';  // Will be set by _loadPreferences
+      return ''; // Will be set by _loadPreferences
     } else {
       final home = getEnv('HOME') ?? '';
       return '$home/Documents/Boojy/Audio';
@@ -180,28 +181,34 @@ class LibraryService extends ChangeNotifier {
 
           // Check if audio or MIDI file
           if (_isAudioFile(ext)) {
-            items.add(AudioFileItem(
-              id: 'file_${entity.path.hashCode}',
-              name: name,
-              filePath: entity.path,
-              icon: Icons.audio_file,
-            ));
+            items.add(
+              AudioFileItem(
+                id: 'file_${entity.path.hashCode}',
+                name: name,
+                filePath: entity.path,
+                icon: Icons.audio_file,
+              ),
+            );
           } else if (_isMidiFile(ext)) {
-            items.add(MidiFileItem(
-              id: 'file_${entity.path.hashCode}',
-              name: name,
-              filePath: entity.path,
-            ));
+            items.add(
+              MidiFileItem(
+                id: 'file_${entity.path.hashCode}',
+                name: name,
+                filePath: entity.path,
+              ),
+            );
           }
         } else if (entity is Directory) {
           final folderName = entity.path.split('/').last;
           // Add subfolder
-          items.add(FolderItem(
-            id: 'folder_${entity.path.hashCode}',
-            name: folderName,
-            folderPath: entity.path,
-            icon: Icons.folder,
-          ));
+          items.add(
+            FolderItem(
+              id: 'folder_${entity.path.hashCode}',
+              name: folderName,
+              folderPath: entity.path,
+              icon: Icons.folder,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -210,9 +217,11 @@ class LibraryService extends ChangeNotifier {
 
     // Sort: folders first, then files alphabetically
     items.sort((a, b) {
-      if (a.type == LibraryItemType.folder && b.type != LibraryItemType.folder) {
+      if (a.type == LibraryItemType.folder &&
+          b.type != LibraryItemType.folder) {
         return -1;
-      } else if (a.type != LibraryItemType.folder && b.type == LibraryItemType.folder) {
+      } else if (a.type != LibraryItemType.folder &&
+          b.type == LibraryItemType.folder) {
         return 1;
       }
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -278,13 +287,17 @@ class LibraryService extends ChangeNotifier {
   LibraryCategory _buildInstrumentsCategory() {
     // Map from availableInstruments
     final items = availableInstruments
-        .where((i) => ['Piano', 'Synthesizer', 'Drums', 'Sampler'].contains(i.name))
-        .map((i) => LibraryItem(
-              id: 'instrument_${i.id}',
-              name: i.name,
-              type: LibraryItemType.instrument,
-              icon: i.icon,
-            ))
+        .where(
+          (i) => ['Piano', 'Synthesizer', 'Drums', 'Sampler'].contains(i.name),
+        )
+        .map(
+          (i) => LibraryItem(
+            id: 'instrument_${i.id}',
+            name: i.name,
+            type: LibraryItemType.instrument,
+            icon: i.icon,
+          ),
+        )
         .toList();
 
     return LibraryCategory(
@@ -302,12 +315,42 @@ class LibraryService extends ChangeNotifier {
       name: 'Effects',
       icon: Icons.graphic_eq,
       items: [
-        EffectItem(id: 'effect_eq', name: 'EQ', effectType: 'eq', icon: Icons.equalizer),
-        EffectItem(id: 'effect_compressor', name: 'Compressor', effectType: 'compressor', icon: Icons.compress),
-        EffectItem(id: 'effect_reverb', name: 'Reverb', effectType: 'reverb', icon: Icons.blur_on),
-        EffectItem(id: 'effect_delay', name: 'Delay', effectType: 'delay', icon: Icons.timer),
-        EffectItem(id: 'effect_chorus', name: 'Chorus', effectType: 'chorus', icon: Icons.waves),
-        EffectItem(id: 'effect_limiter', name: 'Limiter', effectType: 'limiter', icon: Icons.vertical_align_center),
+        EffectItem(
+          id: 'effect_eq',
+          name: 'EQ',
+          effectType: 'eq',
+          icon: Icons.equalizer,
+        ),
+        EffectItem(
+          id: 'effect_compressor',
+          name: 'Compressor',
+          effectType: 'compressor',
+          icon: Icons.compress,
+        ),
+        EffectItem(
+          id: 'effect_reverb',
+          name: 'Reverb',
+          effectType: 'reverb',
+          icon: Icons.blur_on,
+        ),
+        EffectItem(
+          id: 'effect_delay',
+          name: 'Delay',
+          effectType: 'delay',
+          icon: Icons.timer,
+        ),
+        EffectItem(
+          id: 'effect_chorus',
+          name: 'Chorus',
+          effectType: 'chorus',
+          icon: Icons.waves,
+        ),
+        EffectItem(
+          id: 'effect_limiter',
+          name: 'Limiter',
+          effectType: 'limiter',
+          icon: Icons.vertical_align_center,
+        ),
       ],
     );
   }

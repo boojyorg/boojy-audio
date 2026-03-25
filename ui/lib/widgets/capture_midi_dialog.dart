@@ -80,10 +80,7 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
             // Description
             const Text(
               'Capture MIDI events from the recent past and create a clip on the selected track.',
-              style: TextStyle(
-                color: Color(0xFF9E9E9E),
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
             ),
             const SizedBox(height: 24),
 
@@ -92,14 +89,14 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
               children: [
                 const Text(
                   'Capture last',
-                  style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2A2A2A),
                     borderRadius: BorderRadius.circular(4),
@@ -110,7 +107,10 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                     isExpanded: false,
                     underline: Container(),
                     dropdownColor: const Color(0xFF2A2A2A),
-                    style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
+                    style: const TextStyle(
+                      color: Color(0xFFE0E0E0),
+                      fontSize: 14,
+                    ),
                     items: _durationOptions.map((duration) {
                       return DropdownMenuItem(
                         value: duration,
@@ -129,10 +129,7 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                 const SizedBox(width: 12),
                 const Text(
                   'seconds',
-                  style: TextStyle(
-                    color: Color(0xFFE0E0E0),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
                 ),
               ],
             ),
@@ -185,7 +182,10 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF9E9E9E),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -193,9 +193,16 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                 TextButton(
                   onPressed: hasEvents ? _captureEvents : null,
                   style: TextButton.styleFrom(
-                    backgroundColor: hasEvents ? const Color(0xFF7FD4A0) : const Color(0xFF363636),
-                    foregroundColor: hasEvents ? Colors.black : const Color(0xFF616161),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    backgroundColor: hasEvents
+                        ? const Color(0xFF7FD4A0)
+                        : const Color(0xFF363636),
+                    foregroundColor: hasEvents
+                        ? Colors.black
+                        : const Color(0xFF616161),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Capture'),
                 ),

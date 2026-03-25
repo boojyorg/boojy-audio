@@ -9,7 +9,8 @@ class ProjectMetadata {
   final double bpm;
   final int timeSignatureNumerator;
   final int timeSignatureDenominator;
-  final String key; // "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+  final String
+  key; // "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
   final String scale; // "Major", "Minor"
   final int sampleRate; // 44100 or 48000
   final DateTime? createdDate;
@@ -82,8 +83,10 @@ class ProjectMetadata {
       name: name ?? this.name,
       style: clearStyle ? null : (style ?? this.style),
       bpm: bpm ?? this.bpm,
-      timeSignatureNumerator: timeSignatureNumerator ?? this.timeSignatureNumerator,
-      timeSignatureDenominator: timeSignatureDenominator ?? this.timeSignatureDenominator,
+      timeSignatureNumerator:
+          timeSignatureNumerator ?? this.timeSignatureNumerator,
+      timeSignatureDenominator:
+          timeSignatureDenominator ?? this.timeSignatureDenominator,
       key: key ?? this.key,
       scale: scale ?? this.scale,
       sampleRate: sampleRate ?? this.sampleRate,
@@ -93,7 +96,8 @@ class ProjectMetadata {
   }
 
   /// Get time signature as string (e.g., "4/4")
-  String get timeSignature => '$timeSignatureNumerator/$timeSignatureDenominator';
+  String get timeSignature =>
+      '$timeSignatureNumerator/$timeSignatureDenominator';
 
   /// Get key and scale as string (e.g., "C Major")
   String get keyAndScale => '$key $scale';
@@ -107,8 +111,18 @@ class ProjectMetadata {
   static String formatDate(DateTime? date) {
     if (date == null) return 'Unknown';
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

@@ -46,12 +46,18 @@ class DragDropCallbacks {
   final Function(Instrument instrument)? onInstrumentDroppedOnEmpty;
   final Function(int trackId, Vst3Plugin plugin)? onVst3InstrumentDropped;
   final Function(Vst3Plugin plugin)? onVst3InstrumentDroppedOnEmpty;
-  final Function(String filePath, double startTimeBeats)? onMidiFileDroppedOnEmpty;
-  final Function(int trackId, String filePath, double startTimeBeats)? onMidiFileDroppedOnTrack;
-  final Function(String filePath, double startTimeBeats)? onAudioFileDroppedOnEmpty;
-  final Function(int trackId, String filePath, double startTimeBeats)? onAudioFileDroppedOnTrack;
-  final Function(String trackType, double startBeats, double durationBeats)? onCreateTrackWithClip;
-  final Function(int trackId, double startBeats, double durationBeats)? onCreateClipOnTrack;
+  final Function(String filePath, double startTimeBeats)?
+  onMidiFileDroppedOnEmpty;
+  final Function(int trackId, String filePath, double startTimeBeats)?
+  onMidiFileDroppedOnTrack;
+  final Function(String filePath, double startTimeBeats)?
+  onAudioFileDroppedOnEmpty;
+  final Function(int trackId, String filePath, double startTimeBeats)?
+  onAudioFileDroppedOnTrack;
+  final Function(String trackType, double startBeats, double durationBeats)?
+  onCreateTrackWithClip;
+  final Function(int trackId, double startBeats, double durationBeats)?
+  onCreateClipOnTrack;
 
   const DragDropCallbacks({
     this.onInstrumentDropped,
@@ -70,7 +76,8 @@ class DragDropCallbacks {
 /// Grouped callbacks for automation operations
 class AutomationCallbacks {
   final Function(int trackId, AutomationPoint point)? onPointAdded;
-  final Function(int trackId, String pointId, AutomationPoint point)? onPointUpdated;
+  final Function(int trackId, String pointId, AutomationPoint point)?
+  onPointUpdated;
   final Function(int trackId, String pointId)? onPointDeleted;
   final Function(int trackId, double? value)? onPreviewValue;
   final TrackAutomationLane? Function(int trackId)? getAutomationLane;

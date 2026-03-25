@@ -49,7 +49,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     // Set up callbacks
     recordingController.onRecordingComplete = handleRecordingComplete;
-    recordingController.onRecordStartPositionChanged = playbackController.setRecordStartPosition;
+    recordingController.onRecordStartPositionChanged =
+        playbackController.setRecordStartPosition;
     recordingController.onPunchComplete = _handlePunchComplete;
 
     // Read punch state from UI layout — punch region reuses loop boundaries
@@ -120,7 +121,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Pause recording: Stop recording, stay at current position
   void pauseRecording() {
-    if (!isRecording && !isCountingIn && !recordingController.isWaitingForPunchIn) return;
+    if (!isRecording &&
+        !isCountingIn &&
+        !recordingController.isWaitingForPunchIn)
+      return;
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
@@ -133,7 +137,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
   /// Stop recording: Stop recording, return to recordStartPosition
   void stopRecordingAndReturn() {
-    if (!isRecording && !isCountingIn && !recordingController.isWaitingForPunchIn) return;
+    if (!isRecording &&
+        !isCountingIn &&
+        !recordingController.isWaitingForPunchIn)
+      return;
 
     // Stop recording and save clip
     final (result, capturedNotes) = _completeRecording();
@@ -184,7 +191,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     // Set as current editing clip so piano roll shows live notes
     if (liveClip != null && liveClip.notes.isNotEmpty) {
-      midiPlaybackManager?.selectClip(LiveRecordingNotifier.liveClipId, liveClip);
+      midiPlaybackManager?.selectClip(
+        LiveRecordingNotifier.liveClipId,
+        liveClip,
+      );
     }
   }
 
@@ -238,10 +248,13 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     ClipOverlapHandler.applyAudioResult(
       result: result,
       engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
-      engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
+      engineSetStartTime: (tId, cId, s) =>
+          audioEngine?.setClipStartTime(tId, cId, s),
       engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
-      engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
-      engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+      engineSetDuration: (tId, cId, d) =>
+          audioEngine?.setClipDuration(tId, cId, d),
+      engineDuplicateClip: (tId, cId, s) =>
+          audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
       uiRemoveClip: (cId) => timelineState.removeClip(cId),
       uiUpdateClip: (clip) => timelineState.updateClip(clip),
       uiAddClip: (clip) => timelineState.addClip(clip),
@@ -254,7 +267,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   }
 
   /// Handle recording completion - process audio and MIDI clips
-  void handleRecordingComplete(RecordingResult result, {List<MidiNoteData> capturedNotes = const []}) {
+  void handleRecordingComplete(
+    RecordingResult result, {
+    List<MidiNoteData> capturedNotes = const [],
+  }) {
     // Ensure live recording display is cleared
     liveRecordingNotifier.removeListener(_onLiveRecordingUpdate);
     midiPlaybackManager?.setLiveRecordingClip(null);
@@ -285,7 +301,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
         orElse: () => null,
       );
 
-      if (armedAudioTrack != null && result.duration != null && result.duration! > 0) {
+      if (armedAudioTrack != null &&
+          result.duration != null &&
+          result.duration! > 0) {
         final audioTrackId = armedAudioTrack.id;
         audioTrackIdForUndo = audioTrackId;
         final startTime = recordingController.recordingStartPosition;
@@ -293,7 +311,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
         final peaks = result.waveformPeaks ?? [];
 
         // Capture before snapshot
-        audioClipsBefore = timelineState?.getAudioClipsOnTrack(audioTrackId) ?? [];
+        audioClipsBefore =
+            timelineState?.getAudioClipsOnTrack(audioTrackId) ?? [];
 
         // Handle overlap: trim, split, or delete existing clips
         _handleRecordingOverlap(
@@ -341,7 +360,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
                 : 16.0; // Default 4 bars (16 beats) if no duration
 
             // Create MidiClipData and add to timeline
-            final actualTrackId = trackId >= 0 ? trackId : (selectedTrackId ?? 0);
+            final actualTrackId = trackId >= 0
+                ? trackId
+                : (selectedTrackId ?? 0);
             midiTrackIdForUndo = actualTrackId;
             final clipData = MidiClipData(
               clipId: result.midiClipId!,
@@ -353,7 +374,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
             );
 
             // Capture before snapshot
-            midiClipsBefore = midiPlaybackManager?.midiClips
+            midiClipsBefore =
+                midiPlaybackManager?.midiClips
                     .where((c) => c.trackId == actualTrackId)
                     .toList() ??
                 [];
@@ -366,7 +388,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
               isMidiClip: true,
             );
 
-            midiPlaybackManager?.addRecordedClip(clipData, rustClipId: result.midiClipId!);
+            midiPlaybackManager?.addRecordedClip(
+              clipData,
+              rustClipId: result.midiClipId!,
+            );
             recordedItems.add('MIDI ($noteCount notes)');
           }
         } catch (e) {
@@ -385,9 +410,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
           : <ClipData>[];
       final midiClipsAfter = midiTrackIdForUndo != null
           ? (midiPlaybackManager?.midiClips
-                  .where((c) => c.trackId == midiTrackIdForUndo)
-                  .toList() ??
-              [])
+                    .where((c) => c.trackId == midiTrackIdForUndo)
+                    .toList() ??
+                [])
           : <MidiClipData>[];
 
       final command = RecordingCompleteCommand(
@@ -411,7 +436,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     // Update status message
     if (recordedItems.isNotEmpty) {
-      playbackController.setStatusMessage('Recorded: ${recordedItems.join(', ')}');
+      playbackController.setStatusMessage(
+        'Recorded: ${recordedItems.join(', ')}',
+      );
     } else if (result.audioClipId == null && result.midiClipId == null) {
       playbackController.setStatusMessage('No recording captured');
     }
@@ -425,7 +452,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   void toggleMetronome() {
     recordingController.toggleMetronome();
     final newState = recordingController.isMetronomeEnabled;
-    playbackController.setStatusMessage(newState ? 'Metronome enabled' : 'Metronome disabled');
+    playbackController.setStatusMessage(
+      newState ? 'Metronome enabled' : 'Metronome disabled',
+    );
   }
 
   /// Set count-in bars (0, 1, or 2)
@@ -436,8 +465,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     final message = bars == 0
         ? 'Count-in disabled'
         : bars == 1
-            ? 'Count-in: 1 bar'
-            : 'Count-in: 2 bars';
+        ? 'Count-in: 1 bar'
+        : 'Count-in: 2 bars';
     playbackController.setStatusMessage(message);
   }
 
@@ -464,7 +493,10 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
         // Adjust audio clip positions to maintain their beat position
         // This prevents audio clips from visually shifting when tempo changes
-        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(currentTempo, newBpm);
+        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
+          currentTempo,
+          newBpm,
+        );
       },
     );
     await undoRedoManager.execute(command);
@@ -490,7 +522,9 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   void toggleVirtualPiano() {
     final success = recordingController.toggleVirtualPiano();
     if (success) {
-      uiLayout.setVirtualPianoEnabled(enabled: recordingController.isVirtualPianoEnabled);
+      uiLayout.setVirtualPianoEnabled(
+        enabled: recordingController.isVirtualPianoEnabled,
+      );
       playbackController.setStatusMessage(
         recordingController.isVirtualPianoEnabled
             ? 'Virtual piano enabled - Press keys to play!'
@@ -515,8 +549,11 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.selectMidiDevice(deviceIndex);
 
     // Show feedback
-    if (midiDevices.isNotEmpty && deviceIndex >= 0 && deviceIndex < midiDevices.length) {
-      final deviceName = midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
+    if (midiDevices.isNotEmpty &&
+        deviceIndex >= 0 &&
+        deviceIndex < midiDevices.length) {
+      final deviceName =
+          midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Selected: $deviceName'),
@@ -545,12 +582,18 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
   /// 64=0 (Lowest), 128=1 (Low), 256=2 (Balanced), 512=3 (Safe), 1024=4 (HighStability)
   int bufferSizeToPreset(int bufferSize) {
     switch (bufferSize) {
-      case 64: return 0;
-      case 128: return 1;
-      case 256: return 2;
-      case 512: return 3;
-      case 1024: return 4;
-      default: return 2; // Default to Balanced (256)
+      case 64:
+        return 0;
+      case 128:
+        return 1;
+      case 256:
+        return 2;
+      case 512:
+        return 3;
+      case 1024:
+        return 4;
+      default:
+        return 2; // Default to Balanced (256)
     }
   }
 

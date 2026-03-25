@@ -330,6 +330,13 @@ impl Sampler {
         if sr > 0.0 { frames / sr } else { 0.0 }
     }
 
+    /// Calculate the playback rate for a given root note and played note.
+    /// Returns the ratio (e.g. 2.0 for one octave up, 0.5 for one octave down).
+    pub fn calculate_playback_rate(root_note: u8, played_note: u8) -> f64 {
+        let semitone_diff = f64::from(played_note) - f64::from(root_note);
+        2.0_f64.powf(semitone_diff / 12.0)
+    }
+
     pub fn note_on(&mut self, note: u8, velocity: u8) {
         if self.sample.is_none() {
             println!("⚠️ Sampler: No sample loaded, ignoring note_on");

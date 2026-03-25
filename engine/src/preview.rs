@@ -159,7 +159,7 @@ impl PreviewPlayer {
             let path = std::path::Path::new(&path_owned);
             let is_wav = path.extension()
                 .and_then(|e| e.to_str())
-                .map_or(false, |e| e.eq_ignore_ascii_case("wav") || e.eq_ignore_ascii_case("wave"));
+                .is_some_and(|e| e.eq_ignore_ascii_case("wav") || e.eq_ignore_ascii_case("wave"));
 
             if is_wav {
                 match load_wav_for_preview(&path_owned) {

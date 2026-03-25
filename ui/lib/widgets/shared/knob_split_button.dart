@@ -121,7 +121,10 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
               child: GestureDetector(
                 onTap: widget.onApply,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isHoveringLabel
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -144,11 +147,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
                         ),
                         const SizedBox(width: 4),
                       ] else if (widget.showIcon && widget.icon != null) ...[
-                        Icon(
-                          widget.icon,
-                          size: 13,
-                          color: colors.textPrimary,
-                        ),
+                        Icon(widget.icon, size: 13, color: colors.textPrimary),
                         const SizedBox(width: 4),
                       ],
                       Text(
@@ -179,7 +178,10 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
               child: GestureDetector(
                 onTap: _showKnobPopup,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isHoveringDropdown
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -295,7 +297,10 @@ class _KnobPopupState extends State<_KnobPopup> {
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.accent,
                           borderRadius: BorderRadius.circular(3),

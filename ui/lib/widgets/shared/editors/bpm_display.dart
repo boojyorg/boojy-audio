@@ -111,7 +111,9 @@ class _BpmDisplayState extends State<BpmDisplay> {
             : null,
         onDoubleTap: isEnabled ? () => _showBpmDialog(context) : null,
         child: MouseRegion(
-          cursor: isEnabled ? SystemMouseCursors.resizeUpDown : SystemMouseCursors.forbidden,
+          cursor: isEnabled
+              ? SystemMouseCursors.resizeUpDown
+              : SystemMouseCursors.forbidden,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
             decoration: BoxDecoration(
@@ -122,14 +124,18 @@ class _BpmDisplayState extends State<BpmDisplay> {
               border: _isDragging
                   ? Border.all(color: colors.accent, width: 1.5)
                   : Border.all(
-                      color: isEnabled ? colors.surface : colors.surface.withValues(alpha: 0.5),
+                      color: isEnabled
+                          ? colors.surface
+                          : colors.surface.withValues(alpha: 0.5),
                       width: 1.5,
                     ),
             ),
             child: Text(
               bpmText,
               style: TextStyle(
-                color: isEnabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5),
+                color: isEnabled
+                    ? colors.textPrimary
+                    : colors.textMuted.withValues(alpha: 0.5),
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),

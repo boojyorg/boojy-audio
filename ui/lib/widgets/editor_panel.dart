@@ -97,7 +97,8 @@ class EditorPanel extends StatefulWidget {
   State<EditorPanel> createState() => _EditorPanelState();
 }
 
-class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin {
+class _EditorPanelState extends State<EditorPanel>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   int _selectedTabIndex = 0;
 
@@ -119,7 +120,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   int? _highlightedNote;
 
   /// Whether the selected track is an audio track
-  bool get _isAudioTrack => widget.trackContext.selectedTrackType?.toLowerCase() == 'audio';
+  bool get _isAudioTrack =>
+      widget.trackContext.selectedTrackType?.toLowerCase() == 'audio';
 
   /// Whether the selected track has a sampler instrument (checked via engine)
   bool get _isSamplerTrack =>
@@ -129,7 +131,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Whether the selected track is a MIDI track without sampler instrument
   bool get _isMidiTrack =>
-      widget.trackContext.selectedTrackType?.toLowerCase() == 'midi' && !_isSamplerTrack;
+      widget.trackContext.selectedTrackType?.toLowerCase() == 'midi' &&
+      !_isSamplerTrack;
 
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)
@@ -139,7 +142,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     if (_isAudioTrack) {
       final clipName = widget.currentEditingAudioClip?.fileName;
       if (clipName != null && clipName.isNotEmpty) {
-        return clipName.length > 20 ? '${clipName.substring(0, 17)}...' : clipName;
+        return clipName.length > 20
+            ? '${clipName.substring(0, 17)}...'
+            : clipName;
       }
       return 'Audio Editor';
     }
@@ -193,13 +198,15 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
   /// Get the current clip ID (MIDI or audio)
   int? _getCurrentClipId() {
-    return widget.currentEditingClip?.clipId ?? widget.currentEditingAudioClip?.clipId;
+    return widget.currentEditingClip?.clipId ??
+        widget.currentEditingAudioClip?.clipId;
   }
 
   /// Handle user manually tapping a tab
   void _onManualTabTap(int index) {
     _userManuallySelectedTab = true;
-    _switchedToPianoRollAwaitingData = false; // Reset awaiting flag on manual selection
+    _switchedToPianoRollAwaitingData =
+        false; // Reset awaiting flag on manual selection
     _tabController.index = index;
   }
 
@@ -221,7 +228,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           });
         });
         _selectedTabIndex = 0; // Reset to first tab
-        _userManuallySelectedTab = false; // Reset manual flag on track type change
+        _userManuallySelectedTab =
+            false; // Reset manual flag on track type change
         _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
       });
       _lastTrackId = widget.trackContext.selectedTrackId;
@@ -244,7 +252,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       }
     }
     // Clip selected (and user hasn't manually chosen a tab) → Piano Roll
-    else if (clipChanged && currentClipId != null && !_userManuallySelectedTab) {
+    else if (clipChanged &&
+        currentClipId != null &&
+        !_userManuallySelectedTab) {
       if (_isMidiTrack || _isSamplerTrack) {
         // Set flag to prevent showing "Click to create clip" placeholder during transition
         // This handles the case where tab switches but clip data takes a frame to propagate
@@ -256,7 +266,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     }
     // Clip deselected → back to Instrument tab
     else if (clipChanged && currentClipId == null && _lastClipId != null) {
-      _userManuallySelectedTab = false; // Reset manual flag when clip deselected
+      _userManuallySelectedTab =
+          false; // Reset manual flag when clip deselected
       _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
       if (_isMidiTrack || _isSamplerTrack) {
         _tabController.index = 0; // Instrument/Sampler tab
@@ -301,7 +312,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
 
     // Check if current track is MIDI (can accept instrument drops)
     // Note: selectedTrackType can be 'MIDI', 'midi', 'Audio', etc.
-    final isMidiTrack = widget.trackContext.selectedTrackType?.toLowerCase() == 'midi';
+    final isMidiTrack =
+        widget.trackContext.selectedTrackType?.toLowerCase() == 'midi';
 
     // Wrap with DragTargets for instrument swapping
     return DragTarget<Vst3Plugin>(
@@ -320,103 +332,121 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           },
           builder: (context, candidateInstrument, rejectedInstrument) {
             return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.colors.dark,
-        border: Border(
-          top: BorderSide(color: context.colors.divider),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Custom tab bar with icons and pill-style active indicator
-          Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: context.colors.dark,
-              border: Border(
-                bottom: BorderSide(color: context.colors.surface),
+              decoration: BoxDecoration(
+                color: context.colors.dark,
+                border: Border(top: BorderSide(color: context.colors.divider)),
               ),
-            ),
-            child: Stack(
-              children: [
-                // Left side: Tab buttons
-                Positioned(
-                  left: 8,
-                  top: 0,
-                  bottom: 0,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: _buildTabButtons(),
-                  ),
-                ),
-                // Center: Tool buttons (truly centered)
-                Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
-                      const SizedBox(width: 4),
-                      _buildToolButton(ToolMode.select, Icons.open_with, 'Select (X)'),
-                      const SizedBox(width: 4),
-                      _buildToolButton(ToolMode.eraser, Icons.backspace_outlined, 'Erase (C) • Hold Alt'),
-                      const SizedBox(width: 4),
-                      _buildToolButton(ToolMode.duplicate, Icons.copy, 'Duplicate (V) • Cmd+Drag'),
-                      const SizedBox(width: 4),
-                      _buildToolButton(ToolMode.slice, Icons.content_cut, 'Slice (B) • Cmd+Click'),
-                    ],
-                  ),
-                ),
-                // Right side: Virtual Piano toggle + Collapse button
-                Positioned(
-                  right: 8,
-                  top: 0,
-                  bottom: 0,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Virtual Piano toggle - for MIDI and Sampler tracks
-                      if (!_isAudioTrack) ...[
-                        _buildPianoToggle(),
-                        const SizedBox(width: 8),
-                      ],
-                      // Collapse button (down arrow)
-                      Tooltip(
-                        message: 'Collapse Panel',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: widget.callbacks.onClosePanel,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 18,
-                                color: context.colors.textSecondary,
-                              ),
-                            ),
+              child: Column(
+                children: [
+                  // Custom tab bar with icons and pill-style active indicator
+                  Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: context.colors.dark,
+                      border: Border(
+                        bottom: BorderSide(color: context.colors.surface),
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Left side: Tab buttons
+                        Positioned(
+                          left: 8,
+                          top: 0,
+                          bottom: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: _buildTabButtons(),
                           ),
                         ),
-                      ),
-                    ],
+                        // Center: Tool buttons (truly centered)
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildToolButton(
+                                ToolMode.draw,
+                                Icons.edit,
+                                'Draw (Z)',
+                              ),
+                              const SizedBox(width: 4),
+                              _buildToolButton(
+                                ToolMode.select,
+                                Icons.open_with,
+                                'Select (X)',
+                              ),
+                              const SizedBox(width: 4),
+                              _buildToolButton(
+                                ToolMode.eraser,
+                                Icons.backspace_outlined,
+                                'Erase (C) • Hold Alt',
+                              ),
+                              const SizedBox(width: 4),
+                              _buildToolButton(
+                                ToolMode.duplicate,
+                                Icons.copy,
+                                'Duplicate (V) • Cmd+Drag',
+                              ),
+                              const SizedBox(width: 4),
+                              _buildToolButton(
+                                ToolMode.slice,
+                                Icons.content_cut,
+                                'Slice (B) • Cmd+Click',
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Right side: Virtual Piano toggle + Collapse button
+                        Positioned(
+                          right: 8,
+                          top: 0,
+                          bottom: 0,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Virtual Piano toggle - for MIDI and Sampler tracks
+                              if (!_isAudioTrack) ...[
+                                _buildPianoToggle(),
+                                const SizedBox(width: 8),
+                              ],
+                              // Collapse button (down arrow)
+                              Tooltip(
+                                message: 'Collapse Panel',
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: widget.callbacks.onClosePanel,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      alignment: Alignment.center,
+                                      child: Icon(
+                                        Icons.keyboard_arrow_down,
+                                        size: 18,
+                                        color: context.colors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          // Tab content expands to fill available space
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: _buildTabContent(),
-            ),
-          ),
-        ],
-      ),
-    );
+                  // Tab content expands to fill available space
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: _buildTabContent(),
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
         );
       },
@@ -429,9 +459,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       height: 40,
       decoration: BoxDecoration(
         color: context.colors.dark,
-        border: Border(
-          top: BorderSide(color: context.colors.divider),
-        ),
+        border: Border(top: BorderSide(color: context.colors.divider)),
       ),
       child: Stack(
         children: [
@@ -452,13 +480,29 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               children: [
                 _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
                 const SizedBox(width: 4),
-                _buildToolButton(ToolMode.select, Icons.open_with, 'Select (X)'),
+                _buildToolButton(
+                  ToolMode.select,
+                  Icons.open_with,
+                  'Select (X)',
+                ),
                 const SizedBox(width: 4),
-                _buildToolButton(ToolMode.eraser, Icons.backspace_outlined, 'Erase (C) • Hold Alt'),
+                _buildToolButton(
+                  ToolMode.eraser,
+                  Icons.backspace_outlined,
+                  'Erase (C) • Hold Alt',
+                ),
                 const SizedBox(width: 4),
-                _buildToolButton(ToolMode.duplicate, Icons.copy, 'Duplicate (V) • Cmd+Drag'),
+                _buildToolButton(
+                  ToolMode.duplicate,
+                  Icons.copy,
+                  'Duplicate (V) • Cmd+Drag',
+                ),
                 const SizedBox(width: 4),
-                _buildToolButton(ToolMode.slice, Icons.content_cut, 'Slice (B) • Cmd+Click'),
+                _buildToolButton(
+                  ToolMode.slice,
+                  Icons.content_cut,
+                  'Slice (B) • Cmd+Click',
+                ),
               ],
             ),
           ),
@@ -549,7 +593,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? context.colors.accent.withValues(alpha: 0.3) : Colors.transparent,
+            color: isSelected
+                ? context.colors.accent.withValues(alpha: 0.3)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
@@ -558,7 +604,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               Icon(
                 icon,
                 size: 14,
-                color: isSelected ? context.colors.accent : context.colors.textSecondary,
+                color: isSelected
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
@@ -566,7 +614,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? context.colors.accent : context.colors.textSecondary,
+                  color: isSelected
+                      ? context.colors.accent
+                      : context.colors.textSecondary,
                 ),
               ),
             ],
@@ -582,7 +632,8 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       return 'Instrument';
     }
     if (widget.trackContext.currentInstrumentData!.isVst3) {
-      final name = widget.trackContext.currentInstrumentData!.pluginName ?? 'Plugin';
+      final name =
+          widget.trackContext.currentInstrumentData!.pluginName ?? 'Plugin';
       // Truncate to max 15 characters with ellipsis
       return name.length > 15 ? '${name.substring(0, 12)}...' : name;
     }
@@ -628,10 +679,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   /// Sampler: [SamplerEditor, PianoRoll, FXChain]
   List<Widget> _buildTabContent() {
     if (_isAudioTrack) {
-      return [
-        _buildEditorTab(),
-        _buildFXChainTab(),
-      ];
+      return [_buildEditorTab(), _buildFXChainTab()];
     }
 
     if (_isSamplerTrack) {
@@ -643,11 +691,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     }
 
     // MIDI track: [Synthesizer] [Piano Roll] [Effects]
-    return [
-      _buildInstrumentTab(),
-      _buildEditorTab(),
-      _buildFXChainTab(),
-    ];
+    return [_buildInstrumentTab(), _buildEditorTab(), _buildFXChainTab()];
   }
 
   /// Build the Sampler Editor tab
@@ -684,7 +728,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                 Icon(
                   icon,
                   size: 16,
-                  color: isSelected ? Colors.white : context.colors.textSecondary,
+                  color: isSelected
+                      ? Colors.white
+                      : context.colors.textSecondary,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -692,7 +738,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : context.colors.textSecondary,
+                    color: isSelected
+                        ? Colors.white
+                        : context.colors.textSecondary,
                   ),
                 ),
               ],
@@ -740,11 +788,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               color: bgColor,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: iconColor,
-            ),
+            child: Icon(icon, size: 16, color: iconColor),
           ),
         ),
       ),
@@ -773,7 +817,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                 Icon(
                   Icons.keyboard,
                   size: 16,
-                  color: isActive ? context.colors.elevated : context.colors.textPrimary,
+                  color: isActive
+                      ? context.colors.elevated
+                      : context.colors.textPrimary,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -781,7 +827,9 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: isActive ? context.colors.elevated : context.colors.textPrimary,
+                    color: isActive
+                        ? context.colors.elevated
+                        : context.colors.textPrimary,
                   ),
                 ),
               ],
@@ -814,11 +862,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.audio_file,
-                size: 64,
-                color: context.colors.textMuted,
-              ),
+              Icon(Icons.audio_file, size: 64, color: context.colors.textMuted),
               const SizedBox(height: 16),
               Text(
                 'Audio Editor',
@@ -831,10 +875,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               const SizedBox(height: 8),
               Text(
                 'Select an audio clip to start editing',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -872,7 +913,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
     if (clipData == null && widget.trackContext.selectedTrackId != null) {
       // If we're awaiting clip data (just switched tabs), show minimal empty state
       if (_switchedToPianoRollAwaitingData) {
-        return ColoredBox(color: context.colors.editor, child: const SizedBox());
+        return ColoredBox(
+          color: context.colors.editor,
+          child: const SizedBox(),
+        );
       }
       return ColoredBox(
         color: context.colors.editor,
@@ -888,10 +932,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               const SizedBox(height: 16),
               Text(
                 'Click to create MIDI clip',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 16),
               ),
             ],
           ),
@@ -924,10 +965,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               const SizedBox(height: 8),
               Text(
                 'Select a MIDI track or clip to start editing',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -972,18 +1010,15 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
   }
 
   Widget _buildInstrumentTab() {
-    if (widget.trackContext.selectedTrackId == null || widget.trackContext.currentInstrumentData == null) {
+    if (widget.trackContext.selectedTrackId == null ||
+        widget.trackContext.currentInstrumentData == null) {
       return ColoredBox(
         color: context.colors.dark,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.piano,
-                size: 64,
-                color: context.colors.textMuted,
-              ),
+              Icon(Icons.piano, size: 64, color: context.colors.textMuted),
               const SizedBox(height: 16),
               Text(
                 'Instrument',
@@ -996,10 +1031,7 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
               const SizedBox(height: 8),
               Text(
                 'Select a track with an instrument to edit',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1016,10 +1048,10 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       final effectId = widget.trackContext.currentInstrumentData!.effectId!;
 
       // Fetch parameter count and info from the audio engine
-      final paramCount = widget.audioEngine?.getVst3ParameterCount(effectId) ?? 0;
+      final paramCount =
+          widget.audioEngine?.getVst3ParameterCount(effectId) ?? 0;
       final parameters = <int, Vst3ParameterInfo>{};
       final parameterValues = <int, double>{};
-
 
       for (int i = 0; i < paramCount; i++) {
         final info = widget.audioEngine?.getVst3ParameterInfo(effectId, i);
@@ -1032,13 +1064,16 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
             defaultValue: (info['default'] as num?)?.toDouble() ?? 0.5,
             unit: '',
           );
-          parameterValues[i] = widget.audioEngine?.getVst3ParameterValue(effectId, i) ?? 0.5;
+          parameterValues[i] =
+              widget.audioEngine?.getVst3ParameterValue(effectId, i) ?? 0.5;
         }
       }
 
       final vst3Instrument = Vst3PluginInstance(
         effectId: effectId,
-        pluginName: widget.trackContext.currentInstrumentData!.pluginName ?? 'VST3 Instrument',
+        pluginName:
+            widget.trackContext.currentInstrumentData!.pluginName ??
+            'VST3 Instrument',
         pluginPath: widget.trackContext.currentInstrumentData!.pluginPath ?? '',
         parameters: parameters,
         parameterValues: parameterValues,
@@ -1067,5 +1102,4 @@ class _EditorPanelState extends State<EditorPanel> with TickerProviderStateMixin
       },
     );
   }
-
 }

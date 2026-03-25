@@ -48,13 +48,16 @@ void main() {
         expect(controller.isAutomationVisibleForTrack(2), isTrue);
       });
 
-      test('isAutomationVisibleForTrack returns false for non-visible tracks', () {
-        expect(controller.isAutomationVisibleForTrack(1), isFalse);
+      test(
+        'isAutomationVisibleForTrack returns false for non-visible tracks',
+        () {
+          expect(controller.isAutomationVisibleForTrack(1), isFalse);
 
-        controller.showAutomationForTrack(1);
-        expect(controller.isAutomationVisibleForTrack(1), isTrue);
-        expect(controller.isAutomationVisibleForTrack(2), isFalse);
-      });
+          controller.showAutomationForTrack(1);
+          expect(controller.isAutomationVisibleForTrack(1), isTrue);
+          expect(controller.isAutomationVisibleForTrack(2), isFalse);
+        },
+      );
 
       test('toggleAutomationForTrack shows when hidden', () {
         controller.toggleAutomationForTrack(1);
@@ -249,10 +252,16 @@ void main() {
       test('removePoint removes the point by id', () {
         final point = AutomationPoint(id: 'p1', time: 1.0, value: 0.5);
         controller.addPoint(1, AutomationParameter.volume, point);
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 1);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          1,
+        );
 
         controller.removePoint(1, AutomationParameter.volume, 'p1');
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 0);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          0,
+        );
       });
 
       test('removePoint on non-existent lane does nothing', () {
@@ -268,7 +277,10 @@ void main() {
         );
         controller.removePoint(1, AutomationParameter.volume, 'nonexistent');
 
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 1);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          1,
+        );
       });
 
       test('updatePoint changes point data', () {
@@ -361,10 +373,16 @@ void main() {
           AutomationParameter.volume,
           AutomationPoint(time: 1.0, value: 0.7),
         );
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 2);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          2,
+        );
 
         controller.clearLane(1, AutomationParameter.volume);
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 0);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          0,
+        );
       });
 
       test('clearLane on non-existent lane does nothing', () {
@@ -386,8 +404,14 @@ void main() {
 
         controller.clearLane(1, AutomationParameter.volume);
 
-        expect(controller.getLane(1, AutomationParameter.volume)!.hasAutomation, isFalse);
-        expect(controller.getLane(1, AutomationParameter.pan)!.hasAutomation, isTrue);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.hasAutomation,
+          isFalse,
+        );
+        expect(
+          controller.getLane(1, AutomationParameter.pan)!.hasAutomation,
+          isTrue,
+        );
       });
 
       test('addPoint to different parameters on same track', () {
@@ -419,10 +443,13 @@ void main() {
         expect(controller.hasAutomation(1), isFalse);
       });
 
-      test('returns false for track with empty lanes (shown but no points)', () {
-        controller.showAutomationForTrack(1);
-        expect(controller.hasAutomation(1), isFalse);
-      });
+      test(
+        'returns false for track with empty lanes (shown but no points)',
+        () {
+          controller.showAutomationForTrack(1);
+          expect(controller.hasAutomation(1), isFalse);
+        },
+      );
 
       test('returns true after addPoint', () {
         controller.addPoint(
@@ -473,31 +500,37 @@ void main() {
         );
       });
 
-      test('hasAutomationForParameter returns true for parameter with points', () {
-        controller.addPoint(
-          1,
-          AutomationParameter.volume,
-          AutomationPoint(time: 0.0, value: 0.5),
-        );
-        expect(
-          controller.hasAutomationForParameter(1, AutomationParameter.volume),
-          isTrue,
-        );
-        expect(
-          controller.hasAutomationForParameter(1, AutomationParameter.pan),
-          isFalse,
-        );
-      });
+      test(
+        'hasAutomationForParameter returns true for parameter with points',
+        () {
+          controller.addPoint(
+            1,
+            AutomationParameter.volume,
+            AutomationPoint(time: 0.0, value: 0.5),
+          );
+          expect(
+            controller.hasAutomationForParameter(1, AutomationParameter.volume),
+            isTrue,
+          );
+          expect(
+            controller.hasAutomationForParameter(1, AutomationParameter.pan),
+            isFalse,
+          );
+        },
+      );
 
-      test('hasAutomation returns false after removePoint removes last point', () {
-        controller.addPoint(
-          1,
-          AutomationParameter.volume,
-          AutomationPoint(id: 'p1', time: 0.0, value: 0.5),
-        );
-        controller.removePoint(1, AutomationParameter.volume, 'p1');
-        expect(controller.hasAutomation(1), isFalse);
-      });
+      test(
+        'hasAutomation returns false after removePoint removes last point',
+        () {
+          controller.addPoint(
+            1,
+            AutomationParameter.volume,
+            AutomationPoint(id: 'p1', time: 0.0, value: 0.5),
+          );
+          controller.removePoint(1, AutomationParameter.volume, 'p1');
+          expect(controller.hasAutomation(1), isFalse);
+        },
+      );
     });
 
     // ========================================
@@ -532,7 +565,10 @@ void main() {
           AutomationPoint(time: 2.0, value: 0.6),
         );
 
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 2.0), 0.6);
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 2.0),
+          0.6,
+        );
       });
 
       test('returns first point value before first point', () {
@@ -547,8 +583,14 @@ void main() {
           AutomationPoint(time: 4.0, value: 0.8),
         );
 
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 0.0), 0.6);
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 1.0), 0.6);
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 0.0),
+          0.6,
+        );
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 1.0),
+          0.6,
+        );
       });
 
       test('returns last point value after last point', () {
@@ -563,8 +605,14 @@ void main() {
           AutomationPoint(time: 4.0, value: 0.8),
         );
 
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 5.0), 0.8);
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 100.0), 0.8);
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 5.0),
+          0.8,
+        );
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 100.0),
+          0.8,
+        );
       });
 
       test('linear interpolation between two points', () {
@@ -656,9 +704,18 @@ void main() {
           AutomationPoint(time: 2.0, value: 0.7),
         );
 
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 0.0), 0.7);
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 2.0), 0.7);
-        expect(controller.getValueAtTime(1, AutomationParameter.volume, 10.0), 0.7);
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 0.0),
+          0.7,
+        );
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 2.0),
+          0.7,
+        );
+        expect(
+          controller.getValueAtTime(1, AutomationParameter.volume, 10.0),
+          0.7,
+        );
       });
     });
 
@@ -793,7 +850,9 @@ void main() {
         controller.showAutomationForTrack(1);
         controller.setVisibleParameter(AutomationParameter.pan);
 
-        controller.loadFromJson(<String, dynamic>{'automation': <String, dynamic>{}});
+        controller.loadFromJson(<String, dynamic>{
+          'automation': <String, dynamic>{},
+        });
 
         expect(controller.visibleTrackId, isNull);
         expect(controller.visibleParameter, AutomationParameter.volume);
@@ -947,7 +1006,10 @@ void main() {
         controller.onTrackDuplicated(1, 2);
 
         expect(controller.hasAutomation(1), isTrue);
-        expect(controller.getLane(1, AutomationParameter.volume)!.points.length, 1);
+        expect(
+          controller.getLane(1, AutomationParameter.volume)!.points.length,
+          1,
+        );
       });
 
       test('onTrackDuplicated with non-existent source does nothing', () {
@@ -1178,7 +1240,9 @@ void main() {
 
         // Pass a non-null JSON map so the method reaches notifyListeners()
         // (loadFromJson(null) returns early before notifying)
-        controller.loadFromJson(<String, dynamic>{'automation': <String, dynamic>{}});
+        controller.loadFromJson(<String, dynamic>{
+          'automation': <String, dynamic>{},
+        });
         expect(notified, isTrue);
       });
 
@@ -1234,10 +1298,13 @@ void main() {
         expect(ids, containsAll([1, 3]));
       });
 
-      test('includes tracks with empty lanes created by showAutomationForTrack', () {
-        controller.showAutomationForTrack(5);
-        expect(controller.allTrackIds.contains(5), isTrue);
-      });
+      test(
+        'includes tracks with empty lanes created by showAutomationForTrack',
+        () {
+          controller.showAutomationForTrack(5);
+          expect(controller.allTrackIds.contains(5), isTrue);
+        },
+      );
     });
   });
 

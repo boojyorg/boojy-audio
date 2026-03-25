@@ -108,8 +108,14 @@ void main() {
         'surface': const Color(0xFF444444),
       });
       expect(provider.colorOverrides.containsKey('dark'), isFalse);
-      expect(provider.colorOverrides['editor'], equals(const Color(0xFF333333)));
-      expect(provider.colorOverrides['surface'], equals(const Color(0xFF444444)));
+      expect(
+        provider.colorOverrides['editor'],
+        equals(const Color(0xFF333333)),
+      );
+      expect(
+        provider.colorOverrides['surface'],
+        equals(const Color(0xFF444444)),
+      );
     });
 
     test('text override uses text_ prefix', () {

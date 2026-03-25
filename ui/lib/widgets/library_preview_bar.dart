@@ -33,9 +33,7 @@ class LibraryPreviewBar extends StatelessWidget {
       height: 48,
       decoration: BoxDecoration(
         color: context.colors.elevated,
-        border: Border(
-          top: BorderSide(color: context.colors.divider),
-        ),
+        border: Border(top: BorderSide(color: context.colors.divider)),
       ),
       child: isLoading
           ? Center(
@@ -49,38 +47,41 @@ class LibraryPreviewBar extends StatelessWidget {
               ),
             )
           : Row(
-        children: [
-          // Audition toggle button
-          _AuditionToggleButton(
-            isEnabled: previewService.auditionEnabled,
-            onTap: previewService.toggleAudition,
-          ),
-          // Play/Stop button
-          _PlayStopButton(
-            isPlaying: service.isPlaying,
-            onTap: () {
-              if (service.isPlaying) {
-                service.stop();
-              } else {
-                service.play();
-              }
-            },
-          ),
-          // Waveform display
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: LibraryPreviewWaveform(
-                peaks: previewService.waveformPeaks,
-                position: previewService.position,
-                duration: previewService.duration,
-                isAuditionEnabled: previewService.auditionEnabled,
-                onSeek: previewService.seek,
-              ),
+              children: [
+                // Audition toggle button
+                _AuditionToggleButton(
+                  isEnabled: previewService.auditionEnabled,
+                  onTap: previewService.toggleAudition,
+                ),
+                // Play/Stop button
+                _PlayStopButton(
+                  isPlaying: service.isPlaying,
+                  onTap: () {
+                    if (service.isPlaying) {
+                      service.stop();
+                    } else {
+                      service.play();
+                    }
+                  },
+                ),
+                // Waveform display
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    child: LibraryPreviewWaveform(
+                      peaks: previewService.waveformPeaks,
+                      position: previewService.position,
+                      duration: previewService.duration,
+                      isAuditionEnabled: previewService.auditionEnabled,
+                      onSeek: previewService.seek,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -90,10 +91,7 @@ class _AuditionToggleButton extends StatefulWidget {
   final bool isEnabled;
   final VoidCallback onTap;
 
-  const _AuditionToggleButton({
-    required this.isEnabled,
-    required this.onTap,
-  });
+  const _AuditionToggleButton({required this.isEnabled, required this.onTap});
 
   @override
   State<_AuditionToggleButton> createState() => _AuditionToggleButtonState();
@@ -138,10 +136,7 @@ class _PlayStopButton extends StatefulWidget {
   final bool isPlaying;
   final VoidCallback onTap;
 
-  const _PlayStopButton({
-    required this.isPlaying,
-    required this.onTap,
-  });
+  const _PlayStopButton({required this.isPlaying, required this.onTap});
 
   @override
   State<_PlayStopButton> createState() => _PlayStopButtonState();

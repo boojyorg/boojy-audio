@@ -102,7 +102,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   /// Toggle an item expanded/collapsed in the right column
-  Future<void> _toggleItem(String itemId, {Future<List<LibraryItem>>? loadContents}) async {
+  Future<void> _toggleItem(
+    String itemId, {
+    Future<List<LibraryItem>>? loadContents,
+  }) async {
     final isExpanded = _expandedItems.contains(itemId);
 
     // If expanding a folder, load contents first
@@ -135,12 +138,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final colors = context.colors;
 
     return GestureDetector(
-        onTap: () => _libraryFocusNode.requestFocus(),
-        behavior: HitTestBehavior.translucent,
-        child: Focus(
-          focusNode: _libraryFocusNode,
-          onKeyEvent: _handleKeyEvent,
-          child: ColoredBox(
+      onTap: () => _libraryFocusNode.requestFocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Focus(
+        focusNode: _libraryFocusNode,
+        onKeyEvent: _handleKeyEvent,
+        child: ColoredBox(
           color: colors.dark,
           child: Column(
             children: [
@@ -158,9 +161,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                           // Draggable divider
                           _buildDivider(),
                           // Right column - Contents only (preview bar moved to full width)
-                          Expanded(
-                            child: _buildContentsView(),
-                          ),
+                          Expanded(child: _buildContentsView()),
                         ],
                       ),
               ),
@@ -169,13 +170,20 @@ class _LibraryPanelState extends State<LibraryPanel> {
             ],
           ),
         ),
-        ),
-        );
+      ),
+    );
   }
 
   /// Get ordered list of category IDs for keyboard navigation
   List<String> _getCategoryIds() {
-    final ids = <String>['favorites', 'sounds', 'samples', 'instruments', 'effects', 'plugins'];
+    final ids = <String>[
+      'favorites',
+      'sounds',
+      'samples',
+      'instruments',
+      'effects',
+      'plugins',
+    ];
     for (final path in widget.libraryService.userFolderPaths) {
       ids.add('folder_${path.hashCode}');
     }
@@ -238,18 +246,24 @@ class _LibraryPanelState extends State<LibraryPanel> {
       final itemIds = _getRightPanelItemIds();
       if (itemIds.isEmpty) return KeyEventResult.ignored;
 
-      final currentIndex = _selectedItemId != null ? itemIds.indexOf(_selectedItemId!) : -1;
+      final currentIndex = _selectedItemId != null
+          ? itemIds.indexOf(_selectedItemId!)
+          : -1;
 
       if (key == LogicalKeyboardKey.arrowDown) {
         final next = (currentIndex + 1).clamp(0, itemIds.length - 1);
         setState(() => _selectedItemId = itemIds[next]);
-        print('[LIBRARY-NAV] Arrow down → selected: ${itemIds[next]}, previewing...');
+        print(
+          '[LIBRARY-NAV] Arrow down → selected: ${itemIds[next]}, previewing...',
+        );
         _previewSelectedItem();
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.arrowUp) {
         final prev = (currentIndex - 1).clamp(0, itemIds.length - 1);
         setState(() => _selectedItemId = itemIds[prev]);
-        print('[LIBRARY-NAV] Arrow up → selected: ${itemIds[prev]}, previewing...');
+        print(
+          '[LIBRARY-NAV] Arrow up → selected: ${itemIds[prev]}, previewing...',
+        );
         _previewSelectedItem();
         return KeyEventResult.handled;
       } else if (key == LogicalKeyboardKey.arrowLeft) {
@@ -272,7 +286,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else {
       // Left panel navigation
       final categoryIds = _getCategoryIds();
-      final currentIndex = _selectedCategory != null ? categoryIds.indexOf(_selectedCategory!) : -1;
+      final currentIndex = _selectedCategory != null
+          ? categoryIds.indexOf(_selectedCategory!)
+          : -1;
 
       if (key == LogicalKeyboardKey.arrowDown) {
         final next = (currentIndex + 1).clamp(0, categoryIds.length - 1);
@@ -282,7 +298,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
         final prev = (currentIndex - 1).clamp(0, categoryIds.length - 1);
         _switchToCategory(categoryIds[prev]);
         return KeyEventResult.handled;
-      } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.enter) {
+      } else if (key == LogicalKeyboardKey.arrowRight ||
+          key == LogicalKeyboardKey.enter) {
         // Move focus to right panel
         if (_selectedCategory != null) {
           setState(() {
@@ -310,7 +327,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
       _restoreCategoryState(categoryId);
     });
     // Load user folder contents if not cached
-    if (categoryId.startsWith('folder_') && !_folderContentsCache.containsKey(categoryId)) {
+    if (categoryId.startsWith('folder_') &&
+        !_folderContentsCache.containsKey(categoryId)) {
       final userFolders = widget.libraryService.userFolderPaths;
       for (final path in userFolders) {
         if ('folder_${path.hashCode}' == categoryId) {
@@ -425,7 +443,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (cat == null) return;
     _categoryStates[cat] = _CategoryState(
       selectedItemId: _selectedItemId,
-      scrollOffset: _rightScrollController.hasClients ? _rightScrollController.offset : 0.0,
+      scrollOffset: _rightScrollController.hasClients
+          ? _rightScrollController.offset
+          : 0.0,
       expandedFolders: Set.of(_expandedItems),
     );
   }
@@ -442,7 +462,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_rightScrollController.hasClients && saved.scrollOffset > 0) {
           _rightScrollController.jumpTo(
-            saved.scrollOffset.clamp(0.0, _rightScrollController.position.maxScrollExtent),
+            saved.scrollOffset.clamp(
+              0.0,
+              _rightScrollController.position.maxScrollExtent,
+            ),
           );
         }
       });
@@ -454,12 +477,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// Returns (icon, label) for a category ID, or null for user folders
   (IconData, String)? _categoryMeta(String? id) {
     return switch (id) {
-      'favorites'   => (Icons.star, 'Favorites'),
-      'sounds'      => (Icons.music_note, 'Sounds'),
-      'samples'     => (Icons.graphic_eq, 'Samples'),
+      'favorites' => (Icons.star, 'Favorites'),
+      'sounds' => (Icons.music_note, 'Sounds'),
+      'samples' => (Icons.graphic_eq, 'Samples'),
       'instruments' => (Icons.piano, 'Instruments'),
-      'effects'     => (Icons.bolt, 'Effects'),
-      'plugins'     => (Icons.extension, 'Plugins'),
+      'effects' => (Icons.bolt, 'Effects'),
+      'plugins' => (Icons.extension, 'Plugins'),
       _ => null,
     };
   }
@@ -486,9 +509,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: colors.dark,
-        border: Border(
-          bottom: BorderSide(color: colors.divider),
-        ),
+        border: Border(bottom: BorderSide(color: colors.divider)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -544,10 +565,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 11, color: colors.textSecondary),
           ),
           const SizedBox(width: 4),
           GestureDetector(
@@ -615,7 +633,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
           ...userFolders.map((path) {
             final name = path.split('/').last;
             final folderId = 'folder_${path.hashCode}';
-            return _buildCategoryItem(folderId, Icons.folder, name, isUserFolder: true, folderPath: path);
+            return _buildCategoryItem(
+              folderId,
+              Icons.folder,
+              name,
+              isUserFolder: true,
+              folderPath: path,
+            );
           }),
 
           // Add folder button
@@ -629,7 +653,13 @@ class _LibraryPanelState extends State<LibraryPanel> {
     );
   }
 
-  Widget _buildCategoryItem(String id, IconData icon, String label, {bool isUserFolder = false, String? folderPath}) {
+  Widget _buildCategoryItem(
+    String id,
+    IconData icon,
+    String label, {
+    bool isUserFolder = false,
+    String? folderPath,
+  }) {
     final isSelected = _selectedCategory == id;
     final hasChildSelected = isSelected && _selectedItemId != null;
 
@@ -654,7 +684,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
             _restoreCategoryState(id);
           }
         });
-        if (_selectedCategory == id && isUserFolder && folderPath != null && !_folderContentsCache.containsKey(id)) {
+        if (_selectedCategory == id &&
+            isUserFolder &&
+            folderPath != null &&
+            !_folderContentsCache.containsKey(id)) {
           widget.libraryService.scanFolder(folderPath).then((contents) {
             if (mounted) {
               setState(() {
@@ -753,10 +786,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           child: Text(
             'Select a category\nor search to browse.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: colors.textMuted,
-            ),
+            style: TextStyle(fontSize: 13, color: colors.textMuted),
           ),
         ),
       );
@@ -779,16 +809,27 @@ class _LibraryPanelState extends State<LibraryPanel> {
       case 'favorites':
         return _buildFavoritesContents(builtInCategories);
       case 'sounds':
-        final soundsCategory = builtInCategories.firstWhere((c) => c.id == 'sounds');
+        final soundsCategory = builtInCategories.firstWhere(
+          (c) => c.id == 'sounds',
+        );
         return _buildNestedCategoryContents(soundsCategory);
       case 'samples':
-        final samplesCategory = builtInCategories.firstWhere((c) => c.id == 'samples');
+        final samplesCategory = builtInCategories.firstWhere(
+          (c) => c.id == 'samples',
+        );
         return _buildNestedCategoryContents(samplesCategory);
       case 'instruments':
-        final instrumentsCategory = builtInCategories.firstWhere((c) => c.id == 'instruments');
-        return _buildFlatCategoryContents(instrumentsCategory, isInstrumentCategory: true);
+        final instrumentsCategory = builtInCategories.firstWhere(
+          (c) => c.id == 'instruments',
+        );
+        return _buildFlatCategoryContents(
+          instrumentsCategory,
+          isInstrumentCategory: true,
+        );
       case 'effects':
-        final effectsCategory = builtInCategories.firstWhere((c) => c.id == 'effects');
+        final effectsCategory = builtInCategories.firstWhere(
+          (c) => c.id == 'effects',
+        );
         return _buildFlatCategoryContents(effectsCategory);
       case 'plugins':
         return _buildPluginsContents();
@@ -801,11 +842,20 @@ class _LibraryPanelState extends State<LibraryPanel> {
     }
   }
 
-  List<Widget> _buildFavoritesContents(List<LibraryCategory> builtInCategories) {
-    final favoriteItems = widget.libraryService.getFavoriteItems(builtInCategories);
+  List<Widget> _buildFavoritesContents(
+    List<LibraryCategory> builtInCategories,
+  ) {
+    final favoriteItems = widget.libraryService.getFavoriteItems(
+      builtInCategories,
+    );
 
     if (favoriteItems.isEmpty) {
-      return [_buildEmptyState('No favorites yet.', subtitle: 'Right-click any item to add it here.')];
+      return [
+        _buildEmptyState(
+          'No favorites yet.',
+          subtitle: 'Right-click any item to add it here.',
+        ),
+      ];
     }
 
     return favoriteItems.map((item) => _buildLibraryItem(item)).toList();
@@ -822,30 +872,44 @@ class _LibraryPanelState extends State<LibraryPanel> {
       final isExpanded = _expandedItems.contains(subId);
       final items = sub.items;
 
-      widgets.add(_buildExpandableHeader(
-        icon: sub.icon,
-        title: sub.name,
-        isExpanded: isExpanded,
-        onTap: () => _toggleItem(subId),
-      ));
+      widgets.add(
+        _buildExpandableHeader(
+          icon: sub.icon,
+          title: sub.name,
+          isExpanded: isExpanded,
+          onTap: () => _toggleItem(subId),
+        ),
+      );
 
       if (isExpanded) {
         if (items.isEmpty) {
           widgets.add(_buildIndentedEmpty('No items'));
         } else {
-          widgets.addAll(items.map((item) => _buildLibraryItem(item, indent: 1)));
+          widgets.addAll(
+            items.map((item) => _buildLibraryItem(item, indent: 1)),
+          );
         }
       }
     }
     return widgets;
   }
 
-  List<Widget> _buildFlatCategoryContents(LibraryCategory category, {bool isInstrumentCategory = false}) {
+  List<Widget> _buildFlatCategoryContents(
+    LibraryCategory category, {
+    bool isInstrumentCategory = false,
+  }) {
     if (category.items.isEmpty) {
       return [_buildEmptyState('No ${category.name.toLowerCase()}')];
     }
 
-    return category.items.map((item) => _buildLibraryItem(item, isInstrumentCategory: isInstrumentCategory)).toList();
+    return category.items
+        .map(
+          (item) => _buildLibraryItem(
+            item,
+            isInstrumentCategory: isInstrumentCategory,
+          ),
+        )
+        .toList();
   }
 
   List<Widget> _buildPluginsContents() {
@@ -857,40 +921,53 @@ class _LibraryPanelState extends State<LibraryPanel> {
         .toList();
 
     if (vst3Instruments.isEmpty && vst3Effects.isEmpty) {
-      return [_buildEmptyState('No plugins found.', subtitle: 'Install VST3 plugins to see them here.')];
+      return [
+        _buildEmptyState(
+          'No plugins found.',
+          subtitle: 'Install VST3 plugins to see them here.',
+        ),
+      ];
     }
 
     final widgets = <Widget>[];
 
     // Instruments subcategory
     final instrumentsExpanded = _expandedItems.contains('plugins_instruments');
-    widgets.add(_buildExpandableHeader(
-      icon: Icons.piano,
-      title: 'Instruments',
-      isExpanded: instrumentsExpanded,
-      onTap: () => _toggleItem('plugins_instruments'),
-    ));
+    widgets.add(
+      _buildExpandableHeader(
+        icon: Icons.piano,
+        title: 'Instruments',
+        isExpanded: instrumentsExpanded,
+        onTap: () => _toggleItem('plugins_instruments'),
+      ),
+    );
     if (instrumentsExpanded) {
       if (vst3Instruments.isEmpty) {
         widgets.add(_buildIndentedEmpty('No VST3 instruments'));
       } else {
-        widgets.addAll(vst3Instruments.map((p) => _buildVst3PluginItem(p, true, indent: 1)));
+        widgets.addAll(
+          vst3Instruments.map((p) => _buildVst3PluginItem(p, true, indent: 1)),
+        );
       }
     }
 
     // Effects subcategory
     final effectsExpanded = _expandedItems.contains('plugins_effects');
-    widgets.add(_buildExpandableHeader(
-      icon: Icons.graphic_eq,
-      title: 'Effects',
-      isExpanded: effectsExpanded,
-      onTap: () => _toggleItem('plugins_effects'),
-    ));
+    widgets.add(
+      _buildExpandableHeader(
+        icon: Icons.graphic_eq,
+        title: 'Effects',
+        isExpanded: effectsExpanded,
+        onTap: () => _toggleItem('plugins_effects'),
+      ),
+    );
     if (effectsExpanded) {
       if (vst3Effects.isEmpty) {
         widgets.add(_buildIndentedEmpty('No VST3 effects'));
       } else {
-        widgets.addAll(vst3Effects.map((p) => _buildVst3PluginItem(p, false, indent: 1)));
+        widgets.addAll(
+          vst3Effects.map((p) => _buildVst3PluginItem(p, false, indent: 1)),
+        );
       }
     }
 
@@ -1007,20 +1084,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: context.colors.textMuted, fontSize: 13),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 12),
               ),
             ],
           ],
@@ -1034,10 +1105,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       padding: const EdgeInsets.only(left: 24, top: 4, bottom: 4),
       child: Text(
         message,
-        style: TextStyle(
-          color: context.colors.textMuted,
-          fontSize: 11,
-        ),
+        style: TextStyle(color: context.colors.textMuted, fontSize: 11),
       ),
     );
   }
@@ -1055,7 +1123,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
     // Determine which categories to search
     bool shouldSearchCategory(String categoryId) {
       if (scope == null) return true; // search everything
-      if (scope.startsWith('folder_')) return false; // user folder scope — handled below
+      if (scope.startsWith('folder_'))
+        return false; // user folder scope — handled below
       return scope == categoryId;
     }
 
@@ -1171,9 +1240,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
     _tryGetPreviewService()?.onDragStarted();
   }
 
-  Widget _buildLibraryItem(LibraryItem item, {int indent = 0, bool isInstrumentCategory = false}) {
+  Widget _buildLibraryItem(
+    LibraryItem item, {
+    int indent = 0,
+    bool isInstrumentCategory = false,
+  }) {
     final previewService = _tryGetPreviewService(listen: true);
-    final isCurrentlyPreviewing = previewService != null &&
+    final isCurrentlyPreviewing =
+        previewService != null &&
         item is AudioFileItem &&
         previewService.currentFilePath == item.filePath &&
         previewService.isPlaying;
@@ -1220,7 +1294,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
         onDragStarted: _handleDragStarted,
         child: child,
       );
-    } else if (item.type == LibraryItemType.audioFile && item is AudioFileItem) {
+    } else if (item.type == LibraryItemType.audioFile &&
+        item is AudioFileItem) {
       child = Draggable<AudioFileItem>(
         data: item,
         feedback: _buildDragFeedback(item.displayName, Icons.graphic_eq),
@@ -1241,16 +1316,27 @@ class _LibraryPanelState extends State<LibraryPanel> {
     return child;
   }
 
-  Widget _buildVst3PluginItem(Map<String, String> pluginData, bool isInstrument, {int indent = 0}) {
+  Widget _buildVst3PluginItem(
+    Map<String, String> pluginData,
+    bool isInstrument, {
+    int indent = 0,
+  }) {
     final plugin = Vst3Plugin.fromMap(pluginData);
     final name = plugin.name;
 
     return Draggable<Vst3Plugin>(
       data: plugin,
-      feedback: _buildDragFeedback(name, isInstrument ? Icons.piano : Icons.graphic_eq),
+      feedback: _buildDragFeedback(
+        name,
+        isInstrument ? Icons.piano : Icons.graphic_eq,
+      ),
       childWhenDragging: Opacity(
         opacity: 0.5,
-        child: _LibraryItemWidget(name: name, indent: indent, typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq),
+        child: _LibraryItemWidget(
+          name: name,
+          indent: indent,
+          typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq,
+        ),
       ),
       child: GestureDetector(
         onTap: () => setState(() {
@@ -1314,7 +1400,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
   void _showItemContextMenu(TapUpDetails details, LibraryItem item) {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
-    final isAudioFile = item.type == LibraryItemType.audioFile || item.type == LibraryItemType.sample;
+    final isAudioFile =
+        item.type == LibraryItemType.audioFile ||
+        item.type == LibraryItemType.sample;
     final isInstrument = item.type == LibraryItemType.instrument;
     final isEffect = item.type == LibraryItemType.effect;
     final hasFilePath = item is AudioFileItem || item is SampleItem;
@@ -1389,7 +1477,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
               ],
             ),
             onTap: () {
-              final path = item is AudioFileItem ? item.filePath : (item as SampleItem).filePath;
+              final path = item is AudioFileItem
+                  ? item.filePath
+                  : (item as SampleItem).filePath;
               Process.run('open', ['-R', path]);
             },
           ),
@@ -1402,7 +1492,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
               ],
             ),
             onTap: () {
-              final path = item is AudioFileItem ? item.filePath : (item as SampleItem).filePath;
+              final path = item is AudioFileItem
+                  ? item.filePath
+                  : (item as SampleItem).filePath;
               Clipboard.setData(ClipboardData(text: path));
             },
           ),
@@ -1523,7 +1615,9 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
     List<BoxShadow>? shadow;
     if (isActive) {
       bgColor = colors.accent.withValues(alpha: 0.4);
-      shadow = [BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8)];
+      shadow = [
+        BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8),
+      ];
     } else if (isInactive) {
       bgColor = colors.accent.withValues(alpha: 0.15);
     } else if (_isHovered) {
@@ -1559,7 +1653,9 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isActive || _isHovered ? colors.textPrimary : colors.textSecondary,
+                    color: isActive || _isHovered
+                        ? colors.textPrimary
+                        : colors.textSecondary,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -1589,7 +1685,8 @@ class _ExpandableHeaderWidget extends StatefulWidget {
   });
 
   @override
-  State<_ExpandableHeaderWidget> createState() => _ExpandableHeaderWidgetState();
+  State<_ExpandableHeaderWidget> createState() =>
+      _ExpandableHeaderWidgetState();
 }
 
 class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
@@ -1608,7 +1705,9 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
           margin: const EdgeInsets.only(left: 5, right: 3),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: _isHovered ? colors.accent.withValues(alpha: 0.12) : Colors.transparent,
+            color: _isHovered
+                ? colors.accent.withValues(alpha: 0.12)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
@@ -1626,7 +1725,9 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
                   widget.title,
                   style: TextStyle(
                     fontSize: 14,
-                    color: _isHovered ? colors.textPrimary : colors.textSecondary,
+                    color: _isHovered
+                        ? colors.textPrimary
+                        : colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -1659,10 +1760,7 @@ class _SearchResult {
   final LibraryItem? item;
   final Map<String, String>? vst3Plugin;
 
-  _SearchResult({
-    this.item,
-    this.vst3Plugin,
-  });
+  _SearchResult({this.item, this.vst3Plugin});
 
   String get displayName =>
       item?.displayName ?? vst3Plugin?['name'] ?? 'Unknown';
@@ -1705,7 +1803,9 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
     List<BoxShadow>? shadow;
     if (isActive) {
       bgColor = colors.accent.withValues(alpha: 0.4);
-      shadow = [BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8)];
+      shadow = [
+        BoxShadow(color: colors.accent.withValues(alpha: 0.1), blurRadius: 8),
+      ];
     } else if (_isHovered) {
       bgColor = colors.accent.withValues(alpha: 0.12);
     } else {
@@ -1713,7 +1813,9 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
     }
 
     // Icon color: active = accent, previewing = accent, default = muted
-    final iconColor = isActive || widget.isPreviewing ? colors.accent : colors.textMuted;
+    final iconColor = isActive || widget.isPreviewing
+        ? colors.accent
+        : colors.textMuted;
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
@@ -1742,7 +1844,9 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
                   final textStyle = TextStyle(
                     color: isActive || widget.isPreviewing
                         ? colors.textPrimary
-                        : (_isHovered ? colors.textPrimary : colors.textSecondary),
+                        : (_isHovered
+                              ? colors.textPrimary
+                              : colors.textSecondary),
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   );

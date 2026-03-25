@@ -21,9 +21,7 @@ class CrashReportingDialog extends StatelessWidget {
 
     return AlertDialog(
       backgroundColor: colors.elevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Text(
         'Help Improve Boojy Audio',
         style: TextStyle(
@@ -40,18 +38,12 @@ class CrashReportingDialog extends StatelessWidget {
           children: [
             Text(
               'Would you like to send anonymous crash reports when something goes wrong?',
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
             ),
             const SizedBox(height: 12),
             Text(
               'This helps me fix bugs faster and improve the app for everyone.',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
             Text(

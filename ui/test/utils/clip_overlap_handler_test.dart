@@ -259,9 +259,7 @@ void main() {
     });
 
     test('hasChanges is true with removals', () {
-      final result = AudioOverlapResult(
-        removals: [_audioClip()],
-      );
+      final result = AudioOverlapResult(removals: [_audioClip()]);
       expect(result.hasChanges, isTrue);
     });
   });
@@ -273,9 +271,7 @@ void main() {
     });
 
     test('hasChanges is true with removals', () {
-      final result = MidiOverlapResult(
-        removals: [_midiClip()],
-      );
+      final result = MidiOverlapResult(removals: [_midiClip()]);
       expect(result.hasChanges, isTrue);
     });
   });

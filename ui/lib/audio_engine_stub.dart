@@ -23,7 +23,8 @@ class AudioEngine implements AudioEngineInterface {
   // ========================================================================
 
   String initAudioEngine() => throw UnsupportedError('stub');
-  String playSineWave(double frequency, int durationMs) => throw UnsupportedError('stub');
+  String playSineWave(double frequency, int durationMs) =>
+      throw UnsupportedError('stub');
   String initAudioGraph() => throw UnsupportedError('stub');
 
   // ========================================================================
@@ -37,9 +38,11 @@ class AudioEngine implements AudioEngineInterface {
   void transportStop() => throw UnsupportedError('stub');
   void transportSeek(double position) => throw UnsupportedError('stub');
   double getPlayStartPosition() => throw UnsupportedError('stub');
-  String setPlayStartPosition(double positionSeconds) => throw UnsupportedError('stub');
+  String setPlayStartPosition(double positionSeconds) =>
+      throw UnsupportedError('stub');
   double getRecordStartPosition() => throw UnsupportedError('stub');
-  String setRecordStartPosition(double positionSeconds) => throw UnsupportedError('stub');
+  String setRecordStartPosition(double positionSeconds) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Latency & Buffer Control
@@ -53,7 +56,10 @@ class AudioEngine implements AudioEngineInterface {
   String stopLatencyTest() => throw UnsupportedError('stub');
   (int, double) getLatencyTestStatus() => throw UnsupportedError('stub');
   String? getLatencyTestError() => throw UnsupportedError('stub');
-  Future<double?> runLatencyTest({Duration timeout = const Duration(seconds: 5), Duration pollInterval = const Duration(milliseconds: 100)}) => throw UnsupportedError('stub');
+  Future<double?> runLatencyTest({
+    Duration timeout = const Duration(seconds: 5),
+    Duration pollInterval = const Duration(milliseconds: 100),
+  }) => throw UnsupportedError('stub');
 
   // ========================================================================
   // Audio File Operations
@@ -62,8 +68,11 @@ class AudioEngine implements AudioEngineInterface {
   int loadAudioFile(String path) => throw UnsupportedError('stub');
 
   @override
-  int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0}) =>
-      throw UnsupportedError('stub');
+  int loadAudioFileToTrack(
+    String filePath,
+    int trackId, {
+    double startTime = 0.0,
+  }) => throw UnsupportedError('stub');
 
   @override
   double getClipDuration(int clipId) => throw UnsupportedError('stub');
@@ -93,21 +102,34 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) =>
-      throw UnsupportedError('stub');
+  String setAudioClipWarp(
+    int trackId,
+    int clipId,
+    bool warpEnabled,
+    double stretchFactor,
+    int warpMode,
+  ) => throw UnsupportedError('stub');
 
   @override
-  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) =>
-      throw UnsupportedError('stub');
+  String setAudioClipTranspose(
+    int trackId,
+    int clipId,
+    int semitones,
+    int cents,
+  ) => throw UnsupportedError('stub');
 
   @override
   bool removeAudioClip(int trackId, int clipId) =>
       throw UnsupportedError('stub');
 
   @override
-  int addExistingClipToTrack(int clipId, int trackId, double startTime,
-          {double offset = 0.0, double? duration}) =>
-      throw UnsupportedError('stub');
+  int addExistingClipToTrack(
+    int clipId,
+    int trackId,
+    double startTime, {
+    double offset = 0.0,
+    double? duration,
+  }) => throw UnsupportedError('stub');
 
   @override
   int duplicateAudioClip(int trackId, int clipId, double startTime) =>
@@ -131,8 +153,7 @@ class AudioEngine implements AudioEngineInterface {
   String getTrackInfo(int trackId) => throw UnsupportedError('stub');
 
   @override
-  void setTrackName(int trackId, String name) =>
-      throw UnsupportedError('stub');
+  void setTrackName(int trackId, String name) => throw UnsupportedError('stub');
 
   @override
   void setTrackVolume(int trackId, double volumeDb) =>
@@ -163,9 +184,11 @@ class AudioEngine implements AudioEngineInterface {
   String clearAllTracks() => throw UnsupportedError('stub');
 
   // Track input
-  String setTrackInput(int trackId, int deviceIndex, int channel) => throw UnsupportedError('stub');
+  String setTrackInput(int trackId, int deviceIndex, int channel) =>
+      throw UnsupportedError('stub');
   Map<String, int> getTrackInput(int trackId) => throw UnsupportedError('stub');
-  String setTrackInputMonitoring(int trackId, {required bool enabled}) => throw UnsupportedError('stub');
+  String setTrackInputMonitoring(int trackId, {required bool enabled}) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Effects
@@ -195,7 +218,8 @@ class AudioEngine implements AudioEngineInterface {
 
   String getTrackEffects(int trackId) => throw UnsupportedError('stub');
   String getEffectInfo(int effectId) => throw UnsupportedError('stub');
-  String setEffectParameter(int effectId, String paramName, double value) => throw UnsupportedError('stub');
+  String setEffectParameter(int effectId, String paramName, double value) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Sampler
@@ -226,11 +250,15 @@ class AudioEngine implements AudioEngineInterface {
   // Instruments & Synth
   // ========================================================================
 
-  int setTrackInstrument(int trackId, String instrumentType) => throw UnsupportedError('stub');
-  String setSynthParameter(int trackId, String paramName, dynamic value) => throw UnsupportedError('stub');
+  int setTrackInstrument(int trackId, String instrumentType) =>
+      throw UnsupportedError('stub');
+  String setSynthParameter(int trackId, String paramName, dynamic value) =>
+      throw UnsupportedError('stub');
   String getSynthParameters(int trackId) => throw UnsupportedError('stub');
-  String sendTrackMidiNoteOn(int trackId, int note, int velocity) => throw UnsupportedError('stub');
-  String sendTrackMidiNoteOff(int trackId, int note, int velocity) => throw UnsupportedError('stub');
+  String sendTrackMidiNoteOn(int trackId, int note, int velocity) =>
+      throw UnsupportedError('stub');
+  String sendTrackMidiNoteOff(int trackId, int note, int velocity) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // MIDI Clip Operations
@@ -240,8 +268,13 @@ class AudioEngine implements AudioEngineInterface {
   int createMidiClip() => throw UnsupportedError('stub');
 
   @override
-  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) =>
-      throw UnsupportedError('stub');
+  String addMidiNoteToClip(
+    int clipId,
+    int note,
+    int velocity,
+    double startTime,
+    double duration,
+  ) => throw UnsupportedError('stub');
 
   @override
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) =>
@@ -251,7 +284,8 @@ class AudioEngine implements AudioEngineInterface {
   int removeMidiClip(int trackId, int clipId) => throw UnsupportedError('stub');
 
   String clearMidiClip(int clipId) => throw UnsupportedError('stub');
-  String quantizeMidiClip(int clipId, int gridDivision) => throw UnsupportedError('stub');
+  String quantizeMidiClip(int clipId, int gridDivision) =>
+      throw UnsupportedError('stub');
   String getMidiClipInfo(int clipId) => throw UnsupportedError('stub');
   String getAllMidiClipsInfo() => throw UnsupportedError('stub');
   String getMidiClipNotes(int clipId) => throw UnsupportedError('stub');
@@ -264,9 +298,12 @@ class AudioEngine implements AudioEngineInterface {
   String stopMidiInput() => throw UnsupportedError('stub');
   String setSynthOscillatorType(int oscType) => throw UnsupportedError('stub');
   String setSynthVolume(double volume) => throw UnsupportedError('stub');
-  String sendMidiNoteOn(int note, int velocity) => throw UnsupportedError('stub');
-  String sendMidiNoteOff(int note, int velocity) => throw UnsupportedError('stub');
-  List<Map<String, dynamic>> getMidiInputDevices() => throw UnsupportedError('stub');
+  String sendMidiNoteOn(int note, int velocity) =>
+      throw UnsupportedError('stub');
+  String sendMidiNoteOff(int note, int velocity) =>
+      throw UnsupportedError('stub');
+  List<Map<String, dynamic>> getMidiInputDevices() =>
+      throw UnsupportedError('stub');
   void selectMidiInputDevice(int deviceIndex) => throw UnsupportedError('stub');
   void refreshMidiDevices() => throw UnsupportedError('stub');
   String getMidiRecorderLiveEvents() => throw UnsupportedError('stub');
@@ -282,7 +319,8 @@ class AudioEngine implements AudioEngineInterface {
   int getRecordingState() => throw UnsupportedError('stub');
   int getMidiRecordingState() => throw UnsupportedError('stub');
   double getRecordedDuration() => throw UnsupportedError('stub');
-  List<double> getRecordingWaveform(int numPeaks) => throw UnsupportedError('stub');
+  List<double> getRecordingWaveform(int numPeaks) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Tempo, Metronome, Time Signature
@@ -299,7 +337,8 @@ class AudioEngine implements AudioEngineInterface {
   String getCountInBars() => throw UnsupportedError('stub');
   int getCountInBeat() => throw UnsupportedError('stub');
   double getCountInProgress() => throw UnsupportedError('stub');
-  void setMetronomeEnabled({required bool enabled}) => throw UnsupportedError('stub');
+  void setMetronomeEnabled({required bool enabled}) =>
+      throw UnsupportedError('stub');
   bool isMetronomeEnabled() => throw UnsupportedError('stub');
   String setTimeSignature(int beatsPerBar) => throw UnsupportedError('stub');
   int getTimeSignature() => throw UnsupportedError('stub');
@@ -308,10 +347,13 @@ class AudioEngine implements AudioEngineInterface {
   // Audio Devices
   // ========================================================================
 
-  List<Map<String, dynamic>> getAudioInputDevices() => throw UnsupportedError('stub');
-  List<Map<String, dynamic>> getAudioOutputDevices() => throw UnsupportedError('stub');
+  List<Map<String, dynamic>> getAudioInputDevices() =>
+      throw UnsupportedError('stub');
+  List<Map<String, dynamic>> getAudioOutputDevices() =>
+      throw UnsupportedError('stub');
   String setAudioInputDevice(int deviceIndex) => throw UnsupportedError('stub');
-  String setAudioOutputDevice(String deviceName) => throw UnsupportedError('stub');
+  String setAudioOutputDevice(String deviceName) =>
+      throw UnsupportedError('stub');
   String getSelectedAudioOutputDevice() => throw UnsupportedError('stub');
   double getInputChannelLevel(int channel) => throw UnsupportedError('stub');
   int getInputChannelCount() => throw UnsupportedError('stub');
@@ -321,10 +363,13 @@ class AudioEngine implements AudioEngineInterface {
   // VST3 Plugin Hosting
   // ========================================================================
 
-  List<Map<String, String>> scanVst3PluginsStandard() => throw UnsupportedError('stub');
+  List<Map<String, String>> scanVst3PluginsStandard() =>
+      throw UnsupportedError('stub');
   int getVst3ParameterCount(int effectId) => throw UnsupportedError('stub');
-  Map<String, dynamic>? getVst3ParameterInfo(int effectId, int paramIndex) => throw UnsupportedError('stub');
-  double getVst3ParameterValue(int effectId, int paramIndex) => throw UnsupportedError('stub');
+  Map<String, dynamic>? getVst3ParameterInfo(int effectId, int paramIndex) =>
+      throw UnsupportedError('stub');
+  double getVst3ParameterValue(int effectId, int paramIndex) =>
+      throw UnsupportedError('stub');
 
   @override
   bool setVst3ParameterValue(int effectId, int paramIndex, double value) =>
@@ -333,9 +378,17 @@ class AudioEngine implements AudioEngineInterface {
   bool vst3HasEditor(int effectId) => throw UnsupportedError('stub');
   String vst3OpenEditor(int effectId) => throw UnsupportedError('stub');
   void vst3CloseEditor(int effectId) => throw UnsupportedError('stub');
-  Map<String, int>? vst3GetEditorSize(int effectId) => throw UnsupportedError('stub');
-  String vst3AttachEditor(int effectId, dynamic parentPtr) => throw UnsupportedError('stub');
-  String vst3SendMidiNote(int effectId, int eventType, int channel, int note, int velocity) => throw UnsupportedError('stub');
+  Map<String, int>? vst3GetEditorSize(int effectId) =>
+      throw UnsupportedError('stub');
+  String vst3AttachEditor(int effectId, dynamic parentPtr) =>
+      throw UnsupportedError('stub');
+  String vst3SendMidiNote(
+    int effectId,
+    int eventType,
+    int channel,
+    int note,
+    int velocity,
+  ) => throw UnsupportedError('stub');
 
   // ========================================================================
   // Project Operations
@@ -351,9 +404,11 @@ class AudioEngine implements AudioEngineInterface {
   // Export
   // ========================================================================
 
-  String exportToWav(String outputPath, {required bool normalize}) => throw UnsupportedError('stub');
+  String exportToWav(String outputPath, {required bool normalize}) =>
+      throw UnsupportedError('stub');
   bool isFfmpegAvailable() => throw UnsupportedError('stub');
-  String exportAudio(String outputPath, String optionsJson) => throw UnsupportedError('stub');
+  String exportAudio(String outputPath, String optionsJson) =>
+      throw UnsupportedError('stub');
   String exportWavWithOptions({
     required String outputPath,
     int bitDepth = 16,
@@ -369,7 +424,8 @@ class AudioEngine implements AudioEngineInterface {
     bool normalize = false,
     bool mono = false,
   }) => throw UnsupportedError('stub');
-  String writeMp3Metadata(String filePath, String metadataJson) => throw UnsupportedError('stub');
+  String writeMp3Metadata(String filePath, String metadataJson) =>
+      throw UnsupportedError('stub');
   String getTracksForStems() => throw UnsupportedError('stub');
   String exportStems({
     required String outputDir,
@@ -422,26 +478,30 @@ class AudioEngine implements AudioEngineInterface {
   bool previewIsLooping() => throw UnsupportedError('stub');
 
   @override
-  List<double> previewGetWaveform(int resolution) => throw UnsupportedError('stub');
+  List<double> previewGetWaveform(int resolution) =>
+      throw UnsupportedError('stub');
 
   // ========================================================================
   // Punch Recording
   // ========================================================================
 
   @override
-  String setPunchInEnabled({required bool enabled}) => throw UnsupportedError('stub');
+  String setPunchInEnabled({required bool enabled}) =>
+      throw UnsupportedError('stub');
 
   @override
   bool isPunchInEnabled() => throw UnsupportedError('stub');
 
   @override
-  String setPunchOutEnabled({required bool enabled}) => throw UnsupportedError('stub');
+  String setPunchOutEnabled({required bool enabled}) =>
+      throw UnsupportedError('stub');
 
   @override
   bool isPunchOutEnabled() => throw UnsupportedError('stub');
 
   @override
-  String setPunchRegion(double inSeconds, double outSeconds) => throw UnsupportedError('stub');
+  String setPunchRegion(double inSeconds, double outSeconds) =>
+      throw UnsupportedError('stub');
 
   @override
   double getPunchInSeconds() => throw UnsupportedError('stub');

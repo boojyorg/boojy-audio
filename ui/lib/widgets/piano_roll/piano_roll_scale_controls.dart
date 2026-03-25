@@ -190,19 +190,12 @@ class PianoRollScaleControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 12,
-                color: colors.textPrimary,
-              ),
+              Icon(icon, size: 12, color: colors.textPrimary),
               if (label.isNotEmpty) ...[
                 const SizedBox(width: 2),
                 Text(
                   label,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
                 ),
               ],
             ],
@@ -212,10 +205,7 @@ class PianoRollScaleControls extends StatelessWidget {
     );
 
     if (tooltip != null) {
-      button = Tooltip(
-        message: tooltip,
-        child: button,
-      );
+      button = Tooltip(message: tooltip, child: button);
     }
 
     return button;

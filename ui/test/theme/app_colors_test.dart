@@ -8,28 +8,31 @@ void main() {
     // 1. All 4 themes have all color tokens defined
     // -------------------------------------------------------
     for (final theme in BoojyTheme.values) {
-      test('${theme.displayName} theme exposes all color tokens without throwing', () {
-        final colors = BoojyColors(theme);
+      test(
+        '${theme.displayName} theme exposes all color tokens without throwing',
+        () {
+          final colors = BoojyColors(theme);
 
-        // Background tokens
-        expect(colors.editor, isA<Color>());
-        expect(colors.darkest, isA<Color>());
-        expect(colors.dark, isA<Color>());
-        expect(colors.standard, isA<Color>());
-        expect(colors.elevated, isA<Color>());
-        expect(colors.surface, isA<Color>());
-        expect(colors.divider, isA<Color>());
-        expect(colors.hover, isA<Color>());
+          // Background tokens
+          expect(colors.editor, isA<Color>());
+          expect(colors.darkest, isA<Color>());
+          expect(colors.dark, isA<Color>());
+          expect(colors.standard, isA<Color>());
+          expect(colors.elevated, isA<Color>());
+          expect(colors.surface, isA<Color>());
+          expect(colors.divider, isA<Color>());
+          expect(colors.hover, isA<Color>());
 
-        // Text tokens
-        expect(colors.textPrimary, isA<Color>());
-        expect(colors.textSecondary, isA<Color>());
-        expect(colors.textMuted, isA<Color>());
+          // Text tokens
+          expect(colors.textPrimary, isA<Color>());
+          expect(colors.textSecondary, isA<Color>());
+          expect(colors.textMuted, isA<Color>());
 
-        // Accent tokens
-        expect(colors.accent, isA<Color>());
-        expect(colors.accentHover, isA<Color>());
-      });
+          // Accent tokens
+          expect(colors.accent, isA<Color>());
+          expect(colors.accentHover, isA<Color>());
+        },
+      );
     }
 
     // -------------------------------------------------------

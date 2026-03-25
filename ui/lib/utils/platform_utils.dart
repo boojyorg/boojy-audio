@@ -13,19 +13,24 @@ class PlatformUtils {
   static bool get isWeb => kIsWeb;
 
   /// Whether running on macOS (false on web)
-  static bool get isMacOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+  static bool get isMacOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   /// Whether running on Windows (false on web)
-  static bool get isWindows => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+  static bool get isWindows =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
   /// Whether running on Linux (false on web)
-  static bool get isLinux => !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
+  static bool get isLinux =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
 
   /// Whether running on iOS (false on web)
-  static bool get isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get isIOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Whether running on Android (false on web)
-  static bool get isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   /// Whether running on desktop (macOS, Windows, or Linux)
   static bool get isDesktop => isMacOS || isWindows || isLinux;

@@ -33,10 +33,12 @@ class VersionManager extends ChangeNotifier {
   String get versionsFolderPath => path.join(projectFolderPath, 'Snapshots');
 
   /// Get the new metadata file path
-  String get _metadataFilePath => path.join(versionsFolderPath, 'versions.json');
+  String get _metadataFilePath =>
+      path.join(versionsFolderPath, 'versions.json');
 
   /// Get the old metadata file path (for migration)
-  String get _oldMetadataFilePath => path.join(versionsFolderPath, 'snapshots.json');
+  String get _oldMetadataFilePath =>
+      path.join(versionsFolderPath, 'snapshots.json');
 
   /// Get the next version number that will be assigned
   int get nextVersionNumber => _nextVersionNumber;
@@ -48,7 +50,9 @@ class VersionManager extends ChangeNotifier {
   ProjectVersion? get currentVersion {
     if (_currentVersionNumber == 0) return null;
     try {
-      return _versions.firstWhere((v) => v.versionNumber == _currentVersionNumber);
+      return _versions.firstWhere(
+        (v) => v.versionNumber == _currentVersionNumber,
+      );
     } catch (e) {
       return null;
     }
@@ -92,8 +96,14 @@ class VersionManager extends ChangeNotifier {
       _versions.sort((a, b) => b.created.compareTo(a.created));
 
       // Restore next version number and current version
-      _nextVersionNumber = jsonData['nextVersionNumber'] as int? ??
-          (_versions.isEmpty ? 1 : _versions.map((v) => v.versionNumber).reduce((a, b) => a > b ? a : b) + 1);
+      _nextVersionNumber =
+          jsonData['nextVersionNumber'] as int? ??
+          (_versions.isEmpty
+              ? 1
+              : _versions
+                        .map((v) => v.versionNumber)
+                        .reduce((a, b) => a > b ? a : b) +
+                    1);
       _currentVersionNumber = jsonData['currentVersionNumber'] as int? ?? 0;
 
       notifyListeners();
@@ -129,7 +139,9 @@ class VersionManager extends ChangeNotifier {
       _versions = [];
       for (int i = 0; i < oldSnapshots.length; i++) {
         final json = oldSnapshots[i];
-        _versions.add(ProjectVersion.fromJson(json, fallbackVersionNumber: i + 1));
+        _versions.add(
+          ProjectVersion.fromJson(json, fallbackVersionNumber: i + 1),
+        );
       }
 
       // Sort newest first for display
@@ -172,7 +184,6 @@ class VersionManager extends ChangeNotifier {
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
       await metadataFile.writeAsString(jsonString);
-
     } catch (e) {
       rethrow;
     }

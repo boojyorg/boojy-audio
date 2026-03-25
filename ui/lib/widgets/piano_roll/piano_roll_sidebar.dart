@@ -19,11 +19,7 @@ enum CCType {
 }
 
 /// View modes for the piano roll sidebar
-enum SidebarView {
-  pianoRoll,
-  effects,
-  instrument,
-}
+enum SidebarView { pianoRoll, effects, instrument }
 
 /// Comprehensive sidebar for Piano Roll with 7 sections:
 /// - Track info (header)
@@ -221,9 +217,7 @@ class PianoRollSidebar extends StatelessWidget {
         // Main sidebar content
         Container(
           width: width,
-          decoration: BoxDecoration(
-            color: colors.standard,
-          ),
+          decoration: BoxDecoration(color: colors.standard),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -238,15 +232,35 @@ class PianoRollSidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // CLIP section
-                      _buildSection(context, 'CLIP', _buildClipContent(context)),
+                      _buildSection(
+                        context,
+                        'CLIP',
+                        _buildClipContent(context),
+                      ),
                       // GRID section
-                      _buildSection(context, 'GRID', _buildGridContent(context)),
+                      _buildSection(
+                        context,
+                        'GRID',
+                        _buildGridContent(context),
+                      ),
                       // SCALE section
-                      _buildSection(context, 'SCALE', _buildScaleContent(context)),
+                      _buildSection(
+                        context,
+                        'SCALE',
+                        _buildScaleContent(context),
+                      ),
                       // NOTES section
-                      _buildSection(context, 'TRANSFORM', _buildNotesContent(context)),
+                      _buildSection(
+                        context,
+                        'TRANSFORM',
+                        _buildNotesContent(context),
+                      ),
                       // LANES section (combined Velocity + MIDI CC)
-                      _buildSection(context, 'LANES', _buildLanesContent(context)),
+                      _buildSection(
+                        context,
+                        'LANES',
+                        _buildLanesContent(context),
+                      ),
                     ],
                   ),
                 ),
@@ -267,9 +281,7 @@ class PianoRollSidebar extends StatelessWidget {
 
     return Container(
       width: collapsedWidth,
-      decoration: BoxDecoration(
-        color: colors.standard,
-      ),
+      decoration: BoxDecoration(color: colors.standard),
       child: Column(
         children: [
           // Track color header bar with expand button
@@ -305,24 +317,36 @@ class PianoRollSidebar extends StatelessWidget {
           ),
 
           // Tool icons removed - now in Piano Roll toolbar
-
           const Spacer(),
 
           // View switcher icons at bottom
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: colors.surface, width: 1),
-              ),
+              border: Border(top: BorderSide(color: colors.surface, width: 1)),
             ),
             child: Column(
               children: [
-                _buildViewSwitchButton(context, view: SidebarView.pianoRoll, icon: Icons.piano, tooltip: 'Piano Roll'),
+                _buildViewSwitchButton(
+                  context,
+                  view: SidebarView.pianoRoll,
+                  icon: Icons.piano,
+                  tooltip: 'Piano Roll',
+                ),
                 const SizedBox(height: 4),
-                _buildViewSwitchButton(context, view: SidebarView.effects, icon: Icons.equalizer, tooltip: 'Effects'),
+                _buildViewSwitchButton(
+                  context,
+                  view: SidebarView.effects,
+                  icon: Icons.equalizer,
+                  tooltip: 'Effects',
+                ),
                 const SizedBox(height: 4),
-                _buildViewSwitchButton(context, view: SidebarView.instrument, icon: Icons.music_note, tooltip: 'Instrument'),
+                _buildViewSwitchButton(
+                  context,
+                  view: SidebarView.instrument,
+                  icon: Icons.music_note,
+                  tooltip: 'Instrument',
+                ),
               ],
             ),
           ),
@@ -382,10 +406,7 @@ class PianoRollSidebar extends StatelessWidget {
       },
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,
-        child: Container(
-          width: 4,
-          color: colors.surface,
-        ),
+        child: Container(width: 4, color: colors.surface),
       ),
     );
   }
@@ -400,17 +421,12 @@ class PianoRollSidebar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: headerColor.withValues(alpha: 0.2),
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
           // Emoji
-          Text(
-            trackEmoji,
-            style: const TextStyle(fontSize: 12),
-          ),
+          Text(trackEmoji, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 4),
           // Track number and name
           Expanded(
@@ -483,16 +499,9 @@ class PianoRollSidebar extends StatelessWidget {
             children: [
               Text(
                 currentClipName,
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 9,
-                ),
+                style: TextStyle(color: colors.textMuted, fontSize: 9),
               ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 12,
-                color: colors.textMuted,
-              ),
+              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
             ],
           ),
         ),
@@ -525,7 +534,9 @@ class PianoRollSidebar extends StatelessWidget {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 11,
-              fontWeight: index == selectedClipIndex ? FontWeight.bold : FontWeight.normal,
+              fontWeight: index == selectedClipIndex
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         );
@@ -559,10 +570,7 @@ class PianoRollSidebar extends StatelessWidget {
           ),
         ),
         // Section content
-        Padding(
-          padding: const EdgeInsets.all(6),
-          child: content,
-        ),
+        Padding(padding: const EdgeInsets.all(6), child: content),
       ],
     );
   }
@@ -590,10 +598,7 @@ class PianoRollSidebar extends StatelessWidget {
             children: [
               Text(
                 'Sig',
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 9,
-                ),
+                style: TextStyle(color: colors.textMuted, fontSize: 9),
               ),
               const SizedBox(width: 4),
               TimeSignatureDisplay(
@@ -642,13 +647,7 @@ class PianoRollSidebar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: colors.textMuted,
-            fontSize: 9,
-          ),
-        ),
+        Text(label, style: TextStyle(color: colors.textMuted, fontSize: 9)),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -677,16 +676,18 @@ class PianoRollSidebar extends StatelessWidget {
         // Snap and Quantize - responsive row
         _buildResponsiveRow([
           SplitButton<double>(
-            icon: null,  // No checkmark, color indicates state
+            icon: null, // No checkmark, color indicates state
             label: 'Snap ${_getGridDivisionLabel(gridDivision)}',
             isActive: snapEnabled,
             onLabelTap: onSnapToggle,
             dropdownItems: const [1.0, 0.5, 0.25, 0.125, 0.0625]
-                .map((v) => PopupMenuItem<double>(
-                      value: v,
-                      height: 32,
-                      child: Text(_getGridDivisionLabel(v)),
-                    ))
+                .map(
+                  (v) => PopupMenuItem<double>(
+                    value: v,
+                    height: 32,
+                    child: Text(_getGridDivisionLabel(v)),
+                  ),
+                )
                 .toList(),
             onItemSelected: onGridDivisionChanged,
           ),
@@ -695,11 +696,13 @@ class PianoRollSidebar extends StatelessWidget {
             isActive: false,
             onLabelTap: () => onQuantize?.call(_quantizeValue),
             dropdownItems: const [4, 8, 16, 32]
-                .map((v) => PopupMenuItem<int>(
-                      value: v,
-                      height: 32,
-                      child: Text(_getQuantizeLabel(v)),
-                    ))
+                .map(
+                  (v) => PopupMenuItem<int>(
+                    value: v,
+                    height: 32,
+                    child: Text(_getQuantizeLabel(v)),
+                  ),
+                )
                 .toList(),
             onItemSelected: (v) {
               onQuantize?.call(v);
@@ -928,10 +931,12 @@ class PianoRollSidebar extends StatelessWidget {
       // Stack vertically when narrow
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children.map((c) => Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: c,
-        )).toList(),
+        children: children
+            .map(
+              (c) =>
+                  Padding(padding: const EdgeInsets.only(bottom: 4), child: c),
+            )
+            .toList(),
       );
     }
     // Side by side when wide
@@ -958,10 +963,7 @@ class PianoRollSidebar extends StatelessWidget {
           width: 32,
           child: Text(
             label,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 9,
-            ),
+            style: TextStyle(color: colors.textMuted, fontSize: 9),
           ),
         ),
         Expanded(child: child),
@@ -1047,18 +1049,11 @@ class PianoRollSidebar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: 12,
-                  color: colors.textPrimary,
-                ),
+                Icon(icon, size: 12, color: colors.textPrimary),
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
                 ),
               ],
             ),
@@ -1083,10 +1078,7 @@ class PianoRollSidebar extends StatelessWidget {
             decoration: BoxDecoration(
               color: isActive ? _chordsGreen : Colors.transparent,
               borderRadius: BorderRadius.circular(2),
-              border: Border.all(
-                color: _chordsGreen,
-                width: 1,
-              ),
+              border: Border.all(color: _chordsGreen, width: 1),
             ),
             child: Text(
               'Chords',
@@ -1170,18 +1162,11 @@ class PianoRollSidebar extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 12,
-                color: colors.textMuted,
-              ),
+              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
             ],
           ),
         ),
@@ -1219,7 +1204,9 @@ class PianoRollSidebar extends StatelessWidget {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 11,
-              fontWeight: item == currentValue ? FontWeight.bold : FontWeight.normal,
+              fontWeight: item == currentValue
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         );

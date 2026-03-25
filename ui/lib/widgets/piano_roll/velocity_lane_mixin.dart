@@ -7,7 +7,12 @@ import 'gestures/note_gesture_handler.dart';
 
 /// Mixin containing velocity lane operations for PianoRoll.
 /// Handles velocity editing interactions in the velocity lane.
-mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperationsMixin, NoteGestureHandlerMixin {
+mixin VelocityLaneMixin
+    on
+        State<PianoRoll>,
+        PianoRollStateMixin,
+        NoteOperationsMixin,
+        NoteGestureHandlerMixin {
   // ============================================
   // VELOCITY LANE OPERATIONS
   // ============================================
@@ -102,8 +107,10 @@ mixin VelocityLaneMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperations
     setState(() {
       // Dragging up (negative dy) = increase height
       // Allow any height - display will clamp to available space
-      velocityLaneHeight = (velocityLaneHeight - details.delta.dy)
-          .clamp(PianoRollStateMixin.velocityLaneMinHeight, 10000.0);
+      velocityLaneHeight = (velocityLaneHeight - details.delta.dy).clamp(
+        PianoRollStateMixin.velocityLaneMinHeight,
+        10000.0,
+      );
     });
   }
 }

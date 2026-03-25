@@ -30,9 +30,7 @@ class PianoRollToolbar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: colors.standard,
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
@@ -60,10 +58,7 @@ class PianoRollToolbar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             '${pixelsPerBeat.toInt()}px',
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 10,
-            ),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 10),
           ),
         ),
         const SizedBox(width: 4),

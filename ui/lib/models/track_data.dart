@@ -44,7 +44,9 @@ class TrackData {
         mute: parts[5] == 'true' || parts[5] == '1',
         solo: parts[6] == 'true' || parts[6] == '1',
         armed: parts.length >= 8 && (parts[7] == 'true' || parts[7] == '1'),
-        inputDeviceIndex: parts.length >= 9 ? (int.tryParse(parts[8]) ?? -1) : -1,
+        inputDeviceIndex: parts.length >= 9
+            ? (int.tryParse(parts[8]) ?? -1)
+            : -1,
         inputChannel: parts.length >= 10 ? (int.tryParse(parts[9]) ?? 0) : 0,
       );
     } catch (e) {

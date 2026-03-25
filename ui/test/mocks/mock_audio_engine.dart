@@ -51,22 +51,34 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled,
-      double stretchFactor, int warpMode) {
+  String setAudioClipWarp(
+    int trackId,
+    int clipId,
+    bool warpEnabled,
+    double stretchFactor,
+    int warpMode,
+  ) {
     _record('setAudioClipWarp');
     return 'OK';
   }
 
   @override
   String setAudioClipTranspose(
-      int trackId, int clipId, int semitones, int cents) {
+    int trackId,
+    int clipId,
+    int semitones,
+    int cents,
+  ) {
     _record('setAudioClipTranspose');
     return 'OK';
   }
 
   @override
-  int loadAudioFileToTrack(String filePath, int trackId,
-      {double startTime = 0.0}) {
+  int loadAudioFileToTrack(
+    String filePath,
+    int trackId, {
+    double startTime = 0.0,
+  }) {
     _record('loadAudioFileToTrack');
     return nextClipId++;
   }
@@ -90,8 +102,13 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int addExistingClipToTrack(int clipId, int trackId, double startTime,
-      {double offset = 0.0, double? duration}) {
+  int addExistingClipToTrack(
+    int clipId,
+    int trackId,
+    double startTime, {
+    double offset = 0.0,
+    double? duration,
+  }) {
     _record('addExistingClipToTrack');
     return nextClipId++;
   }
@@ -236,7 +253,12 @@ class MockAudioEngine implements AudioEngineInterface {
 
   @override
   String addMidiNoteToClip(
-      int clipId, int note, int velocity, double startTime, double duration) {
+    int clipId,
+    int note,
+    int velocity,
+    double startTime,
+    double duration,
+  ) {
     _record('addMidiNoteToClip');
     return 'OK';
   }

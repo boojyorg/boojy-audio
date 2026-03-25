@@ -175,10 +175,10 @@ void main() {
       final options = UserSettings.autoSaveOptions;
       final minutes = options.map((o) => o.minutes).toList();
 
-      expect(minutes, contains(0));  // Off
-      expect(minutes, contains(1));  // 1 minute
-      expect(minutes, contains(2));  // 2 minutes
-      expect(minutes, contains(5));  // 5 minutes
+      expect(minutes, contains(0)); // Off
+      expect(minutes, contains(1)); // 1 minute
+      expect(minutes, contains(2)); // 2 minutes
+      expect(minutes, contains(5)); // 5 minutes
       expect(minutes, contains(10)); // 10 minutes
       expect(minutes, contains(15)); // 15 minutes
     });

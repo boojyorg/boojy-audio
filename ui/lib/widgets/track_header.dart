@@ -252,7 +252,10 @@ class _TrackHeaderState extends State<TrackHeader> {
             children: [
               Icon(Icons.music_note, size: 16, color: context.colors.darkest),
               const SizedBox(width: 8),
-              Text('Convert to Sampler', style: TextStyle(color: context.colors.darkest)),
+              Text(
+                'Convert to Sampler',
+                style: TextStyle(color: context.colors.darkest),
+              ),
             ],
           ),
         ),
@@ -283,7 +286,8 @@ class _TrackHeaderState extends State<TrackHeader> {
         widget.onRenamePressed!();
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
-      } else if (value == 'convert_to_sampler' && widget.onConvertToSampler != null) {
+      } else if (value == 'convert_to_sampler' &&
+          widget.onConvertToSampler != null) {
         widget.onConvertToSampler!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
         widget.onDeletePressed!();
@@ -368,10 +372,7 @@ class _TrackHeaderState extends State<TrackHeader> {
 class MasterTrackHeader extends StatelessWidget {
   final double peakLevel;
 
-  const MasterTrackHeader({
-    super.key,
-    this.peakLevel = 0.0,
-  });
+  const MasterTrackHeader({super.key, this.peakLevel = 0.0});
 
   @override
   Widget build(BuildContext context) {

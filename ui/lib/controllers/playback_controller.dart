@@ -19,8 +19,9 @@ class PlaybackController extends ChangeNotifier {
   String _statusMessage = '';
 
   // Position tracking for Stop button behavior
-  double _playStartPosition = 0.0;  // Position when Play pressed
-  double _recordStartPosition = 0.0; // Position when recording starts (after count-in)
+  double _playStartPosition = 0.0; // Position when Play pressed
+  double _recordStartPosition =
+      0.0; // Position when recording starts (after count-in)
 
   // Display offset for recording (subtracted from engine position so count-in
   // doesn't visually advance the playhead)
@@ -94,7 +95,9 @@ class PlaybackController extends ChangeNotifier {
     try {
       // Save current playhead position as play start position
       _playStartPosition = _audioEngine!.getPlayheadPosition();
-      Log.d('▶️ [PLAYBACK] play() - saving playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s');
+      Log.d(
+        '▶️ [PLAYBACK] play() - saving playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s',
+      );
 
       _isLoopCycling = false; // Disable loop cycling for normal play
       _audioEngine!.transportPlay();
@@ -131,7 +134,8 @@ class PlaybackController extends ChangeNotifier {
 
       // Only seek to loop start if playhead is outside loop bounds
       // This allows resuming from current position within the loop
-      if (_playheadPosition < loopStartSeconds || _playheadPosition >= loopEndSeconds) {
+      if (_playheadPosition < loopStartSeconds ||
+          _playheadPosition >= loopEndSeconds) {
         _audioEngine!.transportSeek(loopStartSeconds);
         _playheadPosition = loopStartSeconds;
       }
@@ -174,9 +178,11 @@ class PlaybackController extends ChangeNotifier {
 
     try {
       final wasPlaying = _isPlaying;
-      Log.d('▶️ [PLAYBACK] stop(isRecording=$isRecording, wasPlaying=$wasPlaying): '
-          'playheadPos=${_playheadPosition.toStringAsFixed(3)}s, '
-          'displayOffset=${_playheadDisplayOffset.toStringAsFixed(3)}s');
+      Log.d(
+        '▶️ [PLAYBACK] stop(isRecording=$isRecording, wasPlaying=$wasPlaying): '
+        'playheadPos=${_playheadPosition.toStringAsFixed(3)}s, '
+        'displayOffset=${_playheadDisplayOffset.toStringAsFixed(3)}s',
+      );
 
       _audioEngine!.transportStop();
       _isPlaying = false;
@@ -189,13 +195,17 @@ class PlaybackController extends ChangeNotifier {
         _audioEngine!.transportSeek(_recordStartPosition);
         playheadNotifier.value = _recordStartPosition;
         _statusMessage = 'Stopped (recording start)';
-        Log.d('▶️ [PLAYBACK] Returning to recordStartPosition: ${_recordStartPosition.toStringAsFixed(3)}s');
+        Log.d(
+          '▶️ [PLAYBACK] Returning to recordStartPosition: ${_recordStartPosition.toStringAsFixed(3)}s',
+        );
       } else if (wasPlaying) {
         _playheadPosition = _playStartPosition;
         _audioEngine!.transportSeek(_playStartPosition);
         playheadNotifier.value = _playStartPosition;
         _statusMessage = 'Stopped (playback start)';
-        Log.d('▶️ [PLAYBACK] Returning to playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s');
+        Log.d(
+          '▶️ [PLAYBACK] Returning to playStartPosition: ${_playStartPosition.toStringAsFixed(3)}s',
+        );
       } else {
         // Idle (not playing) - return to bar 1
         _playheadPosition = 0.0;
@@ -236,7 +246,9 @@ class PlaybackController extends ChangeNotifier {
   /// Set record start position (called when recording actually begins after count-in)
   void setRecordStartPosition(double position) {
     _recordStartPosition = position;
-    Log.d('▶️ [PLAYBACK] setRecordStartPosition: ${position.toStringAsFixed(3)}s');
+    Log.d(
+      '▶️ [PLAYBACK] setRecordStartPosition: ${position.toStringAsFixed(3)}s',
+    );
   }
 
   /// Start polling the engine for playhead position updates (60fps).
@@ -245,7 +257,9 @@ class PlaybackController extends ChangeNotifier {
   /// [displayOffset] is subtracted from the engine position so that count-in
   /// time doesn't visually advance the playhead.
   void startPlayheadPolling({double displayOffset = 0.0}) {
-    Log.d('▶️ [PLAYBACK] startPlayheadPolling(displayOffset=${displayOffset.toStringAsFixed(3)}s)');
+    Log.d(
+      '▶️ [PLAYBACK] startPlayheadPolling(displayOffset=${displayOffset.toStringAsFixed(3)}s)',
+    );
     _playheadDisplayOffset = displayOffset;
     _startPlayheadTimer();
   }
@@ -269,9 +283,11 @@ class PlaybackController extends ChangeNotifier {
         // Log once per second (~60 frames) to avoid spam
         _playheadLogCounter++;
         if (_playheadLogCounter % 60 == 1) {
-          Log.d('▶️ [PLAYBACK] timer: enginePos=${pos.toStringAsFixed(3)}s, '
-              'offset=${_playheadDisplayOffset.toStringAsFixed(3)}s, '
-              'displayPos=${_playheadPosition.toStringAsFixed(3)}s');
+          Log.d(
+            '▶️ [PLAYBACK] timer: enginePos=${pos.toStringAsFixed(3)}s, '
+            'offset=${_playheadDisplayOffset.toStringAsFixed(3)}s, '
+            'displayPos=${_playheadPosition.toStringAsFixed(3)}s',
+          );
         }
 
         // Loop cycling: jump back to start when reaching end

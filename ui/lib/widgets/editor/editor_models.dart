@@ -39,7 +39,8 @@ class EditorPanelCallbacks {
 
 /// Grouped callbacks for VST3 plugin operations in the editor
 class Vst3EditorCallbacks {
-  final Function(int effectId, int paramIndex, double value)? onVst3ParameterChanged;
+  final Function(int effectId, int paramIndex, double value)?
+  onVst3ParameterChanged;
   final Function(int effectId)? onVst3PluginRemoved;
   final Function(Vst3Plugin)? onVst3InstrumentDropped;
 

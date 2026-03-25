@@ -91,12 +91,6 @@ class MidiEvent {
 
   @override
   int get hashCode {
-    return Object.hash(
-      note,
-      velocity,
-      isNoteOn,
-      timestamp,
-      beatsFromStart,
-    );
+    return Object.hash(note, velocity, isNoteOn, timestamp, beatsFromStart);
   }
 }

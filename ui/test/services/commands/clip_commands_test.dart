@@ -54,29 +54,32 @@ void main() {
       expect(command.sharedPatternId, isNull);
     });
 
-    test('callback receives duplicated clip with new clipId and startTime', () async {
-      MidiClipData? duplicatedClip;
-      String? receivedPatternId;
+    test(
+      'callback receives duplicated clip with new clipId and startTime',
+      () async {
+        MidiClipData? duplicatedClip;
+        String? receivedPatternId;
 
-      final command = DuplicateMidiClipCommand(
-        originalClip: testClip,
-        newStartTime: 4.0,
-        onClipDuplicated: (clip, patternId) {
-          duplicatedClip = clip;
-          receivedPatternId = patternId;
-        },
-      );
+        final command = DuplicateMidiClipCommand(
+          originalClip: testClip,
+          newStartTime: 4.0,
+          onClipDuplicated: (clip, patternId) {
+            duplicatedClip = clip;
+            receivedPatternId = patternId;
+          },
+        );
 
-      await command.execute(mockEngine);
+        await command.execute(mockEngine);
 
-      expect(duplicatedClip, isNotNull);
-      expect(duplicatedClip!.clipId, isNot(testClip.clipId));
-      expect(duplicatedClip!.startTime, 4.0);
-      expect(duplicatedClip!.trackId, testClip.trackId);
-      expect(duplicatedClip!.duration, testClip.duration);
-      expect(duplicatedClip!.notes.length, testClip.notes.length);
-      expect(receivedPatternId, isNotNull);
-    });
+        expect(duplicatedClip, isNotNull);
+        expect(duplicatedClip!.clipId, isNot(testClip.clipId));
+        expect(duplicatedClip!.startTime, 4.0);
+        expect(duplicatedClip!.trackId, testClip.trackId);
+        expect(duplicatedClip!.duration, testClip.duration);
+        expect(duplicatedClip!.notes.length, testClip.notes.length);
+        expect(receivedPatternId, isNotNull);
+      },
+    );
 
     test('generates patternId if original has none', () async {
       String? receivedPatternId;
@@ -193,9 +196,7 @@ void main() {
     });
 
     test('has correct description', () {
-      final command = DeleteMidiClipFromArrangementCommand(
-        clipData: testClip,
-      );
+      final command = DeleteMidiClipFromArrangementCommand(clipData: testClip);
 
       expect(command.description, 'Delete MIDI Clip: Clip to Delete');
     });
@@ -320,9 +321,7 @@ void main() {
     });
 
     test('has correct description', () {
-      final command = CreateMidiClipCommand(
-        clipData: testClip,
-      );
+      final command = CreateMidiClipCommand(clipData: testClip);
 
       expect(command.description, 'Create MIDI Clip: New Clip');
     });

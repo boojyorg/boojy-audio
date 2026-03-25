@@ -123,7 +123,9 @@ class AudioClipEditData {
       gainDb: gainDb ?? this.gainDb,
       isStereo: isStereo ?? this.isStereo,
       reversed: reversed ?? this.reversed,
-      normalizeTargetDb: clearNormalize ? null : (normalizeTargetDb ?? this.normalizeTargetDb),
+      normalizeTargetDb: clearNormalize
+          ? null
+          : (normalizeTargetDb ?? this.normalizeTargetDb),
       loopStartBeats: loopStartBeats ?? this.loopStartBeats,
       loopEndBeats: loopEndBeats ?? this.loopEndBeats,
     );

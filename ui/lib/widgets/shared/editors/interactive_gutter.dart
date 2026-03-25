@@ -131,22 +131,32 @@ class _InteractiveGutterState extends State<InteractiveGutter> {
                   : 0.0;
 
               // Calculate visible range with buffer
-              final firstVisibleIndex = (scrollOffset / widget.itemHeight).floor();
-              final visibleCount = (viewportHeight / widget.itemHeight).ceil() + 2;
-              final startIndex = (firstVisibleIndex - 1).clamp(0, widget.config.itemCount);
-              final endIndex = (firstVisibleIndex + visibleCount).clamp(0, widget.config.itemCount);
+              final firstVisibleIndex = (scrollOffset / widget.itemHeight)
+                  .floor();
+              final visibleCount =
+                  (viewportHeight / widget.itemHeight).ceil() + 2;
+              final startIndex = (firstVisibleIndex - 1).clamp(
+                0,
+                widget.config.itemCount,
+              );
+              final endIndex = (firstVisibleIndex + visibleCount).clamp(
+                0,
+                widget.config.itemCount,
+              );
 
               // Build positioned items using Stack to avoid overflow
               final positionedItems = <Widget>[];
               for (var i = startIndex; i < endIndex; i++) {
                 final top = i * widget.itemHeight - scrollOffset;
-                positionedItems.add(Positioned(
-                  top: top,
-                  left: 0,
-                  right: 0,
-                  height: widget.itemHeight,
-                  child: widget.itemBuilder(i, widget.itemHeight),
-                ));
+                positionedItems.add(
+                  Positioned(
+                    top: top,
+                    left: 0,
+                    right: 0,
+                    height: widget.itemHeight,
+                    child: widget.itemBuilder(i, widget.itemHeight),
+                  ),
+                );
               }
 
               return SizedBox(

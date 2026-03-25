@@ -21,10 +21,7 @@ class WebExportService {
   }) {
     // Create a Blob from the data
     final jsArray = data.toJS;
-    final blob = web.Blob(
-      [jsArray].toJS,
-      web.BlobPropertyBag(type: mimeType),
-    );
+    final blob = web.Blob([jsArray].toJS, web.BlobPropertyBag(type: mimeType));
 
     // Create a download URL
     final url = web.URL.createObjectURL(blob);
@@ -51,11 +48,7 @@ class WebExportService {
     if (!filename.endsWith('.wav')) {
       filename = '$filename.wav';
     }
-    downloadFile(
-      data: wavData,
-      filename: filename,
-      mimeType: 'audio/wav',
-    );
+    downloadFile(data: wavData, filename: filename, mimeType: 'audio/wav');
   }
 
   /// Download MP3 audio file
@@ -66,11 +59,7 @@ class WebExportService {
     if (!filename.endsWith('.mp3')) {
       filename = '$filename.mp3';
     }
-    downloadFile(
-      data: mp3Data,
-      filename: filename,
-      mimeType: 'audio/mpeg',
-    );
+    downloadFile(data: mp3Data, filename: filename, mimeType: 'audio/mpeg');
   }
 
   /// Download JSON file (for project export)
@@ -82,11 +71,7 @@ class WebExportService {
       filename = '$filename.json';
     }
     final data = Uint8List.fromList(jsonString.codeUnits);
-    downloadFile(
-      data: data,
-      filename: filename,
-      mimeType: 'application/json',
-    );
+    downloadFile(data: data, filename: filename, mimeType: 'application/json');
   }
 
   /// Download project file
@@ -94,10 +79,7 @@ class WebExportService {
     required String projectJson,
     required String projectName,
   }) {
-    downloadJson(
-      jsonString: projectJson,
-      filename: '$projectName.boojy',
-    );
+    downloadJson(jsonString: projectJson, filename: '$projectName.boojy');
   }
 }
 
@@ -224,8 +206,4 @@ class WebRecordingService {
 }
 
 /// Recording state
-enum RecordingState {
-  idle,
-  recording,
-  stopped,
-}
+enum RecordingState { idle, recording, stopped }

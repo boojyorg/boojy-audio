@@ -154,20 +154,20 @@ class _RecordButtonState extends State<RecordButton>
       final countInText = widget.countInBars == 0
           ? 'Off'
           : widget.countInBars == 1
-              ? '1 Bar'
-              : widget.countInBars == 2
-                  ? '2 Bars'
-                  : '4 Bars';
+          ? '1 Bar'
+          : widget.countInBars == 2
+          ? '2 Bars'
+          : '4 Bars';
       tooltip += ' | Right-click: Count-in ($countInText)';
     }
 
     final visualState = widget.isRecording
         ? _RecordButtonVisualState.recording
         : widget.isCountingIn
-            ? _RecordButtonVisualState.countingIn
-            : (isEnabled
-                ? _RecordButtonVisualState.idle
-                : _RecordButtonVisualState.disabled);
+        ? _RecordButtonVisualState.countingIn
+        : (isEnabled
+              ? _RecordButtonVisualState.idle
+              : _RecordButtonVisualState.disabled);
 
     return Tooltip(
       message: tooltip,
@@ -320,7 +320,12 @@ class _RecordButtonPainter extends CustomPainter {
   }
 
   void _drawCountingIn(
-      Canvas canvas, Offset center, double radius, double bw, Size size) {
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double bw,
+    Size size,
+  ) {
     // Dim orange fill
     final fillPaint = Paint()
       ..color = countInColor.withValues(alpha: 0.2)

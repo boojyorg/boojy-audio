@@ -25,8 +25,12 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
 
   void _showSignatureMenu(BuildContext context) {
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(
+      Offset(0, button.size.height),
+      ancestor: overlay,
+    );
 
     // Capture colors before showing menu (to avoid provider access in overlay)
     final accentColor = context.colors.accent;
@@ -105,7 +109,9 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _isHovered ? context.colors.surface : context.colors.dark,
+                  color: _isHovered
+                      ? context.colors.surface
+                      : context.colors.dark,
                   borderRadius: BorderRadius.circular(2),
                   border: Border.all(color: context.colors.surface, width: 1.5),
                 ),

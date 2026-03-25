@@ -82,18 +82,18 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
     }
 
     // Check if name already exists
-    if (widget.existingNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
+    if (widget.existingNames.any(
+      (n) => n.toLowerCase() == name.toLowerCase(),
+    )) {
       setState(() => _errorMessage = 'A version with this name already exists');
       return;
     }
 
     final note = _noteController.text.trim();
 
-    Navigator.of(context).pop((
-      name: name,
-      note: note.isEmpty ? null : note,
-      type: _selectedType,
-    ));
+    Navigator.of(
+      context,
+    ).pop((name: name, note: note.isEmpty ? null : note, type: _selectedType));
   }
 
   @override
@@ -129,10 +129,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
             const SizedBox(height: 8),
             const Text(
               'Save a version of your current project',
-              style: TextStyle(
-                color: Color(0xFF9E9E9E),
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
             ),
             const SizedBox(height: 24),
 
@@ -189,7 +186,10 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(color: Color(0xFFF44336)),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
               onChanged: (_) {
                 if (_errorMessage != null) {
@@ -231,7 +231,10 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -244,7 +247,10 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF9E9E9E),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -254,7 +260,10 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF7FD4A0),
                     foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Create Version'),
                 ),
@@ -289,8 +298,12 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   child: Text(
                     type.displayName,
                     style: TextStyle(
-                      color: isSelected ? Colors.black : const Color(0xFF9E9E9E),
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? Colors.black
+                          : const Color(0xFF9E9E9E),
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                       fontSize: 14,
                     ),
                   ),

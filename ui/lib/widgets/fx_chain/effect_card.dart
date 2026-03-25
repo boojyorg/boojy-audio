@@ -161,18 +161,11 @@ class EffectCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.open_in_new,
-            size: 32,
-            color: context.colors.textMuted,
-          ),
+          Icon(Icons.open_in_new, size: 32, color: context.colors.textMuted),
           const SizedBox(height: 8),
           Text(
             'Open in separate window',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 11),
             textAlign: TextAlign.center,
           ),
         ],
@@ -215,10 +208,42 @@ class EffectCard extends StatelessWidget {
   Widget _buildEQParameters(BuildContext context) {
     return Column(
       children: [
-        _buildCompactParameter(context, 'Low', 'low_gain', effect.parameters['low_gain'] ?? 0, -12, 12, ' dB'),
-        _buildCompactParameter(context, 'Mid1', 'mid1_gain', effect.parameters['mid1_gain'] ?? 0, -12, 12, ' dB'),
-        _buildCompactParameter(context, 'Mid2', 'mid2_gain', effect.parameters['mid2_gain'] ?? 0, -12, 12, ' dB'),
-        _buildCompactParameter(context, 'High', 'high_gain', effect.parameters['high_gain'] ?? 0, -12, 12, ' dB'),
+        _buildCompactParameter(
+          context,
+          'Low',
+          'low_gain',
+          effect.parameters['low_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildCompactParameter(
+          context,
+          'Mid1',
+          'mid1_gain',
+          effect.parameters['mid1_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildCompactParameter(
+          context,
+          'Mid2',
+          'mid2_gain',
+          effect.parameters['mid2_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildCompactParameter(
+          context,
+          'High',
+          'high_gain',
+          effect.parameters['high_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
       ],
     );
   }
@@ -226,10 +251,42 @@ class EffectCard extends StatelessWidget {
   Widget _buildCompressorParameters(BuildContext context) {
     return Column(
       children: [
-        _buildCompactParameter(context, 'Thresh', 'threshold', effect.parameters['threshold'] ?? -20, -60, 0, ' dB'),
-        _buildCompactParameter(context, 'Ratio', 'ratio', effect.parameters['ratio'] ?? 4, 1, 20, ':1'),
-        _buildCompactParameter(context, 'Attack', 'attack', effect.parameters['attack'] ?? 10, 1, 100, 'ms'),
-        _buildCompactParameter(context, 'Release', 'release', effect.parameters['release'] ?? 100, 10, 1000, 'ms'),
+        _buildCompactParameter(
+          context,
+          'Thresh',
+          'threshold',
+          effect.parameters['threshold'] ?? -20,
+          -60,
+          0,
+          ' dB',
+        ),
+        _buildCompactParameter(
+          context,
+          'Ratio',
+          'ratio',
+          effect.parameters['ratio'] ?? 4,
+          1,
+          20,
+          ':1',
+        ),
+        _buildCompactParameter(
+          context,
+          'Attack',
+          'attack',
+          effect.parameters['attack'] ?? 10,
+          1,
+          100,
+          'ms',
+        ),
+        _buildCompactParameter(
+          context,
+          'Release',
+          'release',
+          effect.parameters['release'] ?? 100,
+          10,
+          1000,
+          'ms',
+        ),
       ],
     );
   }
@@ -237,9 +294,33 @@ class EffectCard extends StatelessWidget {
   Widget _buildReverbParameters(BuildContext context) {
     return Column(
       children: [
-        _buildCompactParameter(context, 'Size', 'room_size', effect.parameters['room_size'] ?? 0.5, 0, 1, ''),
-        _buildCompactParameter(context, 'Damp', 'damping', effect.parameters['damping'] ?? 0.5, 0, 1, ''),
-        _buildCompactParameter(context, 'Mix', 'wet_dry', effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildCompactParameter(
+          context,
+          'Size',
+          'room_size',
+          effect.parameters['room_size'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildCompactParameter(
+          context,
+          'Damp',
+          'damping',
+          effect.parameters['damping'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildCompactParameter(
+          context,
+          'Mix',
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -247,9 +328,33 @@ class EffectCard extends StatelessWidget {
   Widget _buildDelayParameters(BuildContext context) {
     return Column(
       children: [
-        _buildCompactParameter(context, 'Time', 'time', effect.parameters['time'] ?? 500, 10, 2000, 'ms'),
-        _buildCompactParameter(context, 'Fdbk', 'feedback', effect.parameters['feedback'] ?? 0.4, 0, 0.99, ''),
-        _buildCompactParameter(context, 'Mix', 'wet_dry', effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildCompactParameter(
+          context,
+          'Time',
+          'time',
+          effect.parameters['time'] ?? 500,
+          10,
+          2000,
+          'ms',
+        ),
+        _buildCompactParameter(
+          context,
+          'Fdbk',
+          'feedback',
+          effect.parameters['feedback'] ?? 0.4,
+          0,
+          0.99,
+          '',
+        ),
+        _buildCompactParameter(
+          context,
+          'Mix',
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -257,9 +362,33 @@ class EffectCard extends StatelessWidget {
   Widget _buildChorusParameters(BuildContext context) {
     return Column(
       children: [
-        _buildCompactParameter(context, 'Rate', 'rate', effect.parameters['rate'] ?? 1.5, 0.1, 10, 'Hz'),
-        _buildCompactParameter(context, 'Depth', 'depth', effect.parameters['depth'] ?? 0.5, 0, 1, ''),
-        _buildCompactParameter(context, 'Mix', 'wet_dry', effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildCompactParameter(
+          context,
+          'Rate',
+          'rate',
+          effect.parameters['rate'] ?? 1.5,
+          0.1,
+          10,
+          'Hz',
+        ),
+        _buildCompactParameter(
+          context,
+          'Depth',
+          'depth',
+          effect.parameters['depth'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildCompactParameter(
+          context,
+          'Mix',
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -292,10 +421,7 @@ class EffectCard extends StatelessWidget {
             width: 45,
             child: Text(
               label,
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: context.colors.textMuted, fontSize: 10),
             ),
           ),
           Expanded(
@@ -315,7 +441,11 @@ class EffectCard extends StatelessWidget {
                 onChanged: effect.bypassed
                     ? null
                     : (newValue) {
-                        audioEngine?.setEffectParameter(effect.id, paramName, newValue);
+                        audioEngine?.setEffectParameter(
+                          effect.id,
+                          paramName,
+                          newValue,
+                        );
                         onParameterChanged();
                       },
               ),

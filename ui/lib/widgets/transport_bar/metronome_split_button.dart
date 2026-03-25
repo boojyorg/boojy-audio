@@ -29,9 +29,14 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
   final GlobalKey _buttonKey = GlobalKey();
 
   void _showCountInMenu(BuildContext context, Color accentColor) {
-    final RenderBox button = _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+    final RenderBox button =
+        _buttonKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(
+      Offset(0, button.size.height),
+      ancestor: overlay,
+    );
 
     final countInBars = widget.countInBars;
 
@@ -140,8 +145,8 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
     final countInText = widget.countInBars == 0
         ? 'Off'
         : widget.countInBars == 1
-            ? '1 Bar'
-            : '2 Bars';
+        ? '1 Bar'
+        : '2 Bars';
     final tooltip = widget.isActive
         ? 'Metronome On | Count-in: $countInText'
         : 'Metronome Off | Count-in: $countInText';
@@ -166,7 +171,10 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                 onTap: widget.onToggle,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isIconHovered
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -200,7 +208,10 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                 onTap: () => _showCountInMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isChevronHovered
                         ? colors.textPrimary.withValues(alpha: 0.1)

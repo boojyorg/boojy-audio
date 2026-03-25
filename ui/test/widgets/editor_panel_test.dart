@@ -35,35 +35,29 @@ void main() {
 
   testWidgets('EditorPanel renders collapsed', (tester) async {
     await tester.pumpWidget(
-      buildTestWidget(
-        child: const EditorPanel(isCollapsed: true),
-      ),
+      buildTestWidget(child: const EditorPanel(isCollapsed: true)),
     );
 
     expect(find.byType(EditorPanel), findsOneWidget);
   });
 
   testWidgets('EditorPanel renders with default props', (tester) async {
-    await tester.pumpWidget(
-      buildTestWidget(
-        child: const EditorPanel(),
-      ),
-    );
+    await tester.pumpWidget(buildTestWidget(child: const EditorPanel()));
 
     expect(find.byType(EditorPanel), findsOneWidget);
   });
 
-  testWidgets('EditorPanel renders with each toolMode variant',
-      (tester) async {
+  testWidgets('EditorPanel renders with each toolMode variant', (tester) async {
     for (final mode in ToolMode.values) {
       await tester.pumpWidget(
-        buildTestWidget(
-          child: EditorPanel(toolMode: mode),
-        ),
+        buildTestWidget(child: EditorPanel(toolMode: mode)),
       );
 
-      expect(find.byType(EditorPanel), findsOneWidget,
-          reason: 'EditorPanel should render with toolMode: $mode');
+      expect(
+        find.byType(EditorPanel),
+        findsOneWidget,
+        reason: 'EditorPanel should render with toolMode: $mode',
+      );
     }
   });
 }

@@ -173,11 +173,11 @@ mod tests {
     fn test_24bit_range() {
         // Test full scale positive
         let result = dither_to_24bit(1.0, 0.0);
-        assert_eq!(result, 8388607);
+        assert_eq!(result, 8_388_607);
 
         // Test full scale negative
         let result = dither_to_24bit(-1.0, 0.0);
-        assert_eq!(result, -8388607);
+        assert_eq!(result, -8_388_607);
 
         // Test silence
         let result = dither_to_24bit(0.0, 0.0);
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_24bit_packing() {
-        let samples = vec![0x123456i32, -1i32];
+        let samples = vec![0x0012_3456_i32, -1i32];
         let bytes = pack_24bit_to_bytes(&samples);
 
         // First sample: 0x123456 -> [0x56, 0x34, 0x12]

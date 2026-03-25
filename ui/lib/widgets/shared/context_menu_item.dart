@@ -13,14 +13,14 @@ class ContextMenuItem extends PopupMenuItem<String> {
     String? shortcut,
     super.enabled = true,
   }) : super(
-          value: value,
-          child: _ContextMenuItemContent(
-            icon: icon,
-            label: label,
-            shortcut: shortcut,
-            enabled: enabled,
-          ),
-        );
+         value: value,
+         child: _ContextMenuItemContent(
+           icon: icon,
+           label: label,
+           shortcut: shortcut,
+           enabled: enabled,
+         ),
+       );
 }
 
 class _ContextMenuItemContent extends StatelessWidget {
@@ -45,7 +45,10 @@ class _ContextMenuItemContent extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: textColor),
         const SizedBox(width: 8),
-        Text(label, style: textColor != null ? TextStyle(color: textColor) : null),
+        Text(
+          label,
+          style: textColor != null ? TextStyle(color: textColor) : null,
+        ),
         if (shortcut != null) ...[
           const Spacer(),
           Text(

@@ -10,9 +10,11 @@ import '../../../models/midi_note_data.dart';
 /// - Range 9+: Full height (100%), notes compress to fit
 class MidiClipPainter extends CustomPainter {
   final List<MidiNoteData> notes;
-  final double clipDuration; // Total clip duration in beats (arrangement length)
+  final double
+  clipDuration; // Total clip duration in beats (arrangement length)
   final double loopLength; // Loop length in beats
-  final double contentStartOffset; // Which beat of content to start from (Piano Roll Start field)
+  final double
+  contentStartOffset; // Which beat of content to start from (Piano Roll Start field)
   final Color trackColor;
 
   MidiClipPainter({
@@ -92,7 +94,8 @@ class MidiClipPainter extends CustomPainter {
         if (noteRelativeStart >= loopLength) continue;
 
         // Calculate absolute position in the clip
-        final noteAbsoluteStart = loopOffsetBeats + math.max(0.0, noteRelativeStart);
+        final noteAbsoluteStart =
+            loopOffsetBeats + math.max(0.0, noteRelativeStart);
 
         // Skip notes that start beyond the clip duration
         if (noteAbsoluteStart >= clipDuration) continue;
@@ -119,7 +122,8 @@ class MidiClipPainter extends CustomPainter {
 
         // Calculate Y position based on note's position in range
         final notePosition = note.note - minNote;
-        final y = topOffset + (usedHeight - (notePosition + 1) * noteSlotHeight);
+        final y =
+            topOffset + (usedHeight - (notePosition + 1) * noteSlotHeight);
         final height = noteSlotHeight - 1; // 1px gap between notes
 
         // Skip notes that would start beyond the clip
@@ -147,9 +151,9 @@ class MidiClipPainter extends CustomPainter {
   @override
   bool shouldRepaint(MidiClipPainter oldDelegate) {
     return !listEquals(notes, oldDelegate.notes) ||
-           clipDuration != oldDelegate.clipDuration ||
-           loopLength != oldDelegate.loopLength ||
-           contentStartOffset != oldDelegate.contentStartOffset ||
-           trackColor != oldDelegate.trackColor;
+        clipDuration != oldDelegate.clipDuration ||
+        loopLength != oldDelegate.loopLength ||
+        contentStartOffset != oldDelegate.contentStartOffset ||
+        trackColor != oldDelegate.trackColor;
   }
 }

@@ -6,17 +6,14 @@ class TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
   final int beatsPerBar;
 
-  TimeRulerPainter({
-    required this.pixelsPerBeat,
-    this.beatsPerBar = 4,
-  });
+  TimeRulerPainter({required this.pixelsPerBeat, this.beatsPerBar = 4});
 
   /// Get the smallest grid subdivision to show based on zoom level
   double _getGridDivision() {
-    if (pixelsPerBeat < 10) return beatsPerBar.toDouble();     // Only bars
-    if (pixelsPerBeat < 20) return 1.0;     // Bars + beats
-    if (pixelsPerBeat < 40) return 0.5;     // + half beats
-    return 0.25;                             // + quarter beats
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble(); // Only bars
+    if (pixelsPerBeat < 20) return 1.0; // Bars + beats
+    if (pixelsPerBeat < 40) return 0.5; // + half beats
+    return 0.25; // + quarter beats
   }
 
   @override
@@ -28,7 +25,8 @@ class TimeRulerPainter extends CustomPainter {
     final totalBeats = (size.width / pixelsPerBeat).ceil() + 4;
 
     final paint = Paint()
-      ..color = const Color(0xFF3A3D4A) // BG.divider
+      ..color =
+          const Color(0xFF3A3D4A) // BG.divider
       ..strokeWidth = 1;
 
     final textPainter = TextPainter(
@@ -65,7 +63,8 @@ class TimeRulerPainter extends CustomPainter {
 
       // Draw bar numbers at bar lines
       if (isBar) {
-        final barNumber = (beat / beatsPerBar).round() + 1; // Bars are 1-indexed
+        final barNumber =
+            (beat / beatsPerBar).round() + 1; // Bars are 1-indexed
 
         textPainter.text = TextSpan(
           text: '$barNumber',
@@ -78,10 +77,7 @@ class TimeRulerPainter extends CustomPainter {
         );
 
         textPainter.layout();
-        textPainter.paint(
-          canvas,
-          Offset(x - textPainter.width / 2, 2),
-        );
+        textPainter.paint(canvas, Offset(x - textPainter.width / 2, 2));
       } else if (isBeat && pixelsPerBeat >= 30) {
         // Show beat subdivisions (1.2, 1.3, 1.4) when zoomed in enough
         final barNumber = (beat / beatsPerBar).floor() + 1;
@@ -98,10 +94,7 @@ class TimeRulerPainter extends CustomPainter {
           );
 
           textPainter.layout();
-          textPainter.paint(
-            canvas,
-            Offset(x - textPainter.width / 2, 4),
-          );
+          textPainter.paint(canvas, Offset(x - textPainter.width / 2, 4));
         }
       }
     }
@@ -110,6 +103,6 @@ class TimeRulerPainter extends CustomPainter {
   @override
   bool shouldRepaint(TimeRulerPainter oldDelegate) {
     return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-           oldDelegate.beatsPerBar != beatsPerBar;
+        oldDelegate.beatsPerBar != beatsPerBar;
   }
 }

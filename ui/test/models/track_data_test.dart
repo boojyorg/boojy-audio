@@ -5,7 +5,9 @@ void main() {
   group('TrackData', () {
     group('fromCSV', () {
       test('parses 10-field format (full)', () {
-        final track = TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false,true,false,2,1');
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,1',
+        );
 
         expect(track, isNotNull);
         expect(track!.id, 1);
@@ -21,7 +23,9 @@ void main() {
       });
 
       test('parses 8-field format (with armed)', () {
-        final track = TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false,true,false');
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false',
+        );
 
         expect(track, isNotNull);
         expect(track!.id, 1);
@@ -43,7 +47,9 @@ void main() {
       });
 
       test('parses mute as "true" string', () {
-        final track = TrackData.fromCSV('1,Drums,audio,0.0,0.0,true,false,false');
+        final track = TrackData.fromCSV(
+          '1,Drums,audio,0.0,0.0,true,false,false',
+        );
 
         expect(track, isNotNull);
         expect(track!.mute, true);
@@ -57,7 +63,9 @@ void main() {
       });
 
       test('parses solo as "true" string', () {
-        final track = TrackData.fromCSV('1,Drums,audio,0.0,0.0,false,true,false');
+        final track = TrackData.fromCSV(
+          '1,Drums,audio,0.0,0.0,false,true,false',
+        );
 
         expect(track, isNotNull);
         expect(track!.solo, true);
@@ -71,7 +79,9 @@ void main() {
       });
 
       test('parses armed as "true"', () {
-        final track = TrackData.fromCSV('1,Drums,audio,0.0,0.0,false,false,true');
+        final track = TrackData.fromCSV(
+          '1,Drums,audio,0.0,0.0,false,false,true',
+        );
 
         expect(track, isNotNull);
         expect(track!.armed, true);
@@ -84,14 +94,17 @@ void main() {
         expect(track!.armed, true);
       });
 
-      test('missing fields default: armed=false, inputDeviceIndex=-1, inputChannel=0', () {
-        final track = TrackData.fromCSV('5,Bass,audio,-3.0,0.5,true,false');
+      test(
+        'missing fields default: armed=false, inputDeviceIndex=-1, inputChannel=0',
+        () {
+          final track = TrackData.fromCSV('5,Bass,audio,-3.0,0.5,true,false');
 
-        expect(track, isNotNull);
-        expect(track!.armed, false);
-        expect(track.inputDeviceIndex, -1);
-        expect(track.inputChannel, 0);
-      });
+          expect(track, isNotNull);
+          expect(track!.armed, false);
+          expect(track.inputDeviceIndex, -1);
+          expect(track.inputChannel, 0);
+        },
+      );
 
       test('returns null for too few fields (<7)', () {
         expect(TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false'), isNull);
@@ -108,7 +121,9 @@ void main() {
       });
 
       test('handles 9-field format (inputDeviceIndex but no inputChannel)', () {
-        final track = TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false,true,false,3');
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,3',
+        );
 
         expect(track, isNotNull);
         expect(track!.inputDeviceIndex, 3);
@@ -116,14 +131,18 @@ void main() {
       });
 
       test('handles invalid inputDeviceIndex gracefully', () {
-        final track = TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false,true,false,abc,0');
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,abc,0',
+        );
 
         expect(track, isNotNull);
         expect(track!.inputDeviceIndex, -1);
       });
 
       test('handles invalid inputChannel gracefully', () {
-        final track = TrackData.fromCSV('1,Piano,midi,-6.0,0.3,false,true,false,2,abc');
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,abc',
+        );
 
         expect(track, isNotNull);
         expect(track!.inputChannel, 0);
@@ -148,23 +167,26 @@ void main() {
         expect(track.toCSV(), '1,Piano,midi,-6.0,0.3,false,true,false,2,1');
       });
 
-      test('roundtrip: fromCSV -> toCSV -> fromCSV produces identical data', () {
-        const csv = '3,Synth,midi,-12.0,0.7,true,false,true,4,2';
-        final track1 = TrackData.fromCSV(csv)!;
-        final csv2 = track1.toCSV();
-        final track2 = TrackData.fromCSV(csv2)!;
+      test(
+        'roundtrip: fromCSV -> toCSV -> fromCSV produces identical data',
+        () {
+          const csv = '3,Synth,midi,-12.0,0.7,true,false,true,4,2';
+          final track1 = TrackData.fromCSV(csv)!;
+          final csv2 = track1.toCSV();
+          final track2 = TrackData.fromCSV(csv2)!;
 
-        expect(track2.id, track1.id);
-        expect(track2.name, track1.name);
-        expect(track2.type, track1.type);
-        expect(track2.volumeDb, track1.volumeDb);
-        expect(track2.pan, track1.pan);
-        expect(track2.mute, track1.mute);
-        expect(track2.solo, track1.solo);
-        expect(track2.armed, track1.armed);
-        expect(track2.inputDeviceIndex, track1.inputDeviceIndex);
-        expect(track2.inputChannel, track1.inputChannel);
-      });
+          expect(track2.id, track1.id);
+          expect(track2.name, track1.name);
+          expect(track2.type, track1.type);
+          expect(track2.volumeDb, track1.volumeDb);
+          expect(track2.pan, track1.pan);
+          expect(track2.mute, track1.mute);
+          expect(track2.solo, track1.solo);
+          expect(track2.armed, track1.armed);
+          expect(track2.inputDeviceIndex, track1.inputDeviceIndex);
+          expect(track2.inputChannel, track1.inputChannel);
+        },
+      );
     });
 
     group('copyWith', () {

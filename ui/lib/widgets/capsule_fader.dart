@@ -28,13 +28,21 @@ class CapsuleFader extends StatelessWidget {
           onDoubleTap: onDoubleTap,
           onHorizontalDragUpdate: (details) {
             if (onVolumeChanged == null) return;
-            final sliderValue = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             onVolumeChanged!(newVolumeDb);
           },
           onTapDown: (details) {
             if (onVolumeChanged == null) return;
-            final sliderValue = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             onVolumeChanged!(newVolumeDb);
           },
@@ -57,8 +65,26 @@ class CapsuleFader extends StatelessWidget {
 
   // Boojy volume curve: piecewise linear interpolation
   // Unity at 70%, intuitive midpoint at 50% (-10dB), true silence at 0
-  static const List<double> _sliderPoints = [0.01, 0.05, 0.10, 0.30, 0.50, 0.70, 0.85, 1.00];
-  static const List<double> _dbPoints = [-60.0, -52.0, -45.0, -24.0, -10.0, 0.0, 3.0, 6.0];
+  static const List<double> _sliderPoints = [
+    0.01,
+    0.05,
+    0.10,
+    0.30,
+    0.50,
+    0.70,
+    0.85,
+    1.00,
+  ];
+  static const List<double> _dbPoints = [
+    -60.0,
+    -52.0,
+    -45.0,
+    -24.0,
+    -10.0,
+    0.0,
+    3.0,
+    6.0,
+  ];
 
   /// Convert dB to slider value (0.0 to 1.0) using Boojy curve
   double _volumeDbToSlider(double db) {
@@ -84,7 +110,9 @@ class CapsuleFader extends StatelessWidget {
     // Find segment and interpolate
     for (int i = 0; i < _sliderPoints.length - 1; i++) {
       if (slider <= _sliderPoints[i + 1]) {
-        final t = (slider - _sliderPoints[i]) / (_sliderPoints[i + 1] - _sliderPoints[i]);
+        final t =
+            (slider - _sliderPoints[i]) /
+            (_sliderPoints[i + 1] - _sliderPoints[i]);
         return _dbPoints[i] + t * (_dbPoints[i + 1] - _dbPoints[i]);
       }
     }
@@ -172,7 +200,13 @@ class _CapsuleFaderPainter extends CustomPainter {
     _drawVolumeHandle(canvas, size);
   }
 
-  void _drawMeterRow(Canvas canvas, Offset offset, double width, double height, double level) {
+  void _drawMeterRow(
+    Canvas canvas,
+    Offset offset,
+    double width,
+    double height,
+    double level,
+  ) {
     // Draw background track (dark)
     final bgRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(offset.dx, offset.dy, width, height),
@@ -213,7 +247,13 @@ class _CapsuleFaderPainter extends CustomPainter {
   }
 
   /// Draw input level as a faded overlay spanning full meter height
-  void _drawInputOverlay(Canvas canvas, Offset offset, double width, double height, double level) {
+  void _drawInputOverlay(
+    Canvas canvas,
+    Offset offset,
+    double width,
+    double height,
+    double level,
+  ) {
     final levelWidth = width * level;
     final levelRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(offset.dx, offset.dy, levelWidth, height),

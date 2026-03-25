@@ -4,14 +4,17 @@ import '../piano_roll_state.dart';
 import 'note_operations.dart';
 
 /// Mixin containing selection operations for PianoRoll.
-mixin SelectionOperationsMixin on State<PianoRoll>, PianoRollStateMixin, NoteOperationsMixin {
+mixin SelectionOperationsMixin
+    on State<PianoRoll>, PianoRollStateMixin, NoteOperationsMixin {
   /// Select all notes in the current clip.
   void selectAllNotes() {
     if (currentClip == null || currentClip!.notes.isEmpty) return;
 
     setState(() {
       currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes.map((n) => n.copyWith(isSelected: true)).toList(),
+        notes: currentClip!.notes
+            .map((n) => n.copyWith(isSelected: true))
+            .toList(),
       );
     });
   }
@@ -25,7 +28,9 @@ mixin SelectionOperationsMixin on State<PianoRoll>, PianoRollStateMixin, NoteOpe
 
     setState(() {
       currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+        notes: currentClip!.notes
+            .map((n) => n.copyWith(isSelected: false))
+            .toList(),
       );
     });
   }
@@ -95,10 +100,11 @@ mixin SelectionOperationsMixin on State<PianoRoll>, PianoRollStateMixin, NoteOpe
     setState(() {
       currentClip = currentClip?.copyWith(
         notes: currentClip!.notes.map((note) {
-          final isInRange = note.startTime < maxBeat &&
-                            note.endTime > minBeat &&
-                            note.note >= minNote &&
-                            note.note <= maxNote;
+          final isInRange =
+              note.startTime < maxBeat &&
+              note.endTime > minBeat &&
+              note.note >= minNote &&
+              note.note <= maxNote;
           return note.copyWith(isSelected: isInRange);
         }).toList(),
       );

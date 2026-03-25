@@ -9,8 +9,10 @@ class ClipData {
   final int trackId;
   final String filePath;
   final double startTime; // in seconds
-  final double duration; // in seconds (arrangement length - can exceed loopLength when looping)
-  final double offset; // Start offset within audio file for non-destructive trimming (seconds)
+  final double
+  duration; // in seconds (arrangement length - can exceed loopLength when looping)
+  final double
+  offset; // Start offset within audio file for non-destructive trimming (seconds)
   final List<double> waveformPeaks;
   final Color? color;
 
@@ -42,10 +44,13 @@ class ClipData {
     this.color,
     this.editData,
     double? loopLength,
-    this.canRepeat = true, // Default to true to match AudioClipEditData.loopEnabled
+    this.canRepeat =
+        true, // Default to true to match AudioClipEditData.loopEnabled
     ClipAutomation? automation,
-  })  : loopLength = loopLength ?? duration, // Default loopLength to duration if not specified
-        automation = automation ?? ClipAutomation.empty();
+  }) : loopLength =
+           loopLength ??
+           duration, // Default loopLength to duration if not specified
+       automation = automation ?? ClipAutomation.empty();
 
   /// Convert ClipData to JSON for project persistence
   Map<String, dynamic> toJson() {
@@ -75,12 +80,15 @@ class ClipData {
       startTime: (json['startTime'] as num).toDouble(),
       duration: duration,
       offset: (json['offset'] as num?)?.toDouble() ?? 0.0,
-      waveformPeaks: (json['waveformPeaks'] as List<dynamic>?)
+      waveformPeaks:
+          (json['waveformPeaks'] as List<dynamic>?)
               ?.map((e) => (e as num).toDouble())
               .toList() ??
           const [],
       loopLength: (json['loopLength'] as num?)?.toDouble() ?? duration,
-      canRepeat: json['canRepeat'] as bool? ?? true, // Default to true to match AudioClipEditData.loopEnabled
+      canRepeat:
+          json['canRepeat'] as bool? ??
+          true, // Default to true to match AudioClipEditData.loopEnabled
       color: json['color'] != null ? Color(json['color'] as int) : null,
       editData: json['editData'] != null
           ? AudioClipEditData.fromJson(json['editData'] as Map<String, dynamic>)

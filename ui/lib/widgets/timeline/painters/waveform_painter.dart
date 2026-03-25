@@ -43,7 +43,8 @@ class WaveformPainter extends CustomPainter {
     final centerY = size.height / 2;
 
     // Calculate effective loop width (one iteration of the waveform)
-    final effectiveLoopWidth = (loopWidth != null && loopWidth! > 0 && loopWidth! < size.width)
+    final effectiveLoopWidth =
+        (loopWidth != null && loopWidth! > 0 && loopWidth! < size.width)
         ? loopWidth!
         : size.width;
 
@@ -62,7 +63,12 @@ class WaveformPainter extends CustomPainter {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(loopStartX, 0, thisLoopWidth, size.height));
 
-      _paintSingleWaveform(canvas, Size(effectiveLoopWidth, size.height), loopStartX, centerY);
+      _paintSingleWaveform(
+        canvas,
+        Size(effectiveLoopWidth, size.height),
+        loopStartX,
+        centerY,
+      );
 
       canvas.restore();
     }
@@ -71,11 +77,20 @@ class WaveformPainter extends CustomPainter {
     final centerLinePaint = Paint()
       ..color = color.withValues(alpha: 0.15)
       ..strokeWidth = 0.5;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerLinePaint);
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerLinePaint,
+    );
   }
 
   /// Paint a single waveform iteration at the given offset
-  void _paintSingleWaveform(Canvas canvas, Size size, double offsetX, double centerY) {
+  void _paintSingleWaveform(
+    Canvas canvas,
+    Size size,
+    double offsetX,
+    double centerY,
+  ) {
     final originalPeakCount = peaks.length ~/ 2;
     if (originalPeakCount == 0) return;
 
@@ -86,13 +101,19 @@ class WaveformPainter extends CustomPainter {
     if (contentDuration != null && contentDuration! > 0) {
       // Calculate peak indices for the visible portion
       final peaksPerSecond = originalPeakCount / contentDuration!;
-      final startPeakIndex = (startOffset * peaksPerSecond).floor().clamp(0, originalPeakCount);
+      final startPeakIndex = (startOffset * peaksPerSecond).floor().clamp(
+        0,
+        originalPeakCount,
+      );
 
       // Calculate end peak index based on visibleDuration (if specified)
       int endPeakIndex = originalPeakCount;
       if (visibleDuration != null && visibleDuration! > 0) {
         final endOffset = startOffset + visibleDuration!;
-        endPeakIndex = (endOffset * peaksPerSecond).ceil().clamp(0, originalPeakCount);
+        endPeakIndex = (endOffset * peaksPerSecond).ceil().clamp(
+          0,
+          originalPeakCount,
+        );
       }
 
       // Extract peaks for the visible portion
@@ -110,7 +131,9 @@ class WaveformPainter extends CustomPainter {
 
     // LOD: Calculate optimal peak count for visible width
     // Target ~1 pixel per peak for crisp detail (like Ableton)
-    final targetPeakCount = effectiveWidth.clamp(100, visiblePeakCount.toDouble()).toInt();
+    final targetPeakCount = effectiveWidth
+        .clamp(100, visiblePeakCount.toDouble())
+        .toInt();
 
     // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
     List<double> renderPeaks;

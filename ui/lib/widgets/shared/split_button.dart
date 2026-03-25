@@ -113,19 +113,12 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (widget.icon != null) ...[
-                      Icon(
-                        widget.icon,
-                        size: 12,
-                        color: textColor,
-                      ),
+                      Icon(widget.icon, size: 12, color: textColor),
                       const SizedBox(width: 4),
                     ],
                     Text(
                       widget.label,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 9,
-                      ),
+                      style: TextStyle(color: textColor, fontSize: 9),
                     ),
                   ],
                 ),
@@ -150,8 +143,10 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
               child: GestureDetector(
                 onTap: _showDropdown,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _isHoveringDropdown
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -218,29 +213,20 @@ class _ToolbarButtonState extends State<ToolbarButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _isHovering
-                ? bgColor.withValues(alpha: 0.8)
-                : bgColor,
+            color: _isHovering ? bgColor.withValues(alpha: 0.8) : bgColor,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  size: 14,
-                  color: textColor,
-                ),
+                Icon(widget.icon, size: 14, color: textColor),
                 if (widget.label.isNotEmpty) const SizedBox(width: 4),
               ],
               if (widget.label.isNotEmpty)
                 Text(
                   widget.label,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 11),
                 ),
             ],
           ),
@@ -249,10 +235,7 @@ class _ToolbarButtonState extends State<ToolbarButton> {
     );
 
     if (widget.tooltip != null) {
-      button = Tooltip(
-        message: widget.tooltip!,
-        child: button,
-      );
+      button = Tooltip(message: widget.tooltip!, child: button);
     }
 
     return button;

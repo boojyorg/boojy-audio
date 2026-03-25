@@ -40,7 +40,12 @@ class EffectData {
 
       if (type == null) return null;
 
-      return EffectData(id: id, type: type, parameters: params, bypassed: bypassed);
+      return EffectData(
+        id: id,
+        type: type,
+        parameters: params,
+        bypassed: bypassed,
+      );
     } catch (e) {
       return null;
     }
@@ -138,9 +143,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       width: 350,
       decoration: BoxDecoration(
         color: context.colors.standard,
-        border: Border(
-          left: BorderSide(color: context.colors.surface),
-        ),
+        border: Border(left: BorderSide(color: context.colors.surface)),
       ),
       child: Column(
         children: [
@@ -149,9 +152,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
 
           // Effects list
           Expanded(
-            child: _effects.isEmpty
-                ? _buildEmptyState()
-                : _buildEffectsList(),
+            child: _effects.isEmpty ? _buildEmptyState() : _buildEffectsList(),
           ),
 
           // Add effect menu
@@ -166,17 +167,11 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.colors.darkest,
-        border: Border(
-          bottom: BorderSide(color: context.colors.surface),
-        ),
+        border: Border(bottom: BorderSide(color: context.colors.surface)),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.tune,
-            color: context.colors.textSecondary,
-            size: 20,
-          ),
+          Icon(Icons.tune, color: context.colors.textSecondary, size: 20),
           const SizedBox(width: 12),
           Text(
             'EFFECTS',
@@ -205,26 +200,16 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.graphic_eq,
-            size: 48,
-            color: context.colors.textMuted,
-          ),
+          Icon(Icons.graphic_eq, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
             'No effects',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             'Add an effect to get started',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
           ),
         ],
       ),
@@ -319,22 +304,78 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildEQParameters(EffectData effect) {
     return Column(
       children: [
-        _buildParameter('Low Freq', effect.id, 'low_freq',
-            effect.parameters['low_freq'] ?? 100, 20, 500, ' Hz'),
-        _buildParameter('Low Gain', effect.id, 'low_gain',
-            effect.parameters['low_gain'] ?? 0, -12, 12, ' dB'),
-        _buildParameter('Mid1 Freq', effect.id, 'mid1_freq',
-            effect.parameters['mid1_freq'] ?? 500, 200, 2000, ' Hz'),
-        _buildParameter('Mid1 Gain', effect.id, 'mid1_gain',
-            effect.parameters['mid1_gain'] ?? 0, -12, 12, ' dB'),
-        _buildParameter('Mid2 Freq', effect.id, 'mid2_freq',
-            effect.parameters['mid2_freq'] ?? 2000, 1000, 8000, ' Hz'),
-        _buildParameter('Mid2 Gain', effect.id, 'mid2_gain',
-            effect.parameters['mid2_gain'] ?? 0, -12, 12, ' dB'),
-        _buildParameter('High Freq', effect.id, 'high_freq',
-            effect.parameters['high_freq'] ?? 8000, 4000, 16000, ' Hz'),
-        _buildParameter('High Gain', effect.id, 'high_gain',
-            effect.parameters['high_gain'] ?? 0, -12, 12, ' dB'),
+        _buildParameter(
+          'Low Freq',
+          effect.id,
+          'low_freq',
+          effect.parameters['low_freq'] ?? 100,
+          20,
+          500,
+          ' Hz',
+        ),
+        _buildParameter(
+          'Low Gain',
+          effect.id,
+          'low_gain',
+          effect.parameters['low_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildParameter(
+          'Mid1 Freq',
+          effect.id,
+          'mid1_freq',
+          effect.parameters['mid1_freq'] ?? 500,
+          200,
+          2000,
+          ' Hz',
+        ),
+        _buildParameter(
+          'Mid1 Gain',
+          effect.id,
+          'mid1_gain',
+          effect.parameters['mid1_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildParameter(
+          'Mid2 Freq',
+          effect.id,
+          'mid2_freq',
+          effect.parameters['mid2_freq'] ?? 2000,
+          1000,
+          8000,
+          ' Hz',
+        ),
+        _buildParameter(
+          'Mid2 Gain',
+          effect.id,
+          'mid2_gain',
+          effect.parameters['mid2_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
+        _buildParameter(
+          'High Freq',
+          effect.id,
+          'high_freq',
+          effect.parameters['high_freq'] ?? 8000,
+          4000,
+          16000,
+          ' Hz',
+        ),
+        _buildParameter(
+          'High Gain',
+          effect.id,
+          'high_gain',
+          effect.parameters['high_gain'] ?? 0,
+          -12,
+          12,
+          ' dB',
+        ),
       ],
     );
   }
@@ -342,16 +383,51 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildCompressorParameters(EffectData effect) {
     return Column(
       children: [
-        _buildParameter('Threshold', effect.id, 'threshold',
-            effect.parameters['threshold'] ?? -20, -60, 0, ' dB'),
-        _buildParameter('Ratio', effect.id, 'ratio',
-            effect.parameters['ratio'] ?? 4, 1, 20, ':1'),
-        _buildParameter('Attack', effect.id, 'attack',
-            effect.parameters['attack'] ?? 10, 1, 100, ' ms'),
-        _buildParameter('Release', effect.id, 'release',
-            effect.parameters['release'] ?? 100, 10, 1000, ' ms'),
-        _buildParameter('Makeup', effect.id, 'makeup',
-            effect.parameters['makeup'] ?? 0, 0, 24, ' dB'),
+        _buildParameter(
+          'Threshold',
+          effect.id,
+          'threshold',
+          effect.parameters['threshold'] ?? -20,
+          -60,
+          0,
+          ' dB',
+        ),
+        _buildParameter(
+          'Ratio',
+          effect.id,
+          'ratio',
+          effect.parameters['ratio'] ?? 4,
+          1,
+          20,
+          ':1',
+        ),
+        _buildParameter(
+          'Attack',
+          effect.id,
+          'attack',
+          effect.parameters['attack'] ?? 10,
+          1,
+          100,
+          ' ms',
+        ),
+        _buildParameter(
+          'Release',
+          effect.id,
+          'release',
+          effect.parameters['release'] ?? 100,
+          10,
+          1000,
+          ' ms',
+        ),
+        _buildParameter(
+          'Makeup',
+          effect.id,
+          'makeup',
+          effect.parameters['makeup'] ?? 0,
+          0,
+          24,
+          ' dB',
+        ),
       ],
     );
   }
@@ -359,12 +435,33 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildReverbParameters(EffectData effect) {
     return Column(
       children: [
-        _buildParameter('Room Size', effect.id, 'room_size',
-            effect.parameters['room_size'] ?? 0.5, 0, 1, ''),
-        _buildParameter('Damping', effect.id, 'damping',
-            effect.parameters['damping'] ?? 0.5, 0, 1, ''),
-        _buildParameter('Wet/Dry', effect.id, 'wet_dry',
-            effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildParameter(
+          'Room Size',
+          effect.id,
+          'room_size',
+          effect.parameters['room_size'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildParameter(
+          'Damping',
+          effect.id,
+          'damping',
+          effect.parameters['damping'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildParameter(
+          'Wet/Dry',
+          effect.id,
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -372,12 +469,33 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildDelayParameters(EffectData effect) {
     return Column(
       children: [
-        _buildParameter('Time', effect.id, 'time',
-            effect.parameters['time'] ?? 500, 10, 2000, ' ms'),
-        _buildParameter('Feedback', effect.id, 'feedback',
-            effect.parameters['feedback'] ?? 0.4, 0, 0.99, ''),
-        _buildParameter('Wet/Dry', effect.id, 'wet_dry',
-            effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildParameter(
+          'Time',
+          effect.id,
+          'time',
+          effect.parameters['time'] ?? 500,
+          10,
+          2000,
+          ' ms',
+        ),
+        _buildParameter(
+          'Feedback',
+          effect.id,
+          'feedback',
+          effect.parameters['feedback'] ?? 0.4,
+          0,
+          0.99,
+          '',
+        ),
+        _buildParameter(
+          'Wet/Dry',
+          effect.id,
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -385,12 +503,33 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   Widget _buildChorusParameters(EffectData effect) {
     return Column(
       children: [
-        _buildParameter('Rate', effect.id, 'rate',
-            effect.parameters['rate'] ?? 1.5, 0.1, 10, ' Hz'),
-        _buildParameter('Depth', effect.id, 'depth',
-            effect.parameters['depth'] ?? 0.5, 0, 1, ''),
-        _buildParameter('Wet/Dry', effect.id, 'wet_dry',
-            effect.parameters['wet_dry'] ?? 0.3, 0, 1, ''),
+        _buildParameter(
+          'Rate',
+          effect.id,
+          'rate',
+          effect.parameters['rate'] ?? 1.5,
+          0.1,
+          10,
+          ' Hz',
+        ),
+        _buildParameter(
+          'Depth',
+          effect.id,
+          'depth',
+          effect.parameters['depth'] ?? 0.5,
+          0,
+          1,
+          '',
+        ),
+        _buildParameter(
+          'Wet/Dry',
+          effect.id,
+          'wet_dry',
+          effect.parameters['wet_dry'] ?? 0.3,
+          0,
+          1,
+          '',
+        ),
       ],
     );
   }
@@ -414,10 +553,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 12),
               ),
               Text(
                 '${value.toStringAsFixed(1)}$unit',
@@ -432,12 +568,8 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           SliderTheme(
             data: SliderThemeData(
               trackHeight: 2,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 6,
-              ),
-              overlayShape: const RoundSliderOverlayShape(
-                overlayRadius: 12,
-              ),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
               activeTrackColor: context.colors.success,
               inactiveTrackColor: context.colors.surface,
               thumbColor: context.colors.textSecondary,
@@ -448,7 +580,10 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
               max: max,
               onChanged: (newValue) {
                 widget.audioEngine?.setEffectParameter(
-                    effectId, paramName, newValue);
+                  effectId,
+                  paramName,
+                  newValue,
+                );
                 _loadEffects();
               },
             ),
@@ -463,9 +598,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: context.colors.darkest,
-        border: Border(
-          top: BorderSide(color: context.colors.surface),
-        ),
+        border: Border(top: BorderSide(color: context.colors.surface)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

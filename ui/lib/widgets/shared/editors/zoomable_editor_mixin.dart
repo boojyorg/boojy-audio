@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show PointerScrollEvent, PointerSignalEvent;
+import 'package:flutter/gestures.dart'
+    show PointerScrollEvent, PointerSignalEvent;
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
 /// Mixin providing horizontal zoom functionality for editors (Piano Roll, Timeline).
@@ -182,7 +183,8 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   void handlePointerSignal(PointerSignalEvent event, {double? localX}) {
     if (event is PointerScrollEvent) {
       // Check for Cmd (Mac) or Ctrl (Windows/Linux) modifier
-      final isModifierPressed = HardwareKeyboard.instance.isMetaPressed ||
+      final isModifierPressed =
+          HardwareKeyboard.instance.isMetaPressed ||
           HardwareKeyboard.instance.isControlPressed;
 
       if (isModifierPressed) {
@@ -202,7 +204,8 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
   /// Useful for editors that don't need dynamic zoom limits.
   void handlePointerSignalSimple(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
-      final isModifierPressed = HardwareKeyboard.instance.isMetaPressed ||
+      final isModifierPressed =
+          HardwareKeyboard.instance.isMetaPressed ||
           HardwareKeyboard.instance.isControlPressed;
 
       if (isModifierPressed) {
@@ -253,7 +256,10 @@ mixin ZoomableEditorMixin<T extends StatefulWidget> on State<T> {
     final zoomFactor = 1.0 + (deltaY / 200.0);
 
     // Calculate new pixelsPerBeat
-    final newPixelsPerBeat = (_dragZoomStartPPB! * zoomFactor).clamp(minZ, maxZ);
+    final newPixelsPerBeat = (_dragZoomStartPPB! * zoomFactor).clamp(
+      minZ,
+      maxZ,
+    );
 
     if (newPixelsPerBeat == pixelsPerBeat) return;
 

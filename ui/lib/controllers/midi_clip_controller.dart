@@ -21,7 +21,8 @@ class MidiClipController extends ChangeNotifier {
   MidiClipData? get clipboardClip => _clipboardClip;
   double get tempo => _tempo;
   int? get selectedClipId => _midiPlaybackManager?.selectedClipId;
-  MidiClipData? get currentEditingClip => _midiPlaybackManager?.currentEditingClip;
+  MidiClipData? get currentEditingClip =>
+      _midiPlaybackManager?.currentEditingClip;
   List<MidiClipData> get midiClips => _midiPlaybackManager?.midiClips ?? [];
 
   /// Initialize with audio engine and MIDI playback manager
@@ -56,7 +57,11 @@ class MidiClipController extends ChangeNotifier {
   /// Update a MIDI clip with new note data
   void updateClip(MidiClipData updatedClip, double playheadPositionSeconds) {
     final playheadPositionBeats = secondsToBeats(playheadPositionSeconds);
-    _midiPlaybackManager?.updateClip(updatedClip, _tempo, playheadPositionBeats);
+    _midiPlaybackManager?.updateClip(
+      updatedClip,
+      _tempo,
+      playheadPositionBeats,
+    );
     notifyListeners();
   }
 
@@ -112,15 +117,17 @@ class MidiClipController extends ChangeNotifier {
         leftNotes.add(note);
       } else if (note.startTime >= splitPointRelative) {
         // Note is entirely in the right clip - adjust its start time
-        rightNotes.add(note.copyWith(
-          startTime: note.startTime - splitPointRelative,
-          id: '${note.note}_${note.startTime - splitPointRelative}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
+        rightNotes.add(
+          note.copyWith(
+            startTime: note.startTime - splitPointRelative,
+            id: '${note.note}_${note.startTime - splitPointRelative}_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
       } else {
         // Note straddles the split point - truncate it to the left clip
-        leftNotes.add(note.copyWith(
-          duration: splitPointRelative - note.startTime,
-        ));
+        leftNotes.add(
+          note.copyWith(duration: splitPointRelative - note.startTime),
+        );
       }
     }
 
@@ -184,7 +191,8 @@ class MidiClipController extends ChangeNotifier {
     }
 
     // Quantize start time to nearest grid position
-    final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
+    final quantizedStart =
+        (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
 
     // Only update if position changed
     if ((quantizedStart - clip.startTime).abs() < 0.001) {
@@ -195,7 +203,9 @@ class MidiClipController extends ChangeNotifier {
     final quantizedClip = clip.copyWith(startTime: quantizedStart);
 
     // Update in manager
-    final index = _midiPlaybackManager!.midiClips.indexWhere((c) => c.clipId == clip.clipId);
+    final index = _midiPlaybackManager!.midiClips.indexWhere(
+      (c) => c.clipId == clip.clipId,
+    );
     if (index >= 0) {
       // We need to update the clip through the manager
       _midiPlaybackManager!.updateClip(quantizedClip, _tempo, 0);

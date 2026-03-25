@@ -15,7 +15,20 @@ void main() {
 
     test('chromatic scale has all 12 semitones', () {
       expect(ScaleType.chromatic.intervals.length, 12);
-      expect(ScaleType.chromatic.intervals, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      expect(ScaleType.chromatic.intervals, [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+      ]);
     });
 
     test('pentatonic scales have 5 notes', () {
@@ -31,7 +44,20 @@ void main() {
   group('ScaleRoot', () {
     test('noteNames contains all 12 notes', () {
       expect(ScaleRoot.noteNames.length, 12);
-      expect(ScaleRoot.noteNames, ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']);
+      expect(ScaleRoot.noteNames, [
+        'C',
+        'C#',
+        'D',
+        'D#',
+        'E',
+        'F',
+        'F#',
+        'G',
+        'G#',
+        'A',
+        'A#',
+        'B',
+      ]);
     });
 
     test('midiNoteFromName returns correct values', () {

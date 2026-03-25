@@ -28,7 +28,8 @@ class VelocityLanePainter extends CustomPainter {
 
     // Draw horizontal grid lines at 25%, 50%, 75%, 100%
     final gridPaint = Paint()
-      ..color = const Color(0xFF292B36) // BG.elevated
+      ..color =
+          const Color(0xFF292B36) // BG.elevated
       ..strokeWidth = 1;
 
     for (var i = 1; i <= 4; i++) {
@@ -38,7 +39,8 @@ class VelocityLanePainter extends CustomPainter {
 
     // Draw vertical bar lines (every 4 beats)
     final barPaint = Paint()
-      ..color = const Color(0xFF3A3D4A) // BG.divider
+      ..color =
+          const Color(0xFF3A3D4A) // BG.divider
       ..strokeWidth = 1;
 
     for (double beat = 0; beat <= totalBeats; beat += 4) {
@@ -86,11 +88,13 @@ class VelocityLanePainter extends CustomPainter {
       if (isHighlighted) {
         borderColor = Colors.white;
       } else if (isHovered) {
-        borderColor = baseHsl.withLightness((hoverLightness + 0.1).clamp(0.0, 0.8)).toColor();
-      } else {
-        borderColor = HSLColor.fromColor(velocityColor)
-            .withLightness((lightness * 0.7).clamp(0.0, 1.0))
+        borderColor = baseHsl
+            .withLightness((hoverLightness + 0.1).clamp(0.0, 0.8))
             .toColor();
+      } else {
+        borderColor = HSLColor.fromColor(
+          velocityColor,
+        ).withLightness((lightness * 0.7).clamp(0.0, 1.0)).toColor();
       }
 
       final linePaint = Paint()
@@ -108,18 +112,10 @@ class VelocityLanePainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
 
       // Draw vertical line (from bottom to velocity height)
-      canvas.drawLine(
-        Offset(x + 1, laneHeight),
-        Offset(x + 1, y),
-        linePaint,
-      );
+      canvas.drawLine(Offset(x + 1, laneHeight), Offset(x + 1, y), linePaint);
 
       // Draw horizontal line at top (note duration)
-      canvas.drawLine(
-        Offset(x + 1, y),
-        Offset(x + width - 1, y),
-        linePaint,
-      );
+      canvas.drawLine(Offset(x + 1, y), Offset(x + width - 1, y), linePaint);
 
       // Draw circle at top-left corner
       final circleCenter = Offset(x + 1, y);

@@ -131,7 +131,8 @@ class WebStorageService {
     final request = web.window.indexedDB.open(_dbName, _dbVersion);
 
     request.onupgradeneeded = (web.IDBVersionChangeEvent event) {
-      final db = (event.target as web.IDBOpenDBRequest).result as web.IDBDatabase;
+      final db =
+          (event.target as web.IDBOpenDBRequest).result as web.IDBDatabase;
       _createStores(db);
     }.toJS;
 
@@ -142,7 +143,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to open IndexedDB: ${request.error?.message}');
+      completer.completeError(
+        'Failed to open IndexedDB: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -155,8 +158,16 @@ class WebStorageService {
         _projectsStore,
         web.IDBObjectStoreParameters(keyPath: 'id'.toJS),
       );
-      projectStore.createIndex('name', 'name'.toJS, web.IDBIndexParameters(unique: false));
-      projectStore.createIndex('updatedAt', 'updatedAt'.toJS, web.IDBIndexParameters(unique: false));
+      projectStore.createIndex(
+        'name',
+        'name'.toJS,
+        web.IDBIndexParameters(unique: false),
+      );
+      projectStore.createIndex(
+        'updatedAt',
+        'updatedAt'.toJS,
+        web.IDBIndexParameters(unique: false),
+      );
     }
 
     // Audio files store
@@ -165,8 +176,16 @@ class WebStorageService {
         _audioFilesStore,
         web.IDBObjectStoreParameters(keyPath: 'id'.toJS),
       );
-      audioStore.createIndex('projectId', 'projectId'.toJS, web.IDBIndexParameters(unique: false));
-      audioStore.createIndex('name', 'name'.toJS, web.IDBIndexParameters(unique: false));
+      audioStore.createIndex(
+        'projectId',
+        'projectId'.toJS,
+        web.IDBIndexParameters(unique: false),
+      );
+      audioStore.createIndex(
+        'name',
+        'name'.toJS,
+        web.IDBIndexParameters(unique: false),
+      );
     }
 
     // Settings store
@@ -197,7 +216,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to save project: ${request.error?.message}');
+      completer.completeError(
+        'Failed to save project: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -223,7 +244,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to get project: ${request.error?.message}');
+      completer.completeError(
+        'Failed to get project: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -252,7 +275,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to get projects: ${request.error?.message}');
+      completer.completeError(
+        'Failed to get projects: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -264,22 +289,29 @@ class WebStorageService {
     final completer = Completer<void>();
 
     // Delete project
-    final transaction = _db!.transaction([_projectsStore.toJS, _audioFilesStore.toJS].toJS, 'readwrite');
+    final transaction = _db!.transaction(
+      [_projectsStore.toJS, _audioFilesStore.toJS].toJS,
+      'readwrite',
+    );
     final projectStore = transaction.objectStore(_projectsStore);
 
     final request = projectStore.delete(id.toJS);
 
     request.onsuccess = (web.Event event) {
       // Also delete associated audio files
-      _deleteAudioFilesForProject(id).then((_) {
-        completer.complete();
-      }).catchError((e) {
-        completer.completeError(e);
-      });
+      _deleteAudioFilesForProject(id)
+          .then((_) {
+            completer.complete();
+          })
+          .catchError((e) {
+            completer.completeError(e);
+          });
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to delete project: ${request.error?.message}');
+      completer.completeError(
+        'Failed to delete project: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -316,7 +348,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to save audio file: ${request.error?.message}');
+      completer.completeError(
+        'Failed to save audio file: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -336,23 +370,28 @@ class WebStorageService {
       if (result != null) {
         final map = (result as JSObject).dartify() as Map<String, dynamic>;
         final dataBytes = map['data'] as Uint8List;
-        completer.complete(WebAudioFile(
-          id: map['id'] as String,
-          projectId: map['projectId'] as String,
-          name: map['name'] as String,
-          data: dataBytes,
-          mimeType: map['mimeType'] as String,
-          sampleRate: map['sampleRate'] as int? ?? 48000,
-          channels: map['channels'] as int? ?? 2,
-          durationSeconds: (map['durationSeconds'] as num?)?.toDouble() ?? 0.0,
-        ));
+        completer.complete(
+          WebAudioFile(
+            id: map['id'] as String,
+            projectId: map['projectId'] as String,
+            name: map['name'] as String,
+            data: dataBytes,
+            mimeType: map['mimeType'] as String,
+            sampleRate: map['sampleRate'] as int? ?? 48000,
+            channels: map['channels'] as int? ?? 2,
+            durationSeconds:
+                (map['durationSeconds'] as num?)?.toDouble() ?? 0.0,
+          ),
+        );
       } else {
         completer.complete(null);
       }
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to get audio file: ${request.error?.message}');
+      completer.completeError(
+        'Failed to get audio file: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -375,22 +414,27 @@ class WebStorageService {
         final item = results[i] as JSObject;
         final map = item.dartify() as Map<String, dynamic>;
         final dataBytes = map['data'] as Uint8List;
-        files.add(WebAudioFile(
-          id: map['id'] as String,
-          projectId: map['projectId'] as String,
-          name: map['name'] as String,
-          data: dataBytes,
-          mimeType: map['mimeType'] as String,
-          sampleRate: map['sampleRate'] as int? ?? 48000,
-          channels: map['channels'] as int? ?? 2,
-          durationSeconds: (map['durationSeconds'] as num?)?.toDouble() ?? 0.0,
-        ));
+        files.add(
+          WebAudioFile(
+            id: map['id'] as String,
+            projectId: map['projectId'] as String,
+            name: map['name'] as String,
+            data: dataBytes,
+            mimeType: map['mimeType'] as String,
+            sampleRate: map['sampleRate'] as int? ?? 48000,
+            channels: map['channels'] as int? ?? 2,
+            durationSeconds:
+                (map['durationSeconds'] as num?)?.toDouble() ?? 0.0,
+          ),
+        );
       }
       completer.complete(files);
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to get audio files: ${request.error?.message}');
+      completer.completeError(
+        'Failed to get audio files: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -410,7 +454,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to delete audio file: ${request.error?.message}');
+      completer.completeError(
+        'Failed to delete audio file: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -444,7 +490,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to save setting: ${request.error?.message}');
+      completer.completeError(
+        'Failed to save setting: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -470,7 +518,9 @@ class WebStorageService {
     }.toJS;
 
     request.onerror = (web.Event event) {
-      completer.completeError('Failed to get setting: ${request.error?.message}');
+      completer.completeError(
+        'Failed to get setting: ${request.error?.message}',
+      );
     }.toJS;
 
     return completer.future;
@@ -482,7 +532,9 @@ class WebStorageService {
 
   void _ensureInitialized() {
     if (!_isInitialized || _db == null) {
-      throw StateError('WebStorageService not initialized. Call initialize() first.');
+      throw StateError(
+        'WebStorageService not initialized. Call initialize() first.',
+      );
     }
   }
 
@@ -498,10 +550,7 @@ class WebStorageService {
     try {
       final storage = web.window.navigator.storage;
       final estimate = await storage.estimate().toDart;
-      return {
-        'usage': estimate.usage.toInt(),
-        'quota': estimate.quota.toInt(),
-      };
+      return {'usage': estimate.usage.toInt(), 'quota': estimate.quota.toInt()};
     } catch (e) {
       // Storage API not available
       return null;

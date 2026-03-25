@@ -21,7 +21,15 @@ import 'daw_vst3_mixin.dart';
 
 /// Mixin containing library-related methods for DAWScreen.
 /// Handles library item interactions, audio file drops, and sampler operations.
-mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin {
+mixin DAWLibraryMixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin,
+        DAWClipMixin,
+        DAWVst3Mixin {
   // ============================================
   // LIBRARY ITEM DOUBLE-CLICK
   // ============================================
@@ -32,7 +40,8 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
     final selectedTrack = selectedTrackId;
     final isMidi = selectedTrack != null && isMidiTrack(selectedTrack);
-    final isEmptyAudio = selectedTrack != null && isEmptyAudioTrack(selectedTrack);
+    final isEmptyAudio =
+        selectedTrack != null && isEmptyAudioTrack(selectedTrack);
 
     switch (item.type) {
       case LibraryItemType.instrument:
@@ -236,7 +245,10 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
         : 'Sampler: $trackName';
 
     // Create Sampler track
-    final samplerTrackId = audioEngine!.createTrack('sampler', samplerTrackName);
+    final samplerTrackId = audioEngine!.createTrack(
+      'sampler',
+      samplerTrackName,
+    );
     if (samplerTrackId < 0) {
       showSnackBar('Failed to create sampler track');
       return;
@@ -250,7 +262,11 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     }
 
     // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(samplerTrackId, samplePath, 60);
+    final success = audioEngine!.loadSampleForTrack(
+      samplerTrackId,
+      samplePath,
+      60,
+    );
     if (!success) {
       showSnackBar('Failed to load sample');
       return;
@@ -327,14 +343,16 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
       // 5. Add to timeline view's clip list
-      timelineKey.currentState?.addClip(ClipData(
-        clipId: clipId,
-        trackId: trackId,
-        filePath: finalPath, // Use the copied path
-        startTime: 0.0,
-        duration: duration,
-        waveformPeaks: peaks,
-      ));
+      timelineKey.currentState?.addClip(
+        ClipData(
+          clipId: clipId,
+          trackId: trackId,
+          filePath: finalPath, // Use the copied path
+          startTime: 0.0,
+          duration: duration,
+          waveformPeaks: peaks,
+        ),
+      );
 
       // 6. Select the newly created clip (opens Audio Editor)
       timelineKey.currentState?.selectAudioClip(clipId);
@@ -347,8 +365,14 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Handle audio file dropped on existing track (with undo support)
-  Future<void> onAudioFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    Log.d('[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+  Future<void> onAudioFileDroppedOnTrack(
+    int trackId,
+    String filePath,
+    double startTimeBeats,
+  ) async {
+    Log.d(
+      '[OVERLAP] onAudioFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}',
+    );
     if (audioEngine == null) return;
 
     // Defensive check: only allow audio file drops on audio tracks (not MIDI tracks)
@@ -375,29 +399,38 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
           final result = ClipOverlapHandler.resolveAudioOverlaps(
             newStart: startTimeSeconds,
             newEnd: startTimeSeconds + duration,
-            existingClips: List<ClipData>.from(timelineKey.currentState?.clips ?? []),
+            existingClips: List<ClipData>.from(
+              timelineKey.currentState?.clips ?? [],
+            ),
             trackId: trackId,
           );
           ClipOverlapHandler.applyAudioResult(
             result: result,
-            engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
-            engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
-            engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
-            engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
-            engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+            engineRemoveClip: (tId, cId) =>
+                audioEngine?.removeAudioClip(tId, cId),
+            engineSetStartTime: (tId, cId, s) =>
+                audioEngine?.setClipStartTime(tId, cId, s),
+            engineSetOffset: (tId, cId, o) =>
+                audioEngine?.setClipOffset(tId, cId, o),
+            engineSetDuration: (tId, cId, d) =>
+                audioEngine?.setClipDuration(tId, cId, d),
+            engineDuplicateClip: (tId, cId, s) =>
+                audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
             uiRemoveClip: (cId) => timelineKey.currentState?.removeClip(cId),
             uiUpdateClip: (clip) => timelineKey.currentState?.updateClip(clip),
             uiAddClip: (clip) => timelineKey.currentState?.addClip(clip),
           );
           // Add the new clip to timeline
-          timelineKey.currentState?.addClip(ClipData(
-            clipId: clipId,
-            trackId: trackId,
-            filePath: finalPath,
-            startTime: startTimeSeconds,
-            duration: duration,
-            waveformPeaks: peaks,
-          ));
+          timelineKey.currentState?.addClip(
+            ClipData(
+              clipId: clipId,
+              trackId: trackId,
+              filePath: finalPath,
+              startTime: startTimeSeconds,
+              duration: duration,
+              waveformPeaks: peaks,
+            ),
+          );
           // Select the newly created clip (opens Audio Editor)
           timelineKey.currentState?.selectAudioClip(clipId);
         },
@@ -417,7 +450,11 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Create new track with clip (drag-to-create)
-  Future<void> onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
+  Future<void> onCreateTrackWithClip(
+    String trackType,
+    double startBeats,
+    double durationBeats,
+  ) async {
     if (audioEngine == null) return;
 
     try {
@@ -469,10 +506,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       if (result.notes.isEmpty) return;
 
       // Create new MIDI track
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'MIDI',
-      );
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
       await undoRedoManager.execute(command);
 
       final trackId = command.createdTrackId;
@@ -485,8 +519,14 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   }
 
   /// Handle MIDI file dropped on existing track
-  Future<void> onMidiFileDroppedOnTrack(int trackId, String filePath, double startTimeBeats) async {
-    Log.d('[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}');
+  Future<void> onMidiFileDroppedOnTrack(
+    int trackId,
+    String filePath,
+    double startTimeBeats,
+  ) async {
+    Log.d(
+      '[OVERLAP] onMidiFileDroppedOnTrack: track $trackId, file=${filePath.split("/").last}, startBeats=${startTimeBeats.toStringAsFixed(3)}',
+    );
     if (audioEngine == null) return;
     if (!isMidiTrack(trackId)) return;
 
@@ -503,7 +543,12 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
 
   /// Import decoded MIDI notes as a clip on a track
   // ignore: unused_element
-  void _importMidiNotesToTrack(int trackId, String filePath, double startTimeBeats, MidiFileDecodeResult result) {
+  void _importMidiNotesToTrack(
+    int trackId,
+    String filePath,
+    double startTimeBeats,
+    MidiFileDecodeResult result,
+  ) {
     // Find the max note end to determine clip duration
     double maxEnd = 0;
     for (final note in result.notes) {
@@ -513,7 +558,8 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
 
     final clipId = DateTime.now().microsecondsSinceEpoch;
-    final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
+    final clipName =
+        result.trackName ?? filePath.split('/').last.split('.').first;
 
     final clipData = MidiClipData(
       clipId: clipId,
@@ -528,7 +574,9 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
     final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
       newStart: startTimeBeats,
       newEnd: startTimeBeats + durationBeats,
-      existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+      existingClips: List<MidiClipData>.from(
+        midiPlaybackManager?.midiClips ?? [],
+      ),
       trackId: trackId,
     );
     ClipOverlapHandler.applyMidiResult(
@@ -553,7 +601,8 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   /// Copy audio file to project's Samples folder if setting is enabled
   Future<String> prepareSamplePath(String originalPath) async {
     // If setting is disabled or no project is open, use original path
-    if (!userSettings.copySamplesToProject || projectManager?.currentPath == null) {
+    if (!userSettings.copySamplesToProject ||
+        projectManager?.currentPath == null) {
       return originalPath;
     }
 
@@ -607,14 +656,16 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
       final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
-      timelineKey.currentState?.addClip(ClipData(
-        clipId: clipId,
-        trackId: trackId,
-        filePath: finalPath, // Use the copied path
-        startTime: 0.0,
-        duration: duration,
-        waveformPeaks: peaks,
-      ));
+      timelineKey.currentState?.addClip(
+        ClipData(
+          clipId: clipId,
+          trackId: trackId,
+          filePath: finalPath, // Use the copied path
+          startTime: 0.0,
+          duration: duration,
+          waveformPeaks: peaks,
+        ),
+      );
     } catch (e) {
       // Silently fail
     }
@@ -651,9 +702,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   // ignore: unused_element
   Instrument? findInstrumentById(String id) {
     try {
-      return availableInstruments.firstWhere(
-        (inst) => inst.id == id,
-      );
+      return availableInstruments.firstWhere((inst) => inst.id == id);
     } catch (e) {
       return null;
     }
@@ -670,10 +719,7 @@ mixin DAWLibraryMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixi
   // ignore: unused_element
   void showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 }

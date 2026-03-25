@@ -47,7 +47,8 @@ class InstrumentBrowserDialog extends StatefulWidget {
   const InstrumentBrowserDialog({super.key});
 
   @override
-  State<InstrumentBrowserDialog> createState() => _InstrumentBrowserDialogState();
+  State<InstrumentBrowserDialog> createState() =>
+      _InstrumentBrowserDialogState();
 }
 
 class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
@@ -57,17 +58,15 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
   @override
   Widget build(BuildContext context) {
     // Get unique categories
-    final categories = availableInstruments
-        .map((i) => i.category)
-        .toSet()
-        .toList()
-      ..sort();
+    final categories =
+        availableInstruments.map((i) => i.category).toSet().toList()..sort();
 
     // Filter instruments based on category and search
     final filteredInstruments = availableInstruments.where((instrument) {
       final matchesCategory =
           _selectedCategory == null || instrument.category == _selectedCategory;
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           instrument.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
@@ -140,7 +139,9 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   _buildCategoryChip('All', null),
-                  ...categories.map((category) => _buildCategoryChip(category, category)),
+                  ...categories.map(
+                    (category) => _buildCategoryChip(category, category),
+                  ),
                 ],
               ),
             ),
@@ -179,10 +180,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
             // Footer info
             Text(
               'Double-click an instrument to select it',
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: context.colors.textMuted, fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ],
@@ -207,7 +205,9 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
         backgroundColor: context.colors.hover,
         selectedColor: context.colors.success,
         labelStyle: TextStyle(
-          color: isSelected ? context.colors.textPrimary : context.colors.textSecondary,
+          color: isSelected
+              ? context.colors.textPrimary
+              : context.colors.textSecondary,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
         checkmarkColor: context.colors.textPrimary,
@@ -258,10 +258,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(
-                color: context.colors.hover,
-                width: 1,
-              ),
+              bottom: BorderSide(color: context.colors.hover, width: 1),
             ),
           ),
           child: Row(
@@ -322,68 +319,65 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
           Navigator.of(context).pop(instrument);
         },
         child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: context.colors.hover,
-              width: 1,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: context.colors.hover, width: 1),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            // Instrument icon
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: context.colors.success.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              // Instrument icon
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: context.colors.success.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  instrument.icon,
+                  color: context.colors.success,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                instrument.icon,
-                color: context.colors.success,
-                size: 24,
-              ),
-            ),
 
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
 
-            // Instrument info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    instrument.name,
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+              // Instrument info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      instrument.name,
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    instrument.category,
-                    style: TextStyle(
-                      color: context.colors.textMuted,
-                      fontSize: 12,
+                    const SizedBox(height: 4),
+                    Text(
+                      instrument.category,
+                      style: TextStyle(
+                        color: context.colors.textMuted,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Arrow icon
-            Icon(
-              Icons.chevron_right,
-              color: context.colors.textMuted,
-              size: 20,
-            ),
-          ],
+              // Arrow icon
+              Icon(
+                Icons.chevron_right,
+                color: context.colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

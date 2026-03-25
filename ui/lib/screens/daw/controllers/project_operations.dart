@@ -28,9 +28,7 @@ class ProjectOperationsController extends ChangeNotifier {
   String get currentName => _projectManager?.currentName ?? 'Untitled';
 
   /// Initialize with project manager.
-  void initialize({
-    required ProjectManager projectManager,
-  }) {
+  void initialize({required ProjectManager projectManager}) {
     _projectManager = projectManager;
   }
 
@@ -127,9 +125,7 @@ class ProjectOperationsController extends ChangeNotifier {
   }
 
   /// Load a project from a file.
-  Future<ProjectResult> loadProject({
-    required String path,
-  }) async {
+  Future<ProjectResult> loadProject({required String path}) async {
     if (_projectManager == null) {
       return const ProjectResult(
         success: false,

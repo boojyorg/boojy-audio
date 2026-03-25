@@ -7,10 +7,7 @@ class CreateTrackCommand extends Command {
   final String trackName;
   int? _createdTrackId;
 
-  CreateTrackCommand({
-    required this.trackType,
-    required this.trackName,
-  });
+  CreateTrackCommand({required this.trackType, required this.trackName});
 
   /// Get the ID of the created track (after execute)
   int? get createdTrackId => _createdTrackId;
@@ -53,10 +50,10 @@ class DeleteTrackCommand extends Command {
     double? pan,
     bool? mute,
     bool? solo,
-  })  : _volumeDb = volumeDb,
-        _pan = pan,
-        _mute = mute,
-        _solo = solo;
+  }) : _volumeDb = volumeDb,
+       _pan = pan,
+       _mute = mute,
+       _solo = solo;
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
@@ -214,6 +211,5 @@ class ArmTrackCommand extends Command {
   }
 
   @override
-  String get description =>
-      '${newArmed ? 'Arm' : 'Disarm'} Track: $trackName';
+  String get description => '${newArmed ? 'Arm' : 'Disarm'} Track: $trackName';
 }

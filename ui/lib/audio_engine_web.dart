@@ -324,12 +324,21 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   @override
-  int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0}) {
+  int loadAudioFileToTrack(
+    String filePath,
+    int trackId, {
+    double startTime = 0.0,
+  }) {
     // Web can't load from file paths - use loadAudioData instead
     return -1;
   }
 
-  int loadAudioData(List<int> data, String name, int trackId, double startTime) {
+  int loadAudioData(
+    List<int> data,
+    String name,
+    int trackId,
+    double startTime,
+  ) {
     // TODO: Implement proper byte array passing to WASM
     return -1;
   }
@@ -353,17 +362,33 @@ class AudioEngine implements AudioEngineInterface {
   String setAudioClipGain(int trackId, int clipId, double gainDb) => 'OK';
 
   @override
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode) => 'OK';
+  String setAudioClipWarp(
+    int trackId,
+    int clipId,
+    bool warpEnabled,
+    double stretchFactor,
+    int warpMode,
+  ) => 'OK';
 
   @override
-  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents) => 'OK';
+  String setAudioClipTranspose(
+    int trackId,
+    int clipId,
+    int semitones,
+    int cents,
+  ) => 'OK';
 
   @override
   bool removeAudioClip(int trackId, int clipId) => true;
 
   @override
-  int addExistingClipToTrack(int clipId, int trackId, double startTime,
-      {double offset = 0.0, double? duration}) => -1;
+  int addExistingClipToTrack(
+    int clipId,
+    int trackId,
+    double startTime, {
+    double offset = 0.0,
+    double? duration,
+  }) => -1;
 
   @override
   int duplicateAudioClip(int trackId, int clipId, double startTime) => -1;
@@ -414,7 +439,11 @@ class AudioEngine implements AudioEngineInterface {
   String sendMidiNoteOn(int note, int velocity) {
     // Use web synth for immediate audio feedback
     _webSynthNoteOn(note, velocity);
-    _callEngineWith('send_midi_note_on', [_intToBigInt(0), note.toJS, velocity.toJS]);
+    _callEngineWith('send_midi_note_on', [
+      _intToBigInt(0),
+      note.toJS,
+      velocity.toJS,
+    ]);
     return 'OK';
   }
 
@@ -428,7 +457,11 @@ class AudioEngine implements AudioEngineInterface {
   String sendTrackMidiNoteOn(int trackId, int note, int velocity) {
     // Use web synth for immediate audio feedback
     _webSynthNoteOn(note, velocity);
-    _callEngineWith('send_midi_note_on', [_intToBigInt(trackId), note.toJS, velocity.toJS]);
+    _callEngineWith('send_midi_note_on', [
+      _intToBigInt(trackId),
+      note.toJS,
+      velocity.toJS,
+    ]);
     return 'OK';
   }
 
@@ -443,18 +476,26 @@ class AudioEngine implements AudioEngineInterface {
   int createMidiClip() => -1;
 
   @override
-  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) {
+  String addMidiNoteToClip(
+    int clipId,
+    int note,
+    int velocity,
+    double startTime,
+    double duration,
+  ) {
     return 'OK';
   }
 
   @override
-  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) => -1;
+  int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds) =>
+      -1;
   @override
   int removeMidiClip(int trackId, int clipId) => 0;
   String clearMidiClip(int clipId) => 'OK';
 
   /// Get available MIDI input devices (empty on web)
-  List<Map<String, dynamic>> getMidiInputDevices() => []; // Web MIDI API would be needed
+  List<Map<String, dynamic>> getMidiInputDevices() =>
+      []; // Web MIDI API would be needed
   String selectMidiInputDevice(int deviceIndex) => 'OK';
   String refreshMidiDevices() => 'OK';
 
@@ -493,7 +534,9 @@ class AudioEngine implements AudioEngineInterface {
     try {
       final result = _callEngineWith('create_track', [name.toJS]);
       final trackId = _jsToInt(result);
-      Log.d('createTrack($trackType, $name) => $trackId (raw: ${result?.runtimeType})');
+      Log.d(
+        'createTrack($trackType, $name) => $trackId (raw: ${result?.runtimeType})',
+      );
 
       // If WASM returned a valid ID, use it
       if (trackId > 0) {
@@ -517,7 +560,9 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   void setTrackVolume(int trackId, double volumeDb) {
-    final linear = volumeDb <= -60 ? 0.0 : (volumeDb / 60.0 + 1.0).clamp(0.0, 1.0);
+    final linear = volumeDb <= -60
+        ? 0.0
+        : (volumeDb / 60.0 + 1.0).clamp(0.0, 1.0);
     _callEngineWith('set_track_volume', [_intToBigInt(trackId), linear.toJS]);
   }
 
@@ -586,7 +631,8 @@ class AudioEngine implements AudioEngineInterface {
 
   String getTrackEffects(int trackId) => '[]';
   String getEffectInfo(int effectId) => '{}';
-  String setEffectParameter(int effectId, String paramName, double value) => 'OK';
+  String setEffectParameter(int effectId, String paramName, double value) =>
+      'OK';
 
   @override
   void setEffectBypass(int effectId, {required bool bypassed}) {}
@@ -605,12 +651,15 @@ class AudioEngine implements AudioEngineInterface {
 
   List<Map<String, String>> scanVst3PluginsStandard() => [];
   int getVst3ParameterCount(int effectId) => 0;
+
   /// Get info about a VST3 parameter (returns null on web)
-  Map<String, dynamic>? getVst3ParameterInfo(int effectId, int paramIndex) => null;
+  Map<String, dynamic>? getVst3ParameterInfo(int effectId, int paramIndex) =>
+      null;
   double getVst3ParameterValue(int effectId, int paramIndex) => 0.0;
 
   @override
-  bool setVst3ParameterValue(int effectId, int paramIndex, double value) => true;
+  bool setVst3ParameterValue(int effectId, int paramIndex, double value) =>
+      true;
 
   // ============================================================================
   // Sampler API (stubs for web - not yet implemented)
@@ -638,12 +687,22 @@ class AudioEngine implements AudioEngineInterface {
   bool vst3HasEditor(int effectId) => false;
   String vst3OpenEditor(int effectId) => 'Not supported';
   String vst3CloseEditor(int effectId) => 'OK';
-  Map<String, int>? vst3GetEditorSize(int effectId) => {'width': 0, 'height': 0};
+  Map<String, int>? vst3GetEditorSize(int effectId) => {
+    'width': 0,
+    'height': 0,
+  };
   // vst3AttachEditor takes a pointer on native - stub for web
   String vst3AttachEditor(int effectId, dynamic viewPtr) => 'Not supported';
+
   /// Send a MIDI note event to a VST3 plugin
   /// eventType: 0 = note on, 1 = note off
-  String vst3SendMidiNote(int effectId, int eventType, int channel, int note, int velocity) => 'OK';
+  String vst3SendMidiNote(
+    int effectId,
+    int eventType,
+    int channel,
+    int note,
+    int velocity,
+  ) => 'OK';
 
   // ============================================================================
   // Project Save/Load
@@ -705,6 +764,7 @@ class AudioEngine implements AudioEngineInterface {
   }
 
   String getTracksForStems() => '[]';
+
   /// Export stems (named parameters to match native)
   String exportStems({
     required String outputDir,
@@ -714,7 +774,8 @@ class AudioEngine implements AudioEngineInterface {
   }) => 'Not available on web';
 
   /// Get current export progress as JSON
-  String getExportProgress() => '{"progress": 0, "is_running": false, "is_cancelled": false, "status": "", "error": null}';
+  String getExportProgress() =>
+      '{"progress": 0, "is_running": false, "is_cancelled": false, "status": "", "error": null}';
   void cancelExport() {}
   void resetExportProgress() {}
 
@@ -780,26 +841,30 @@ class AudioEngine implements AudioEngineInterface {
   bool previewIsLooping() => false;
 
   @override
-  List<double> previewGetWaveform(int resolution) => List.filled(resolution, 0.0);
+  List<double> previewGetWaveform(int resolution) =>
+      List.filled(resolution, 0.0);
 
   // ============================================================================
   // Punch Recording (stubs - not yet implemented on web)
   // ============================================================================
 
   @override
-  String setPunchInEnabled({required bool enabled}) => throw UnsupportedError('Web');
+  String setPunchInEnabled({required bool enabled}) =>
+      throw UnsupportedError('Web');
 
   @override
   bool isPunchInEnabled() => throw UnsupportedError('Web');
 
   @override
-  String setPunchOutEnabled({required bool enabled}) => throw UnsupportedError('Web');
+  String setPunchOutEnabled({required bool enabled}) =>
+      throw UnsupportedError('Web');
 
   @override
   bool isPunchOutEnabled() => throw UnsupportedError('Web');
 
   @override
-  String setPunchRegion(double inSeconds, double outSeconds) => throw UnsupportedError('Web');
+  String setPunchRegion(double inSeconds, double outSeconds) =>
+      throw UnsupportedError('Web');
 
   @override
   double getPunchInSeconds() => throw UnsupportedError('Web');

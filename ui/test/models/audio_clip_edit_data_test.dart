@@ -213,7 +213,10 @@ void main() {
 
       test('clearNormalize overrides normalizeTargetDb value', () {
         const data = AudioClipEditData(normalizeTargetDb: -6.0);
-        final copy = data.copyWith(normalizeTargetDb: -3.0, clearNormalize: true);
+        final copy = data.copyWith(
+          normalizeTargetDb: -3.0,
+          clearNormalize: true,
+        );
         expect(copy.normalizeTargetDb, isNull);
       });
 
@@ -436,10 +439,7 @@ void main() {
       });
 
       test('custom loop region', () {
-        const data = AudioClipEditData(
-          loopStartBeats: 2.0,
-          loopEndBeats: 10.0,
-        );
+        const data = AudioClipEditData(loopStartBeats: 2.0, loopEndBeats: 10.0);
         expect(data.loopLengthBeats, 8.0);
       });
 
@@ -456,10 +456,7 @@ void main() {
       });
 
       test('loop region with zero length', () {
-        const data = AudioClipEditData(
-          loopStartBeats: 4.0,
-          loopEndBeats: 4.0,
-        );
+        const data = AudioClipEditData(loopStartBeats: 4.0, loopEndBeats: 4.0);
         expect(data.loopLengthBeats, 0.0);
       });
     });

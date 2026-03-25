@@ -75,7 +75,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     // Initialize controllers with current metadata
     _nameController = TextEditingController(text: widget.metadata.name);
     _styleController = TextEditingController(text: widget.metadata.style ?? '');
-    _bpmController = TextEditingController(text: widget.metadata.bpm.toStringAsFixed(0));
+    _bpmController = TextEditingController(
+      text: widget.metadata.bpm.toStringAsFixed(0),
+    );
 
     _key = widget.metadata.key;
     _scale = widget.metadata.scale;
@@ -84,10 +86,11 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     _sampleRate = widget.metadata.sampleRate;
 
     // Select current version if any
-    if (widget.currentVersionNumber != null && widget.currentVersionNumber! > 0) {
-      _selectedVersion = widget.versions.where(
-        (v) => v.versionNumber == widget.currentVersionNumber
-      ).firstOrNull;
+    if (widget.currentVersionNumber != null &&
+        widget.currentVersionNumber! > 0) {
+      _selectedVersion = widget.versions
+          .where((v) => v.versionNumber == widget.currentVersionNumber)
+          .firstOrNull;
     }
   }
 
@@ -105,7 +108,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     final styleText = _styleController.text.trim();
 
     return widget.metadata.copyWith(
-      name: _nameController.text.trim().isEmpty ? 'Untitled' : _nameController.text.trim(),
+      name: _nameController.text.trim().isEmpty
+          ? 'Untitled'
+          : _nameController.text.trim(),
       style: styleText.isEmpty ? null : styleText,
       clearStyle: styleText.isEmpty,
       bpm: clampedBpm,
@@ -150,7 +155,8 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
     ));
   }
 
-  Future<({String name, String? note, VersionType type})?> _showNewVersionDialog() async {
+  Future<({String name, String? note, VersionType type})?>
+  _showNewVersionDialog() async {
     VersionType selectedType = VersionType.demo;
     final nameController = TextEditingController(
       text: selectedType.displayLabel(widget.nextVersionNumber),
@@ -164,7 +170,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
         builder: (context, setDialogState) {
           void updateSuggestedName(VersionType type) {
             final currentName = nameController.text.trim();
-            final oldSuggested = selectedType.displayLabel(widget.nextVersionNumber);
+            final oldSuggested = selectedType.displayLabel(
+              widget.nextVersionNumber,
+            );
             if (currentName == oldSuggested || currentName.isEmpty) {
               nameController.text = type.displayLabel(widget.nextVersionNumber);
             }
@@ -192,7 +200,11 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: context.colors.textSecondary, size: 20),
+                        icon: Icon(
+                          Icons.close,
+                          color: context.colors.textSecondary,
+                          size: 20,
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -202,7 +214,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                   // Type selector
                   Text(
                     'Type',
-                    style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   DecoratedBox(
@@ -220,15 +235,21 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: isSelected ? type.color : Colors.transparent,
+                                color: isSelected
+                                    ? type.color
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: Center(
                                 child: Text(
                                   type.displayName,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.black : context.colors.textSecondary,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.black
+                                        : context.colors.textSecondary,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -244,7 +265,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                   // Name field
                   Text(
                     'Name',
-                    style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -267,7 +291,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         borderSide: BorderSide(color: context.colors.accent),
                       ),
                       errorText: errorMessage,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     onChanged: (_) {
                       if (errorMessage != null) {
@@ -280,7 +307,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                   // Note field
                   Text(
                     'Note (optional)',
-                    style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -304,7 +334,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         borderRadius: BorderRadius.circular(4),
                         borderSide: BorderSide(color: context.colors.accent),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -325,11 +358,17 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         onPressed: () {
                           final name = nameController.text.trim();
                           if (name.isEmpty) {
-                            setDialogState(() => errorMessage = 'Please enter a name');
+                            setDialogState(
+                              () => errorMessage = 'Please enter a name',
+                            );
                             return;
                           }
-                          if (widget.versions.any((v) => v.name.toLowerCase() == name.toLowerCase())) {
-                            setDialogState(() => errorMessage = 'Name already exists');
+                          if (widget.versions.any(
+                            (v) => v.name.toLowerCase() == name.toLowerCase(),
+                          )) {
+                            setDialogState(
+                              () => errorMessage = 'Name already exists',
+                            );
                             return;
                           }
                           final note = noteController.text.trim();
@@ -342,7 +381,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         style: TextButton.styleFrom(
                           backgroundColor: context.colors.accent,
                           foregroundColor: context.colors.darkest,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
                         ),
                         child: const Text('Create'),
                       ),
@@ -384,7 +426,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: context.colors.textSecondary),
+                    icon: Icon(
+                      Icons.close,
+                      color: context.colors.textSecondary,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
@@ -427,12 +472,18 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             children: [
                               Text(
                                 'Created',
-                                style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.metadata.formattedCreatedDate,
-                                style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+                                style: TextStyle(
+                                  color: context.colors.textMuted,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
@@ -443,12 +494,18 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             children: [
                               Text(
                                 'Modified',
-                                style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.metadata.formattedLastModified,
-                                style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+                                style: TextStyle(
+                                  color: context.colors.textMuted,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
@@ -469,9 +526,13 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             label: 'BPM',
                             hintText: '120',
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d*'),
+                              ),
                             ],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -481,7 +542,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             children: [
                               Text(
                                 'Time Signature',
-                                style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Row(
@@ -490,17 +554,38 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                     child: _buildDropdown(
                                       context,
                                       value: _timeSignatureNumerator,
-                                      items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                                      items: [
+                                        1,
+                                        2,
+                                        3,
+                                        4,
+                                        5,
+                                        6,
+                                        7,
+                                        8,
+                                        9,
+                                        10,
+                                        11,
+                                        12,
+                                      ],
                                       onChanged: (value) {
-                                        setState(() => _timeSignatureNumerator = value!);
+                                        setState(
+                                          () =>
+                                              _timeSignatureNumerator = value!,
+                                        );
                                       },
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
                                     child: Text(
                                       '/',
-                                      style: TextStyle(color: context.colors.textPrimary, fontSize: 18),
+                                      style: TextStyle(
+                                        color: context.colors.textPrimary,
+                                        fontSize: 18,
+                                      ),
                                     ),
                                   ),
                                   Expanded(
@@ -509,7 +594,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                       value: _timeSignatureDenominator,
                                       items: [2, 4, 8, 16],
                                       onChanged: (value) {
-                                        setState(() => _timeSignatureDenominator = value!);
+                                        setState(
+                                          () => _timeSignatureDenominator =
+                                              value!,
+                                        );
                                       },
                                     ),
                                   ),
@@ -533,13 +621,29 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             children: [
                               Text(
                                 'Root Note',
-                                style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               _buildDropdown(
                                 context,
                                 value: _key,
-                                items: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+                                items: [
+                                  'C',
+                                  'C#',
+                                  'D',
+                                  'D#',
+                                  'E',
+                                  'F',
+                                  'F#',
+                                  'G',
+                                  'G#',
+                                  'A',
+                                  'A#',
+                                  'B',
+                                ],
                                 onChanged: (value) {
                                   setState(() => _key = value!);
                                 },
@@ -555,7 +659,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                             children: [
                               Text(
                                 'Scale',
-                                style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               _buildDropdown(
@@ -582,7 +689,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                       children: [
                         Text(
                           'Sample Rate',
-                          style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+                          style: TextStyle(
+                            color: context.colors.textSecondary,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         _buildDropdown(
@@ -618,7 +728,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
                       foregroundColor: context.colors.textSecondary,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -628,7 +741,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     style: TextButton.styleFrom(
                       backgroundColor: context.colors.accent,
                       foregroundColor: context.colors.darkest,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                     child: const Text('Save'),
                   ),
@@ -643,7 +759,8 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
 
   Widget _buildVersionsList(BuildContext context) {
     final hasVersions = widget.versions.isNotEmpty;
-    final canRestore = _selectedVersion != null &&
+    final canRestore =
+        _selectedVersion != null &&
         _selectedVersion!.versionNumber != widget.currentVersionNumber;
 
     return DecoratedBox(
@@ -663,20 +780,26 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                 itemCount: widget.versions.length,
                 itemBuilder: (context, index) {
                   final version = widget.versions[index];
-                  final isCurrent = version.versionNumber == widget.currentVersionNumber;
+                  final isCurrent =
+                      version.versionNumber == widget.currentVersionNumber;
                   final isSelected = version == _selectedVersion;
 
                   return InkWell(
                     onTap: () => setState(() => _selectedVersion = version),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? context.colors.accent.withValues(alpha: 0.15)
                             : Colors.transparent,
                         border: Border(
                           bottom: BorderSide(
-                            color: context.colors.elevated.withValues(alpha: 0.5),
+                            color: context.colors.elevated.withValues(
+                              alpha: 0.5,
+                            ),
                             width: index < widget.versions.length - 1 ? 1 : 0,
                           ),
                         ),
@@ -701,15 +824,22 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                   version.name,
                                   style: TextStyle(
                                     color: context.colors.textPrimary,
-                                    fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                    fontWeight: isCurrent
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                   ),
                                 ),
                                 if (isCurrent) ...[
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: context.colors.accent.withValues(alpha: 0.2),
+                                      color: context.colors.accent.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -745,10 +875,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
               padding: const EdgeInsets.all(24),
               child: Text(
                 'No versions saved yet',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 13),
               ),
             ),
 
@@ -756,9 +883,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: context.colors.elevated),
-              ),
+              border: Border(top: BorderSide(color: context.colors.elevated)),
             ),
             child: Row(
               children: [
@@ -766,7 +891,11 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                 Expanded(
                   child: TextButton.icon(
                     onPressed: _createNewVersion,
-                    icon: Icon(Icons.add, size: 18, color: context.colors.accent),
+                    icon: Icon(
+                      Icons.add,
+                      size: 18,
+                      color: context.colors.accent,
+                    ),
                     label: Text(
                       'New Version',
                       style: TextStyle(color: context.colors.accent),
@@ -784,12 +913,16 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     icon: Icon(
                       Icons.restore,
                       size: 18,
-                      color: canRestore ? context.colors.textPrimary : context.colors.textMuted,
+                      color: canRestore
+                          ? context.colors.textPrimary
+                          : context.colors.textMuted,
                     ),
                     label: Text(
                       'Restore',
                       style: TextStyle(
-                        color: canRestore ? context.colors.textPrimary : context.colors.textMuted,
+                        color: canRestore
+                            ? context.colors.textPrimary
+                            : context.colors.textMuted,
                       ),
                     ),
                     style: TextButton.styleFrom(
@@ -819,10 +952,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          height: 1,
-          color: context.colors.elevated,
-        ),
+        Container(height: 1, color: context.colors.elevated),
       ],
     );
   }
@@ -863,7 +993,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(color: context.colors.accent),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
           inputFormatters: inputFormatters,
           keyboardType: keyboardType,

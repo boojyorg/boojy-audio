@@ -11,28 +11,19 @@ void main() {
 
   group('SetTempoCommand', () {
     test('has correct description', () {
-      final command = SetTempoCommand(
-        newBpm: 140.0,
-        oldBpm: 120.0,
-      );
+      final command = SetTempoCommand(newBpm: 140.0, oldBpm: 120.0);
 
       expect(command.description, 'Change Tempo: 120 → 140 BPM');
     });
 
     test('description rounds fractional BPM', () {
-      final command = SetTempoCommand(
-        newBpm: 128.5,
-        oldBpm: 120.3,
-      );
+      final command = SetTempoCommand(newBpm: 128.5, oldBpm: 120.3);
 
       expect(command.description, 'Change Tempo: 120 → 129 BPM');
     });
 
     test('execute sets new tempo', () async {
-      final command = SetTempoCommand(
-        newBpm: 140.0,
-        oldBpm: 120.0,
-      );
+      final command = SetTempoCommand(newBpm: 140.0, oldBpm: 120.0);
 
       await command.execute(mockEngine);
 
@@ -54,10 +45,7 @@ void main() {
     });
 
     test('undo restores old tempo', () async {
-      final command = SetTempoCommand(
-        newBpm: 140.0,
-        oldBpm: 120.0,
-      );
+      final command = SetTempoCommand(newBpm: 140.0, oldBpm: 120.0);
 
       await command.execute(mockEngine);
       mockEngine.calls.clear();
@@ -85,28 +73,19 @@ void main() {
 
   group('SetCountInCommand', () {
     test('has correct description for singular bar', () {
-      final command = SetCountInCommand(
-        newBars: 1,
-        oldBars: 2,
-      );
+      final command = SetCountInCommand(newBars: 1, oldBars: 2);
 
       expect(command.description, 'Change Count-in: 2 → 1 bar');
     });
 
     test('has correct description for plural bars', () {
-      final command = SetCountInCommand(
-        newBars: 2,
-        oldBars: 0,
-      );
+      final command = SetCountInCommand(newBars: 2, oldBars: 0);
 
       expect(command.description, 'Change Count-in: 0 → 2 bars');
     });
 
     test('execute sets new count-in', () async {
-      final command = SetCountInCommand(
-        newBars: 2,
-        oldBars: 0,
-      );
+      final command = SetCountInCommand(newBars: 2, oldBars: 0);
 
       await command.execute(mockEngine);
 
@@ -128,10 +107,7 @@ void main() {
     });
 
     test('undo restores old count-in', () async {
-      final command = SetCountInCommand(
-        newBars: 2,
-        oldBars: 0,
-      );
+      final command = SetCountInCommand(newBars: 2, oldBars: 0);
 
       await command.execute(mockEngine);
       mockEngine.calls.clear();

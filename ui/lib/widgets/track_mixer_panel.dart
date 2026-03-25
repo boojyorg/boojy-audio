@@ -31,7 +31,8 @@ class TrackMixerPanel extends StatefulWidget {
   final Function(double height)? onMasterTrackHeightChanged;
 
   // Track color management
-  final Color Function(int trackId, String trackName, String trackType)? getTrackColor;
+  final Color Function(int trackId, String trackName, String trackType)?
+  getTrackColor;
 
   // Automation (reuses AutomationCallbacks from timeline_models)
   final AutomationCallbacks automationCallbacks;
@@ -89,8 +90,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   Map<int, double> _inputLevels = {};
 
   // Drag-and-drop state
-  int? _draggingIndex;         // Current position of dragged track in the list
-  int? _originalDraggingIndex; // Original position when drag started (for cancel/revert)
+  int? _draggingIndex; // Current position of dragged track in the list
+  int?
+  _originalDraggingIndex; // Original position when drag started (for cancel/revert)
   Offset? _dragStartPosition;
   double _dragOffsetY = 0.0;
   bool _dragActivated = false;
@@ -126,8 +128,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     if (widget.audioEngine != null && oldWidget.audioEngine == null) {
       _loadTracksAsync();
     }
-    if (oldWidget.automationState.previewNotifier != widget.automationState.previewNotifier) {
-      oldWidget.automationState.previewNotifier?.removeListener(_onPreviewChanged);
+    if (oldWidget.automationState.previewNotifier !=
+        widget.automationState.previewNotifier) {
+      oldWidget.automationState.previewNotifier?.removeListener(
+        _onPreviewChanged,
+      );
       widget.automationState.previewNotifier?.addListener(_onPreviewChanged);
     }
   }
@@ -207,7 +212,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     for (final track in _tracks) {
       if (track.armed && track.inputDeviceIndex >= 0) {
         try {
-          final rawLevel = widget.audioEngine!.getInputChannelLevel(track.inputChannel);
+          final rawLevel = widget.audioEngine!.getInputChannelLevel(
+            track.inputChannel,
+          );
           // Convert raw amplitude (0.0-1.0+) to display range
           final displayLevel = rawLevel.clamp(0.0, 1.0);
           newInputLevels[track.id] = displayLevel;
@@ -269,8 +276,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       if (mounted) {
         _inputDevices = devices;
         // Separate master track (not reorderable)
-        final masterTrack = tracksMap.values.where((t) => t.type == 'Master').toList();
-        final regularTrackIds = tracksMap.keys.where((id) => tracksMap[id]!.type != 'Master').toList();
+        final masterTrack = tracksMap.values
+            .where((t) => t.type == 'Master')
+            .toList();
+        final regularTrackIds = tracksMap.keys
+            .where((id) => tracksMap[id]!.type != 'Master')
+            .toList();
 
         // Sync track IDs to TrackController (it will preserve existing order)
         widget.trackCallbacks.onOrderSync?.call(regularTrackIds);
@@ -319,17 +330,16 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final name = type == 'audio' ? 'Audio' : 'MIDI';
 
     // Use UndoRedoManager for undoable track creation
-    final command = CreateTrackCommand(
-      trackType: type,
-      trackName: name,
-    );
+    final command = CreateTrackCommand(trackType: type, trackName: name);
 
     await UndoRedoManager().execute(command);
 
     if (command.createdTrackId != null && command.createdTrackId! >= 0) {
       // Auto-assign input channel for audio tracks
       if (type == 'audio' && _inputDevices.isNotEmpty) {
-        final existingAudioCount = _tracks.where((t) => t.type.toLowerCase() == 'audio').length;
+        final existingAudioCount = _tracks
+            .where((t) => t.type.toLowerCase() == 'audio')
+            .length;
         final channel = existingAudioCount % 2; // Alternate L/R channels
         widget.audioEngine?.setTrackInput(command.createdTrackId!, 0, channel);
       }
@@ -388,7 +398,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     setState(() {
       track.armed = !track.armed;
     });
-    Future.microtask(() => widget.audioEngine?.setTrackArmed(track.id, armed: track.armed));
+    Future.microtask(
+      () => widget.audioEngine?.setTrackArmed(track.id, armed: track.armed),
+    );
   }
 
   Future<void> _duplicateTrack(TrackData track) async {
@@ -403,9 +415,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     await UndoRedoManager().execute(command);
 
     if (command.duplicatedTrackId != null && command.duplicatedTrackId! >= 0) {
-
       // Notify parent about duplication so it can copy instrument mapping
-      widget.trackCallbacks.onDuplicated?.call(track.id, command.duplicatedTrackId!);
+      widget.trackCallbacks.onDuplicated?.call(
+        track.id,
+        command.duplicatedTrackId!,
+      );
 
       _loadTracksAsync();
     } else {
@@ -475,76 +489,79 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       },
       child: ClipRect(
         child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.colors.dark,
-          border: Border(
-            left: _isAudioFileDragging
-                ? BorderSide(color: context.colors.success, width: 3)
-                : BorderSide.none,
-            top: _isAudioFileDragging
-                ? BorderSide(color: context.colors.success, width: 3)
-                : BorderSide.none,
-            bottom: _isAudioFileDragging
-                ? BorderSide(color: context.colors.success, width: 3)
-                : BorderSide.none,
-            right: _isAudioFileDragging
-                ? BorderSide(color: context.colors.success, width: 3)
-                : BorderSide.none,
-          ),
-        ),
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                // Header (24px to match timeline nav bar)
-                _buildHeader(),
-
-                // Track strips (vertically scrollable)
-                Expanded(
-                  child: _tracks.isEmpty
-                      ? _buildEmptyState()
-                      : _buildTrackStrips(),
-                ),
-              ],
+          decoration: BoxDecoration(
+            color: context.colors.dark,
+            border: Border(
+              left: _isAudioFileDragging
+                  ? BorderSide(color: context.colors.success, width: 3)
+                  : BorderSide.none,
+              top: _isAudioFileDragging
+                  ? BorderSide(color: context.colors.success, width: 3)
+                  : BorderSide.none,
+              bottom: _isAudioFileDragging
+                  ? BorderSide(color: context.colors.success, width: 3)
+                  : BorderSide.none,
+              right: _isAudioFileDragging
+                  ? BorderSide(color: context.colors.success, width: 3)
+                  : BorderSide.none,
             ),
-            // Drop indicator overlay
-            if (_isAudioFileDragging)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: context.colors.success.withValues(alpha: 0.1),
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: context.colors.success,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: context.colors.textPrimary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Drop to create Audio track',
-                            style: TextStyle(
+          ),
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Header (24px to match timeline nav bar)
+                  _buildHeader(),
+
+                  // Track strips (vertically scrollable)
+                  Expanded(
+                    child: _tracks.isEmpty
+                        ? _buildEmptyState()
+                        : _buildTrackStrips(),
+                  ),
+                ],
+              ),
+              // Drop indicator overlay
+              if (_isAudioFileDragging)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: context.colors.success.withValues(alpha: 0.1),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.colors.success,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add_circle_outline,
                               color: context.colors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              size: 20,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Text(
+                              'Drop to create Audio track',
+                              style: TextStyle(
+                                color: context.colors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -555,9 +572,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: context.colors.dark,
-        border: Border(
-          bottom: BorderSide(color: context.colors.divider),
-        ),
+        border: Border(bottom: BorderSide(color: context.colors.divider)),
       ),
       child: Row(
         children: [
@@ -580,7 +595,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               },
               itemBuilder: (menuContext) {
                 // Use menuContext for colors in popup menu callback
-                final colors = Provider.of<ThemeProvider>(menuContext, listen: false).colors;
+                final colors = Provider.of<ThemeProvider>(
+                  menuContext,
+                  listen: false,
+                ).colors;
                 return [
                   PopupMenuItem<String>(
                     value: 'audio',
@@ -588,7 +606,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                       children: [
                         Icon(Icons.audiotrack, size: 18, color: colors.darkest),
                         const SizedBox(width: 12),
-                        const Text('Audio Track', style: TextStyle(fontSize: 14)),
+                        const Text(
+                          'Audio Track',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ],
                     ),
                   ),
@@ -598,7 +619,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                       children: [
                         Icon(Icons.piano, size: 18, color: colors.darkest),
                         const SizedBox(width: 12),
-                        const Text('MIDI Track', style: TextStyle(fontSize: 14)),
+                        const Text(
+                          'MIDI Track',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ],
                     ),
                   ),
@@ -633,18 +657,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           const SizedBox(height: 16),
           Text(
             'No tracks yet',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a track to get started',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
           ),
         ],
       ),
@@ -683,14 +701,20 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     ...regularTracks.asMap().entries.map((entry) {
                       final index = entry.key;
                       final track = entry.value;
-                      return _buildDraggableTrackWrapper(track, index, regularTracks);
+                      return _buildDraggableTrackWrapper(
+                        track,
+                        index,
+                        regularTracks,
+                      );
                     }),
                     // Buffer spacer at the end
                     const SizedBox(height: 160),
                   ],
                 ),
                 // Dragged track rendered on top (if dragging)
-                if (_dragActivated && _draggingIndex != null && _draggingIndex! < regularTracks.length)
+                if (_dragActivated &&
+                    _draggingIndex != null &&
+                    _draggingIndex! < regularTracks.length)
                   Positioned(
                     left: 0,
                     right: 0,
@@ -741,7 +765,11 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   /// Build a draggable track wrapper - live reordering (no gap animation needed)
-  Widget _buildDraggableTrackWrapper(TrackData track, int index, List<TrackData> allTracks) {
+  Widget _buildDraggableTrackWrapper(
+    TrackData track,
+    int index,
+    List<TrackData> allTracks,
+  ) {
     final trackHeight = widget.trackHeightState.clipHeights[track.id] ?? 100.0;
     final isDragging = _draggingIndex == index;
 
@@ -758,7 +786,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           onPanEnd: (details) => _onDragEnd(allTracks),
           onPanCancel: _onDragCancel, // CRITICAL: Handle arena loss
           child: isDragging && _dragActivated
-              ? SizedBox(height: trackHeight, width: 380) // Placeholder for dragged track
+              ? SizedBox(
+                  height: trackHeight,
+                  width: 380,
+                ) // Placeholder for dragged track
               : IgnorePointer(
                   ignoring: _dragActivated, // Disable controls during any drag
                   child: _buildTrackStrip(track, index, allTracks),
@@ -793,7 +824,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     final newOffsetY = details.globalPosition.dy - _dragStartPosition!.dy;
 
     // Calculate gap index based on dragged track center position
-    final draggedHeight = widget.trackHeightState.clipHeights[tracks[_draggingIndex!].id] ?? 100.0;
+    final draggedHeight =
+        widget.trackHeightState.clipHeights[tracks[_draggingIndex!].id] ??
+        100.0;
     double originalTop = 0;
     for (int i = 0; i < _draggingIndex!; i++) {
       originalTop += widget.trackHeightState.clipHeights[tracks[i].id] ?? 100.0;
@@ -804,7 +837,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     int newGapIndex = _draggingIndex!;
     double cumulativeHeight = 0;
     for (int i = 0; i < tracks.length; i++) {
-      final itemHeight = widget.trackHeightState.clipHeights[tracks[i].id] ?? 100.0;
+      final itemHeight =
+          widget.trackHeightState.clipHeights[tracks[i].id] ?? 100.0;
       final itemMidpoint = cumulativeHeight + (itemHeight / 2);
 
       if (i < _draggingIndex! && draggedCenter < itemMidpoint) {
@@ -838,12 +872,20 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       // When moving up, we need to subtract the heights of tracks we passed
       if (toIndex > fromIndex) {
         // Moved down - adjust start position up by the height of the track we passed
-        final passedTrackHeight = widget.trackHeightState.clipHeights[tracks[fromIndex].id] ?? 100.0;
-        _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy + passedTrackHeight);
+        final passedTrackHeight =
+            widget.trackHeightState.clipHeights[tracks[fromIndex].id] ?? 100.0;
+        _dragStartPosition = Offset(
+          _dragStartPosition!.dx,
+          _dragStartPosition!.dy + passedTrackHeight,
+        );
       } else {
         // Moved up - adjust start position down by the height of the track we passed
-        final passedTrackHeight = widget.trackHeightState.clipHeights[tracks[toIndex].id] ?? 100.0;
-        _dragStartPosition = Offset(_dragStartPosition!.dx, _dragStartPosition!.dy - passedTrackHeight);
+        final passedTrackHeight =
+            widget.trackHeightState.clipHeights[tracks[toIndex].id] ?? 100.0;
+        _dragStartPosition = Offset(
+          _dragStartPosition!.dx,
+          _dragStartPosition!.dy - passedTrackHeight,
+        );
       }
     }
 
@@ -860,7 +902,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   /// Called when drag is cancelled (gesture arena loss)
   void _onDragCancel() {
     // Revert to original position if drag was cancelled
-    if (_dragActivated && _originalDraggingIndex != null && _draggingIndex != null) {
+    if (_dragActivated &&
+        _originalDraggingIndex != null &&
+        _draggingIndex != null) {
       final currentIndex = _draggingIndex!;
       final originalIndex = _originalDraggingIndex!;
 
@@ -899,9 +943,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   /// Build the TrackMixerStrip widget
-  Widget _buildTrackStrip(TrackData track, int index, List<TrackData> allTracks) {
-    final trackColor = widget.getTrackColor?.call(track.id, track.name, track.type)
-        ?? TrackColors.getTrackColor(index);
+  Widget _buildTrackStrip(
+    TrackData track,
+    int index,
+    List<TrackData> allTracks,
+  ) {
+    final trackColor =
+        widget.getTrackColor?.call(track.id, track.name, track.type) ??
+        TrackColors.getTrackColor(index);
 
     return TrackMixerStrip(
       trackId: track.id,
@@ -916,28 +965,51 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
       trackColor: trackColor,
       audioEngine: widget.audioEngine,
-      isSelected: widget.selectionState.selectedTrackIds?.contains(track.id) ?? widget.selectionState.selectedTrackId == track.id,
+      isSelected:
+          widget.selectionState.selectedTrackIds?.contains(track.id) ??
+          widget.selectionState.selectedTrackId == track.id,
       instrumentData: widget.trackInstruments?[track.id],
       onInstrumentSelect: (instrumentId) {
-        widget.instrumentCallbacks.onInstrumentSelected?.call(track.id, instrumentId);
+        widget.instrumentCallbacks.onInstrumentSelected?.call(
+          track.id,
+          instrumentId,
+        );
       },
       vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0,
-      onFxButtonPressed: () => widget.instrumentCallbacks.onFxButtonPressed?.call(track.id),
-      onVst3PluginDropped: (plugin) => widget.instrumentCallbacks.onVst3PluginDropped?.call(track.id, plugin),
-      onVst3InstrumentDropped: (plugin) => widget.instrumentCallbacks.onVst3InstrumentDropped?.call(track.id, plugin),
-      onInstrumentDropped: (instrument) => widget.instrumentCallbacks.onInstrumentDropped?.call(track.id, instrument),
-      onEditPluginsPressed: () => widget.instrumentCallbacks.onEditPluginsPressed?.call(track.id),
+      onFxButtonPressed: () =>
+          widget.instrumentCallbacks.onFxButtonPressed?.call(track.id),
+      onVst3PluginDropped: (plugin) => widget
+          .instrumentCallbacks
+          .onVst3PluginDropped
+          ?.call(track.id, plugin),
+      onVst3InstrumentDropped: (plugin) => widget
+          .instrumentCallbacks
+          .onVst3InstrumentDropped
+          ?.call(track.id, plugin),
+      onInstrumentDropped: (instrument) => widget
+          .instrumentCallbacks
+          .onInstrumentDropped
+          ?.call(track.id, instrument),
+      onEditPluginsPressed: () =>
+          widget.instrumentCallbacks.onEditPluginsPressed?.call(track.id),
       clipHeight: widget.trackHeightState.clipHeights[track.id] ?? 100.0,
-      automationHeight: widget.trackHeightState.automationHeights[track.id] ?? 60.0,
+      automationHeight:
+          widget.trackHeightState.automationHeights[track.id] ?? 60.0,
       stripWidth: widget.config.panelWidth,
       onClipHeightChanged: (height) {
         widget.trackHeightState.onClipHeightChanged?.call(track.id, height);
       },
       onAutomationHeightChanged: (height) {
-        widget.trackHeightState.onAutomationHeightChanged?.call(track.id, height);
+        widget.trackHeightState.onAutomationHeightChanged?.call(
+          track.id,
+          height,
+        );
       },
       onTap: (isShiftHeld) {
-        widget.selectionState.onTrackSelected?.call(track.id, isShiftHeld: isShiftHeld);
+        widget.selectionState.onTrackSelected?.call(
+          track.id,
+          isShiftHeld: isShiftHeld,
+        );
       },
       onDoubleTap: () {
         widget.trackCallbacks.onDoubleClick?.call(track.id);
@@ -958,34 +1030,54 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         setState(() {
           track.mute = !track.mute;
         });
-        Future.microtask(() => widget.audioEngine?.setTrackMute(track.id, mute: track.mute));
+        Future.microtask(
+          () => widget.audioEngine?.setTrackMute(track.id, mute: track.mute),
+        );
       },
       onSoloToggle: () {
         setState(() {
           track.solo = !track.solo;
         });
-        Future.microtask(() => widget.audioEngine?.setTrackSolo(track.id, solo: track.solo));
+        Future.microtask(
+          () => widget.audioEngine?.setTrackSolo(track.id, solo: track.solo),
+        );
       },
       isArmed: track.armed,
       onArmToggle: () => _handleArmToggle(track, allTracks),
       onArmShiftClick: () => _handleArmShiftClick(track),
       showAutomation: widget.automationState.visibleTrackId == track.id,
       onAutomationToggle: () => widget.automationState.onToggle?.call(track.id),
-      selectedParameter: widget.automationState.getSelectedParameter?.call(track.id) ?? AutomationParameter.volume,
-      onParameterChanged: (param) => widget.automationState.onParameterChanged?.call(track.id, param),
-      onResetParameter: () => widget.automationState.onResetParameter?.call(track.id),
-      onAddParameter: () => widget.automationState.onAddParameter?.call(track.id),
-      automationLane: widget.automationCallbacks.getAutomationLane?.call(track.id),
+      selectedParameter:
+          widget.automationState.getSelectedParameter?.call(track.id) ??
+          AutomationParameter.volume,
+      onParameterChanged: (param) =>
+          widget.automationState.onParameterChanged?.call(track.id, param),
+      onResetParameter: () =>
+          widget.automationState.onResetParameter?.call(track.id),
+      onAddParameter: () =>
+          widget.automationState.onAddParameter?.call(track.id),
+      automationLane: widget.automationCallbacks.getAutomationLane?.call(
+        track.id,
+      ),
       pixelsPerBeat: widget.automationState.pixelsPerBeat,
       totalBeats: widget.automationState.totalBeats,
-      onAutomationPointAdded: (point) => widget.automationCallbacks.onPointAdded?.call(track.id, point),
-      onAutomationPointUpdated: (pointId, point) => widget.automationCallbacks.onPointUpdated?.call(track.id, pointId, point),
-      onAutomationPointDeleted: (pointId) => widget.automationCallbacks.onPointDeleted?.call(track.id, pointId),
-      onPreviewValue: (value) => widget.automationCallbacks.onPreviewValue?.call(track.id, value),
-      previewParameterValue: widget.automationState.previewNotifier?.value[track.id],
+      onAutomationPointAdded: (point) =>
+          widget.automationCallbacks.onPointAdded?.call(track.id, point),
+      onAutomationPointUpdated: (pointId, point) => widget
+          .automationCallbacks
+          .onPointUpdated
+          ?.call(track.id, pointId, point),
+      onAutomationPointDeleted: (pointId) =>
+          widget.automationCallbacks.onPointDeleted?.call(track.id, pointId),
+      onPreviewValue: (value) =>
+          widget.automationCallbacks.onPreviewValue?.call(track.id, value),
+      previewParameterValue:
+          widget.automationState.previewNotifier?.value[track.id],
       onDuplicatePressed: () => _duplicateTrack(track),
       onDeletePressed: () => _confirmDeleteTrack(track),
-      onConvertToSampler: track.type.toLowerCase() == 'audio' && widget.trackCallbacks.onConvertToSampler != null
+      onConvertToSampler:
+          track.type.toLowerCase() == 'audio' &&
+              widget.trackCallbacks.onConvertToSampler != null
           ? () => widget.trackCallbacks.onConvertToSampler!(track.id)
           : null,
       onNameChanged: (newName) async {

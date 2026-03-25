@@ -64,7 +64,8 @@ class UILayoutData {
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
     final panelSizes = json['panel_sizes'] as Map<String, dynamic>? ?? {};
-    final panelCollapsed = json['panel_collapsed'] as Map<String, dynamic>? ?? {};
+    final panelCollapsed =
+        json['panel_collapsed'] as Map<String, dynamic>? ?? {};
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
     final audioClipsJson = json['audio_clips'] as List<dynamic>?;
     final automationJson = json['automation'] as Map<String, dynamic>?;
@@ -76,7 +77,9 @@ class UILayoutData {
       libraryCollapsed: panelCollapsed['library'] as bool? ?? false,
       mixerCollapsed: panelCollapsed['mixer'] as bool? ?? false,
       bottomCollapsed: panelCollapsed['bottom'] as bool? ?? true,
-      viewState: viewStateJson != null ? ProjectViewState.fromJson(viewStateJson) : null,
+      viewState: viewStateJson != null
+          ? ProjectViewState.fromJson(viewStateJson)
+          : null,
       audioClips: audioClipsJson
           ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
           .toList(),
@@ -115,7 +118,9 @@ class ProjectManager extends ChangeNotifier {
   ///
   /// Returns a ProjectResult with success status and message.
   /// Also returns the UI layout data if available.
-  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(String path) async {
+  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(
+    String path,
+  ) async {
     if (!path.endsWith('.audio')) {
       return (
         result: const ProjectResult(
@@ -141,11 +146,7 @@ class ProjectManager extends ChangeNotifier {
       notifyListeners();
 
       return (
-        result: ProjectResult(
-          success: true,
-          message: loadResult,
-          path: path,
-        ),
+        result: ProjectResult(success: true, message: loadResult, path: path),
         uiLayout: uiLayout,
       );
     } catch (e) {
@@ -172,7 +173,10 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Save the project to a specific path
-  Future<ProjectResult> saveProjectToPath(String path, UILayoutData? uiLayout) async {
+  Future<ProjectResult> saveProjectToPath(
+    String path,
+    UILayoutData? uiLayout,
+  ) async {
     _isLoading = true;
     notifyListeners();
 
@@ -188,11 +192,7 @@ class ProjectManager extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      return ProjectResult(
-        success: true,
-        message: result,
-        path: path,
-      );
+      return ProjectResult(success: true, message: result, path: path);
     } catch (e) {
       _isLoading = false;
       notifyListeners();
@@ -204,7 +204,11 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Save project as a new copy
-  Future<ProjectResult> saveProjectAsCopy(String name, String parentPath, UILayoutData? uiLayout) async {
+  Future<ProjectResult> saveProjectAsCopy(
+    String name,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) async {
     final projectPath = '$parentPath/$name.audio';
 
     // Temporarily change the name for saving
@@ -220,12 +224,13 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Make a copy of the current project
-  Future<ProjectResult> makeCopy(String copyName, String parentPath, UILayoutData? uiLayout) async {
+  Future<ProjectResult> makeCopy(
+    String copyName,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) async {
     if (_currentProjectPath == null) {
-      return const ProjectResult(
-        success: false,
-        message: 'No project to copy',
-      );
+      return const ProjectResult(success: false, message: 'No project to copy');
     }
 
     _isLoading = true;
@@ -262,16 +267,9 @@ class ProjectManager extends ChangeNotifier {
   Future<ProjectResult> exportToWav(String path) async {
     try {
       final exportResult = _audioEngine.exportToWav(path, normalize: true);
-      return ProjectResult(
-        success: true,
-        message: exportResult,
-        path: path,
-      );
+      return ProjectResult(success: true, message: exportResult, path: path);
     } catch (e) {
-      return ProjectResult(
-        success: false,
-        message: 'Export failed: $e',
-      );
+      return ProjectResult(success: false, message: 'Export failed: $e');
     }
   }
 
@@ -291,7 +289,9 @@ class ProjectManager extends ChangeNotifier {
   /// Save UI layout to JSON file
   void _saveUILayout(String projectPath, UILayoutData uiLayout) {
     try {
-      final jsonString = const JsonEncoder.withIndent('  ').convert(uiLayout.toJson());
+      final jsonString = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(uiLayout.toJson());
       final uiLayoutFile = File('$projectPath/ui_layout.json');
       uiLayoutFile.writeAsStringSync(jsonString);
     } catch (e) {

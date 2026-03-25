@@ -11,7 +11,8 @@ class Vst3PluginParameterPanel extends StatefulWidget {
   final AudioEngine? audioEngine;
   final int trackId;
   final List<Vst3PluginInstance> plugins;
-  final Function(int effectId, int paramIndex, double value)? onParameterChanged;
+  final Function(int effectId, int paramIndex, double value)?
+  onParameterChanged;
   final Function(int effectId)? onRemovePlugin;
 
   const Vst3PluginParameterPanel({
@@ -24,13 +25,15 @@ class Vst3PluginParameterPanel extends StatefulWidget {
   });
 
   @override
-  State<Vst3PluginParameterPanel> createState() => _Vst3PluginParameterPanelState();
+  State<Vst3PluginParameterPanel> createState() =>
+      _Vst3PluginParameterPanelState();
 }
 
 class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   int? _expandedPluginId;
   String _searchQuery = '';
-  final Map<String, bool> _expandedSections = {}; // Section name -> expanded state
+  final Map<String, bool> _expandedSections =
+      {}; // Section name -> expanded state
   int? _showEmbeddedGUIForEffect; // Effect ID showing embedded native GUI
 
   // Track which plugins we've already auto-opened to avoid repeated opens
@@ -48,7 +51,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     } else {
       // Same track - check for newly added plugins
       final oldEffectIds = oldWidget.plugins.map((p) => p.effectId).toSet();
-      final newPlugins = widget.plugins.where((p) => !oldEffectIds.contains(p.effectId));
+      final newPlugins = widget.plugins.where(
+        (p) => !oldEffectIds.contains(p.effectId),
+      );
       for (final plugin in newPlugins) {
         _checkAutoOpenPlugin(plugin);
       }
@@ -103,10 +108,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               const SizedBox(height: 8),
               Text(
                 'Click the FX button on the track to add plugins',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ],
           ),
@@ -135,14 +137,21 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 decoration: InputDecoration(
                   hintText: 'Search parameters...',
                   hintStyle: const TextStyle(color: Color(0xFF808080)),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF808080), size: 18),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF808080),
+                    size: 18,
+                  ),
                   filled: true,
                   fillColor: const Color(0xFF505050),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   isDense: true,
                 ),
                 style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 12),
@@ -180,7 +189,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isExpanded ? const Color(0xFF505050) : const Color(0xFF606060),
+              color: isExpanded
+                  ? const Color(0xFF505050)
+                  : const Color(0xFF606060),
               border: const Border(
                 bottom: BorderSide(color: Color(0xFF808080), width: 1),
               ),
@@ -193,11 +204,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Icon(
-                  Icons.extension,
-                  color: Color(0xFF4CAF50),
-                  size: 18,
-                ),
+                const Icon(Icons.extension, color: Color(0xFF4CAF50), size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -240,7 +247,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                       ? 'Show Parameters'
                       : 'Show Plugin GUI (Embedded)',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 // Open floating GUI button
@@ -251,7 +261,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                   onPressed: () => _openPluginGUI(plugin),
                   tooltip: 'Open Plugin GUI (Floating Window)',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 // Delete button
@@ -262,7 +275,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                   onPressed: () => widget.onRemovePlugin?.call(plugin.effectId),
                   tooltip: 'Remove Plugin',
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
               ],
             ),
@@ -281,10 +297,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   Widget _buildEmbeddedGUI(Vst3PluginInstance plugin) {
     return Container(
       color: const Color(0xFF303030),
-      constraints: const BoxConstraints(
-        minHeight: 400,
-        maxHeight: 600,
-      ),
+      constraints: const BoxConstraints(minHeight: 400, maxHeight: 600),
       child: VST3EditorWidget(
         effectId: plugin.effectId,
         pluginName: plugin.pluginName,
@@ -306,10 +319,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             _searchQuery.isEmpty
                 ? 'No parameters available'
                 : 'No parameters match "$_searchQuery"',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ),
       );
@@ -347,7 +357,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     String groupName,
     List<Vst3ParameterInfo> parameters,
   ) {
-    final isExpanded = _expandedSections[groupName] ?? true; // Default: expanded
+    final isExpanded =
+        _expandedSections[groupName] ?? true; // Default: expanded
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -399,8 +410,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
         // Parameters in this group
         if (isExpanded)
-          for (final param in parameters)
-            _buildParameterControl(plugin, param),
+          for (final param in parameters) _buildParameterControl(plugin, param),
       ],
     );
   }
@@ -425,10 +435,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             flex: 2,
             child: Text(
               param.name,
-              style: const TextStyle(
-                color: Color(0xFFA0A0A0),
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 11),
             ),
           ),
 
@@ -440,12 +447,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             child: SliderTheme(
               data: const SliderThemeData(
                 trackHeight: 3,
-                thumbShape: RoundSliderThumbShape(
-                  enabledThumbRadius: 6,
-                ),
-                overlayShape: RoundSliderOverlayShape(
-                  overlayRadius: 12,
-                ),
+                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
                 activeTrackColor: Color(0xFF4CAF50),
                 inactiveTrackColor: Color(0xFF606060),
                 thumbColor: Color(0xFF4CAF50),
@@ -502,7 +505,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     Vst3ParameterInfo param,
     double currentValue,
   ) {
-    final controller = TextEditingController(text: currentValue.toStringAsFixed(2));
+    final controller = TextEditingController(
+      text: currentValue.toStringAsFixed(2),
+    );
 
     showDialog(
       context: context,
@@ -524,7 +529,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             TextField(
               controller: controller,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
               ],
@@ -560,7 +567,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808080))),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF808080)),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -595,7 +605,6 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
       return;
     }
     _isTogglingGUI = true;
-
 
     try {
       if (_showEmbeddedGUIForEffect == plugin.effectId) {
@@ -635,7 +644,6 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
   // M7 Phase 3: Open native VST3 plugin GUI
   Future<void> _openPluginGUI(Vst3PluginInstance plugin) async {
-
     // Save preference for floating mode
     await PluginPreferencesService.setDisplayMode(
       plugin.pluginName,

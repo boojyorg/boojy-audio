@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/undo_redo_manager.dart';
@@ -107,7 +108,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('About Audio'),
-                content: const Text('Audio\nVersion M6.2\n\nA modern, cross-platform DAW'),
+                content: const Text(
+                  'Audio\nVersion M6.2\n\nA modern, cross-platform DAW',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
@@ -119,13 +122,21 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           },
         ),
         if (_isMacOS)
-          const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu),
+          const PlatformProvidedMenuItem(
+            type: PlatformProvidedMenuItemType.servicesSubmenu,
+          ),
         if (_isMacOS)
-          const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
+          const PlatformProvidedMenuItem(
+            type: PlatformProvidedMenuItemType.hide,
+          ),
         if (_isMacOS)
-          const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
+          const PlatformProvidedMenuItem(
+            type: PlatformProvidedMenuItemType.hideOtherApplications,
+          ),
         if (_isMacOS)
-          const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
+          const PlatformProvidedMenuItem(
+            type: PlatformProvidedMenuItemType.showAllApplications,
+          ),
         const PlatformMenuItem(
           label: 'Quit Audio',
           shortcut: SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
@@ -148,10 +159,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           shortcut: const SingleActivator(LogicalKeyboardKey.keyO, meta: true),
           onSelected: config.onOpenProject,
         ),
-        PlatformMenu(
-          label: 'Open Recent',
-          menus: config.recentProjectsMenu,
-        ),
+        PlatformMenu(label: 'Open Recent', menus: config.recentProjectsMenu),
         PlatformMenuItem(
           label: 'Save',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyS, meta: true),
@@ -159,7 +167,11 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
         ),
         PlatformMenuItem(
           label: 'Save As...',
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true),
+          shortcut: const SingleActivator(
+            LogicalKeyboardKey.keyS,
+            meta: true,
+            shift: true,
+          ),
           onSelected: config.onSaveProjectAs,
         ),
         if (config.onRenameProject != null)
@@ -213,7 +225,11 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           label: config.undoRedoManager.canRedo
               ? 'Redo - ${config.undoRedoManager.redoDescription ?? "Action"}'
               : 'Redo',
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true),
+          shortcut: const SingleActivator(
+            LogicalKeyboardKey.keyZ,
+            meta: true,
+            shift: true,
+          ),
           onSelected: config.undoRedoManager.canRedo ? config.onRedo : null,
         ),
         const PlatformMenuItem(
@@ -274,22 +290,30 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
       label: 'View',
       menus: [
         PlatformMenuItem(
-          label: !config.uiLayout.isLibraryPanelCollapsed ? '✓ Show Library Panel' : 'Show Library Panel',
+          label: !config.uiLayout.isLibraryPanelCollapsed
+              ? '✓ Show Library Panel'
+              : 'Show Library Panel',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyL, meta: true),
           onSelected: config.onToggleLibrary,
         ),
         PlatformMenuItem(
-          label: config.uiLayout.isMixerVisible ? '✓ Show Mixer Panel' : 'Show Mixer Panel',
+          label: config.uiLayout.isMixerVisible
+              ? '✓ Show Mixer Panel'
+              : 'Show Mixer Panel',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyM, meta: true),
           onSelected: config.onToggleMixer,
         ),
         PlatformMenuItem(
-          label: config.uiLayout.isEditorPanelVisible ? '✓ Show Editor Panel' : 'Show Editor Panel',
+          label: config.uiLayout.isEditorPanelVisible
+              ? '✓ Show Editor Panel'
+              : 'Show Editor Panel',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyE, meta: true),
           onSelected: config.onToggleEditor,
         ),
         PlatformMenuItem(
-          label: config.uiLayout.isVirtualPianoEnabled ? '✓ Show Virtual Piano' : 'Show Virtual Piano',
+          label: config.uiLayout.isVirtualPianoEnabled
+              ? '✓ Show Virtual Piano'
+              : 'Show Virtual Piano',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyP, meta: true),
           onSelected: config.onTogglePiano,
         ),

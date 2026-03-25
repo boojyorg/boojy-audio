@@ -30,7 +30,8 @@ class SnapshotManager extends ChangeNotifier {
   String get snapshotsFolderPath => path.join(projectFolderPath, 'Snapshots');
 
   /// Get the metadata file path
-  String get _metadataFilePath => path.join(snapshotsFolderPath, 'snapshots.json');
+  String get _metadataFilePath =>
+      path.join(snapshotsFolderPath, 'snapshots.json');
 
   /// Load snapshots from the metadata file
   Future<void> _loadSnapshots() async {
@@ -78,7 +79,6 @@ class SnapshotManager extends ChangeNotifier {
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(jsonData);
       await metadataFile.writeAsString(jsonString);
-
     } catch (e) {
       rethrow;
     }
@@ -104,7 +104,10 @@ class SnapshotManager extends ChangeNotifier {
 
       // Copy current project file to snapshots folder
       final currentFile = File(currentProjectFilePath);
-      final snapshotFilePath = path.join(snapshotsFolderPath, snapshot.fileName);
+      final snapshotFilePath = path.join(
+        snapshotsFolderPath,
+        snapshot.fileName,
+      );
 
       await currentFile.copy(snapshotFilePath);
 
@@ -129,7 +132,10 @@ class SnapshotManager extends ChangeNotifier {
     required String currentProjectFilePath,
   }) async {
     try {
-      final snapshotFilePath = path.join(snapshotsFolderPath, snapshot.fileName);
+      final snapshotFilePath = path.join(
+        snapshotsFolderPath,
+        snapshot.fileName,
+      );
       final snapshotFile = File(snapshotFilePath);
 
       if (!await snapshotFile.exists()) {
@@ -150,7 +156,10 @@ class SnapshotManager extends ChangeNotifier {
   /// Returns true if successful
   Future<bool> deleteSnapshot(Snapshot snapshot) async {
     try {
-      final snapshotFilePath = path.join(snapshotsFolderPath, snapshot.fileName);
+      final snapshotFilePath = path.join(
+        snapshotsFolderPath,
+        snapshot.fileName,
+      );
       final snapshotFile = File(snapshotFilePath);
 
       // Delete the file if it exists

@@ -10,14 +10,34 @@ abstract class AudioEngineInterface {
   String setClipOffset(int trackId, int clipId, double offset);
   String setClipDuration(int trackId, int clipId, double duration);
   String setAudioClipGain(int trackId, int clipId, double gainDb);
-  String setAudioClipWarp(int trackId, int clipId, bool warpEnabled, double stretchFactor, int warpMode);
-  String setAudioClipTranspose(int trackId, int clipId, int semitones, int cents);
-  int loadAudioFileToTrack(String filePath, int trackId, {double startTime = 0.0});
+  String setAudioClipWarp(
+    int trackId,
+    int clipId,
+    bool warpEnabled,
+    double stretchFactor,
+    int warpMode,
+  );
+  String setAudioClipTranspose(
+    int trackId,
+    int clipId,
+    int semitones,
+    int cents,
+  );
+  int loadAudioFileToTrack(
+    String filePath,
+    int trackId, {
+    double startTime = 0.0,
+  });
   double getClipDuration(int clipId);
   List<double> getWaveformPeaks(int clipId, int resolution);
   bool removeAudioClip(int trackId, int clipId);
-  int addExistingClipToTrack(int clipId, int trackId, double startTime,
-      {double offset = 0.0, double? duration});
+  int addExistingClipToTrack(
+    int clipId,
+    int trackId,
+    double startTime, {
+    double offset = 0.0,
+    double? duration,
+  });
   int duplicateAudioClip(int trackId, int clipId, double startTime);
 
   // Track operations
@@ -51,7 +71,13 @@ abstract class AudioEngineInterface {
 
   // MIDI clip operations
   int createMidiClip();
-  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration);
+  String addMidiNoteToClip(
+    int clipId,
+    int note,
+    int velocity,
+    double startTime,
+    double duration,
+  );
   int addMidiClipToTrack(int trackId, int clipId, double startTimeSeconds);
   int removeMidiClip(int trackId, int clipId);
 

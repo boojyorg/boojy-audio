@@ -60,7 +60,9 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   MidiPlaybackManager? midiPlaybackManager;
   final UserSettings userSettings = UserSettings();
   final AutoSaveService autoSaveService = AutoSaveService();
-  final MidiCaptureBuffer midiCaptureBuffer = MidiCaptureBuffer(maxDurationSeconds: 30);
+  final MidiCaptureBuffer midiCaptureBuffer = MidiCaptureBuffer(
+    maxDurationSeconds: 30,
+  );
   final LiveRecordingNotifier liveRecordingNotifier = LiveRecordingNotifier();
 
   // ============================================
@@ -95,7 +97,8 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   // ============================================
 
   double get playheadPosition => playbackController.playheadPosition;
-  set playheadPosition(double value) => playbackController.setPlayheadPosition(value);
+  set playheadPosition(double value) =>
+      playbackController.setPlayheadPosition(value);
   bool get isPlaying => playbackController.isPlaying;
   set statusMessage(String value) => playbackController.setStatusMessage(value);
 
@@ -108,7 +111,8 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   bool get isMetronomeEnabled => recordingController.isMetronomeEnabled;
   double get tempo => recordingController.tempo;
   List<Map<String, dynamic>> get midiDevices => recordingController.midiDevices;
-  int get selectedMidiDeviceIndex => recordingController.selectedMidiDeviceIndex;
+  int get selectedMidiDeviceIndex =>
+      recordingController.selectedMidiDeviceIndex;
 
   // ============================================
   // TRACK CONVENIENCE GETTERS/SETTERS
@@ -121,7 +125,8 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   void selectTrack(int? trackId, {bool isShiftHeld = false}) =>
       trackController.selectTrack(trackId, isShiftHeld: isShiftHeld);
 
-  Map<int, InstrumentData> get trackInstruments => trackController.trackInstruments;
+  Map<int, InstrumentData> get trackInstruments =>
+      trackController.trackInstruments;
   Map<int, double> get clipHeights => trackController.clipHeights;
   Map<int, double> get automationHeights => trackController.automationHeights;
   double get masterTrackHeight => trackController.masterTrackHeight;
@@ -130,8 +135,10 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   // GLOBAL KEYS
   // ============================================
 
-  final GlobalKey<TimelineViewState> timelineKey = GlobalKey<TimelineViewState>();
-  final GlobalKey<TrackMixerPanelState> mixerKey = GlobalKey<TrackMixerPanelState>();
+  final GlobalKey<TimelineViewState> timelineKey =
+      GlobalKey<TimelineViewState>();
+  final GlobalKey<TrackMixerPanelState> mixerKey =
+      GlobalKey<TrackMixerPanelState>();
 
   // ============================================
   // SCROLL CONTROLLERS
@@ -164,7 +171,10 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   }
 
   void syncVolumeAutomationToEngine(int trackId) {
-    final lane = automationController.getLane(trackId, AutomationParameter.volume);
+    final lane = automationController.getLane(
+      trackId,
+      AutomationParameter.volume,
+    );
     if (lane != null && audioEngine != null) {
       final csv = lane.toEngineDbCsv(tempo);
       audioEngine!.setTrackVolumeAutomation(trackId, csv);

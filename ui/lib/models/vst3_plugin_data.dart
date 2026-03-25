@@ -29,7 +29,9 @@ class Vst3Plugin {
 
   @override
   String toString() {
-    final type = isInstrument ? 'Instrument' : (isEffect ? 'Effect' : 'Unknown');
+    final type = isInstrument
+        ? 'Instrument'
+        : (isEffect ? 'Effect' : 'Unknown');
     return 'Vst3Plugin(name: $name, vendor: ${vendor ?? 'Unknown'}, type: $type)';
   }
 }
@@ -84,8 +86,8 @@ class Vst3PluginInstance {
     required this.pluginPath,
     Map<int, Vst3ParameterInfo>? parameters,
     Map<int, double>? parameterValues,
-  })  : parameters = parameters ?? {},
-        parameterValues = parameterValues ?? {};
+  }) : parameters = parameters ?? {},
+       parameterValues = parameterValues ?? {};
 
   /// Get parameter info by index
   Vst3ParameterInfo? getParameterInfo(int index) {
@@ -117,7 +119,7 @@ class Vst3PluginInstance {
         final firstWord = words[0];
         if (firstWord.length > 2 &&
             (firstWord.toUpperCase() == firstWord ||
-             RegExp(r'^[A-Z][a-z]+$').hasMatch(firstWord))) {
+                RegExp(r'^[A-Z][a-z]+$').hasMatch(firstWord))) {
           groupName = firstWord;
         }
       }
@@ -137,7 +139,8 @@ class Vst3PluginInstance {
   /// Filter parameters by search query
   List<Vst3ParameterInfo> filterParameters(String query) {
     if (query.isEmpty) {
-      return parameters.values.toList()..sort((a, b) => a.index.compareTo(b.index));
+      return parameters.values.toList()
+        ..sort((a, b) => a.index.compareTo(b.index));
     }
 
     final lowercaseQuery = query.toLowerCase();

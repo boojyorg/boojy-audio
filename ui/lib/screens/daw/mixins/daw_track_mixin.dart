@@ -11,13 +11,18 @@ import 'daw_ui_mixin.dart';
 
 /// Mixin containing track-related methods for DAWScreen.
 /// Handles track selection, creation, deletion, duplication, and instrument assignment.
-mixin DAWTrackMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, DAWUIMixin {
+mixin DAWTrackMixin
+    on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, DAWUIMixin {
   // ============================================
   // TRACK SELECTION
   // ============================================
 
   /// Unified track selection method - handles both timeline and mixer clicks
-  void onTrackSelected(int? trackId, {bool isShiftHeld = false, bool autoSelectClip = false}) {
+  void onTrackSelected(
+    int? trackId, {
+    bool isShiftHeld = false,
+    bool autoSelectClip = false,
+  }) {
     if (trackId == null) {
       setState(() {
         selectTrack(null);
@@ -222,10 +227,7 @@ mixin DAWTrackMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin,
     }
 
     // Create a new MIDI track for Synthesizer (and other instruments)
-    final command = CreateTrackCommand(
-      trackType: 'midi',
-      trackName: 'MIDI',
-    );
+    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
 
     await undoRedoManager.execute(command);
 

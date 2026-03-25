@@ -207,7 +207,10 @@ class _ViewMenuOverlay extends StatelessWidget {
                     onTap: onTogglePiano,
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     child: Divider(height: 1, color: context.colors.surface),
                   ),
                   _ViewMenuItem(
@@ -268,7 +271,11 @@ class _ViewMenuItemState extends State<_ViewMenuItem> {
                 SizedBox(
                   width: 20,
                   child: widget.isChecked
-                      ? Icon(Icons.check, size: 16, color: context.colors.accent)
+                      ? Icon(
+                          Icons.check,
+                          size: 16,
+                          color: context.colors.accent,
+                        )
                       : null,
                 ),
                 const SizedBox(width: 8),

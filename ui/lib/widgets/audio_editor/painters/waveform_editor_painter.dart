@@ -125,7 +125,11 @@ class WaveformEditorPainter extends CustomPainter {
       ..color = gridLineColor.withValues(alpha: 0.5)
       ..strokeWidth = 1.0;
     final centerY = size.height / 2;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
   }
 
   void _drawWaveform(Canvas canvas, Size size) {
@@ -142,7 +146,9 @@ class WaveformEditorPainter extends CustomPainter {
 
     // LOD: Calculate optimal peak count for visible width
     // Target ~1 pixel per peak for crisp detail (like Ableton/arrangement view)
-    final targetPeakCount = contentWidth.clamp(100, originalPeakCount.toDouble()).toInt();
+    final targetPeakCount = contentWidth
+        .clamp(100, originalPeakCount.toDouble())
+        .toInt();
 
     // Downsample if we have more peaks than needed (>2x threshold for smoother transitions)
     List<double> renderPeaks;
@@ -263,10 +269,7 @@ class WaveformEditorPainter extends CustomPainter {
 
     // Dim before loop
     if (loopStartX > 0) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, loopStartX, size.height),
-        dimPaint,
-      );
+      canvas.drawRect(Rect.fromLTWH(0, 0, loopStartX, size.height), dimPaint);
     }
 
     // Dim after loop

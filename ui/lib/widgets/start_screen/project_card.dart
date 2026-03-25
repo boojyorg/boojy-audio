@@ -46,7 +46,9 @@ class _ProjectCardState extends State<ProjectCard> {
             color: _isHovering ? colors.hover : colors.standard,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _isHovering ? colors.accent.withValues(alpha: 0.6) : colors.divider,
+              color: _isHovering
+                  ? colors.accent.withValues(alpha: 0.6)
+                  : colors.divider,
               width: _isHovering ? 1.5 : 1.0,
             ),
           ),
@@ -60,14 +62,18 @@ class _ProjectCardState extends State<ProjectCard> {
                     ? Image.file(
                         thumbnailFile,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(context),
+                        errorBuilder: (_, __, ___) =>
+                            _buildPlaceholder(context),
                       )
                     : _buildPlaceholder(context),
               ),
 
               // Name + relative time row
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -85,10 +91,7 @@ class _ProjectCardState extends State<ProjectCard> {
                     const SizedBox(width: 8),
                     Text(
                       _relativeTime(widget.project.openedAt),
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: colors.textMuted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -103,13 +106,13 @@ class _ProjectCardState extends State<ProjectCard> {
                       top: BorderSide(color: colors.divider, width: 0.5),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   child: Text(
                     _shortenPath(widget.project.path),
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 10,
-                    ),
+                    style: TextStyle(color: colors.textMuted, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -154,16 +157,25 @@ class _ProjectCardState extends State<ProjectCard> {
       items: [
         PopupMenuItem<String>(
           value: 'open',
-          child: Text('Open', style: TextStyle(color: colors.textPrimary, fontSize: 13)),
+          child: Text(
+            'Open',
+            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+          ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem<String>(
           value: 'finder',
-          child: Text('Show in Finder', style: TextStyle(color: colors.textPrimary, fontSize: 13)),
+          child: Text(
+            'Show in Finder',
+            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+          ),
         ),
         PopupMenuItem<String>(
           value: 'remove',
-          child: Text('Remove from Recent', style: TextStyle(color: colors.textPrimary, fontSize: 13)),
+          child: Text(
+            'Remove from Recent',
+            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+          ),
         ),
       ],
     ).then((value) {

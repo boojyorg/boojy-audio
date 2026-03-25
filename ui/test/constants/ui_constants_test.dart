@@ -44,12 +44,21 @@ void main() {
     });
 
     test('defaultClipHeight is within track height range', () {
-      expect(UIConstants.defaultClipHeight, greaterThanOrEqualTo(UIConstants.trackMinHeight));
-      expect(UIConstants.defaultClipHeight, lessThanOrEqualTo(UIConstants.trackMaxHeight));
+      expect(
+        UIConstants.defaultClipHeight,
+        greaterThanOrEqualTo(UIConstants.trackMinHeight),
+      );
+      expect(
+        UIConstants.defaultClipHeight,
+        lessThanOrEqualTo(UIConstants.trackMaxHeight),
+      );
     });
 
     test('zoom min is less than zoom max', () {
-      expect(UIConstants.timelineMinZoom, lessThan(UIConstants.timelineMaxZoom));
+      expect(
+        UIConstants.timelineMinZoom,
+        lessThan(UIConstants.timelineMaxZoom),
+      );
     });
   });
 }

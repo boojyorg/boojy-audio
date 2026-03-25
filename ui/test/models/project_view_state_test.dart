@@ -160,10 +160,7 @@ void main() {
 
     group('copyWith', () {
       test('copies with no changes', () {
-        const original = ProjectViewState(
-          horizontalScroll: 100.0,
-          zoom: 2.0,
-        );
+        const original = ProjectViewState(horizontalScroll: 100.0, zoom: 2.0);
         final copy = original.copyWith();
 
         expect(copy.horizontalScroll, 100.0);

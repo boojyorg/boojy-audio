@@ -69,7 +69,8 @@ class GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // STEP 1: Draw backgrounds FIRST (so vertical lines can be drawn on top)
     // Use foldedPitches if provided (fold mode), otherwise iterate over full range
-    final pitchesToRender = foldedPitches ??
+    final pitchesToRender =
+        foldedPitches ??
         List.generate(maxMidiNote - minMidiNote + 1, (i) => maxMidiNote - i);
 
     for (int rowIndex = 0; rowIndex < pitchesToRender.length; rowIndex++) {
@@ -81,10 +82,7 @@ class GridPainter extends CustomPainter {
       final bgPaint = Paint()
         ..color = isBlackKey ? blackKeyBackground : whiteKeyBackground;
 
-      canvas.drawRect(
-        Rect.fromLTWH(0, y, size.width, pixelsPerNote),
-        bgPaint,
-      );
+      canvas.drawRect(Rect.fromLTWH(0, y, size.width, pixelsPerNote), bgPaint);
 
       // Draw scale highlight overlay (dim out-of-scale notes)
       if (scaleHighlightEnabled && !_isInScale(note)) {
@@ -137,17 +135,15 @@ class GridPainter extends CustomPainter {
 
     // STEP 3: Draw loop region dimming overlay (20% darker outside loop)
     if (loopEnabled) {
-      final dimPaint = Paint()..color = const Color(0x33000000); // 20% black overlay
+      final dimPaint = Paint()
+        ..color = const Color(0x33000000); // 20% black overlay
 
       final loopStartX = loopStart * pixelsPerBeat;
       final loopEndX = loopEnd * pixelsPerBeat;
 
       // Dim area before loop start
       if (loopStartX > 0) {
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, loopStartX, size.height),
-          dimPaint,
-        );
+        canvas.drawRect(Rect.fromLTWH(0, 0, loopStartX, size.height), dimPaint);
       }
 
       // Dim area after loop end

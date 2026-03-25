@@ -77,17 +77,11 @@ class _ChordPaletteState extends State<ChordPalette> {
       decoration: BoxDecoration(
         color: colors.standard,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.music_note,
-            color: colors.textPrimary,
-            size: 16,
-          ),
+          Icon(Icons.music_note, color: colors.textPrimary, size: 16),
           const SizedBox(width: 8),
           Text(
             'Chord Palette',
@@ -119,11 +113,7 @@ class _ChordPaletteState extends State<ChordPalette> {
             onTap: widget.onClose,
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: Icon(
-                Icons.close,
-                color: colors.textMuted,
-                size: 16,
-              ),
+              child: Icon(Icons.close, color: colors.textMuted, size: 16),
             ),
           ),
         ],
@@ -137,9 +127,7 @@ class _ChordPaletteState extends State<ChordPalette> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +156,11 @@ class _ChordPaletteState extends State<ChordPalette> {
     );
   }
 
-  Widget _buildRootButton(BuildContext context, ChordRoot root, bool isSelected) {
+  Widget _buildRootButton(
+    BuildContext context,
+    ChordRoot root,
+    bool isSelected,
+  ) {
     final colors = context.colors;
 
     return GestureDetector(
@@ -210,16 +202,29 @@ class _ChordPaletteState extends State<ChordPalette> {
     final colors = context.colors;
 
     // Arrange chord types in rows
-    final row1 = [ChordType.major, ChordType.minor, ChordType.dominant7, ChordType.major7];
-    final row2 = [ChordType.minor7, ChordType.diminished, ChordType.augmented, ChordType.sus4];
-    final row3 = [ChordType.sus2, ChordType.diminished7, ChordType.add9, ChordType.sixth];
+    final row1 = [
+      ChordType.major,
+      ChordType.minor,
+      ChordType.dominant7,
+      ChordType.major7,
+    ];
+    final row2 = [
+      ChordType.minor7,
+      ChordType.diminished,
+      ChordType.augmented,
+      ChordType.sus4,
+    ];
+    final row3 = [
+      ChordType.sus2,
+      ChordType.diminished7,
+      ChordType.add9,
+      ChordType.sixth,
+    ];
 
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +264,11 @@ class _ChordPaletteState extends State<ChordPalette> {
     );
   }
 
-  Widget _buildChordTypeButton(BuildContext context, ChordType type, bool isSelected) {
+  Widget _buildChordTypeButton(
+    BuildContext context,
+    ChordType type,
+    bool isSelected,
+  ) {
     final colors = context.colors;
 
     return GestureDetector(
@@ -311,9 +320,7 @@ class _ChordPaletteState extends State<ChordPalette> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,7 +352,11 @@ class _ChordPaletteState extends State<ChordPalette> {
     );
   }
 
-  Widget _buildInversionButton(BuildContext context, int inversion, bool isSelected) {
+  Widget _buildInversionButton(
+    BuildContext context,
+    int inversion,
+    bool isSelected,
+  ) {
     final colors = context.colors;
     final label = inversion == 0 ? 'Root' : '$inversion';
 
@@ -398,14 +409,18 @@ class _ChordPaletteState extends State<ChordPalette> {
                 children: [
                   Icon(
                     widget.previewEnabled ? Icons.volume_up : Icons.volume_off,
-                    color: widget.previewEnabled ? colors.accent : colors.textMuted,
+                    color: widget.previewEnabled
+                        ? colors.accent
+                        : colors.textMuted,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     'Preview',
                     style: TextStyle(
-                      color: widget.previewEnabled ? colors.textPrimary : colors.textMuted,
+                      color: widget.previewEnabled
+                          ? colors.textPrimary
+                          : colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
@@ -420,7 +435,10 @@ class _ChordPaletteState extends State<ChordPalette> {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colors.accent,
                   borderRadius: BorderRadius.circular(4),
@@ -428,11 +446,7 @@ class _ChordPaletteState extends State<ChordPalette> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.play_arrow,
-                      color: colors.elevated,
-                      size: 14,
-                    ),
+                    Icon(Icons.play_arrow, color: colors.elevated, size: 14),
                     const SizedBox(width: 4),
                     Text(
                       'Play',

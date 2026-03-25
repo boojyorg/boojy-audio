@@ -109,10 +109,7 @@ class _CircularToggleButtonState extends State<CircularToggleButton> {
     );
 
     if (widget.tooltip != null) {
-      button = Tooltip(
-        message: widget.tooltip!,
-        child: button,
-      );
+      button = Tooltip(message: widget.tooltip!, child: button);
     }
 
     return button;
@@ -197,10 +194,7 @@ class _CompactToggleButtonState extends State<CompactToggleButton> {
     );
 
     if (widget.tooltip != null) {
-      button = Tooltip(
-        message: widget.tooltip!,
-        child: button,
-      );
+      button = Tooltip(message: widget.tooltip!, child: button);
     }
 
     return button;

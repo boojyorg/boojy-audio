@@ -69,20 +69,34 @@ class _PaletteEditorState extends State<PaletteEditor> {
   Color _getDefaultColor(ThemeProvider provider, String token) {
     final defaults = BoojyColors(provider.currentTheme);
     switch (token) {
-      case 'editor': return defaults.editor;
-      case 'darkest': return defaults.darkest;
-      case 'dark': return defaults.dark;
-      case 'standard': return defaults.standard;
-      case 'elevated': return defaults.elevated;
-      case 'surface': return defaults.surface;
-      case 'divider': return defaults.divider;
-      case 'hover': return defaults.hover;
-      case 'text_primary': return defaults.textPrimary;
-      case 'text_secondary': return defaults.textSecondary;
-      case 'text_muted': return defaults.textMuted;
-      case 'accent_primary': return defaults.accent;
-      case 'accent_hover': return defaults.accentHover;
-      default: return const Color(0xFFFF00FF);
+      case 'editor':
+        return defaults.editor;
+      case 'darkest':
+        return defaults.darkest;
+      case 'dark':
+        return defaults.dark;
+      case 'standard':
+        return defaults.standard;
+      case 'elevated':
+        return defaults.elevated;
+      case 'surface':
+        return defaults.surface;
+      case 'divider':
+        return defaults.divider;
+      case 'hover':
+        return defaults.hover;
+      case 'text_primary':
+        return defaults.textPrimary;
+      case 'text_secondary':
+        return defaults.textSecondary;
+      case 'text_muted':
+        return defaults.textMuted;
+      case 'accent_primary':
+        return defaults.accent;
+      case 'accent_hover':
+        return defaults.accentHover;
+      default:
+        return const Color(0xFFFF00FF);
     }
   }
 
@@ -109,15 +123,26 @@ class _PaletteEditorState extends State<PaletteEditor> {
   void _copyCode(ThemeProvider provider) {
     final buf = StringBuffer();
     buf.writeln('// Palette overrides (paste into app_colors.dart)');
-    for (final (token, label) in [..._bgTokens, ..._textTokens, ..._accentTokens]) {
+    for (final (token, label) in [
+      ..._bgTokens,
+      ..._textTokens,
+      ..._accentTokens,
+    ]) {
       final color = _getCurrentColor(provider, token);
-      final hex = color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase();
+      final hex = color
+          .toARGB32()
+          .toRadixString(16)
+          .padLeft(8, '0')
+          .toUpperCase();
       buf.writeln("  '$token': Color(0x$hex), // $label");
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Palette copied to clipboard'), duration: Duration(seconds: 2)),
+        const SnackBar(
+          content: Text('Palette copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -178,9 +203,14 @@ class _PaletteEditorState extends State<PaletteEditor> {
         children: [
           Icon(Icons.palette_outlined, size: 16, color: colors.textSecondary),
           const SizedBox(width: 8),
-          Text('Palette Editor', style: TextStyle(
-            color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600,
-          )),
+          Text(
+            'Palette Editor',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const Spacer(),
           GestureDetector(
             onTap: widget.onClose,
@@ -209,7 +239,12 @@ class _PaletteEditorState extends State<PaletteEditor> {
     );
   }
 
-  Widget _presetChip(String label, String name, ThemeProvider provider, BoojyColors colors) {
+  Widget _presetChip(
+    String label,
+    String name,
+    ThemeProvider provider,
+    BoojyColors colors,
+  ) {
     final isActive = _activePreset == name;
     return GestureDetector(
       onTap: () => _applyPreset(provider, name),
@@ -220,34 +255,57 @@ class _PaletteEditorState extends State<PaletteEditor> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: isActive ? colors.accent : colors.divider),
         ),
-        child: Text(label, style: TextStyle(
-          color: isActive ? Colors.white : colors.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        )),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : colors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildSection(String title, List<(String, String)> tokens, ThemeProvider provider, BoojyColors colors) {
+  Widget _buildSection(
+    String title,
+    List<(String, String)> tokens,
+    ThemeProvider provider,
+    BoojyColors colors,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Text(title, style: TextStyle(
-            color: colors.textMuted, fontSize: 10, fontWeight: FontWeight.w600,
-            letterSpacing: 1.0,
-          )),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+            ),
+          ),
         ),
         ...tokens.map((t) => _buildColorRow(t.$1, t.$2, provider, colors)),
       ],
     );
   }
 
-  Widget _buildColorRow(String token, String label, ThemeProvider provider, BoojyColors colors) {
+  Widget _buildColorRow(
+    String token,
+    String label,
+    ThemeProvider provider,
+    BoojyColors colors,
+  ) {
     final color = _getCurrentColor(provider, token);
-    final hex = color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase();
+    final hex = color
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2)
+        .toUpperCase();
     final isOverridden = provider.colorOverrides.containsKey(token);
 
     return Padding(
@@ -255,7 +313,8 @@ class _PaletteEditorState extends State<PaletteEditor> {
       child: Row(
         children: [
           Container(
-            width: 20, height: 20,
+            width: 20,
+            height: 20,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(3),
@@ -264,10 +323,13 @@ class _PaletteEditorState extends State<PaletteEditor> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label, style: TextStyle(
-              color: isOverridden ? colors.accent : colors.textSecondary,
-              fontSize: 12,
-            )),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isOverridden ? colors.accent : colors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
           ),
           SizedBox(
             width: 70,
@@ -283,7 +345,10 @@ class _PaletteEditorState extends State<PaletteEditor> {
               decoration: InputDecoration(
                 prefixText: '#',
                 prefixStyle: TextStyle(color: colors.textMuted, fontSize: 11),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 4,
+                ),
                 isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(3),
@@ -340,7 +405,10 @@ class _PaletteEditorState extends State<PaletteEditor> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: colors.divider),
               ),
-              child: Text('Reset', style: TextStyle(color: colors.textSecondary, fontSize: 11)),
+              child: Text(
+                'Reset',
+                style: TextStyle(color: colors.textSecondary, fontSize: 11),
+              ),
             ),
           ),
           const Spacer(),
@@ -352,7 +420,10 @@ class _PaletteEditorState extends State<PaletteEditor> {
                 color: colors.accent,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('Copy Code', style: TextStyle(color: Colors.white, fontSize: 11)),
+              child: const Text(
+                'Copy Code',
+                style: TextStyle(color: Colors.white, fontSize: 11),
+              ),
             ),
           ),
         ],

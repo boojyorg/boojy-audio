@@ -6,7 +6,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 // Conditional import for platform-specific code
-import 'daw_screen_io.dart' if (dart.library.js_interop) 'daw_screen_io_web.dart';
+import 'daw_screen_io.dart'
+    if (dart.library.js_interop) 'daw_screen_io_web.dart';
 import '../audio_engine.dart';
 import '../theme/theme_extension.dart';
 import '../widgets/transport_bar.dart';
@@ -67,7 +68,18 @@ class DAWScreen extends StatefulWidget {
   State<DAWScreen> createState() => _DAWScreenState();
 }
 
-class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin, DAWLibraryMixin, DAWProjectMixin, DAWBuildMixin {
+class _DAWScreenState extends State<DAWScreen>
+    with
+        DAWScreenStateMixin,
+        DAWPlaybackMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin,
+        DAWClipMixin,
+        DAWVst3Mixin,
+        DAWLibraryMixin,
+        DAWProjectMixin,
+        DAWBuildMixin {
   // Drag state for disabling panel animations during resize
   bool _isDraggingLibrary = false;
   bool _isDraggingMixer = false;
@@ -116,7 +128,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           uiLayout.isEditorPanelVisible = userSettings.editorVisible;
           // Load panel sizes (library uses left/right columns, total is computed)
           uiLayout.libraryLeftColumnWidth = userSettings.libraryLeftColumnWidth;
-          uiLayout.libraryRightColumnWidth = userSettings.libraryRightColumnWidth;
+          uiLayout.libraryRightColumnWidth =
+              userSettings.libraryRightColumnWidth;
           uiLayout.mixerPanelWidth = userSettings.mixerWidth;
           uiLayout.editorPanelHeight = userSettings.editorHeight;
         });
@@ -270,8 +283,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
       // Initialize recording settings
       try {
-        audioEngine!.setCountInBars(userSettings.countInBars); // Use saved setting
-        audioEngine!.setTempo(120.0);   // Default: 120 BPM
+        audioEngine!.setCountInBars(
+          userSettings.countInBars,
+        ); // Use saved setting
+        audioEngine!.setTempo(120.0); // Default: 120 BPM
         audioEngine!.setMetronomeEnabled(enabled: true); // Default: enabled
       } catch (e) {
         Log.e('Recording settings initialization failed: $e');
@@ -288,7 +303,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Initialize output device from user settings
       if (userSettings.preferredOutputDevice != null) {
         try {
-          audioEngine!.setAudioOutputDevice(userSettings.preferredOutputDevice!);
+          audioEngine!.setAudioOutputDevice(
+            userSettings.preferredOutputDevice!,
+          );
         } catch (e) {
           Log.e('Output device setting failed: $e');
         }
@@ -298,7 +315,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         setState(() {
           isAudioGraphInitialized = true;
         });
-        playbackController.setStatusMessage('Ready to record or load audio files');
+        playbackController.setStatusMessage(
+          'Ready to record or load audio files',
+        );
       }
 
       // Initialize undo/redo manager with engine
@@ -315,7 +334,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         }
         return selectedTrackId ?? 0;
       };
-      recordingController.getRecordingClipName = (trackId) => generateClipName(trackId);
+      recordingController.getRecordingClipName = (trackId) =>
+          generateClipName(trackId);
       recordingController.hasArmedAudioTracks = () {
         final tracks = mixerKey.currentState?.tracks ?? [];
         return tracks.any((t) => t.type == 'audio' && t.armed);
@@ -421,7 +441,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     Log.d('🛑 [DAW] _stopPlayback() called');
     Log.d('🛑 [DAW]   isPlaying=${playbackController.isPlaying}');
     Log.d('🛑 [DAW]   isRecording=${recordingController.isRecording}');
-    Log.d('🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s');
+    Log.d(
+      '🛑 [DAW]   playheadPosition=${playbackController.playheadPosition.toStringAsFixed(3)}s',
+    );
     stopPlayback(); // Use mixin method which handles idle vs playing state
     // Reset mixer meters when playback stops
     mixerKey.currentState?.resetMeters();
@@ -504,7 +526,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   void _toggleMetronome() {
     recordingController.toggleMetronome();
     final newState = recordingController.isMetronomeEnabled;
-    playbackController.setStatusMessage(newState ? 'Metronome enabled' : 'Metronome disabled');
+    playbackController.setStatusMessage(
+      newState ? 'Metronome enabled' : 'Metronome disabled',
+    );
   }
 
   void _setCountInBars(int bars) {
@@ -514,8 +538,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     final message = bars == 0
         ? 'Count-in disabled'
         : bars == 1
-            ? 'Count-in: 1 bar'
-            : 'Count-in: 2 bars';
+        ? 'Count-in: 1 bar'
+        : 'Count-in: 2 bars';
     playbackController.setStatusMessage(message);
   }
 
@@ -523,12 +547,18 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   /// 64=0 (Lowest), 128=1 (Low), 256=2 (Balanced), 512=3 (Safe), 1024=4 (HighStability)
   int _bufferSizeToPreset(int bufferSize) {
     switch (bufferSize) {
-      case 64: return 0;
-      case 128: return 1;
-      case 256: return 2;
-      case 512: return 3;
-      case 1024: return 4;
-      default: return 2; // Default to Balanced (256)
+      case 64:
+        return 0;
+      case 128:
+        return 1;
+      case 256:
+        return 2;
+      case 512:
+        return 3;
+      case 1024:
+        return 4;
+      default:
+        return 2; // Default to Balanced (256)
     }
   }
 
@@ -550,7 +580,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
         // Adjust audio clip positions to maintain their beat position
         // This prevents audio clips from visually shifting when tempo changes
-        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(currentTempo, newBpm);
+        timelineKey.currentState?.adjustAudioClipPositionsForTempoChange(
+          currentTempo,
+          newBpm,
+        );
       },
     );
     await undoRedoManager.execute(command);
@@ -571,7 +604,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   void _toggleVirtualPiano() {
     final success = recordingController.toggleVirtualPiano();
     if (success) {
-      uiLayout.setVirtualPianoEnabled(enabled: recordingController.isVirtualPianoEnabled);
+      uiLayout.setVirtualPianoEnabled(
+        enabled: recordingController.isVirtualPianoEnabled,
+      );
       playbackController.setStatusMessage(
         recordingController.isVirtualPianoEnabled
             ? 'Virtual piano enabled - Press keys to play!'
@@ -591,8 +626,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     recordingController.selectMidiDevice(deviceIndex);
 
     // Show feedback
-    if (midiDevices.isNotEmpty && deviceIndex >= 0 && deviceIndex < midiDevices.length) {
-      final deviceName = midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
+    if (midiDevices.isNotEmpty &&
+        deviceIndex >= 0 &&
+        deviceIndex < midiDevices.length) {
+      final deviceName =
+          midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('🎹 Selected: $deviceName'),
@@ -630,7 +668,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   // Unified track selection method - handles both timeline and mixer clicks
-  void _onTrackSelected(int? trackId, {bool isShiftHeld = false, bool autoSelectClip = false}) {
+  void _onTrackSelected(
+    int? trackId, {
+    bool isShiftHeld = false,
+    bool autoSelectClip = false,
+  }) {
     if (trackId == null) {
       setState(() {
         selectTrack(null);
@@ -811,10 +853,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Create a new MIDI track for Synthesizer (and other instruments)
-    final command = CreateTrackCommand(
-      trackType: 'midi',
-      trackName: 'MIDI',
-    );
+    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
 
     await undoRedoManager.execute(command);
 
@@ -851,12 +890,15 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
-        trackId: trackId,
-        pluginPath: plugin.path,
-        pluginName: plugin.name,
-        effectId: effectId,
-      ));
+      trackController.setTrackInstrument(
+        trackId,
+        InstrumentData.vst3Instrument(
+          trackId: trackId,
+          pluginPath: plugin.path,
+          pluginName: plugin.name,
+          effectId: effectId,
+        ),
+      );
 
       // Auto-populate track name with plugin name if not user-edited
       if (!trackController.isTrackNameUserEdited(trackId)) {
@@ -865,9 +907,14 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
-      final noteOnResult = audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
-      if (noteOnResult.isNotEmpty) {
-      }
+      final noteOnResult = audioEngine!.vst3SendMidiNote(
+        effectId,
+        0,
+        0,
+        60,
+        100,
+      ); // C4, velocity 100
+      if (noteOnResult.isNotEmpty) {}
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         if (!mounted || audioEngine == null) return;
@@ -883,10 +930,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'MIDI',
-      );
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
 
       await undoRedoManager.execute(command);
 
@@ -905,21 +949,29 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
-        trackId: trackId,
-        pluginPath: plugin.path,
-        pluginName: plugin.name,
-        effectId: effectId,
-      ));
+      trackController.setTrackInstrument(
+        trackId,
+        InstrumentData.vst3Instrument(
+          trackId: trackId,
+          pluginPath: plugin.path,
+          pluginName: plugin.name,
+          effectId: effectId,
+        ),
+      );
 
       // Auto-populate track name with plugin name (new track, so not user-edited)
       audioEngine?.setTrackName(trackId, plugin.name);
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
-      final noteOnResult = audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
-      if (noteOnResult.isNotEmpty) {
-      }
+      final noteOnResult = audioEngine!.vst3SendMidiNote(
+        effectId,
+        0,
+        0,
+        60,
+        100,
+      ); // C4, velocity 100
+      if (noteOnResult.isNotEmpty) {}
       // Send note off after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         if (!mounted || audioEngine == null) return;
@@ -940,7 +992,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   // Audio file drop handler - creates new audio track with clip
-  Future<void> _onAudioFileDroppedOnEmpty(String filePath, [double startTimeBeats = 0.0]) async {
+  Future<void> _onAudioFileDroppedOnEmpty(
+    String filePath, [
+    double startTimeBeats = 0.0,
+  ]) async {
     if (audioEngine == null) return;
 
     try {
@@ -982,14 +1037,16 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
 
       // 6. Add to timeline view's clip list
-      timelineKey.currentState?.addClip(ClipData(
-        clipId: clipId,
-        trackId: trackId,
-        filePath: finalPath, // Use the copied path
-        startTime: startTimeSeconds,
-        duration: duration,
-        waveformPeaks: peaks,
-      ));
+      timelineKey.currentState?.addClip(
+        ClipData(
+          clipId: clipId,
+          trackId: trackId,
+          filePath: finalPath, // Use the copied path
+          startTime: startTimeSeconds,
+          duration: duration,
+          waveformPeaks: peaks,
+        ),
+      );
 
       // 7. Select the newly created clip (opens Audio Editor)
       timelineKey.currentState?.selectAudioClip(clipId);
@@ -1002,7 +1059,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   /// Import a MIDI file onto a new track (dropped on empty space)
-  Future<void> _onMidiFileDroppedOnEmpty(String filePath, double startTimeBeats) async {
+  Future<void> _onMidiFileDroppedOnEmpty(
+    String filePath,
+    double startTimeBeats,
+  ) async {
     if (audioEngine == null) return;
 
     try {
@@ -1011,10 +1071,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       if (result.notes.isEmpty) return;
 
       // Create new MIDI track
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'MIDI',
-      );
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
       await undoRedoManager.execute(command);
 
       final trackId = command.createdTrackId;
@@ -1029,7 +1086,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final durationBeats = maxEnd > 0 ? maxEnd : 4.0;
 
       final clipId = DateTime.now().microsecondsSinceEpoch;
-      final clipName = result.trackName ?? filePath.split('/').last.split('.').first;
+      final clipName =
+          result.trackName ?? filePath.split('/').last.split('.').first;
 
       final clipData = MidiClipData(
         clipId: clipId,
@@ -1050,7 +1108,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   }
 
   // Drag-to-create handlers
-  Future<void> _onCreateTrackWithClip(String trackType, double startBeats, double durationBeats) async {
+  Future<void> _onCreateTrackWithClip(
+    String trackType,
+    double startBeats,
+    double durationBeats,
+  ) async {
     if (audioEngine == null) return;
 
     try {
@@ -1088,23 +1150,31 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
   }
 
-  void _onCreateClipOnTrack(int trackId, double startBeats, double durationBeats) {
+  void _onCreateClipOnTrack(
+    int trackId,
+    double startBeats,
+    double durationBeats,
+  ) {
     // Create a new MIDI clip on the specified track
     _createMidiClipWithParams(trackId, startBeats, durationBeats);
 
     // Select the track
     _onTrackSelected(trackId);
-
   }
 
   /// Create a MIDI clip with custom start position and duration
-  void _createMidiClipWithParams(int trackId, double startBeats, double durationBeats) {
+  void _createMidiClipWithParams(
+    int trackId,
+    double startBeats,
+    double durationBeats,
+  ) {
     final clip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: trackId,
       startTime: startBeats,
       duration: durationBeats,
-      loopLength: durationBeats, // Loop length matches arrangement length initially
+      loopLength:
+          durationBeats, // Loop length matches arrangement length initially
       name: _generateClipName(trackId),
       notes: [],
     );
@@ -1136,7 +1206,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Show capture dialog
-    final capturedEvents = await CaptureMidiDialog.show(context, midiCaptureBuffer);
+    final capturedEvents = await CaptureMidiDialog.show(
+      context,
+      midiCaptureBuffer,
+    );
 
     if (capturedEvents == null || capturedEvents.isEmpty) {
       return;
@@ -1155,24 +1228,31 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         final noteOn = activeNotes.remove(event.note);
         if (noteOn != null) {
           final duration = event.beatsFromStart - noteOn.beatsFromStart;
-          notes.add(MidiNoteData(
-            note: event.note,
-            velocity: noteOn.velocity,
-            startTime: noteOn.beatsFromStart,
-            duration: duration.clamp(0.1, double.infinity), // Min duration of 0.1 beats
-          ));
+          notes.add(
+            MidiNoteData(
+              note: event.note,
+              velocity: noteOn.velocity,
+              startTime: noteOn.beatsFromStart,
+              duration: duration.clamp(
+                0.1,
+                double.infinity,
+              ), // Min duration of 0.1 beats
+            ),
+          );
         }
       }
     }
 
     // Handle any notes that didn't get a note-off (sustained notes)
     for (final noteOn in activeNotes.values) {
-      notes.add(MidiNoteData(
-        note: noteOn.note,
-        velocity: noteOn.velocity,
-        startTime: noteOn.beatsFromStart,
-        duration: 1.0, // Default 1 beat duration for sustained notes
-      ));
+      notes.add(
+        MidiNoteData(
+          note: noteOn.note,
+          velocity: noteOn.velocity,
+          startTime: noteOn.beatsFromStart,
+          duration: 1.0, // Default 1 beat duration for sustained notes
+        ),
+      );
     }
 
     if (notes.isEmpty) {
@@ -1181,16 +1261,18 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Calculate clip duration based on last note
-    final lastNote = notes.reduce((a, b) =>
-      (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b
+    final lastNote = notes.reduce(
+      (a, b) => (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b,
     );
-    final clipDuration = (lastNote.startTime + lastNote.duration).ceilToDouble();
+    final clipDuration = (lastNote.startTime + lastNote.duration)
+        .ceilToDouble();
 
     // Create the clip
     final clip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: selectedTrackId!,
-      startTime: playheadPosition / 60.0 * tempo, // Current playhead position in beats
+      startTime:
+          playheadPosition / 60.0 * tempo, // Current playhead position in beats
       duration: clipDuration,
       loopLength: clipDuration,
       name: _generateClipName(selectedTrackId!),
@@ -1207,7 +1289,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     final selectedTrack = selectedTrackId;
     final isMidi = selectedTrack != null && _isMidiTrack(selectedTrack);
-    final isEmptyAudio = selectedTrack != null && _isEmptyAudioTrack(selectedTrack);
+    final isEmptyAudio =
+        selectedTrack != null && _isEmptyAudioTrack(selectedTrack);
 
     switch (item.type) {
       case LibraryItemType.instrument:
@@ -1425,7 +1508,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Load the sample (root note C4 = 60)
-    final success = audioEngine!.loadSampleForTrack(samplerTrackId, samplePath, 60);
+    final success = audioEngine!.loadSampleForTrack(
+      samplerTrackId,
+      samplePath,
+      60,
+    );
     if (!success) {
       _showSnackBar('Failed to load sample');
       return;
@@ -1501,7 +1588,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     if (trackType != 'audio') return false;
 
     // Check if any clips are on this track
-    final hasClips = timelineKey.currentState?.hasClipsOnTrack(trackId) ?? false;
+    final hasClips =
+        timelineKey.currentState?.hasClipsOnTrack(trackId) ?? false;
     return !hasClips;
   }
 
@@ -1540,9 +1628,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   // Helper: Find instrument by ID
   Instrument? _findInstrumentById(String id) {
     try {
-      return availableInstruments.firstWhere(
-        (inst) => inst.id == id,
-      );
+      return availableInstruments.firstWhere((inst) => inst.id == id);
     } catch (e) {
       return null;
     }
@@ -1553,7 +1639,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   /// Returns the path to use (either copied path or original path)
   Future<String> _prepareSamplePath(String originalPath) async {
     // If setting is disabled or no project is open, use original path
-    if (!userSettings.copySamplesToProject || projectManager?.currentPath == null) {
+    if (!userSettings.copySamplesToProject ||
+        projectManager?.currentPath == null) {
       return originalPath;
     }
 
@@ -1606,14 +1693,16 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
       final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
 
-      timelineKey.currentState?.addClip(ClipData(
-        clipId: clipId,
-        trackId: trackId,
-        filePath: finalPath, // Use the copied path
-        startTime: 0.0,
-        duration: duration,
-        waveformPeaks: peaks,
-      ));
+      timelineKey.currentState?.addClip(
+        ClipData(
+          clipId: clipId,
+          trackId: trackId,
+          filePath: finalPath, // Use the copied path
+          startTime: 0.0,
+          duration: duration,
+          waveformPeaks: peaks,
+        ),
+      );
     } catch (e) {
       // Silently fail
     }
@@ -1636,10 +1725,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   // Helper: Show snackbar message
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -1652,9 +1738,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
+    statusMessage = forceRescan
+        ? 'Rescanning VST3 plugins...'
+        : 'Scanning VST3 plugins...';
 
-    final result = await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
+    final result = await vst3PluginManager!.scanPlugins(
+      forceRescan: forceRescan,
+    );
 
     if (mounted) {
       statusMessage = result;
@@ -1769,7 +1859,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                                 const SizedBox(height: 8),
                                 Text(
                                   'Drag the sliders to adjust plugin parameters.',
-                                  style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.colors.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1778,7 +1871,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('🎛️  Native editor support coming soon! For now, use the parameter sliders.'),
+                                  content: Text(
+                                    '🎛️  Native editor support coming soon! For now, use the parameter sliders.',
+                                  ),
                                   duration: Duration(seconds: 3),
                                 ),
                               );
@@ -1786,7 +1881,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                             icon: const Icon(Icons.open_in_new, size: 16),
                             label: const Text('Open GUI'),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
                           ),
                         ],
@@ -1826,11 +1924,17 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 children: [
                   Text(
                     'Parameter ${i + 1}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   Text(
                     '0.50',
-                    style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.colors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1950,7 +2054,6 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
   }
 
-
   void _duplicateSelectedClip() {
     final clip = midiPlaybackManager?.currentEditingClip;
     if (clip == null) return;
@@ -1966,7 +2069,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     // Try MIDI clip first
     if (midiPlaybackManager?.selectedClipId != null) {
-      final success = midiClipController.splitSelectedClipAtPlayhead(splitPosition);
+      final success = midiClipController.splitSelectedClipAtPlayhead(
+        splitPosition,
+      );
       if (success && mounted) {
         statusMessage = 'Split MIDI clip at playhead';
         return;
@@ -1974,7 +2079,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Try audio clip if no MIDI clip or MIDI split failed
-    final audioSplit = timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
+    final audioSplit =
+        timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(
+          splitPosition,
+        ) ??
+        false;
     if (audioSplit && mounted) {
       statusMessage = 'Split audio clip at playhead';
       return;
@@ -1982,7 +2091,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     // Neither worked
     if (mounted) {
-      statusMessage = 'Cannot split: select a clip and place playhead within it';
+      statusMessage =
+          'Cannot split: select a clip and place playhead within it';
     }
   }
 
@@ -2002,7 +2112,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     // Try audio clip
-    final audioQuantized = timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ?? false;
+    final audioQuantized =
+        timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ??
+        false;
     if (audioQuantized && mounted) {
       statusMessage = 'Quantized audio clip to grid';
       return;
@@ -2091,7 +2203,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     // Calculate consolidated clip bounds
     final firstClipStart = sortedClips.first.startTime;
-    final lastClipEnd = sortedClips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
+    final lastClipEnd = sortedClips
+        .map((c) => c.endTime)
+        .reduce((a, b) => a > b ? a : b);
     final totalDuration = lastClipEnd - firstClipStart;
 
     // Merge all notes with adjusted timing
@@ -2099,10 +2213,12 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     for (final clip in sortedClips) {
       final clipOffset = clip.startTime - firstClipStart;
       for (final note in clip.notes) {
-        mergedNotes.add(note.copyWith(
-          startTime: note.startTime + clipOffset,
-          id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
+        mergedNotes.add(
+          note.copyWith(
+            startTime: note.startTime + clipOffset,
+            id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
       }
     }
 
@@ -2201,16 +2317,18 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       );
 
       if (clip != null) {
-        commands.add(DeleteMidiClipFromArrangementCommand(
-          clipData: clip,
-          onClipRemoved: (cId, tId) {
-            midiClipController.deleteClip(cId, tId);
-          },
-          onClipRestored: (restoredClip) {
-            midiPlaybackManager?.addRecordedClip(restoredClip);
-            midiClipController.updateClip(restoredClip, playheadPosition);
-          },
-        ));
+        commands.add(
+          DeleteMidiClipFromArrangementCommand(
+            clipData: clip,
+            onClipRemoved: (cId, tId) {
+              midiClipController.deleteClip(cId, tId);
+            },
+            onClipRestored: (restoredClip) {
+              midiPlaybackManager?.addRecordedClip(restoredClip);
+              midiClipController.updateClip(restoredClip, playheadPosition);
+            },
+          ),
+        );
       }
     }
 
@@ -2232,19 +2350,21 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Build individual delete commands for each clip
     final commands = <Command>[];
     for (final clip in clipsToDelete) {
-      commands.add(DeleteAudioClipCommand(
-        clipData: clip,
-        onClipRemoved: (clipId) {
-          // Remove from timeline view's clip list
-          // (Engine removal is handled by the command's execute method)
-          timelineKey.currentState?.removeClip(clipId);
-        },
-        onClipRestored: (restoredClip) {
-          // Restore to timeline view's clip list
-          // (Engine restoration is handled by the command's undo method)
-          timelineKey.currentState?.addClip(restoredClip);
-        },
-      ));
+      commands.add(
+        DeleteAudioClipCommand(
+          clipData: clip,
+          onClipRemoved: (clipId) {
+            // Remove from timeline view's clip list
+            // (Engine removal is handled by the command's execute method)
+            timelineKey.currentState?.removeClip(clipId);
+          },
+          onClipRestored: (restoredClip) {
+            // Restore to timeline view's clip list
+            // (Engine restoration is handled by the command's undo method)
+            timelineKey.currentState?.addClip(restoredClip);
+          },
+        ),
+      );
     }
 
     if (commands.isEmpty) return;
@@ -2282,7 +2402,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   /// Get the default projects folder path: ~/Documents/Boojy/Audio/Projects
   Future<String> _getDefaultProjectsFolder() async {
-    final home = Platform.environment['HOME'] ?? '/Users/${Platform.environment['USER']}';
+    final home =
+        Platform.environment['HOME'] ??
+        '/Users/${Platform.environment['USER']}';
     final projectsPath = '$home/Documents/Boojy/Audio/Projects';
 
     // Create the folder if it doesn't exist
@@ -2307,18 +2429,17 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     if (recent.isEmpty) {
       return [
-        const PlatformMenuItem(
-          label: 'No Recent Projects',
-          onSelected: null,
-        ),
+        const PlatformMenuItem(label: 'No Recent Projects', onSelected: null),
       ];
     }
 
     return [
-      ...recent.map((project) => PlatformMenuItem(
-        label: project.name,
-        onSelected: () => _openRecentProject(project.path),
-      )),
+      ...recent.map(
+        (project) => PlatformMenuItem(
+          label: project.name,
+          onSelected: () => _openRecentProject(project.path),
+        ),
+      ),
       PlatformMenuItemGroup(
         members: [
           PlatformMenuItem(
@@ -2343,7 +2464,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   Future<void> _saveProjectAs() async {
     // Show dialog to enter project name
-    final nameController = TextEditingController(text: projectManager?.currentName ?? 'Untitled');
+    final nameController = TextEditingController(
+      text: projectManager?.currentName ?? 'Untitled',
+    );
 
     final projectName = await showDialog<String>(
       context: context,
@@ -2385,7 +2508,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Use macOS native file picker for save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")'
+        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")',
       ]);
 
       if (result.exitCode == 0) {
@@ -2397,9 +2520,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save project: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save project: $e')));
       }
     }
   }
@@ -2407,7 +2530,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   Future<void> _saveProjectToPath(String path) async {
     setState(() => isLoading = true);
 
-    final result = await projectManager!.saveProjectToPath(path, _getCurrentUILayout());
+    final result = await projectManager!.saveProjectToPath(
+      path,
+      _getCurrentUILayout(),
+    );
 
     // Add to recent projects on successful save
     if (result.success) {
@@ -2420,9 +2546,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
     }
   }
 
@@ -2460,7 +2586,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       bottomHeight: uiLayout.editorPanelHeight,
       libraryCollapsed: uiLayout.isLibraryPanelCollapsed,
       mixerCollapsed: !uiLayout.isMixerVisible,
-      bottomCollapsed: !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
+      bottomCollapsed:
+          !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
       viewState: viewState,
       audioClips: audioClips,
       automationData: automationController.toJson(),
@@ -2534,7 +2661,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Use file_picker to choose save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")'
+        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")',
       ]);
 
       if (result.exitCode != 0) return; // User cancelled
@@ -2553,9 +2680,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final normalize = userSettings.exportNormalize;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exporting MP3...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exporting MP3...')));
       }
 
       final resultJson = audioEngine!.exportMp3WithOptions(
@@ -2568,9 +2695,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       if (mounted) {
         final result = jsonDecode(resultJson) as Map<String, dynamic>;
         if (result['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('MP3 export complete')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('MP3 export complete')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Export failed: ${result['error']}')),
@@ -2579,9 +2706,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
@@ -2596,7 +2723,7 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       // Use file_picker to choose save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")'
+        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")',
       ]);
 
       if (result.exitCode != 0) return; // User cancelled
@@ -2616,9 +2743,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final dither = userSettings.exportDither;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exporting WAV...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exporting WAV...')));
       }
 
       final resultJson = audioEngine!.exportWavWithOptions(
@@ -2632,9 +2759,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       if (mounted) {
         final result = jsonDecode(resultJson) as Map<String, dynamic>;
         if (result['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('WAV export complete')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('WAV export complete')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Export failed: ${result['error']}')),
@@ -2643,9 +2770,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
@@ -2681,7 +2808,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     if (projectManager?.currentPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Save project first before creating a new version')),
+          const SnackBar(
+            content: Text('Save project first before creating a new version'),
+          ),
         );
       }
       return;
@@ -2694,7 +2823,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
       // Find the next version number by scanning for existing versions
       int nextVersion = 2;
-      final baseName = currentName.replaceAll(RegExp(r'_v\d+$'), ''); // Remove existing _vN suffix
+      final baseName = currentName.replaceAll(
+        RegExp(r'_v\d+$'),
+        '',
+      ); // Remove existing _vN suffix
 
       while (true) {
         final versionPath = '$parentDir/${baseName}_v$nextVersion.audio';
@@ -2729,12 +2861,19 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       final sourceSamplesDir = Directory('$currentPath/Samples');
       if (await sourceSamplesDir.exists()) {
         // Use Process.run to create symlink since dart:io Link may have issues
-        await Process.run('ln', ['-s', '$currentPath/Samples', '$newVersionPath/Samples']);
+        await Process.run('ln', [
+          '-s',
+          '$currentPath/Samples',
+          '$newVersionPath/Samples',
+        ]);
       }
 
       // Update project manager to point to new version
       projectManager!.setProjectName(newVersionName);
-      await projectManager!.saveProjectToPath(newVersionPath, _getCurrentUILayout());
+      await projectManager!.saveProjectToPath(
+        newVersionPath,
+        _getCurrentUILayout(),
+      );
 
       // Update UI
       setState(() {
@@ -2817,7 +2956,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         if (await Directory(newPath).exists()) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('A project named "$newName" already exists in this location')),
+              SnackBar(
+                content: Text(
+                  'A project named "$newName" already exists in this location',
+                ),
+              ),
             );
           }
           return;
@@ -2852,9 +2995,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to rename project: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to rename project: $e')));
       }
     }
   }
@@ -2871,7 +3014,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
     if (!mounted) return;
 
-    await AppSettingsDialog.show(context, userSettings, audioEngine: audioEngine);
+    await AppSettingsDialog.show(
+      context,
+      userSettings,
+      audioEngine: audioEngine,
+    );
   }
 
   Future<void> _openProjectSettings() async {
@@ -2920,7 +3067,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     // Handle version actions
     if (result.versionAction == 'create' && result.newVersionData != null) {
       await _createVersion(result.newVersionData!);
-    } else if (result.versionAction == 'restore' && result.selectedVersion != null) {
+    } else if (result.versionAction == 'restore' &&
+        result.selectedVersion != null) {
       await _restoreVersion(result.selectedVersion!);
     }
   }
@@ -2929,7 +3077,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
   // Version Methods
   // ========================================================================
 
-  Future<void> _createVersion(({String name, String? note, VersionType type}) data) async {
+  Future<void> _createVersion(
+    ({String name, String? note, VersionType type}) data,
+  ) async {
     if (projectManager?.currentPath == null || versionManager == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please save the project first')),
@@ -2952,9 +3102,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         SnackBar(content: Text('Version "${version.name}" created')),
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create version')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to create version')));
     }
   }
 
@@ -3013,7 +3163,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Close Project'),
-        content: const Text('Are you sure you want to close the current project?\n\nAny unsaved changes will be lost.'),
+        content: const Text(
+          'Are you sure you want to close the current project?\n\nAny unsaved changes will be lost.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -3045,9 +3197,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 statusMessage = 'No project loaded';
               });
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Project closed')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Project closed')));
 
               // Show start screen after closing
               _showStartScreen();
@@ -3108,7 +3260,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           onSidebarDividerDrag: (delta) {
             setState(() {
               uiLayout.resizeRightColumn(delta);
-              userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
+              userSettings.libraryRightColumnWidth =
+                  uiLayout.libraryRightColumnWidth;
               userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
             });
           },
@@ -3118,8 +3271,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
               userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
             });
           },
-          onSidebarDividerDragStart: () => setState(() => _isDraggingLibrary = true),
-          onSidebarDividerDragEnd: () => setState(() => _isDraggingLibrary = false),
+          onSidebarDividerDragStart: () =>
+              setState(() => _isDraggingLibrary = true),
+          onSidebarDividerDragEnd: () =>
+              setState(() => _isDraggingLibrary = false),
           mixerWidth: uiLayout.mixerPanelWidth,
           onMixerDividerDrag: (delta) {
             final windowWidth = MediaQuery.of(context).size.width;
@@ -3144,7 +3299,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
               userSettings.mixerVisible = uiLayout.isMixerVisible;
             });
           },
-          onMixerDividerDragStart: () => setState(() => _isDraggingMixer = true),
+          onMixerDividerDragStart: () =>
+              setState(() => _isDraggingMixer = true),
           onMixerDividerDragEnd: () => setState(() => _isDraggingMixer = false),
           leftDividerNotifier: _leftDividerActive,
           rightDividerNotifier: _rightDividerActive,
@@ -3157,7 +3313,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         isCountingIn: isCountingIn,
         countInBeat: recordingController.countInBeat,
         countInProgress: recordingController.countInProgress,
-        hasArmedTracks: mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
+        hasArmedTracks:
+            mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
         metronomeEnabled: isMetronomeEnabled,
         virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
         tempo: tempo,
@@ -3194,9 +3351,13 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   Widget _buildLibrarySection() {
     return AnimatedContainer(
-      duration: _isDraggingLibrary ? Duration.zero : const Duration(milliseconds: 200),
+      duration: _isDraggingLibrary
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
-      width: uiLayout.isLibraryPanelCollapsed ? 0 : uiLayout.libraryPanelWidth + 4,
+      width: uiLayout.isLibraryPanelCollapsed
+          ? 0
+          : uiLayout.libraryPanelWidth + 4,
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(),
       child: OverflowBox(
@@ -3208,12 +3369,36 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             SizedBox(
               width: uiLayout.libraryPanelWidth,
               child: libraryPreviewService != null
-                ? ChangeNotifierProvider<LibraryPreviewService>.value(
-                    value: libraryPreviewService!,
-                    child: LibraryPanel(
+                  ? ChangeNotifierProvider<LibraryPreviewService>.value(
+                      value: libraryPreviewService!,
+                      child: LibraryPanel(
+                        isCollapsed: false,
+                        onToggle: _toggleLibraryPanel,
+                        availableVst3Plugins:
+                            vst3PluginManager?.availablePlugins ?? [],
+                        libraryService: libraryService,
+                        onItemDoubleClick: _handleLibraryItemDoubleClick,
+                        onVst3DoubleClick: _handleVst3DoubleClick,
+                        onOpenInSampler: _handleOpenInSampler,
+                        leftColumnWidth: uiLayout.libraryLeftColumnWidth,
+                        onLeftColumnResize: (delta) {
+                          setState(() {
+                            uiLayout.resizeLeftColumn(delta);
+                            userSettings.libraryLeftColumnWidth =
+                                uiLayout.libraryLeftColumnWidth;
+                          });
+                        },
+                        onLeftColumnDragStart: () =>
+                            setState(() => _isDraggingLibrary = true),
+                        onLeftColumnDragEnd: () =>
+                            setState(() => _isDraggingLibrary = false),
+                      ),
+                    )
+                  : LibraryPanel(
                       isCollapsed: false,
                       onToggle: _toggleLibraryPanel,
-                      availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
+                      availableVst3Plugins:
+                          vst3PluginManager?.availablePlugins ?? [],
                       libraryService: libraryService,
                       onItemDoubleClick: _handleLibraryItemDoubleClick,
                       onVst3DoubleClick: _handleVst3DoubleClick,
@@ -3222,31 +3407,15 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                       onLeftColumnResize: (delta) {
                         setState(() {
                           uiLayout.resizeLeftColumn(delta);
-                          userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
+                          userSettings.libraryLeftColumnWidth =
+                              uiLayout.libraryLeftColumnWidth;
                         });
                       },
-                      onLeftColumnDragStart: () => setState(() => _isDraggingLibrary = true),
-                      onLeftColumnDragEnd: () => setState(() => _isDraggingLibrary = false),
+                      onLeftColumnDragStart: () =>
+                          setState(() => _isDraggingLibrary = true),
+                      onLeftColumnDragEnd: () =>
+                          setState(() => _isDraggingLibrary = false),
                     ),
-                  )
-                : LibraryPanel(
-                    isCollapsed: false,
-                    onToggle: _toggleLibraryPanel,
-                    availableVst3Plugins: vst3PluginManager?.availablePlugins ?? [],
-                    libraryService: libraryService,
-                    onItemDoubleClick: _handleLibraryItemDoubleClick,
-                    onVst3DoubleClick: _handleVst3DoubleClick,
-                    onOpenInSampler: _handleOpenInSampler,
-                    leftColumnWidth: uiLayout.libraryLeftColumnWidth,
-                    onLeftColumnResize: (delta) {
-                      setState(() {
-                        uiLayout.resizeLeftColumn(delta);
-                        userSettings.libraryLeftColumnWidth = uiLayout.libraryLeftColumnWidth;
-                      });
-                    },
-                    onLeftColumnDragStart: () => setState(() => _isDraggingLibrary = true),
-                    onLeftColumnDragEnd: () => setState(() => _isDraggingLibrary = false),
-                  ),
             ),
 
             // Divider: Library/Timeline
@@ -3259,14 +3428,17 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
               onDrag: (delta) {
                 setState(() {
                   uiLayout.resizeRightColumn(delta);
-                  userSettings.libraryRightColumnWidth = uiLayout.libraryRightColumnWidth;
-                  userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                  userSettings.libraryRightColumnWidth =
+                      uiLayout.libraryRightColumnWidth;
+                  userSettings.libraryCollapsed =
+                      uiLayout.isLibraryPanelCollapsed;
                 });
               },
               onDoubleClick: () {
                 setState(() {
                   uiLayout.toggleLibraryPanel();
-                  userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
+                  userSettings.libraryCollapsed =
+                      uiLayout.isLibraryPanelCollapsed;
                 });
               },
             ),
@@ -3290,7 +3462,8 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         currentEditingClip: midiPlaybackManager?.currentEditingClip,
         midiClips: midiPlaybackManager?.midiClips ?? [],
         onMidiTrackSelected: _onTrackSelected,
-        getRustClipId: (dartClipId) => midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
+        getRustClipId: (dartClipId) =>
+            midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
         midiClipCallbacks: MidiClipCallbacks(
           onSelected: _onMidiClipSelected,
           onUpdated: _onMidiClipUpdated,
@@ -3302,8 +3475,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
             ClipOverlapHandler.applyMidiResult(
               result: result,
               deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
-              updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
-              rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+              updateClipInPlace: (clip) =>
+                  midiPlaybackManager?.updateClipInPlace(clip),
+              rescheduleClip: (clip, t) =>
+                  midiPlaybackManager?.rescheduleClip(clip, t),
               addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
               tempo: tempo,
             );
@@ -3328,25 +3503,44 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
         ),
         automationCallbacks: AutomationCallbacks(
           onPointAdded: (trackId, point) {
-            automationController.addPoint(trackId, automationController.visibleParameter, point);
-            if (automationController.visibleParameter == AutomationParameter.volume) {
+            automationController.addPoint(
+              trackId,
+              automationController.visibleParameter,
+              point,
+            );
+            if (automationController.visibleParameter ==
+                AutomationParameter.volume) {
               syncVolumeAutomationToEngine(trackId);
             }
           },
           onPointUpdated: (trackId, pointId, point) {
-            automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-            if (automationController.visibleParameter == AutomationParameter.volume) {
+            automationController.updatePoint(
+              trackId,
+              automationController.visibleParameter,
+              pointId,
+              point,
+            );
+            if (automationController.visibleParameter ==
+                AutomationParameter.volume) {
               syncVolumeAutomationToEngine(trackId);
             }
           },
           onPointDeleted: (trackId, pointId) {
-            automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-            if (automationController.visibleParameter == AutomationParameter.volume) {
+            automationController.removePoint(
+              trackId,
+              automationController.visibleParameter,
+              pointId,
+            );
+            if (automationController.visibleParameter ==
+                AutomationParameter.volume) {
               syncVolumeAutomationToEngine(trackId);
             }
           },
           onPreviewValue: onAutomationPreviewValue,
-          getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+          getAutomationLane: (trackId) => automationController.getLane(
+            trackId,
+            automationController.visibleParameter,
+          ),
         ),
         trackHeightState: TrackHeightState(
           clipHeights: clipHeights,
@@ -3394,7 +3588,9 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
 
   Widget _buildMixerSection() {
     return AnimatedContainer(
-      duration: _isDraggingMixer ? Duration.zero : const Duration(milliseconds: 200),
+      duration: _isDraggingMixer
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
       clipBehavior: Clip.hardEdge,
@@ -3448,12 +3644,15 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                 onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
                 getTrackColor: getTrackColor,
-                getTrackIcon: (trackId) => trackController.getTrackIcon(trackId),
+                getTrackIcon: (trackId) =>
+                    trackController.getTrackIcon(trackId),
                 config: MixerPanelConfig(
                   isEngineReady: isAudioGraphInitialized,
                   panelWidth: uiLayout.mixerPanelWidth,
                   onTogglePanel: _toggleMixer,
-                  isRecording: recordingController.isRecording || recordingController.isCountingIn,
+                  isRecording:
+                      recordingController.isRecording ||
+                      recordingController.isCountingIn,
                   trackOrder: trackController.trackOrder,
                 ),
                 selectionState: TrackSelectionState(
@@ -3477,7 +3676,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                   },
                   onNameChanged: (trackId, newName) {
                     // Mark track name as user-edited
-                    trackController.markTrackNameUserEdited(trackId, edited: true);
+                    trackController.markTrackNameUserEdited(
+                      trackId,
+                      edited: true,
+                    );
                   },
                   onColorChanged: setTrackColor,
                   onIconChanged: (trackId, icon) {
@@ -3489,8 +3691,10 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 ),
                 instrumentCallbacks: MixerInstrumentCallbacks(
                   onInstrumentSelected: _onInstrumentSelected,
-                  onInstrumentDropped: _onInstrumentDropped, // Swap built-in instrument
-                  onVst3InstrumentDropped: _onVst3InstrumentDropped, // Swap VST3 instrument
+                  onInstrumentDropped:
+                      _onInstrumentDropped, // Swap built-in instrument
+                  onVst3InstrumentDropped:
+                      _onVst3InstrumentDropped, // Swap VST3 instrument
                   onVst3PluginDropped: _onVst3PluginDropped, // M10
                   onFxButtonPressed: _showVst3PluginBrowser, // M10
                   onEditPluginsPressed: _showVst3PluginEditor, // M10
@@ -3505,25 +3709,44 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 onMasterTrackHeightChanged: setMasterTrackHeight,
                 automationCallbacks: AutomationCallbacks(
                   onPointAdded: (trackId, point) {
-                    automationController.addPoint(trackId, automationController.visibleParameter, point);
-                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                    automationController.addPoint(
+                      trackId,
+                      automationController.visibleParameter,
+                      point,
+                    );
+                    if (automationController.visibleParameter ==
+                        AutomationParameter.volume) {
                       syncVolumeAutomationToEngine(trackId);
                     }
                   },
                   onPointUpdated: (trackId, pointId, point) {
-                    automationController.updatePoint(trackId, automationController.visibleParameter, pointId, point);
-                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                    automationController.updatePoint(
+                      trackId,
+                      automationController.visibleParameter,
+                      pointId,
+                      point,
+                    );
+                    if (automationController.visibleParameter ==
+                        AutomationParameter.volume) {
                       syncVolumeAutomationToEngine(trackId);
                     }
                   },
                   onPointDeleted: (trackId, pointId) {
-                    automationController.removePoint(trackId, automationController.visibleParameter, pointId);
-                    if (automationController.visibleParameter == AutomationParameter.volume) {
+                    automationController.removePoint(
+                      trackId,
+                      automationController.visibleParameter,
+                      pointId,
+                    );
+                    if (automationController.visibleParameter ==
+                        AutomationParameter.volume) {
                       syncVolumeAutomationToEngine(trackId);
                     }
                   },
                   onPreviewValue: onAutomationPreviewValue,
-                  getAutomationLane: (trackId) => automationController.getLane(trackId, automationController.visibleParameter),
+                  getAutomationLane: (trackId) => automationController.getLane(
+                    trackId,
+                    automationController.visibleParameter,
+                  ),
                 ),
                 automationState: MixerAutomationState(
                   visibleTrackId: automationController.visibleTrackId,
@@ -3532,9 +3755,11 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                       automationController.toggleAutomationForTrack(trackId);
                     });
                   },
-                  pixelsPerBeat: timelineKey.currentState?.pixelsPerBeat ?? 20.0,
+                  pixelsPerBeat:
+                      timelineKey.currentState?.pixelsPerBeat ?? 20.0,
                   totalBeats: 256.0,
-                  getSelectedParameter: (trackId) => automationController.visibleParameter,
+                  getSelectedParameter: (trackId) =>
+                      automationController.visibleParameter,
                   onParameterChanged: (trackId, param) {
                     setState(() {
                       automationController.setVisibleParameter(param);
@@ -3582,13 +3807,16 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
                 UILayoutState.libraryHardMax,
               );
               // Split into left (default) and right (remainder)
-              uiLayout.libraryLeftColumnWidth = UILayoutState.libraryLeftColumnDefault;
-              uiLayout.libraryRightColumnWidth = (targetLibraryTotal -
-                  UILayoutState.libraryLeftColumnDefault -
-                  UILayoutState.libraryDividerWidth).clamp(
-                UILayoutState.libraryRightColumnMin,
-                UILayoutState.libraryRightColumnMax,
-              );
+              uiLayout.libraryLeftColumnWidth =
+                  UILayoutState.libraryLeftColumnDefault;
+              uiLayout.libraryRightColumnWidth =
+                  (targetLibraryTotal -
+                          UILayoutState.libraryLeftColumnDefault -
+                          UILayoutState.libraryDividerWidth)
+                      .clamp(
+                        UILayoutState.libraryRightColumnMin,
+                        UILayoutState.libraryRightColumnMax,
+                      );
               uiLayout.mixerPanelWidth = (windowSize.width * 0.28).clamp(
                 UILayoutState.mixerMinWidth,
                 UILayoutState.mixerHardMax,
@@ -3614,77 +3842,95 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
     }
 
     return PlatformMenuBar(
-      menus: buildDawMenus(context, DawMenuConfig(
-        // File menu callbacks
-        onNewProject: _newProject,
-        onOpenProject: _openProject,
-        onSaveProject: _saveProject,
-        onSaveProjectAs: _saveProjectAs,
-        onSaveNewVersion: _saveNewVersion,
-        onRenameProject: _renameProject,
-        onExportAudio: _exportAudio,
-        onExportMidi: _exportMidi,
-        onProjectSettings: _openProjectSettings,
-        onCloseProject: _closeProject,
-        onStartScreen: _showStartScreen,
-        recentProjectsMenu: _buildRecentProjectsMenu(),
-        // Edit menu state and callbacks
-        undoRedoManager: undoRedoManager,
-        onDelete: midiPlaybackManager?.selectedClipId != null
-            ? () {
-                final clipId = midiPlaybackManager!.selectedClipId!;
-                final clip = midiPlaybackManager!.currentEditingClip;
-                if (clip != null) {
-                  _deleteMidiClip(clipId, clip.trackId);
+      menus: buildDawMenus(
+        context,
+        DawMenuConfig(
+          // File menu callbacks
+          onNewProject: _newProject,
+          onOpenProject: _openProject,
+          onSaveProject: _saveProject,
+          onSaveProjectAs: _saveProjectAs,
+          onSaveNewVersion: _saveNewVersion,
+          onRenameProject: _renameProject,
+          onExportAudio: _exportAudio,
+          onExportMidi: _exportMidi,
+          onProjectSettings: _openProjectSettings,
+          onCloseProject: _closeProject,
+          onStartScreen: _showStartScreen,
+          recentProjectsMenu: _buildRecentProjectsMenu(),
+          // Edit menu state and callbacks
+          undoRedoManager: undoRedoManager,
+          onDelete: midiPlaybackManager?.selectedClipId != null
+              ? () {
+                  final clipId = midiPlaybackManager!.selectedClipId!;
+                  final clip = midiPlaybackManager!.currentEditingClip;
+                  if (clip != null) {
+                    _deleteMidiClip(clipId, clip.trackId);
+                  }
                 }
-              }
-            : null,
-        onDuplicate: _duplicateSelectedClip,
-        onSplitAtMarker: (midiPlaybackManager?.selectedClipId != null ||
-                timelineKey.currentState?.selectedAudioClipId != null)
-            ? _splitSelectedClipAtPlayhead
-            : null,
-        onQuantizeClip: (midiPlaybackManager?.selectedClipId != null ||
-                timelineKey.currentState?.selectedAudioClipId != null)
-            ? _quantizeSelectedClip
-            : null,
-        onConsolidateClips: (timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
-            ? _consolidateSelectedClips
-            : null,
-        onBounceMidiToAudio: midiPlaybackManager?.selectedClipId != null
-            ? _bounceMidiToAudio
-            : null,
-        hasSelectedMidiClip: midiPlaybackManager?.selectedClipId != null,
-        hasSelectedAudioClip: timelineKey.currentState?.selectedAudioClipId != null,
-        selectedMidiClipCount: timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
-        // View menu state and callbacks
-        uiLayout: uiLayout,
-        onToggleLibrary: _toggleLibraryPanel,
-        onToggleMixer: _toggleMixer,
-        onToggleEditor: _toggleEditor,
-        onTogglePiano: _toggleVirtualPiano,
-        onResetPanelLayout: _resetPanelLayout,
-        onAppSettings: _appSettings,
-        // Undo/redo callbacks
-        onUndo: _performUndo,
-        onRedo: _performRedo,
-      )),
+              : null,
+          onDuplicate: _duplicateSelectedClip,
+          onSplitAtMarker:
+              (midiPlaybackManager?.selectedClipId != null ||
+                  timelineKey.currentState?.selectedAudioClipId != null)
+              ? _splitSelectedClipAtPlayhead
+              : null,
+          onQuantizeClip:
+              (midiPlaybackManager?.selectedClipId != null ||
+                  timelineKey.currentState?.selectedAudioClipId != null)
+              ? _quantizeSelectedClip
+              : null,
+          onConsolidateClips:
+              (timelineKey.currentState?.selectedMidiClipIds.length ?? 0) >= 2
+              ? _consolidateSelectedClips
+              : null,
+          onBounceMidiToAudio: midiPlaybackManager?.selectedClipId != null
+              ? _bounceMidiToAudio
+              : null,
+          hasSelectedMidiClip: midiPlaybackManager?.selectedClipId != null,
+          hasSelectedAudioClip:
+              timelineKey.currentState?.selectedAudioClipId != null,
+          selectedMidiClipCount:
+              timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
+          // View menu state and callbacks
+          uiLayout: uiLayout,
+          onToggleLibrary: _toggleLibraryPanel,
+          onToggleMixer: _toggleMixer,
+          onToggleEditor: _toggleEditor,
+          onTogglePiano: _toggleVirtualPiano,
+          onResetPanelLayout: _resetPanelLayout,
+          onAppSettings: _appSettings,
+          // Undo/redo callbacks
+          onUndo: _performUndo,
+          onRedo: _performRedo,
+        ),
+      ),
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
           // ? key (Shift + /) to show keyboard shortcuts
-          const SingleActivator(LogicalKeyboardKey.slash, shift: true): _showKeyboardShortcuts,
+          const SingleActivator(LogicalKeyboardKey.slash, shift: true):
+              _showKeyboardShortcuts,
           // Cmd+E to split clip at insert marker (or playhead if no marker)
-          const SingleActivator(LogicalKeyboardKey.keyE, meta: true): _splitSelectedClipAtPlayhead,
+          const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+              _splitSelectedClipAtPlayhead,
           // Cmd+D to duplicate clip
-          const SingleActivator(LogicalKeyboardKey.keyD, meta: true): _duplicateSelectedClip,
+          const SingleActivator(LogicalKeyboardKey.keyD, meta: true):
+              _duplicateSelectedClip,
           // Cmd+A to select all clips (in timeline view)
-          const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAllClips,
+          const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
+              _selectAllClips,
           // Cmd+J to consolidate clips
-          const SingleActivator(LogicalKeyboardKey.keyJ, meta: true): _consolidateSelectedClips,
+          const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
+              _consolidateSelectedClips,
           // Cmd+B to bounce MIDI to audio
-          const SingleActivator(LogicalKeyboardKey.keyB, meta: true): _bounceMidiToAudio,
+          const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
+              _bounceMidiToAudio,
           // Cmd+Shift+P to toggle palette editor (debug only)
-          const SingleActivator(LogicalKeyboardKey.keyP, meta: true, shift: true): _togglePaletteEditor,
+          const SingleActivator(
+            LogicalKeyboardKey.keyP,
+            meta: true,
+            shift: true,
+          ): _togglePaletteEditor,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields
@@ -3692,166 +3938,193 @@ class _DAWScreenState extends State<DAWScreen> with DAWScreenStateMixin, DAWPlay
           autofocus: true,
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
-        backgroundColor: context.colors.dark,
-        body: Stack(
-          children: [
-          Column(
-          children: [
-          // Top padding to reserve space for transport bar (rendered in Stack above)
-          const SizedBox(height: 48),
-
-          // Main content area - 3-column layout
-          Expanded(
-            child: Column(
+            backgroundColor: context.colors.dark,
+            body: Stack(
               children: [
-                // Top section: Library + Timeline + Mixer
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Left: Library panel (animated width)
-                      _buildLibrarySection(),
+                Column(
+                  children: [
+                    // Top padding to reserve space for transport bar (rendered in Stack above)
+                    const SizedBox(height: 48),
 
-                      // Center: Timeline area
-                      // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
-                      // so playhead updates at 60fps do NOT rebuild the entire timeline
-                      _buildTimelineSection(),
+                    // Main content area - 3-column layout
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // Top section: Library + Timeline + Mixer
+                          Expanded(
+                            child: Row(
+                              children: [
+                                // Left: Library panel (animated width)
+                                _buildLibrarySection(),
 
-                      // Right: Track mixer panel (animated width)
-                      _buildMixerSection(),
-                    ],
-                  ),
+                                // Center: Timeline area
+                                // PERFORMANCE: Playhead notifier is listened to locally inside TimelineView
+                                // so playhead updates at 60fps do NOT rebuild the entire timeline
+                                _buildTimelineSection(),
+
+                                // Right: Track mixer panel (animated width)
+                                _buildMixerSection(),
+                              ],
+                            ),
+                          ),
+
+                          // Editor panel: Piano Roll / Effects / Instrument
+                          // Always render - shows collapsed toolbar bar when not visible
+                          if (uiLayout.isEditorPanelVisible) ...[
+                            // Resizable divider above editor (only when expanded)
+                            ResizableDivider(
+                              orientation: DividerOrientation.horizontal,
+                              isCollapsed: false,
+                              onDrag: (delta) {
+                                final windowHeight = MediaQuery.of(
+                                  context,
+                                ).size.height;
+                                final maxHeight =
+                                    UILayoutState.getEditorMaxHeight(
+                                      windowHeight,
+                                    );
+                                setState(() {
+                                  final newHeight =
+                                      uiLayout.editorPanelHeight - delta;
+                                  // Snap collapse if dragged below threshold
+                                  if (newHeight <
+                                      UILayoutState.editorCollapseThreshold) {
+                                    uiLayout.collapseEditor();
+                                    userSettings.editorVisible = false;
+                                  } else {
+                                    uiLayout.editorPanelHeight = newHeight
+                                        .clamp(
+                                          UILayoutState.editorMinHeight,
+                                          maxHeight,
+                                        );
+                                    userSettings.editorHeight =
+                                        uiLayout.editorPanelHeight;
+                                  }
+                                });
+                              },
+                              onDoubleClick: () {
+                                setState(() {
+                                  uiLayout.collapseEditor();
+                                  userSettings.editorVisible = false;
+                                });
+                              },
+                            ),
+                          ],
+
+                          // Editor panel content (full when visible, collapsed bar when hidden)
+                          SizedBox(
+                            height: uiLayout.isEditorPanelVisible
+                                ? uiLayout.editorPanelHeight
+                                : 40,
+                            child: EditorPanel(
+                              audioEngine: audioEngine,
+                              virtualPianoEnabled:
+                                  uiLayout.isVirtualPianoEnabled,
+                              trackContext: EditorPanelContext(
+                                selectedTrackId: selectedTrackId,
+                                selectedTrackName: _getSelectedTrackName(),
+                                selectedTrackType: _getSelectedTrackType(),
+                                currentInstrumentData: selectedTrackId != null
+                                    ? trackInstruments[selectedTrackId]
+                                    : null,
+                              ),
+                              callbacks: EditorPanelCallbacks(
+                                onVirtualPianoClose: _toggleVirtualPiano,
+                                onVirtualPianoToggle: _toggleVirtualPiano,
+                                onClosePanel: () {
+                                  setState(() {
+                                    uiLayout.isEditorPanelVisible = false;
+                                  });
+                                },
+                                onExpandPanel: () {
+                                  setState(() {
+                                    uiLayout.isEditorPanelVisible = true;
+                                  });
+                                },
+                                onToolModeChanged: (mode) =>
+                                    setState(() => currentToolMode = mode),
+                              ),
+                              vst3Callbacks: Vst3EditorCallbacks(
+                                onVst3ParameterChanged:
+                                    _onVst3ParameterChanged, // M10
+                                onVst3PluginRemoved: _removeVst3Plugin, // M10
+                                onVst3InstrumentDropped: (plugin) {
+                                  if (selectedTrackId != null) {
+                                    _onVst3InstrumentDropped(
+                                      selectedTrackId!,
+                                      plugin,
+                                    );
+                                  }
+                                },
+                              ),
+                              currentEditingClip:
+                                  midiPlaybackManager?.currentEditingClip,
+                              onMidiClipUpdated: _onMidiClipUpdated,
+                              onInstrumentParameterChanged:
+                                  _onInstrumentParameterChanged,
+                              currentEditingAudioClip: selectedAudioClip,
+                              onAudioClipUpdated: _onAudioClipUpdated,
+                              currentTrackPlugins:
+                                  selectedTrackId !=
+                                      null // M10
+                                  ? _getTrackVst3Plugins(selectedTrackId!)
+                                  : null,
+                              onInstrumentDropped: (instrument) {
+                                if (selectedTrackId != null) {
+                                  _onInstrumentDropped(
+                                    selectedTrackId!,
+                                    instrument,
+                                  );
+                                }
+                              },
+                              isCollapsed: !uiLayout.isEditorPanelVisible,
+                              toolMode: currentToolMode,
+                              beatsPerBar:
+                                  projectMetadata.timeSignatureNumerator,
+                              beatUnit:
+                                  projectMetadata.timeSignatureDenominator,
+                              projectTempo: projectMetadata.bpm,
+                              onProjectTempoChanged: _onTempoChanged,
+                              isRecording: isRecording,
+                              onCreateSamplerFromClip: (clipPath) {
+                                // Extract filename for track name
+                                final name = clipPath
+                                    .split('/')
+                                    .last
+                                    .split('.')
+                                    .first;
+                                _createSamplerTrackWithSample(clipPath, name);
+                              },
+                            ),
+                          ),
+
+                          // Virtual Piano - independent panel, always below editor
+                          if (uiLayout.isVirtualPianoEnabled)
+                            VirtualPiano(
+                              audioEngine: audioEngine,
+                              isEnabled: uiLayout.isVirtualPianoEnabled,
+                              onClose: _toggleVirtualPiano,
+                              selectedTrackId: selectedTrackId,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-
-                // Editor panel: Piano Roll / Effects / Instrument
-                // Always render - shows collapsed toolbar bar when not visible
-                if (uiLayout.isEditorPanelVisible) ...[
-                  // Resizable divider above editor (only when expanded)
-                  ResizableDivider(
-                    orientation: DividerOrientation.horizontal,
-                    isCollapsed: false,
-                    onDrag: (delta) {
-                      final windowHeight = MediaQuery.of(context).size.height;
-                      final maxHeight = UILayoutState.getEditorMaxHeight(windowHeight);
-                      setState(() {
-                        final newHeight = uiLayout.editorPanelHeight - delta;
-                        // Snap collapse if dragged below threshold
-                        if (newHeight < UILayoutState.editorCollapseThreshold) {
-                          uiLayout.collapseEditor();
-                          userSettings.editorVisible = false;
-                        } else {
-                          uiLayout.editorPanelHeight = newHeight.clamp(
-                            UILayoutState.editorMinHeight,
-                            maxHeight,
-                          );
-                          userSettings.editorHeight = uiLayout.editorPanelHeight;
-                        }
-                      });
-                    },
-                    onDoubleClick: () {
-                      setState(() {
-                        uiLayout.collapseEditor();
-                        userSettings.editorVisible = false;
-                      });
-                    },
-                  ),
-                ],
-
-                // Editor panel content (full when visible, collapsed bar when hidden)
-                SizedBox(
-                  height: uiLayout.isEditorPanelVisible ? uiLayout.editorPanelHeight : 40,
-                  child: EditorPanel(
-                    audioEngine: audioEngine,
-                    virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
-                    trackContext: EditorPanelContext(
-                      selectedTrackId: selectedTrackId,
-                      selectedTrackName: _getSelectedTrackName(),
-                      selectedTrackType: _getSelectedTrackType(),
-                      currentInstrumentData: selectedTrackId != null
-                          ? trackInstruments[selectedTrackId]
-                          : null,
-                    ),
-                    callbacks: EditorPanelCallbacks(
-                      onVirtualPianoClose: _toggleVirtualPiano,
-                      onVirtualPianoToggle: _toggleVirtualPiano,
-                      onClosePanel: () {
-                        setState(() {
-                          uiLayout.isEditorPanelVisible = false;
-                        });
-                      },
-                      onExpandPanel: () {
-                        setState(() {
-                          uiLayout.isEditorPanelVisible = true;
-                        });
-                      },
-                      onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
-                    ),
-                    vst3Callbacks: Vst3EditorCallbacks(
-                      onVst3ParameterChanged: _onVst3ParameterChanged, // M10
-                      onVst3PluginRemoved: _removeVst3Plugin, // M10
-                      onVst3InstrumentDropped: (plugin) {
-                        if (selectedTrackId != null) {
-                          _onVst3InstrumentDropped(selectedTrackId!, plugin);
-                        }
-                      },
-                    ),
-                    currentEditingClip: midiPlaybackManager?.currentEditingClip,
-                    onMidiClipUpdated: _onMidiClipUpdated,
-                    onInstrumentParameterChanged: _onInstrumentParameterChanged,
-                    currentEditingAudioClip: selectedAudioClip,
-                    onAudioClipUpdated: _onAudioClipUpdated,
-                    currentTrackPlugins: selectedTrackId != null // M10
-                        ? _getTrackVst3Plugins(selectedTrackId!)
-                        : null,
-                    onInstrumentDropped: (instrument) {
-                      if (selectedTrackId != null) {
-                        _onInstrumentDropped(selectedTrackId!, instrument);
-                      }
-                    },
-                    isCollapsed: !uiLayout.isEditorPanelVisible,
-                    toolMode: currentToolMode,
-                    beatsPerBar: projectMetadata.timeSignatureNumerator,
-                    beatUnit: projectMetadata.timeSignatureDenominator,
-                    projectTempo: projectMetadata.bpm,
-                    onProjectTempoChanged: _onTempoChanged,
-                    isRecording: isRecording,
-                    onCreateSamplerFromClip: (clipPath) {
-                      // Extract filename for track name
-                      final name = clipPath.split('/').last.split('.').first;
-                      _createSamplerTrackWithSample(clipPath, name);
-                    },
-                  ),
+                // Transport bar: rendered in Stack (after Column) so its shadow paints on top
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _buildTransportBar(),
                 ),
-
-                // Virtual Piano - independent panel, always below editor
-                if (uiLayout.isVirtualPianoEnabled)
-                  VirtualPiano(
-                    audioEngine: audioEngine,
-                    isEnabled: uiLayout.isVirtualPianoEnabled,
-                    onClose: _toggleVirtualPiano,
-                    selectedTrackId: selectedTrackId,
-                  ),
+                if (_showPaletteEditor)
+                  PaletteEditor(onClose: _togglePaletteEditor),
               ],
             ),
-          ),
-
-        ],
-      ),
-          // Transport bar: rendered in Stack (after Column) so its shadow paints on top
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildTransportBar(),
-          ),
-          if (_showPaletteEditor)
-            PaletteEditor(onClose: _togglePaletteEditor),
-          ],
-        ),
           ),
         ),
       ),
     );
   }
-
 }
-

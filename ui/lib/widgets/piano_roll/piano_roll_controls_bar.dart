@@ -7,7 +7,7 @@ import 'time_signature_display.dart';
 
 /// Display mode for responsive icon/label buttons
 enum _ButtonDisplayMode {
-  wide,    // Icon + Label (all icons visible)
+  wide, // Icon + Label (all icons visible)
   compact, // Label only (all icons hidden at once when space is limited)
 }
 
@@ -168,7 +168,9 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   void initState() {
     super.initState();
     // Check layout after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfFitsOnOneLine());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _checkIfFitsOnOneLine(),
+    );
   }
 
   @override
@@ -222,11 +224,15 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() => _displayMode = _ButtonDisplayMode.wide);
-                WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfFitsOnOneLine());
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _checkIfFitsOnOneLine(),
+                );
               }
             });
           } else {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _checkIfFitsOnOneLine());
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _checkIfFitsOnOneLine(),
+            );
           }
         }
 
@@ -234,9 +240,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: colors.standard,
-            border: Border(
-              bottom: BorderSide(color: colors.surface, width: 1),
-            ),
+            border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
           ),
           child: Row(
             children: [
@@ -277,11 +281,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   Widget _buildSeparator(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 20,
-      color: context.colors.surface,
-    );
+    return Container(width: 1, height: 20, color: context.colors.surface);
   }
 
   // ============ CLIP GROUP ============
@@ -340,7 +340,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
         const SizedBox(width: 8),
         // Signature label + input
-        Text('Signature', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Signature',
+          style: TextStyle(color: colors.textMuted, fontSize: 9),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -367,15 +370,19 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     if (widget.adaptiveGridEnabled) {
       snapLabel = widget.snapTripletEnabled ? 'Snap (T)' : 'Snap';
     } else {
-      snapLabel = 'Snap ${_getGridDivisionLabel(widget.gridDivision, triplet: widget.snapTripletEnabled)}';
+      snapLabel =
+          'Snap ${_getGridDivisionLabel(widget.gridDivision, triplet: widget.snapTripletEnabled)}';
     }
 
     // Quantize label: "Quantize" when grid, "Quantize (T)" with triplet, "Quantize 1/16T" when fixed
     String quantizeLabel;
     if (widget.quantizeDivision == 0) {
-      quantizeLabel = widget.quantizeTripletEnabled ? 'Quantize (T)' : 'Quantize';
+      quantizeLabel = widget.quantizeTripletEnabled
+          ? 'Quantize (T)'
+          : 'Quantize';
     } else {
-      quantizeLabel = 'Quantize ${_getQuantizeDivisionLabel(widget.quantizeDivision, triplet: widget.quantizeTripletEnabled)}';
+      quantizeLabel =
+          'Quantize ${_getQuantizeDivisionLabel(widget.quantizeDivision, triplet: widget.quantizeTripletEnabled)}';
     }
 
     return Row(
@@ -428,19 +435,12 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                   children: [
                     // Show icon only in wide mode
                     if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Icon(
-                        Icons.grid_on,
-                        size: 13,
-                        color: textColor,
-                      ),
+                      Icon(Icons.grid_on, size: 13, color: textColor),
                       const SizedBox(width: 4),
                     ],
                     Text(
                       label,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: textColor, fontSize: 10),
                     ),
                   ],
                 ),
@@ -474,11 +474,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(
-                  Icons.arrow_drop_down,
-                  size: 15,
-                  color: textColor,
-                ),
+                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
               ),
             ),
           ),
@@ -502,7 +498,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
     _snapOverlay = OverlayEntry(
       builder: (context) => _SnapMenuOverlay(
-        position: Offset(buttonPosition.dx, buttonPosition.dy + buttonSize.height + 2),
+        position: Offset(
+          buttonPosition.dx,
+          buttonPosition.dy + buttonSize.height + 2,
+        ),
         adaptiveGridEnabled: widget.adaptiveGridEnabled,
         gridDivision: widget.gridDivision,
         snapTripletEnabled: widget.snapTripletEnabled,
@@ -566,10 +565,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     ],
                     Text(
                       label,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: textColor, fontSize: 10),
                     ),
                   ],
                 ),
@@ -603,11 +599,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(
-                  Icons.arrow_drop_down,
-                  size: 15,
-                  color: textColor,
-                ),
+                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
               ),
             ),
           ),
@@ -631,7 +623,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
     _quantizeOverlay = OverlayEntry(
       builder: (context) => _QuantizeMenuOverlay(
-        position: Offset(buttonPosition.dx, buttonPosition.dy + buttonSize.height + 2),
+        position: Offset(
+          buttonPosition.dx,
+          buttonPosition.dy + buttonSize.height + 2,
+        ),
         quantizeDivision: widget.quantizeDivision,
         quantizeTripletEnabled: widget.quantizeTripletEnabled,
         onDivisionChanged: (div) {
@@ -798,10 +793,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     );
 
     if (tooltip != null) {
-      return Tooltip(
-        message: tooltip,
-        child: button,
-      );
+      return Tooltip(message: tooltip, child: button);
     }
     return button;
   }
@@ -896,10 +888,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     ],
                     Text(
                       displayLabel,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: textColor, fontSize: 10),
                     ),
                   ],
                 ),
@@ -933,11 +922,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(
-                  Icons.arrow_drop_down,
-                  size: 15,
-                  color: textColor,
-                ),
+                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
               ),
             ),
           ),
@@ -960,42 +945,54 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   }
 
   /// Shows scale menu at the specified position
-  void _showScaleMenuAt(BuildContext context, Offset position, Size buttonSize) {
+  void _showScaleMenuAt(
+    BuildContext context,
+    Offset position,
+    Size buttonSize,
+  ) {
     // Build menu items: first root notes, then scale types
     final items = <PopupMenuEntry<dynamic>>[];
 
     // Root note selection
     for (final root in ScaleRoot.noteNames) {
-      items.add(PopupMenuItem<String>(
-        value: root,
-        height: 28,
-        child: Text(
-          root,
-          style: TextStyle(
-            color: context.colors.textPrimary,
-            fontSize: 11,
-            fontWeight: root == widget.scaleRoot ? FontWeight.bold : FontWeight.normal,
+      items.add(
+        PopupMenuItem<String>(
+          value: root,
+          height: 28,
+          child: Text(
+            root,
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 11,
+              fontWeight: root == widget.scaleRoot
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+            ),
           ),
         ),
-      ));
+      );
     }
 
     items.add(const PopupMenuDivider());
 
     // Scale type selection
     for (final type in ScaleType.values) {
-      items.add(PopupMenuItem<ScaleType>(
-        value: type,
-        height: 28,
-        child: Text(
-          type.displayName,
-          style: TextStyle(
-            color: context.colors.textPrimary,
-            fontSize: 11,
-            fontWeight: type == widget.scaleType ? FontWeight.bold : FontWeight.normal,
+      items.add(
+        PopupMenuItem<ScaleType>(
+          value: type,
+          height: 28,
+          child: Text(
+            type.displayName,
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: 11,
+              fontWeight: type == widget.scaleType
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+            ),
           ),
         ),
-      ));
+      );
     }
 
     final RenderBox overlay =
@@ -1186,7 +1183,9 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
               width: 18,
               child: Icon(
                 isCheckbox
-                    ? (isSelected ? Icons.check_box : Icons.check_box_outline_blank)
+                    ? (isSelected
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank)
                     : (isSelected ? Icons.check : null),
                 size: 14,
                 color: menuTextColor,
@@ -1347,7 +1346,9 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
               width: 18,
               child: Icon(
                 isCheckbox
-                    ? (isSelected ? Icons.check_box : Icons.check_box_outline_blank)
+                    ? (isSelected
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank)
                     : (isSelected ? Icons.check : null),
                 size: 14,
                 color: menuTextColor,

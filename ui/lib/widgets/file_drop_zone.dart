@@ -129,10 +129,7 @@ class _FileDropZoneState extends State<FileDropZone> {
             const SizedBox(height: 24),
             const Text(
               'or',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF606060),
-              ),
+              style: TextStyle(fontSize: 14, color: Color(0xFF606060)),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -171,11 +168,7 @@ class _FileDropZoneState extends State<FileDropZone> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.audio_file,
-            size: 64,
-            color: Color(0xFF606060),
-          ),
+          const Icon(Icons.audio_file, size: 64, color: Color(0xFF606060)),
           const SizedBox(height: 16),
           const Text(
             'Import Audio File',
@@ -202,10 +195,7 @@ class _FileDropZoneState extends State<FileDropZone> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFA0A0A0),
               foregroundColor: const Color(0xFF2B2B2B),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
           ),
         ],
@@ -213,4 +203,3 @@ class _FileDropZoneState extends State<FileDropZone> {
     );
   }
 }
-

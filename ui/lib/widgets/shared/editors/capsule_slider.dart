@@ -23,13 +23,19 @@ class CapsuleSlider extends StatelessWidget {
           onHorizontalDragUpdate: (details) {
             if (onChanged == null) return;
             final sliderValue =
-                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             onChanged!(sliderValue);
           },
           onTapDown: (details) {
             if (onChanged == null) return;
             final sliderValue =
-                (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             onChanged!(sliderValue);
           },
           child: MouseRegion(
@@ -88,7 +94,11 @@ class CapsulePainter extends CustomPainter {
       ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawCircle(Offset(handleX, handleY), handleRadius, handleBorderPaint);
+    canvas.drawCircle(
+      Offset(handleX, handleY),
+      handleRadius,
+      handleBorderPaint,
+    );
   }
 
   @override

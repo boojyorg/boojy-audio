@@ -99,11 +99,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.settings,
-                    color: context.colors.accent,
-                    size: 24,
-                  ),
+                  Icon(Icons.settings, color: context.colors.accent, size: 24),
                   const SizedBox(width: 12),
                   Text(
                     'Settings',
@@ -115,7 +111,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close, color: context.colors.textSecondary),
+                    icon: Icon(
+                      Icons.close,
+                      color: context.colors.textSecondary,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close (Esc)',
                   ),
@@ -155,9 +154,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: context.colors.divider),
-                ),
+                border: Border(top: BorderSide(color: context.colors.divider)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -204,10 +201,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       children: [
         Text(
           'Maximum undo steps:',
-          style: TextStyle(
-            color: context.colors.textPrimary,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
         ),
         const SizedBox(width: 12),
         SizedBox(
@@ -216,10 +210,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             controller: _undoController,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -253,10 +244,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         const SizedBox(width: 8),
         Text(
           '(10-500)',
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: context.colors.textMuted, fontSize: 12),
         ),
       ],
     );
@@ -267,10 +255,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       children: [
         Text(
           'Theme:',
-          style: TextStyle(
-            color: context.colors.textPrimary,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
         ),
         const SizedBox(width: 12),
         Container(
@@ -284,10 +269,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             value: _selectedTheme,
             dropdownColor: context.colors.elevated,
             underline: const SizedBox(),
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
             items: BoojyTheme.values.map((theme) {
               return DropdownMenuItem<BoojyTheme>(
                 value: theme,
@@ -312,10 +294,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       children: [
         Text(
           'Save every:',
-          style: TextStyle(
-            color: context.colors.textPrimary,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
         ),
         const SizedBox(width: 12),
         Container(
@@ -329,10 +308,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
             value: _autoSaveMinutes,
             dropdownColor: context.colors.elevated,
             underline: const SizedBox(),
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
             items: UserSettings.autoSaveOptions.map((option) {
               return DropdownMenuItem<int>(
                 value: option.minutes,
@@ -373,10 +349,8 @@ class RecoveryDialog extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (context) => RecoveryDialog(
-        backupPath: backupPath,
-        backupDate: backupDate,
-      ),
+      builder: (context) =>
+          RecoveryDialog(backupPath: backupPath, backupDate: backupDate),
     );
   }
 
@@ -411,15 +385,13 @@ class RecoveryDialog extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
                 color: context.colors.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.restore,
-                    color: context.colors.warning,
-                    size: 24,
-                  ),
+                  Icon(Icons.restore, color: context.colors.warning, size: 24),
                   const SizedBox(width: 12),
                   Text(
                     'Recover Unsaved Work?',
@@ -488,9 +460,7 @@ class RecoveryDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: context.colors.divider),
-                ),
+                border: Border(top: BorderSide(color: context.colors.divider)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,

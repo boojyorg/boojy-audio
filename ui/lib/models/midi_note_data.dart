@@ -29,14 +29,29 @@ class MidiNoteData {
     required this.duration,
     this.isSelected = false,
     String? id,
-  }) : id = id ?? '${note}_${startTime}_${DateTime.now().microsecondsSinceEpoch}';
+  }) : id =
+           id ??
+           '${note}_${startTime}_${DateTime.now().microsecondsSinceEpoch}';
 
   /// Get the end time of this note in beats
   double get endTime => startTime + duration;
 
   /// Get the note name (e.g., "C4", "G#5")
   String get noteName {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const noteNames = [
+      'C',
+      'C#',
+      'D',
+      'D#',
+      'E',
+      'F',
+      'F#',
+      'G',
+      'G#',
+      'A',
+      'A#',
+      'B',
+    ];
     final octave = (note ~/ 12) - 1; // MIDI note 60 = C4
     final noteName = noteNames[note % 12];
     return '$noteName$octave';
@@ -79,8 +94,8 @@ class MidiNoteData {
   /// Check if a point (in beats) intersects with this note
   bool contains(double timeInBeats, int midiNote) {
     return midiNote == note &&
-           timeInBeats >= startTime &&
-           timeInBeats <= endTime;
+        timeInBeats >= startTime &&
+        timeInBeats <= endTime;
   }
 
   /// Check if this note overlaps with another note (same pitch)
@@ -211,8 +226,10 @@ class MidiClipData {
     this.contentStartOffset = 0.0,
     this.patternId,
     ClipAutomation? automation,
-  })  : loopLength = loopLength ?? duration, // Default loopLength to duration if not specified
-        automation = automation ?? ClipAutomation.empty();
+  }) : loopLength =
+           loopLength ??
+           duration, // Default loopLength to duration if not specified
+       automation = automation ?? ClipAutomation.empty();
 
   /// Total duration including all loop iterations
   double get totalDuration => duration * loopCount;
@@ -281,10 +298,16 @@ class MidiClipData {
   }
 
   /// Get all selected notes
-  List<MidiNoteData> get selectedNotes => notes.where((n) => n.isSelected).toList();
+  List<MidiNoteData> get selectedNotes =>
+      notes.where((n) => n.isSelected).toList();
 
   /// Select notes within a rectangle
-  MidiClipData selectNotesInRect(double startBeat, double endBeat, int minNote, int maxNote) {
+  MidiClipData selectNotesInRect(
+    double startBeat,
+    double endBeat,
+    int minNote,
+    int maxNote,
+  ) {
     return MidiClipData(
       clipId: clipId,
       trackId: trackId,
@@ -293,7 +316,8 @@ class MidiClipData {
       loopLength: loopLength,
       loopCount: loopCount,
       notes: notes.map((note) {
-        final inTimeRange = note.startTime >= startBeat && note.endTime <= endBeat;
+        final inTimeRange =
+            note.startTime >= startBeat && note.endTime <= endBeat;
         final inPitchRange = note.note >= minNote && note.note <= maxNote;
         return note.copyWith(isSelected: inTimeRange && inPitchRange);
       }).toList(),

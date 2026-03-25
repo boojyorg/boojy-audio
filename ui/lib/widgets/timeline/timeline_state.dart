@@ -11,7 +11,8 @@ import '../timeline_view.dart';
 
 /// Mixin containing all state variables for TimelineView.
 /// This separates state management from UI logic.
-mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMixin<TimelineView> {
+mixin TimelineViewStateMixin on State<TimelineView>
+    implements ZoomableEditorMixin<TimelineView> {
   // ============================================
   // SCROLL AND ZOOM STATE
   // ============================================
@@ -341,7 +342,9 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
 
     setState(() {
       tempToolMode = overrideMode;
-      currentCursor = ToolModeResolver.getCursor(overrideMode ?? widget.toolMode);
+      currentCursor = ToolModeResolver.getCursor(
+        overrideMode ?? widget.toolMode,
+      );
     });
   }
 
@@ -379,19 +382,24 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
     if (!scrollController.hasClients) return true;
     final viewLeft = scrollController.offset;
     final viewRight = viewLeft + viewWidth;
-    return (clipLeftPx + clipWidthPx) >= viewLeft - 100 && clipLeftPx <= viewRight + 100;
+    return (clipLeftPx + clipWidthPx) >= viewLeft - 100 &&
+        clipLeftPx <= viewRight + 100;
   }
 
   /// Calculate timeline position in seconds from X coordinate.
   double calculateTimelinePosition(Offset localPosition) {
-    final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+    final scrollOffset = scrollController.hasClients
+        ? scrollController.offset
+        : 0.0;
     final totalX = localPosition.dx + scrollOffset;
     return totalX / pixelsPerSecond;
   }
 
   /// Calculate beat position from X coordinate.
   double calculateBeatPosition(Offset localPosition) {
-    final scrollOffset = scrollController.hasClients ? scrollController.offset : 0.0;
+    final scrollOffset = scrollController.hasClients
+        ? scrollController.offset
+        : 0.0;
     final totalX = localPosition.dx + scrollOffset;
     return totalX / pixelsPerBeat;
   }
@@ -418,7 +426,10 @@ mixin TimelineViewStateMixin on State<TimelineView> implements ZoomableEditorMix
   /// Adjust audio clip positions when tempo changes to maintain beat position.
   /// Audio clips store startTime in seconds, so when tempo changes we need to
   /// recalculate their positions to keep them at the same beat.
-  void adjustAudioClipPositionsForTempoChange(double oldTempo, double newTempo) {
+  void adjustAudioClipPositionsForTempoChange(
+    double oldTempo,
+    double newTempo,
+  ) {
     if (oldTempo == newTempo || clips.isEmpty) return;
 
     setState(() {

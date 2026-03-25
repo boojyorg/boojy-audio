@@ -136,8 +136,14 @@ void main() {
         final cmd = MockCommand('Test');
         final after = DateTime.now();
 
-        expect(cmd.timestamp.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
-        expect(cmd.timestamp.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+        expect(
+          cmd.timestamp.isAfter(before.subtract(const Duration(seconds: 1))),
+          isTrue,
+        );
+        expect(
+          cmd.timestamp.isBefore(after.add(const Duration(seconds: 1))),
+          isTrue,
+        );
       });
     });
   });

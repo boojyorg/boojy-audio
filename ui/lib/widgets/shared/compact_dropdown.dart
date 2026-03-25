@@ -77,11 +77,7 @@ class CompactDropdown<T> extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 12,
-                color: colors.textMuted,
-              ),
+              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
             ],
           ),
         ),

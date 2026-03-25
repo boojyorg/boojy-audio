@@ -59,9 +59,14 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
   }
 
   void _showSnapMenu(BuildContext context, Color accentColor) {
-    final RenderBox button = _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position = button.localToGlobal(Offset(0, button.size.height), ancestor: overlay);
+    final RenderBox button =
+        _buttonKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final Offset position = button.localToGlobal(
+      Offset(0, button.size.height),
+      ancestor: overlay,
+    );
 
     showMenu<SnapValue>(
       context: context,
@@ -130,7 +135,10 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 onTap: _toggleSnap,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isIconHovered
                         ? colors.textPrimary.withValues(alpha: 0.1)
@@ -147,11 +155,10 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                       if (!widget.isIconOnly) ...[
                         const SizedBox(width: 5),
                         Text(
-                          isActive ? 'Snap ${widget.value.displayName}' : 'Snap',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 11,
-                          ),
+                          isActive
+                              ? 'Snap ${widget.value.displayName}'
+                              : 'Snap',
+                          style: TextStyle(color: textColor, fontSize: 11),
                         ),
                       ],
                     ],
@@ -174,7 +181,10 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 onTap: () => _showSnapMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: _isChevronHovered
                         ? colors.textPrimary.withValues(alpha: 0.1)

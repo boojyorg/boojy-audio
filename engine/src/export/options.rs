@@ -3,20 +3,15 @@
 use serde::{Deserialize, Serialize};
 
 /// WAV bit depth options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum WavBitDepth {
     /// 16-bit integer (CD quality)
+    #[default]
     Int16,
     /// 24-bit integer (studio quality)
     Int24,
     /// 32-bit float (maximum quality)
     Float32,
-}
-
-impl Default for WavBitDepth {
-    fn default() -> Self {
-        Self::Int16
-    }
 }
 
 impl WavBitDepth {
@@ -41,20 +36,15 @@ impl WavBitDepth {
 }
 
 /// MP3 bitrate options
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Mp3Bitrate {
     /// 128 kbps (smallest file, noticeable quality loss)
     Kbps128,
     /// 192 kbps (balanced)
     Kbps192,
     /// 320 kbps (best MP3 quality)
+    #[default]
     Kbps320,
-}
-
-impl Default for Mp3Bitrate {
-    fn default() -> Self {
-        Self::Kbps320
-    }
 }
 
 impl Mp3Bitrate {
@@ -79,9 +69,10 @@ impl Mp3Bitrate {
 }
 
 /// Platform loudness targets (LUFS)
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum PlatformTarget {
     /// No loudness adjustment
+    #[default]
     None,
     /// Spotify: -14 LUFS
     Spotify,
@@ -93,12 +84,6 @@ pub enum PlatformTarget {
     SoundCloud,
     /// Custom LUFS target
     Custom(f64),
-}
-
-impl Default for PlatformTarget {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl PlatformTarget {

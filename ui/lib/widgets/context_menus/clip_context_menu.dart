@@ -56,18 +56,10 @@ Future<String?> showClipContextMenu({
       shortcut: '⌘V',
     ),
     const PopupMenuDivider(),
-    ContextMenuItem(
-      value: 'mute',
-      icon: Icons.volume_off,
-      label: 'Mute Clip',
-    ),
+    ContextMenuItem(value: 'mute', icon: Icons.volume_off, label: 'Mute Clip'),
     // MIDI-specific actions
     if (clipType == ClipType.midi) ...[
-      ContextMenuItem(
-        value: 'loop',
-        icon: Icons.loop,
-        label: 'Loop Clip',
-      ),
+      ContextMenuItem(value: 'loop', icon: Icons.loop, label: 'Loop Clip'),
       ContextMenuItem(
         value: 'bounce',
         icon: Icons.audiotrack,
@@ -80,16 +72,8 @@ Future<String?> showClipContextMenu({
       ),
     ],
     const PopupMenuDivider(),
-    ContextMenuItem(
-      value: 'color',
-      icon: Icons.color_lens,
-      label: 'Color...',
-    ),
-    ContextMenuItem(
-      value: 'rename',
-      icon: Icons.edit,
-      label: 'Rename...',
-    ),
+    ContextMenuItem(value: 'color', icon: Icons.color_lens, label: 'Color...'),
+    ContextMenuItem(value: 'rename', icon: Icons.edit, label: 'Rename...'),
   ];
 
   return ContextMenuHelper.show(

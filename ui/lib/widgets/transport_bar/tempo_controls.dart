@@ -38,7 +38,9 @@ class _TapTempoPillState extends State<TapTempoPill> {
         // Calculate average interval between taps
         double totalInterval = 0.0;
         for (int i = 1; i < _tapTimes.length; i++) {
-          totalInterval += _tapTimes[i].difference(_tapTimes[i - 1]).inMilliseconds;
+          totalInterval += _tapTimes[i]
+              .difference(_tapTimes[i - 1])
+              .inMilliseconds;
         }
         final avgInterval = totalInterval / (_tapTimes.length - 1);
 
@@ -52,7 +54,8 @@ class _TapTempoPillState extends State<TapTempoPill> {
   @override
   Widget build(BuildContext context) {
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
-    final isRecentTap = _tapTimes.isNotEmpty &&
+    final isRecentTap =
+        _tapTimes.isNotEmpty &&
         DateTime.now().difference(_tapTimes.last).inMilliseconds < 500;
     final bgColor = isRecentTap
         ? context.colors.accent.withValues(alpha: 0.3)
@@ -114,11 +117,7 @@ class TempoDisplay extends StatefulWidget {
   final double tempo;
   final Function(double)? onTempoChanged;
 
-  const TempoDisplay({
-    super.key,
-    required this.tempo,
-    this.onTempoChanged,
-  });
+  const TempoDisplay({super.key, required this.tempo, this.onTempoChanged});
 
   @override
   State<TempoDisplay> createState() => _TempoDisplayState();
@@ -153,9 +152,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'BPM (20 - 300)',
-          ),
+          decoration: const InputDecoration(labelText: 'BPM (20 - 300)'),
           autofocus: true,
           onSubmitted: (_) {
             final value = double.tryParse(controller.text) ?? 120.0;

@@ -50,7 +50,8 @@ class BarRulerPainter extends CustomPainter {
       for (int beat = 0; beat < beatsPerBar; beat++) {
         final beatX = (barStartBeat + beat) * pixelsPerBeat;
         final tickPaint = Paint()
-          ..color = const Color(0xFF4A4D5A) // BG.hover
+          ..color =
+              const Color(0xFF4A4D5A) // BG.hover
           ..strokeWidth = 1;
 
         canvas.drawLine(
@@ -72,14 +73,16 @@ class BarRulerPainter extends CustomPainter {
         ..close();
 
       final playheadPaint = Paint()
-        ..color = const Color(0xFFFF9800) // Orange
+        ..color =
+            const Color(0xFFFF9800) // Orange
         ..style = PaintingStyle.fill;
 
       canvas.drawPath(trianglePath, playheadPaint);
 
       // Playhead border for definition
       final borderPaint = Paint()
-        ..color = const Color(0xFFE65100) // Darker orange border
+        ..color =
+            const Color(0xFFE65100) // Darker orange border
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
 

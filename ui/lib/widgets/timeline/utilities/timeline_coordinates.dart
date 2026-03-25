@@ -6,10 +6,7 @@ class TimelineCoordinates {
   final double pixelsPerBeat;
   final double tempo;
 
-  const TimelineCoordinates({
-    required this.pixelsPerBeat,
-    required this.tempo,
-  });
+  const TimelineCoordinates({required this.pixelsPerBeat, required this.tempo});
 
   /// Get pixels per second (derived from pixelsPerBeat and tempo).
   /// Used for time-based positioning (audio clips, playhead).
@@ -68,10 +65,7 @@ class TimelineCoordinates {
   }
 
   /// Create a copy with updated values.
-  TimelineCoordinates copyWith({
-    double? pixelsPerBeat,
-    double? tempo,
-  }) {
+  TimelineCoordinates copyWith({double? pixelsPerBeat, double? tempo}) {
     return TimelineCoordinates(
       pixelsPerBeat: pixelsPerBeat ?? this.pixelsPerBeat,
       tempo: tempo ?? this.tempo,
@@ -96,7 +90,10 @@ class TrackHeightUtils {
   }
 
   /// Calculate total height of all tracks.
-  static double calculateTotalHeight(List<int> trackIds, Map<int, double> trackHeights) {
+  static double calculateTotalHeight(
+    List<int> trackIds,
+    Map<int, double> trackHeights,
+  ) {
     double total = 0.0;
     for (final trackId in trackIds) {
       total += getTrackHeight(trackHeights, trackId);
@@ -105,7 +102,11 @@ class TrackHeightUtils {
   }
 
   /// Calculate Y offset for a specific track.
-  static double calculateTrackYOffset(List<int> trackIds, int targetTrackId, Map<int, double> trackHeights) {
+  static double calculateTrackYOffset(
+    List<int> trackIds,
+    int targetTrackId,
+    Map<int, double> trackHeights,
+  ) {
     double offset = 0.0;
     for (final trackId in trackIds) {
       if (trackId == targetTrackId) break;

@@ -17,8 +17,7 @@ void main() {
       });
 
       test('creates instance with explicit ID', () {
-        final point =
-            ClipAutomationPoint(id: 'my-id', time: 2.0, value: 0.8);
+        final point = ClipAutomationPoint(id: 'my-id', time: 2.0, value: 0.8);
 
         expect(point.id, 'my-id');
         expect(point.time, 2.0);
@@ -32,8 +31,11 @@ void main() {
       });
 
       test('isSelected can be set to true', () {
-        final point =
-            ClipAutomationPoint(time: 0.0, value: 0.0, isSelected: true);
+        final point = ClipAutomationPoint(
+          time: 0.0,
+          value: 0.0,
+          isSelected: true,
+        );
 
         expect(point.isSelected, true);
       });
@@ -49,7 +51,11 @@ void main() {
     group('copyWith', () {
       test('copies all fields when none specified', () {
         final original = ClipAutomationPoint(
-            id: 'orig', time: 1.0, value: 0.5, isSelected: true);
+          id: 'orig',
+          time: 1.0,
+          value: 0.5,
+          isSelected: true,
+        );
         final copy = original.copyWith();
 
         expect(copy.id, 'orig');
@@ -93,8 +99,7 @@ void main() {
       });
 
       test('updates multiple fields at once', () {
-        final original =
-            ClipAutomationPoint(id: 'a', time: 1.0, value: 0.5);
+        final original = ClipAutomationPoint(id: 'a', time: 1.0, value: 0.5);
         final copy = original.copyWith(time: 2.0, value: 0.8, isSelected: true);
 
         expect(copy.time, 2.0);
@@ -137,7 +142,11 @@ void main() {
       test('different isSelected means not equal', () {
         final a = ClipAutomationPoint(id: 'x', time: 1.0, value: 0.5);
         final b = ClipAutomationPoint(
-            id: 'x', time: 1.0, value: 0.5, isSelected: true);
+          id: 'x',
+          time: 1.0,
+          value: 0.5,
+          isSelected: true,
+        );
 
         expect(a, isNot(equals(b)));
       });
@@ -151,8 +160,11 @@ void main() {
 
     group('toJson / fromJson', () {
       test('roundtrip preserves all serialized fields', () {
-        final original =
-            ClipAutomationPoint(id: 'pt-1', time: 2.5, value: 0.75);
+        final original = ClipAutomationPoint(
+          id: 'pt-1',
+          time: 2.5,
+          value: 0.75,
+        );
         final json = original.toJson();
         final restored = ClipAutomationPoint.fromJson(json);
 
@@ -163,7 +175,11 @@ void main() {
 
       test('toJson does not include isSelected', () {
         final point = ClipAutomationPoint(
-            id: 'p', time: 1.0, value: 0.5, isSelected: true);
+          id: 'p',
+          time: 1.0,
+          value: 0.5,
+          isSelected: true,
+        );
         final json = point.toJson();
 
         expect(json.containsKey('isSelected'), false);
@@ -258,8 +274,14 @@ void main() {
       test('empty lane returns default value', () {
         final lane = ClipAutomationLane.empty(AutomationParameter.volume);
 
-        expect(lane.getValueAtTime(0.0), AutomationParameter.volume.defaultValue);
-        expect(lane.getValueAtTime(5.0), AutomationParameter.volume.defaultValue);
+        expect(
+          lane.getValueAtTime(0.0),
+          AutomationParameter.volume.defaultValue,
+        );
+        expect(
+          lane.getValueAtTime(5.0),
+          AutomationParameter.volume.defaultValue,
+        );
       });
 
       test('empty pan lane returns pan default value (0.0)', () {
@@ -369,9 +391,7 @@ void main() {
       test('single point returns that value everywhere', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'a', time: 2.0, value: 0.6),
-          ],
+          points: [ClipAutomationPoint(id: 'a', time: 2.0, value: 0.6)],
         );
 
         expect(lane.getValueAtTime(0.0), 0.6);
@@ -410,7 +430,8 @@ void main() {
       test('adds point to empty lane', () {
         final lane = ClipAutomationLane.empty(AutomationParameter.volume);
         final updated = lane.addPoint(
-            ClipAutomationPoint(id: 'p1', time: 1.0, value: 0.5));
+          ClipAutomationPoint(id: 'p1', time: 1.0, value: 0.5),
+        );
 
         expect(updated.points.length, 1);
         expect(updated.points[0].value, 0.5);
@@ -419,11 +440,14 @@ void main() {
       test('inserts in sorted order by time', () {
         var lane = ClipAutomationLane.empty(AutomationParameter.volume);
         lane = lane.addPoint(
-            ClipAutomationPoint(id: 'a', time: 4.0, value: 0.8));
+          ClipAutomationPoint(id: 'a', time: 4.0, value: 0.8),
+        );
         lane = lane.addPoint(
-            ClipAutomationPoint(id: 'b', time: 1.0, value: 0.2));
+          ClipAutomationPoint(id: 'b', time: 1.0, value: 0.2),
+        );
         lane = lane.addPoint(
-            ClipAutomationPoint(id: 'c', time: 2.0, value: 0.5));
+          ClipAutomationPoint(id: 'c', time: 2.0, value: 0.5),
+        );
 
         expect(lane.points[0].id, 'b');
         expect(lane.points[1].id, 'c');
@@ -433,7 +457,8 @@ void main() {
       test('clamps value to parameter max', () {
         final lane = ClipAutomationLane.empty(AutomationParameter.volume);
         final updated = lane.addPoint(
-            ClipAutomationPoint(id: 'p', time: 1.0, value: 2.0));
+          ClipAutomationPoint(id: 'p', time: 1.0, value: 2.0),
+        );
 
         expect(updated.points[0].value, 1.0);
       });
@@ -441,7 +466,8 @@ void main() {
       test('clamps value to parameter min', () {
         final lane = ClipAutomationLane.empty(AutomationParameter.volume);
         final updated = lane.addPoint(
-            ClipAutomationPoint(id: 'p', time: 1.0, value: -0.5));
+          ClipAutomationPoint(id: 'p', time: 1.0, value: -0.5),
+        );
 
         expect(updated.points[0].value, 0.0);
       });
@@ -449,7 +475,8 @@ void main() {
       test('clamps pan value to range', () {
         final lane = ClipAutomationLane.empty(AutomationParameter.pan);
         final updated = lane.addPoint(
-            ClipAutomationPoint(id: 'p', time: 1.0, value: 5.0));
+          ClipAutomationPoint(id: 'p', time: 1.0, value: 5.0),
+        );
 
         expect(updated.points[0].value, 1.0);
       });
@@ -481,9 +508,7 @@ void main() {
       test('no-op if id not found', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5)],
         );
 
         final updated = lane.removePoint('nonexistent');
@@ -503,7 +528,9 @@ void main() {
         );
 
         final updated = lane.updatePoint(
-            'a', ClipAutomationPoint(id: 'a', time: 0.0, value: 0.9));
+          'a',
+          ClipAutomationPoint(id: 'a', time: 0.0, value: 0.9),
+        );
 
         expect(updated.points.firstWhere((p) => p.id == 'a').value, 0.9);
       });
@@ -520,7 +547,9 @@ void main() {
 
         // Move 'a' from time 0.0 to time 3.0 (between b and c)
         final updated = lane.updatePoint(
-            'a', ClipAutomationPoint(id: 'a', time: 3.0, value: 0.5));
+          'a',
+          ClipAutomationPoint(id: 'a', time: 3.0, value: 0.5),
+        );
 
         expect(updated.points[0].id, 'b');
         expect(updated.points[1].id, 'a');
@@ -530,13 +559,13 @@ void main() {
       test('clamps updated value to parameter range', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5)],
         );
 
         final updated = lane.updatePoint(
-            'a', ClipAutomationPoint(id: 'a', time: 0.0, value: 5.0));
+          'a',
+          ClipAutomationPoint(id: 'a', time: 0.0, value: 5.0),
+        );
 
         expect(updated.points[0].value, 1.0);
       });
@@ -562,9 +591,17 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [
             ClipAutomationPoint(
-                id: 'a', time: 0.0, value: 0.5, isSelected: true),
+              id: 'a',
+              time: 0.0,
+              value: 0.5,
+              isSelected: true,
+            ),
             ClipAutomationPoint(
-                id: 'b', time: 1.0, value: 0.8, isSelected: true),
+              id: 'b',
+              time: 1.0,
+              value: 0.8,
+              isSelected: true,
+            ),
           ],
         );
 
@@ -578,10 +615,18 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [
             ClipAutomationPoint(
-                id: 'a', time: 0.0, value: 0.5, isSelected: true),
+              id: 'a',
+              time: 0.0,
+              value: 0.5,
+              isSelected: true,
+            ),
             ClipAutomationPoint(id: 'b', time: 1.0, value: 0.8),
             ClipAutomationPoint(
-                id: 'c', time: 2.0, value: 0.3, isSelected: true),
+              id: 'c',
+              time: 2.0,
+              value: 0.3,
+              isSelected: true,
+            ),
           ],
         );
 
@@ -610,7 +655,11 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [
             ClipAutomationPoint(
-                id: 'a', time: 0.0, value: 0.5, isSelected: true),
+              id: 'a',
+              time: 0.0,
+              value: 0.5,
+              isSelected: true,
+            ),
             ClipAutomationPoint(id: 'b', time: 1.0, value: 0.8),
           ],
         );
@@ -787,9 +836,7 @@ void main() {
       test('preserves values when shifting', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'a', time: 0.0, value: 0.5)],
         );
 
         final shifted = lane.shiftTime(5.0);
@@ -836,9 +883,7 @@ void main() {
       test('preserves parameter', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.pan,
-          points: [
-            ClipAutomationPoint(time: 0.0, value: -0.5),
-          ],
+          points: [ClipAutomationPoint(time: 0.0, value: -0.5)],
         );
 
         final copy = lane.deepCopy();
@@ -851,7 +896,11 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [
             ClipAutomationPoint(
-                id: 'p1', time: 0.0, value: 0.5, isSelected: true),
+              id: 'p1',
+              time: 0.0,
+              value: 0.5,
+              isSelected: true,
+            ),
           ],
         );
 
@@ -888,9 +937,7 @@ void main() {
         final lane = ClipAutomationLane(
           id: 'pan-lane',
           parameter: AutomationParameter.pan,
-          points: [
-            ClipAutomationPoint(id: 'p1', time: 1.0, value: -0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'p1', time: 1.0, value: -0.5)],
         );
 
         final json = lane.toJson();
@@ -901,11 +948,7 @@ void main() {
       });
 
       test('fromJson with empty points list', () {
-        final json = {
-          'id': 'empty-lane',
-          'parameter': 'volume',
-          'points': [],
-        };
+        final json = {'id': 'empty-lane', 'parameter': 'volume', 'points': []};
 
         final lane = ClipAutomationLane.fromJson(json);
 
@@ -913,10 +956,7 @@ void main() {
       });
 
       test('fromJson with null points defaults to empty', () {
-        final json = {
-          'id': 'lane-x',
-          'parameter': 'volume',
-        };
+        final json = {'id': 'lane-x', 'parameter': 'volume'};
 
         final lane = ClipAutomationLane.fromJson(json);
 
@@ -946,9 +986,7 @@ void main() {
       test('single point with known conversion', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'p', time: 0.0, value: 0.7),
-          ],
+          points: [ClipAutomationPoint(id: 'p', time: 0.0, value: 0.7)],
         );
 
         final csv = lane.toEngineDbCsv(0.0, 120.0);
@@ -963,9 +1001,7 @@ void main() {
       test('beat-to-second conversion at 120 BPM', () {
         final lane = ClipAutomationLane(
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'p', time: 2.0, value: 0.7),
-          ],
+          points: [ClipAutomationPoint(id: 'p', time: 2.0, value: 0.7)],
         );
 
         // clipStart = 1.0s, tempo = 120 BPM
@@ -1013,9 +1049,15 @@ void main() {
       test('equal lanes are equal', () {
         final p1 = ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.5);
         final a = ClipAutomationLane(
-            id: 'lane1', parameter: AutomationParameter.volume, points: [p1]);
+          id: 'lane1',
+          parameter: AutomationParameter.volume,
+          points: [p1],
+        );
         final b = ClipAutomationLane(
-            id: 'lane1', parameter: AutomationParameter.volume, points: [p1]);
+          id: 'lane1',
+          parameter: AutomationParameter.volume,
+          points: [p1],
+        );
 
         expect(a, equals(b));
         expect(a.hashCode, equals(b.hashCode));
@@ -1023,18 +1065,26 @@ void main() {
 
       test('different id means not equal', () {
         final a = ClipAutomationLane(
-            id: 'lane1', parameter: AutomationParameter.volume);
+          id: 'lane1',
+          parameter: AutomationParameter.volume,
+        );
         final b = ClipAutomationLane(
-            id: 'lane2', parameter: AutomationParameter.volume);
+          id: 'lane2',
+          parameter: AutomationParameter.volume,
+        );
 
         expect(a, isNot(equals(b)));
       });
 
       test('different parameter means not equal', () {
         final a = ClipAutomationLane(
-            id: 'lane1', parameter: AutomationParameter.volume);
+          id: 'lane1',
+          parameter: AutomationParameter.volume,
+        );
         final b = ClipAutomationLane(
-            id: 'lane1', parameter: AutomationParameter.pan);
+          id: 'lane1',
+          parameter: AutomationParameter.pan,
+        );
 
         expect(a, isNot(equals(b)));
       });
@@ -1108,7 +1158,8 @@ void main() {
           points: [ClipAutomationPoint(id: 'p', time: 0.0, value: 0.5)],
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+          lanes: {AutomationParameter.volume: lane},
+        );
 
         final retrieved = automation.getLane(AutomationParameter.volume);
 
@@ -1125,12 +1176,10 @@ void main() {
           points: [ClipAutomationPoint(id: 'p', time: 1.0, value: 0.5)],
         );
 
-        final updated =
-            automation.updateLane(AutomationParameter.volume, lane);
+        final updated = automation.updateLane(AutomationParameter.volume, lane);
 
         expect(updated.lanes.length, 1);
-        expect(
-            updated.getLane(AutomationParameter.volume).points.length, 1);
+        expect(updated.getLane(AutomationParameter.volume).points.length, 1);
       });
 
       test('replaces an existing lane', () {
@@ -1140,7 +1189,8 @@ void main() {
           points: [ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.3)],
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane1});
+          lanes: {AutomationParameter.volume: lane1},
+        );
 
         final lane2 = ClipAutomationLane(
           id: 'new',
@@ -1148,8 +1198,10 @@ void main() {
           points: [ClipAutomationPoint(id: 'p2', time: 1.0, value: 0.9)],
         );
 
-        final updated =
-            automation.updateLane(AutomationParameter.volume, lane2);
+        final updated = automation.updateLane(
+          AutomationParameter.volume,
+          lane2,
+        );
 
         expect(updated.getLane(AutomationParameter.volume).id, 'new');
       });
@@ -1162,7 +1214,8 @@ void main() {
           points: [ClipAutomationPoint(time: 0.0, value: 0.5)],
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+          lanes: {AutomationParameter.volume: lane},
+        );
 
         final updated = automation.removeLane(AutomationParameter.volume);
 
@@ -1195,10 +1248,12 @@ void main() {
             ClipAutomationPoint(id: 'p2', time: 4.0, value: 1.0),
           ],
         );
-        return ClipAutomation(lanes: {
-          AutomationParameter.volume: volLane,
-          AutomationParameter.pan: panLane,
-        });
+        return ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: volLane,
+            AutomationParameter.pan: panLane,
+          },
+        );
       }
 
       test('sliceLeft delegates to all lanes', () {
@@ -1240,12 +1295,11 @@ void main() {
         final lane = ClipAutomationLane(
           id: 'orig',
           parameter: AutomationParameter.volume,
-          points: [
-            ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.5)],
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+          lanes: {AutomationParameter.volume: lane},
+        );
 
         final copy = automation.deepCopy();
 
@@ -1271,35 +1325,39 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [
             ClipAutomationPoint(
-                id: 'v1', time: 0.0, value: 0.5, isSelected: true),
+              id: 'v1',
+              time: 0.0,
+              value: 0.5,
+              isSelected: true,
+            ),
           ],
         );
         final panLane = ClipAutomationLane(
           parameter: AutomationParameter.pan,
           points: [
             ClipAutomationPoint(
-                id: 'p1', time: 0.0, value: 0.0, isSelected: true),
+              id: 'p1',
+              time: 0.0,
+              value: 0.0,
+              isSelected: true,
+            ),
           ],
         );
-        final automation = ClipAutomation(lanes: {
-          AutomationParameter.volume: volLane,
-          AutomationParameter.pan: panLane,
-        });
+        final automation = ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: volLane,
+            AutomationParameter.pan: panLane,
+          },
+        );
 
         final deselected = automation.deselectAll();
 
         expect(
-          deselected
-              .getLane(AutomationParameter.volume)
-              .points[0]
-              .isSelected,
+          deselected.getLane(AutomationParameter.volume).points[0].isSelected,
           false,
         );
         expect(
-          deselected
-              .getLane(AutomationParameter.pan)
-              .points[0]
-              .isSelected,
+          deselected.getLane(AutomationParameter.pan).points[0].isSelected,
           false,
         );
       });
@@ -1311,10 +1369,13 @@ void main() {
       });
 
       test('false when all lanes are empty', () {
-        final automation = ClipAutomation(lanes: {
-          AutomationParameter.volume:
-              ClipAutomationLane.empty(AutomationParameter.volume),
-        });
+        final automation = ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: ClipAutomationLane.empty(
+              AutomationParameter.volume,
+            ),
+          },
+        );
 
         expect(automation.hasAutomation, false);
       });
@@ -1325,7 +1386,8 @@ void main() {
           points: [ClipAutomationPoint(time: 0.0, value: 0.5)],
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+          lanes: {AutomationParameter.volume: lane},
+        );
 
         expect(automation.hasAutomation, true);
       });
@@ -1344,14 +1406,14 @@ void main() {
         final panLane = ClipAutomationLane(
           id: 'pan-lane',
           parameter: AutomationParameter.pan,
-          points: [
-            ClipAutomationPoint(id: 'p1', time: 1.0, value: -0.5),
-          ],
+          points: [ClipAutomationPoint(id: 'p1', time: 1.0, value: -0.5)],
         );
-        final automation = ClipAutomation(lanes: {
-          AutomationParameter.volume: volLane,
-          AutomationParameter.pan: panLane,
-        });
+        final automation = ClipAutomation(
+          lanes: {
+            AutomationParameter.volume: volLane,
+            AutomationParameter.pan: panLane,
+          },
+        );
 
         final json = automation.toJson();
         final restored = ClipAutomation.fromJson(json);
@@ -1391,10 +1453,8 @@ void main() {
           parameter: AutomationParameter.volume,
           points: [ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.5)],
         );
-        final a = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
-        final b = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+        final a = ClipAutomation(lanes: {AutomationParameter.volume: lane});
+        final b = ClipAutomation(lanes: {AutomationParameter.volume: lane});
 
         expect(a, equals(b));
       });
@@ -1411,10 +1471,8 @@ void main() {
           points: [ClipAutomationPoint(id: 'p1', time: 0.0, value: 0.9)],
         );
 
-        final a = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane1});
-        final b = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane2});
+        final a = ClipAutomation(lanes: {AutomationParameter.volume: lane1});
+        final b = ClipAutomation(lanes: {AutomationParameter.volume: lane2});
 
         expect(a, isNot(equals(b)));
       });
@@ -1434,7 +1492,8 @@ void main() {
           parameter: AutomationParameter.volume,
         );
         final automation = ClipAutomation(
-            lanes: {AutomationParameter.volume: lane});
+          lanes: {AutomationParameter.volume: lane},
+        );
 
         final copy = automation.copyWith();
 
@@ -1449,7 +1508,8 @@ void main() {
         );
 
         final updated = automation.copyWith(
-            lanes: {AutomationParameter.pan: newLane});
+          lanes: {AutomationParameter.pan: newLane},
+        );
 
         expect(updated.lanes.length, 1);
         expect(updated.lanes.containsKey(AutomationParameter.pan), true);

@@ -70,10 +70,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
             const SizedBox(height: 8),
             Text(
               '${widget.snapshots.length} snapshot${widget.snapshots.length == 1 ? '' : 's'}',
-              style: const TextStyle(
-                color: Color(0xFF9E9E9E),
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
             ),
             const SizedBox(height: 24),
 
@@ -99,7 +96,10 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     foregroundColor: _selectedSnapshot != null
                         ? const Color(0xFFF44336)
                         : const Color(0xFF616161),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                   icon: const Icon(Icons.delete, size: 18),
                   label: const Text('Delete'),
@@ -112,7 +112,10 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFF9E9E9E),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
                       child: const Text('Close'),
                     ),
@@ -128,7 +131,10 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                         foregroundColor: _selectedSnapshot != null
                             ? Colors.black
                             : const Color(0xFF616161),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
                       child: const Text('Load'),
                     ),
@@ -155,18 +161,12 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
           const SizedBox(height: 16),
           const Text(
             'No snapshots yet',
-            style: TextStyle(
-              color: Color(0xFF9E9E9E),
-              fontSize: 16,
-            ),
+            style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 16),
           ),
           const SizedBox(height: 8),
           const Text(
             'Create a snapshot to save the current state of your project',
-            style: TextStyle(
-              color: Color(0xFF616161),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Color(0xFF616161), fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -182,10 +182,8 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
       ),
       child: ListView.separated(
         itemCount: widget.snapshots.length + 1, // +1 for "Current Version"
-        separatorBuilder: (context, index) => const Divider(
-          height: 1,
-          color: Color(0xFF363636),
-        ),
+        separatorBuilder: (context, index) =>
+            const Divider(height: 1, color: Color(0xFF363636)),
         itemBuilder: (context, index) {
           if (index == 0) {
             return _buildCurrentVersionTile();
@@ -211,8 +209,12 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? const Color(0xFF7FD4A0) : const Color(0xFF616161),
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isSelected
+                  ? const Color(0xFF7FD4A0)
+                  : const Color(0xFF616161),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -231,10 +233,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                   SizedBox(height: 4),
                   Text(
                     'Working state',
-                    style: TextStyle(
-                      color: Color(0xFF9E9E9E),
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
                   ),
                 ],
               ),
@@ -254,8 +253,12 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-              color: isSelected ? const Color(0xFF7FD4A0) : const Color(0xFF616161),
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isSelected
+                  ? const Color(0xFF7FD4A0)
+                  : const Color(0xFF616161),
               size: 20,
             ),
             const SizedBox(width: 12),

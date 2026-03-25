@@ -55,8 +55,7 @@ class _MiniKnobState extends State<MiniKnob> {
   bool _isDragging = false;
 
   double get _normalizedValue =>
-      ((widget.value - widget.min) / (widget.max - widget.min))
-          .clamp(0.0, 1.0);
+      ((widget.value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0);
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (widget.onChanged == null) return;
@@ -65,7 +64,10 @@ class _MiniKnobState extends State<MiniKnob> {
     // Sensitivity: 150px drag = full range
     final delta = -details.delta.dy / 150.0;
     final range = widget.max - widget.min;
-    final newValue = (widget.value + delta * range).clamp(widget.min, widget.max);
+    final newValue = (widget.value + delta * range).clamp(
+      widget.min,
+      widget.max,
+    );
     widget.onChanged!(newValue);
   }
 
@@ -113,10 +115,7 @@ class _MiniKnobState extends State<MiniKnob> {
           const SizedBox(height: 2),
           Text(
             widget.label!,
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 9,
-            ),
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 9),
           ),
         ],
       ],

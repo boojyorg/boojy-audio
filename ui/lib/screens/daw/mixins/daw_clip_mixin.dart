@@ -16,7 +16,13 @@ import 'daw_track_mixin.dart';
 
 /// Mixin containing clip-related methods for DAWScreen.
 /// Handles MIDI and audio clip selection, creation, duplication, split, quantize, delete.
-mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin {
+mixin DAWClipMixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin {
   // ============================================
   // MIDI CLIP SELECTION
   // ============================================
@@ -47,7 +53,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle MIDI clip copy (Alt+drag)
   void onMidiClipCopied(MidiClipData sourceClip, double newStartTime) {
-    Log.d('[OVERLAP] onMidiClipCopied: clip ${sourceClip.clipId} "${sourceClip.name}" → newStart=${newStartTime.toStringAsFixed(3)} beats, track ${sourceClip.trackId}');
+    Log.d(
+      '[OVERLAP] onMidiClipCopied: clip ${sourceClip.clipId} "${sourceClip.name}" → newStart=${newStartTime.toStringAsFixed(3)} beats, track ${sourceClip.trackId}',
+    );
     // Use undo/redo manager for arrangement operations
     final command = DuplicateMidiClipCommand(
       originalClip: sourceClip,
@@ -55,7 +63,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       onClipDuplicated: (newClip, sharedPatternId) {
         // Update original clip's patternId if it was null (first duplication)
         if (sourceClip.patternId == null) {
-          final updatedOriginal = sourceClip.copyWith(patternId: sharedPatternId);
+          final updatedOriginal = sourceClip.copyWith(
+            patternId: sharedPatternId,
+          );
           midiPlaybackManager?.updateClipInPlace(updatedOriginal);
         }
 
@@ -65,14 +75,18 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
           newStart: newStartTime,
           newEnd: newStartTime + sourceClip.duration,
-          existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+          existingClips: List<MidiClipData>.from(
+            midiPlaybackManager?.midiClips ?? [],
+          ),
           trackId: sourceClip.trackId,
         );
         ClipOverlapHandler.applyMidiResult(
           result: overlapResult,
           deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
-          updateClipInPlace: (clip) => midiPlaybackManager?.updateClipInPlace(clip),
-          rescheduleClip: (clip, t) => midiPlaybackManager?.rescheduleClip(clip, t),
+          updateClipInPlace: (clip) =>
+              midiPlaybackManager?.updateClipInPlace(clip),
+          rescheduleClip: (clip, t) =>
+              midiPlaybackManager?.rescheduleClip(clip, t),
           addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
           tempo: tempo,
         );
@@ -90,7 +104,10 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
           (c) => c.clipId == clipId,
           orElse: () => sourceClip,
         );
-        midiClipController.deleteClip(clipId, clip?.trackId ?? sourceClip.trackId);
+        midiClipController.deleteClip(
+          clipId,
+          clip?.trackId ?? sourceClip.trackId,
+        );
         if (mounted) setState(() {});
       },
     );
@@ -99,7 +116,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
   /// Handle audio clip copy (Alt+drag)
   void onAudioClipCopied(ClipData sourceClip, double newStartTime) {
-    Log.d('[OVERLAP] onAudioClipCopied: clip ${sourceClip.clipId} → newStart=${newStartTime.toStringAsFixed(3)}s, track ${sourceClip.trackId}');
+    Log.d(
+      '[OVERLAP] onAudioClipCopied: clip ${sourceClip.clipId} → newStart=${newStartTime.toStringAsFixed(3)}s, track ${sourceClip.trackId}',
+    );
     final command = DuplicateAudioClipCommand(
       originalClip: sourceClip,
       newStartTime: newStartTime,
@@ -110,16 +129,23 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
           newStart: newStartTime,
           newEnd: newStartTime + sourceClip.duration,
-          existingClips: List<ClipData>.from(timelineKey.currentState?.clips ?? []),
+          existingClips: List<ClipData>.from(
+            timelineKey.currentState?.clips ?? [],
+          ),
           trackId: sourceClip.trackId,
         );
         ClipOverlapHandler.applyAudioResult(
           result: overlapResult,
-          engineRemoveClip: (tId, cId) => audioEngine?.removeAudioClip(tId, cId),
-          engineSetStartTime: (tId, cId, s) => audioEngine?.setClipStartTime(tId, cId, s),
-          engineSetOffset: (tId, cId, o) => audioEngine?.setClipOffset(tId, cId, o),
-          engineSetDuration: (tId, cId, d) => audioEngine?.setClipDuration(tId, cId, d),
-          engineDuplicateClip: (tId, cId, s) => audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
+          engineRemoveClip: (tId, cId) =>
+              audioEngine?.removeAudioClip(tId, cId),
+          engineSetStartTime: (tId, cId, s) =>
+              audioEngine?.setClipStartTime(tId, cId, s),
+          engineSetOffset: (tId, cId, o) =>
+              audioEngine?.setClipOffset(tId, cId, o),
+          engineSetDuration: (tId, cId, d) =>
+              audioEngine?.setClipDuration(tId, cId, d),
+          engineDuplicateClip: (tId, cId, s) =>
+              audioEngine?.duplicateAudioClip(tId, cId, s) ?? -1,
           uiRemoveClip: (cId) => timelineKey.currentState?.removeClip(cId),
           uiUpdateClip: (clip) => timelineKey.currentState?.updateClip(clip),
           uiAddClip: (clip) => timelineKey.currentState?.addClip(clip),
@@ -158,7 +184,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     // Try MIDI clip first
     if (midiPlaybackManager?.selectedClipId != null) {
-      final success = midiClipController.splitSelectedClipAtPlayhead(splitPosition);
+      final success = midiClipController.splitSelectedClipAtPlayhead(
+        splitPosition,
+      );
       if (success && mounted) {
         statusMessage = 'Split MIDI clip at playhead';
         return;
@@ -166,7 +194,11 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     }
 
     // Try audio clip if no MIDI clip or MIDI split failed
-    final audioSplit = timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(splitPosition) ?? false;
+    final audioSplit =
+        timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(
+          splitPosition,
+        ) ??
+        false;
     if (audioSplit && mounted) {
       statusMessage = 'Split audio clip at playhead';
       return;
@@ -174,7 +206,8 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     // Neither worked
     if (mounted) {
-      statusMessage = 'Cannot split: select a clip and place playhead within it';
+      statusMessage =
+          'Cannot split: select a clip and place playhead within it';
     }
   }
 
@@ -199,7 +232,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     }
 
     // Try audio clip
-    final audioQuantized = timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ?? false;
+    final audioQuantized =
+        timelineKey.currentState?.quantizeSelectedAudioClip(gridSizeSeconds) ??
+        false;
     if (audioQuantized && mounted) {
       statusMessage = 'Quantized audio clip to grid';
       return;
@@ -299,7 +334,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     // Calculate consolidated clip bounds
     final firstClipStart = sortedClips.first.startTime;
-    final lastClipEnd = sortedClips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
+    final lastClipEnd = sortedClips
+        .map((c) => c.endTime)
+        .reduce((a, b) => a > b ? a : b);
     final totalDuration = lastClipEnd - firstClipStart;
 
     // Merge all notes with adjusted timing
@@ -307,10 +344,12 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     for (final clip in sortedClips) {
       final clipOffset = clip.startTime - firstClipStart;
       for (final note in clip.notes) {
-        mergedNotes.add(note.copyWith(
-          startTime: note.startTime + clipOffset,
-          id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
+        mergedNotes.add(
+          note.copyWith(
+            startTime: note.startTime + clipOffset,
+            id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
       }
     }
 
@@ -398,16 +437,18 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       );
 
       if (clip != null) {
-        commands.add(DeleteMidiClipFromArrangementCommand(
-          clipData: clip,
-          onClipRemoved: (cId, tId) {
-            midiClipController.deleteClip(cId, tId);
-          },
-          onClipRestored: (restoredClip) {
-            midiPlaybackManager?.addRecordedClip(restoredClip);
-            midiClipController.updateClip(restoredClip, playheadPosition);
-          },
-        ));
+        commands.add(
+          DeleteMidiClipFromArrangementCommand(
+            clipData: clip,
+            onClipRemoved: (cId, tId) {
+              midiClipController.deleteClip(cId, tId);
+            },
+            onClipRestored: (restoredClip) {
+              midiPlaybackManager?.addRecordedClip(restoredClip);
+              midiClipController.updateClip(restoredClip, playheadPosition);
+            },
+          ),
+        );
       }
     }
 
@@ -429,15 +470,17 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     // Build individual delete commands for each clip
     final commands = <Command>[];
     for (final clip in clipsToDelete) {
-      commands.add(DeleteAudioClipCommand(
-        clipData: clip,
-        onClipRemoved: (clipId) {
-          timelineKey.currentState?.removeClip(clipId);
-        },
-        onClipRestored: (restoredClip) {
-          timelineKey.currentState?.addClip(restoredClip);
-        },
-      ));
+      commands.add(
+        DeleteAudioClipCommand(
+          clipData: clip,
+          onClipRemoved: (clipId) {
+            timelineKey.currentState?.removeClip(clipId);
+          },
+          onClipRestored: (restoredClip) {
+            timelineKey.currentState?.addClip(restoredClip);
+          },
+        ),
+      );
     }
 
     if (commands.isEmpty) return;
@@ -456,7 +499,11 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   // ============================================
 
   /// Create a MIDI clip on a track (drag-to-create)
-  void onCreateClipOnTrack(int trackId, double startBeats, double durationBeats) {
+  void onCreateClipOnTrack(
+    int trackId,
+    double startBeats,
+    double durationBeats,
+  ) {
     // Create a new MIDI clip on the specified track
     createMidiClipWithParams(trackId, startBeats, durationBeats);
 
@@ -465,13 +512,18 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   }
 
   /// Create a MIDI clip with custom start position and duration
-  void createMidiClipWithParams(int trackId, double startBeats, double durationBeats) {
+  void createMidiClipWithParams(
+    int trackId,
+    double startBeats,
+    double durationBeats,
+  ) {
     final clip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: trackId,
       startTime: startBeats,
       duration: durationBeats,
-      loopLength: durationBeats, // Loop length matches arrangement length initially
+      loopLength:
+          durationBeats, // Loop length matches arrangement length initially
       name: generateClipName(trackId),
       notes: [],
     );
@@ -484,7 +536,9 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         final overlapResult = ClipOverlapHandler.resolveMidiOverlaps(
           newStart: startBeats,
           newEnd: startBeats + durationBeats,
-          existingClips: List<MidiClipData>.from(midiPlaybackManager?.midiClips ?? []),
+          existingClips: List<MidiClipData>.from(
+            midiPlaybackManager?.midiClips ?? [],
+          ),
           trackId: trackId,
         );
         ClipOverlapHandler.applyMidiResult(
@@ -522,7 +576,10 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     }
 
     // Show capture dialog
-    final capturedEvents = await CaptureMidiDialog.show(context, midiCaptureBuffer);
+    final capturedEvents = await CaptureMidiDialog.show(
+      context,
+      midiCaptureBuffer,
+    );
 
     if (capturedEvents == null || capturedEvents.isEmpty) {
       return;
@@ -541,24 +598,31 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
         final noteOn = activeNotes.remove(event.note);
         if (noteOn != null) {
           final duration = event.beatsFromStart - noteOn.beatsFromStart;
-          notes.add(MidiNoteData(
-            note: event.note,
-            velocity: noteOn.velocity,
-            startTime: noteOn.beatsFromStart,
-            duration: duration.clamp(0.1, double.infinity), // Min duration of 0.1 beats
-          ));
+          notes.add(
+            MidiNoteData(
+              note: event.note,
+              velocity: noteOn.velocity,
+              startTime: noteOn.beatsFromStart,
+              duration: duration.clamp(
+                0.1,
+                double.infinity,
+              ), // Min duration of 0.1 beats
+            ),
+          );
         }
       }
     }
 
     // Handle any notes that didn't get a note-off (sustained notes)
     for (final noteOn in activeNotes.values) {
-      notes.add(MidiNoteData(
-        note: noteOn.note,
-        velocity: noteOn.velocity,
-        startTime: noteOn.beatsFromStart,
-        duration: 1.0, // Default 1 beat duration for sustained notes
-      ));
+      notes.add(
+        MidiNoteData(
+          note: noteOn.note,
+          velocity: noteOn.velocity,
+          startTime: noteOn.beatsFromStart,
+          duration: 1.0, // Default 1 beat duration for sustained notes
+        ),
+      );
     }
 
     if (notes.isEmpty) {
@@ -567,16 +631,18 @@ mixin DAWClipMixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     }
 
     // Calculate clip duration based on last note
-    final lastNote = notes.reduce((a, b) =>
-      (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b
+    final lastNote = notes.reduce(
+      (a, b) => (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b,
     );
-    final clipDuration = (lastNote.startTime + lastNote.duration).ceilToDouble();
+    final clipDuration = (lastNote.startTime + lastNote.duration)
+        .ceilToDouble();
 
     // Create the clip
     final clip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: selectedTrackId!,
-      startTime: playheadPosition / 60.0 * tempo, // Current playhead position in beats
+      startTime:
+          playheadPosition / 60.0 * tempo, // Current playhead position in beats
       duration: clipDuration,
       loopLength: clipDuration,
       name: generateClipName(selectedTrackId!),

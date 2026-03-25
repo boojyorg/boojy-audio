@@ -104,7 +104,8 @@ class _MixerPanelState extends State<MixerPanel> {
 
   void _showAddTrackMenu() {
     // Find the button position
-    final RenderBox? overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final RenderBox? overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
 
     // Show popup menu
@@ -121,7 +122,11 @@ class _MixerPanelState extends State<MixerPanel> {
           value: 'audio',
           child: Row(
             children: [
-              Icon(Icons.audiotrack, size: 18, color: context.colors.textSecondary),
+              Icon(
+                Icons.audiotrack,
+                size: 18,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 12),
               const Text('Audio Track', style: TextStyle(fontSize: 14)),
             ],
@@ -152,9 +157,7 @@ class _MixerPanelState extends State<MixerPanel> {
       width: 300, // Reduced from 400px
       decoration: BoxDecoration(
         color: context.colors.hover,
-        border: Border(
-          left: BorderSide(color: context.colors.buttonInactive),
-        ),
+        border: Border(left: BorderSide(color: context.colors.buttonInactive)),
       ),
       child: Column(
         children: [
@@ -163,9 +166,7 @@ class _MixerPanelState extends State<MixerPanel> {
 
           // Track strips
           Expanded(
-            child: _tracks.isEmpty
-                ? _buildEmptyState()
-                : _buildTrackList(),
+            child: _tracks.isEmpty ? _buildEmptyState() : _buildTrackList(),
           ),
         ],
       ),
@@ -183,11 +184,7 @@ class _MixerPanelState extends State<MixerPanel> {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.tune,
-            color: context.colors.darkest,
-            size: 20,
-          ),
+          Icon(Icons.tune, color: context.colors.darkest, size: 20),
           const SizedBox(width: 12),
           Text(
             'MIXER',
@@ -233,18 +230,12 @@ class _MixerPanelState extends State<MixerPanel> {
           const SizedBox(height: 16),
           Text(
             'No tracks yet',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 16,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a track to get started',
-            style: TextStyle(
-              color: context.colors.textMuted,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
           ),
         ],
       ),
@@ -260,7 +251,10 @@ class _MixerPanelState extends State<MixerPanel> {
             scrollDirection: Axis.horizontal,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _tracks.where((t) => t.type != 'Master').map((track) => _buildTrackStrip(track)).toList(),
+              children: _tracks
+                  .where((t) => t.type != 'Master')
+                  .map((track) => _buildTrackStrip(track))
+                  .toList(),
             ),
           ),
         ),
@@ -355,17 +349,19 @@ class _MixerPanelState extends State<MixerPanel> {
                 if (widget.onFXButtonClicked != null) {
                   // Use parent callback (new bottom panel approach)
                   widget.onFXButtonClicked!(
-                    _selectedTrackForFX == track.id ? null : track.id
+                    _selectedTrackForFX == track.id ? null : track.id,
                   );
                   setState(() {
-                    _selectedTrackForFX =
-                        _selectedTrackForFX == track.id ? null : track.id;
+                    _selectedTrackForFX = _selectedTrackForFX == track.id
+                        ? null
+                        : track.id;
                   });
                 } else {
                   // Fallback to old approach (show effect panel on right)
                   setState(() {
-                    _selectedTrackForFX =
-                        _selectedTrackForFX == track.id ? null : track.id;
+                    _selectedTrackForFX = _selectedTrackForFX == track.id
+                        ? null
+                        : track.id;
                   });
                 }
               },
@@ -418,7 +414,10 @@ class _MixerPanelState extends State<MixerPanel> {
               Navigator.of(context).pop();
               _loadTracksAsync();
             },
-            child: Text('Delete', style: TextStyle(color: context.colors.error)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: context.colors.error),
+            ),
           ),
         ],
       ),
@@ -522,10 +521,7 @@ class _MixerPanelState extends State<MixerPanel> {
         // Volume label
         Text(
           '${track.volumeDb.toStringAsFixed(1)} dB',
-          style: TextStyle(
-            color: context.colors.surface,
-            fontSize: 10,
-          ),
+          style: TextStyle(color: context.colors.surface, fontSize: 10),
         ),
         const SizedBox(height: 8),
 
@@ -536,12 +532,8 @@ class _MixerPanelState extends State<MixerPanel> {
             child: SliderTheme(
               data: SliderThemeData(
                 trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(
-                  enabledThumbRadius: 6,
-                ),
-                overlayShape: const RoundSliderOverlayShape(
-                  overlayRadius: 12,
-                ),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                 activeTrackColor: context.colors.success,
                 inactiveTrackColor: context.colors.buttonInactive,
                 thumbColor: context.colors.darkest,
@@ -572,20 +564,13 @@ class _MixerPanelState extends State<MixerPanel> {
         children: [
           Text(
             _panToLabel(track.pan),
-            style: TextStyle(
-              color: context.colors.surface,
-              fontSize: 10,
-            ),
+            style: TextStyle(color: context.colors.surface, fontSize: 10),
           ),
           SliderTheme(
             data: SliderThemeData(
               trackHeight: 2,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 5,
-              ),
-              overlayShape: const RoundSliderOverlayShape(
-                overlayRadius: 10,
-              ),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
               activeTrackColor: context.colors.accent,
               inactiveTrackColor: context.colors.buttonInactive,
               thumbColor: context.colors.darkest,
@@ -671,7 +656,9 @@ class _MixerPanelState extends State<MixerPanel> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: track.armed
-                    ? context.colors.recordActive  // Bright red when armed
+                    ? context
+                          .colors
+                          .recordActive // Bright red when armed
                     : context.colors.buttonInactive,
                 foregroundColor: track.armed
                     ? context.colors.textPrimary

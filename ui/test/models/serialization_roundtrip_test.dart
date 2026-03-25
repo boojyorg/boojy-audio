@@ -108,9 +108,7 @@ void main() {
       final original = ClipAutomationLane(
         id: 'lane-pan',
         parameter: AutomationParameter.pan,
-        points: [
-          ClipAutomationPoint(id: 'pp1', time: 1.0, value: -0.5),
-        ],
+        points: [ClipAutomationPoint(id: 'pp1', time: 1.0, value: -0.5)],
       );
       final json = original.toJson();
       final restored = ClipAutomationLane.fromJson(json);
@@ -149,9 +147,7 @@ void main() {
           AutomationParameter.pan: ClipAutomationLane(
             id: 'pan-lane',
             parameter: AutomationParameter.pan,
-            points: [
-              ClipAutomationPoint(id: 'pa1', time: 1.0, value: -0.3),
-            ],
+            points: [ClipAutomationPoint(id: 'pa1', time: 1.0, value: -0.3)],
           ),
         },
       );
@@ -201,9 +197,7 @@ void main() {
           AutomationParameter.volume: ClipAutomationLane(
             id: 'cl-vol',
             parameter: AutomationParameter.volume,
-            points: [
-              ClipAutomationPoint(id: 'cvp1', time: 0.0, value: 0.9),
-            ],
+            points: [ClipAutomationPoint(id: 'cvp1', time: 0.0, value: 0.9)],
           ),
         },
       );
@@ -296,9 +290,7 @@ void main() {
     });
 
     test('with null optional fields', () {
-      const original = ProjectMetadata(
-        name: 'Untitled',
-      );
+      const original = ProjectMetadata(name: 'Untitled');
 
       final json = original.toJson();
       final restored = ProjectMetadata.fromJson(json);
@@ -332,9 +324,7 @@ void main() {
     });
 
     test('with null selectedTrackId', () {
-      const original = ProjectViewState(
-        selectedTrackId: null,
-      );
+      const original = ProjectViewState(selectedTrackId: null);
 
       final json = original.toJson();
       final restored = ProjectViewState.fromJson(json);
@@ -503,11 +493,7 @@ void main() {
   // =========================================================================
   group('AutomationPoint roundtrip', () {
     test('with explicit id', () {
-      final original = AutomationPoint(
-        id: 'ap-001',
-        time: 8.25,
-        value: 0.65,
-      );
+      final original = AutomationPoint(id: 'ap-001', time: 8.25, value: 0.65);
 
       final json = original.toJson();
       final restored = AutomationPoint.fromJson(json);
@@ -620,8 +606,11 @@ void main() {
       expect(restored.type, equals('synthesizer'));
       expect(restored.parameters.length, equals(original.parameters.length));
       for (final key in original.parameters.keys) {
-        expect(restored.parameters[key], equals(original.parameters[key]),
-            reason: 'Parameter "$key" mismatch');
+        expect(
+          restored.parameters[key],
+          equals(original.parameters[key]),
+          reason: 'Parameter "$key" mismatch',
+        );
       }
     });
   });
@@ -730,8 +719,11 @@ void main() {
         );
         final json = lane.toJson();
         final restored = MidiCCLane.fromJson(json);
-        expect(restored.ccType, equals(ccType),
-            reason: 'CC type ${ccType.displayName} did not roundtrip');
+        expect(
+          restored.ccType,
+          equals(ccType),
+          reason: 'CC type ${ccType.displayName} did not roundtrip',
+        );
       }
     });
 
@@ -753,95 +745,98 @@ void main() {
   // Deep nesting: ClipData with full automation tree
   // =========================================================================
   group('Deep nesting roundtrip', () {
-    test('ClipData -> ClipAutomation -> ClipAutomationLane -> ClipAutomationPoint', () {
-      final original = ClipData(
-        clipId: 99,
-        trackId: 7,
-        filePath: '/deep/nested/test.wav',
-        startTime: 10.0,
-        duration: 20.0,
-        offset: 2.0,
-        waveformPeaks: [0.1, 0.9],
-        color: const Color(0xFF00AAFF),
-        editData: const AudioClipEditData(
-          bpm: 128.0,
-          reversed: true,
-          transposeSemitones: -12,
-          warpMode: WarpMode.repitch,
-          syncEnabled: true,
-          normalizeTargetDb: -3.0,
-          loopStartBeats: 2.0,
-          loopEndBeats: 14.0,
-        ),
-        loopLength: 16.0,
-        canRepeat: true,
-        automation: ClipAutomation(
-          lanes: {
-            AutomationParameter.volume: ClipAutomationLane(
-              id: 'deep-vol',
-              parameter: AutomationParameter.volume,
-              points: [
-                ClipAutomationPoint(id: 'dv1', time: 0.0, value: 1.0),
-                ClipAutomationPoint(id: 'dv2', time: 5.0, value: 0.0),
-                ClipAutomationPoint(id: 'dv3', time: 10.0, value: 0.7),
-              ],
-            ),
-            AutomationParameter.pan: ClipAutomationLane(
-              id: 'deep-pan',
-              parameter: AutomationParameter.pan,
-              points: [
-                ClipAutomationPoint(id: 'dp1', time: 2.0, value: -1.0),
-                ClipAutomationPoint(id: 'dp2', time: 8.0, value: 1.0),
-              ],
-            ),
-          },
-        ),
-      );
+    test(
+      'ClipData -> ClipAutomation -> ClipAutomationLane -> ClipAutomationPoint',
+      () {
+        final original = ClipData(
+          clipId: 99,
+          trackId: 7,
+          filePath: '/deep/nested/test.wav',
+          startTime: 10.0,
+          duration: 20.0,
+          offset: 2.0,
+          waveformPeaks: [0.1, 0.9],
+          color: const Color(0xFF00AAFF),
+          editData: const AudioClipEditData(
+            bpm: 128.0,
+            reversed: true,
+            transposeSemitones: -12,
+            warpMode: WarpMode.repitch,
+            syncEnabled: true,
+            normalizeTargetDb: -3.0,
+            loopStartBeats: 2.0,
+            loopEndBeats: 14.0,
+          ),
+          loopLength: 16.0,
+          canRepeat: true,
+          automation: ClipAutomation(
+            lanes: {
+              AutomationParameter.volume: ClipAutomationLane(
+                id: 'deep-vol',
+                parameter: AutomationParameter.volume,
+                points: [
+                  ClipAutomationPoint(id: 'dv1', time: 0.0, value: 1.0),
+                  ClipAutomationPoint(id: 'dv2', time: 5.0, value: 0.0),
+                  ClipAutomationPoint(id: 'dv3', time: 10.0, value: 0.7),
+                ],
+              ),
+              AutomationParameter.pan: ClipAutomationLane(
+                id: 'deep-pan',
+                parameter: AutomationParameter.pan,
+                points: [
+                  ClipAutomationPoint(id: 'dp1', time: 2.0, value: -1.0),
+                  ClipAutomationPoint(id: 'dp2', time: 8.0, value: 1.0),
+                ],
+              ),
+            },
+          ),
+        );
 
-      final json = original.toJson();
-      final restored = ClipData.fromJson(json);
+        final json = original.toJson();
+        final restored = ClipData.fromJson(json);
 
-      // Top level
-      expect(restored.clipId, equals(99));
-      expect(restored.trackId, equals(7));
-      expect(restored.filePath, equals('/deep/nested/test.wav'));
-      expect(restored.startTime, equals(10.0));
-      expect(restored.duration, equals(20.0));
-      expect(restored.offset, equals(2.0));
-      expect(restored.waveformPeaks, equals([0.1, 0.9]));
-      expect(restored.color, equals(const Color(0xFF00AAFF)));
-      expect(restored.loopLength, equals(16.0));
-      expect(restored.canRepeat, isTrue);
+        // Top level
+        expect(restored.clipId, equals(99));
+        expect(restored.trackId, equals(7));
+        expect(restored.filePath, equals('/deep/nested/test.wav'));
+        expect(restored.startTime, equals(10.0));
+        expect(restored.duration, equals(20.0));
+        expect(restored.offset, equals(2.0));
+        expect(restored.waveformPeaks, equals([0.1, 0.9]));
+        expect(restored.color, equals(const Color(0xFF00AAFF)));
+        expect(restored.loopLength, equals(16.0));
+        expect(restored.canRepeat, isTrue);
 
-      // EditData
-      expect(restored.editData, isNotNull);
-      expect(restored.editData!.bpm, equals(128.0));
-      expect(restored.editData!.reversed, isTrue);
-      expect(restored.editData!.transposeSemitones, equals(-12));
-      expect(restored.editData!.warpMode, equals(WarpMode.repitch));
-      expect(restored.editData!.syncEnabled, isTrue);
-      expect(restored.editData!.normalizeTargetDb, equals(-3.0));
-      expect(restored.editData!.loopStartBeats, equals(2.0));
-      expect(restored.editData!.loopEndBeats, equals(14.0));
+        // EditData
+        expect(restored.editData, isNotNull);
+        expect(restored.editData!.bpm, equals(128.0));
+        expect(restored.editData!.reversed, isTrue);
+        expect(restored.editData!.transposeSemitones, equals(-12));
+        expect(restored.editData!.warpMode, equals(WarpMode.repitch));
+        expect(restored.editData!.syncEnabled, isTrue);
+        expect(restored.editData!.normalizeTargetDb, equals(-3.0));
+        expect(restored.editData!.loopStartBeats, equals(2.0));
+        expect(restored.editData!.loopEndBeats, equals(14.0));
 
-      // Automation -> Lanes -> Points
-      expect(restored.automation.hasAutomation, isTrue);
-      expect(restored.automation.lanes.length, equals(2));
+        // Automation -> Lanes -> Points
+        expect(restored.automation.hasAutomation, isTrue);
+        expect(restored.automation.lanes.length, equals(2));
 
-      final volLane = restored.automation.lanes[AutomationParameter.volume]!;
-      expect(volLane.id, equals('deep-vol'));
-      expect(volLane.points.length, equals(3));
-      expect(volLane.points[0].id, equals('dv1'));
-      expect(volLane.points[0].time, equals(0.0));
-      expect(volLane.points[0].value, equals(1.0));
-      expect(volLane.points[2].id, equals('dv3'));
-      expect(volLane.points[2].value, equals(0.7));
+        final volLane = restored.automation.lanes[AutomationParameter.volume]!;
+        expect(volLane.id, equals('deep-vol'));
+        expect(volLane.points.length, equals(3));
+        expect(volLane.points[0].id, equals('dv1'));
+        expect(volLane.points[0].time, equals(0.0));
+        expect(volLane.points[0].value, equals(1.0));
+        expect(volLane.points[2].id, equals('dv3'));
+        expect(volLane.points[2].value, equals(0.7));
 
-      final panLane = restored.automation.lanes[AutomationParameter.pan]!;
-      expect(panLane.id, equals('deep-pan'));
-      expect(panLane.points.length, equals(2));
-      expect(panLane.points[0].value, equals(-1.0));
-      expect(panLane.points[1].value, equals(1.0));
-    });
+        final panLane = restored.automation.lanes[AutomationParameter.pan]!;
+        expect(panLane.id, equals('deep-pan'));
+        expect(panLane.points.length, equals(2));
+        expect(panLane.points[0].value, equals(-1.0));
+        expect(panLane.points[1].value, equals(1.0));
+      },
+    );
   });
 }

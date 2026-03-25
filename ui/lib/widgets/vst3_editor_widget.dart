@@ -60,12 +60,9 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
       child: AppKitView(
         key: uniqueKey,
         viewType: 'boojy_audio.vst3.editor_view',
-        creationParams: {
-          'effectId': widget.effectId,
-        },
+        creationParams: {'effectId': widget.effectId},
         creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: (id) {
-        },
+        onPlatformViewCreated: (id) {},
       ),
     );
   }

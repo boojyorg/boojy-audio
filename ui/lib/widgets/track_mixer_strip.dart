@@ -24,7 +24,8 @@ class TrackMixerStrip extends StatefulWidget {
   static const double kMinHeight = UIConstants.trackMinHeight;
   static const double kMaxHeight = UIConstants.trackMaxHeight;
   final int trackId;
-  final int displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
+  final int
+  displayIndex; // Sequential display number (1, 2, 3...) - NOT internal track ID
   final String trackName;
   final String trackType;
   final double volumeDb;
@@ -48,7 +49,8 @@ class TrackMixerStrip extends StatefulWidget {
 
   // Automation parameter controls
   final AutomationParameter selectedParameter; // Currently selected parameter
-  final Function(AutomationParameter)? onParameterChanged; // Parameter dropdown changed
+  final Function(AutomationParameter)?
+  onParameterChanged; // Parameter dropdown changed
   final VoidCallback? onResetParameter; // Reset parameter to default
   final VoidCallback? onAddParameter; // Add another parameter lane
 
@@ -59,10 +61,12 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(AutomationPoint)? onAutomationPointAdded;
   final Function(String pointId, AutomationPoint)? onAutomationPointUpdated;
   final Function(String pointId)? onAutomationPointDeleted;
-  final Function(double? value)? onPreviewValue; // Callback for live value display during drag
+  final Function(double? value)?
+  onPreviewValue; // Callback for live value display during drag
   final double? previewParameterValue; // Live preview value during drag
 
-  final Function(bool isShiftHeld)? onTap; // Unified track selection callback (with shift state for multi-select)
+  final Function(bool isShiftHeld)?
+  onTap; // Unified track selection callback (with shift state for multi-select)
   final VoidCallback? onDoubleTap; // Double-click to open editor
   final VoidCallback? onDeletePressed;
   final VoidCallback? onDuplicatePressed;
@@ -101,7 +105,8 @@ class TrackMixerStrip extends StatefulWidget {
   final List<Map<String, dynamic>> inputDevices; // Available input devices
   final Function(int deviceIndex, int channel)? onInputChanged;
   final bool isRecording; // Lock input selector during recording
-  final double? inputLevel; // 0.0 to 1.0, input level overlay on fader when armed
+  final double?
+  inputLevel; // 0.0 to 1.0, input level overlay on fader when armed
 
   // Custom icon (emoji override from user)
   final String? customIcon;
@@ -187,7 +192,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;
 
-
   @override
   void initState() {
     super.initState();
@@ -246,7 +250,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   double get _scaleFactor {
     const minHeight = UIConstants.trackMinHeight;
     const standardHeight = UIConstants.trackStandardHeight;
-    return ((widget.clipHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
+    return ((widget.clipHeight - minHeight) / (standardHeight - minHeight))
+        .clamp(0.0, 1.0);
   }
 
   /// Lerp helper for scaling values
@@ -281,7 +286,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     // Fixed horizontal padding so dB x-position is consistent
     const double horizontalPadding = 6.0;
     // Row 2 height - slightly smaller at compact to prevent overflow
-    final rowHeight = ((availableHeight - topPadding - bottomPadding) / 2).clamp(11.0, 28.0);
+    final rowHeight = ((availableHeight - topPadding - bottomPadding) / 2)
+        .clamp(11.0, 28.0);
 
     // MSR buttons and Pan scale with height
     final buttonSize = _lerp(14, 22, scale);
@@ -293,7 +299,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     const double fontSize = 12.0;
     const double iconSize = 14.0;
     const double dbFontSize = UIConstants.dbFontSize;
-    const double dbContainerWidth = UIConstants.dbContainerWidth; // Fixed width so slider aligns
+    const double dbContainerWidth =
+        UIConstants.dbContainerWidth; // Fixed width so slider aligns
 
     return Padding(
       padding: EdgeInsets.only(
@@ -311,15 +318,26 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           Row(
             children: [
               // Icon + Number + Name (fixed font sizes, expands to fill space)
-              Expanded(child: _buildTrackInfoRow(fontSize: fontSize, iconSize: iconSize)),
+              Expanded(
+                child: _buildTrackInfoRow(
+                  fontSize: fontSize,
+                  iconSize: iconSize,
+                ),
+              ),
               const SizedBox(width: 4),
               // Input selector (Audio/Sampler tracks only)
               if (_showInputSelector)
-                _buildInputSelector(buttonSize: buttonSize, fontSize: buttonFontSize),
-              if (_showInputSelector)
-                const SizedBox(width: 4),
+                _buildInputSelector(
+                  buttonSize: buttonSize,
+                  fontSize: buttonFontSize,
+                ),
+              if (_showInputSelector) const SizedBox(width: 4),
               // M, S, R buttons (scale with height)
-              _buildControlButtons(buttonSize: buttonSize, spacing: buttonSpacing, fontSize: buttonFontSize),
+              _buildControlButtons(
+                buttonSize: buttonSize,
+                spacing: buttonSpacing,
+                fontSize: buttonFontSize,
+              ),
               const SizedBox(width: 6),
               // Pan knob (scales with height)
               PanKnob(
@@ -334,10 +352,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           Builder(
             builder: (context) {
               // Use preview value if dragging volume automation
-              final hasVolumePreview = widget.previewParameterValue != null &&
+              final hasVolumePreview =
+                  widget.previewParameterValue != null &&
                   widget.selectedParameter == AutomationParameter.volume;
               final displayVolumeDb = hasVolumePreview
-                  ? VolumeConversion.normalizedToDb(widget.previewParameterValue!)
+                  ? VolumeConversion.normalizedToDb(
+                      widget.previewParameterValue!,
+                    )
                   : widget.volumeDb;
 
               return SizedBox(
@@ -351,16 +372,23 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     SizedBox(
                       width: dbContainerWidth,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: context.colors.darkest,
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
-                          displayVolumeDb <= -60.0 ? '-∞ dB' : '${displayVolumeDb.toStringAsFixed(1)} dB',
+                          displayVolumeDb <= -60.0
+                              ? '-∞ dB'
+                              : '${displayVolumeDb.toStringAsFixed(1)} dB',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: hasVolumePreview ? context.colors.textPrimary : context.colors.textSecondary,
+                            color: hasVolumePreview
+                                ? context.colors.textPrimary
+                                : context.colors.textSecondary,
                             fontSize: dbFontSize,
                             fontFamily: 'monospace',
                           ),
@@ -385,8 +413,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             },
           ),
           // Row 3-4: Automation Controls (only when visible)
-          if (widget.showAutomation)
-            _buildAutomationControlsSection(context),
+          if (widget.showAutomation) _buildAutomationControlsSection(context),
         ],
       ),
     );
@@ -424,7 +451,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Build parameter dropdown (Volume, Pan, etc.)
-  Widget _buildParameterDropdown(BuildContext context, double fontSize, double rowHeight) {
+  Widget _buildParameterDropdown(
+    BuildContext context,
+    double fontSize,
+    double rowHeight,
+  ) {
     final colors = context.colors;
     final param = widget.selectedParameter;
 
@@ -440,11 +471,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: param,
           isDense: true,
           dropdownColor: colors.elevated,
-          icon: Icon(Icons.arrow_drop_down, size: 14, color: colors.textSecondary),
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: fontSize,
+          icon: Icon(
+            Icons.arrow_drop_down,
+            size: 14,
+            color: colors.textSecondary,
           ),
+          style: TextStyle(color: colors.textPrimary, fontSize: fontSize),
           items: AutomationParameter.values.map((p) {
             return DropdownMenuItem<AutomationParameter>(
               value: p,
@@ -462,11 +494,16 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Build parameter value display (matches volume display style above)
-  Widget _buildParameterValueDisplay(BuildContext context, AutomationParameter param, double fontSize) {
+  Widget _buildParameterValueDisplay(
+    BuildContext context,
+    AutomationParameter param,
+    double fontSize,
+  ) {
     final colors = context.colors;
     final hasPreview = widget.previewParameterValue != null;
     const double dbFontSize = UIConstants.dbFontSize; // Match volume display
-    const double containerWidth = UIConstants.dbContainerWidth; // Match volume display width
+    const double containerWidth =
+        UIConstants.dbContainerWidth; // Match volume display width
 
     // Get current value based on parameter type
     // Use preview value during drag if available
@@ -474,9 +511,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     if (param == AutomationParameter.volume) {
       if (hasPreview) {
         // Preview value is normalized (0-1), convert to dB
-        valueText = VolumeConversion.normalizedToDisplayString(widget.previewParameterValue!);
+        valueText = VolumeConversion.normalizedToDisplayString(
+          widget.previewParameterValue!,
+        );
       } else {
-        valueText = widget.volumeDb <= -60.0 ? '-∞ dB' : '${widget.volumeDb.toStringAsFixed(1)} dB';
+        valueText = widget.volumeDb <= -60.0
+            ? '-∞ dB'
+            : '${widget.volumeDb.toStringAsFixed(1)} dB';
       }
     } else if (param == AutomationParameter.pan) {
       final panValue = hasPreview ? widget.previewParameterValue! : widget.pan;
@@ -502,7 +543,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         valueText,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: hasPreview ? colors.textPrimary : colors.textSecondary, // Highlight during drag
+          color: hasPreview
+              ? colors.textPrimary
+              : colors.textSecondary, // Highlight during drag
           fontSize: dbFontSize, // Match volume display
           fontFamily: 'monospace',
         ),
@@ -536,7 +579,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Build add parameter button (shorter and wider)
-  Widget _buildAddParameterButton(BuildContext context, double fontSize, double rowHeight) {
+  Widget _buildAddParameterButton(
+    BuildContext context,
+    double fontSize,
+    double rowHeight,
+  ) {
     final colors = context.colors;
     final buttonHeight = rowHeight * 0.75; // Shorter than row height
 
@@ -572,9 +619,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       children: [
         // Icon (fixed size, clickable to change)
         GestureDetector(
-          onTap: widget.onIconChanged != null ? () => _showIconPopup(context) : null,
+          onTap: widget.onIconChanged != null
+              ? () => _showIconPopup(context)
+              : null,
           child: MouseRegion(
-            cursor: widget.onIconChanged != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+            cursor: widget.onIconChanged != null
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
             child: Text(_getTrackEmoji(), style: TextStyle(fontSize: iconSize)),
           ),
         ),
@@ -602,7 +653,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   ),
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     border: const OutlineInputBorder(),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: trackColor),
@@ -645,7 +699,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     if (widget.inputDeviceIndex < 0) return 'No In';
 
     // If we have device info, use device name + channel
-    if (widget.inputDevices.isNotEmpty && widget.inputDeviceIndex < widget.inputDevices.length) {
+    if (widget.inputDevices.isNotEmpty &&
+        widget.inputDeviceIndex < widget.inputDevices.length) {
       final device = widget.inputDevices[widget.inputDeviceIndex];
       final deviceName = device['name'] as String? ?? 'Input';
       // Shorten common names
@@ -674,7 +729,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return GestureDetector(
       onTap: isLocked ? null : () => _showInputDropdown(context),
       child: MouseRegion(
-        cursor: isLocked ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+        cursor: isLocked
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
         child: Container(
           height: height,
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -682,8 +739,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             color: isLocked
                 ? colors.surface.withValues(alpha: 0.5)
                 : hasInput
-                    ? colors.dark
-                    : colors.surface,
+                ? colors.dark
+                : colors.surface,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(
               color: isLocked
@@ -701,8 +758,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   color: isLocked
                       ? colors.textMuted
                       : hasInput
-                          ? colors.textPrimary
-                          : colors.textSecondary,
+                      ? colors.textPrimary
+                      : colors.textSecondary,
                   fontSize: fontSize,
                   fontWeight: FontWeight.w500,
                 ),
@@ -740,7 +797,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     // Note: trackType from engine is 'MIDI', 'Audio', 'Master' (uppercase)
@@ -774,101 +830,106 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             widget.onInstrumentDropped?.call(details.data);
           },
           builder: (context, candidateInstrument, rejectedInstrument) {
-            final isHovered = candidateVst3.isNotEmpty || candidateInstrument.isNotEmpty;
+            final isHovered =
+                candidateVst3.isNotEmpty || candidateInstrument.isNotEmpty;
 
-        return GestureDetector(
-          onTap: () {
-            final isShiftHeld = ModifierKeyState.current().isShiftPressed;
-            widget.onTap?.call(isShiftHeld);
-          },
-          onDoubleTap: widget.onDoubleTap,
-          onSecondaryTapDown: (TapDownDetails details) {
-            _showContextMenu(context, details.globalPosition);
-          },
-          child: SizedBox(
-            width: widget.stripWidth,
-            height: totalHeight,
-            child: Stack(
-              children: [
-                // Main content container
-                Container(
-                  width: widget.stripWidth,
-                  height: totalHeight,
-                  decoration: BoxDecoration(
-                    // Track color at 20% opacity (like Master track left section)
-                    color: isHovered
-                        ? context.colors.accent.withValues(alpha: 0.3)
-                        : _getTintedBackgroundColor(),
-                    // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
-                    // When selected, border changes to white
-                    border: isHovered
-                        ? Border.all(color: context.colors.accent, width: 2)
-                        : Border(
-                            left: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ?? context.colors.textSecondary),
-                              width: 4,
-                            ),
-                            top: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ?? context.colors.textSecondary),
-                              width: 2,
-                            ),
-                            right: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ?? context.colors.textSecondary),
-                              width: 2,
-                            ),
-                            bottom: BorderSide(
-                              color: widget.isSelected
-                                  ? Colors.white.withValues(alpha: 0.9)
-                                  : (widget.trackColor ?? context.colors.textSecondary),
-                              width: 2,
-                            ),
-                          ),
-                  ),
-                  child: _buildStandardLayout(context, isHovered),
-                ),
-                // Bottom resize handle
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: UIConstants.trackResizeHandleHeight,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeRow,
-                    child: GestureDetector(
-                      onVerticalDragStart: (details) {
-                        _isResizing = true;
-                        _resizeStartY = details.globalPosition.dy;
-                        _resizeStartHeight = widget.clipHeight;
-                      },
-                      onVerticalDragUpdate: (details) {
-                        if (_isResizing) {
-                          final delta = details.globalPosition.dy - _resizeStartY;
-                          final newHeight = (_resizeStartHeight + delta).clamp(
-                            TrackMixerStrip.kMinHeight,
-                            TrackMixerStrip.kMaxHeight,
-                          );
-                          widget.onClipHeightChanged?.call(newHeight);
-                        }
-                      },
-                      onVerticalDragEnd: (details) {
-                        _isResizing = false;
-                      },
-                      child: Container(
-                        color: Colors.transparent,
+            return GestureDetector(
+              onTap: () {
+                final isShiftHeld = ModifierKeyState.current().isShiftPressed;
+                widget.onTap?.call(isShiftHeld);
+              },
+              onDoubleTap: widget.onDoubleTap,
+              onSecondaryTapDown: (TapDownDetails details) {
+                _showContextMenu(context, details.globalPosition);
+              },
+              child: SizedBox(
+                width: widget.stripWidth,
+                height: totalHeight,
+                child: Stack(
+                  children: [
+                    // Main content container
+                    Container(
+                      width: widget.stripWidth,
+                      height: totalHeight,
+                      decoration: BoxDecoration(
+                        // Track color at 20% opacity (like Master track left section)
+                        color: isHovered
+                            ? context.colors.accent.withValues(alpha: 0.3)
+                            : _getTintedBackgroundColor(),
+                        // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
+                        // When selected, border changes to white
+                        border: isHovered
+                            ? Border.all(color: context.colors.accent, width: 2)
+                            : Border(
+                                left: BorderSide(
+                                  color: widget.isSelected
+                                      ? Colors.white.withValues(alpha: 0.9)
+                                      : (widget.trackColor ??
+                                            context.colors.textSecondary),
+                                  width: 4,
+                                ),
+                                top: BorderSide(
+                                  color: widget.isSelected
+                                      ? Colors.white.withValues(alpha: 0.9)
+                                      : (widget.trackColor ??
+                                            context.colors.textSecondary),
+                                  width: 2,
+                                ),
+                                right: BorderSide(
+                                  color: widget.isSelected
+                                      ? Colors.white.withValues(alpha: 0.9)
+                                      : (widget.trackColor ??
+                                            context.colors.textSecondary),
+                                  width: 2,
+                                ),
+                                bottom: BorderSide(
+                                  color: widget.isSelected
+                                      ? Colors.white.withValues(alpha: 0.9)
+                                      : (widget.trackColor ??
+                                            context.colors.textSecondary),
+                                  width: 2,
+                                ),
+                              ),
+                      ),
+                      child: _buildStandardLayout(context, isHovered),
+                    ),
+                    // Bottom resize handle
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: UIConstants.trackResizeHandleHeight,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.resizeRow,
+                        child: GestureDetector(
+                          onVerticalDragStart: (details) {
+                            _isResizing = true;
+                            _resizeStartY = details.globalPosition.dy;
+                            _resizeStartHeight = widget.clipHeight;
+                          },
+                          onVerticalDragUpdate: (details) {
+                            if (_isResizing) {
+                              final delta =
+                                  details.globalPosition.dy - _resizeStartY;
+                              final newHeight = (_resizeStartHeight + delta)
+                                  .clamp(
+                                    TrackMixerStrip.kMinHeight,
+                                    TrackMixerStrip.kMaxHeight,
+                                  );
+                              widget.onClipHeightChanged?.call(newHeight);
+                            }
+                          },
+                          onVerticalDragEnd: (details) {
+                            _isResizing = false;
+                          },
+                          child: Container(color: Colors.transparent),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
+              ),
+            );
           },
         );
       },
@@ -882,7 +943,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       return;
     }
 
-    Log.d('TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}');
+    Log.d(
+      'TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}',
+    );
 
     // Use listen: false to avoid provider error in callback context
     final colors = Provider.of<ThemeProvider>(context, listen: false).colors;
@@ -936,7 +999,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             children: [
               Icon(Icons.music_note, size: 16, color: colors.textPrimary),
               const SizedBox(width: 8),
-              Text('Convert to Sampler', style: TextStyle(color: colors.textPrimary)),
+              Text(
+                'Convert to Sampler',
+                style: TextStyle(color: colors.textPrimary),
+              ),
             ],
           ),
         ),
@@ -971,7 +1037,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         _showColorPicker(this.context, position);
       } else if (value == 'duplicate' && widget.onDuplicatePressed != null) {
         widget.onDuplicatePressed!();
-      } else if (value == 'convert_to_sampler' && widget.onConvertToSampler != null) {
+      } else if (value == 'convert_to_sampler' &&
+          widget.onConvertToSampler != null) {
         widget.onConvertToSampler!();
       } else if (value == 'delete' && widget.onDeletePressed != null) {
         widget.onDeletePressed!();
@@ -1034,7 +1101,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                         color: color.withValues(alpha: 0.5),
                                         blurRadius: 4,
                                         spreadRadius: 1,
-                                      )
+                                      ),
                                     ]
                                   : null,
                             ),
@@ -1075,7 +1142,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                         color: color.withValues(alpha: 0.5),
                                         blurRadius: 4,
                                         spreadRadius: 1,
-                                      )
+                                      ),
                                     ]
                                   : null,
                             ),
@@ -1093,17 +1160,37 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildControlButtons({double buttonSize = 22, double spacing = 4, double fontSize = 10}) {
+  Widget _buildControlButtons({
+    double buttonSize = 22,
+    double spacing = 4,
+    double fontSize = 10,
+  }) {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
-    final canArm = widget.trackType.toLowerCase() == 'audio' || widget.trackType.toLowerCase() == 'midi';
+    final canArm =
+        widget.trackType.toLowerCase() == 'audio' ||
+        widget.trackType.toLowerCase() == 'midi';
 
     return Row(
       children: [
         // Mute button - Yellow/Amber when active
-        _buildControlButton('M', widget.isMuted, context.colors.muteActive, widget.onMuteToggle, buttonSize, fontSize),
+        _buildControlButton(
+          'M',
+          widget.isMuted,
+          context.colors.muteActive,
+          widget.onMuteToggle,
+          buttonSize,
+          fontSize,
+        ),
         SizedBox(width: spacing),
         // Solo button - Blue when active
-        _buildControlButton('S', widget.isSoloed, context.colors.soloActive, widget.onSoloToggle, buttonSize, fontSize),
+        _buildControlButton(
+          'S',
+          widget.isSoloed,
+          context.colors.soloActive,
+          widget.onSoloToggle,
+          buttonSize,
+          fontSize,
+        ),
         SizedBox(width: spacing),
         // Record arm button - Red when active
         // Supports Shift+click for multi-arm mode
@@ -1112,11 +1199,20 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     );
   }
 
-  Widget _buildControlButton(String label, bool isActive, Color activeColor, VoidCallback? onPressed, double size, double fontSize) {
+  Widget _buildControlButton(
+    String label,
+    bool isActive,
+    Color activeColor,
+    VoidCallback? onPressed,
+    double size,
+    double fontSize,
+  ) {
     return GestureDetector(
       onTap: onPressed,
       child: MouseRegion(
-        cursor: onPressed != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        cursor: onPressed != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         child: Container(
           width: size,
           height: size,
@@ -1128,7 +1224,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           child: Text(
             label,
             style: TextStyle(
-              color: isActive ? context.colors.darkest : context.colors.textSecondary,
+              color: isActive
+                  ? context.colors.darkest
+                  : context.colors.textSecondary,
               fontSize: fontSize,
               fontWeight: FontWeight.bold,
             ),
@@ -1158,14 +1256,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: widget.isArmed ? context.colors.recordActive : context.colors.surface,
+            color: widget.isArmed
+                ? context.colors.recordActive
+                : context.colors.surface,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: Text(
             'R',
             style: TextStyle(
-              color: widget.isArmed ? context.colors.darkest : context.colors.textSecondary,
+              color: widget.isArmed
+                  ? context.colors.darkest
+                  : context.colors.textSecondary,
               fontSize: fontSize,
               fontWeight: FontWeight.bold,
             ),
@@ -1191,7 +1293,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     final availableForButtonAndSlider = widget.stripWidth - 12 - 56 - 12;
     const buttonWithTextWidth = 80.0;
     const minSliderWidth = 80.0;
-    final showText = (availableForButtonAndSlider - buttonWithTextWidth) >= minSliderWidth;
+    final showText =
+        (availableForButtonAndSlider - buttonWithTextWidth) >= minSliderWidth;
 
     return GestureDetector(
       onTap: widget.onAutomationToggle,
@@ -1274,8 +1377,22 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// Emoji grid for track icon picker
   static const List<String> _iconEmojis = [
-    '🎤', '🎸', '🎹', '🥁', '🎺', '🎷', '🎻', '🎧',
-    '🎵', '🎶', '🔊', '🎼', '🪗', '🪘', '🪕', '🎙️',
+    '🎤',
+    '🎸',
+    '🎹',
+    '🥁',
+    '🎺',
+    '🎷',
+    '🎻',
+    '🎧',
+    '🎵',
+    '🎶',
+    '🔊',
+    '🎼',
+    '🪗',
+    '🪘',
+    '🪕',
+    '🎙️',
   ];
 
   /// Show icon picker popup
@@ -1309,7 +1426,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: dialogContext.colors.hover, width: 0.5),
+                    border: Border.all(
+                      color: dialogContext.colors.hover,
+                      width: 0.5,
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1335,7 +1455,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                               final emoji = _iconEmojis[idx];
                               final isSelected = _getTrackEmoji() == emoji;
                               return Padding(
-                                padding: EdgeInsets.only(right: col < 7 ? 4 : 0),
+                                padding: EdgeInsets.only(
+                                  right: col < 7 ? 4 : 0,
+                                ),
                                 child: GestureDetector(
                                   onTap: () {
                                     widget.onIconChanged?.call(emoji);
@@ -1354,7 +1476,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                       ),
                                     ),
                                     alignment: Alignment.center,
-                                    child: Text(emoji, style: const TextStyle(fontSize: 16)),
+                                    child: Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
                                   ),
                                 ),
                               );
@@ -1379,10 +1504,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(8, (col) {
-                              final color = TrackColors.manualPalette[row * 8 + col];
+                              final color =
+                                  TrackColors.manualPalette[row * 8 + col];
                               final isSelected = widget.trackColor == color;
                               return Padding(
-                                padding: EdgeInsets.only(right: col < 7 ? 4 : 0),
+                                padding: EdgeInsets.only(
+                                  right: col < 7 ? 4 : 0,
+                                ),
                                 child: GestureDetector(
                                   onTap: () {
                                     widget.onColorChanged?.call(color);
@@ -1471,7 +1599,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
   double get _scaleFactor {
     const minHeight = MasterTrackMixerStrip.kMinHeight;
     const standardHeight = UIConstants.trackStandardHeight;
-    return ((widget.trackHeight - minHeight) / (standardHeight - minHeight)).clamp(0.0, 1.0);
+    return ((widget.trackHeight - minHeight) / (standardHeight - minHeight))
+        .clamp(0.0, 1.0);
   }
 
   /// Lerp helper for scaling values
@@ -1497,7 +1626,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
     final topPadding = _lerp(-1, 6, scale).clamp(0.0, 6.0);
     final bottomPadding = _lerp(2, 6, scale);
     const double horizontalPadding = 6.0;
-    final rowHeight = ((availableHeight - topPadding - bottomPadding) / 2).clamp(11.0, 28.0);
+    final rowHeight = ((availableHeight - topPadding - bottomPadding) / 2)
+        .clamp(11.0, 28.0);
 
     // Pan knob scales with height
     final panSize = _lerp(14, 22, scale);
@@ -1573,13 +1703,18 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                         SizedBox(
                           width: dbContainerWidth,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: context.colors.darkest,
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
-                              widget.volumeDb <= -60.0 ? '-∞ dB' : '${widget.volumeDb.toStringAsFixed(1)} dB',
+                              widget.volumeDb <= -60.0
+                                  ? '-∞ dB'
+                                  : '${widget.volumeDb.toStringAsFixed(1)} dB',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: context.colors.textSecondary,
@@ -1597,7 +1732,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                             rightLevel: widget.peakLevelRight,
                             volumeDb: widget.volumeDb,
                             onVolumeChanged: widget.onVolumeChanged,
-                            onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                            onDoubleTap: () =>
+                                widget.onVolumeChanged?.call(0.0),
                           ),
                         ),
                       ],
@@ -1635,9 +1771,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                 onVerticalDragEnd: (details) {
                   _isResizing = false;
                 },
-                child: Container(
-                  color: Colors.transparent,
-                ),
+                child: Container(color: Colors.transparent),
               ),
             ),
           ),

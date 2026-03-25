@@ -17,21 +17,15 @@ class VST3EditorService {
     return false; // Not supported on web
   }
 
-  static Future<bool> closeFloatingWindow({
-    required int effectId,
-  }) async {
+  static Future<bool> closeFloatingWindow({required int effectId}) async {
     return false; // Not supported on web
   }
 
-  static Future<bool> attachEditor({
-    required int effectId,
-  }) async {
+  static Future<bool> attachEditor({required int effectId}) async {
     return false; // Not supported on web
   }
 
-  static Future<bool> detachEditor({
-    required int effectId,
-  }) async {
+  static Future<bool> detachEditor({required int effectId}) async {
     return false; // Not supported on web
   }
 }

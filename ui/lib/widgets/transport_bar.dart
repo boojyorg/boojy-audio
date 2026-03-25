@@ -166,20 +166,30 @@ class _TransportBarState extends State<TransportBar> {
   @override
   void didUpdateWidget(TransportBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dividers.leftDividerNotifier != widget.dividers.leftDividerNotifier) {
-      oldWidget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
+    if (oldWidget.dividers.leftDividerNotifier !=
+        widget.dividers.leftDividerNotifier) {
+      oldWidget.dividers.leftDividerNotifier?.removeListener(
+        _onLeftNotifierChanged,
+      );
       widget.dividers.leftDividerNotifier?.addListener(_onLeftNotifierChanged);
     }
-    if (oldWidget.dividers.rightDividerNotifier != widget.dividers.rightDividerNotifier) {
-      oldWidget.dividers.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
-      widget.dividers.rightDividerNotifier?.addListener(_onRightNotifierChanged);
+    if (oldWidget.dividers.rightDividerNotifier !=
+        widget.dividers.rightDividerNotifier) {
+      oldWidget.dividers.rightDividerNotifier?.removeListener(
+        _onRightNotifierChanged,
+      );
+      widget.dividers.rightDividerNotifier?.addListener(
+        _onRightNotifierChanged,
+      );
     }
   }
 
   @override
   void dispose() {
     widget.dividers.leftDividerNotifier?.removeListener(_onLeftNotifierChanged);
-    widget.dividers.rightDividerNotifier?.removeListener(_onRightNotifierChanged);
+    widget.dividers.rightDividerNotifier?.removeListener(
+      _onRightNotifierChanged,
+    );
     super.dispose();
   }
 
@@ -211,9 +221,7 @@ class _TransportBarState extends State<TransportBar> {
           _buildSidebarHandle(colors),
 
           // === CENTRE GROUP (expanded) ===
-          Expanded(
-            child: _buildCentreGroup(colors),
-          ),
+          Expanded(child: _buildCentreGroup(colors)),
 
           // === RIGHT DIVIDER (aligned with mixer divider below) ===
           _buildMixerHandle(colors),
@@ -288,8 +296,10 @@ class _TransportBarState extends State<TransportBar> {
   }
 
   Widget _buildSidebarHandle(BoojyColors colors) {
-    final isActive = _sidebarHandleHovered || _sidebarHandleDragging
-        || (widget.dividers.leftDividerNotifier?.value ?? false);
+    final isActive =
+        _sidebarHandleHovered ||
+        _sidebarHandleDragging ||
+        (widget.dividers.leftDividerNotifier?.value ?? false);
 
     return _buildDividerHandle(
       colors: colors,
@@ -305,8 +315,10 @@ class _TransportBarState extends State<TransportBar> {
   }
 
   Widget _buildMixerHandle(BoojyColors colors) {
-    final isActive = _mixerHandleHovered || _mixerHandleDragging
-        || (widget.dividers.rightDividerNotifier?.value ?? false);
+    final isActive =
+        _mixerHandleHovered ||
+        _mixerHandleDragging ||
+        (widget.dividers.rightDividerNotifier?.value ?? false);
 
     return _buildDividerHandle(
       colors: colors,
@@ -339,8 +351,14 @@ class _TransportBarState extends State<TransportBar> {
 
           // Shrink priority: 1) spacer  2) audi clip  3) name truncate
           final flexSpace = available - fixedWidth;
-          final audiClipWidth = math.min(maxAudiClip, math.max(0.0, flexSpace - nameComfortWidth));
-          final spacerWidth = math.max(0.0, flexSpace - nameComfortWidth - audiClipWidth);
+          final audiClipWidth = math.min(
+            maxAudiClip,
+            math.max(0.0, flexSpace - nameComfortWidth),
+          );
+          final spacerWidth = math.max(
+            0.0,
+            flexSpace - nameComfortWidth - audiClipWidth,
+          );
 
           return Row(
             children: [
@@ -400,7 +418,9 @@ class _TransportBarState extends State<TransportBar> {
                 assetPath: 'assets/icons/sidebar_toggle.svg',
                 isActive: widget.libraryVisible,
                 onTap: widget.panels.onToggleLibrary,
-                tooltip: widget.libraryVisible ? 'Hide Library' : 'Show Library',
+                tooltip: widget.libraryVisible
+                    ? 'Hide Library'
+                    : 'Show Library',
               ),
             ],
           );
@@ -489,7 +509,9 @@ class _TransportBarState extends State<TransportBar> {
                   label: '→|',
                   isActive: widget.punchInEnabled,
                   onTap: widget.transport.onPunchInToggle,
-                  tooltip: widget.punchInEnabled ? 'Punch In On (I)' : 'Punch In Off (I)',
+                  tooltip: widget.punchInEnabled
+                      ? 'Punch In On (I)'
+                      : 'Punch In Off (I)',
                   mode: mode,
                 ),
 
@@ -502,7 +524,9 @@ class _TransportBarState extends State<TransportBar> {
                   isActive: widget.loopPlaybackEnabled,
                   mode: mode,
                   onTap: widget.transport.onLoopPlaybackToggle,
-                  tooltip: widget.loopPlaybackEnabled ? 'Loop Playback On (L)' : 'Loop Playback Off (L)',
+                  tooltip: widget.loopPlaybackEnabled
+                      ? 'Loop Playback On (L)'
+                      : 'Loop Playback Off (L)',
                   activeColor: colors.accent,
                 ),
 
@@ -513,7 +537,9 @@ class _TransportBarState extends State<TransportBar> {
                   label: '|→',
                   isActive: widget.punchOutEnabled,
                   onTap: widget.transport.onPunchOutToggle,
-                  tooltip: widget.punchOutEnabled ? 'Punch Out On (O)' : 'Punch Out Off (O)',
+                  tooltip: widget.punchOutEnabled
+                      ? 'Punch Out On (O)'
+                      : 'Punch Out Off (O)',
                   mode: mode,
                 ),
 
@@ -543,8 +569,13 @@ class _TransportBarState extends State<TransportBar> {
                 // Transport buttons - Play/Pause, Stop, Record
                 CircularToggleButton(
                   icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                  enabled: widget.canPlay || widget.isRecording || widget.isCountingIn,
-                  enabledColor: widget.isPlaying ? const Color(0xFFF97316) : const Color(0xFF22C55E),
+                  enabled:
+                      widget.canPlay ||
+                      widget.isRecording ||
+                      widget.isCountingIn,
+                  enabledColor: widget.isPlaying
+                      ? const Color(0xFFF97316)
+                      : const Color(0xFF22C55E),
                   onPressed: () {
                     if (widget.isRecording || widget.isCountingIn) {
                       widget.transport.onPauseRecording?.call();
@@ -563,7 +594,10 @@ class _TransportBarState extends State<TransportBar> {
 
                 CircularToggleButton(
                   icon: Icons.stop,
-                  enabled: widget.canPlay || widget.isRecording || widget.isCountingIn,
+                  enabled:
+                      widget.canPlay ||
+                      widget.isRecording ||
+                      widget.isCountingIn,
                   enabledColor: const Color(0xFFF97316),
                   onPressed: () {
                     if (widget.isRecording || widget.isCountingIn) {
@@ -586,7 +620,10 @@ class _TransportBarState extends State<TransportBar> {
                   countInBeat: widget.countInBeat,
                   countInProgress: widget.countInProgress,
                   beatsPerBar: widget.beatsPerBar,
-                  onPressed: (widget.hasArmedTracks || widget.isRecording || widget.isCountingIn)
+                  onPressed:
+                      (widget.hasArmedTracks ||
+                          widget.isRecording ||
+                          widget.isCountingIn)
                       ? widget.transport.onRecord
                       : null,
                   onCountInChanged: widget.onCountInChanged,
@@ -598,7 +635,10 @@ class _TransportBarState extends State<TransportBar> {
                 // Position display
                 if (showPosition)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.darkest,
                       borderRadius: BorderRadius.circular(4),
@@ -678,9 +718,7 @@ class _TransportBarState extends State<TransportBar> {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: widget.isEngineReady
-                    ? colors.success
-                    : colors.textMuted,
+                color: widget.isEngineReady ? colors.success : colors.textMuted,
                 shape: BoxShape.circle,
               ),
             ),
@@ -689,9 +727,7 @@ class _TransportBarState extends State<TransportBar> {
           const Spacer(),
 
           // Help button — far right
-          _HelpButton(
-            onTap: widget.panels.onHelpPressed,
-          ),
+          _HelpButton(onTap: widget.panels.onHelpPressed),
         ],
       ),
     );
@@ -746,15 +782,19 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
     return Tooltip(
       message: widget.tooltip,
       child: MouseRegion(
-        cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        cursor: widget.enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         onEnter: widget.enabled ? handleHoverEnter : null,
         onExit: widget.enabled ? handleHoverExit : null,
         child: GestureDetector(
           onTapDown: widget.enabled ? handleTapDown : null,
-          onTapUp: widget.enabled ? (details) {
-            handleTapUp(details);
-            widget.onTap?.call();
-          } : null,
+          onTapUp: widget.enabled
+              ? (details) {
+                  handleTapUp(details);
+                  widget.onTap?.call();
+                }
+              : null,
           onTapCancel: widget.enabled ? handleTapCancel : null,
           child: AnimatedScale(
             scale: widget.enabled ? scale : 1.0,
@@ -806,7 +846,8 @@ class _PanelToggleButton extends StatefulWidget {
   State<_PanelToggleButton> createState() => _PanelToggleButtonState();
 }
 
-class _PanelToggleButtonState extends State<_PanelToggleButton> with ButtonHoverMixin {
+class _PanelToggleButtonState extends State<_PanelToggleButton>
+    with ButtonHoverMixin {
   @override
   double get hoverScale => AnimationConstants.subtleHoverScale;
 
@@ -852,10 +893,7 @@ class _PanelToggleButtonState extends State<_PanelToggleButton> with ButtonHover
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Opacity(
-                opacity: iconOpacity,
-                child: svgIcon,
-              ),
+              child: Opacity(opacity: iconOpacity, child: svgIcon),
             ),
           ),
         ),
@@ -938,8 +976,7 @@ class _PunchButton extends StatefulWidget {
   State<_PunchButton> createState() => _PunchButtonState();
 }
 
-class _PunchButtonState extends State<_PunchButton>
-    with ButtonHoverMixin {
+class _PunchButtonState extends State<_PunchButton> with ButtonHoverMixin {
   @override
   double get hoverScale => AnimationConstants.subtleHoverScale;
 
@@ -952,9 +989,7 @@ class _PunchButtonState extends State<_PunchButton>
         ? activeColor
         : (isHovered ? colors.elevated : colors.dark);
 
-    final textColor = widget.isActive
-        ? colors.elevated
-        : colors.textPrimary;
+    final textColor = widget.isActive ? colors.elevated : colors.textPrimary;
 
     return Tooltip(
       message: widget.tooltip,

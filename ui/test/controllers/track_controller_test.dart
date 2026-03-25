@@ -146,11 +146,13 @@ void main() {
       );
     });
 
-    test('setAutomationHeight then getAutomationHeight returns stored value',
-        () {
-      controller.setAutomationHeight(1, 100.0);
-      expect(controller.getAutomationHeight(1), 100.0);
-    });
+    test(
+      'setAutomationHeight then getAutomationHeight returns stored value',
+      () {
+        controller.setAutomationHeight(1, 100.0);
+        expect(controller.getAutomationHeight(1), 100.0);
+      },
+    );
 
     test('setAutomationHeight clamps below minimum', () {
       controller.setAutomationHeight(1, 5.0);
@@ -375,10 +377,7 @@ void main() {
 
     test('trackOrder getter returns unmodifiable list', () {
       controller.syncTrackOrder([1, 2]);
-      expect(
-        () => controller.trackOrder.add(99),
-        throwsUnsupportedError,
-      );
+      expect(() => controller.trackOrder.add(99), throwsUnsupportedError);
     });
   });
 
@@ -471,11 +470,7 @@ void main() {
     test('removes instrument for deleted track', () {
       controller.setTrackInstrument(
         1,
-        InstrumentData(
-          trackId: 1,
-          type: 'synthesizer',
-          parameters: {},
-        ),
+        InstrumentData(trackId: 1, type: 'synthesizer', parameters: {}),
       );
       controller.onTrackDeleted(1);
       expect(controller.hasInstrument(1), isFalse);
@@ -502,8 +497,7 @@ void main() {
       expect(controller.selectedTrackIds, isEmpty);
     });
 
-    test(
-        'updates selectedTrackId to next available when primary is deleted '
+    test('updates selectedTrackId to next available when primary is deleted '
         'and others remain', () {
       controller.selectTrack(1);
       controller.selectTrack(2, isShiftHeld: true);
@@ -611,10 +605,7 @@ void main() {
       controller.setTrackInstrument(2, newInst);
 
       // Source should be unaffected
-      expect(
-        controller.getTrackInstrument(1)!.parameters['cutoff'],
-        0.5,
-      );
+      expect(controller.getTrackInstrument(1)!.parameters['cutoff'], 0.5);
     });
   });
 

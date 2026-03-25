@@ -16,7 +16,12 @@ enum MidiCCType {
   final int minValue;
   final int maxValue;
 
-  const MidiCCType(this.ccNumber, this.displayName, this.minValue, this.maxValue);
+  const MidiCCType(
+    this.ccNumber,
+    this.displayName,
+    this.minValue,
+    this.maxValue,
+  );
 
   /// Get center value (useful for pan, pitch bend)
   int get centerValue => (minValue + maxValue) ~/ 2;
@@ -76,8 +81,8 @@ class MidiCCLane {
     required this.ccType,
     List<MidiCCPoint>? points,
     this.isExpanded = true,
-  })  : id = id ?? const Uuid().v4(),
-        points = points ?? [];
+  }) : id = id ?? const Uuid().v4(),
+       points = points ?? [];
 
   /// Get sorted points by time
   List<MidiCCPoint> get sortedPoints {
@@ -130,7 +135,8 @@ class MidiCCLane {
   }
 
   /// Get selected points
-  List<MidiCCPoint> get selectedPoints => points.where((p) => p.isSelected).toList();
+  List<MidiCCPoint> get selectedPoints =>
+      points.where((p) => p.isSelected).toList();
 
   MidiCCLane copyWith({
     String? id,
@@ -151,11 +157,9 @@ class MidiCCLane {
     return {
       'id': id,
       'ccType': ccType.ccNumber,
-      'points': points.map((p) => {
-        'id': p.id,
-        'time': p.time,
-        'value': p.value,
-      }).toList(),
+      'points': points
+          .map((p) => {'id': p.id, 'time': p.time, 'value': p.value})
+          .toList(),
       'isExpanded': isExpanded,
     };
   }

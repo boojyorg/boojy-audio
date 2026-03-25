@@ -169,11 +169,7 @@ void main() {
 
       test('copies with specific changes', () {
         const original = ProjectMetadata(name: 'Original');
-        final copy = original.copyWith(
-          name: 'Updated',
-          bpm: 90.0,
-          key: 'Am',
-        );
+        final copy = original.copyWith(name: 'Updated', bpm: 90.0, key: 'Am');
 
         expect(copy.name, 'Updated');
         expect(copy.bpm, 90.0);
@@ -218,10 +214,7 @@ void main() {
 
     group('toString', () {
       test('returns readable string', () {
-        const metadata = ProjectMetadata(
-          name: 'Test Project',
-          bpm: 120.0,
-        );
+        const metadata = ProjectMetadata(name: 'Test Project', bpm: 120.0);
 
         final str = metadata.toString();
 

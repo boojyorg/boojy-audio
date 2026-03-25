@@ -33,7 +33,9 @@ class WindowTitleService {
   }
 
   /// Set whether there are unsaved changes (shows * indicator)
-  static Future<void> setUnsavedChanges({required bool hasUnsavedChanges}) async {
+  static Future<void> setUnsavedChanges({
+    required bool hasUnsavedChanges,
+  }) async {
     _hasUnsavedChanges = hasUnsavedChanges;
     await _updateTitle();
   }

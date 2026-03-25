@@ -38,9 +38,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFF404040)),
-                ),
+                border: Border(bottom: BorderSide(color: Color(0xFF404040))),
               ),
               child: Row(
                 children: [
@@ -147,9 +145,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Color(0xFF404040)),
-                ),
+                border: Border(top: BorderSide(color: Color(0xFF404040))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -196,17 +192,11 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          SizedBox(
-            width: 150,
-            child: _buildKeyCombo(shortcut.keys),
-          ),
+          SizedBox(width: 150, child: _buildKeyCombo(shortcut.keys)),
           Expanded(
             child: Text(
               shortcut.description,
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 13),
             ),
           ),
         ],

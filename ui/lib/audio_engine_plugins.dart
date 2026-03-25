@@ -299,7 +299,11 @@ mixin _PluginsMixin on _AudioEngineBase {
       final namePtr = paramName.toNativeUtf8();
       final valueStr = value.toString();
       final valuePtr = valueStr.toNativeUtf8();
-      final resultPtr = _setSynthParameter(trackId, namePtr.cast(), valuePtr.cast());
+      final resultPtr = _setSynthParameter(
+        trackId,
+        namePtr.cast(),
+        valuePtr.cast(),
+      );
       malloc.free(namePtr);
       malloc.free(valuePtr);
       final result = resultPtr.toDartString();
@@ -389,7 +393,11 @@ mixin _PluginsMixin on _AudioEngineBase {
     final paramPtr = param.toNativeUtf8();
     final valuePtr = value.toNativeUtf8();
     try {
-      final resultPtr = _setSamplerParameter(trackId, paramPtr.cast(), valuePtr.cast());
+      final resultPtr = _setSamplerParameter(
+        trackId,
+        paramPtr.cast(),
+        valuePtr.cast(),
+      );
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
       return result;
@@ -434,12 +442,23 @@ mixin _PluginsMixin on _AudioEngineBase {
     try {
       final result = _getSamplerInfo(
         trackId,
-        pDuration, pSampleRate, pLoopEnabled,
-        pLoopStart, pLoopEnd, pRootNote,
-        pAttackMs, pReleaseMs,
-        pVolumeDb, pTranspose, pFineCents,
-        pReversed, pOriginalBpm, pWarpEnabled,
-        pWarpMode, pBeatsPerBar, pBeatUnit,
+        pDuration,
+        pSampleRate,
+        pLoopEnabled,
+        pLoopStart,
+        pLoopEnd,
+        pRootNote,
+        pAttackMs,
+        pReleaseMs,
+        pVolumeDb,
+        pTranspose,
+        pFineCents,
+        pReversed,
+        pOriginalBpm,
+        pWarpEnabled,
+        pWarpMode,
+        pBeatsPerBar,
+        pBeatUnit,
       );
       if (result != 1) return null;
 
@@ -710,9 +729,21 @@ mixin _PluginsMixin on _AudioEngineBase {
   /// note: MIDI note number (0-127)
   /// velocity: MIDI velocity (0-127)
   /// Returns error message or empty string on success
-  String vst3SendMidiNote(int effectId, int eventType, int channel, int note, int velocity) {
+  String vst3SendMidiNote(
+    int effectId,
+    int eventType,
+    int channel,
+    int note,
+    int velocity,
+  ) {
     try {
-      final resultPtr = _vst3SendMidiNote(effectId, eventType, channel, note, velocity);
+      final resultPtr = _vst3SendMidiNote(
+        effectId,
+        eventType,
+        channel,
+        note,
+        velocity,
+      );
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
       return result;
@@ -851,7 +882,10 @@ mixin _PluginsMixin on _AudioEngineBase {
       if (jsonString.startsWith('[') && jsonString.endsWith(']')) {
         final content = jsonString.substring(1, jsonString.length - 1);
         if (content.isEmpty) return List.filled(resolution, 0.0);
-        return content.split(',').map((s) => double.tryParse(s.trim()) ?? 0.0).toList();
+        return content
+            .split(',')
+            .map((s) => double.tryParse(s.trim()) ?? 0.0)
+            .toList();
       }
       return List.filled(resolution, 0.0);
     } catch (e) {

@@ -11,7 +11,8 @@ class ThemeProvider extends ChangeNotifier {
   BoojyTheme get currentTheme => _currentTheme;
 
   /// Get the color palette for the current theme (with overrides applied)
-  BoojyColors get colors => BoojyColors(_currentTheme, overrides: _colorOverrides);
+  BoojyColors get colors =>
+      BoojyColors(_currentTheme, overrides: _colorOverrides);
 
   /// Current color overrides (read-only view)
   Map<String, Color> get colorOverrides => Map.unmodifiable(_colorOverrides);

@@ -39,12 +39,14 @@ class MidiCaptureBuffer extends ChangeNotifier {
     final now = DateTime.now();
     final beatsFromStart = _calculateBeatsFromStart(now);
 
-    addEvent(MidiEvent.noteOn(
-      note: note,
-      velocity: velocity,
-      timestamp: now,
-      beatsFromStart: beatsFromStart,
-    ));
+    addEvent(
+      MidiEvent.noteOn(
+        note: note,
+        velocity: velocity,
+        timestamp: now,
+        beatsFromStart: beatsFromStart,
+      ),
+    );
   }
 
   /// Add a note-off event
@@ -52,11 +54,13 @@ class MidiCaptureBuffer extends ChangeNotifier {
     final now = DateTime.now();
     final beatsFromStart = _calculateBeatsFromStart(now);
 
-    addEvent(MidiEvent.noteOff(
-      note: note,
-      timestamp: now,
-      beatsFromStart: beatsFromStart,
-    ));
+    addEvent(
+      MidiEvent.noteOff(
+        note: note,
+        timestamp: now,
+        beatsFromStart: beatsFromStart,
+      ),
+    );
   }
 
   /// Get recent events from the last N seconds

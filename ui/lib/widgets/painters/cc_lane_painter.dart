@@ -47,12 +47,21 @@ class CCLanePainter extends CustomPainter {
 
     if (points.isEmpty) {
       // Draw default value line
-      final centerY = _valueToY(ccType.centerValue, minValue, range, laneHeight);
+      final centerY = _valueToY(
+        ccType.centerValue,
+        minValue,
+        range,
+        laneHeight,
+      );
       final linePaint = Paint()
         ..color = lineColor.withValues(alpha: 0.5)
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
-      canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), linePaint);
+      canvas.drawLine(
+        Offset(0, centerY),
+        Offset(size.width, centerY),
+        linePaint,
+      );
       return;
     }
 
@@ -156,7 +165,11 @@ class CCLanePainter extends CustomPainter {
       ..color = centerLineColor
       ..strokeWidth = 1.0;
 
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
   }
 
   double _valueToY(int value, int minValue, int range, double height) {

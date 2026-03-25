@@ -40,11 +40,7 @@ void main() {
     });
 
     test('creates point with custom id', () {
-      final point = MidiCCPoint(
-        id: 'custom_id',
-        time: 1.0,
-        value: 64,
-      );
+      final point = MidiCCPoint(id: 'custom_id', time: 1.0, value: 64);
 
       expect(point.id, 'custom_id');
     });
@@ -74,11 +70,7 @@ void main() {
 
       test('copies with specific changes', () {
         final point = MidiCCPoint(time: 1.0, value: 64);
-        final copy = point.copyWith(
-          time: 2.0,
-          value: 100,
-          isSelected: true,
-        );
+        final copy = point.copyWith(time: 2.0, value: 100, isSelected: true);
 
         expect(copy.time, 2.0);
         expect(copy.value, 100);
@@ -229,10 +221,7 @@ void main() {
     group('removePoint', () {
       test('removes point by id', () {
         final point = MidiCCPoint(id: 'to_remove', time: 1.0, value: 64);
-        final lane = MidiCCLane(
-          ccType: MidiCCType.modWheel,
-          points: [point],
-        );
+        final lane = MidiCCLane(ccType: MidiCCType.modWheel, points: [point]);
 
         final updated = lane.removePoint('to_remove');
 
@@ -241,10 +230,7 @@ void main() {
 
       test('does nothing if point not found', () {
         final point = MidiCCPoint(id: 'existing', time: 1.0, value: 64);
-        final lane = MidiCCLane(
-          ccType: MidiCCType.modWheel,
-          points: [point],
-        );
+        final lane = MidiCCLane(ccType: MidiCCType.modWheel, points: [point]);
 
         final updated = lane.removePoint('non_existent');
 
@@ -255,10 +241,7 @@ void main() {
     group('updatePoint', () {
       test('updates existing point', () {
         final point = MidiCCPoint(id: 'point_id', time: 1.0, value: 64);
-        final lane = MidiCCLane(
-          ccType: MidiCCType.modWheel,
-          points: [point],
-        );
+        final lane = MidiCCLane(ccType: MidiCCType.modWheel, points: [point]);
         final newPoint = point.copyWith(value: 100);
 
         final updated = lane.updatePoint('point_id', newPoint);
@@ -284,10 +267,7 @@ void main() {
 
     group('copyWith', () {
       test('copies with specific changes', () {
-        final lane = MidiCCLane(
-          ccType: MidiCCType.modWheel,
-          isExpanded: true,
-        );
+        final lane = MidiCCLane(ccType: MidiCCType.modWheel, isExpanded: true);
 
         final copy = lane.copyWith(isExpanded: false);
 
@@ -301,9 +281,7 @@ void main() {
         final lane = MidiCCLane(
           id: 'lane_id',
           ccType: MidiCCType.volume,
-          points: [
-            MidiCCPoint(id: 'point1', time: 0.0, value: 64),
-          ],
+          points: [MidiCCPoint(id: 'point1', time: 0.0, value: 64)],
           isExpanded: false,
         );
 
@@ -347,9 +325,7 @@ void main() {
       });
 
       test('fromJson handles null points', () {
-        final json = {
-          'ccType': 1,
-        };
+        final json = {'ccType': 1};
 
         final lane = MidiCCLane.fromJson(json);
 

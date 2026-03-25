@@ -334,7 +334,10 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
   void _handleLoopEndDrag(DragUpdateDetails details) {
     final beat = _beatAtX(details.localPosition.dx);
     // Clamp to valid range (loopStart + 1 beat to totalBeats)
-    final newEnd = beat.clamp(widget.config.loopStart + 1.0, widget.config.totalBeats);
+    final newEnd = beat.clamp(
+      widget.config.loopStart + 1.0,
+      widget.config.totalBeats,
+    );
     // Snap to grid (quarter beats)
     final snappedEnd = (newEnd * 4).round() / 4;
     widget.callbacks.onLoopRegionChanged?.call(

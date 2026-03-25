@@ -7,11 +7,7 @@ class MidiFileDecodeResult {
   final double? tempo; // BPM extracted from file (informational only)
   final String? trackName;
 
-  MidiFileDecodeResult({
-    required this.notes,
-    this.tempo,
-    this.trackName,
-  });
+  MidiFileDecodeResult({required this.notes, this.tempo, this.trackName});
 }
 
 /// Pure Dart Standard MIDI File (SMF) encoder/decoder.
@@ -69,18 +65,22 @@ class MidiFileService {
     for (final note in notes) {
       final startTick = (note.startTime * _ppq).round();
       final endTick = ((note.startTime + note.duration) * _ppq).round();
-      midiEvents.add(_MidiEvent(
-        tick: startTick,
-        status: 0x90, // NoteOn, channel 0
-        data1: note.note.clamp(0, 127),
-        data2: note.velocity.clamp(1, 127),
-      ));
-      midiEvents.add(_MidiEvent(
-        tick: endTick,
-        status: 0x80, // NoteOff, channel 0
-        data1: note.note.clamp(0, 127),
-        data2: 0,
-      ));
+      midiEvents.add(
+        _MidiEvent(
+          tick: startTick,
+          status: 0x90, // NoteOn, channel 0
+          data1: note.note.clamp(0, 127),
+          data2: note.velocity.clamp(1, 127),
+        ),
+      );
+      midiEvents.add(
+        _MidiEvent(
+          tick: endTick,
+          status: 0x80, // NoteOff, channel 0
+          data1: note.note.clamp(0, 127),
+          data2: 0,
+        ),
+      );
     }
 
     // Sort by tick, NoteOff before NoteOn at same tick
@@ -254,12 +254,14 @@ class MidiFileService {
             final startBeat = active.tick / ppq;
             final endBeat = absoluteTick / ppq;
             final duration = (endBeat - startBeat).clamp(0.01, double.infinity);
-            completedNotes.add(MidiNoteData(
-              note: note,
-              velocity: active.velocity,
-              startTime: startBeat,
-              duration: duration,
-            ));
+            completedNotes.add(
+              MidiNoteData(
+                note: note,
+                velocity: active.velocity,
+                startTime: startBeat,
+                duration: duration,
+              ),
+            );
           }
         } else if (msgType == 0x90) {
           // NoteOn
@@ -272,14 +274,18 @@ class MidiFileService {
             if (active != null) {
               final startBeat = active.tick / ppq;
               final endBeat = absoluteTick / ppq;
-              final duration =
-                  (endBeat - startBeat).clamp(0.01, double.infinity);
-              completedNotes.add(MidiNoteData(
-                note: note,
-                velocity: active.velocity,
-                startTime: startBeat,
-                duration: duration,
-              ));
+              final duration = (endBeat - startBeat).clamp(
+                0.01,
+                double.infinity,
+              );
+              completedNotes.add(
+                MidiNoteData(
+                  note: note,
+                  velocity: active.velocity,
+                  startTime: startBeat,
+                  duration: duration,
+                ),
+              );
             }
           } else {
             // Close any existing note on same key (handle overlapping)
@@ -287,17 +293,23 @@ class MidiFileService {
             if (existing != null) {
               final startBeat = existing.tick / ppq;
               final endBeat = absoluteTick / ppq;
-              final duration =
-                  (endBeat - startBeat).clamp(0.01, double.infinity);
-              completedNotes.add(MidiNoteData(
-                note: note,
-                velocity: existing.velocity,
-                startTime: startBeat,
-                duration: duration,
-              ));
+              final duration = (endBeat - startBeat).clamp(
+                0.01,
+                double.infinity,
+              );
+              completedNotes.add(
+                MidiNoteData(
+                  note: note,
+                  velocity: existing.velocity,
+                  startTime: startBeat,
+                  duration: duration,
+                ),
+              );
             }
-            activeNotes[key] =
-                _ActiveNote(tick: absoluteTick, velocity: velocity);
+            activeNotes[key] = _ActiveNote(
+              tick: absoluteTick,
+              velocity: velocity,
+            );
           }
         } else if (msgType == 0xA0) {
           // Polyphonic aftertouch — skip 2 data bytes
@@ -324,7 +336,8 @@ class MidiFileService {
 
         if (type == 0x51 && len == 3) {
           // Tempo
-          final usPerBeat = (data[pos] << 16) | (data[pos + 1] << 8) | data[pos + 2];
+          final usPerBeat =
+              (data[pos] << 16) | (data[pos + 1] << 8) | data[pos + 2];
           tempo = 60000000.0 / usPerBeat;
         } else if (type == 0x03 && len > 0) {
           // Track name
@@ -353,12 +366,14 @@ class MidiFileService {
       final startBeat = active.tick / ppq;
       final endBeat = absoluteTick / ppq;
       final duration = (endBeat - startBeat).clamp(0.01, double.infinity);
-      completedNotes.add(MidiNoteData(
-        note: note,
-        velocity: active.velocity,
-        startTime: startBeat,
-        duration: duration,
-      ));
+      completedNotes.add(
+        MidiNoteData(
+          note: note,
+          velocity: active.velocity,
+          startTime: startBeat,
+          duration: duration,
+        ),
+      );
     }
 
     return _TrackDecodeResult(
@@ -409,14 +424,14 @@ class MidiFileService {
   }
 
   static Uint8List _uint16(int value) {
-    return Uint8List.fromList([
-      (value >> 8) & 0xFF,
-      value & 0xFF,
-    ]);
+    return Uint8List.fromList([(value >> 8) & 0xFF, value & 0xFF]);
   }
 
   static int _readUint32(Uint8List data, int pos) {
-    return (data[pos] << 24) | (data[pos + 1] << 16) | (data[pos + 2] << 8) | data[pos + 3];
+    return (data[pos] << 24) |
+        (data[pos + 1] << 16) |
+        (data[pos + 2] << 8) |
+        data[pos + 3];
   }
 
   static int _readUint16(Uint8List data, int pos) {
@@ -459,9 +474,5 @@ class _TrackDecodeResult {
   final double? tempo;
   final String? trackName;
 
-  _TrackDecodeResult({
-    required this.notes,
-    this.tempo,
-    this.trackName,
-  });
+  _TrackDecodeResult({required this.notes, this.tempo, this.trackName});
 }

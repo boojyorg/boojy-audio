@@ -57,9 +57,7 @@ mixin _RecordingMixin on _AudioEngineBase {
         return [];
       }
 
-      return csv.split(',')
-          .map((s) => double.tryParse(s) ?? 0.0)
-          .toList();
+      return csv.split(',').map((s) => double.tryParse(s) ?? 0.0).toList();
     } catch (e) {
       return [];
     }
@@ -255,9 +253,21 @@ mixin _RecordingMixin on _AudioEngineBase {
 
   /// Add a MIDI note to a clip
   /// Returns success message or error
-  String addMidiNoteToClip(int clipId, int note, int velocity, double startTime, double duration) {
+  String addMidiNoteToClip(
+    int clipId,
+    int note,
+    int velocity,
+    double startTime,
+    double duration,
+  ) {
     try {
-      final resultPtr = _addMidiNoteToClip(clipId, note, velocity, startTime, duration);
+      final resultPtr = _addMidiNoteToClip(
+        clipId,
+        note,
+        velocity,
+        startTime,
+        duration,
+      );
       final result = resultPtr.toDartString();
       _freeRustString(resultPtr);
       return result;

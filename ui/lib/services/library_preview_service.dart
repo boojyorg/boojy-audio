@@ -203,7 +203,9 @@ class LibraryPreviewService extends ChangeNotifier {
             // Start playback immediately — fetch waveform after
             _audioEngine.previewPlay();
             _isPlaying = true;
-            print('[PREVIEW-DART] Play started at +${DateTime.now().difference(_loadStartTime!).inMilliseconds}ms');
+            print(
+              '[PREVIEW-DART] Play started at +${DateTime.now().difference(_loadStartTime!).inMilliseconds}ms',
+            );
             // Fetch waveform in next microtask so play isn't delayed
             Future.microtask(() {
               _waveformPeaks = _audioEngine.previewGetWaveform(200);

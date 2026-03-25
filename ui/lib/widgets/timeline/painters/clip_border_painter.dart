@@ -22,7 +22,12 @@ class ClipBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
+    final path = buildClipPath(
+      size,
+      cornerRadius,
+      notchRadius,
+      loopBoundaryXPositions,
+    );
 
     final paint = Paint()
       ..color = borderColor
@@ -50,7 +55,12 @@ class ClipBorderPainter extends CustomPainter {
 
   /// Builds a clip path with rounded corners and notches at loop boundaries.
   /// This is a static method so it can be used by both the painter and the clipper.
-  static Path buildClipPath(Size size, double cornerRadius, double notchRadius, List<double> loopBoundaryXPositions) {
+  static Path buildClipPath(
+    Size size,
+    double cornerRadius,
+    double notchRadius,
+    List<double> loopBoundaryXPositions,
+  ) {
     final path = Path();
     final r = cornerRadius;
     final nr = notchRadius;
@@ -124,11 +134,7 @@ class ClipBorderPainter extends CustomPainter {
     path.lineTo(0, r);
 
     // Top-left corner
-    path.arcToPoint(
-      Offset(r, 0),
-      radius: Radius.circular(r),
-      clockwise: true,
-    );
+    path.arcToPoint(Offset(r, 0), radius: Radius.circular(r), clockwise: true);
 
     path.close();
     return path;
@@ -203,13 +209,21 @@ class ClipPathClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    return ClipBorderPainter.buildClipPath(size, cornerRadius, notchRadius, loopBoundaryXPositions);
+    return ClipBorderPainter.buildClipPath(
+      size,
+      cornerRadius,
+      notchRadius,
+      loopBoundaryXPositions,
+    );
   }
 
   @override
   bool shouldReclip(ClipPathClipper oldClipper) {
     return cornerRadius != oldClipper.cornerRadius ||
         notchRadius != oldClipper.notchRadius ||
-        !ClipBorderPainter.listEquals(loopBoundaryXPositions, oldClipper.loopBoundaryXPositions);
+        !ClipBorderPainter.listEquals(
+          loopBoundaryXPositions,
+          oldClipper.loopBoundaryXPositions,
+        );
   }
 }

@@ -89,7 +89,9 @@ class ClipAutomationPainter extends CustomPainter {
       final x = beat * pixelsPerBeat;
       final isBarLine = (beat % beatsPerBar).abs() < 0.001;
       gridPaint.strokeWidth = isBarLine ? 1.0 : 0.5;
-      gridPaint.color = isBarLine ? gridLineColor : gridLineColor.withValues(alpha: 0.5);
+      gridPaint.color = isBarLine
+          ? gridLineColor
+          : gridLineColor.withValues(alpha: 0.5);
       canvas.drawLine(Offset(x, 0), Offset(x, laneHeight), gridPaint);
     }
   }
@@ -121,7 +123,15 @@ class ClipAutomationPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Draw first iteration (editable)
-    _drawCurveIteration(canvas, sorted, 0, loopLengthBeats, linePaint, fillPaint, false);
+    _drawCurveIteration(
+      canvas,
+      sorted,
+      0,
+      loopLengthBeats,
+      linePaint,
+      fillPaint,
+      false,
+    );
 
     // Draw ghost iterations if looping
     if (canRepeat && clipDurationBeats > loopLengthBeats) {
@@ -135,7 +145,15 @@ class ClipAutomationPainter extends CustomPainter {
 
       double offset = loopLengthBeats;
       while (offset < clipDurationBeats) {
-        _drawCurveIteration(canvas, sorted, offset, loopLengthBeats, ghostLinePaint, ghostFillPaint, true);
+        _drawCurveIteration(
+          canvas,
+          sorted,
+          offset,
+          loopLengthBeats,
+          ghostLinePaint,
+          ghostFillPaint,
+          true,
+        );
         offset += loopLengthBeats;
       }
     }
@@ -175,7 +193,9 @@ class ClipAutomationPainter extends CustomPainter {
     }
 
     // Extend to end of iteration, holding last point's value
-    final endX = (offsetBeats + lengthBeats).clamp(0.0, clipDurationBeats) * pixelsPerBeat;
+    final endX =
+        (offsetBeats + lengthBeats).clamp(0.0, clipDurationBeats) *
+        pixelsPerBeat;
     final endY = _valueToY(points.last.value);
     path.lineTo(endX, endY);
     fillPath.lineTo(endX, endY);
@@ -245,7 +265,8 @@ class ClipAutomationPainter extends CustomPainter {
 
   double _valueToY(double value) {
     final param = lane.parameter;
-    final normalized = (value - param.minValue) / (param.maxValue - param.minValue);
+    final normalized =
+        (value - param.minValue) / (param.maxValue - param.minValue);
     return laneHeight * (1 - normalized);
   }
 

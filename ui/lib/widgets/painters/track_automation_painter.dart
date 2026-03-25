@@ -53,7 +53,12 @@ class TrackAutomationPainter extends CustomPainter {
 
     if (points.isEmpty) {
       // Draw default value line (dotted)
-      final defaultY = _valueToY(param.defaultValue, minValue, range, laneHeight);
+      final defaultY = _valueToY(
+        param.defaultValue,
+        minValue,
+        range,
+        laneHeight,
+      );
       _drawDottedLine(canvas, size, defaultY, lineColor.withValues(alpha: 0.5));
       return;
     }
@@ -220,7 +225,12 @@ class TrackAutomationPainter extends CustomPainter {
     }
   }
 
-  void _drawCenterLine(Canvas canvas, Size size, double minValue, double range) {
+  void _drawCenterLine(
+    Canvas canvas,
+    Size size,
+    double minValue,
+    double range,
+  ) {
     final centerValue = (minValue + lane.parameter.maxValue) / 2;
     final centerY = _valueToY(centerValue, minValue, range, laneHeight);
 
@@ -228,7 +238,11 @@ class TrackAutomationPainter extends CustomPainter {
       ..color = centerLineColor
       ..strokeWidth = 1.0;
 
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
   }
 
   void _drawDottedLine(Canvas canvas, Size size, double y, Color color) {
@@ -259,7 +273,11 @@ class TrackAutomationPainter extends CustomPainter {
 
   /// Convert Y position to value
   static double yToValue(
-      double y, double laneHeight, double minValue, double maxValue) {
+    double y,
+    double laneHeight,
+    double minValue,
+    double maxValue,
+  ) {
     final range = maxValue - minValue;
     final normalized = 1 - (y / laneHeight);
     return minValue + (normalized * range);

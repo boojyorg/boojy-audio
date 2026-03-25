@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Version type for categorizing project versions
 enum VersionType {
-  demo('Demo', 'D', Color(0xFF3B82F6)),    // Blue
-  mix('Mix', 'M', Color(0xFF8B5CF6)),      // Purple
+  demo('Demo', 'D', Color(0xFF3B82F6)), // Blue
+  mix('Mix', 'M', Color(0xFF8B5CF6)), // Purple
   master('Master', 'Ma', Color(0xFFF59E0B)); // Gold
 
   final String displayName;

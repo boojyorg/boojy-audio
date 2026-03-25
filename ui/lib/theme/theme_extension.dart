@@ -7,14 +7,17 @@ import 'theme_provider.dart';
 /// Usage: context.colors.accent, context.colors.textPrimary, etc.
 extension ThemeContextExtension on BuildContext {
   /// Get the current color palette from the ThemeProvider
-  BoojyColors get colors => Provider.of<ThemeProvider>(this, listen: true).colors;
+  BoojyColors get colors =>
+      Provider.of<ThemeProvider>(this, listen: true).colors;
 
   /// Get the ThemeProvider for theme switching
-  ThemeProvider get themeProvider => Provider.of<ThemeProvider>(this, listen: false);
+  ThemeProvider get themeProvider =>
+      Provider.of<ThemeProvider>(this, listen: false);
 
   /// Check if the current theme is dark
   bool get isDarkTheme => Provider.of<ThemeProvider>(this, listen: true).isDark;
 
   /// Check if the current theme is light
-  bool get isLightTheme => Provider.of<ThemeProvider>(this, listen: true).isLight;
+  bool get isLightTheme =>
+      Provider.of<ThemeProvider>(this, listen: true).isLight;
 }

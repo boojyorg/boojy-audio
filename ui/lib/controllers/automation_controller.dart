@@ -5,7 +5,8 @@ import '../models/track_automation_data.dart';
 /// Implements one-track-at-a-time visibility for automation lanes.
 class AutomationController extends ChangeNotifier {
   // Automation data per track: Map<trackId, Map<parameter, lane>>
-  final Map<int, Map<AutomationParameter, TrackAutomationLane>> _trackAutomation = {};
+  final Map<int, Map<AutomationParameter, TrackAutomationLane>>
+  _trackAutomation = {};
 
   // Visibility state (one track at a time)
   int? _visibleTrackId;
@@ -86,7 +87,10 @@ class AutomationController extends ChangeNotifier {
   void _ensureLanesExist(int trackId) {
     _trackAutomation[trackId] ??= {};
     for (final param in AutomationParameter.values) {
-      _trackAutomation[trackId]![param] ??= TrackAutomationLane.empty(trackId, param);
+      _trackAutomation[trackId]![param] ??= TrackAutomationLane.empty(
+        trackId,
+        param,
+      );
     }
   }
 
@@ -97,8 +101,8 @@ class AutomationController extends ChangeNotifier {
   /// Add a point to a lane
   void addPoint(int trackId, AutomationParameter param, AutomationPoint point) {
     _ensureLanesExist(trackId);
-    _trackAutomation[trackId]![param] =
-        _trackAutomation[trackId]![param]!.addPoint(point);
+    _trackAutomation[trackId]![param] = _trackAutomation[trackId]![param]!
+        .addPoint(point);
     notifyListeners();
   }
 
@@ -166,10 +170,9 @@ class AutomationController extends ChangeNotifier {
       final param = entry.key;
       final lane = entry.value;
       // Create a new lane with copied points (new IDs generated)
-      final newPoints = lane.points.map((p) => AutomationPoint(
-            time: p.time,
-            value: p.value,
-          )).toList();
+      final newPoints = lane.points
+          .map((p) => AutomationPoint(time: p.time, value: p.value))
+          .toList();
       _trackAutomation[newTrackId]![param] = TrackAutomationLane(
         trackId: newTrackId,
         parameter: param,
@@ -202,9 +205,7 @@ class AutomationController extends ChangeNotifier {
         automation[trackId.toString()] = trackJson;
       }
     }
-    return {
-      'automation': automation,
-    };
+    return {'automation': automation};
   }
 
   /// Load from JSON
@@ -235,7 +236,9 @@ class AutomationController extends ChangeNotifier {
           orElse: () => AutomationParameter.volume,
         );
 
-        _trackAutomation[trackId]![param] = TrackAutomationLane.fromJson(laneJson);
+        _trackAutomation[trackId]![param] = TrackAutomationLane.fromJson(
+          laneJson,
+        );
       }
     }
 

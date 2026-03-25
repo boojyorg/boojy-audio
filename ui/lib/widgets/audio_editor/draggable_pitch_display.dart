@@ -174,7 +174,10 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
 
     switch (segment) {
       case 0: // Semitones
-        final newValue = (widget.semitones + direction).clamp(minSemitones, maxSemitones);
+        final newValue = (widget.semitones + direction).clamp(
+          minSemitones,
+          maxSemitones,
+        );
         widget.onSemitonesChanged?.call(newValue);
         break;
       case 1: // Cents
@@ -189,16 +192,21 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
     if (segment == 0) {
       _semitonesDragAccumulator += deltaY;
       if (_semitonesDragAccumulator.abs() >= pixelsPerIncrement) {
-        final increments = (_semitonesDragAccumulator / pixelsPerIncrement).truncate();
+        final increments = (_semitonesDragAccumulator / pixelsPerIncrement)
+            .truncate();
         _semitonesDragAccumulator -= increments * pixelsPerIncrement;
         final direction = -increments; // Drag up = increase
-        final newValue = (widget.semitones + direction).clamp(minSemitones, maxSemitones);
+        final newValue = (widget.semitones + direction).clamp(
+          minSemitones,
+          maxSemitones,
+        );
         widget.onSemitonesChanged?.call(newValue);
       }
     } else {
       _centsDragAccumulator += deltaY;
       if (_centsDragAccumulator.abs() >= pixelsPerIncrement) {
-        final increments = (_centsDragAccumulator / pixelsPerIncrement).truncate();
+        final increments = (_centsDragAccumulator / pixelsPerIncrement)
+            .truncate();
         _centsDragAccumulator -= increments * pixelsPerIncrement;
         final direction = -increments; // Drag up = increase
         _applyPitchWithOverflow(widget.semitones, widget.cents + direction);
@@ -235,7 +243,12 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
     );
   }
 
-  Widget _buildSegment(int segment, String value, String suffix, BoojyColors colors) {
+  Widget _buildSegment(
+    int segment,
+    String value,
+    String suffix,
+    BoojyColors colors,
+  ) {
     final isEditing = _isEditing && _editingSegment == segment;
 
     if (isEditing) {

@@ -129,7 +129,8 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
   // Seconds <-> Beats conversion
   // ============================================================================
 
-  double _secondsToBeats(double seconds) => seconds * (widget.originalBpm / 60.0);
+  double _secondsToBeats(double seconds) =>
+      seconds * (widget.originalBpm / 60.0);
   double _beatsToSeconds(double beats) => beats * (60.0 / widget.originalBpm);
 
   // ============================================================================
@@ -172,9 +173,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: colors.standard,
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
@@ -219,7 +218,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
     final colors = context.colors;
 
     return Tooltip(
-      message: widget.loopEnabled ? 'Loop On (1-shot off)' : 'Loop Off (1-shot mode)',
+      message: widget.loopEnabled
+          ? 'Loop On (1-shot off)'
+          : 'Loop Off (1-shot mode)',
       child: GestureDetector(
         onTap: widget.onLoopToggle,
         child: MouseRegion(
@@ -236,14 +237,18 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                 Icon(
                   Icons.loop,
                   size: 13,
-                  color: widget.loopEnabled ? colors.elevated : colors.textPrimary,
+                  color: widget.loopEnabled
+                      ? colors.elevated
+                      : colors.textPrimary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Loop',
                   style: TextStyle(
                     fontSize: 10,
-                    color: widget.loopEnabled ? colors.elevated : colors.textPrimary,
+                    color: widget.loopEnabled
+                        ? colors.elevated
+                        : colors.textPrimary,
                   ),
                 ),
               ],
@@ -373,7 +378,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
   Widget _buildClipGroup(BuildContext context) {
     final colors = context.colors;
     final startBeats = _secondsToBeats(widget.loopStartSeconds);
-    final lengthBeats = _secondsToBeats(widget.loopEndSeconds - widget.loopStartSeconds);
+    final lengthBeats = _secondsToBeats(
+      widget.loopEndSeconds - widget.loopStartSeconds,
+    );
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -415,7 +422,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             label: '',
             onChanged: (beats) {
               final lengthSeconds = _beatsToSeconds(beats);
-              widget.onLoopEndChanged?.call(widget.loopStartSeconds + lengthSeconds);
+              widget.onLoopEndChanged?.call(
+                widget.loopStartSeconds + lengthSeconds,
+              );
             },
             beatsPerBar: widget.beatsPerBar,
             isPosition: false,
@@ -458,11 +467,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                 ),
               ),
               const SizedBox(width: 2),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 14,
-                color: colors.textMuted,
-              ),
+              Icon(Icons.arrow_drop_down, size: 14, color: colors.textMuted),
             ],
           ),
         ),
@@ -475,19 +480,19 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
-    final signatures = [
-      (2, 4), (3, 4), (4, 4), (5, 4), (6, 8), (7, 8),
-    ];
+    final signatures = [(2, 4), (3, 4), (4, 4), (5, 4), (6, 8), (7, 8)];
 
     showMenu<(int, int)>(
       context: context,
       position: RelativeRect.fromLTRB(
         renderBox.localToGlobal(Offset.zero).dx,
         renderBox.localToGlobal(Offset.zero).dy + renderBox.size.height,
-        0, 0,
+        0,
+        0,
       ),
       items: signatures.map((sig) {
-        final isSelected = sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
+        final isSelected =
+            sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
         return PopupMenuItem<(int, int)>(
           value: sig,
           child: Row(
@@ -553,7 +558,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                   onTap: widget.onWarpToggle,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpLabel
                           ? colors.textPrimary.withValues(alpha: 0.1)
@@ -592,7 +600,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                   onTap: () => _showWarpModeMenu(context),
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpDropdown
                           ? colors.textPrimary.withValues(alpha: 0.1)
@@ -623,21 +634,37 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
         const SizedBox(width: 4),
         // ÷2 button
         _buildActionButton(context, '÷2', false, isEnabled, () {
-          widget.onOriginalBpmChanged?.call((widget.originalBpm / 2).clamp(20, 999));
+          widget.onOriginalBpmChanged?.call(
+            (widget.originalBpm / 2).clamp(20, 999),
+          );
         }),
         const SizedBox(width: 2),
         // ×2 button
         _buildActionButton(context, '×2', false, isEnabled, () {
-          widget.onOriginalBpmChanged?.call((widget.originalBpm * 2).clamp(20, 999));
+          widget.onOriginalBpmChanged?.call(
+            (widget.originalBpm * 2).clamp(20, 999),
+          );
         }),
         const SizedBox(width: 4),
         // Reverse toggle
-        _buildActionButton(context, 'Reverse', widget.reversed, true, widget.onReverseToggle),
+        _buildActionButton(
+          context,
+          'Reverse',
+          widget.reversed,
+          true,
+          widget.onReverseToggle,
+        ),
       ],
     );
   }
 
-  Widget _buildActionButton(BuildContext context, String label, bool isActive, bool enabled, VoidCallback? onTap) {
+  Widget _buildActionButton(
+    BuildContext context,
+    String label,
+    bool isActive,
+    bool enabled,
+    VoidCallback? onTap,
+  ) {
     final colors = context.colors;
 
     return Tooltip(
@@ -645,7 +672,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+          cursor: enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.forbidden,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
             decoration: BoxDecoration(
@@ -658,7 +687,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                 fontSize: 10,
                 color: isActive
                     ? colors.elevated
-                    : (enabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5)),
+                    : (enabled
+                          ? colors.textPrimary
+                          : colors.textMuted.withValues(alpha: 0.5)),
               ),
             ),
           ),
@@ -770,18 +801,11 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.folder_open,
-                  size: 13,
-                  color: colors.textPrimary,
-                ),
+                Icon(Icons.folder_open, size: 13, color: colors.textPrimary),
                 const SizedBox(width: 4),
                 Text(
                   'Load',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 10, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -896,7 +920,8 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       return;
     }
 
-    final RenderBox? renderBox = _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
@@ -931,8 +956,18 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
 
   String _midiNoteToName(int note) {
     const noteNames = [
-      'C', 'C#', 'D', 'D#', 'E', 'F',
-      'F#', 'G', 'G#', 'A', 'A#', 'B',
+      'C',
+      'C#',
+      'D',
+      'D#',
+      'E',
+      'F',
+      'F#',
+      'G',
+      'G#',
+      'A',
+      'A#',
+      'B',
     ];
     final octave = (note ~/ 12) - 1;
     final noteName = noteNames[note % 12];
@@ -993,7 +1028,12 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, 'Warp', 'Time-stretch, pitch preserved', 1),
+                  _buildMenuItem(
+                    context,
+                    'Warp',
+                    'Time-stretch, pitch preserved',
+                    1,
+                  ),
                   _buildMenuItem(context, 'Re-Pitch', 'Speed changes pitch', 0),
                 ],
               ),
@@ -1004,7 +1044,12 @@ class _WarpModeMenuOverlay extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String label, String description, int mode) {
+  Widget _buildMenuItem(
+    BuildContext context,
+    String label,
+    String description,
+    int mode,
+  ) {
     final colors = context.colors;
     final isSelected = currentMode == mode;
 
@@ -1031,15 +1076,14 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     color: isSelected ? colors.accent : colors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 ),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: colors.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 9, color: colors.textMuted),
                 ),
               ],
             ),

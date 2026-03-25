@@ -28,7 +28,8 @@ class Vst3PluginManager extends ChangeNotifier {
   Vst3PluginManager(this._audioEngine);
 
   // Getters
-  List<Map<String, String>> get availablePlugins => List.unmodifiable(_availablePlugins);
+  List<Map<String, String>> get availablePlugins =>
+      List.unmodifiable(_availablePlugins);
   bool get isScanning => _isScanning;
   bool get isScanned => _isScanned;
 
@@ -68,19 +69,26 @@ class Vst3PluginManager extends ChangeNotifier {
               );
 
               // Fetch current value
-              parameterValues[i] = _audioEngine.getVst3ParameterValue(effectId, i);
+              parameterValues[i] = _audioEngine.getVst3ParameterValue(
+                effectId,
+                i,
+              );
             }
           }
 
-          plugins.add(Vst3PluginInstance(
-            effectId: effectId,
-            pluginName: pluginInfo['name'] ?? 'Unknown',
-            pluginPath: pluginInfo['path'] ?? '',
-            parameters: parameters,
-            parameterValues: parameterValues,
-          ));
+          plugins.add(
+            Vst3PluginInstance(
+              effectId: effectId,
+              pluginName: pluginInfo['name'] ?? 'Unknown',
+              pluginPath: pluginInfo['path'] ?? '',
+              parameters: parameters,
+              parameterValues: parameterValues,
+            ),
+          );
         } catch (e) {
-          Log.e('VST3PluginManager: Error getting plugin info for effect $effectId: $e');
+          Log.e(
+            'VST3PluginManager: Error getting plugin info for effect $effectId: $e',
+          );
         }
       }
     }
@@ -106,11 +114,15 @@ class Vst3PluginManager extends ChangeNotifier {
 
       if (cachedJson != null) {
         final List<dynamic> decoded = jsonDecode(cachedJson);
-        final plugins = decoded.map((item) => Map<String, String>.from(item as Map)).toList();
+        final plugins = decoded
+            .map((item) => Map<String, String>.from(item as Map))
+            .toList();
 
         // Verify that plugins have type information
-        final bool hasTypeInfo = plugins.every((plugin) =>
-          plugin.containsKey('is_instrument') && plugin.containsKey('is_effect')
+        final bool hasTypeInfo = plugins.every(
+          (plugin) =>
+              plugin.containsKey('is_instrument') &&
+              plugin.containsKey('is_effect'),
         );
 
         if (!hasTypeInfo) {
@@ -133,7 +145,10 @@ class Vst3PluginManager extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final json = jsonEncode(plugins);
       await prefs.setString('vst3_plugins_cache', json);
-      await prefs.setInt('vst3_scan_timestamp', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+        'vst3_scan_timestamp',
+        DateTime.now().millisecondsSinceEpoch,
+      );
       await prefs.setInt('vst3_cache_version', _cacheVersion);
     } catch (e) {
       Log.e('VST3PluginManager: Error saving plugin cache: $e');
@@ -181,7 +196,10 @@ class Vst3PluginManager extends ChangeNotifier {
   /// Add a VST3 plugin to a track
   ///
   /// Returns a result with success status and message.
-  ({bool success, String message}) addToTrack(int trackId, Map<String, String> plugin) {
+  ({bool success, String message}) addToTrack(
+    int trackId,
+    Map<String, String> plugin,
+  ) {
     try {
       final pluginPath = plugin['path'] ?? '';
       final effectId = _audioEngine.addVst3EffectToTrack(trackId, pluginPath);
@@ -197,21 +215,18 @@ class Vst3PluginManager extends ChangeNotifier {
           message: 'Added ${plugin['name']} to track $trackId',
         );
       } else {
-        return (
-          success: false,
-          message: 'Failed to load ${plugin['name']}',
-        );
+        return (success: false, message: 'Failed to load ${plugin['name']}');
       }
     } catch (e) {
-      return (
-        success: false,
-        message: 'Error adding plugin: $e',
-      );
+      return (success: false, message: 'Error adding plugin: $e');
     }
   }
 
   /// Add a VST3 plugin to a track from Vst3Plugin data
-  ({bool success, String message}) addPluginToTrack(int trackId, Vst3Plugin plugin) {
+  ({bool success, String message}) addPluginToTrack(
+    int trackId,
+    Vst3Plugin plugin,
+  ) {
     return addToTrack(trackId, {
       'name': plugin.name,
       'path': plugin.path,
@@ -233,10 +248,7 @@ class Vst3PluginManager extends ChangeNotifier {
     }
 
     if (trackId == null) {
-      return (
-        success: false,
-        message: 'Could not find track for effect',
-      );
+      return (success: false, message: 'Could not find track for effect');
     }
 
     try {
@@ -247,15 +259,9 @@ class Vst3PluginManager extends ChangeNotifier {
       _pluginCache.remove(effectId);
       notifyListeners();
 
-      return (
-        success: true,
-        message: 'Removed VST3 plugin',
-      );
+      return (success: true, message: 'Removed VST3 plugin');
     } catch (e) {
-      return (
-        success: false,
-        message: 'Error removing plugin: $e',
-      );
+      return (success: false, message: 'Error removing plugin: $e');
     }
   }
 

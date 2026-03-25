@@ -65,20 +65,29 @@ class ProjectManager extends ChangeNotifier {
 
   void newProject() => throw UnsupportedError('stub');
 
-  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(String path) =>
-      throw UnsupportedError('stub');
+  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(
+    String path,
+  ) => throw UnsupportedError('stub');
 
   Future<ProjectResult?> saveProject(UILayoutData? uiLayout) =>
       throw UnsupportedError('stub');
 
-  Future<ProjectResult> saveProjectToPath(String path, UILayoutData? uiLayout) =>
-      throw UnsupportedError('stub');
+  Future<ProjectResult> saveProjectToPath(
+    String path,
+    UILayoutData? uiLayout,
+  ) => throw UnsupportedError('stub');
 
-  Future<ProjectResult> saveProjectAsCopy(String name, String parentPath, UILayoutData? uiLayout) =>
-      throw UnsupportedError('stub');
+  Future<ProjectResult> saveProjectAsCopy(
+    String name,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) => throw UnsupportedError('stub');
 
-  Future<ProjectResult> makeCopy(String copyName, String parentPath, UILayoutData? uiLayout) =>
-      throw UnsupportedError('stub');
+  Future<ProjectResult> makeCopy(
+    String copyName,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) => throw UnsupportedError('stub');
 
   Future<ProjectResult> exportToWav(String path) =>
       throw UnsupportedError('stub');

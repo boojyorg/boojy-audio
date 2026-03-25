@@ -18,10 +18,10 @@ class PluginPreference {
   });
 
   Map<String, dynamic> toJson() => {
-        'displayMode': displayMode.name,
-        if (windowX != null) 'windowX': windowX,
-        if (windowY != null) 'windowY': windowY,
-      };
+    'displayMode': displayMode.name,
+    if (windowX != null) 'windowX': windowX,
+    if (windowY != null) 'windowY': windowY,
+  };
 
   factory PluginPreference.fromJson(Map<String, dynamic> json) {
     return PluginPreference(

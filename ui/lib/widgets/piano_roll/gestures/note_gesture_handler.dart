@@ -11,9 +11,13 @@ import '../operations/clipboard_operations.dart';
 
 /// Mixin containing note gesture handling for PianoRoll.
 /// Handles tap, drag, and context menu interactions with notes.
-mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
-    NoteOperationsMixin, SelectionOperationsMixin, ClipboardOperationsMixin {
-
+mixin NoteGestureHandlerMixin
+    on
+        State<PianoRoll>,
+        PianoRollStateMixin,
+        NoteOperationsMixin,
+        SelectionOperationsMixin,
+        ClipboardOperationsMixin {
   // ============================================
   // NOTE FINDING
   // ============================================
@@ -40,8 +44,8 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     final noteEndX = calculateBeatX(note.endTime);
     final noteY = calculateNoteY(note.note);
 
-    final isInVerticalRange = (position.dy >= noteY) &&
-                               (position.dy <= noteY + pixelsPerNote);
+    final isInVerticalRange =
+        (position.dy >= noteY) && (position.dy <= noteY + pixelsPerNote);
 
     if (!isInVerticalRange) return null;
 
@@ -63,7 +67,7 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     final notes = currentClip?.notes ?? <MidiNoteData>[];
     if (notes.isEmpty) return null;
 
-    const leftThreshold = 45.0;  // pixels to left of circle
+    const leftThreshold = 45.0; // pixels to left of circle
     const rightThreshold = 55.0; // pixels to right of circle
 
     MidiNoteData? nearest;
@@ -104,7 +108,8 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     focusNode.requestFocus();
 
     final clickedNote = findNoteAtPosition(details.localPosition);
-    final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+    final isCtrlOrCmd =
+        HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     final isAltPressed = HardwareKeyboard.instance.isAltPressed;
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
@@ -116,7 +121,9 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
         saveToHistory();
         setState(() {
           currentClip = currentClip?.copyWith(
-            notes: currentClip!.notes.where((n) => n.id != clickedNote.id).toList(),
+            notes: currentClip!.notes
+                .where((n) => n.id != clickedNote.id)
+                .toList(),
           );
         });
         commitToHistory('Delete note');
@@ -135,7 +142,8 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     }
 
     // Duplicate tool OR Cmd+click on note = duplicate in place
-    if (toolMode == ToolMode.duplicate || (isCtrlOrCmd && clickedNote != null)) {
+    if (toolMode == ToolMode.duplicate ||
+        (isCtrlOrCmd && clickedNote != null)) {
       if (clickedNote != null) {
         saveToHistory();
         final duplicate = clickedNote.copyWith(
@@ -173,7 +181,8 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
       final beat = getBeatAtX(details.localPosition.dx);
       final noteToSlice = currentClip?.notes.firstWhere(
         (n) => n.startTime < beat && (n.startTime + n.duration) > beat,
-        orElse: () => MidiNoteData(note: -1, velocity: 0, startTime: 0, duration: 0),
+        orElse: () =>
+            MidiNoteData(note: -1, velocity: 0, startTime: 0, duration: 0),
       );
       if (noteToSlice != null && noteToSlice.note >= 0) {
         sliceNoteAt(noteToSlice, beat);
@@ -226,7 +235,9 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
 
       setState(() {
         currentClip = currentClip?.copyWith(
-          notes: currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+          notes: currentClip!.notes
+              .map((n) => n.copyWith(isSelected: false))
+              .toList(),
         );
         currentClip = currentClip?.addNote(newNote);
         autoExtendLoopIfNeeded(newNote);
@@ -260,7 +271,11 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     if (currentlyHeldNote != null) {
       final trackId = currentClip?.trackId;
       if (trackId != null && widget.audioEngine != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
+        widget.audioEngine!.sendTrackMidiNoteOff(
+          trackId,
+          currentlyHeldNote!,
+          UIConstants.midiNoteOffVelocity,
+        );
       }
       currentlyHeldNote = null;
     }
@@ -274,7 +289,11 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     final trackId = currentClip?.trackId;
     if (trackId != null && widget.audioEngine != null) {
       if (currentlyHeldNote != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(trackId, currentlyHeldNote!, UIConstants.midiNoteOffVelocity);
+        widget.audioEngine!.sendTrackMidiNoteOff(
+          trackId,
+          currentlyHeldNote!,
+          UIConstants.midiNoteOffVelocity,
+        );
       }
       widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
       currentlyHeldNote = newMidiNote;
@@ -292,7 +311,11 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     }
     Future.delayed(const Duration(milliseconds: 500), () {
       for (final midiNote in midiNotes) {
-        widget.audioEngine?.sendTrackMidiNoteOff(trackId, midiNote, UIConstants.midiNoteOffVelocity);
+        widget.audioEngine?.sendTrackMidiNoteOff(
+          trackId,
+          midiNote,
+          UIConstants.midiNoteOffVelocity,
+        );
       }
     });
   }
@@ -311,13 +334,15 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
     for (final midiNote in chordNotes) {
       final transposedNote = midiNote + offset;
       if (transposedNote >= 0 && transposedNote <= 127) {
-        newNotes.add(MidiNoteData(
-          note: transposedNote,
-          velocity: UIConstants.defaultMidiVelocity,
-          startTime: beat,
-          duration: lastNoteDuration,
-          isSelected: true,
-        ));
+        newNotes.add(
+          MidiNoteData(
+            note: transposedNote,
+            velocity: UIConstants.defaultMidiVelocity,
+            startTime: beat,
+            duration: lastNoteDuration,
+            isSelected: true,
+          ),
+        );
       }
     }
 
@@ -325,7 +350,9 @@ mixin NoteGestureHandlerMixin on State<PianoRoll>, PianoRollStateMixin,
 
     setState(() {
       currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes.map((n) => n.copyWith(isSelected: false)).toList(),
+        notes: currentClip!.notes
+            .map((n) => n.copyWith(isSelected: false))
+            .toList(),
       );
       for (final note in newNotes) {
         currentClip = currentClip?.addNote(note);

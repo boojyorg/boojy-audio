@@ -24,7 +24,18 @@ enum ScaleType {
 /// Note names for scale root selection
 class ScaleRoot {
   static const List<String> noteNames = [
-    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+    'C',
+    'C#',
+    'D',
+    'D#',
+    'E',
+    'F',
+    'F#',
+    'G',
+    'G#',
+    'A',
+    'A#',
+    'B',
   ];
 
   /// Get MIDI note number for a root note name (in octave 0)
@@ -43,10 +54,7 @@ class Scale {
   final String root;
   final ScaleType type;
 
-  const Scale({
-    required this.root,
-    required this.type,
-  });
+  const Scale({required this.root, required this.type});
 
   /// Get the root note as a MIDI note number (0-11)
   int get rootMidi => ScaleRoot.midiNoteFromName(root);

@@ -395,10 +395,29 @@ void main() {
 
       test('generally different for different events', () {
         final events = [
-          MidiEvent.noteOn(note: 60, velocity: 100, timestamp: testTimestamp, beatsFromStart: 4.0),
-          MidiEvent.noteOn(note: 61, velocity: 100, timestamp: testTimestamp, beatsFromStart: 4.0),
-          MidiEvent.noteOn(note: 60, velocity: 127, timestamp: testTimestamp, beatsFromStart: 4.0),
-          MidiEvent.noteOff(note: 60, timestamp: testTimestamp, beatsFromStart: 4.0),
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: testTimestamp,
+            beatsFromStart: 4.0,
+          ),
+          MidiEvent.noteOn(
+            note: 61,
+            velocity: 100,
+            timestamp: testTimestamp,
+            beatsFromStart: 4.0,
+          ),
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 127,
+            timestamp: testTimestamp,
+            beatsFromStart: 4.0,
+          ),
+          MidiEvent.noteOff(
+            note: 60,
+            timestamp: testTimestamp,
+            beatsFromStart: 4.0,
+          ),
         ];
 
         final hashCodes = events.map((e) => e.hashCode).toSet();

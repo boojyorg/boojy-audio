@@ -25,16 +25,18 @@ void main() {
     // Suppress overflow errors (TransportBar is layout-sensitive)
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) { return; }
+      if (details.exceptionAsString().contains('overflowed')) {
+        return;
+      }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) { return; }
+          details.toString().toLowerCase().contains('asset')) {
+        return;
+      }
       originalOnError(details);
     };
 
     await tester.pumpWidget(
-      buildTestWidget(
-        child: const TransportBar(playheadPosition: 0.0),
-      ),
+      buildTestWidget(child: const TransportBar(playheadPosition: 0.0)),
     );
 
     expect(find.byType(TransportBar), findsOneWidget);
@@ -50,16 +52,18 @@ void main() {
 
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) { return; }
+      if (details.exceptionAsString().contains('overflowed')) {
+        return;
+      }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) { return; }
+          details.toString().toLowerCase().contains('asset')) {
+        return;
+      }
       originalOnError(details);
     };
 
     await tester.pumpWidget(
-      buildTestWidget(
-        child: const TransportBar(playheadPosition: 42.5),
-      ),
+      buildTestWidget(child: const TransportBar(playheadPosition: 42.5)),
     );
 
     expect(find.byType(TransportBar), findsOneWidget);
@@ -67,8 +71,9 @@ void main() {
     FlutterError.onError = originalOnError;
   });
 
-  testWidgets('TransportBar with all callbacks set does not crash',
-      (tester) async {
+  testWidgets('TransportBar with all callbacks set does not crash', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -76,9 +81,13 @@ void main() {
 
     final originalOnError = FlutterError.onError!;
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('overflowed')) { return; }
+      if (details.exceptionAsString().contains('overflowed')) {
+        return;
+      }
       if (details.toString().toLowerCase().contains('svg') ||
-          details.toString().toLowerCase().contains('asset')) { return; }
+          details.toString().toLowerCase().contains('asset')) {
+        return;
+      }
       originalOnError(details);
     };
 

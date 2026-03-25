@@ -81,9 +81,12 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   Set<String> _selectedPointIds = {};
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;
-  AutomationPoint? _previewPoint; // Local preview during drag for real-time updates
-  String? _previewPointId; // ID of point being previewed (persists after drag ends)
-  AutomationPoint? _pendingNewPoint; // New point waiting for parent confirmation
+  AutomationPoint?
+  _previewPoint; // Local preview during drag for real-time updates
+  String?
+  _previewPointId; // ID of point being previewed (persists after drag ends)
+  AutomationPoint?
+  _pendingNewPoint; // New point waiting for parent confirmation
 
   /// Effective tool mode (resolves modifier key overrides)
   ToolMode get _effectiveToolMode {
@@ -113,7 +116,9 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
     // Filter out erased points for instant visual feedback during drag-to-erase
     if (_erasedPointIds.isNotEmpty) {
       lane = lane.copyWith(
-        points: lane.points.where((p) => !_erasedPointIds.contains(p.id)).toList(),
+        points: lane.points
+            .where((p) => !_erasedPointIds.contains(p.id))
+            .toList(),
       );
     }
 
@@ -138,9 +143,7 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
       height: widget.laneHeight,
       decoration: BoxDecoration(
         color: colors.darkest,
-        border: Border(
-          top: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(top: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Stack(
         children: [
@@ -151,8 +154,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
               builder: (context, child) {
                 final scrollOffset =
                     widget.horizontalScrollController.hasClients
-                        ? widget.horizontalScrollController.offset
-                        : 0.0;
+                    ? widget.horizontalScrollController.offset
+                    : 0.0;
                 return Transform.translate(
                   offset: Offset(-scrollOffset, 0),
                   child: child,
@@ -172,7 +175,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
                     child: CustomPaint(
                       size: Size(canvasWidth, widget.laneHeight),
                       painter: TrackAutomationPainter(
-                        lane: _displayLane, // Use preview lane for real-time updates
+                        lane:
+                            _displayLane, // Use preview lane for real-time updates
                         pixelsPerBeat: widget.pixelsPerBeat,
                         laneHeight: widget.laneHeight,
                         totalBeats: widget.totalBeats,
@@ -209,7 +213,10 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
                   if (_isResizing && widget.onHeightChanged != null) {
                     // Dragging up = increase height (negative delta)
                     final delta = _resizeStartY - details.globalPosition.dy;
-                    final newHeight = (_resizeStartHeight + delta).clamp(40.0, 200.0);
+                    final newHeight = (_resizeStartHeight + delta).clamp(
+                      40.0,
+                      200.0,
+                    );
                     widget.onHeightChanged!(newHeight);
                   }
                 },
@@ -425,7 +432,8 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
       // Local setState for immediate repaint (like velocity lane)
       setState(() {
         _previewPoint = newPoint;
-        _previewPointId = _draggingPointId; // Track which point is being previewed
+        _previewPointId =
+            _draggingPointId; // Track which point is being previewed
       });
 
       // Notify parent of preview value (for live value display)

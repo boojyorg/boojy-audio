@@ -33,7 +33,8 @@ class Vst3PluginBrowserDialog extends StatefulWidget {
   });
 
   @override
-  State<Vst3PluginBrowserDialog> createState() => _Vst3PluginBrowserDialogState();
+  State<Vst3PluginBrowserDialog> createState() =>
+      _Vst3PluginBrowserDialogState();
 }
 
 class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
@@ -84,9 +85,11 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                   IconButton(
                     icon: const Icon(Icons.refresh),
                     color: context.colors.textSecondary,
-                    onPressed: widget.isScanning ? null : () {
-                      widget.onRescanRequested?.call();
-                    },
+                    onPressed: widget.isScanning
+                        ? null
+                        : () {
+                            widget.onRescanRequested?.call();
+                          },
                     tooltip: 'Rescan plugins',
                   ),
                 IconButton(
@@ -150,47 +153,47 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                         ),
                       )
                     : filteredPlugins.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.extension_off,
-                                  color: context.colors.textMuted,
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  widget.availablePlugins.isEmpty
-                                      ? 'No VST3 plugins found'
-                                      : 'No plugins match your search',
-                                  style: TextStyle(
-                                    color: context.colors.textMuted,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (widget.availablePlugins.isEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Install VST3 plugins to /Library/Audio/Plug-Ins/VST3/',
-                                    style: TextStyle(
-                                      color: context.colors.textMuted,
-                                      fontSize: 12,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ],
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.extension_off,
+                              color: context.colors.textMuted,
+                              size: 48,
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: filteredPlugins.length,
-                            itemBuilder: (context, index) {
-                              final pluginData = filteredPlugins[index];
-                              final plugin = Vst3Plugin.fromMap(pluginData);
-                              return _buildPluginTile(plugin);
-                            },
-                          ),
+                            const SizedBox(height: 16),
+                            Text(
+                              widget.availablePlugins.isEmpty
+                                  ? 'No VST3 plugins found'
+                                  : 'No plugins match your search',
+                              style: TextStyle(
+                                color: context.colors.textMuted,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (widget.availablePlugins.isEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Install VST3 plugins to /Library/Audio/Plug-Ins/VST3/',
+                                style: TextStyle(
+                                  color: context.colors.textMuted,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filteredPlugins.length,
+                        itemBuilder: (context, index) {
+                          final pluginData = filteredPlugins[index];
+                          final plugin = Vst3Plugin.fromMap(pluginData);
+                          return _buildPluginTile(plugin);
+                        },
+                      ),
               ),
             ),
 
@@ -276,10 +279,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: context.colors.divider,
-            width: 1,
-          ),
+          bottom: BorderSide(color: context.colors.divider, width: 1),
         ),
       ),
       child: Row(
@@ -350,11 +350,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
           const SizedBox(width: 8),
 
           // Arrow icon
-          Icon(
-            Icons.chevron_right,
-            color: context.colors.textMuted,
-            size: 20,
-          ),
+          Icon(Icons.chevron_right, color: context.colors.textMuted, size: 20),
         ],
       ),
     );

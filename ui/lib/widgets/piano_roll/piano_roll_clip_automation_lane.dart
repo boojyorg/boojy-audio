@@ -114,102 +114,113 @@ class _PianoRollClipAutomationLaneState
 
   @override
   Widget build(BuildContext context) {
-    Log.d('[AutomationLane] BUILD METHOD CALLED - laneHeight=${widget.laneHeight}, clipDurationBeats=${widget.clipDurationBeats}');
+    Log.d(
+      '[AutomationLane] BUILD METHOD CALLED - laneHeight=${widget.laneHeight}, clipDurationBeats=${widget.clipDurationBeats}',
+    );
     final colors = context.colors;
     final canvasWidth = widget.clipDurationBeats * widget.pixelsPerBeat;
 
     // Wrap entire widget with Listener at top level to trace ALL pointer events
     return Listener(
       onPointerDown: (event) {
-        Log.d('[AutomationLane] TOP-LEVEL Listener onPointerDown: ${event.localPosition}');
+        Log.d(
+          '[AutomationLane] TOP-LEVEL Listener onPointerDown: ${event.localPosition}',
+        );
       },
       child: Container(
-      height: widget.laneHeight,
-      decoration: BoxDecoration(
-        color: colors.darkest,
-        border: Border(
-          top: BorderSide(color: colors.surface, width: 1),
+        height: widget.laneHeight,
+        decoration: BoxDecoration(
+          color: colors.darkest,
+          border: Border(top: BorderSide(color: colors.surface, width: 1)),
         ),
-      ),
-      child: Row(
-        children: [
-          // Label area with parameter dropdown
-          _buildLabelArea(context),
-          // Automation curve area (synced with note grid scroll)
-          Expanded(
-            child: ClipRect(
-              child: AnimatedBuilder(
-                animation: widget.horizontalScrollController,
-                builder: (context, _) {
-                  final scrollOffset =
-                      widget.horizontalScrollController.hasClients
-                          ? widget.horizontalScrollController.offset
-                          : 0.0;
-                  // NOTE: CustomPaint must be inside the builder (not child param)
-                  // so that setState() triggers a rebuild of the painter with
-                  // updated selectionStart, selectionEnd, selectedPointIds.
-                  Log.d('[AutomationLane] BUILD: scrollOffset=$scrollOffset, laneHeight=${widget.laneHeight}');
-                  return Transform.translate(
-                    offset: Offset(-scrollOffset, 0),
-                    child: Listener(
-                      onPointerDown: (event) {
-                        Log.d('[AutomationLane] LISTENER onPointerDown: ${event.localPosition}');
-                      },
-                      child: MouseRegion(
-                        cursor: _getCursor(),
-                        onHover: (event) {
-                          Log.d('[AutomationLane] HOVER: ${event.localPosition}');
-                          _onHover(event);
+        child: Row(
+          children: [
+            // Label area with parameter dropdown
+            _buildLabelArea(context),
+            // Automation curve area (synced with note grid scroll)
+            Expanded(
+              child: ClipRect(
+                child: AnimatedBuilder(
+                  animation: widget.horizontalScrollController,
+                  builder: (context, _) {
+                    final scrollOffset =
+                        widget.horizontalScrollController.hasClients
+                        ? widget.horizontalScrollController.offset
+                        : 0.0;
+                    // NOTE: CustomPaint must be inside the builder (not child param)
+                    // so that setState() triggers a rebuild of the painter with
+                    // updated selectionStart, selectionEnd, selectedPointIds.
+                    Log.d(
+                      '[AutomationLane] BUILD: scrollOffset=$scrollOffset, laneHeight=${widget.laneHeight}',
+                    );
+                    return Transform.translate(
+                      offset: Offset(-scrollOffset, 0),
+                      child: Listener(
+                        onPointerDown: (event) {
+                          Log.d(
+                            '[AutomationLane] LISTENER onPointerDown: ${event.localPosition}',
+                          );
                         },
-                        onExit: (_) => setState(() => _hoveredPointId = null),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onTapDown: (details) {
-                            Log.d('[AutomationLane] GestureDetector onTapDown: ${details.localPosition}');
-                            _onTapDown(details);
+                        child: MouseRegion(
+                          cursor: _getCursor(),
+                          onHover: (event) {
+                            Log.d(
+                              '[AutomationLane] HOVER: ${event.localPosition}',
+                            );
+                            _onHover(event);
                           },
-                          onPanStart: _onPanStart,
-                          onPanUpdate: _onPanUpdate,
-                          onPanEnd: _onPanEnd,
-                          child: Focus(
-                            onKeyEvent: _onKeyEvent,
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                size: Size(canvasWidth, widget.laneHeight),
-                                painter: ClipAutomationPainter(
-                                  lane: _displayLane,
-                                  pixelsPerBeat: widget.pixelsPerBeat,
-                                  laneHeight: widget.laneHeight,
-                                  clipDurationBeats: widget.clipDurationBeats,
-                                  loopLengthBeats: widget.loopLengthBeats,
-                                  canRepeat: widget.canRepeat,
-                                  lineColor: widget.trackColor,
-                                  fillColor:
-                                      widget.trackColor.withValues(alpha: 0.15),
-                                  pointColor: colors.textPrimary,
-                                  selectedPointColor: widget.trackColor,
-                                  gridLineColor: colors.surface,
-                                  hoveredPointId: _hoveredPointId,
-                                  draggedPointId: _draggingPointId,
-                                  beatsPerBar: widget.beatsPerBar,
-                                  selectionStart: _selectionStart,
-                                  selectionEnd: _selectionEnd,
-                                  selectedPointIds: _selectedPointIds,
+                          onExit: (_) => setState(() => _hoveredPointId = null),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTapDown: (details) {
+                              Log.d(
+                                '[AutomationLane] GestureDetector onTapDown: ${details.localPosition}',
+                              );
+                              _onTapDown(details);
+                            },
+                            onPanStart: _onPanStart,
+                            onPanUpdate: _onPanUpdate,
+                            onPanEnd: _onPanEnd,
+                            child: Focus(
+                              onKeyEvent: _onKeyEvent,
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  size: Size(canvasWidth, widget.laneHeight),
+                                  painter: ClipAutomationPainter(
+                                    lane: _displayLane,
+                                    pixelsPerBeat: widget.pixelsPerBeat,
+                                    laneHeight: widget.laneHeight,
+                                    clipDurationBeats: widget.clipDurationBeats,
+                                    loopLengthBeats: widget.loopLengthBeats,
+                                    canRepeat: widget.canRepeat,
+                                    lineColor: widget.trackColor,
+                                    fillColor: widget.trackColor.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    pointColor: colors.textPrimary,
+                                    selectedPointColor: widget.trackColor,
+                                    gridLineColor: colors.surface,
+                                    hoveredPointId: _hoveredPointId,
+                                    draggedPointId: _draggingPointId,
+                                    beatsPerBar: widget.beatsPerBar,
+                                    selectionStart: _selectionStart,
+                                    selectionEnd: _selectionEnd,
+                                    selectedPointIds: _selectedPointIds,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    ),  // Close Listener child
+          ],
+        ),
+      ), // Close Listener child
     );
   }
 
@@ -221,9 +232,7 @@ class _PianoRollClipAutomationLaneState
       height: widget.laneHeight,
       decoration: BoxDecoration(
         color: colors.standard,
-        border: Border(
-          right: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(right: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -255,10 +264,7 @@ class _PianoRollClipAutomationLaneState
                   children: [
                     Text(
                       _getShortParameterName(widget.lane.parameter),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 9,
-                      ),
+                      style: TextStyle(color: colors.textPrimary, fontSize: 9),
                     ),
                     const SizedBox(width: 2),
                     Icon(
@@ -326,8 +332,7 @@ class _PianoRollClipAutomationLaneState
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition =
-        button.localToGlobal(Offset.zero, ancestor: overlay);
+    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
 
     showMenu<AutomationParameter>(
       context: context,
@@ -337,10 +342,7 @@ class _PianoRollClipAutomationLaneState
         overlay.size.width - buttonPosition.dx - 60,
         0,
       ),
-      items: [
-        AutomationParameter.volume,
-        AutomationParameter.pan,
-      ].map((param) {
+      items: [AutomationParameter.volume, AutomationParameter.pan].map((param) {
         return PopupMenuItem<AutomationParameter>(
           value: param,
           height: 32,
@@ -349,8 +351,9 @@ class _PianoRollClipAutomationLaneState
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 11,
-              fontWeight:
-                  param == widget.lane.parameter ? FontWeight.bold : FontWeight.normal,
+              fontWeight: param == widget.lane.parameter
+                  ? FontWeight.bold
+                  : FontWeight.normal,
             ),
           ),
         );
@@ -395,12 +398,16 @@ class _PianoRollClipAutomationLaneState
     final toolMode = _effectiveToolMode;
 
     // DEBUG: Trace what's happening with tool mode and hit detection
-    Log.d('[AutomationLane] _onTapDown: toolMode=$toolMode, clickedPoint=${clickedPoint?.id}, localPos=${details.localPosition}');
+    Log.d(
+      '[AutomationLane] _onTapDown: toolMode=$toolMode, clickedPoint=${clickedPoint?.id}, localPos=${details.localPosition}',
+    );
     Log.d('[AutomationLane] Points in lane: ${_displayLane.points.length}');
     for (final p in _displayLane.points) {
       final px = p.time * widget.pixelsPerBeat;
       final py = _valueToY(p.value);
-      Log.d('[AutomationLane]   Point ${p.id}: time=${p.time}, value=${p.value}, screenPos=($px, $py)');
+      Log.d(
+        '[AutomationLane]   Point ${p.id}: time=${p.time}, value=${p.value}, screenPos=($px, $py)',
+      );
     }
 
     switch (toolMode) {
@@ -444,7 +451,9 @@ class _PianoRollClipAutomationLaneState
         // Click on point to delete it
         Log.d('[AutomationLane] ERASER: clickedPoint=${clickedPoint?.id}');
         if (clickedPoint != null) {
-          Log.d('[AutomationLane] ERASER: Calling onPointDeleted for ${clickedPoint.id}');
+          Log.d(
+            '[AutomationLane] ERASER: Calling onPointDeleted for ${clickedPoint.id}',
+          );
           widget.onPointDeleted?.call(clickedPoint.id);
           // Also remove from local selection
           setState(() {
@@ -487,8 +496,7 @@ class _PianoRollClipAutomationLaneState
     if (toolMode == ToolMode.draw && clickedPoint != null) {
       setState(() => _draggingPointId = clickedPoint.id);
     } else if (toolMode == ToolMode.select) {
-      if (clickedPoint != null &&
-          _selectedPointIds.contains(clickedPoint.id)) {
+      if (clickedPoint != null && _selectedPointIds.contains(clickedPoint.id)) {
         // Start dragging selected points
         setState(() => _draggingPointId = clickedPoint.id);
       } else if (clickedPoint == null) {

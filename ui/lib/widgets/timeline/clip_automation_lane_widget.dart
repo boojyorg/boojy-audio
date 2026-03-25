@@ -60,7 +60,8 @@ class ClipAutomationLaneWidget extends StatefulWidget {
   });
 
   @override
-  State<ClipAutomationLaneWidget> createState() => _ClipAutomationLaneWidgetState();
+  State<ClipAutomationLaneWidget> createState() =>
+      _ClipAutomationLaneWidgetState();
 }
 
 class _ClipAutomationLaneWidgetState extends State<ClipAutomationLaneWidget> {
@@ -108,7 +109,10 @@ class _ClipAutomationLaneWidgetState extends State<ClipAutomationLaneWidget> {
       decoration: BoxDecoration(
         color: colors.darkest.withValues(alpha: 0.5),
         border: Border(
-          top: BorderSide(color: colors.surface.withValues(alpha: 0.3), width: 1),
+          top: BorderSide(
+            color: colors.surface.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
       ),
       child: MouseRegion(

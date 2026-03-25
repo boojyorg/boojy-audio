@@ -8,6 +8,7 @@ import 'button_hover_mixin.dart';
 enum ButtonDisplayMode {
   /// Show icon + label
   wide,
+
   /// Show icon only
   narrow,
 }
@@ -122,8 +123,9 @@ class _PillToggleButtonState extends State<PillToggleButton>
                       style: TextStyle(
                         color: textColor,
                         fontSize: 11,
-                        fontWeight:
-                            widget.isActive ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: widget.isActive
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -182,7 +184,9 @@ class _IconToggleButtonState extends State<IconToggleButton> {
 
     final color = widget.enabled
         ? (_isHovered ? colors.textPrimary : colors.textSecondary)
-        : colors.textSecondary.withValues(alpha: AnimationConstants.disabledOpacity);
+        : colors.textSecondary.withValues(
+            alpha: AnimationConstants.disabledOpacity,
+          );
 
     return Tooltip(
       message: widget.tooltip,
@@ -196,11 +200,7 @@ class _IconToggleButtonState extends State<IconToggleButton> {
           onTap: widget.enabled ? widget.onTap : null,
           child: Padding(
             padding: EdgeInsets.all(widget.padding),
-            child: Icon(
-              widget.icon,
-              size: widget.iconSize,
-              color: color,
-            ),
+            child: Icon(widget.icon, size: widget.iconSize, color: color),
           ),
         ),
       ),

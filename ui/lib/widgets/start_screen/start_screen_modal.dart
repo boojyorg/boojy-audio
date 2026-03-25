@@ -26,7 +26,10 @@ class StartScreenModal extends StatefulWidget {
   const StartScreenModal({super.key, required this.userSettings});
 
   /// Show the start screen modal and return the user's action.
-  static Future<StartScreenResult?> show(BuildContext context, UserSettings userSettings) {
+  static Future<StartScreenResult?> show(
+    BuildContext context,
+    UserSettings userSettings,
+  ) {
     return showDialog<StartScreenResult>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.8),
@@ -126,9 +129,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
                               const SizedBox(width: 32),
 
                               // Right column: recent projects grid
-                              Expanded(
-                                child: _buildRightColumn(),
-                              ),
+                              Expanded(child: _buildRightColumn()),
                             ],
                           ),
                         ),
@@ -154,9 +155,9 @@ class _StartScreenModalState extends State<StartScreenModal> {
         padding: const EdgeInsets.only(top: 8, right: 8),
         child: IconButton(
           icon: Icon(Icons.close, size: 18, color: colors.textMuted),
-          onPressed: () => Navigator.of(context).pop(
-            const StartScreenResult(StartScreenAction.dismissed),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(const StartScreenResult(StartScreenAction.dismissed)),
           splashRadius: 16,
           tooltip: 'Close',
         ),
@@ -189,17 +190,17 @@ class _StartScreenModalState extends State<StartScreenModal> {
         _ActionButton(
           icon: Icons.add,
           label: 'New Project',
-          onTap: () => Navigator.of(context).pop(
-            const StartScreenResult(StartScreenAction.newProject),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).pop(const StartScreenResult(StartScreenAction.newProject)),
         ),
         const SizedBox(height: 10),
         _ActionButton(
           icon: Icons.folder_open,
           label: 'Open...',
-          onTap: () => Navigator.of(context).pop(
-            const StartScreenResult(StartScreenAction.openProject),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).pop(const StartScreenResult(StartScreenAction.openProject)),
         ),
         const SizedBox(height: 10),
         _ActionButton(
@@ -246,9 +247,9 @@ class _StartScreenModalState extends State<StartScreenModal> {
             onShowInFinder: (project) {
               Process.run('open', ['-R', project.path]);
             },
-            onNewProject: () => Navigator.of(context).pop(
-              const StartScreenResult(StartScreenAction.newProject),
-            ),
+            onNewProject: () => Navigator.of(
+              context,
+            ).pop(const StartScreenResult(StartScreenAction.newProject)),
           ),
         ),
       ],
@@ -262,10 +263,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
         children: [
           Text(
             _appVersion.isNotEmpty ? 'v$_appVersion' : '',
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colors.textMuted, fontSize: 13),
           ),
           if (UpdaterService.isSupported) ...[
             const SizedBox(width: 12),
@@ -329,7 +327,9 @@ class _ActionButtonState extends State<_ActionButton> {
               Text(
                 widget.label,
                 style: TextStyle(
-                  color: _isHovering ? colors.textPrimary : colors.textSecondary,
+                  color: _isHovering
+                      ? colors.textPrimary
+                      : colors.textSecondary,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),

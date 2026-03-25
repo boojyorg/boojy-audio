@@ -28,17 +28,14 @@ class InstrumentData {
         'osc1_type': 'saw', // saw, sine, square, triangle
         'osc1_level': 0.8,
         'osc1_detune': 0.0, // cents: -50 to +50
-
         // Oscillator 2
         'osc2_type': 'square',
         'osc2_level': 0.4,
         'osc2_detune': 7.0, // cents: -50 to +50
-
         // Filter
         'filter_type': 'lowpass', // lowpass, highpass, bandpass
         'filter_cutoff': 0.8, // 0.0 to 1.0 (maps to frequency range)
         'filter_resonance': 0.2, // 0.0 to 1.0
-
         // ADSR Envelope
         'env_attack': 0.01, // seconds: 0.001 to 2.0
         'env_decay': 0.1, // seconds: 0.001 to 2.0
@@ -78,11 +75,7 @@ class InstrumentData {
   InstrumentData updateParameter(String key, dynamic value) {
     final newParams = Map<String, dynamic>.from(parameters);
     newParams[key] = value;
-    return InstrumentData(
-      trackId: trackId,
-      type: type,
-      parameters: newParams,
-    );
+    return InstrumentData(trackId: trackId, type: type, parameters: newParams);
   }
 
   /// Convert to map for serialization

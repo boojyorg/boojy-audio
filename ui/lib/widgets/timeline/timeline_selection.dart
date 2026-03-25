@@ -34,7 +34,10 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Notify parent about audio clip selection
     final selectedClip = selectedAudioClip;
-    widget.audioClipCallbacks.onSelected?.call(selectedAudioClipId, selectedClip);
+    widget.audioClipCallbacks.onSelected?.call(
+      selectedAudioClipId,
+      selectedClip,
+    );
   }
 
   /// Check if a MIDI clip is selected
@@ -48,7 +51,12 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
   /// - Normal click on selected: Keep selection (for multi-drag) unless forceSelect is true
   /// - Shift+click: Toggle selection (add/remove)
   /// - forceSelect: If true, always select only this clip (used for tap-up after no drag)
-  void selectMidiClipMulti(int clipId, {bool addToSelection = false, bool toggleSelection = false, bool forceSelect = false}) {
+  void selectMidiClipMulti(
+    int clipId, {
+    bool addToSelection = false,
+    bool toggleSelection = false,
+    bool forceSelect = false,
+  }) {
     setState(() {
       if (toggleSelection) {
         // Shift+click: Toggle this clip's selection
@@ -79,14 +87,21 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
   /// - Normal click on selected: Keep selection (for multi-drag) unless forceSelect is true
   /// - Shift+click: Toggle selection (add/remove)
   /// - forceSelect: If true, always select only this clip (used for tap-up after no drag)
-  void selectAudioClipMulti(int clipId, {bool addToSelection = false, bool toggleSelection = false, bool forceSelect = false}) {
+  void selectAudioClipMulti(
+    int clipId, {
+    bool addToSelection = false,
+    bool toggleSelection = false,
+    bool forceSelect = false,
+  }) {
     setState(() {
       if (toggleSelection) {
         // Shift+click: Toggle this clip's selection
         if (selectedAudioClipIds.contains(clipId)) {
           selectedAudioClipIds.remove(clipId);
           if (selectedAudioClipId == clipId) {
-            selectedAudioClipId = selectedAudioClipIds.isEmpty ? null : selectedAudioClipIds.first;
+            selectedAudioClipId = selectedAudioClipIds.isEmpty
+                ? null
+                : selectedAudioClipIds.first;
           }
         } else {
           selectedAudioClipIds.add(clipId);
@@ -111,7 +126,10 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
     // Notify parent about audio clip selection
     final selectedClip = selectedAudioClip;
-    widget.audioClipCallbacks.onSelected?.call(selectedAudioClipId, selectedClip);
+    widget.audioClipCallbacks.onSelected?.call(
+      selectedAudioClipId,
+      selectedClip,
+    );
   }
 
   /// Clear all clip selections
@@ -142,7 +160,9 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
   /// Get all selected MIDI clips data
   List<MidiClipData> get selectedMidiClips {
-    return widget.midiClips.where((c) => selectedMidiClipIds.contains(c.clipId)).toList();
+    return widget.midiClips
+        .where((c) => selectedMidiClipIds.contains(c.clipId))
+        .toList();
   }
 
   /// Get all selected audio clips data
@@ -165,7 +185,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
   /// Update selection based on box selection rectangle.
   /// Called during drag to provide live selection feedback.
   void updateBoxSelection() {
-    if (!isBoxSelecting || boxSelectionStart == null || boxSelectionEnd == null) return;
+    if (!isBoxSelecting || boxSelectionStart == null || boxSelectionEnd == null)
+      return;
 
     // Skip if box is too small (essentially a click, not a drag)
     // Use 10px minimum to avoid accidental selection during click
@@ -186,8 +207,10 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
     final verticalOffset = widget.verticalScrollController?.hasClients == true
         ? widget.verticalScrollController!.offset
         : 0.0;
-    final minY = math.min(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
-    final maxY = math.max(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
+    final minY =
+        math.min(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
+    final maxY =
+        math.max(boxSelectionStart!.dy, boxSelectionEnd!.dy) + verticalOffset;
 
     // Use regularTracks (non-Master) to match visual layout
     final regularTracks = tracks.where((t) => t.type != 'Master').toList();
@@ -199,14 +222,20 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
 
       double trackTop = 0.0;
       for (int i = 0; i < trackIndex; i++) {
-        trackTop += widget.trackHeightState.clipHeights[regularTracks[i].id] ?? UIConstants.defaultClipHeight;
+        trackTop +=
+            widget.trackHeightState.clipHeights[regularTracks[i].id] ??
+            UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
         if (widget.automationVisibleTrackId == regularTracks[i].id) {
-          trackTop += widget.trackHeightState.automationHeights[regularTracks[i].id] ?? UIConstants.defaultAutomationHeight;
+          trackTop +=
+              widget.trackHeightState.automationHeights[regularTracks[i].id] ??
+              UIConstants.defaultAutomationHeight;
         }
       }
       // Only use clip height for hit testing (clips are in clip area only)
-      final trackHeight = widget.trackHeightState.clipHeights[regularTracks[trackIndex].id] ?? UIConstants.defaultClipHeight;
+      final trackHeight =
+          widget.trackHeightState.clipHeights[regularTracks[trackIndex].id] ??
+          UIConstants.defaultClipHeight;
       final trackBottom = trackTop + trackHeight;
 
       // Check if track overlaps with selection Y range
@@ -223,7 +252,9 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       final clipEnd = clip.startTime + clip.duration;
 
       // Check if clip overlaps with selection rectangle (both X and Y)
-      if (clipStart < maxBeats && clipEnd > minBeats && isTrackInYRange(clip.trackId)) {
+      if (clipStart < maxBeats &&
+          clipEnd > minBeats &&
+          isTrackInYRange(clip.trackId)) {
         newMidiSelection.add(clip.clipId);
       }
     }
@@ -234,7 +265,9 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       final clipStartBeats = clip.startTime * beatsPerSecond;
       final clipEndBeats = (clip.startTime + clip.duration) * beatsPerSecond;
 
-      if (clipStartBeats < maxBeats && clipEndBeats > minBeats && isTrackInYRange(clip.trackId)) {
+      if (clipStartBeats < maxBeats &&
+          clipEndBeats > minBeats &&
+          isTrackInYRange(clip.trackId)) {
         newAudioSelection.add(clip.clipId);
       }
     }

@@ -24,13 +24,21 @@ class HorizontalLevelMeter extends StatelessWidget {
         return GestureDetector(
           onHorizontalDragUpdate: (details) {
             if (onVolumeChanged == null) return;
-            final sliderValue = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             onVolumeChanged!(newVolumeDb);
           },
           onTapDown: (details) {
             if (onVolumeChanged == null) return;
-            final sliderValue = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+            final sliderValue =
+                (details.localPosition.dx / constraints.maxWidth).clamp(
+                  0.0,
+                  1.0,
+                );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             onVolumeChanged!(newVolumeDb);
           },
@@ -85,19 +93,38 @@ class _MeterPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final meterHeight = (size.height - 8) / 2; // Two rows with gap
-    final segmentWidth = (size.width - (segmentCount - 1) * segmentGap) / segmentCount;
+    final segmentWidth =
+        (size.width - (segmentCount - 1) * segmentGap) / segmentCount;
 
     // Draw left channel (top)
-    _drawMeterRow(canvas, const Offset(0, 2), segmentWidth, meterHeight - 2, leftLevel);
+    _drawMeterRow(
+      canvas,
+      const Offset(0, 2),
+      segmentWidth,
+      meterHeight - 2,
+      leftLevel,
+    );
 
     // Draw right channel (bottom)
-    _drawMeterRow(canvas, Offset(0, meterHeight + 6), segmentWidth, meterHeight - 2, rightLevel);
+    _drawMeterRow(
+      canvas,
+      Offset(0, meterHeight + 6),
+      segmentWidth,
+      meterHeight - 2,
+      rightLevel,
+    );
 
     // Draw volume slider thumb
     _drawVolumeThumb(canvas, size);
   }
 
-  void _drawMeterRow(Canvas canvas, Offset offset, double segmentWidth, double height, double level) {
+  void _drawMeterRow(
+    Canvas canvas,
+    Offset offset,
+    double segmentWidth,
+    double height,
+    double level,
+  ) {
     for (int i = 0; i < segmentCount; i++) {
       final threshold = (i + 1) / segmentCount;
       final isLit = level >= threshold;
@@ -141,11 +168,7 @@ class _MeterPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..strokeWidth = 2;
-    canvas.drawLine(
-      Offset(thumbX, 0),
-      Offset(thumbX, size.height),
-      linePaint,
-    );
+    canvas.drawLine(Offset(thumbX, 0), Offset(thumbX, size.height), linePaint);
 
     // Thumb circle
     final thumbPaint = Paint()

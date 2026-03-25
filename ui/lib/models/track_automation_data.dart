@@ -29,8 +29,26 @@ enum AutomationParameter {
 /// Piecewise linear interpolation: 0.0 = -60 dB, 0.7 = 0 dB, 1.0 = +6 dB
 class VolumeConversion {
   // Boojy volume curve points (same as CapsuleFader)
-  static const List<double> _sliderPoints = [0.01, 0.05, 0.10, 0.30, 0.50, 0.70, 0.85, 1.00];
-  static const List<double> _dbPoints = [-60.0, -52.0, -45.0, -24.0, -10.0, 0.0, 3.0, 6.0];
+  static const List<double> _sliderPoints = [
+    0.01,
+    0.05,
+    0.10,
+    0.30,
+    0.50,
+    0.70,
+    0.85,
+    1.00,
+  ];
+  static const List<double> _dbPoints = [
+    -60.0,
+    -52.0,
+    -45.0,
+    -24.0,
+    -10.0,
+    0.0,
+    3.0,
+    6.0,
+  ];
 
   /// Convert normalized (0-1) to dB using Boojy curve
   /// 0.0 = -60 dB (treated as -∞), 0.7 = 0 dB, 1.0 = +6 dB
@@ -42,7 +60,9 @@ class VolumeConversion {
     // Find segment and interpolate
     for (int i = 0; i < _sliderPoints.length - 1; i++) {
       if (normalized <= _sliderPoints[i + 1]) {
-        final t = (normalized - _sliderPoints[i]) / (_sliderPoints[i + 1] - _sliderPoints[i]);
+        final t =
+            (normalized - _sliderPoints[i]) /
+            (_sliderPoints[i + 1] - _sliderPoints[i]);
         return _dbPoints[i] + t * (_dbPoints[i + 1] - _dbPoints[i]);
       }
     }
@@ -115,11 +135,7 @@ class AutomationPoint {
   int get hashCode => Object.hash(id, time, value, isSelected);
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'time': time,
-      'value': value,
-    };
+    return {'id': id, 'time': time, 'value': value};
   }
 
   factory AutomationPoint.fromJson(Map<String, dynamic> json) {
@@ -146,15 +162,15 @@ class TrackAutomationLane {
     required this.parameter,
     List<AutomationPoint>? points,
     this.isExpanded = true,
-  })  : id = id ?? const Uuid().v4(),
-        points = points ?? [];
+  }) : id = id ?? const Uuid().v4(),
+       points = points ?? [];
 
   /// Create an empty lane for a track/parameter
-  factory TrackAutomationLane.empty(int trackId, AutomationParameter parameter) {
-    return TrackAutomationLane(
-      trackId: trackId,
-      parameter: parameter,
-    );
+  factory TrackAutomationLane.empty(
+    int trackId,
+    AutomationParameter parameter,
+  ) {
+    return TrackAutomationLane(trackId: trackId, parameter: parameter);
   }
 
   /// Get points sorted by time (points are kept sorted on insert)
@@ -289,7 +305,8 @@ class TrackAutomationLane {
   }
 
   @override
-  int get hashCode => Object.hash(id, trackId, parameter, Object.hashAll(points), isExpanded);
+  int get hashCode =>
+      Object.hash(id, trackId, parameter, Object.hashAll(points), isExpanded);
 
   /// Convert to JSON for serialization
   Map<String, dynamic> toJson() {
@@ -315,7 +332,9 @@ class TrackAutomationLane {
       trackId: (json['trackId'] as num).toInt(),
       parameter: parameter,
       points: (json['points'] as List<dynamic>?)
-          ?.map((dynamic p) => AutomationPoint.fromJson(p as Map<String, dynamic>))
+          ?.map(
+            (dynamic p) => AutomationPoint.fromJson(p as Map<String, dynamic>),
+          )
           .toList(),
       isExpanded: json['isExpanded'] as bool? ?? true,
     );
@@ -334,12 +353,14 @@ class TrackAutomationLane {
     if (points.isEmpty) return '';
 
     final sorted = sortedPoints;
-    return sorted.map((p) {
-      // Convert beats to seconds: seconds = beats * 60 / tempo
-      final timeSeconds = p.time * 60.0 / tempo;
-      // Convert normalized (0-1) to dB
-      final db = VolumeConversion.normalizedToDb(p.value);
-      return '${timeSeconds.toStringAsFixed(6)},${db.toStringAsFixed(2)}';
-    }).join(';');
+    return sorted
+        .map((p) {
+          // Convert beats to seconds: seconds = beats * 60 / tempo
+          final timeSeconds = p.time * 60.0 / tempo;
+          // Convert normalized (0-1) to dB
+          final db = VolumeConversion.normalizedToDb(p.value);
+          return '${timeSeconds.toStringAsFixed(6)},${db.toStringAsFixed(2)}';
+        })
+        .join(';');
   }
 }

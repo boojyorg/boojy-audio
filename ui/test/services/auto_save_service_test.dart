@@ -62,18 +62,15 @@ void main() {
 
     group('edge cases', () {
       test('handles empty path', () {
-        final backup = BackupInfo(
-          path: '',
-          name: '',
-          modified: DateTime.now(),
-        );
+        final backup = BackupInfo(path: '', name: '', modified: DateTime.now());
 
         expect(backup.path, '');
         expect(backup.name, '');
       });
 
       test('handles long path', () {
-        final longPath = '/Library/Application Support/BoojyAudio/${'a' * 500}/backup.audio';
+        final longPath =
+            '/Library/Application Support/BoojyAudio/${'a' * 500}/backup.audio';
         final backup = BackupInfo(
           path: longPath,
           name: 'backup.audio',

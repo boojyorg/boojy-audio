@@ -15,7 +15,18 @@ import 'daw_project_mixin.dart';
 
 /// Mixin containing widget builder methods for DAWScreen.
 /// Handles building status bar, collapsed mixer bar, and latency display.
-mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin, DAWLibraryMixin, DAWProjectMixin {
+mixin DAWBuildMixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWPlaybackMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin,
+        DAWClipMixin,
+        DAWVst3Mixin,
+        DAWLibraryMixin,
+        DAWProjectMixin {
   // ============================================
   // COLLAPSED MIXER BAR
   // ============================================
@@ -27,9 +38,7 @@ mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, 
       width: 30,
       decoration: BoxDecoration(
         color: colors.elevated,
-        border: Border(
-          left: BorderSide(color: colors.divider),
-        ),
+        border: Border(left: BorderSide(color: colors.divider)),
       ),
       child: Column(
         children: [
@@ -46,11 +55,7 @@ mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, 
                   width: 24,
                   height: 24,
                   alignment: Alignment.center,
-                  child: Icon(
-                    Icons.tune,
-                    color: colors.textPrimary,
-                    size: 18,
-                  ),
+                  child: Icon(Icons.tune, color: colors.textPrimary, size: 18),
                 ),
               ),
             ),
@@ -86,7 +91,9 @@ mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, 
     if (roundtripMs < 10) {
       latencyColor = colors.success; // Green - excellent
     } else if (roundtripMs < 20) {
-      latencyColor = colors.success.withValues(alpha: 0.7); // Light green - good
+      latencyColor = colors.success.withValues(
+        alpha: 0.7,
+      ); // Light green - good
     } else if (roundtripMs < 30) {
       latencyColor = colors.warning; // Yellow - acceptable
     } else {
@@ -133,9 +140,7 @@ mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, 
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: colors.darkest,
-        border: Border(
-          top: BorderSide(color: colors.standard),
-        ),
+        border: Border(top: BorderSide(color: colors.standard)),
       ),
       child: Row(
         children: [
@@ -152,7 +157,9 @@ mixin DAWBuildMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, 
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isAudioGraphInitialized ? Icons.check_circle : Icons.hourglass_empty,
+                  isAudioGraphInitialized
+                      ? Icons.check_circle
+                      : Icons.hourglass_empty,
                   size: 12,
                   color: isAudioGraphInitialized
                       ? colors.accent

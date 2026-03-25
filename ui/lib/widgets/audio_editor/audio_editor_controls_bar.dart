@@ -114,9 +114,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: colors.darkest,
-        border: Border(
-          bottom: BorderSide(color: colors.surface, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
       ),
       child: Row(
         children: [
@@ -181,14 +179,18 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                 Icon(
                   Icons.loop,
                   size: 13,
-                  color: widget.loopEnabled ? colors.elevated : colors.textPrimary,
+                  color: widget.loopEnabled
+                      ? colors.elevated
+                      : colors.textPrimary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Loop',
                   style: TextStyle(
                     fontSize: 10,
-                    color: widget.loopEnabled ? colors.elevated : colors.textPrimary,
+                    color: widget.loopEnabled
+                        ? colors.elevated
+                        : colors.textPrimary,
                   ),
                 ),
               ],
@@ -247,7 +249,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 8),
 
         // Signature label + dropdown
-        Text('Signature', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Signature',
+          style: TextStyle(color: colors.textMuted, fontSize: 9),
+        ),
         const SizedBox(width: 4),
         _buildSignatureDropdown(context),
       ],
@@ -282,11 +287,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                 ),
               ),
               const SizedBox(width: 2),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 14,
-                color: colors.textMuted,
-              ),
+              Icon(Icons.arrow_drop_down, size: 14, color: colors.textMuted),
             ],
           ),
         ),
@@ -299,14 +300,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
-    final signatures = [
-      (2, 4),
-      (3, 4),
-      (4, 4),
-      (5, 4),
-      (6, 8),
-      (7, 8),
-    ];
+    final signatures = [(2, 4), (3, 4), (4, 4), (5, 4), (6, 8), (7, 8)];
 
     showMenu<(int, int)>(
       context: context,
@@ -317,7 +311,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         0,
       ),
       items: signatures.map((sig) {
-        final isSelected = sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
+        final isSelected =
+            sig.$1 == widget.beatsPerBar && sig.$2 == widget.beatUnit;
         return PopupMenuItem<(int, int)>(
           value: sig,
           child: Row(
@@ -490,7 +485,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                   onTap: widget.onWarpToggle,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpLabel
                           ? colors.textPrimary.withValues(alpha: 0.1)
@@ -503,18 +501,11 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.sync,
-                          size: 13,
-                          color: textColor,
-                        ),
+                        Icon(Icons.sync, size: 13, color: textColor),
                         const SizedBox(width: 4),
                         Text(
                           modeLabel,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 10,
-                          ),
+                          style: TextStyle(color: textColor, fontSize: 10),
                         ),
                       ],
                     ),
@@ -536,7 +527,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                   onTap: () => _showWarpModeMenu(context),
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _isHoveringWarpDropdown
                           ? colors.textPrimary.withValues(alpha: 0.1)
@@ -568,22 +562,38 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 4),
         // ÷2 button - halves BPM (same style as Reverse toggle)
         _buildActionButton(context, '÷2', false, isEnabled, () {
-          widget.onOriginalBpmChanged?.call((widget.originalBpm / 2).clamp(20, 999));
+          widget.onOriginalBpmChanged?.call(
+            (widget.originalBpm / 2).clamp(20, 999),
+          );
         }),
         const SizedBox(width: 2),
         // ×2 button - doubles BPM (same style as Reverse toggle)
         _buildActionButton(context, '×2', false, isEnabled, () {
-          widget.onOriginalBpmChanged?.call((widget.originalBpm * 2).clamp(20, 999));
+          widget.onOriginalBpmChanged?.call(
+            (widget.originalBpm * 2).clamp(20, 999),
+          );
         }),
         const SizedBox(width: 4),
         // Reverse toggle
-        _buildActionButton(context, 'Reverse', widget.reversed, true, widget.onReverseToggle),
+        _buildActionButton(
+          context,
+          'Reverse',
+          widget.reversed,
+          true,
+          widget.onReverseToggle,
+        ),
       ],
     );
   }
 
   // ============ ACTION BUTTON (÷2 / ×2 / Reverse - unified style) ============
-  Widget _buildActionButton(BuildContext context, String label, bool isActive, bool enabled, VoidCallback? onTap) {
+  Widget _buildActionButton(
+    BuildContext context,
+    String label,
+    bool isActive,
+    bool enabled,
+    VoidCallback? onTap,
+  ) {
     final colors = context.colors;
 
     return Tooltip(
@@ -591,7 +601,9 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+          cursor: enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.forbidden,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
             decoration: BoxDecoration(
@@ -604,7 +616,9 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                 fontSize: 10,
                 color: isActive
                     ? colors.elevated
-                    : (enabled ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.5)),
+                    : (enabled
+                          ? colors.textPrimary
+                          : colors.textMuted.withValues(alpha: 0.5)),
               ),
             ),
           ),
@@ -633,18 +647,11 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.piano,
-                  size: 13,
-                  color: colors.textPrimary,
-                ),
+                Icon(Icons.piano, size: 13, color: colors.textPrimary),
                 const SizedBox(width: 4),
                 Text(
                   'Sampler',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: colors.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 10, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -660,7 +667,8 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       return;
     }
 
-    final RenderBox? renderBox = _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _warpButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
@@ -787,15 +795,14 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     color: isSelected ? colors.accent : colors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 ),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: colors.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 9, color: colors.textMuted),
                 ),
               ],
             ),

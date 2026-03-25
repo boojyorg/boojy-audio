@@ -9,8 +9,8 @@ enum SnapValue {
   off,
   bar,
   beat,
-  half,      // 1/2 beat (1/8th note)
-  quarter,   // 1/4 beat (1/16th note)
+  half, // 1/2 beat (1/8th note)
+  quarter, // 1/4 beat (1/16th note)
 }
 
 extension SnapValueExtension on SnapValue {
@@ -138,7 +138,10 @@ class UILayoutState extends ChangeNotifier {
 
   // Get default size for initial layout
   static double getLibraryDefaultWidth(double windowWidth) {
-    return max(libraryMinWidth, min(windowWidth * libraryDefaultPct, libraryHardMax));
+    return max(
+      libraryMinWidth,
+      min(windowWidth * libraryDefaultPct, libraryHardMax),
+    );
   }
 
   static double getMixerDefaultWidth(double windowWidth) {
@@ -146,7 +149,10 @@ class UILayoutState extends ChangeNotifier {
   }
 
   static double getEditorDefaultHeight(double windowHeight) {
-    return max(editorMinHeight, min(windowHeight * editorDefaultPct, editorHardMax));
+    return max(
+      editorMinHeight,
+      min(windowHeight * editorDefaultPct, editorHardMax),
+    );
   }
 
   // ============================================
@@ -159,7 +165,9 @@ class UILayoutState extends ChangeNotifier {
 
   /// Get current arrangement view width
   double getArrangementWidth(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : libraryPanelWidth;
+    final libraryWidth = _isLibraryPanelCollapsed
+        ? libraryCollapsedWidth
+        : libraryPanelWidth;
     final mixerWidth = _isMixerVisible ? _mixerPanelWidth : 0.0;
     return windowWidth - libraryWidth - mixerWidth;
   }
@@ -174,7 +182,9 @@ class UILayoutState extends ChangeNotifier {
 
   /// Check if there's room to show mixer panel
   bool canShowMixer(double windowWidth) {
-    final libraryWidth = _isLibraryPanelCollapsed ? libraryCollapsedWidth : libraryPanelWidth;
+    final libraryWidth = _isLibraryPanelCollapsed
+        ? libraryCollapsedWidth
+        : libraryPanelWidth;
     final mixerWidth = _mixerPanelWidth; // Width it would be if expanded
     final arrangementWidth = windowWidth - libraryWidth - mixerWidth;
     return arrangementWidth >= minArrangementWidth;
@@ -186,20 +196,28 @@ class UILayoutState extends ChangeNotifier {
 
   double get libraryLeftColumnWidth => _libraryLeftColumnWidth;
   set libraryLeftColumnWidth(double width) {
-    _libraryLeftColumnWidth = width.clamp(libraryLeftColumnMin, libraryLeftColumnMax);
+    _libraryLeftColumnWidth = width.clamp(
+      libraryLeftColumnMin,
+      libraryLeftColumnMax,
+    );
     notifyListeners();
   }
 
   double get libraryRightColumnWidth => _libraryRightColumnWidth;
   set libraryRightColumnWidth(double width) {
-    _libraryRightColumnWidth = width.clamp(libraryRightColumnMin, libraryRightColumnMax);
+    _libraryRightColumnWidth = width.clamp(
+      libraryRightColumnMin,
+      libraryRightColumnMax,
+    );
     notifyListeners();
   }
 
   /// Resize left column (middle divider) - right column absorbs difference
   void resizeLeftColumn(double delta) {
-    _libraryLeftColumnWidth = (_libraryLeftColumnWidth + delta)
-        .clamp(libraryLeftColumnMin, libraryLeftColumnMax);
+    _libraryLeftColumnWidth = (_libraryLeftColumnWidth + delta).clamp(
+      libraryLeftColumnMin,
+      libraryLeftColumnMax,
+    );
     notifyListeners();
   }
 
@@ -211,7 +229,10 @@ class UILayoutState extends ChangeNotifier {
       collapseLibrary();
       return;
     }
-    _libraryRightColumnWidth = newRight.clamp(libraryRightColumnMin, libraryRightColumnMax);
+    _libraryRightColumnWidth = newRight.clamp(
+      libraryRightColumnMin,
+      libraryRightColumnMax,
+    );
     notifyListeners();
   }
 
@@ -423,7 +444,11 @@ class UILayoutState extends ChangeNotifier {
 
   /// Set loop region (start and end in beats)
   /// If manual is true, disables auto-follow (user explicitly set the loop)
-  void setLoopRegion(double startBeats, double endBeats, {bool manual = false}) {
+  void setLoopRegion(
+    double startBeats,
+    double endBeats, {
+    bool manual = false,
+  }) {
     if (manual) {
       _loopAutoFollow = false; // User override - disable auto-follow
     }
@@ -485,12 +510,21 @@ class UILayoutState extends ChangeNotifier {
   /// Apply layout from loaded project
   void applyLayout(UILayoutData layout) {
     // Backwards compatible: split total width into left + right columns
-    final totalWidth = layout.libraryWidth.clamp(libraryMinWidth, libraryHardMax);
+    final totalWidth = layout.libraryWidth.clamp(
+      libraryMinWidth,
+      libraryHardMax,
+    );
     _libraryLeftColumnWidth = libraryLeftColumnDefault;
-    _libraryRightColumnWidth = (totalWidth - _libraryLeftColumnWidth - libraryDividerWidth)
-        .clamp(libraryRightColumnMin, libraryRightColumnMax);
+    _libraryRightColumnWidth =
+        (totalWidth - _libraryLeftColumnWidth - libraryDividerWidth).clamp(
+          libraryRightColumnMin,
+          libraryRightColumnMax,
+        );
     _mixerPanelWidth = layout.mixerWidth.clamp(mixerMinWidth, mixerHardMax);
-    _editorPanelHeight = layout.bottomHeight.clamp(editorMinHeight, editorHardMax);
+    _editorPanelHeight = layout.bottomHeight.clamp(
+      editorMinHeight,
+      editorHardMax,
+    );
     _isLibraryPanelCollapsed = layout.libraryCollapsed;
     _isMixerVisible = !layout.mixerCollapsed;
     // Don't auto-open bottom panel on load

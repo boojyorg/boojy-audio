@@ -77,36 +77,60 @@ void main() {
 
       test('returns correct note names for various MIDI notes', () {
         expect(
-          MidiNoteData(note: 0, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 0,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'C-1',
         );
         expect(
-          MidiNoteData(note: 21, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 21,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'A0',
         );
         expect(
-          MidiNoteData(note: 69, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 69,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'A4',
         );
         expect(
-          MidiNoteData(note: 127, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 127,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'G9',
         );
       });
 
       test('returns sharp note names correctly', () {
         expect(
-          MidiNoteData(note: 61, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 61,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'C#4',
         );
         expect(
-          MidiNoteData(note: 70, velocity: 100, startTime: 0, duration: 1)
-              .noteName,
+          MidiNoteData(
+            note: 70,
+            velocity: 100,
+            startTime: 0,
+            duration: 1,
+          ).noteName,
           'A#4',
         );
       });
@@ -343,11 +367,7 @@ void main() {
           startTime: 1.0,
           duration: 2.0,
         );
-        final copy = note.copyWith(
-          note: 72,
-          velocity: 80,
-          isSelected: true,
-        );
+        final copy = note.copyWith(note: 72, velocity: 80, isSelected: true);
 
         expect(copy.note, 72);
         expect(copy.velocity, 80);
@@ -723,10 +743,7 @@ void main() {
           name: 'Original',
         );
 
-        final copy = clip.copyWith(
-          name: 'Updated',
-          isMuted: true,
-        );
+        final copy = clip.copyWith(name: 'Updated', isMuted: true);
 
         expect(copy.clipId, 1);
         expect(copy.name, 'Updated');

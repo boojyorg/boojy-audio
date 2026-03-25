@@ -25,7 +25,7 @@ class FileStat {
   final int size;
 
   FileStat({DateTime? modified, this.size = 0})
-      : modified = modified ?? DateTime.now();
+    : modified = modified ?? DateTime.now();
 }
 
 /// Stub Directory class for web
@@ -36,7 +36,8 @@ class Directory extends FileSystemEntity {
 
   Future<bool> exists() async => false;
   Future<Directory> create({bool recursive = false}) async => this;
-  Stream<FileSystemEntity> list({bool recursive = false}) => const Stream.empty();
+  Stream<FileSystemEntity> list({bool recursive = false}) =>
+      const Stream.empty();
   Future<FileStat> stat() async => FileStat();
 }
 
@@ -63,7 +64,10 @@ abstract class FileSystemEntity {
 
 /// Stub Process class for web
 class Process {
-  static Future<ProcessResult> run(String executable, List<String> arguments) async {
+  static Future<ProcessResult> run(
+    String executable,
+    List<String> arguments,
+  ) async {
     return ProcessResult(0, 1, '', 'Process.run not supported on web');
   }
 }

@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Available themes for Boojy Audio
-enum BoojyTheme {
-  dark,
-  highContrastDark,
-  light,
-  highContrastLight,
-}
+enum BoojyTheme { dark, highContrastDark, light, highContrastLight }
 
 /// Extension to get display names for themes
 extension BoojyThemeExtension on BoojyTheme {
@@ -223,14 +218,14 @@ class BoojyColors {
 
   // --- DARK THEME (Boojy Design System) ---
   static const Map<String, Color> _darkBackgrounds = {
-    'editor': Color(0xFF040412),   // BG.editor — deep content area
-    'darkest': Color(0xFF13151C),  // BG.darkest — text inputs
-    'dark': Color(0xFF2C2C32),     // BG.dark — chrome (sidebar, top bar)
+    'editor': Color(0xFF040412), // BG.editor — deep content area
+    'darkest': Color(0xFF13151C), // BG.darkest — text inputs
+    'dark': Color(0xFF2C2C32), // BG.dark — chrome (sidebar, top bar)
     'standard': Color(0xFF272A38), // BG.standard — forms, secondary surfaces
     'elevated': Color(0xFF292B36), // BG.elevated — floating UI
-    'surface': Color(0xFF353845),  // BG.surface — hover, cards
-    'divider': Color(0xFF3A3D4A),  // BG.divider — borders
-    'hover': Color(0xFF4A4D5A),    // BG.hover — hover states
+    'surface': Color(0xFF353845), // BG.surface — hover, cards
+    'divider': Color(0xFF3A3D4A), // BG.divider — borders
+    'hover': Color(0xFF4A4D5A), // BG.hover — hover states
   };
 
   static const Map<String, Color> _darkText = {

@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 class CreateSnapshotDialog extends StatefulWidget {
   final List<String> existingNames;
 
-  const CreateSnapshotDialog({
-    super.key,
-    this.existingNames = const [],
-  });
+  const CreateSnapshotDialog({super.key, this.existingNames = const []});
 
   static Future<({String name, String? note})?> show(
     BuildContext context, {
@@ -15,9 +12,7 @@ class CreateSnapshotDialog extends StatefulWidget {
   }) {
     return showDialog<({String name, String? note})>(
       context: context,
-      builder: (context) => CreateSnapshotDialog(
-        existingNames: existingNames,
-      ),
+      builder: (context) => CreateSnapshotDialog(existingNames: existingNames),
     );
   }
 
@@ -47,17 +42,18 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
     }
 
     // Check if name already exists
-    if (widget.existingNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
-      setState(() => _errorMessage = 'A snapshot with this name already exists');
+    if (widget.existingNames.any(
+      (n) => n.toLowerCase() == name.toLowerCase(),
+    )) {
+      setState(
+        () => _errorMessage = 'A snapshot with this name already exists',
+      );
       return;
     }
 
     final note = _noteController.text.trim();
 
-    Navigator.of(context).pop((
-      name: name,
-      note: note.isEmpty ? null : note,
-    ));
+    Navigator.of(context).pop((name: name, note: note.isEmpty ? null : note));
   }
 
   @override
@@ -93,10 +89,7 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
             const SizedBox(height: 8),
             const Text(
               'Save a snapshot of your current project',
-              style: TextStyle(
-                color: Color(0xFF9E9E9E),
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
             ),
             const SizedBox(height: 24),
 
@@ -140,7 +133,10 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(color: Color(0xFFF44336)),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
               onChanged: (_) {
                 if (_errorMessage != null) {
@@ -182,7 +178,10 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                   borderRadius: BorderRadius.circular(4),
                   borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -195,7 +194,10 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF9E9E9E),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -205,7 +207,10 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                   style: TextButton.styleFrom(
                     backgroundColor: const Color(0xFF7FD4A0),
                     foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: const Text('Create Snapshot'),
                 ),

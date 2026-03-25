@@ -174,7 +174,10 @@ class MidiClipGestureUtils {
   }) {
     final deltaX = currentX - startX;
     final deltaBeats = deltaX / pixelsPerBeat;
-    var newDuration = (startDuration + deltaBeats).clamp(minDuration, maxDuration);
+    var newDuration = (startDuration + deltaBeats).clamp(
+      minDuration,
+      maxDuration,
+    );
 
     // Snap to grid
     newDuration = (newDuration / snapResolution).round() * snapResolution;
@@ -201,7 +204,10 @@ class MidiClipGestureUtils {
 
     // Snap start time to grid
     newStartTime = (newStartTime / snapResolution).round() * snapResolution;
-    newStartTime = newStartTime.clamp(0.0, originalStartTime + originalDuration - minDuration);
+    newStartTime = newStartTime.clamp(
+      0.0,
+      originalStartTime + originalDuration - minDuration,
+    );
 
     // Recalculate duration based on snapped start
     newDuration = (originalStartTime + originalDuration) - newStartTime;
@@ -215,21 +221,25 @@ class MidiClipGestureUtils {
     required List<MidiNoteData> notes,
     required double trimOffset,
   }) {
-    return notes.where((note) {
-      // Keep notes that end after the trim point
-      return note.endTime > trimOffset;
-    }).map((note) {
-      // Adjust note start times relative to new clip start
-      final adjustedStart = note.startTime - trimOffset;
-      if (adjustedStart < 0) {
-        // Note starts before trim point - truncate it
-        return note.copyWith(
-          startTime: 0,
-          duration: note.duration + adjustedStart,
-        );
-      }
-      return note.copyWith(startTime: adjustedStart);
-    }).where((note) => note.duration > 0).toList();
+    return notes
+        .where((note) {
+          // Keep notes that end after the trim point
+          return note.endTime > trimOffset;
+        })
+        .map((note) {
+          // Adjust note start times relative to new clip start
+          final adjustedStart = note.startTime - trimOffset;
+          if (adjustedStart < 0) {
+            // Note starts before trim point - truncate it
+            return note.copyWith(
+              startTime: 0,
+              duration: note.duration + adjustedStart,
+            );
+          }
+          return note.copyWith(startTime: adjustedStart);
+        })
+        .where((note) => note.duration > 0)
+        .toList();
   }
 
   /// Check if shift key is pressed (for snap bypass).

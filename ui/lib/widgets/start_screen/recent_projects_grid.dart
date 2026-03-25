@@ -56,10 +56,7 @@ class RecentProjectsGrid extends StatelessWidget {
             Text(
               'Create a new project or open\nan existing one to get started.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colors.textMuted, fontSize: 12),
             ),
           ],
         ),
@@ -75,7 +72,8 @@ class RecentProjectsGrid extends StatelessWidget {
         final crossAxisCount = constraints.maxWidth > 500 ? 3 : 2;
 
         // Determine if we should show a faint "+" card
-        final showPlusCard = projects.length.isOdd && projects.length < crossAxisCount * 4;
+        final showPlusCard =
+            projects.length.isOdd && projects.length < crossAxisCount * 4;
         final itemCount = projects.length + (showPlusCard ? 1 : 0);
 
         return GridView.builder(

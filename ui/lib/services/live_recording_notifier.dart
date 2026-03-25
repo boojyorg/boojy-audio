@@ -98,7 +98,11 @@ class LiveRecordingNotifier extends ChangeNotifier {
       final type = int.tryParse(parts[2]);
       final timestampSamples = int.tryParse(parts[3]);
 
-      if (note == null || velocity == null || type == null || timestampSamples == null) continue;
+      if (note == null ||
+          velocity == null ||
+          type == null ||
+          timestampSamples == null)
+        continue;
 
       // Convert sample timestamp to beats (relative to clip start = beat 0)
       final beatPosition = (timestampSamples / _sampleRate) * beatsPerSecond;
@@ -114,13 +118,18 @@ class LiveRecordingNotifier extends ChangeNotifier {
         // NoteOff — finalize the active note into a completed note
         final active = _activeNotes.remove(note);
         if (active != null) {
-          final duration = (beatPosition - active.startBeat).clamp(0.01, double.infinity);
-          _completedNotes.add(MidiNoteData(
-            note: active.note,
-            velocity: active.velocity,
-            startTime: active.startBeat,
-            duration: duration,
-          ));
+          final duration = (beatPosition - active.startBeat).clamp(
+            0.01,
+            double.infinity,
+          );
+          _completedNotes.add(
+            MidiNoteData(
+              note: active.note,
+              velocity: active.velocity,
+              startTime: active.startBeat,
+              duration: duration,
+            ),
+          );
         }
       }
     }
@@ -151,13 +160,18 @@ class LiveRecordingNotifier extends ChangeNotifier {
     final allNotes = <MidiNoteData>[..._completedNotes];
 
     for (final active in _activeNotes.values) {
-      final liveDuration = (clipDurationBeats - active.startBeat).clamp(0.01, double.infinity);
-      allNotes.add(MidiNoteData(
-        note: active.note,
-        velocity: active.velocity,
-        startTime: active.startBeat,
-        duration: liveDuration,
-      ));
+      final liveDuration = (clipDurationBeats - active.startBeat).clamp(
+        0.01,
+        double.infinity,
+      );
+      allNotes.add(
+        MidiNoteData(
+          note: active.note,
+          velocity: active.velocity,
+          startTime: active.startBeat,
+          duration: liveDuration,
+        ),
+      );
     }
 
     return MidiClipData(

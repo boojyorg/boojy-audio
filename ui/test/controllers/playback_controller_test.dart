@@ -152,21 +152,14 @@ void main() {
   group('playLoop() without engine', () {
     test('does not crash', () {
       expect(
-        () => controller.playLoop(
-          loopStartBeats: 0,
-          loopEndBeats: 4,
-          tempo: 120,
-        ),
+        () =>
+            controller.playLoop(loopStartBeats: 0, loopEndBeats: 4, tempo: 120),
         returnsNormally,
       );
     });
 
     test('does not change isPlaying', () {
-      controller.playLoop(
-        loopStartBeats: 0,
-        loopEndBeats: 4,
-        tempo: 120,
-      );
+      controller.playLoop(loopStartBeats: 0, loopEndBeats: 4, tempo: 120);
       expect(controller.isPlaying, isFalse);
     });
   });
@@ -265,10 +258,7 @@ void main() {
   group('updateLoopBounds', () {
     test('does not crash without engine', () {
       expect(
-        () => controller.updateLoopBounds(
-          loopStartBeats: 2,
-          loopEndBeats: 8,
-        ),
+        () => controller.updateLoopBounds(loopStartBeats: 2, loopEndBeats: 8),
         returnsNormally,
       );
     });

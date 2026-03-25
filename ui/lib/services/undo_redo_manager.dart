@@ -160,8 +160,8 @@ class UndoRedoManager extends ChangeNotifier {
 
   /// Get current history stats
   Map<String, int> get stats => {
-        'undoCount': _undoStack.length,
-        'redoCount': _redoStack.length,
-        'maxSize': maxHistorySize,
-      };
+    'undoCount': _undoStack.length,
+    'redoCount': _redoStack.length,
+    'maxSize': maxHistorySize,
+  };
 }

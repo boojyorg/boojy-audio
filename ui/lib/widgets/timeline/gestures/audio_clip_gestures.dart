@@ -92,7 +92,8 @@ class AudioClipGestureUtils {
       final beatsPerSecond = tempo / 60.0;
       final snapResolution = GridUtils.getTimelineGridResolution(pixelsPerBeat);
       final startBeats = newStartTime * beatsPerSecond;
-      final snappedBeats = (startBeats / snapResolution).round() * snapResolution;
+      final snappedBeats =
+          (startBeats / snapResolution).round() * snapResolution;
       newStartTime = snappedBeats / beatsPerSecond;
     }
 
@@ -124,7 +125,8 @@ class AudioClipGestureUtils {
     final beatsPerSecond = tempo / 60.0;
     final snapResolution = GridUtils.getTimelineGridResolution(pixelsPerBeat);
     final durationBeats = newDuration * beatsPerSecond;
-    final snappedBeats = (durationBeats / snapResolution).round() * snapResolution;
+    final snappedBeats =
+        (durationBeats / snapResolution).round() * snapResolution;
     newDuration = snappedBeats / beatsPerSecond;
 
     return newDuration.clamp(minDuration, maxDuration ?? double.infinity);
@@ -132,7 +134,8 @@ class AudioClipGestureUtils {
 
   /// Calculate new start time, duration, and offset for left edge trim.
   /// Returns a record with (newStartTime, newDuration, newOffset).
-  static ({double startTime, double duration, double offset}) calculateLeftTrimPosition({
+  static ({double startTime, double duration, double offset})
+  calculateLeftTrimPosition({
     required double originalStartTime,
     required double originalDuration,
     required double originalOffset,

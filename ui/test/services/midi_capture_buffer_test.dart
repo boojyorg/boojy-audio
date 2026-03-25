@@ -61,18 +61,22 @@ void main() {
       test('adds multiple events', () {
         final now = DateTime.now();
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: now,
-          beatsFromStart: 0.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: now,
+            beatsFromStart: 0.0,
+          ),
+        );
 
-        buffer.addEvent(MidiEvent.noteOff(
-          note: 60,
-          timestamp: now.add(const Duration(milliseconds: 500)),
-          beatsFromStart: 1.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOff(
+            note: 60,
+            timestamp: now.add(const Duration(milliseconds: 500)),
+            beatsFromStart: 1.0,
+          ),
+        );
 
         expect(buffer.eventCount, 2);
       });
@@ -83,12 +87,14 @@ void main() {
           notified = true;
         });
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: DateTime.now(),
-          beatsFromStart: 0.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: DateTime.now(),
+            beatsFromStart: 0.0,
+          ),
+        );
 
         expect(notified, true);
       });
@@ -134,12 +140,14 @@ void main() {
         final now = DateTime.now();
 
         // Add event that is recent
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: now,
-          beatsFromStart: 0.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: now,
+            beatsFromStart: 0.0,
+          ),
+        );
 
         final events = buffer.getRecentEvents(5);
         expect(events.length, 1);
@@ -148,18 +156,22 @@ void main() {
       test('normalizes beat positions to start at 0', () {
         final now = DateTime.now();
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: now,
-          beatsFromStart: 10.0, // Some offset
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: now,
+            beatsFromStart: 10.0, // Some offset
+          ),
+        );
 
-        buffer.addEvent(MidiEvent.noteOff(
-          note: 60,
-          timestamp: now.add(const Duration(milliseconds: 100)),
-          beatsFromStart: 10.5,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOff(
+            note: 60,
+            timestamp: now.add(const Duration(milliseconds: 100)),
+            beatsFromStart: 10.5,
+          ),
+        );
 
         final events = buffer.getRecentEvents(5);
 
@@ -175,30 +187,39 @@ void main() {
         buffer.addNoteOn(60, 100);
 
         final events = buffer.allEvents;
-        expect(() => events.add(MidiEvent.noteOn(
-          note: 72,
-          velocity: 100,
-          timestamp: DateTime.now(),
-          beatsFromStart: 0.0,
-        )), throwsA(isA<UnsupportedError>()));
+        expect(
+          () => events.add(
+            MidiEvent.noteOn(
+              note: 72,
+              velocity: 100,
+              timestamp: DateTime.now(),
+              beatsFromStart: 0.0,
+            ),
+          ),
+          throwsA(isA<UnsupportedError>()),
+        );
       });
 
       test('returns all events in order', () {
         final now = DateTime.now();
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: now,
-          beatsFromStart: 0.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: now,
+            beatsFromStart: 0.0,
+          ),
+        );
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 64,
-          velocity: 80,
-          timestamp: now.add(const Duration(milliseconds: 100)),
-          beatsFromStart: 0.5,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 64,
+            velocity: 80,
+            timestamp: now.add(const Duration(milliseconds: 100)),
+            beatsFromStart: 0.5,
+          ),
+        );
 
         final events = buffer.allEvents;
         expect(events.length, 2);
@@ -266,18 +287,22 @@ void main() {
       test('returns event count and duration', () {
         final now = DateTime.now();
 
-        buffer.addEvent(MidiEvent.noteOn(
-          note: 60,
-          velocity: 100,
-          timestamp: now,
-          beatsFromStart: 0.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOn(
+            note: 60,
+            velocity: 100,
+            timestamp: now,
+            beatsFromStart: 0.0,
+          ),
+        );
 
-        buffer.addEvent(MidiEvent.noteOff(
-          note: 60,
-          timestamp: now.add(const Duration(milliseconds: 500)),
-          beatsFromStart: 2.0,
-        ));
+        buffer.addEvent(
+          MidiEvent.noteOff(
+            note: 60,
+            timestamp: now.add(const Duration(milliseconds: 500)),
+            beatsFromStart: 2.0,
+          ),
+        );
 
         final preview = buffer.getPreview(10);
         expect(preview, contains('1 notes')); // Only note-on counts

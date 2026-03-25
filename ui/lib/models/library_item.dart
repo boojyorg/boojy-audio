@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 
 /// Type of library item - determines drag behavior
 enum LibraryItemType {
-  preset,      // Sounds - creates MIDI track with instrument + preset
-  sample,      // Samples - creates Audio track with audio clip
-  instrument,  // Instruments - creates MIDI track with blank instrument
-  effect,      // Effects - adds to track FX chain
+  preset, // Sounds - creates MIDI track with instrument + preset
+  sample, // Samples - creates Audio track with audio clip
+  instrument, // Instruments - creates MIDI track with blank instrument
+  effect, // Effects - adds to track FX chain
   vst3Instrument, // VST3 Instrument - creates MIDI track with VST3
-  vst3Effect,     // VST3 Effect - adds VST3 to track FX chain
-  folder,      // User folder - container for files
-  audioFile,   // Audio file from user folder - creates Audio track
-  midiFile,    // MIDI file from user folder - creates MIDI track with notes
+  vst3Effect, // VST3 Effect - adds VST3 to track FX chain
+  folder, // User folder - container for files
+  audioFile, // Audio file from user folder - creates Audio track
+  midiFile, // MIDI file from user folder - creates MIDI track with notes
 }
 
 /// Base class for all library items
@@ -19,11 +19,11 @@ class LibraryItem {
   final String id;
   final String name;
   final LibraryItemType type;
-  final String? path;         // File path for samples/VST3
-  final String? category;     // Subcategory (e.g., "Leads" under "Sounds")
-  final String? parentId;     // Parent category/folder ID
+  final String? path; // File path for samples/VST3
+  final String? category; // Subcategory (e.g., "Leads" under "Sounds")
+  final String? parentId; // Parent category/folder ID
   final IconData icon;
-  final bool isPlaceholder;   // If true, shows [WIP] suffix
+  final bool isPlaceholder; // If true, shows [WIP] suffix
 
   const LibraryItem({
     required this.id,
@@ -44,13 +44,15 @@ class LibraryItem {
     if (query.isEmpty) return true;
     final lowerQuery = query.toLowerCase();
     return name.toLowerCase().contains(lowerQuery) ||
-           (category?.toLowerCase().contains(lowerQuery) ?? false);
+        (category?.toLowerCase().contains(lowerQuery) ?? false);
   }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is LibraryItem && runtimeType == other.runtimeType && id == other.id;
+      other is LibraryItem &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -58,7 +60,7 @@ class LibraryItem {
 
 /// Preset item (Sounds category) - synth patches that load on instruments
 class PresetItem extends LibraryItem {
-  final String instrumentId;  // Which instrument this preset is for
+  final String instrumentId; // Which instrument this preset is for
   final Map<String, dynamic>? presetData; // Preset parameters
 
   const PresetItem({

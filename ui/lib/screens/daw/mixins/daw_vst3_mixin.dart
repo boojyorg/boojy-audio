@@ -13,7 +13,14 @@ import 'daw_clip_mixin.dart';
 
 /// Mixin containing VST3 plugin-related methods for DAWScreen.
 /// Handles plugin scanning, adding, removing, and parameter editing.
-mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin {
+mixin DAWVst3Mixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin,
+        DAWClipMixin {
   // ============================================
   // VST3 SCANNING
   // ============================================
@@ -22,9 +29,13 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
   Future<void> scanVst3Plugins({bool forceRescan = false}) async {
     if (vst3PluginManager == null) return;
 
-    statusMessage = forceRescan ? 'Rescanning VST3 plugins...' : 'Scanning VST3 plugins...';
+    statusMessage = forceRescan
+        ? 'Rescanning VST3 plugins...'
+        : 'Scanning VST3 plugins...';
 
-    final result = await vst3PluginManager!.scanPlugins(forceRescan: forceRescan);
+    final result = await vst3PluginManager!.scanPlugins(
+      forceRescan: forceRescan,
+    );
 
     if (mounted) {
       statusMessage = result;
@@ -47,7 +58,11 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
     final colors = context.colors;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.success ? 'Added: ${result.message}' : 'Error: ${result.message}'),
+        content: Text(
+          result.success
+              ? 'Added: ${result.message}'
+              : 'Error: ${result.message}',
+        ),
         duration: Duration(seconds: result.success ? 2 : 3),
         backgroundColor: result.success ? colors.success : colors.error,
       ),
@@ -168,7 +183,10 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
                                 const SizedBox(height: 8),
                                 Text(
                                   'Drag the sliders to adjust plugin parameters.',
-                                  style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.colors.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -177,7 +195,9 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
                             onPressed: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Native editor support coming soon! For now, use the parameter sliders.'),
+                                  content: Text(
+                                    'Native editor support coming soon! For now, use the parameter sliders.',
+                                  ),
                                   duration: Duration(seconds: 3),
                                 ),
                               );
@@ -185,7 +205,10 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
                             icon: const Icon(Icons.open_in_new, size: 16),
                             label: const Text('Open GUI'),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                             ),
                           ),
                         ],
@@ -226,11 +249,17 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
                 children: [
                   Text(
                     'Parameter ${i + 1}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   Text(
                     '0.50',
-                    style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.colors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -269,12 +298,15 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
-        trackId: trackId,
-        pluginPath: plugin.path,
-        pluginName: plugin.name,
-        effectId: effectId,
-      ));
+      trackController.setTrackInstrument(
+        trackId,
+        InstrumentData.vst3Instrument(
+          trackId: trackId,
+          pluginPath: plugin.path,
+          pluginName: plugin.name,
+          effectId: effectId,
+        ),
+      );
 
       // Auto-populate track name with plugin name if not user-edited
       if (!trackController.isTrackNameUserEdited(trackId)) {
@@ -283,7 +315,13 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
-      final noteOnResult = audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100); // C4, velocity 100
+      final noteOnResult = audioEngine!.vst3SendMidiNote(
+        effectId,
+        0,
+        0,
+        60,
+        100,
+      ); // C4, velocity 100
       if (noteOnResult.isNotEmpty) {
         // Note on sent
       }
@@ -303,10 +341,7 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(
-        trackType: 'midi',
-        trackName: 'MIDI',
-      );
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
 
       await undoRedoManager.execute(command);
 
@@ -325,18 +360,27 @@ mixin DAWVst3Mixin on State<DAWScreen>, DAWScreenStateMixin, DAWRecordingMixin, 
       }
 
       // Create and store InstrumentData for this VST3 instrument
-      trackController.setTrackInstrument(trackId, InstrumentData.vst3Instrument(
-        trackId: trackId,
-        pluginPath: plugin.path,
-        pluginName: plugin.name,
-        effectId: effectId,
-      ));
+      trackController.setTrackInstrument(
+        trackId,
+        InstrumentData.vst3Instrument(
+          trackId: trackId,
+          pluginPath: plugin.path,
+          pluginName: plugin.name,
+          effectId: effectId,
+        ),
+      );
 
       // Auto-populate track name with plugin name (new track, so not user-edited)
       audioEngine?.setTrackName(trackId, plugin.name);
 
       // Send a test note to trigger audio processing
-      final noteOnResult = audioEngine!.vst3SendMidiNote(effectId, 0, 0, 60, 100);
+      final noteOnResult = audioEngine!.vst3SendMidiNote(
+        effectId,
+        0,
+        0,
+        60,
+        100,
+      );
       if (noteOnResult.isNotEmpty) {
         // Note on sent
       }

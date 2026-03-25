@@ -48,8 +48,14 @@ void main() {
         final snapshot = Snapshot.create(name: 'Test');
         final after = DateTime.now();
 
-        expect(snapshot.created.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
-        expect(snapshot.created.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+        expect(
+          snapshot.created.isAfter(before.subtract(const Duration(seconds: 1))),
+          isTrue,
+        );
+        expect(
+          snapshot.created.isBefore(after.add(const Duration(seconds: 1))),
+          isTrue,
+        );
       });
 
       test('creates safe filename from name', () {
@@ -306,8 +312,20 @@ void main() {
       });
 
       test('formats all months correctly', () {
-        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
 
         for (var i = 0; i < 12; i++) {
           final snapshot = Snapshot(
@@ -345,47 +363,111 @@ void main() {
 
       test('different id makes snapshots unequal', () {
         final created = DateTime(2025, 1, 1);
-        final snapshot1 = Snapshot(id: 'id-1', name: 'Name', created: created, fileName: 'F.boojy');
-        final snapshot2 = Snapshot(id: 'id-2', name: 'Name', created: created, fileName: 'F.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id-1',
+          name: 'Name',
+          created: created,
+          fileName: 'F.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id-2',
+          name: 'Name',
+          created: created,
+          fileName: 'F.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });
 
       test('different name makes snapshots unequal', () {
         final created = DateTime(2025, 1, 1);
-        final snapshot1 = Snapshot(id: 'id', name: 'Name 1', created: created, fileName: 'F.boojy');
-        final snapshot2 = Snapshot(id: 'id', name: 'Name 2', created: created, fileName: 'F.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id',
+          name: 'Name 1',
+          created: created,
+          fileName: 'F.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id',
+          name: 'Name 2',
+          created: created,
+          fileName: 'F.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });
 
       test('different note makes snapshots unequal', () {
         final created = DateTime(2025, 1, 1);
-        final snapshot1 = Snapshot(id: 'id', name: 'Name', note: 'Note 1', created: created, fileName: 'F.boojy');
-        final snapshot2 = Snapshot(id: 'id', name: 'Name', note: 'Note 2', created: created, fileName: 'F.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          note: 'Note 1',
+          created: created,
+          fileName: 'F.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          note: 'Note 2',
+          created: created,
+          fileName: 'F.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });
 
       test('null vs non-null note makes snapshots unequal', () {
         final created = DateTime(2025, 1, 1);
-        final snapshot1 = Snapshot(id: 'id', name: 'Name', note: null, created: created, fileName: 'F.boojy');
-        final snapshot2 = Snapshot(id: 'id', name: 'Name', note: 'Note', created: created, fileName: 'F.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          note: null,
+          created: created,
+          fileName: 'F.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          note: 'Note',
+          created: created,
+          fileName: 'F.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });
 
       test('different created makes snapshots unequal', () {
-        final snapshot1 = Snapshot(id: 'id', name: 'Name', created: DateTime(2025, 1, 1), fileName: 'F.boojy');
-        final snapshot2 = Snapshot(id: 'id', name: 'Name', created: DateTime(2025, 1, 2), fileName: 'F.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          created: DateTime(2025, 1, 1),
+          fileName: 'F.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          created: DateTime(2025, 1, 2),
+          fileName: 'F.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });
 
       test('different fileName makes snapshots unequal', () {
         final created = DateTime(2025, 1, 1);
-        final snapshot1 = Snapshot(id: 'id', name: 'Name', created: created, fileName: 'File1.boojy');
-        final snapshot2 = Snapshot(id: 'id', name: 'Name', created: created, fileName: 'File2.boojy');
+        final snapshot1 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          created: created,
+          fileName: 'File1.boojy',
+        );
+        final snapshot2 = Snapshot(
+          id: 'id',
+          name: 'Name',
+          created: created,
+          fileName: 'File2.boojy',
+        );
 
         expect(snapshot1, isNot(equals(snapshot2)));
       });

@@ -109,7 +109,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     // Clamp to valid range
     // Position: min 0 internal = 1.1.1, Length: min 1 internal = 0.0.1
     final minSubs = widget.isPosition ? 0 : 1;
-    final maxSubs = LoopTimeDisplay.maxBars * widget.beatsPerBar * widget.subsPerBeat;
+    final maxSubs =
+        LoopTimeDisplay.maxBars * widget.beatsPerBar * widget.subsPerBeat;
     totalSubs = totalSubs.clamp(minSubs, maxSubs);
     return totalSubs / widget.subsPerBeat;
   }
@@ -203,7 +204,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
         case 0: // Bar
           // Just set the bar value (no overflow from bar)
           final clampedBar = newValue.clamp(1, LoopTimeDisplay.maxBars);
-          totalSubs = ((clampedBar - 1) * subsPerBar) +
+          totalSubs =
+              ((clampedBar - 1) * subsPerBar) +
               ((beat - 1) * subsPerBeat) +
               (sub - 1);
           break;
@@ -212,7 +214,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
           final extraBars = (newValue - 1) ~/ widget.beatsPerBar;
           final remainingBeat = ((newValue - 1) % widget.beatsPerBar) + 1;
           final newBar = (bar + extraBars).clamp(1, LoopTimeDisplay.maxBars);
-          totalSubs = ((newBar - 1) * subsPerBar) +
+          totalSubs =
+              ((newBar - 1) * subsPerBar) +
               ((remainingBeat - 1) * subsPerBeat) +
               (sub - 1);
           break;
@@ -225,7 +228,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
           final extraBars = (tempBeat - 1) ~/ widget.beatsPerBar;
           final remainingBeat = ((tempBeat - 1) % widget.beatsPerBar) + 1;
           final newBar = (bar + extraBars).clamp(1, LoopTimeDisplay.maxBars);
-          totalSubs = ((newBar - 1) * subsPerBar) +
+          totalSubs =
+              ((newBar - 1) * subsPerBar) +
               ((remainingBeat - 1) * subsPerBeat) +
               (remainingSub - 1);
           break;
@@ -235,17 +239,14 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       switch (_editingSegment) {
         case 0: // Bar
           final clampedBar = newValue.clamp(0, LoopTimeDisplay.maxBars);
-          totalSubs = (clampedBar * subsPerBar) +
-              (beat * subsPerBeat) +
-              sub;
+          totalSubs = (clampedBar * subsPerBar) + (beat * subsPerBeat) + sub;
           break;
         case 1: // Beat
           final extraBars = newValue ~/ widget.beatsPerBar;
           final remainingBeat = newValue % widget.beatsPerBar;
           final newBar = (bar + extraBars).clamp(0, LoopTimeDisplay.maxBars);
-          totalSubs = (newBar * subsPerBar) +
-              (remainingBeat * subsPerBeat) +
-              sub;
+          totalSubs =
+              (newBar * subsPerBar) + (remainingBeat * subsPerBeat) + sub;
           break;
         case 2: // Sub
           final extraBeats = newValue ~/ subsPerBeat;
@@ -254,7 +255,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
           final extraBars = tempBeat ~/ widget.beatsPerBar;
           final remainingBeat = tempBeat % widget.beatsPerBar;
           final newBar = (bar + extraBars).clamp(0, LoopTimeDisplay.maxBars);
-          totalSubs = (newBar * subsPerBar) +
+          totalSubs =
+              (newBar * subsPerBar) +
               (remainingBeat * subsPerBeat) +
               remainingSub;
           break;
@@ -366,7 +368,9 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
     final isEditing = _isEditing && _editingSegment == segment;
 
     // Calculate max digits for this segment
-    final maxDigits = segment == 0 ? 6 : 2; // bar up to 100000, beat/sub up to 16
+    final maxDigits = segment == 0
+        ? 6
+        : 2; // bar up to 100000, beat/sub up to 16
 
     if (isEditing) {
       return SizedBox(

@@ -45,9 +45,11 @@ class TrackController extends ChangeNotifier {
   Set<int> get selectedTrackIds => Set.unmodifiable(_selectedTrackIds);
   List<int> get trackOrder => List.unmodifiable(_trackOrder);
   Map<int, double> get clipHeights => Map.unmodifiable(_clipHeights);
-  Map<int, double> get automationHeights => Map.unmodifiable(_automationHeights);
+  Map<int, double> get automationHeights =>
+      Map.unmodifiable(_automationHeights);
   double get masterTrackHeight => _masterTrackHeight;
-  Map<int, InstrumentData> get trackInstruments => Map.unmodifiable(_trackInstruments);
+  Map<int, InstrumentData> get trackInstruments =>
+      Map.unmodifiable(_trackInstruments);
 
   /// Check if track name was manually edited by user
   bool isTrackNameUserEdited(int trackId) {
@@ -83,7 +85,10 @@ class TrackController extends ChangeNotifier {
 
   /// Set automation lane height
   void setAutomationHeight(int trackId, double height) {
-    _automationHeights[trackId] = height.clamp(minAutomationHeight, maxAutomationHeight);
+    _automationHeights[trackId] = height.clamp(
+      minAutomationHeight,
+      maxAutomationHeight,
+    );
     notifyListeners();
   }
 
@@ -159,7 +164,9 @@ class TrackController extends ChangeNotifier {
       if (_selectedTrackIds.contains(trackId)) {
         _selectedTrackIds.remove(trackId);
         // Update primary selection to another selected track, or null
-        _selectedTrackId = _selectedTrackIds.isNotEmpty ? _selectedTrackIds.first : null;
+        _selectedTrackId = _selectedTrackIds.isNotEmpty
+            ? _selectedTrackIds.first
+            : null;
       } else {
         _selectedTrackIds.add(trackId);
         // If no primary selection, make this the primary
@@ -246,7 +253,9 @@ class TrackController extends ChangeNotifier {
     _selectedTrackIds.remove(trackId);
 
     if (_selectedTrackId == trackId) {
-      _selectedTrackId = _selectedTrackIds.isNotEmpty ? _selectedTrackIds.first : null;
+      _selectedTrackId = _selectedTrackIds.isNotEmpty
+          ? _selectedTrackIds.first
+          : null;
     }
     notifyListeners();
   }

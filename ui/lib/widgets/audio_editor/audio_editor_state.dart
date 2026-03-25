@@ -134,7 +134,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
 
     // Calculate based on clip duration in beats
     final clipDurationBeats = editData.lengthBeats;
-    final maxBeat = clipDurationBeats > loopLength ? clipDurationBeats : loopLength;
+    final maxBeat = clipDurationBeats > loopLength
+        ? clipDurationBeats
+        : loopLength;
 
     // Add 16 bars (64 beats at 4/4) buffer for scrolling, matching Piano Roll
     final scrollBufferBeats = 16 * beatsPerBar.toDouble();
@@ -309,7 +311,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
       // Also update loop region to match new beat scale
       // This keeps the same proportion of the clip selected
       final oldLoopLength = loopEndBeats - loopStartBeats;
-      final oldContentBeats = editData.lengthBeats > 0 ? editData.lengthBeats : 4.0;
+      final oldContentBeats = editData.lengthBeats > 0
+          ? editData.lengthBeats
+          : 4.0;
       final proportion = oldLoopLength / oldContentBeats;
 
       loopEndBeats = loopStartBeats + (clipTimelineBeats * proportion);
@@ -329,7 +333,9 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
     // Only recalculate if warp is ON (clip uses beat-based display)
     if (editData.syncEnabled) {
       final clipTimelineBeats = currentClip!.duration * (originalBpm / 60.0);
-      final oldContentBeats = contentDurationBeats > 0 ? contentDurationBeats : 4.0;
+      final oldContentBeats = contentDurationBeats > 0
+          ? contentDurationBeats
+          : 4.0;
       contentDurationBeats = clipTimelineBeats;
 
       // Scale loop region proportionally to new beat length
@@ -347,8 +353,4 @@ mixin AudioEditorStateMixin on State<AudioEditor> {
 }
 
 /// Loop marker being dragged in ruler.
-enum LoopMarkerDrag {
-  start,
-  end,
-  middle,
-}
+enum LoopMarkerDrag { start, end, middle }

@@ -26,11 +26,11 @@ class TimelineGridPainter extends CustomPainter {
 
   /// Get the smallest grid subdivision to show based on zoom level
   double _getGridDivision() {
-    if (pixelsPerBeat < 10) return beatsPerBar.toDouble();     // Only bars
-    if (pixelsPerBeat < 20) return 1.0;     // Bars + beats
-    if (pixelsPerBeat < 40) return 0.5;     // + half beats
-    if (pixelsPerBeat < 80) return 0.25;    // + quarter beats
-    return 0.125;                            // + eighth beats
+    if (pixelsPerBeat < 10) return beatsPerBar.toDouble(); // Only bars
+    if (pixelsPerBeat < 20) return 1.0; // Bars + beats
+    if (pixelsPerBeat < 40) return 0.5; // + half beats
+    if (pixelsPerBeat < 80) return 0.25; // + quarter beats
+    return 0.125; // + eighth beats
   }
 
   @override
@@ -49,7 +49,8 @@ class TimelineGridPainter extends CustomPainter {
       if (x > size.width) break;
 
       // Determine line style based on beat position
-      final isBar = (beat % beatsPerBar).abs() < 0.001;  // Every beatsPerBar beats = bar
+      final isBar =
+          (beat % beatsPerBar).abs() < 0.001; // Every beatsPerBar beats = bar
       final isBeat = (beat % 1.0).abs() < 0.001; // Whole beats
       final isHalfBeat = (beat % 0.5).abs() < 0.001; // Half beats
 
@@ -71,11 +72,7 @@ class TimelineGridPainter extends CustomPainter {
         paint.strokeWidth = 0.5;
       }
 
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
     // Draw loop region dimming overlay (20% darker outside loop)
@@ -87,10 +84,7 @@ class TimelineGridPainter extends CustomPainter {
 
       // Dim area before loop start
       if (loopStartX > 0) {
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, loopStartX, size.height),
-          dimPaint,
-        );
+        canvas.drawRect(Rect.fromLTWH(0, 0, loopStartX, size.height), dimPaint);
       }
 
       // Dim area after loop end

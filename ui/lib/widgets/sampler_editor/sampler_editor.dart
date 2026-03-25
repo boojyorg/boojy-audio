@@ -235,10 +235,16 @@ class _SamplerEditorState extends State<SamplerEditor> {
       dialogTitle: 'Select Sample',
     );
 
-    if (result != null && result.files.isNotEmpty && result.files.first.path != null) {
+    if (result != null &&
+        result.files.isNotEmpty &&
+        result.files.first.path != null) {
       final path = result.files.first.path!;
       if (widget.audioEngine != null && widget.trackId != null) {
-        widget.audioEngine!.loadSampleForTrack(widget.trackId!, path, _rootNote);
+        widget.audioEngine!.loadSampleForTrack(
+          widget.trackId!,
+          path,
+          _rootNote,
+        );
         _loadSampleData(); // Refresh
       }
     }
@@ -299,8 +305,10 @@ class _SamplerEditorState extends State<SamplerEditor> {
         // Auto-zoom to fit sample in available width on load
         if (_needsAutoZoom && _sampleDuration > 0 && constraints.maxWidth > 0) {
           _needsAutoZoom = false;
-          _pixelsPerSecond = (constraints.maxWidth / _sampleDuration)
-              .clamp(20.0, 800.0);
+          _pixelsPerSecond = (constraints.maxWidth / _sampleDuration).clamp(
+            20.0,
+            800.0,
+          );
         }
 
         final totalWidth = _sampleDuration > 0
@@ -363,14 +371,14 @@ class _SamplerEditorState extends State<SamplerEditor> {
                     onHover: _handleNavBarHover,
                     onExit: (_) => setState(() => _navBarHoverSeconds = null),
                     child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanStart: _handleNavBarPanStart,
-                    onPanUpdate: _handleNavBarPanUpdate,
-                    onPanEnd: (_) => setState(() {
-                      _navDragMode = _NavDragMode.none;
-                      _navDragStartX = null;
-                      _navDragStartY = null;
-                    }),
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: _handleNavBarPanStart,
+                      onPanUpdate: _handleNavBarPanUpdate,
+                      onPanEnd: (_) => setState(() {
+                        _navDragMode = _NavDragMode.none;
+                        _navDragStartX = null;
+                        _navDragStartY = null;
+                      }),
                       child: SizedBox(
                         width: totalWidth,
                         height: 24.0,
@@ -412,11 +420,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.music_note,
-              size: 64,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.music_note, size: 64, color: colors.textMuted),
             const SizedBox(height: 16),
             Text(
               'Sampler',
@@ -429,10 +433,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
             const SizedBox(height: 8),
             Text(
               'Select a Sampler track to view the sample',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: colors.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -513,8 +514,7 @@ class _SamplerEditorState extends State<SamplerEditor> {
     final x = seconds * _pixelsPerSecond;
     final startX = _loopStartSeconds * _pixelsPerSecond;
     final endX = _loopEndSeconds * _pixelsPerSecond;
-    return (x - startX).abs() < _edgeHitZone ||
-        (x - endX).abs() < _edgeHitZone;
+    return (x - startX).abs() < _edgeHitZone || (x - endX).abs() < _edgeHitZone;
   }
 
   MouseCursor _getNavBarCursor() {

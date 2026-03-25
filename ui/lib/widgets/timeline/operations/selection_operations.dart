@@ -18,19 +18,26 @@ class TimelineSelectionManager {
   bool isMidiClipSelected(int clipId) => _selectedMidiClipIds.contains(clipId);
 
   /// Check if an audio clip is selected.
-  bool isAudioClipSelected(int clipId) => _selectedAudioClipIds.contains(clipId);
+  bool isAudioClipSelected(int clipId) =>
+      _selectedAudioClipIds.contains(clipId);
 
   /// Check if any clips are selected.
-  bool get hasSelection => _selectedMidiClipIds.isNotEmpty || _selectedAudioClipIds.isNotEmpty;
+  bool get hasSelection =>
+      _selectedMidiClipIds.isNotEmpty || _selectedAudioClipIds.isNotEmpty;
 
   /// Get total number of selected clips.
-  int get selectionCount => _selectedMidiClipIds.length + _selectedAudioClipIds.length;
+  int get selectionCount =>
+      _selectedMidiClipIds.length + _selectedAudioClipIds.length;
 
   /// Select a MIDI clip with multi-selection support.
   /// - Normal click: Select only this clip (clear others)
   /// - Shift+click (addToSelection): Add to selection
   /// - Cmd+click (toggleSelection): Toggle selection
-  void selectMidiClip(int clipId, {bool addToSelection = false, bool toggleSelection = false}) {
+  void selectMidiClip(
+    int clipId, {
+    bool addToSelection = false,
+    bool toggleSelection = false,
+  }) {
     if (toggleSelection) {
       if (_selectedMidiClipIds.contains(clipId)) {
         _selectedMidiClipIds.remove(clipId);
@@ -52,12 +59,18 @@ class TimelineSelectionManager {
   /// - Normal click: Select only this clip (clear others)
   /// - Shift+click (addToSelection): Add to selection
   /// - Cmd+click (toggleSelection): Toggle selection
-  void selectAudioClip(int clipId, {bool addToSelection = false, bool toggleSelection = false}) {
+  void selectAudioClip(
+    int clipId, {
+    bool addToSelection = false,
+    bool toggleSelection = false,
+  }) {
     if (toggleSelection) {
       if (_selectedAudioClipIds.contains(clipId)) {
         _selectedAudioClipIds.remove(clipId);
         if (_primaryAudioClipId == clipId) {
-          _primaryAudioClipId = _selectedAudioClipIds.isEmpty ? null : _selectedAudioClipIds.first;
+          _primaryAudioClipId = _selectedAudioClipIds.isEmpty
+              ? null
+              : _selectedAudioClipIds.first;
         }
       } else {
         _selectedAudioClipIds.add(clipId);
@@ -100,7 +113,9 @@ class TimelineSelectionManager {
     } else {
       _selectedAudioClipIds.remove(clipId);
       if (_primaryAudioClipId == clipId) {
-        _primaryAudioClipId = _selectedAudioClipIds.isEmpty ? null : _selectedAudioClipIds.first;
+        _primaryAudioClipId = _selectedAudioClipIds.isEmpty
+            ? null
+            : _selectedAudioClipIds.first;
       }
     }
   }

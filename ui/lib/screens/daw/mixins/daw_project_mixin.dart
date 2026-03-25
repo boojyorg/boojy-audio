@@ -24,7 +24,17 @@ import 'daw_library_mixin.dart';
 
 /// Mixin containing project-related methods for DAWScreen.
 /// Handles new, open, save, export, and version management.
-mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin, DAWRecordingMixin, DAWUIMixin, DAWTrackMixin, DAWClipMixin, DAWVst3Mixin, DAWLibraryMixin {
+mixin DAWProjectMixin
+    on
+        State<DAWScreen>,
+        DAWScreenStateMixin,
+        DAWPlaybackMixin,
+        DAWRecordingMixin,
+        DAWUIMixin,
+        DAWTrackMixin,
+        DAWClipMixin,
+        DAWVst3Mixin,
+        DAWLibraryMixin {
   // ============================================
   // NEW PROJECT
   // ============================================
@@ -32,7 +42,8 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
   /// Create a new project
   void newProject() {
     // Skip confirmation if there's no active project with content
-    final hasActiveProject = projectManager?.currentPath != null || undoRedoManager.canUndo;
+    final hasActiveProject =
+        projectManager?.currentPath != null || undoRedoManager.canUndo;
     if (!hasActiveProject) {
       _executeNewProject();
       return;
@@ -43,7 +54,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('New Project'),
-        content: const Text('Create a new project? Any unsaved changes will be lost.'),
+        content: const Text(
+          'Create a new project? Any unsaved changes will be lost.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -94,9 +107,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       statusMessage = 'New project created';
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('New project created')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('New project created')));
   }
 
   // ============================================
@@ -112,7 +125,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       // Use macOS native file picker with default location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)" default location POSIX file "$defaultFolder")'
+        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)" default location POSIX file "$defaultFolder")',
       ]);
 
       if (result.exitCode == 0) {
@@ -140,9 +153,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     } catch (e) {
       setState(() => isLoading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open project: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open project: $e')));
     }
   }
 
@@ -153,9 +166,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     if (!await dir.exists()) {
       userSettings.removeRecentProject(path);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Project no longer exists')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Project no longer exists')));
       return;
     }
 
@@ -165,9 +178,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     } catch (e) {
       setState(() => isLoading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open project: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open project: $e')));
     }
   }
 
@@ -197,15 +210,17 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     WindowTitleService.setProjectName(projectManager!.currentName);
 
     setState(() {
-      projectMetadata = projectMetadata.copyWith(name: projectManager!.currentName);
+      projectMetadata = projectMetadata.copyWith(
+        name: projectManager!.currentName,
+      );
       statusMessage = 'Project loaded: ${projectManager!.currentName}';
       isLoading = false;
     });
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loadResult.result.message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loadResult.result.message)));
   }
 
   // ============================================
@@ -224,7 +239,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
   /// Save project with new name/location
   Future<void> saveProjectAs() async {
     // Show dialog to enter project name
-    final nameController = TextEditingController(text: projectManager?.currentName ?? 'Untitled');
+    final nameController = TextEditingController(
+      text: projectManager?.currentName ?? 'Untitled',
+    );
 
     final projectName = await showDialog<String>(
       context: context,
@@ -266,7 +283,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       // Use macOS native file picker for save location
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")'
+        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")',
       ]);
 
       if (result.exitCode == 0) {
@@ -278,9 +295,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save project: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save project: $e')));
       }
     }
   }
@@ -289,7 +306,10 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
   Future<void> saveProjectToPath(String path) async {
     setState(() => isLoading = true);
 
-    final result = await projectManager!.saveProjectToPath(path, getCurrentUILayout());
+    final result = await projectManager!.saveProjectToPath(
+      path,
+      getCurrentUILayout(),
+    );
 
     // Add to recent projects and generate thumbnail on successful save
     if (result.success) {
@@ -303,9 +323,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
     }
   }
 
@@ -350,8 +370,8 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       // Track colors by type
       const typeColors = {
-        'Audio': Color(0xFF3B82F6),   // Blue
-        'MIDI': Color(0xFF4CAF50),    // Green
+        'Audio': Color(0xFF3B82F6), // Blue
+        'MIDI': Color(0xFF4CAF50), // Green
         'Sampler': Color(0xFF9C27B0), // Purple
       };
 
@@ -360,7 +380,10 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       // Paint onto a recorder
       final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight));
+      final canvas = Canvas(
+        recorder,
+        const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight),
+      );
 
       // Dark background
       canvas.drawRect(
@@ -382,7 +405,12 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
           final w = clip.duration * pxPerSecond;
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(x, y + 1, w.clamp(1.0, thumbWidth), trackHeight - 2),
+              Rect.fromLTWH(
+                x,
+                y + 1,
+                w.clamp(1.0, thumbWidth),
+                trackHeight - 2,
+              ),
               const Radius.circular(1),
             ),
             clipPaint,
@@ -396,7 +424,12 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
           final w = (clip.duration / beatsPerSecond) * pxPerSecond;
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(x, y + 1, w.clamp(1.0, thumbWidth), trackHeight - 2),
+              Rect.fromLTWH(
+                x,
+                y + 1,
+                w.clamp(1.0, thumbWidth),
+                trackHeight - 2,
+              ),
               const Radius.circular(1),
             ),
             clipPaint,
@@ -406,7 +439,10 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       // Encode to PNG
       final picture = recorder.endRecording();
-      final image = await picture.toImage(thumbWidth.toInt(), thumbHeight.toInt());
+      final image = await picture.toImage(
+        thumbWidth.toInt(),
+        thumbHeight.toInt(),
+      );
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
@@ -423,7 +459,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     if (projectManager?.currentPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Save project first before creating a new version')),
+          const SnackBar(
+            content: Text('Save project first before creating a new version'),
+          ),
         );
       }
       return;
@@ -463,9 +501,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Saved as $newName')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Saved as $newName')));
       }
     } catch (e) {
       if (mounted) {
@@ -487,7 +525,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       return;
     }
 
-    final nameController = TextEditingController(text: projectManager!.currentName);
+    final nameController = TextEditingController(
+      text: projectManager!.currentName,
+    );
 
     final newName = await showDialog<String>(
       context: context,
@@ -495,9 +535,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
         title: const Text('Rename Project'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'New Name',
-          ),
+          decoration: const InputDecoration(labelText: 'New Name'),
           autofocus: true,
         ),
         actions: [
@@ -513,7 +551,10 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       ),
     );
 
-    if (newName == null || newName.isEmpty || newName == projectManager!.currentName) return;
+    if (newName == null ||
+        newName.isEmpty ||
+        newName == projectManager!.currentName)
+      return;
 
     try {
       final currentPath = projectManager!.currentPath!;
@@ -539,15 +580,15 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Renamed to $newName')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Renamed to $newName')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to rename project: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to rename project: $e')));
       }
     }
   }
@@ -581,7 +622,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")'
+        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")',
       ]);
 
       if (result.exitCode != 0) return;
@@ -598,9 +639,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       final normalize = userSettings.exportNormalize;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exporting MP3...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exporting MP3...')));
       }
 
       final resultJson = audioEngine!.exportMp3WithOptions(
@@ -613,14 +654,20 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       if (mounted) {
         final parsed = jsonDecode(resultJson) as Map<String, dynamic>;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(parsed['success'] == true ? 'MP3 export complete' : 'Export failed: ${parsed['error']}')),
+          SnackBar(
+            content: Text(
+              parsed['success'] == true
+                  ? 'MP3 export complete'
+                  : 'Export failed: ${parsed['error']}',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
@@ -634,7 +681,7 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
       final result = await Process.run('osascript', [
         '-e',
-        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")'
+        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")',
       ]);
 
       if (result.exitCode != 0) return;
@@ -652,9 +699,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       final dither = userSettings.exportDither;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exporting WAV...')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Exporting WAV...')));
       }
 
       final resultJson = audioEngine!.exportWavWithOptions(
@@ -668,14 +715,20 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       if (mounted) {
         final parsed = jsonDecode(resultJson) as Map<String, dynamic>;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(parsed['success'] == true ? 'WAV export complete' : 'Export failed: ${parsed['error']}')),
+          SnackBar(
+            content: Text(
+              parsed['success'] == true
+                  ? 'WAV export complete'
+                  : 'Export failed: ${parsed['error']}',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     }
   }
@@ -758,13 +811,16 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
     // Handle version actions
     if (result.versionAction == 'create' && result.newVersionData != null) {
       await createVersion(result.newVersionData!);
-    } else if (result.versionAction == 'restore' && result.selectedVersion != null) {
+    } else if (result.versionAction == 'restore' &&
+        result.selectedVersion != null) {
       await restoreVersion(result.selectedVersion!);
     }
   }
 
   /// Create a new version
-  Future<void> createVersion(({String name, String? note, VersionType type}) data) async {
+  Future<void> createVersion(
+    ({String name, String? note, VersionType type}) data,
+  ) async {
     if (projectManager?.currentPath == null || versionManager == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please save the project first')),
@@ -786,9 +842,9 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
         SnackBar(content: Text('Version "${version.name}" created')),
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create version')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to create version')));
     }
   }
 
@@ -953,7 +1009,8 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
       bottomHeight: uiLayout.editorPanelHeight,
       libraryCollapsed: uiLayout.isLibraryPanelCollapsed,
       mixerCollapsed: !uiLayout.isMixerVisible,
-      bottomCollapsed: !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
+      bottomCollapsed:
+          !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
       viewState: viewState,
       audioClips: audioClips,
       automationData: automationController.toJson(),
@@ -966,18 +1023,17 @@ mixin DAWProjectMixin on State<DAWScreen>, DAWScreenStateMixin, DAWPlaybackMixin
 
     if (recent.isEmpty) {
       return [
-        const PlatformMenuItem(
-          label: 'No Recent Projects',
-          onSelected: null,
-        ),
+        const PlatformMenuItem(label: 'No Recent Projects', onSelected: null),
       ];
     }
 
     return [
-      ...recent.map((project) => PlatformMenuItem(
-        label: project.name,
-        onSelected: () => openRecentProject(project.path),
-      )),
+      ...recent.map(
+        (project) => PlatformMenuItem(
+          label: project.name,
+          onSelected: () => openRecentProject(project.path),
+        ),
+      ),
       PlatformMenuItemGroup(
         members: [
           PlatformMenuItem(

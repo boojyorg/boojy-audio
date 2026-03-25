@@ -25,11 +25,16 @@ class AppSettingsDialog extends StatefulWidget {
     this.audioEngine,
   });
 
-  static Future<void> show(BuildContext context, UserSettings settings, {AudioEngine? audioEngine}) {
+  static Future<void> show(
+    BuildContext context,
+    UserSettings settings, {
+    AudioEngine? audioEngine,
+  }) {
     return showDialog(
       context: context,
       barrierColor: const Color(0xF0141623),
-      builder: (context) => AppSettingsDialog(settings: settings, audioEngine: audioEngine),
+      builder: (context) =>
+          AppSettingsDialog(settings: settings, audioEngine: audioEngine),
     );
   }
 
@@ -168,14 +173,21 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     );
   }
 
-  Widget _buildSidebarItem(String id, String label, IconData icon, bool isSelected) {
+  Widget _buildSidebarItem(
+    String id,
+    String label,
+    IconData icon,
+    bool isSelected,
+  ) {
     return InkWell(
       onTap: () => _scrollToSection(id),
       borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? context.colors.accent.withValues(alpha: 0.1) : null,
+          color: isSelected
+              ? context.colors.accent.withValues(alpha: 0.1)
+              : null,
           borderRadius: BorderRadius.circular(6),
           border: isSelected
               ? Border(left: BorderSide(color: context.colors.accent, width: 3))
@@ -186,13 +198,17 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             Icon(
               icon,
               size: 18,
-              color: isSelected ? context.colors.accent : context.colors.textSecondary,
+              color: isSelected
+                  ? context.colors.accent
+                  : context.colors.textSecondary,
             ),
             const SizedBox(width: 10),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? context.colors.accent : context.colors.textPrimary,
+                color: isSelected
+                    ? context.colors.accent
+                    : context.colors.textPrimary,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 fontSize: 14,
               ),
@@ -263,18 +279,42 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionWithKey('appearance', 'APPEARANCE', _buildAppearanceSettings()),
+                          _buildSectionWithKey(
+                            'appearance',
+                            'APPEARANCE',
+                            _buildAppearanceSettings(),
+                          ),
                           const SizedBox(height: 24),
-                          _buildSectionWithKey('audio', 'AUDIO', _buildAudioSettings()),
+                          _buildSectionWithKey(
+                            'audio',
+                            'AUDIO',
+                            _buildAudioSettings(),
+                          ),
                           const SizedBox(height: 24),
-                          _buildSectionWithKey('midi', 'MIDI', _buildMidiSettings()),
+                          _buildSectionWithKey(
+                            'midi',
+                            'MIDI',
+                            _buildMidiSettings(),
+                          ),
                           const SizedBox(height: 24),
-                          _buildSectionWithKey('saving', 'SAVING', _buildSavingSettings()),
+                          _buildSectionWithKey(
+                            'saving',
+                            'SAVING',
+                            _buildSavingSettings(),
+                          ),
                           const SizedBox(height: 24),
-                          _buildSectionWithKey('projects', 'PROJECTS', _buildProjectSettings()),
+                          _buildSectionWithKey(
+                            'projects',
+                            'PROJECTS',
+                            _buildProjectSettings(),
+                          ),
                           if (UpdaterService.isSupported) ...[
                             const SizedBox(height: 24),
-                            _buildSectionWithKey('updates', 'UPDATES', _buildUpdatesSettings()),
+                            _buildSectionWithKey(
+                              'updates',
+                              'UPDATES',
+                              _buildUpdatesSettings(),
+                            ),
                           ],
                         ],
                       ),
@@ -351,10 +391,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Expanded(
           child: Text(
             'Theme',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
           ),
         ),
         const SizedBox(width: 16),
@@ -387,7 +424,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   // Save to settings
                   widget.settings.theme = value.key;
                   // Apply theme immediately
-                  final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+                  final themeProvider = Provider.of<ThemeProvider>(
+                    context,
+                    listen: false,
+                  );
                   themeProvider.setTheme(value);
                 }
               },
@@ -408,10 +448,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         // Driver description
         Text(
           _getDriverDescription(_selectedDriver),
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: 11,
-          ),
+          style: TextStyle(color: context.colors.textMuted, fontSize: 11),
         ),
         const SizedBox(height: 12),
 
@@ -504,10 +541,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Expanded(
           child: Text(
             'Audio Driver',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
           ),
         ),
         const SizedBox(width: 16),
@@ -603,7 +637,9 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             decoration: BoxDecoration(
               color: context.colors.standard.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: context.colors.elevated.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: context.colors.elevated.withValues(alpha: 0.5),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,7 +663,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.settings_input_hdmi, size: 18, color: context.colors.accent),
+                      Icon(
+                        Icons.settings_input_hdmi,
+                        size: 18,
+                        color: context.colors.accent,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -673,7 +713,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.computer, size: 18, color: context.colors.accent),
+                      Icon(
+                        Icons.computer,
+                        size: 18,
+                        color: context.colors.accent,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -720,7 +764,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
   Widget _buildInputDeviceSelector() {
     // Build list: "No Input" + all input devices
-    final deviceNames = <String>['__no_input__'];  // Special value for no input
+    final deviceNames = <String>['__no_input__']; // Special value for no input
     for (final device in _inputDevices) {
       deviceNames.add(device['name'] as String);
     }
@@ -733,10 +777,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Expanded(
           child: Text(
             'Input',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
           ),
         ),
         const SizedBox(width: 16),
@@ -750,7 +791,9 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               border: Border.all(color: context.colors.elevated),
             ),
             child: DropdownButton<String>(
-              value: deviceNames.contains(currentValue) ? currentValue : '__no_input__',
+              value: deviceNames.contains(currentValue)
+                  ? currentValue
+                  : '__no_input__',
               isExpanded: true,
               underline: Container(),
               dropdownColor: context.colors.standard,
@@ -761,29 +804,32 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   displayName = 'No Input';
                 } else {
                   // Check if this is the default device
-                  final isDefault = _inputDevices.any((d) =>
-                      d['name'] == name && d['isDefault'] == true);
+                  final isDefault = _inputDevices.any(
+                    (d) => d['name'] == name && d['isDefault'] == true,
+                  );
                   displayName = isDefault ? '$name (Default)' : name;
                 }
 
                 return DropdownMenuItem<String>(
                   value: name,
-                  child: Text(
-                    displayName,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(displayName, overflow: TextOverflow.ellipsis),
                 );
               }).toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
-                    _selectedInputDevice = value == '__no_input__' ? null : value;
+                    _selectedInputDevice = value == '__no_input__'
+                        ? null
+                        : value;
                   });
-                  widget.settings.preferredInputDevice =
-                      value == '__no_input__' ? null : value;
+                  widget.settings.preferredInputDevice = value == '__no_input__'
+                      ? null
+                      : value;
                   // Apply to engine immediately
                   if (widget.audioEngine != null && value != '__no_input__') {
-                    final index = _inputDevices.indexWhere((d) => d['name'] == value);
+                    final index = _inputDevices.indexWhere(
+                      (d) => d['name'] == value,
+                    );
                     if (index >= 0) {
                       widget.audioEngine!.setAudioInputDevice(index);
                     }
@@ -814,10 +860,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         Expanded(
           child: Text(
             'Buffer Size',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
           ),
         ),
         const SizedBox(width: 16),
@@ -865,12 +908,18 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
   int _bufferSizeToPreset(int bufferSize) {
     switch (bufferSize) {
-      case 64: return 0;
-      case 128: return 1;
-      case 256: return 2;
-      case 512: return 3;
-      case 1024: return 4;
-      default: return 2; // Default to Balanced (256)
+      case 64:
+        return 0;
+      case 128:
+        return 1;
+      case 256:
+        return 2;
+      case 512:
+        return 3;
+      case 1024:
+        return 4;
+      default:
+        return 2; // Default to Balanced (256)
     }
   }
 
@@ -882,13 +931,15 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         lower.contains('airpods') ||
         lower.contains('wireless') ||
         lower.contains('bt ') ||
-        lower.contains('arctis') ||  // SteelSeries Arctis (often wireless/BT)
-        lower.contains('nova');       // Arctis Nova series
+        lower.contains('arctis') || // SteelSeries Arctis (often wireless/BT)
+        lower.contains('nova'); // Arctis Nova series
   }
 
   Widget _buildOutputDeviceSelector() {
     // Build list: "No Output" + all output devices
-    final deviceNames = <String>['__no_output__'];  // Special value for no output
+    final deviceNames = <String>[
+      '__no_output__',
+    ]; // Special value for no output
     for (final device in _outputDevices) {
       deviceNames.add(device['name'] as String);
     }
@@ -919,26 +970,38 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: context.colors.standard,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: context.colors.elevated),
                       ),
                       child: DropdownButton<String>(
-                        value: deviceNames.contains(currentValue) ? currentValue : (deviceNames.length > 1 ? deviceNames[1] : '__no_output__'),
+                        value: deviceNames.contains(currentValue)
+                            ? currentValue
+                            : (deviceNames.length > 1
+                                  ? deviceNames[1]
+                                  : '__no_output__'),
                         isExpanded: true,
                         underline: Container(),
                         dropdownColor: context.colors.standard,
-                        style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+                        style: TextStyle(
+                          color: context.colors.textPrimary,
+                          fontSize: 14,
+                        ),
                         items: deviceNames.map((name) {
                           String displayName;
                           if (name == '__no_output__') {
                             displayName = 'No Output';
                           } else {
                             // Check if this is the default device
-                            final isDefault = _outputDevices.any((d) =>
-                                d['name'] == name && d['isDefault'] == true);
+                            final isDefault = _outputDevices.any(
+                              (d) =>
+                                  d['name'] == name && d['isDefault'] == true,
+                            );
                             displayName = isDefault ? '$name (Default)' : name;
                           }
 
@@ -953,13 +1016,16 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                         onChanged: (value) {
                           if (value != null) {
                             setState(() {
-                              _selectedOutputDevice = value == '__no_output__' ? '__no_output__' : value;
+                              _selectedOutputDevice = value == '__no_output__'
+                                  ? '__no_output__'
+                                  : value;
                             });
                             // Save to settings
                             widget.settings.preferredOutputDevice =
                                 value == '__no_output__' ? null : value;
                             // Apply to audio engine
-                            if (widget.audioEngine != null && value != '__no_output__') {
+                            if (widget.audioEngine != null &&
+                                value != '__no_output__') {
                               widget.audioEngine!.setAudioOutputDevice(value);
                             }
                           }
@@ -970,7 +1036,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   if (showWarning) ...[
                     const SizedBox(width: 8),
                     const Tooltip(
-                      message: 'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
+                      message:
+                          'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
                       child: Icon(
                         Icons.warning_amber_rounded,
                         color: Colors.amber,
@@ -989,10 +1056,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             padding: const EdgeInsets.only(left: 100),
             child: Text(
               'Bluetooth has 100-200ms latency. Use wired for recording.',
-              style: TextStyle(
-                color: Colors.amber.shade700,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: Colors.amber.shade700, fontSize: 10),
             ),
           ),
         ],
@@ -1019,7 +1083,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             Expanded(
               flex: 2,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: context.colors.standard,
                   borderRadius: BorderRadius.circular(4),
@@ -1039,10 +1106,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         const SizedBox(height: 8),
         Text(
           'MIDI device selection is handled in the transport bar',
-          style: TextStyle(
-            color: context.colors.textMuted,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: context.colors.textMuted, fontSize: 12),
         ),
       ],
     );
@@ -1070,10 +1134,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             ),
             Text(
               'Auto-save',
-              style: TextStyle(
-                color: context.colors.textPrimary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
             ),
             const SizedBox(width: 16),
             if (widget.settings.autoSaveMinutes > 0) ...[
@@ -1087,7 +1148,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               const SizedBox(width: 8),
               Container(
                 width: 80,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: context.colors.standard,
                   borderRadius: BorderRadius.circular(4),
@@ -1098,7 +1162,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   isExpanded: true,
                   underline: Container(),
                   dropdownColor: context.colors.standard,
-                  style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
+                    fontSize: 14,
+                  ),
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('1')),
                     DropdownMenuItem(value: 2, child: Text('2')),
@@ -1257,20 +1324,16 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   });
                 }
               },
-              icon: Icon(
-                Icons.refresh,
-                size: 16,
-                color: context.colors.accent,
-              ),
+              icon: Icon(Icons.refresh, size: 16, color: context.colors.accent),
               label: Text(
                 'Check for Updates Now',
-                style: TextStyle(
-                  color: context.colors.accent,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: context.colors.accent, fontSize: 14),
               ),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
             ),
           ],

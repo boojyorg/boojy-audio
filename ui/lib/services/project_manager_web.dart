@@ -69,7 +69,8 @@ class UILayoutData {
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
     final panelSizes = json['panel_sizes'] as Map<String, dynamic>? ?? {};
-    final panelCollapsed = json['panel_collapsed'] as Map<String, dynamic>? ?? {};
+    final panelCollapsed =
+        json['panel_collapsed'] as Map<String, dynamic>? ?? {};
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
     final audioClipsJson = json['audio_clips'] as List<dynamic>?;
     final automationJson = json['automation'] as Map<String, dynamic>?;
@@ -81,7 +82,9 @@ class UILayoutData {
       libraryCollapsed: panelCollapsed['library'] as bool? ?? false,
       mixerCollapsed: panelCollapsed['mixer'] as bool? ?? false,
       bottomCollapsed: panelCollapsed['bottom'] as bool? ?? true,
-      viewState: viewStateJson != null ? ProjectViewState.fromJson(viewStateJson) : null,
+      viewState: viewStateJson != null
+          ? ProjectViewState.fromJson(viewStateJson)
+          : null,
       audioClips: audioClipsJson
           ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
           .toList(),
@@ -147,7 +150,9 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Load a project from IndexedDB by ID
-  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(String projectId) async {
+  Future<({ProjectResult result, UILayoutData? uiLayout})> loadProject(
+    String projectId,
+  ) async {
     _isLoading = true;
     notifyListeners();
 
@@ -173,7 +178,8 @@ class ProjectManager extends ChangeNotifier {
       UILayoutData? uiLayout;
       if (project.uiLayoutJson != null) {
         try {
-          final layoutJson = jsonDecode(project.uiLayoutJson!) as Map<String, dynamic>;
+          final layoutJson =
+              jsonDecode(project.uiLayoutJson!) as Map<String, dynamic>;
           uiLayout = UILayoutData.fromJson(layoutJson);
         } catch (e) {
           Log.e('ProjectManager: Failed to parse UI layout: $e');
@@ -211,16 +217,32 @@ class ProjectManager extends ChangeNotifier {
     if (_currentProjectId == null) {
       return null; // Caller should use saveProjectAs
     }
-    return _saveProjectWithId(_currentProjectId!, _currentProjectName, uiLayout, isNew: false);
+    return _saveProjectWithId(
+      _currentProjectId!,
+      _currentProjectName,
+      uiLayout,
+      isNew: false,
+    );
   }
 
   /// Save the project to a specific path (ID on web)
-  Future<ProjectResult> saveProjectToPath(String projectId, UILayoutData? uiLayout) async {
-    return _saveProjectWithId(projectId, _currentProjectName, uiLayout, isNew: false);
+  Future<ProjectResult> saveProjectToPath(
+    String projectId,
+    UILayoutData? uiLayout,
+  ) async {
+    return _saveProjectWithId(
+      projectId,
+      _currentProjectName,
+      uiLayout,
+      isNew: false,
+    );
   }
 
   /// Save project as new with a given name
-  Future<ProjectResult> saveProjectAs(String name, UILayoutData? uiLayout) async {
+  Future<ProjectResult> saveProjectAs(
+    String name,
+    UILayoutData? uiLayout,
+  ) async {
     final projectId = WebStorageService.generateId();
     _currentProjectName = name;
     return _saveProjectWithId(projectId, name, uiLayout, isNew: true);
@@ -238,10 +260,15 @@ class ProjectManager extends ChangeNotifier {
 
     try {
       // Get project data from audio engine as JSON
-      final projectData = _audioEngine.saveProject(name, ''); // Path not used on web
+      final projectData = _audioEngine.saveProject(
+        name,
+        '',
+      ); // Path not used on web
 
       // Get existing project to preserve creation date
-      final existingProject = isNew ? null : await _storage.getProject(projectId);
+      final existingProject = isNew
+          ? null
+          : await _storage.getProject(projectId);
 
       final now = DateTime.now();
       final project = WebProject(
@@ -277,7 +304,11 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Save project as a new copy
-  Future<ProjectResult> saveProjectAsCopy(String name, String parentPath, UILayoutData? uiLayout) async {
+  Future<ProjectResult> saveProjectAsCopy(
+    String name,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) async {
     // parentPath is ignored on web - just use name
     final copyId = WebStorageService.generateId();
 
@@ -319,12 +350,13 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Make a copy of the current project
-  Future<ProjectResult> makeCopy(String copyName, String parentPath, UILayoutData? uiLayout) async {
+  Future<ProjectResult> makeCopy(
+    String copyName,
+    String parentPath,
+    UILayoutData? uiLayout,
+  ) async {
     if (_currentProjectId == null) {
-      return const ProjectResult(
-        success: false,
-        message: 'No project to copy',
-      );
+      return const ProjectResult(success: false, message: 'No project to copy');
     }
 
     return saveProjectAsCopy(copyName, parentPath, uiLayout);
@@ -344,10 +376,7 @@ class ProjectManager extends ChangeNotifier {
 
       notifyListeners();
 
-      return const ProjectResult(
-        success: true,
-        message: 'Project deleted',
-      );
+      return const ProjectResult(success: true, message: 'Project deleted');
     } catch (e) {
       return ProjectResult(
         success: false,

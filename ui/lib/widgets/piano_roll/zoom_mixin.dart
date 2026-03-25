@@ -127,7 +127,10 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
   /// Update drag zoom based on mouse movement
   /// [globalY] is the current Y position
   void updateDragZoom(double globalY) {
-    if (!isDragZooming || dragZoomStartY == null || dragZoomStartPPB == null || dragZoomAnchorX == null) {
+    if (!isDragZooming ||
+        dragZoomStartY == null ||
+        dragZoomStartPPB == null ||
+        dragZoomAnchorX == null) {
       return;
     }
 
@@ -141,7 +144,10 @@ mixin ZoomMixin on State<PianoRoll>, PianoRollStateMixin {
     final zoomFactor = 1.0 + (deltaY / 200.0);
 
     // Calculate new pixelsPerBeat
-    final newPixelsPerBeat = (dragZoomStartPPB! * zoomFactor).clamp(minZoom, maxZoom);
+    final newPixelsPerBeat = (dragZoomStartPPB! * zoomFactor).clamp(
+      minZoom,
+      maxZoom,
+    );
 
     if (newPixelsPerBeat == pixelsPerBeat) return;
 

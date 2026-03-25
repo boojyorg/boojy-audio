@@ -184,15 +184,18 @@ void main() {
         expect(clip.notes.length, 2);
       });
 
-      test('createClipWithParams uses duration as loopLength when not specified', () {
-        final clip = controller.createClipWithParams(
-          trackId: 1,
-          startTimeBeats: 0.0,
-          durationBeats: 8.0,
-        );
+      test(
+        'createClipWithParams uses duration as loopLength when not specified',
+        () {
+          final clip = controller.createClipWithParams(
+            trackId: 1,
+            startTimeBeats: 0.0,
+            durationBeats: 8.0,
+          );
 
-        expect(clip.loopLength, 8.0);
-      });
+          expect(clip.loopLength, 8.0);
+        },
+      );
 
       test('each created clip has unique ID when created with delay', () async {
         final clip1 = controller.createDefaultClip(trackId: 1);
@@ -226,13 +229,15 @@ void main() {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.copyToClipboard(MidiClipData(
-          clipId: 1,
-          trackId: 1,
-          startTime: 0.0,
-          duration: 4.0,
-          name: 'Test',
-        ));
+        controller.copyToClipboard(
+          MidiClipData(
+            clipId: 1,
+            trackId: 1,
+            startTime: 0.0,
+            duration: 4.0,
+            name: 'Test',
+          ),
+        );
 
         expect(notified, isTrue);
       });
@@ -241,13 +246,15 @@ void main() {
         var notifyCount = 0;
         controller.addListener(() => notifyCount++);
 
-        controller.copyToClipboard(MidiClipData(
-          clipId: 1,
-          trackId: 1,
-          startTime: 0.0,
-          duration: 4.0,
-          name: 'Test',
-        ));
+        controller.copyToClipboard(
+          MidiClipData(
+            clipId: 1,
+            trackId: 1,
+            startTime: 0.0,
+            duration: 4.0,
+            name: 'Test',
+          ),
+        );
         controller.clearClipboard();
 
         expect(notifyCount, 2);

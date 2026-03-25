@@ -20,10 +20,7 @@ class Snapshot {
   });
 
   /// Create a new snapshot with generated ID and current timestamp
-  factory Snapshot.create({
-    required String name,
-    String? note,
-  }) {
+  factory Snapshot.create({required String name, String? note}) {
     final id = const Uuid().v4();
     final timestamp = DateTime.now();
 
@@ -98,8 +95,20 @@ class Snapshot {
       return '${diff.inDays}d ago';
     } else {
       // Format as "Jan 15, 2025"
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[created.month - 1]} ${created.day}, ${created.year}';
     }
   }
@@ -123,13 +132,7 @@ class Snapshot {
 
   @override
   int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      note,
-      created,
-      fileName,
-    );
+    return Object.hash(id, name, note, created, fileName);
   }
 
   /// Sanitize a string to be used as a filename

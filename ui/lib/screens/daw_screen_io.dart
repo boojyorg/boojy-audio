@@ -13,7 +13,8 @@ String? getEnv(String name) => Platform.environment[name];
 
 /// Get the default projects folder path
 Future<String> getDefaultProjectsFolder() async {
-  final home = Platform.environment['HOME'] ?? '/Users/${Platform.environment['USER']}';
+  final home =
+      Platform.environment['HOME'] ?? '/Users/${Platform.environment['USER']}';
   final projectsPath = '$home/Documents/Boojy/Audio/Projects';
 
   // Create the folder if it doesn't exist

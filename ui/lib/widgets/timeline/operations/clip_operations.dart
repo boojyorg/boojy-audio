@@ -7,9 +7,14 @@ class ClipOperations {
   /// Split an audio clip at the given position.
   /// Returns a tuple of (leftClip, rightClip) or null if split is invalid.
   /// Automation is sliced at the split point with new edge nodes created.
-  static (ClipData, ClipData)? splitAudioClip(ClipData clip, double splitTimeSeconds, {double tempo = 120.0}) {
+  static (ClipData, ClipData)? splitAudioClip(
+    ClipData clip,
+    double splitTimeSeconds, {
+    double tempo = 120.0,
+  }) {
     // Check if split point is within clip bounds
-    if (splitTimeSeconds <= clip.startTime || splitTimeSeconds >= clip.endTime) {
+    if (splitTimeSeconds <= clip.startTime ||
+        splitTimeSeconds >= clip.endTime) {
       return null;
     }
 
@@ -49,7 +54,10 @@ class ClipOperations {
   /// Split a MIDI clip at the given beat position.
   /// Returns a tuple of (leftClip, rightClip) or null if split is invalid.
   /// Notes and automation are sliced at the split point.
-  static (MidiClipData, MidiClipData)? splitMidiClip(MidiClipData clip, double splitBeat) {
+  static (MidiClipData, MidiClipData)? splitMidiClip(
+    MidiClipData clip,
+    double splitBeat,
+  ) {
     // Check if split point is within clip bounds
     if (splitBeat <= clip.startTime || splitBeat >= clip.endTime) {
       return null;
@@ -66,16 +74,18 @@ class ClipOperations {
         // Note starts before split - goes to left clip
         // Truncate if note extends past split point
         if (note.endTime > splitRelative) {
-          leftNotes.add(note.copyWith(duration: splitRelative - note.startTime));
+          leftNotes.add(
+            note.copyWith(duration: splitRelative - note.startTime),
+          );
         } else {
           leftNotes.add(note);
         }
       } else {
         // Note starts at or after split - goes to right clip
         // Adjust start time relative to right clip's start
-        rightNotes.add(note.copyWith(
-          startTime: note.startTime - splitRelative,
-        ));
+        rightNotes.add(
+          note.copyWith(startTime: note.startTime - splitRelative),
+        );
       }
     }
 
@@ -121,7 +131,10 @@ class ClipOperations {
 
   /// Duplicate a MIDI clip with a new position.
   /// Automation is deep-copied with new point IDs.
-  static MidiClipData duplicateMidiClip(MidiClipData clip, double newStartTime) {
+  static MidiClipData duplicateMidiClip(
+    MidiClipData clip,
+    double newStartTime,
+  ) {
     return clip.copyWith(
       clipId: DateTime.now().millisecondsSinceEpoch,
       startTime: newStartTime,
@@ -131,13 +144,18 @@ class ClipOperations {
 
   /// Quantize an audio clip's start time to the grid.
   static ClipData quantizeAudioClip(ClipData clip, double gridSizeSeconds) {
-    final quantizedStart = (clip.startTime / gridSizeSeconds).round() * gridSizeSeconds;
+    final quantizedStart =
+        (clip.startTime / gridSizeSeconds).round() * gridSizeSeconds;
     return clip.copyWith(startTime: quantizedStart);
   }
 
   /// Quantize a MIDI clip's start time to the grid.
-  static MidiClipData quantizeMidiClip(MidiClipData clip, double gridSizeBeats) {
-    final quantizedStart = (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
+  static MidiClipData quantizeMidiClip(
+    MidiClipData clip,
+    double gridSizeBeats,
+  ) {
+    final quantizedStart =
+        (clip.startTime / gridSizeBeats).round() * gridSizeBeats;
     return clip.copyWith(startTime: quantizedStart);
   }
 
@@ -152,12 +170,18 @@ class ClipOperations {
   }
 
   /// Calculate the X position of a clip's left edge.
-  static double calculateClipLeftEdgeX(double clipStartTime, double pixelsPerUnit) {
+  static double calculateClipLeftEdgeX(
+    double clipStartTime,
+    double pixelsPerUnit,
+  ) {
     return clipStartTime * pixelsPerUnit;
   }
 
   /// Calculate the X position of a clip's right edge.
-  static double calculateClipRightEdgeX(double clipEndTime, double pixelsPerUnit) {
+  static double calculateClipRightEdgeX(
+    double clipEndTime,
+    double pixelsPerUnit,
+  ) {
     return clipEndTime * pixelsPerUnit;
   }
 

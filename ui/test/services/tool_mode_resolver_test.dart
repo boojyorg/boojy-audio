@@ -125,17 +125,11 @@ void main() {
       });
 
       test('returns true for alt', () {
-        expect(
-          ToolModeResolver.isModifierKey(LogicalKeyboardKey.alt),
-          isTrue,
-        );
+        expect(ToolModeResolver.isModifierKey(LogicalKeyboardKey.alt), isTrue);
       });
 
       test('returns true for meta', () {
-        expect(
-          ToolModeResolver.isModifierKey(LogicalKeyboardKey.meta),
-          isTrue,
-        );
+        expect(ToolModeResolver.isModifierKey(LogicalKeyboardKey.meta), isTrue);
       });
 
       test('returns true for control', () {

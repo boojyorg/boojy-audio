@@ -24,8 +24,12 @@ class LibraryPreviewWaveform extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
-          onTapDown: onSeek != null ? (details) => _handleSeek(details, constraints.maxWidth) : null,
-          onHorizontalDragUpdate: onSeek != null ? (details) => _handleDrag(details, constraints.maxWidth) : null,
+          onTapDown: onSeek != null
+              ? (details) => _handleSeek(details, constraints.maxWidth)
+              : null,
+          onHorizontalDragUpdate: onSeek != null
+              ? (details) => _handleDrag(details, constraints.maxWidth)
+              : null,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: CustomPaint(

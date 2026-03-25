@@ -235,7 +235,8 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   static const double clipAutomationLaneMinHeight = 30.0;
 
   /// Currently active automation parameter for the clip automation lane.
-  AutomationParameter activeClipAutomationParameter = AutomationParameter.volume;
+  AutomationParameter activeClipAutomationParameter =
+      AutomationParameter.volume;
 
   // ============================================
   // MULTI-SELECT STATE
@@ -370,7 +371,9 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 
     // Collect unique pitches from notes
     final pitches = currentClip!.notes.map((n) => n.note).toSet().toList();
-    pitches.sort((a, b) => b.compareTo(a)); // Sort descending (high notes at top)
+    pitches.sort(
+      (a, b) => b.compareTo(a),
+    ); // Sort descending (high notes at top)
     return pitches;
   }
 
@@ -490,8 +493,11 @@ mixin PianoRollStateMixin on State<PianoRoll> {
     furthestBeat += scrollBufferBeats;
 
     // Take the maximum: viewport + buffer, furthest note + buffer, or loop length + buffer
-    final maxBeat = [viewportBeats, furthestBeat, loopLength + scrollBufferBeats]
-        .reduce((a, b) => a > b ? a : b);
+    final maxBeat = [
+      viewportBeats,
+      furthestBeat,
+      loopLength + scrollBufferBeats,
+    ].reduce((a, b) => a > b ? a : b);
 
     // Round up to next bar boundary
     final requiredBars = (maxBeat / beatsPerBar).ceil();
@@ -500,8 +506,4 @@ mixin PianoRollStateMixin on State<PianoRoll> {
 }
 
 /// Loop marker being dragged in ruler.
-enum LoopMarkerDrag {
-  start,
-  end,
-  middle,
-}
+enum LoopMarkerDrag { start, end, middle }

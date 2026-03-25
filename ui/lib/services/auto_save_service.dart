@@ -5,7 +5,8 @@ import 'project_manager.dart';
 import 'user_settings.dart';
 
 // Conditional import for path_provider (not available on web)
-import 'auto_save_service_io.dart' if (dart.library.js_interop) 'auto_save_service_io_web.dart';
+import 'auto_save_service_io.dart'
+    if (dart.library.js_interop) 'auto_save_service_io_web.dart';
 
 /// Auto-save service that periodically saves the project
 /// Also manages crash recovery backups
@@ -32,7 +33,8 @@ class AutoSaveService extends ChangeNotifier {
   DateTime? get lastAutoSave => _lastAutoSave;
 
   /// Whether currently performing an auto-save
-  bool get isAutoSaving => _autoSaveCompleter != null && !_autoSaveCompleter!.isCompleted;
+  bool get isAutoSaving =>
+      _autoSaveCompleter != null && !_autoSaveCompleter!.isCompleted;
 
   /// Initialize the service with project manager reference
   void initialize({
@@ -130,7 +132,10 @@ class AutoSaveService extends ChangeNotifier {
 
     try {
       // Create timestamped backup
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')[0];
       final backupName = 'autosave_$timestamp.audio';
       final backupPath = '$_backupDirectory/$backupName';
 
@@ -153,7 +158,10 @@ class AutoSaveService extends ChangeNotifier {
     if (_backupDirectory == null) return;
 
     try {
-      await writeFileAsString('$_backupDirectory/crash_recovery.marker', latestBackupPath);
+      await writeFileAsString(
+        '$_backupDirectory/crash_recovery.marker',
+        latestBackupPath,
+      );
     } catch (e) {
       Log.e('AutoSaveService: Failed to update recovery marker: $e');
     }
@@ -168,7 +176,9 @@ class AutoSaveService extends ChangeNotifier {
 
       // Find auto-save folders
       final backups = entries
-          .where((path) => path.contains('autosave_') && path.endsWith('.audio'))
+          .where(
+            (path) => path.contains('autosave_') && path.endsWith('.audio'),
+          )
           .toList();
 
       // Sort by name (which includes timestamp)
@@ -235,7 +245,6 @@ class AutoSaveService extends ChangeNotifier {
       // if (await directoryExists(_backupDirectory!)) {
       //   await deleteDirectory(_backupDirectory!);
       // }
-
     } catch (e) {
       Log.e('AutoSaveService: Failed to cleanup backups: $e');
     }
@@ -256,11 +265,13 @@ class AutoSaveService extends ChangeNotifier {
       for (final entryPath in entries) {
         if (entryPath.endsWith('.audio')) {
           final modified = await getDirectoryModified(entryPath);
-          backups.add(BackupInfo(
-            path: entryPath,
-            name: entryPath.split('/').last,
-            modified: modified,
-          ));
+          backups.add(
+            BackupInfo(
+              path: entryPath,
+              name: entryPath.split('/').last,
+              modified: modified,
+            ),
+          );
         }
       }
 
@@ -285,11 +296,7 @@ class BackupInfo {
   final String name;
   final DateTime modified;
 
-  BackupInfo({
-    required this.path,
-    required this.name,
-    required this.modified,
-  });
+  BackupInfo({required this.path, required this.name, required this.modified});
 
   String get formattedDate {
     return '${modified.year}-${modified.month.toString().padLeft(2, '0')}-${modified.day.toString().padLeft(2, '0')} '

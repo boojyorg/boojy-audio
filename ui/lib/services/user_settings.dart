@@ -35,10 +35,7 @@ class DevicePreference {
   final String? outputDevice;
   final String? inputDevice;
 
-  DevicePreference({
-    this.outputDevice,
-    this.inputDevice,
-  });
+  DevicePreference({this.outputDevice, this.inputDevice});
 
   Map<String, dynamic> toJson() => {
     'outputDevice': outputDevice,
@@ -70,7 +67,8 @@ class UserSettings extends ChangeNotifier {
   static const String _keyRecentProjects = 'recent_projects';
 
   // Export setting keys
-  static const String _keyExportFormat = 'export_format'; // 'mp3', 'wav', 'both'
+  static const String _keyExportFormat =
+      'export_format'; // 'mp3', 'wav', 'both'
   static const String _keyExportMp3Bitrate = 'export_mp3_bitrate';
   static const String _keyExportWavBitDepth = 'export_wav_bit_depth';
   static const String _keyExportSampleRate = 'export_sample_rate';
@@ -104,11 +102,14 @@ class UserSettings extends ChangeNotifier {
 
   // Panel size keys
   static const String _keyLibraryWidth = 'panel_library_width';
-  static const String _keyLibraryLeftColumnWidth = 'panel_library_left_column_width';
-  static const String _keyLibraryRightColumnWidth = 'panel_library_right_column_width';
+  static const String _keyLibraryLeftColumnWidth =
+      'panel_library_left_column_width';
+  static const String _keyLibraryRightColumnWidth =
+      'panel_library_right_column_width';
   static const String _keyMixerWidth = 'panel_mixer_width';
   static const String _keyEditorHeight = 'panel_editor_height';
-  static const String _keyPianoRollSidebarWidth = 'panel_piano_roll_sidebar_width';
+  static const String _keyPianoRollSidebarWidth =
+      'panel_piano_roll_sidebar_width';
 
   // Appearance keys
   static const String _keyTheme = 'theme';
@@ -149,10 +150,12 @@ class UserSettings extends ChangeNotifier {
   bool _rememberArtist = false;
 
   // Audio device settings
-  String _audioDriver = 'wasapi'; // 'wasapi', 'asio4all', or specific ASIO driver id
+  String _audioDriver =
+      'wasapi'; // 'wasapi', 'asio4all', or specific ASIO driver id
   String? _preferredOutputDevice;
   String? _preferredInputDevice;
-  Map<String, DevicePreference> _devicePerDriver = {}; // Remember device per driver
+  Map<String, DevicePreference> _devicePerDriver =
+      {}; // Remember device per driver
   int _sampleRate = 48000; // 44100 or 48000
   int _bufferSize = 256; // 64/128/256/512/1024
 
@@ -178,10 +181,12 @@ class UserSettings extends ChangeNotifier {
   double _mixerWidth = 380.0;
   double _editorHeight = 250.0;
   double _pianoRollSidebarWidth = 250.0;
-  bool _hasSavedPanelSettings = false; // True if user has saved panel settings before
+  bool _hasSavedPanelSettings =
+      false; // True if user has saved panel settings before
 
   // Appearance settings
-  String _theme = 'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
+  String _theme =
+      'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
 
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
@@ -588,7 +593,8 @@ class UserSettings extends ChangeNotifier {
       _prefs = await SharedPreferences.getInstance();
 
       _undoLimit = _prefs?.getInt(_keyUndoLimit) ?? defaultUndoLimit;
-      _autoSaveMinutes = _prefs?.getInt(_keyAutoSaveMinutes) ?? defaultAutoSaveMinutes;
+      _autoSaveMinutes =
+          _prefs?.getInt(_keyAutoSaveMinutes) ?? defaultAutoSaveMinutes;
 
       final exitTimestamp = _prefs?.getInt(_keyLastCleanExit);
       if (exitTimestamp != null) {
@@ -601,7 +607,9 @@ class UserSettings extends ChangeNotifier {
         try {
           final List<dynamic> decoded = jsonDecode(recentJson);
           _recentProjects = decoded
-              .map((json) => RecentProject.fromJson(json as Map<String, dynamic>))
+              .map(
+                (json) => RecentProject.fromJson(json as Map<String, dynamic>),
+              )
               .toList();
         } catch (e) {
           _recentProjects = [];
@@ -609,11 +617,16 @@ class UserSettings extends ChangeNotifier {
       }
 
       // Load export settings
-      _exportFormat = _prefs?.getString(_keyExportFormat) ?? defaultExportFormat;
-      _exportMp3Bitrate = _prefs?.getInt(_keyExportMp3Bitrate) ?? defaultMp3Bitrate;
-      _exportWavBitDepth = _prefs?.getInt(_keyExportWavBitDepth) ?? defaultWavBitDepth;
-      _exportSampleRate = _prefs?.getInt(_keyExportSampleRate) ?? defaultSampleRate;
-      _exportNormalize = _prefs?.getBool(_keyExportNormalize) ?? defaultNormalize;
+      _exportFormat =
+          _prefs?.getString(_keyExportFormat) ?? defaultExportFormat;
+      _exportMp3Bitrate =
+          _prefs?.getInt(_keyExportMp3Bitrate) ?? defaultMp3Bitrate;
+      _exportWavBitDepth =
+          _prefs?.getInt(_keyExportWavBitDepth) ?? defaultWavBitDepth;
+      _exportSampleRate =
+          _prefs?.getInt(_keyExportSampleRate) ?? defaultSampleRate;
+      _exportNormalize =
+          _prefs?.getBool(_keyExportNormalize) ?? defaultNormalize;
       _exportDither = _prefs?.getBool(_keyExportDither) ?? defaultDither;
       _exportArtist = _prefs?.getString(_keyExportArtist);
       _rememberArtist = _prefs?.getBool(_keyExportRememberArtist) ?? false;
@@ -630,8 +643,12 @@ class UserSettings extends ChangeNotifier {
       if (devicePerDriverJson != null) {
         try {
           final Map<String, dynamic> decoded = jsonDecode(devicePerDriverJson);
-          _devicePerDriver = decoded.map((key, value) =>
-              MapEntry(key, DevicePreference.fromJson(value as Map<String, dynamic>)));
+          _devicePerDriver = decoded.map(
+            (key, value) => MapEntry(
+              key,
+              DevicePreference.fromJson(value as Map<String, dynamic>),
+            ),
+          );
         } catch (e) {
           _devicePerDriver = {};
         }
@@ -656,17 +673,21 @@ class UserSettings extends ChangeNotifier {
       final savedLibraryWidth = _prefs?.getDouble(_keyLibraryWidth);
       _hasSavedPanelSettings = savedLibraryWidth != null;
       _libraryWidth = savedLibraryWidth ?? 208.0;
-      _libraryLeftColumnWidth = _prefs?.getDouble(_keyLibraryLeftColumnWidth) ?? 130.0;
-      _libraryRightColumnWidth = _prefs?.getDouble(_keyLibraryRightColumnWidth) ?? 170.0;
+      _libraryLeftColumnWidth =
+          _prefs?.getDouble(_keyLibraryLeftColumnWidth) ?? 130.0;
+      _libraryRightColumnWidth =
+          _prefs?.getDouble(_keyLibraryRightColumnWidth) ?? 170.0;
       _mixerWidth = _prefs?.getDouble(_keyMixerWidth) ?? 380.0;
       _editorHeight = _prefs?.getDouble(_keyEditorHeight) ?? 250.0;
-      _pianoRollSidebarWidth = _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
+      _pianoRollSidebarWidth =
+          _prefs?.getDouble(_keyPianoRollSidebarWidth) ?? 250.0;
 
       // Load appearance settings
       _theme = _prefs?.getString(_keyTheme) ?? 'dark';
 
       // Load privacy settings
-      _crashReportingEnabled = _prefs?.getBool(_keyCrashReportingEnabled) ?? false;
+      _crashReportingEnabled =
+          _prefs?.getBool(_keyCrashReportingEnabled) ?? false;
       _crashReportingAsked = _prefs?.getBool(_keyCrashReportingAsked) ?? false;
 
       _isLoaded = true;
@@ -729,12 +750,18 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setString(_keyAudioDriver, _audioDriver);
       if (_preferredOutputDevice != null) {
-        await _prefs!.setString(_keyPreferredOutputDevice, _preferredOutputDevice!);
+        await _prefs!.setString(
+          _keyPreferredOutputDevice,
+          _preferredOutputDevice!,
+        );
       } else {
         await _prefs!.remove(_keyPreferredOutputDevice);
       }
       if (_preferredInputDevice != null) {
-        await _prefs!.setString(_keyPreferredInputDevice, _preferredInputDevice!);
+        await _prefs!.setString(
+          _keyPreferredInputDevice,
+          _preferredInputDevice!,
+        );
       } else {
         await _prefs!.remove(_keyPreferredInputDevice);
       }
@@ -742,9 +769,13 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setInt(_keyBufferSize, _bufferSize);
 
       // Save device per driver preferences
-      final devicePerDriverMap = _devicePerDriver.map((key, value) =>
-          MapEntry(key, value.toJson()));
-      await _prefs!.setString(_keyDevicePerDriver, jsonEncode(devicePerDriverMap));
+      final devicePerDriverMap = _devicePerDriver.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      );
+      await _prefs!.setString(
+        _keyDevicePerDriver,
+        jsonEncode(devicePerDriverMap),
+      );
     } catch (e) {
       Log.e('UserSettings: Failed to save audio settings: $e');
     }
@@ -799,11 +830,20 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setBool(_keyEditorVisible, _editorVisible);
       // Sizes
       await _prefs!.setDouble(_keyLibraryWidth, _libraryWidth);
-      await _prefs!.setDouble(_keyLibraryLeftColumnWidth, _libraryLeftColumnWidth);
-      await _prefs!.setDouble(_keyLibraryRightColumnWidth, _libraryRightColumnWidth);
+      await _prefs!.setDouble(
+        _keyLibraryLeftColumnWidth,
+        _libraryLeftColumnWidth,
+      );
+      await _prefs!.setDouble(
+        _keyLibraryRightColumnWidth,
+        _libraryRightColumnWidth,
+      );
       await _prefs!.setDouble(_keyMixerWidth, _mixerWidth);
       await _prefs!.setDouble(_keyEditorHeight, _editorHeight);
-      await _prefs!.setDouble(_keyPianoRollSidebarWidth, _pianoRollSidebarWidth);
+      await _prefs!.setDouble(
+        _keyPianoRollSidebarWidth,
+        _pianoRollSidebarWidth,
+      );
     } catch (e) {
       Log.e('UserSettings: Failed to save panel settings: $e');
     }
@@ -838,11 +878,10 @@ class UserSettings extends ChangeNotifier {
     _recentProjects.removeWhere((p) => p.path == path);
 
     // Add at the beginning (most recent first)
-    _recentProjects.insert(0, RecentProject(
-      path: path,
-      name: name,
-      openedAt: DateTime.now(),
-    ));
+    _recentProjects.insert(
+      0,
+      RecentProject(path: path, name: name, openedAt: DateTime.now()),
+    );
 
     // Enforce max limit
     while (_recentProjects.length > maxRecentProjects) {
@@ -872,7 +911,10 @@ class UserSettings extends ChangeNotifier {
     if (_prefs == null) return;
 
     try {
-      await _prefs!.setInt(_keyLastCleanExit, DateTime.now().millisecondsSinceEpoch);
+      await _prefs!.setInt(
+        _keyLastCleanExit,
+        DateTime.now().millisecondsSinceEpoch,
+      );
     } catch (e) {
       Log.e('UserSettings: Failed to record clean exit: $e');
     }

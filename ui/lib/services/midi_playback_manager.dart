@@ -13,7 +13,8 @@ class MidiPlaybackManager extends ChangeNotifier {
   int? _selectedMidiClipId;
   MidiClipData? _currentEditingClip;
   final List<MidiClipData> _midiClips = [];
-  final Map<int, int> _dartToRustClipIds = {}; // Maps Dart clip ID -> Rust clip ID
+  final Map<int, int> _dartToRustClipIds =
+      {}; // Maps Dart clip ID -> Rust clip ID
 
   // Live recording clip (displayed during recording, not persisted)
   MidiClipData? _liveRecordingClip;
@@ -64,8 +65,11 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// - `duration`: Arrangement length (user-controlled via timeline resize)
   /// - `loopLength`: Piano roll loop boundary (user-controlled via piano roll)
   /// Both are preserved from the updatedClip - not auto-calculated from notes.
-  void updateClip(MidiClipData updatedClip, double tempo, double playheadPosition) {
-
+  void updateClip(
+    MidiClipData updatedClip,
+    double tempo,
+    double playheadPosition,
+  ) {
     // Check if we're editing an existing clip or need to create a new one
     if (updatedClip.clipId == -1) {
       // No clip ID provided - check if we're editing an existing clip
@@ -74,12 +78,18 @@ class MidiPlaybackManager extends ChangeNotifier {
         _currentEditingClip = updatedClip.copyWith(
           clipId: _currentEditingClip!.clipId,
           startTime: _currentEditingClip!.startTime,
-          duration: updatedClip.duration > 0 ? updatedClip.duration : _currentEditingClip!.duration,
-          loopLength: updatedClip.loopLength > 0 ? updatedClip.loopLength : _currentEditingClip!.loopLength,
+          duration: updatedClip.duration > 0
+              ? updatedClip.duration
+              : _currentEditingClip!.duration,
+          loopLength: updatedClip.loopLength > 0
+              ? updatedClip.loopLength
+              : _currentEditingClip!.loopLength,
         );
 
         // Update in clips list
-        final index = _midiClips.indexWhere((c) => c.clipId == _currentEditingClip!.clipId);
+        final index = _midiClips.indexWhere(
+          (c) => c.clipId == _currentEditingClip!.clipId,
+        );
         if (index != -1) {
           _midiClips[index] = _currentEditingClip!;
         }
@@ -92,8 +102,12 @@ class MidiPlaybackManager extends ChangeNotifier {
         _currentEditingClip = updatedClip.copyWith(
           clipId: newClipId,
           startTime: playheadPosition, // playheadPosition should be in beats
-          duration: updatedClip.duration > 0 ? updatedClip.duration : defaultBeats,
-          loopLength: updatedClip.loopLength > 0 ? updatedClip.loopLength : defaultBeats,
+          duration: updatedClip.duration > 0
+              ? updatedClip.duration
+              : defaultBeats,
+          loopLength: updatedClip.loopLength > 0
+              ? updatedClip.loopLength
+              : defaultBeats,
         );
         _selectedMidiClipId = newClipId;
 
@@ -108,7 +122,9 @@ class MidiPlaybackManager extends ChangeNotifier {
       _currentEditingClip = updatedClip;
 
       // Update in clips list
-      final index = _midiClips.indexWhere((c) => c.clipId == updatedClip.clipId);
+      final index = _midiClips.indexWhere(
+        (c) => c.clipId == updatedClip.clipId,
+      );
       if (index != -1) {
         _midiClips[index] = _currentEditingClip!;
       }
@@ -192,13 +208,15 @@ class MidiPlaybackManager extends ChangeNotifier {
 
         // Calculate note position within the arrangement
         final noteStartBeats = loopOffsetBeats + noteRelativeStart;
-        final noteEndBeats = loopOffsetBeats + noteRelativeStart + note.duration;
+        final noteEndBeats =
+            loopOffsetBeats + noteRelativeStart + note.duration;
 
         // Skip notes that start beyond the arrangement duration
         if (noteStartBeats >= clip.duration) continue;
 
         // Convert to seconds (using relative start time)
-        final noteStartSeconds = (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
+        final noteStartSeconds =
+            (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
         var durationSeconds = note.durationInSeconds(tempo);
 
         // Truncate note if it extends beyond the arrangement duration
@@ -212,7 +230,9 @@ class MidiPlaybackManager extends ChangeNotifier {
         if (noteEndInLoop > clip.loopLength) {
           final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
           final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
-          durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
+          durationSeconds = durationSeconds < truncatedSeconds
+              ? durationSeconds
+              : truncatedSeconds;
         }
 
         // Only add if we have a positive duration
@@ -238,8 +258,7 @@ class MidiPlaybackManager extends ChangeNotifier {
         clipStartTimeSeconds,
       );
 
-      if (result != 0) {
-      }
+      if (result != 0) {}
     }
   }
 
@@ -249,7 +268,6 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// The notes are stored in beats, so we need to recalculate
   /// their positions in seconds based on the new tempo.
   void rescheduleAllClips(double newTempo) {
-
     final beatsPerSecond = newTempo / 60.0;
 
     for (final clip in _midiClips) {
@@ -282,12 +300,14 @@ class MidiPlaybackManager extends ChangeNotifier {
           if (noteRelativeStart >= clip.loopLength) continue;
 
           final noteStartBeats = loopOffsetBeats + noteRelativeStart;
-          final noteEndBeats = loopOffsetBeats + noteRelativeStart + note.duration;
+          final noteEndBeats =
+              loopOffsetBeats + noteRelativeStart + note.duration;
 
           if (noteStartBeats >= clip.duration) continue;
 
           // Convert to seconds (using relative start time)
-          final noteStartSeconds = (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
+          final noteStartSeconds =
+              (noteRelativeStart / beatsPerSecond) + loopOffsetSeconds;
           var durationSeconds = note.durationInSeconds(newTempo);
 
           if (noteEndBeats > clip.duration) {
@@ -299,7 +319,9 @@ class MidiPlaybackManager extends ChangeNotifier {
           if (noteEndInLoop > clip.loopLength) {
             final truncatedDurationBeats = clip.loopLength - noteRelativeStart;
             final truncatedSeconds = truncatedDurationBeats / beatsPerSecond;
-            durationSeconds = durationSeconds < truncatedSeconds ? durationSeconds : truncatedSeconds;
+            durationSeconds = durationSeconds < truncatedSeconds
+                ? durationSeconds
+                : truncatedSeconds;
           }
 
           if (durationSeconds > 0) {
@@ -316,9 +338,12 @@ class MidiPlaybackManager extends ChangeNotifier {
 
       // Update clip start time in engine (convert beats to seconds)
       final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
-      _audioEngine.setClipStartTime(clip.trackId, rustClipId, clipStartTimeSeconds);
+      _audioEngine.setClipStartTime(
+        clip.trackId,
+        rustClipId,
+        clipStartTimeSeconds,
+      );
     }
-
   }
 
   /// Play MIDI clip immediately (for testing/preview)
@@ -417,7 +442,11 @@ class MidiPlaybackManager extends ChangeNotifier {
     if (rustClipId != null) {
       final beatsPerSecond = tempo / 60.0;
       final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
-      _audioEngine.setClipStartTime(clip.trackId, rustClipId, clipStartTimeSeconds);
+      _audioEngine.setClipStartTime(
+        clip.trackId,
+        rustClipId,
+        clipStartTimeSeconds,
+      );
     }
   }
 
@@ -444,7 +473,9 @@ class MidiPlaybackManager extends ChangeNotifier {
 
   /// Remove all clips for a specific track
   void removeClipsForTrack(int trackId) {
-    final clipsToRemove = _midiClips.where((c) => c.trackId == trackId).toList();
+    final clipsToRemove = _midiClips
+        .where((c) => c.trackId == trackId)
+        .toList();
     for (final clip in clipsToRemove) {
       _dartToRustClipIds.remove(clip.clipId);
     }
@@ -452,7 +483,8 @@ class MidiPlaybackManager extends ChangeNotifier {
     _midiClips.removeWhere((c) => c.trackId == trackId);
 
     // Clear current editing clip if it was on this track
-    if (_currentEditingClip != null && _currentEditingClip!.trackId == trackId) {
+    if (_currentEditingClip != null &&
+        _currentEditingClip!.trackId == trackId) {
       _currentEditingClip = null;
       _selectedMidiClipId = null;
     }
@@ -464,7 +496,9 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// Used for undo/redo of recording operations.
   void replaceClipsOnTrack(int trackId, List<MidiClipData> newClips) {
     // Remove existing clips for this track
-    final clipsToRemove = _midiClips.where((c) => c.trackId == trackId).toList();
+    final clipsToRemove = _midiClips
+        .where((c) => c.trackId == trackId)
+        .toList();
     for (final clip in clipsToRemove) {
       _dartToRustClipIds.remove(clip.clipId);
     }
@@ -474,7 +508,8 @@ class MidiPlaybackManager extends ChangeNotifier {
     _midiClips.addAll(newClips);
 
     // Clear current editing clip if it was on this track
-    if (_currentEditingClip != null && _currentEditingClip!.trackId == trackId) {
+    if (_currentEditingClip != null &&
+        _currentEditingClip!.trackId == trackId) {
       _currentEditingClip = null;
       _selectedMidiClipId = null;
     }
@@ -501,7 +536,6 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// This queries the engine for all MIDI clips and reconstructs
   /// the Flutter MidiClipData objects for UI display.
   void restoreClipsFromEngine(double tempo) {
-
     // Clear existing clips first
     _midiClips.clear();
     _dartToRustClipIds.clear();
@@ -553,12 +587,14 @@ class MidiPlaybackManager extends ChangeNotifier {
           final noteStartBeats = noteStartSeconds * beatsPerSecond;
           final noteDurationBeats = noteDurationSeconds * beatsPerSecond;
 
-          notes.add(MidiNoteData(
-            note: midiNote,
-            velocity: velocity,
-            startTime: noteStartBeats,
-            duration: noteDurationBeats,
-          ));
+          notes.add(
+            MidiNoteData(
+              note: midiNote,
+              velocity: velocity,
+              startTime: noteStartBeats,
+              duration: noteDurationBeats,
+            ),
+          );
         }
       }
 
@@ -578,7 +614,6 @@ class MidiPlaybackManager extends ChangeNotifier {
 
       _midiClips.add(clipData);
       _dartToRustClipIds[dartClipId] = rustClipId;
-
     }
 
     notifyListeners();

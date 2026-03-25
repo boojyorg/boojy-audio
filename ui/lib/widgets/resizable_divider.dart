@@ -3,7 +3,7 @@ import '../theme/theme_extension.dart';
 
 /// Orientation of the resizable divider
 enum DividerOrientation {
-  vertical,   // Left-right resize (vertical line)
+  vertical, // Left-right resize (vertical line)
   horizontal, // Up-down resize (horizontal line)
 }
 
@@ -81,7 +81,8 @@ class _ResizableDividerState extends State<ResizableDivider> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isVertical = widget.orientation == DividerOrientation.vertical;
-    final isActive = _isHovered || _isDragging || (widget.activeNotifier?.value ?? false);
+    final isActive =
+        _isHovered || _isDragging || (widget.activeNotifier?.value ?? false);
 
     return GestureDetector(
       onPanStart: (_) {

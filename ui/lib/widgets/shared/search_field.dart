@@ -116,11 +116,7 @@ class _SearchFieldState extends State<SearchField> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
-            const Icon(
-              Icons.search,
-              size: 15.4,
-              color: Color(0xFF646880),
-            ),
+            const Icon(Icons.search, size: 15.4, color: Color(0xFF646880)),
             const SizedBox(width: 8),
             Expanded(
               child: Focus(
@@ -200,9 +196,7 @@ class SearchFieldPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: colors.standard,
-        border: Border(
-          bottom: BorderSide(color: colors.elevated),
-        ),
+        border: Border(bottom: BorderSide(color: colors.elevated)),
       ),
       child: SearchField(
         controller: controller,

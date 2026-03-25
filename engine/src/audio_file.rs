@@ -160,7 +160,7 @@ pub fn load_wav_for_preview<P: AsRef<Path>>(path: P) -> Result<RawPreviewClip> {
     if audio_format != 1 && audio_format != 3 { anyhow::bail!("Unsupported format: {audio_format}"); }
     let ch = channels as usize;
     if ch == 0 || ch > 2 { anyhow::bail!("Unsupported channels: {ch}"); }
-    if !matches!((audio_format, bits_per_sample), (1, 16) | (1, 24) | (3, 32) | (1, 32)) {
+    if !matches!((audio_format, bits_per_sample), (1, 16 | 24 | 32) | (3, 32)) {
         anyhow::bail!("Unsupported bit depth: {bits_per_sample}");
     }
 
@@ -406,7 +406,6 @@ pub fn start_streaming_decode<P: AsRef<Path>>(path: P) -> Result<StreamingPrevie
         loop {
             let packet = match format.next_packet() {
                 Ok(packet) => packet,
-                Err(Error::IoError(_)) => break,
                 Err(Error::ResetRequired) => { decoder.reset(); continue; }
                 Err(_) => break,
             };

@@ -61,6 +61,7 @@ class SetPanCommand extends Command {
       if (p > 0.01) return '${(p * 100).round()}R';
       return 'C';
     }
+
     return 'Set Pan: $trackName (${panStr(oldPan)} → ${panStr(newPan)})';
   }
 }
@@ -90,8 +91,7 @@ class SetMuteCommand extends Command {
   }
 
   @override
-  String get description =>
-      '${newMute ? 'Mute' : 'Unmute'} Track: $trackName';
+  String get description => '${newMute ? 'Mute' : 'Unmute'} Track: $trackName';
 }
 
 /// Command to toggle track solo
@@ -119,6 +119,5 @@ class SetSoloCommand extends Command {
   }
 
   @override
-  String get description =>
-      '${newSolo ? 'Solo' : 'Unsolo'} Track: $trackName';
+  String get description => '${newSolo ? 'Solo' : 'Unsolo'} Track: $trackName';
 }

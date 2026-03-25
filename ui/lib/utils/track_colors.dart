@@ -79,12 +79,24 @@ class TrackColors {
     }
 
     // Combine all sources for keyword matching
-    final searchText = '$trackName ${instrumentType ?? ''} ${pluginName ?? ''}'.toLowerCase();
+    final searchText = '$trackName ${instrumentType ?? ''} ${pluginName ?? ''}'
+        .toLowerCase();
 
     // Check keywords for each category (order matters - more specific first)
     if (_matchesKeywords(searchText, [
-      'drum', 'percussion', 'beat', 'kit', '808', 'kick', 'snare',
-      'hi-hat', 'hihat', 'cymbal', 'tom', 'clap', 'hats'
+      'drum',
+      'percussion',
+      'beat',
+      'kit',
+      '808',
+      'kick',
+      'snare',
+      'hi-hat',
+      'hihat',
+      'cymbal',
+      'tom',
+      'clap',
+      'hats',
     ])) {
       return TrackColorCategory.drums;
     }
@@ -92,38 +104,80 @@ class TrackColors {
       return TrackColorCategory.bass;
     }
     if (_matchesKeywords(searchText, [
-      'synth', 'piano', 'keys', 'keyboard', 'pad', 'lead', 'pluck',
-      'arp', 'chord', 'organ', 'electric piano', 'rhodes'
+      'synth',
+      'piano',
+      'keys',
+      'keyboard',
+      'pad',
+      'lead',
+      'pluck',
+      'arp',
+      'chord',
+      'organ',
+      'electric piano',
+      'rhodes',
     ])) {
       return TrackColorCategory.synth;
     }
     if (_matchesKeywords(searchText, [
-      'guitar', 'string', 'violin', 'cello', 'acoustic', 'ukulele',
-      'banjo', 'mandolin', 'harp'
+      'guitar',
+      'string',
+      'violin',
+      'cello',
+      'acoustic',
+      'ukulele',
+      'banjo',
+      'mandolin',
+      'harp',
     ])) {
       return TrackColorCategory.guitar;
     }
     if (_matchesKeywords(searchText, [
-      'vocal', 'voice', 'vox', 'choir', 'sing', 'acapella', 'harmony'
+      'vocal',
+      'voice',
+      'vox',
+      'choir',
+      'sing',
+      'acapella',
+      'harmony',
     ])) {
       return TrackColorCategory.vocals;
     }
     if (_matchesKeywords(searchText, [
-      'orchestra', 'brass', 'woodwind', 'horn', 'trumpet', 'flute',
-      'clarinet', 'oboe', 'trombone', 'tuba', 'french horn'
+      'orchestra',
+      'brass',
+      'woodwind',
+      'horn',
+      'trumpet',
+      'flute',
+      'clarinet',
+      'oboe',
+      'trombone',
+      'tuba',
+      'french horn',
     ])) {
       return TrackColorCategory.orchestral;
     }
     if (_matchesKeywords(searchText, [
-      'fx', 'effect', 'ambience', 'ambient', 'noise', 'riser',
-      'impact', 'sweep', 'transition', 'foley', 'sfx'
+      'fx',
+      'effect',
+      'ambience',
+      'ambient',
+      'noise',
+      'riser',
+      'impact',
+      'sweep',
+      'transition',
+      'foley',
+      'sfx',
     ])) {
       return TrackColorCategory.fx;
     }
 
     // Default based on track type
     return trackType.toLowerCase() == 'midi'
-        ? TrackColorCategory.synth // Default MIDI to synth (green)
+        ? TrackColorCategory
+              .synth // Default MIDI to synth (green)
         : TrackColorCategory.audio; // Default audio to grey
   }
 
@@ -133,7 +187,8 @@ class TrackColors {
 
   /// Get color for a category
   static Color getColorForCategory(TrackColorCategory category) {
-    return categoryColors[category] ?? categoryColors[TrackColorCategory.audio]!;
+    return categoryColors[category] ??
+        categoryColors[TrackColorCategory.audio]!;
   }
 
   /// Get color for a track by index (legacy - cycles through palette)
@@ -180,7 +235,9 @@ class TrackColors {
   /// [factor] controls how much lighter (0.0 = no change, 1.0 = white)
   static Color getLighterShade(Color base, [double factor = 0.3]) {
     final hsl = HSLColor.fromColor(base);
-    return hsl.withLightness((hsl.lightness + factor).clamp(0.0, 0.85)).toColor();
+    return hsl
+        .withLightness((hsl.lightness + factor).clamp(0.0, 0.85))
+        .toColor();
   }
 
   /// Get track emoji based on name or type

@@ -269,7 +269,11 @@ mixin _TracksMixin on _AudioEngineBase {
   /// Returns the new clip ID, or -1 on error
   int duplicateAudioClip(int trackId, int sourceClipId, double newStartTime) {
     try {
-      final newClipId = _duplicateAudioClip(trackId, sourceClipId, newStartTime);
+      final newClipId = _duplicateAudioClip(
+        trackId,
+        sourceClipId,
+        newStartTime,
+      );
       if (newClipId >= 0) {
         return newClipId;
       } else {
@@ -294,8 +298,13 @@ mixin _TracksMixin on _AudioEngineBase {
   /// Re-add an existing audio clip to a track from the engine's clips map.
   /// Used for redo after undoing a recording or clip deletion.
   /// Returns the new clip ID, or -1 on error.
-  int addExistingClipToTrack(int clipId, int trackId, double startTime,
-      {double offset = 0.0, double? duration}) {
+  int addExistingClipToTrack(
+    int clipId,
+    int trackId,
+    double startTime, {
+    double offset = 0.0,
+    double? duration,
+  }) {
     try {
       final result = _addExistingClipToTrack(
         clipId,

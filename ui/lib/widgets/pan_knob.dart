@@ -11,12 +11,7 @@ class PanKnob extends StatelessWidget {
   final Function(double)? onChanged;
   final double size;
 
-  const PanKnob({
-    super.key,
-    required this.pan,
-    this.onChanged,
-    this.size = 40,
-  });
+  const PanKnob({super.key, required this.pan, this.onChanged, this.size = 40});
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +62,8 @@ class _PanKnobPainter extends CustomPainter {
 
     // 1. Draw darker bottom arc (5 o'clock to 7 o'clock) - inactive zone
     final bottomArcPaint = Paint()
-      ..color = const Color(0xFF3A3A3A) // Darker grey for inactive zone
+      ..color =
+          const Color(0xFF3A3A3A) // Darker grey for inactive zone
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;

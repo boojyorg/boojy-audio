@@ -79,20 +79,23 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
     });
 
     // Run the export task
-    widget.exportTask().then((_) {
-      if (mounted) {
-        setState(() => _exportComplete = true);
-        _progressTimer?.cancel();
-      }
-    }).catchError((error) {
-      if (mounted) {
-        setState(() {
-          _exportError = error.toString();
-          _exportComplete = true;
+    widget
+        .exportTask()
+        .then((_) {
+          if (mounted) {
+            setState(() => _exportComplete = true);
+            _progressTimer?.cancel();
+          }
+        })
+        .catchError((error) {
+          if (mounted) {
+            setState(() {
+              _exportError = error.toString();
+              _exportComplete = true;
+            });
+            _progressTimer?.cancel();
+          }
         });
-        _progressTimer?.cancel();
-      }
-    });
   }
 
   void _pollProgress() {
@@ -149,8 +152,8 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
             _exportError != null
                 ? 'Export Failed'
                 : _exportComplete
-                    ? 'Export Complete'
-                    : 'Exporting...',
+                ? 'Export Complete'
+                : 'Exporting...',
             style: const TextStyle(color: Colors.white),
           ),
         ],
@@ -162,10 +165,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_exportError != null) ...[
-              Text(
-                _exportError!,
-                style: const TextStyle(color: Colors.red),
-              ),
+              Text(_exportError!, style: const TextStyle(color: Colors.red)),
             ] else ...[
               // Progress bar
               ClipRRect(
@@ -187,10 +187,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
                   Expanded(
                     child: Text(
                       status,
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -209,10 +206,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
       ),
       actions: [
         if (!_exportComplete && _exportError == null)
-          TextButton(
-            onPressed: _handleCancel,
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: _handleCancel, child: const Text('Cancel')),
         if (_exportComplete || _exportError != null)
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -295,12 +289,12 @@ class ExportOptions {
 
   /// Get metadata as JSON for FFI
   String get metadataJson => jsonEncode({
-        if (title != null && title!.isNotEmpty) 'title': title,
-        if (artist != null && artist!.isNotEmpty) 'artist': artist,
-        if (album != null && album!.isNotEmpty) 'album': album,
-        if (year != null) 'year': year,
-        if (genre != null && genre!.isNotEmpty) 'genre': genre,
-      });
+    if (title != null && title!.isNotEmpty) 'title': title,
+    if (artist != null && artist!.isNotEmpty) 'artist': artist,
+    if (album != null && album!.isNotEmpty) 'album': album,
+    if (year != null) 'year': year,
+    if (genre != null && genre!.isNotEmpty) 'genre': genre,
+  });
 }
 
 /// Export result from FFI
@@ -364,10 +358,8 @@ class ExportDialog extends StatefulWidget {
     await showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (context) => ExportDialog(
-        audioEngine: audioEngine,
-        defaultName: defaultName,
-      ),
+      builder: (context) =>
+          ExportDialog(audioEngine: audioEngine, defaultName: defaultName),
     );
   }
 
@@ -557,8 +549,16 @@ class _ExportDialogState extends State<ExportDialog> {
 
               final stemOptionsJson = jsonEncode({
                 'format': _options.exportWav
-                    ? {'Wav': {'bit_depth': _wavBitDepthString(_options.wavBitDepth)}}
-                    : {'Mp3': {'bitrate': _mp3BitrateString(_options.mp3Bitrate)}},
+                    ? {
+                        'Wav': {
+                          'bit_depth': _wavBitDepthString(_options.wavBitDepth),
+                        },
+                      }
+                    : {
+                        'Mp3': {
+                          'bitrate': _mp3BitrateString(_options.mp3Bitrate),
+                        },
+                      },
                 'sample_rate': _options.sampleRate,
                 'normalize': _options.normalize,
                 'dither': _options.dither,
@@ -572,14 +572,18 @@ class _ExportDialogState extends State<ExportDialog> {
                 optionsJson: stemOptionsJson,
               );
 
-              final stemResult = jsonDecode(stemResultJson) as Map<String, dynamic>;
-              results.add(ExportResult(
-                path: folderPath,
-                fileSize: stemResult['total_size'] as int,
-                duration: 0,
-                sampleRate: _options.sampleRate,
-                format: '${stemResult['count']} stems (${_options.exportWav ? 'WAV' : 'MP3'})',
-              ));
+              final stemResult =
+                  jsonDecode(stemResultJson) as Map<String, dynamic>;
+              results.add(
+                ExportResult(
+                  path: folderPath,
+                  fileSize: stemResult['total_size'] as int,
+                  duration: 0,
+                  sampleRate: _options.sampleRate,
+                  format:
+                      '${stemResult['count']} stems (${_options.exportWav ? 'WAV' : 'MP3'})',
+                ),
+              );
             }
 
             // Regular file export
@@ -602,9 +606,14 @@ class _ExportDialogState extends State<ExportDialog> {
                 results.add(ExportResult.fromJson(parsed));
 
                 // Write metadata if we have any
-                if (_options.title != null || _options.artist != null || _options.album != null) {
+                if (_options.title != null ||
+                    _options.artist != null ||
+                    _options.album != null) {
                   try {
-                    widget.audioEngine.writeMp3Metadata(mp3Path, _options.metadataJson);
+                    widget.audioEngine.writeMp3Metadata(
+                      mp3Path,
+                      _options.metadataJson,
+                    );
                   } catch (e) {
                     Log.e('ExportDialog: Error writing MP3 metadata: $e');
                   }
@@ -652,19 +661,23 @@ class _ExportDialogState extends State<ExportDialog> {
 
     // Validate format selection
     final hasFormatSelected = _options.exportMp3 || _options.exportWav;
-    final hasStemsSelected = _options.exportStems &&
-        _options.stemTracks.any((t) => t.selected);
+    final hasStemsSelected =
+        _options.exportStems && _options.stemTracks.any((t) => t.selected);
 
     if (!hasFormatSelected && !hasStemsSelected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one format or stems')),
+        const SnackBar(
+          content: Text('Please select at least one format or stems'),
+        ),
       );
       return;
     }
 
     if (_options.exportStems && !_options.stemTracks.any((t) => t.selected)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one track for stem export')),
+        const SnackBar(
+          content: Text('Please select at least one track for stem export'),
+        ),
       );
       return;
     }
@@ -680,7 +693,7 @@ class _ExportDialogState extends State<ExportDialog> {
       if (_options.exportStems) {
         final folderResult = await Process.run('osascript', [
           '-e',
-          'POSIX path of (choose folder with prompt "Choose folder for stem export")'
+          'POSIX path of (choose folder with prompt "Choose folder for stem export")',
         ]);
 
         if (folderResult.exitCode != 0) {
@@ -701,7 +714,7 @@ class _ExportDialogState extends State<ExportDialog> {
 
         final result = await Process.run('osascript', [
           '-e',
-          'POSIX path of (choose file name with prompt "Export as" default name "$baseName.$extension")'
+          'POSIX path of (choose file name with prompt "Export as" default name "$baseName.$extension")',
         ]);
 
         if (result.exitCode != 0) {
@@ -739,9 +752,9 @@ class _ExportDialogState extends State<ExportDialog> {
       }
     } catch (e) {
       if (mounted && e.toString() != 'Export cancelled') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
       }
     } finally {
       if (mounted) {
@@ -770,7 +783,9 @@ class _ExportDialogState extends State<ExportDialog> {
               Text(
                 result.format,
                 style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 'Size: ${result.fileSizeFormatted}  Duration: ${result.durationFormatted}',
@@ -860,17 +875,11 @@ class _ExportDialogState extends State<ExportDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF404040)),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFF404040))),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.file_download,
-            color: Color(0xFF00BCD4),
-            size: 24,
-          ),
+          const Icon(Icons.file_download, color: Color(0xFF00BCD4), size: 24),
           const SizedBox(width: 12),
           const Text(
             'Export Audio',
@@ -1270,9 +1279,7 @@ class _ExportDialogState extends State<ExportDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Color(0xFF404040)),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFF404040))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -1418,12 +1425,15 @@ class _ExportDialogState extends State<ExportDialog> {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              keyboardType:
-                  isNumber ? TextInputType.number : TextInputType.text,
+              keyboardType: isNumber
+                  ? TextInputType.number
+                  : TextInputType.text,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: const InputDecoration(
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 border: InputBorder.none,
               ),
             ),

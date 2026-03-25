@@ -335,8 +335,7 @@ void main() {
         oldValue: 0.50,
       );
 
-      expect(command.description,
-          'Change Reverb: Decay (0.50 → 0.75)');
+      expect(command.description, 'Change Reverb: Decay (0.50 → 0.75)');
     });
 
     test('execute sets new parameter value', () async {

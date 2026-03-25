@@ -39,7 +39,11 @@ class PianoRollCoordinates {
   }
 
   /// Snap a beat position to a grid.
-  double snapToGrid(double beat, double gridDivision, {bool snapEnabled = true}) {
+  double snapToGrid(
+    double beat,
+    double gridDivision, {
+    bool snapEnabled = true,
+  }) {
     if (!snapEnabled) return beat;
     return GridUtils.snapToGridFloor(beat, gridDivision);
   }
@@ -111,7 +115,20 @@ class ScaleUtils {
 
 /// Note name utility functions.
 class NoteNameUtils {
-  static const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  static const _noteNames = [
+    'C',
+    'C#',
+    'D',
+    'D#',
+    'E',
+    'F',
+    'F#',
+    'G',
+    'G#',
+    'A',
+    'A#',
+    'B',
+  ];
 
   /// Get the name of a MIDI note (e.g., "C4", "F#5").
   static String getNoteName(int midiNote) {

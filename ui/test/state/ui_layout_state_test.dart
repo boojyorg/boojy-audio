@@ -100,22 +100,34 @@ void main() {
 
       test('libraryLeftColumnWidth clamps to min', () {
         layout.libraryLeftColumnWidth = 10.0;
-        expect(layout.libraryLeftColumnWidth, UILayoutState.libraryLeftColumnMin);
+        expect(
+          layout.libraryLeftColumnWidth,
+          UILayoutState.libraryLeftColumnMin,
+        );
       });
 
       test('libraryLeftColumnWidth clamps to max', () {
         layout.libraryLeftColumnWidth = 9999.0;
-        expect(layout.libraryLeftColumnWidth, UILayoutState.libraryLeftColumnMax);
+        expect(
+          layout.libraryLeftColumnWidth,
+          UILayoutState.libraryLeftColumnMax,
+        );
       });
 
       test('libraryRightColumnWidth clamps to min', () {
         layout.libraryRightColumnWidth = 10.0;
-        expect(layout.libraryRightColumnWidth, UILayoutState.libraryRightColumnMin);
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMin,
+        );
       });
 
       test('libraryRightColumnWidth clamps to max', () {
         layout.libraryRightColumnWidth = 9999.0;
-        expect(layout.libraryRightColumnWidth, UILayoutState.libraryRightColumnMax);
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMax,
+        );
       });
 
       test('toggleLibraryPanel collapses when open', () {
@@ -159,12 +171,18 @@ void main() {
 
       test('resizeLeftColumn clamps at min', () {
         layout.resizeLeftColumn(-9999.0);
-        expect(layout.libraryLeftColumnWidth, UILayoutState.libraryLeftColumnMin);
+        expect(
+          layout.libraryLeftColumnWidth,
+          UILayoutState.libraryLeftColumnMin,
+        );
       });
 
       test('resizeLeftColumn clamps at max', () {
         layout.resizeLeftColumn(9999.0);
-        expect(layout.libraryLeftColumnWidth, UILayoutState.libraryLeftColumnMax);
+        expect(
+          layout.libraryLeftColumnWidth,
+          UILayoutState.libraryLeftColumnMax,
+        );
       });
 
       test('resizeRightColumn adjusts total width', () {
@@ -175,7 +193,10 @@ void main() {
 
       test('resizeRightColumn clamps at max', () {
         layout.resizeRightColumn(9999.0);
-        expect(layout.libraryRightColumnWidth, UILayoutState.libraryRightColumnMax);
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMax,
+        );
       });
 
       test('resizeRightColumn collapses when dragged below threshold', () {
@@ -283,7 +304,10 @@ void main() {
       test('getLibraryMaxWidth respects hard max', () {
         // Large window: hardMax limits
         // 3000 * 0.30 = 900, which is > libraryHardMax (600)
-        expect(UILayoutState.getLibraryMaxWidth(3000), UILayoutState.libraryHardMax);
+        expect(
+          UILayoutState.getLibraryMaxWidth(3000),
+          UILayoutState.libraryHardMax,
+        );
       });
 
       test('getMixerMaxWidth respects percentage cap', () {
@@ -293,7 +317,10 @@ void main() {
 
       test('getMixerMaxWidth respects hard max', () {
         // 2000 * 0.35 = 700, > mixerHardMax (500)
-        expect(UILayoutState.getMixerMaxWidth(2000), UILayoutState.mixerHardMax);
+        expect(
+          UILayoutState.getMixerMaxWidth(2000),
+          UILayoutState.mixerHardMax,
+        );
       });
 
       test('getEditorMaxHeight respects percentage cap', () {
@@ -303,7 +330,10 @@ void main() {
 
       test('getEditorMaxHeight respects hard max', () {
         // 2000 * 0.55 = 1100, > editorHardMax (600)
-        expect(UILayoutState.getEditorMaxHeight(2000), UILayoutState.editorHardMax);
+        expect(
+          UILayoutState.getEditorMaxHeight(2000),
+          UILayoutState.editorHardMax,
+        );
       });
 
       test('getLibraryDefaultWidth respects min on small windows', () {
@@ -340,7 +370,8 @@ void main() {
     group('arrangement width', () {
       test('getArrangementWidth subtracts visible panels', () {
         const windowWidth = 1600.0;
-        final expected = windowWidth - layout.libraryPanelWidth - layout.mixerPanelWidth;
+        final expected =
+            windowWidth - layout.libraryPanelWidth - layout.mixerPanelWidth;
         expect(layout.getArrangementWidth(windowWidth), expected);
       });
 
@@ -540,8 +571,14 @@ void main() {
 
         layout.resetLayout();
 
-        expect(layout.libraryLeftColumnWidth, UILayoutState.libraryLeftColumnDefault);
-        expect(layout.libraryRightColumnWidth, UILayoutState.libraryRightColumnMin);
+        expect(
+          layout.libraryLeftColumnWidth,
+          UILayoutState.libraryLeftColumnDefault,
+        );
+        expect(
+          layout.libraryRightColumnWidth,
+          UILayoutState.libraryRightColumnMin,
+        );
         expect(layout.mixerPanelWidth, 380.0);
         expect(layout.editorPanelHeight, 250.0);
         expect(layout.isLibraryPanelCollapsed, isFalse);

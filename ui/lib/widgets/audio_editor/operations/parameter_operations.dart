@@ -124,9 +124,7 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   void setFineCents(int cents) {
     saveToHistory();
     setState(() {
-      editData = editData.copyWith(
-        fineCents: cents.clamp(-50, 50),
-      );
+      editData = editData.copyWith(fineCents: cents.clamp(-50, 50));
     });
     notifyClipUpdated();
     sendToAudioEngine();
@@ -141,9 +139,7 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
   void setGain(double db) {
     saveToHistory();
     setState(() {
-      editData = editData.copyWith(
-        gainDb: db.clamp(-70.0, 24.0),
-      );
+      editData = editData.copyWith(gainDb: db.clamp(-70.0, 24.0));
     });
     notifyClipUpdated();
     sendToAudioEngine();

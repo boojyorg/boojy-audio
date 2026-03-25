@@ -102,7 +102,11 @@ class SamplerWaveformPainter extends CustomPainter {
       ..color = colors.divider.withValues(alpha: 0.5)
       ..strokeWidth = 1.0;
     final centerY = size.height / 2;
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), centerPaint);
+    canvas.drawLine(
+      Offset(0, centerY),
+      Offset(size.width, centerY),
+      centerPaint,
+    );
   }
 
   void _drawLoopRegion(Canvas canvas, Size size, double totalWidth) {
@@ -114,10 +118,7 @@ class SamplerWaveformPainter extends CustomPainter {
 
     // Before loop start
     if (loopStartX > 0) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, loopStartX, size.height),
-        dimPaint,
-      );
+      canvas.drawRect(Rect.fromLTWH(0, 0, loopStartX, size.height), dimPaint);
     }
 
     // After loop end
@@ -129,14 +130,21 @@ class SamplerWaveformPainter extends CustomPainter {
     }
   }
 
-  void _drawWaveform(Canvas canvas, Size size, double totalWidth, double centerY) {
+  void _drawWaveform(
+    Canvas canvas,
+    Size size,
+    double totalWidth,
+    double centerY,
+  ) {
     if (peaks.isEmpty) return;
 
     final originalPeakCount = peaks.length ~/ 2;
     if (originalPeakCount == 0) return;
 
     // LOD: Calculate optimal peak count for visible width
-    final targetPeakCount = totalWidth.clamp(100, originalPeakCount.toDouble()).toInt();
+    final targetPeakCount = totalWidth
+        .clamp(100, originalPeakCount.toDouble())
+        .toInt();
 
     // Downsample if we have more peaks than needed (>2x threshold)
     List<double> renderPeaks;
@@ -407,11 +415,14 @@ class SamplerRulerPainter extends CustomPainter {
         final barInterval = _getBarNumberInterval();
         if (barNumber % barInterval == 1 || barInterval == 1) {
           final textX = x + 4;
-          final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+          final isOverLoop =
+              loopEnabled && textX >= loopStartX && textX < loopEndX;
           textPainter.text = TextSpan(
             text: '$barNumber',
             style: TextStyle(
-              color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+              color: isOverLoop
+                  ? const Color(0xFFFFFFFF)
+                  : const Color(0xFFE0E0E0),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -440,11 +451,14 @@ class SamplerRulerPainter extends CustomPainter {
 
             if (subdivisionsVisible) {
               final textX = x + 4;
-              final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+              final isOverLoop =
+                  loopEnabled && textX >= loopStartX && textX < loopEndX;
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFFE0E0E0),
+                  color: isOverLoop
+                      ? const Color(0xFFFFFFFF)
+                      : const Color(0xFFE0E0E0),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -453,11 +467,14 @@ class SamplerRulerPainter extends CustomPainter {
               textPainter.paint(canvas, Offset(textX, 2));
             } else {
               final textX = x + 2;
-              final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+              final isOverLoop =
+                  loopEnabled && textX >= loopStartX && textX < loopEndX;
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                  color: isOverLoop
+                      ? const Color(0xFFFFFFFF)
+                      : const Color(0xFF808080),
                   fontSize: 9,
                 ),
               );
@@ -481,8 +498,9 @@ class SamplerRulerPainter extends CustomPainter {
         if (ppb >= 100) {
           final beatFraction = beat % 1.0;
           final isHalfBeat = (beatFraction - 0.5).abs() < 0.01;
-          final isQuarterBeat = (beatFraction - 0.25).abs() < 0.01 ||
-                                (beatFraction - 0.75).abs() < 0.01;
+          final isQuarterBeat =
+              (beatFraction - 0.25).abs() < 0.01 ||
+              (beatFraction - 0.75).abs() < 0.01;
 
           final shouldShow = isHalfBeat || (isQuarterBeat && ppb >= 200);
 
@@ -492,12 +510,15 @@ class SamplerRulerPainter extends CustomPainter {
             final subInBeat = (beatFraction * 4).round() + 1;
 
             final textX = x + 2;
-            final isOverLoop = loopEnabled && textX >= loopStartX && textX < loopEndX;
+            final isOverLoop =
+                loopEnabled && textX >= loopStartX && textX < loopEndX;
 
             textPainter.text = TextSpan(
               text: '$barNumber.$beatInBar.$subInBeat',
               style: TextStyle(
-                color: isOverLoop ? const Color(0xFFFFFFFF) : const Color(0xFF808080),
+                color: isOverLoop
+                    ? const Color(0xFFFFFFFF)
+                    : const Color(0xFF808080),
                 fontSize: 9,
               ),
             );

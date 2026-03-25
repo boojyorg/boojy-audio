@@ -61,16 +61,9 @@ class _ZoomButtonState extends State<ZoomButton> {
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(2),
-              border: Border.all(
-                color: colors.surface,
-                width: 1,
-              ),
+              border: Border.all(color: colors.surface, width: 1),
             ),
-            child: Icon(
-              widget.icon,
-              size: 13,
-              color: iconColor,
-            ),
+            child: Icon(widget.icon, size: 13, color: iconColor),
           ),
         ),
       ),

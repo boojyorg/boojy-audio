@@ -126,11 +126,7 @@ void main() {
           ),
         ];
 
-        final count = ClipNamingService.countPatternInstances(
-          clips,
-          1,
-          null,
-        );
+        final count = ClipNamingService.countPatternInstances(clips, 1, null);
 
         expect(count, 1);
       });
@@ -169,11 +165,7 @@ void main() {
           ),
         ];
 
-        final count = ClipNamingService.countClipsWithName(
-          clips,
-          1,
-          'Serum',
-        );
+        final count = ClipNamingService.countClipsWithName(clips, 1, 'Serum');
 
         expect(count, 2);
       });

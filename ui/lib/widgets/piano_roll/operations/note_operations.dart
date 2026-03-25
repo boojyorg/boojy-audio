@@ -30,9 +30,7 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     final command = MidiClipSnapshotCommand(
       beforeState: snapshotBeforeAction!,
-      afterState: currentClip!.copyWith(
-        notes: List.from(currentClip!.notes),
-      ),
+      afterState: currentClip!.copyWith(notes: List.from(currentClip!.notes)),
       actionDescription: actionDescription,
       onApplyState: applyClipState,
     );
@@ -88,13 +86,18 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void deleteSelectedNotes() {
     final selectedCount = currentClip?.selectedNotes.length ?? 0;
     setState(() {
-      final selectedIds = currentClip?.selectedNotes.map((n) => n.id).toSet() ?? {};
+      final selectedIds =
+          currentClip?.selectedNotes.map((n) => n.id).toSet() ?? {};
       currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes.where((n) => !selectedIds.contains(n.id)).toList(),
+        notes: currentClip!.notes
+            .where((n) => !selectedIds.contains(n.id))
+            .toList(),
       );
     });
     notifyClipUpdated();
-    commitToHistory(selectedCount == 1 ? 'Delete note' : 'Delete $selectedCount notes');
+    commitToHistory(
+      selectedCount == 1 ? 'Delete note' : 'Delete $selectedCount notes',
+    );
   }
 
   /// Duplicate a single note (place copy after original).
@@ -120,8 +123,12 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     saveToHistory();
 
-    final minStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
-    final maxEnd = selectedNotes.map((n) => n.endTime).reduce((a, b) => a > b ? a : b);
+    final minStart = selectedNotes
+        .map((n) => n.startTime)
+        .reduce((a, b) => a < b ? a : b);
+    final maxEnd = selectedNotes
+        .map((n) => n.endTime)
+        .reduce((a, b) => a > b ? a : b);
     final selectionDuration = maxEnd - minStart;
 
     final duplicates = selectedNotes.map((note) {
@@ -146,7 +153,11 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     });
 
     notifyClipUpdated();
-    commitToHistory(duplicates.length == 1 ? 'Duplicate note' : 'Duplicate ${duplicates.length} notes');
+    commitToHistory(
+      duplicates.length == 1
+          ? 'Duplicate note'
+          : 'Duplicate ${duplicates.length} notes',
+    );
   }
 
   /// Slice a note at the given beat position.
@@ -169,10 +180,10 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     setState(() {
       currentClip = currentClip?.copyWith(
-        notes: currentClip!.notes
-            .where((n) => n.id != note.id)
-            .followedBy([leftNote, rightNote])
-            .toList(),
+        notes: currentClip!.notes.where((n) => n.id != note.id).followedBy([
+          leftNote,
+          rightNote,
+        ]).toList(),
       );
     });
 
@@ -278,7 +289,9 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
 
     final direction = semitones > 0 ? 'up' : 'down';
     final amount = semitones.abs();
-    final unit = amount == 12 ? 'octave' : (amount == 1 ? 'semitone' : 'semitones');
+    final unit = amount == 12
+        ? 'octave'
+        : (amount == 1 ? 'semitone' : 'semitones');
     final displayAmount = amount == 12 ? '1' : '$amount';
     commitToHistory('Transpose $direction $displayAmount $unit');
   }
@@ -287,7 +300,9 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void applySwing() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes.where((n) => n.isSelected).toList();
+    final selectedNotes = currentClip!.notes
+        .where((n) => n.isSelected)
+        .toList();
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
@@ -319,12 +334,16 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void applyStretch() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes.where((n) => n.isSelected).toList();
+    final selectedNotes = currentClip!.notes
+        .where((n) => n.isSelected)
+        .toList();
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
 
-    final selectionStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
+    final selectionStart = selectedNotes
+        .map((n) => n.startTime)
+        .reduce((a, b) => a < b ? a : b);
 
     setState(() {
       currentClip = currentClip!.copyWith(
@@ -335,10 +354,7 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
           final newStart = selectionStart + (relativeStart * stretchAmount);
           final newDuration = note.duration * stretchAmount;
 
-          return note.copyWith(
-            startTime: newStart,
-            duration: newDuration,
-          );
+          return note.copyWith(startTime: newStart, duration: newDuration);
         }).toList(),
       );
     });
@@ -351,7 +367,9 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void applyHumanize() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes.where((n) => n.isSelected).toList();
+    final selectedNotes = currentClip!.notes
+        .where((n) => n.isSelected)
+        .toList();
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
@@ -365,7 +383,10 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
           if (!note.isSelected) return note;
 
           final offset = (random.nextDouble() * 2 - 1) * maxVariationBeats;
-          final newStart = (note.startTime + offset).clamp(0.0, double.infinity);
+          final newStart = (note.startTime + offset).clamp(
+            0.0,
+            double.infinity,
+          );
 
           return note.copyWith(startTime: newStart);
         }).toList(),
@@ -380,7 +401,9 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void applyLegato() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes.where((n) => n.isSelected).toList();
+    final selectedNotes = currentClip!.notes
+        .where((n) => n.isSelected)
+        .toList();
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
@@ -421,13 +444,19 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void reverseNotes() {
     if (currentClip == null) return;
 
-    final selectedNotes = currentClip!.notes.where((n) => n.isSelected).toList();
+    final selectedNotes = currentClip!.notes
+        .where((n) => n.isSelected)
+        .toList();
     if (selectedNotes.isEmpty) return;
 
     saveToHistory();
 
-    final selectionStart = selectedNotes.map((n) => n.startTime).reduce((a, b) => a < b ? a : b);
-    final selectionEnd = selectedNotes.map((n) => n.endTime).reduce((a, b) => a > b ? a : b);
+    final selectionStart = selectedNotes
+        .map((n) => n.startTime)
+        .reduce((a, b) => a < b ? a : b);
+    final selectionEnd = selectedNotes
+        .map((n) => n.endTime)
+        .reduce((a, b) => a > b ? a : b);
     final selectionCenter = (selectionStart + selectionEnd) / 2;
 
     setState(() {
@@ -501,7 +530,8 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
       // If clip was looped (duration > loopLength), keep arrangement duration
       final wasLooped = currentClip!.duration > currentClip!.loopLength;
       final newDuration = wasLooped
-          ? currentClip!.duration // Keep arrangement length
+          ? currentClip!
+                .duration // Keep arrangement length
           : newLoopLength; // Sync to new loop length
 
       currentClip = currentClip!.copyWith(
@@ -523,7 +553,8 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     // If looped, keep the arrangement duration unchanged
     final wasLooped = currentClip!.duration > currentClip!.loopLength;
     final newDuration = wasLooped
-        ? currentClip!.duration // Keep arrangement length
+        ? currentClip!
+              .duration // Keep arrangement length
         : clampedLength; // Sync to new loop length
 
     currentClip = currentClip!.copyWith(
@@ -536,7 +567,8 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   void autoExtendCanvasIfNeeded(double loopEndBeats) {
     if (currentClip == null) return;
     if (loopEndBeats > currentClip!.duration) {
-      final newDuration = ((loopEndBeats / beatsPerBar).ceil() * beatsPerBar).toDouble();
+      final newDuration = ((loopEndBeats / beatsPerBar).ceil() * beatsPerBar)
+          .toDouble();
       currentClip = currentClip!.copyWith(duration: newDuration);
     }
   }

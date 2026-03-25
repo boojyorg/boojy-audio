@@ -187,7 +187,8 @@ class DeleteMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Delete Note' : 'Delete $noteCount Notes';
+  String get description =>
+      noteCount == 1 ? 'Delete Note' : 'Delete $noteCount Notes';
 }
 
 /// Command to move MIDI note(s)
@@ -215,7 +216,8 @@ class MoveMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Move Note' : 'Move $noteCount Notes';
+  String get description =>
+      noteCount == 1 ? 'Move Note' : 'Move $noteCount Notes';
 }
 
 /// Command to resize MIDI note(s)
@@ -243,14 +245,16 @@ class ResizeMidiNotesCommand extends Command {
   }
 
   @override
-  String get description => noteCount == 1 ? 'Resize Note' : 'Resize $noteCount Notes';
+  String get description =>
+      noteCount == 1 ? 'Resize Note' : 'Resize $noteCount Notes';
 }
 
 /// Command to split a MIDI clip at the playhead position
 /// Creates two clips: one before the split point, one after
 class SplitMidiClipCommand extends Command {
   final MidiClipData originalClip;
-  final double splitPointBeats; // Split position relative to clip start (in beats)
+  final double
+  splitPointBeats; // Split position relative to clip start (in beats)
   final void Function(MidiClipData leftClip, MidiClipData rightClip)? onSplit;
   final void Function(MidiClipData originalClip)? onUndo;
 
@@ -280,15 +284,17 @@ class SplitMidiClipCommand extends Command {
         leftNotes.add(note);
       } else if (note.startTime >= splitPointBeats) {
         // Note is entirely in the right clip - adjust its start time
-        rightNotes.add(note.copyWith(
-          startTime: note.startTime - splitPointBeats,
-          id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
-        ));
+        rightNotes.add(
+          note.copyWith(
+            startTime: note.startTime - splitPointBeats,
+            id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
+          ),
+        );
       } else {
         // Note straddles the split point - truncate it to the left clip
-        leftNotes.add(note.copyWith(
-          duration: splitPointBeats - note.startTime,
-        ));
+        leftNotes.add(
+          note.copyWith(duration: splitPointBeats - note.startTime),
+        );
       }
     }
 
@@ -340,7 +346,8 @@ class SplitAudioClipCommand extends Command {
   final double originalDuration;
   final double originalOffset;
   final List<double> originalWaveformPeaks;
-  final double splitPointSeconds; // Split position in seconds from timeline start
+  final double
+  splitPointSeconds; // Split position in seconds from timeline start
 
   final void Function(int leftClipId, int rightClipId)? onSplit;
   final void Function()? onUndo;
@@ -398,7 +405,8 @@ class AddAudioClipCommand extends Command {
   int? _createdClipId;
 
   /// Callback to add clip to UI state (provides clipId, duration, peaks)
-  final void Function(int clipId, double duration, List<double> peaks)? onClipAdded;
+  final void Function(int clipId, double duration, List<double> peaks)?
+  onClipAdded;
 
   /// Callback to remove clip from UI state (undo)
   final void Function(int clipId)? onClipRemoved;
@@ -458,7 +466,9 @@ class DeleteAudioClipCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
-    Log.d('[DeleteAudioClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
+    Log.d(
+      '[DeleteAudioClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}',
+    );
     engine.removeAudioClip(clipData.trackId, clipData.clipId);
     // Remove from UI
     onClipRemoved?.call(clipData.clipId);
@@ -561,7 +571,13 @@ class ResizeAudioClipCommand extends Command {
   final double? newStartTime;
 
   /// Callback to update clip in UI state
-  final void Function(int clipId, double duration, double? offset, double? startTime)? onClipResized;
+  final void Function(
+    int clipId,
+    double duration,
+    double? offset,
+    double? startTime,
+  )?
+  onClipResized;
 
   ResizeAudioClipCommand({
     required this.trackId,
@@ -647,7 +663,8 @@ class DuplicateMidiClipCommand extends Command {
 
   /// Callback to add duplicated clip AND update original's patternId if needed
   /// Parameters: (newClip, sharedPatternId)
-  final void Function(MidiClipData newClip, String sharedPatternId)? onClipDuplicated;
+  final void Function(MidiClipData newClip, String sharedPatternId)?
+  onClipDuplicated;
 
   /// Callback to remove duplicated clip (undo)
   final void Function(int clipId)? onClipRemoved;
@@ -671,7 +688,8 @@ class DuplicateMidiClipCommand extends Command {
 
     // Generate patternId if original doesn't have one
     // This creates a shared pattern ID for linking clips together
-    _sharedPatternId = originalClip.patternId ?? 'pattern_${originalClip.clipId}';
+    _sharedPatternId =
+        originalClip.patternId ?? 'pattern_${originalClip.clipId}';
 
     // Deep copy automation so duplicated clip has independent automation
     final newClip = originalClip.copyWith(
@@ -713,7 +731,9 @@ class DeleteMidiClipFromArrangementCommand extends Command {
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
-    Log.d('[DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}');
+    Log.d(
+      '[DeleteMidiClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}',
+    );
     engine.removeMidiClip(clipData.trackId, clipData.clipId);
     // Remove from UI
     onClipRemoved?.call(clipData.clipId, clipData.trackId);
@@ -830,14 +850,24 @@ class RecordingCompleteCommand extends Command {
       _isFirstExecute = false;
       return; // Work already done by handleRecordingComplete
     }
-    _applyState(engine, audioClipsBefore, audioClipsAfter,
-        midiClipsBefore, midiClipsAfter);
+    _applyState(
+      engine,
+      audioClipsBefore,
+      audioClipsAfter,
+      midiClipsBefore,
+      midiClipsAfter,
+    );
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    _applyState(engine, audioClipsAfter, audioClipsBefore,
-        midiClipsAfter, midiClipsBefore);
+    _applyState(
+      engine,
+      audioClipsAfter,
+      audioClipsBefore,
+      midiClipsAfter,
+      midiClipsBefore,
+    );
   }
 
   void _applyState(

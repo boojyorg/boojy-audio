@@ -26,7 +26,10 @@ void main() {
           effectId: 42,
         );
 
-        expect(instrument.pluginPath, '/Library/Audio/Plug-Ins/VST3/Serum.vst3');
+        expect(
+          instrument.pluginPath,
+          '/Library/Audio/Plug-Ins/VST3/Serum.vst3',
+        );
         expect(instrument.pluginName, 'Serum');
         expect(instrument.effectId, 42);
       });
@@ -151,11 +154,7 @@ void main() {
         final instrument = InstrumentData(
           trackId: 1,
           type: 'synthesizer',
-          parameters: {
-            'volume': 0.75,
-            'name': 'Lead',
-            'enabled': true,
-          },
+          parameters: {'volume': 0.75, 'name': 'Lead', 'enabled': true},
         );
 
         expect(instrument.getParameter<double>('volume', 0.0), 0.75);
@@ -306,11 +305,7 @@ void main() {
       });
 
       test('handles missing optional fields', () {
-        final json = {
-          'trackId': 1,
-          'type': 'synthesizer',
-          'parameters': {},
-        };
+        final json = {'trackId': 1, 'type': 'synthesizer', 'parameters': {}};
 
         final instrument = InstrumentData.fromJson(json);
 
@@ -432,11 +427,7 @@ void main() {
 
     group('isVst3', () {
       test('returns true for vst3 type', () {
-        final vst = InstrumentData(
-          trackId: 1,
-          type: 'vst3',
-          parameters: {},
-        );
+        final vst = InstrumentData(trackId: 1, type: 'vst3', parameters: {});
 
         expect(vst.isVst3, true);
       });
@@ -499,7 +490,8 @@ void main() {
       });
 
       test('handles very long plugin paths', () {
-        final longPath = '/Library/Audio/Plug-Ins/VST3/${'a' * 500}/plugin.vst3';
+        final longPath =
+            '/Library/Audio/Plug-Ins/VST3/${'a' * 500}/plugin.vst3';
         final vst = InstrumentData.vst3Instrument(
           trackId: 1,
           pluginPath: longPath,

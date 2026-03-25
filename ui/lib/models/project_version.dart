@@ -51,7 +51,10 @@ class ProjectVersion {
   }
 
   /// Create ProjectVersion from JSON (with backward compatibility for old Snapshot format)
-  factory ProjectVersion.fromJson(Map<String, dynamic> json, {int? fallbackVersionNumber}) {
+  factory ProjectVersion.fromJson(
+    Map<String, dynamic> json, {
+    int? fallbackVersionNumber,
+  }) {
     return ProjectVersion(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -59,7 +62,8 @@ class ProjectVersion {
       created: DateTime.parse(json['created'] as String),
       fileName: json['fileName'] as String,
       versionType: VersionType.fromJson(json['versionType'] as String?),
-      versionNumber: json['versionNumber'] as int? ?? fallbackVersionNumber ?? 1,
+      versionNumber:
+          json['versionNumber'] as int? ?? fallbackVersionNumber ?? 1,
     );
   }
 
@@ -123,8 +127,18 @@ class ProjectVersion {
     } else {
       // Format as "Jan 15, 2025"
       final months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${months[created.month - 1]} ${created.day}, ${created.year}';
     }
@@ -133,8 +147,18 @@ class ProjectVersion {
   /// Format created date with time for version list
   String get formattedDateTime {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour = created.hour;
     final minute = created.minute.toString().padLeft(2, '0');

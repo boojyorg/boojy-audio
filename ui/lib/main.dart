@@ -6,7 +6,8 @@ import 'services/user_settings.dart';
 import 'services/window_title_service.dart';
 import 'theme/theme_provider.dart';
 
-const String _sentryDsn = 'https://e9ed35471624004209d192efe41ff66d@o4510676795260928.ingest.de.sentry.io/4510676802207824';
+const String _sentryDsn =
+    'https://e9ed35471624004209d192efe41ff66d@o4510676795260928.ingest.de.sentry.io/4510676802207824';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,16 +21,13 @@ Future<void> main() async {
 
   if (settings.crashReportingEnabled && _sentryDsn != 'YOUR_SENTRY_DSN_HERE') {
     // Initialize Sentry if user has opted in
-    await SentryFlutter.init(
-      (options) {
-        options.dsn = _sentryDsn;
-        options.tracesSampleRate = 1.0;
-        options.environment = 'production';
-        // Reduce debug noise in console
-        options.debug = false;
-      },
-      appRunner: () => _runApp(settings),
-    );
+    await SentryFlutter.init((options) {
+      options.dsn = _sentryDsn;
+      options.tracesSampleRate = 1.0;
+      options.environment = 'production';
+      // Reduce debug noise in console
+      options.debug = false;
+    }, appRunner: () => _runApp(settings));
   } else {
     // Run without Sentry
     _runApp(settings);
@@ -59,10 +57,7 @@ class BoojyAudioApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: colors.standard,
           brightness: themeProvider.isDark ? Brightness.dark : Brightness.light,
-        ).copyWith(
-          primary: colors.accent,
-          surface: colors.standard,
-        ),
+        ).copyWith(primary: colors.accent, surface: colors.standard),
         useMaterial3: true,
         scaffoldBackgroundColor: colors.dark,
         popupMenuTheme: PopupMenuThemeData(
@@ -73,24 +68,15 @@ class BoojyAudioApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: colors.divider, width: 1),
           ),
-          textStyle: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 13,
-          ),
+          textStyle: TextStyle(color: colors.textPrimary, fontSize: 13),
         ),
-        dividerTheme: DividerThemeData(
-          color: colors.divider,
-          thickness: 1,
-        ),
+        dividerTheme: DividerThemeData(color: colors.divider, thickness: 1),
         tooltipTheme: TooltipThemeData(
           decoration: BoxDecoration(
             color: const Color(0xF0141419),
             borderRadius: BorderRadius.circular(5),
           ),
-          textStyle: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 11,
-          ),
+          textStyle: TextStyle(color: colors.textPrimary, fontSize: 11),
           waitDuration: const Duration(milliseconds: 200),
         ),
       ),

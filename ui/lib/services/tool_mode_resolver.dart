@@ -19,7 +19,8 @@ class ModifierKeyState {
     return ModifierKeyState(
       isShiftPressed: HardwareKeyboard.instance.isShiftPressed,
       isAltPressed: HardwareKeyboard.instance.isAltPressed,
-      isCtrlOrCmd: HardwareKeyboard.instance.isMetaPressed ||
+      isCtrlOrCmd:
+          HardwareKeyboard.instance.isMetaPressed ||
           HardwareKeyboard.instance.isControlPressed,
     );
   }

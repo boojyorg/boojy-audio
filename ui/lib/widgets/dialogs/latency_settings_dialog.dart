@@ -39,7 +39,10 @@ void showLatencySettingsDialog({
                 Navigator.of(dialogContext).pop();
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
                 margin: const EdgeInsets.only(bottom: 4),
                 decoration: BoxDecoration(
                   color: isSelected
@@ -61,7 +64,9 @@ void showLatencySettingsDialog({
                       child: Text(
                         entry.value,
                         style: TextStyle(
-                          color: isSelected ? colors.accent : colors.textPrimary,
+                          color: isSelected
+                              ? colors.accent
+                              : colors.textPrimary,
                           fontSize: 13,
                         ),
                       ),
