@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../state/ui_layout_state.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
 /// Snap split button: icon toggles on/off, chevron opens grid size menu
@@ -131,7 +132,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
     final colors = context.colors;
     final isActive = widget.value != SnapValue.off;
     final leftBg = isActive
-        ? colors.accent.withValues(alpha: 0.3)
+        ? colors.accent.withValues(alpha: BT.opacityLight)
         : Colors.transparent;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
@@ -145,7 +146,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
       child: DecoratedBox(
         key: _buttonKey,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BT.borderSm,
           border: Border.all(color: colors.divider, width: 1),
         ),
         child: Row(
@@ -160,30 +161,27 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 onTap: _toggleSnap,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
+                  padding: BT.buttonPadding,
                   decoration: BoxDecoration(
                     color: _isIconHovered
                         ? (isActive
-                              ? colors.accent.withValues(alpha: 0.4)
-                              : colors.textPrimary.withValues(alpha: 0.1))
+                              ? colors.accent.withValues(alpha: BT.opacityMedium)
+                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(2),
-                      bottomLeft: Radius.circular(2),
+                      topLeft: Radius.circular(BT.radiusSm),
+                      bottomLeft: Radius.circular(BT.radiusSm),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.grid_on, size: 16, color: iconColor),
+                      Icon(Icons.grid_on, size: BT.iconMd, color: iconColor),
                       if (!widget.isIconOnly) ...[
-                        const SizedBox(width: 5),
+                        const SizedBox(width: BT.xs),
                         Text(
                           'Snap',
-                          style: TextStyle(color: textColor, fontSize: 12),
+                          style: TextStyle(color: textColor, fontSize: BT.fontLabel),
                         ),
                       ],
                     ],
@@ -195,7 +193,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
             Container(
               width: 1,
               height: 19,
-              color: colors.textPrimary.withValues(alpha: 0.2),
+              color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
             ),
             // Right zone: current value text (opens dropdown)
             MouseRegion(
@@ -207,15 +205,12 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 37),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 6,
-                  ),
+                  padding: BT.splitRightPadding,
                   decoration: BoxDecoration(
                     color: _isChevronHovered
                         ? (isActive
-                              ? colors.accent.withValues(alpha: 0.4)
-                              : colors.textPrimary.withValues(alpha: 0.1))
+                              ? colors.accent.withValues(alpha: BT.opacityMedium)
+                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(2),
@@ -227,8 +222,8 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: isActive ? colors.accent : colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: BT.fontLabel,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ),

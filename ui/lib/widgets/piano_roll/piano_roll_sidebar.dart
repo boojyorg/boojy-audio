@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
 import '../../theme/theme_extension.dart';
+import '../shared/boojy_button.dart';
 import '../shared/mini_knob.dart';
 import '../shared/split_button.dart';
 import 'loop_time_display.dart';
@@ -977,51 +978,15 @@ class PianoRollSidebar extends StatelessWidget {
     required String label,
     required bool isActive,
     VoidCallback? onTap,
-    bool compact = false,
   }) {
-    final colors = context.colors;
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 120),
-      child: GestureDetector(
+      child: BoojyButton(
+        icon: icon,
+        label: label,
+        isActive: isActive,
+        compact: true,
         onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 4 : 6,
-              vertical: compact ? 2 : 4,
-            ),
-            decoration: BoxDecoration(
-              color: isActive ? colors.accent : colors.dark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: compact ? 10 : 12,
-                  color: isActive ? colors.elevated : colors.textPrimary,
-                ),
-                if (label.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: isActive ? colors.elevated : colors.textPrimary,
-                        fontSize: compact ? 8 : 9,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -1032,33 +997,13 @@ class PianoRollSidebar extends StatelessWidget {
     required String label,
     VoidCallback? onTap,
   }) {
-    final colors = context.colors;
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 120),
-      child: GestureDetector(
+      child: BoojyButton(
+        icon: icon,
+        label: label,
+        compact: true,
         onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.dark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 12, color: colors.textPrimary),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

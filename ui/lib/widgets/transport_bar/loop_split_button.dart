@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Loop split button with value-text design:
 ///   Left zone: icon + "Loop" label — toggles loop on/off
@@ -98,7 +99,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
     final colors = context.colors;
     final isActive = widget.loopEnabled;
     final leftBg = isActive
-        ? colors.accent.withValues(alpha: 0.3)
+        ? colors.accent.withValues(alpha: BT.opacityLight)
         : Colors.transparent;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
@@ -114,7 +115,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
         child: DecoratedBox(
           key: _buttonKey,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
+            borderRadius: BT.borderSm,
             border: Border.all(color: colors.divider, width: 1),
           ),
           child: Row(
@@ -129,30 +130,27 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                   onTap: widget.onLoopToggle,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
+                    padding: BT.buttonPadding,
                     decoration: BoxDecoration(
                       color: _isLeftHovered
                           ? (isActive
-                                ? colors.accent.withValues(alpha: 0.4)
-                                : colors.textPrimary.withValues(alpha: 0.1))
+                                ? colors.accent.withValues(alpha: BT.opacityMedium)
+                                : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(2),
-                        bottomLeft: Radius.circular(2),
+                        topLeft: Radius.circular(BT.radiusSm),
+                        bottomLeft: Radius.circular(BT.radiusSm),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.loop, size: 16, color: iconColor),
+                        Icon(Icons.loop, size: BT.iconMd, color: iconColor),
                         if (widget.showLabel) ...[
-                          const SizedBox(width: 5),
+                          const SizedBox(width: BT.xs),
                           Text(
                             'Loop',
-                            style: TextStyle(color: textColor, fontSize: 12),
+                            style: TextStyle(color: textColor, fontSize: BT.fontLabel),
                           ),
                         ],
                       ],
@@ -164,7 +162,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
               Container(
                 width: 1,
                 height: 19,
-                color: colors.textPrimary.withValues(alpha: 0.2),
+                color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
               ),
               // Right zone: punch status text (opens dropdown)
               MouseRegion(
@@ -176,19 +174,16 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                   behavior: HitTestBehavior.opaque,
                   child: Container(
                     constraints: const BoxConstraints(minWidth: 33),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 6,
-                    ),
+                    padding: BT.splitRightPadding,
                     decoration: BoxDecoration(
                       color: _isRightHovered
                           ? (isActive
-                                ? colors.accent.withValues(alpha: 0.4)
-                                : colors.textPrimary.withValues(alpha: 0.1))
+                                ? colors.accent.withValues(alpha: BT.opacityMedium)
+                                : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(2),
-                        bottomRight: Radius.circular(2),
+                        topRight: Radius.circular(BT.radiusSm),
+                        bottomRight: Radius.circular(BT.radiusSm),
                       ),
                     ),
                     child: Text(
@@ -196,8 +191,8 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: isActive ? colors.accent : colors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontSize: BT.fontLabel,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Metronome split button with value-text design:
 ///   Left zone: metronome icon — toggles metronome on/off
@@ -113,7 +114,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final leftBg = widget.isActive
-        ? colors.accent.withValues(alpha: 0.3)
+        ? colors.accent.withValues(alpha: BT.opacityLight)
         : Colors.transparent;
     final iconColor = widget.isActive ? colors.accent : colors.textSecondary;
 
@@ -126,7 +127,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
       child: DecoratedBox(
         key: _buttonKey,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BT.borderSm,
           border: Border.all(color: colors.divider, width: 1),
         ),
         child: Row(
@@ -141,25 +142,22 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                 onTap: widget.onToggle,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
+                  padding: BT.buttonPadding,
                   decoration: BoxDecoration(
                     color: _isLeftHovered
                         ? (widget.isActive
-                              ? colors.accent.withValues(alpha: 0.4)
-                              : colors.textPrimary.withValues(alpha: 0.1))
+                              ? colors.accent.withValues(alpha: BT.opacityMedium)
+                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(2),
-                      bottomLeft: Radius.circular(2),
+                      topLeft: Radius.circular(BT.radiusSm),
+                      bottomLeft: Radius.circular(BT.radiusSm),
                     ),
                   ),
                   child: Image.asset(
                     'assets/images/metronome.png',
-                    width: 16,
-                    height: 16,
+                    width: BT.iconMd,
+                    height: BT.iconMd,
                     color: iconColor,
                   ),
                 ),
@@ -169,7 +167,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
             Container(
               width: 1,
               height: 19,
-              color: colors.textPrimary.withValues(alpha: 0.2),
+              color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
             ),
             // Right zone: count-in value text (opens dropdown)
             MouseRegion(
@@ -181,19 +179,16 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 37),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 6,
-                  ),
+                  padding: BT.splitRightPadding,
                   decoration: BoxDecoration(
                     color: _isRightHovered
                         ? (widget.isActive
-                              ? colors.accent.withValues(alpha: 0.4)
-                              : colors.textPrimary.withValues(alpha: 0.1))
+                              ? colors.accent.withValues(alpha: BT.opacityMedium)
+                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(2),
-                      bottomRight: Radius.circular(2),
+                      topRight: Radius.circular(BT.radiusSm),
+                      bottomRight: Radius.circular(BT.radiusSm),
                     ),
                   ),
                   child: Text(
@@ -201,8 +196,8 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: widget.isActive ? colors.accent : colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: BT.fontLabel,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ),
