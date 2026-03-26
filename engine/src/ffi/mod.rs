@@ -37,6 +37,76 @@ pub(crate) fn ffi_catch<T>(default: T, f: impl FnOnce() -> T + std::panic::Unwin
     }
 }
 
+// ── Structured FFI error types ──────────────────────────────────────────
+//
+// New FFI functions should use `ffi_ok` / `ffi_err` to return JSON results:
+//   {"ok": <data>}                              — success
+//   {"error": {"code": "<code>", "msg": "..."}} — failure
+//
+// The Dart side uses `parseEngineResult()` to handle both old ("Error: ...")
+// and new (JSON) formats, so migration can happen incrementally.
+
+/// Error categories for FFI results.
+/// Each maps to a string code the Dart side can match on.
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Incrementally adopted — not all FFI functions use this yet
+pub(crate) enum FfiErrorCode {
+    /// Resource not found (track, clip, effect, device)
+    NotFound,
+    /// Invalid argument (out of range, wrong type)
+    InvalidArg,
+    /// Engine not initialized or in wrong state
+    EngineState,
+    /// Audio I/O or device error
+    AudioDevice,
+    /// File I/O or format error
+    FileError,
+    /// Internal/unexpected error
+    Internal,
+}
+
+impl FfiErrorCode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::NotFound => "not_found",
+            Self::InvalidArg => "invalid_arg",
+            Self::EngineState => "engine_state",
+            Self::AudioDevice => "audio_device",
+            Self::FileError => "file_error",
+            Self::Internal => "internal",
+        }
+    }
+}
+
+/// Return a structured JSON success: `{"ok": "<data>"}`
+#[allow(dead_code)] // Incrementally adopted
+pub(crate) fn ffi_ok(data: &str) -> *mut c_char {
+    let json = format!(r#"{{"ok":{}}}"#, serde_json::Value::String(data.to_string()));
+    safe_cstring(json).into_raw()
+}
+
+/// Return a structured JSON error: `{"error": {"code": "<code>", "msg": "<message>"}}`
+#[allow(dead_code)] // Incrementally adopted
+pub(crate) fn ffi_err(code: FfiErrorCode, msg: &str) -> *mut c_char {
+    let json = format!(
+        r#"{{"error":{{"code":"{}","msg":{}}}}}"#,
+        code.as_str(),
+        serde_json::Value::String(msg.to_string()),
+    );
+    safe_cstring(json).into_raw()
+}
+
+/// Convenience: convert a `Result<String, String>` to a structured JSON FFI result.
+/// Maps all errors to `FfiErrorCode::Internal` — use `ffi_ok`/`ffi_err` directly
+/// when you need a specific error code.
+#[allow(dead_code)] // Incrementally adopted
+pub(crate) fn ffi_result(result: Result<String, String>) -> *mut c_char {
+    match result {
+        Ok(data) => ffi_ok(&data),
+        Err(e) => ffi_err(FfiErrorCode::Internal, &e),
+    }
+}
+
 /// Play a sine wave - C-compatible wrapper
 /// Returns a success message as a C string
 #[no_mangle]

@@ -31,13 +31,13 @@
 // ============================================
 // Core modules (shared across all platforms)
 // ============================================
-mod audio_file;
+pub mod audio_file;
 mod audio_graph;
-mod midi;
-mod synth;
+pub mod midi;
+pub mod synth;
 mod sampler;    // Sampler instrument (plays samples via MIDI)
 mod track;      // M4: Track system
-mod effects;    // M4: Audio effects
+pub mod effects;    // M4: Audio effects
 mod project;    // M5: Project serialization
 mod export;     // M8: Audio export (WAV, MP3, stems)
 mod stretch;    // Pitch-preserved time-stretching

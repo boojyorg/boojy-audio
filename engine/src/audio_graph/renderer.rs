@@ -2,12 +2,168 @@
 use super::{AudioGraph, TransportState, interpolate_automation_gain};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId};
-use crate::effects::Effect;
+use crate::effects::{Effect, EffectManager};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 
 #[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::DeviceTrait;
+
+/// Track snapshot data extracted from locked tracks for lock-free audio processing.
+/// Defined at module scope so helper functions can reference it.
+struct TrackSnapshot {
+    id: u64,
+    audio_clips: Vec<TimelineClip>,
+    midi_clips: Vec<TimelineMidiClip>,
+    volume_gain: f32, // Static volume (used when no automation)
+    pan_left: f32,
+    pan_right: f32,
+    muted: bool,
+    soloed: bool,
+    fx_chain: Vec<u64>,
+    volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
+    armed: bool,
+    input_monitoring: bool,
+    input_channel: u32,
+    is_audio_track: bool,
+    monitoring_fade_gain: f64,
+}
+
+// ── Helper functions for the audio callback ─────────────────────────────
+// These are called from the hot path — no allocations, no panics.
+
+/// Read stereo input samples from the input manager.
+/// Uses try_lock to avoid blocking the audio thread.
+#[cfg(not(target_arch = "wasm32"))]
+#[inline]
+fn read_input_samples(input_manager: &parking_lot::Mutex<crate::audio_input::AudioInputManager>) -> (f32, f32) {
+    if let Some(input_mgr) = input_manager.try_lock() {
+        let channels = input_mgr.get_input_channels();
+        if channels == 1 {
+            if let Some(samples) = input_mgr.read_samples(1) {
+                let s = samples.first().copied().unwrap_or(0.0);
+                (s, s)
+            } else {
+                (0.0, 0.0)
+            }
+        } else if let Some(samples) = input_mgr.read_samples(2) {
+            (
+                samples.first().copied().unwrap_or(0.0),
+                samples.get(1).copied().unwrap_or(0.0),
+            )
+        } else {
+            (0.0, 0.0)
+        }
+    } else {
+        (0.0, 0.0)
+    }
+}
+
+/// Update monitoring fade gain with a 20ms ramp to avoid clicks.
+/// Modifies `fade_gain` in place toward 0.0 or 1.0.
+#[inline]
+fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool) {
+    let target = if should_monitor { 1.0_f64 } else { 0.0_f64 };
+    #[allow(clippy::float_cmp)]
+    if *fade_gain != target {
+        let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
+        if target > *fade_gain {
+            *fade_gain = (*fade_gain + step).min(1.0);
+        } else {
+            *fade_gain = (*fade_gain - step).max(0.0);
+        }
+    }
+}
+
+/// Render a single audio clip at the given playhead position.
+/// Returns (left, right) sample values, or (0, 0) if the playhead is outside the clip.
+#[inline]
+fn render_audio_clip_sample(timeline_clip: &TimelineClip, playhead_seconds: f64) -> (f32, f32) {
+    let clip_duration = timeline_clip
+        .duration
+        .unwrap_or(timeline_clip.clip.duration_seconds);
+    let effective_duration = if timeline_clip.warp_enabled {
+        clip_duration / f64::from(timeline_clip.stretch_factor)
+    } else {
+        clip_duration
+    };
+    let clip_end = timeline_clip.start_time + effective_duration;
+
+    if playhead_seconds < timeline_clip.start_time || playhead_seconds >= clip_end {
+        return (0.0, 0.0);
+    }
+
+    let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
+    let clip_gain = timeline_clip.get_gain();
+    let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
+
+    let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
+        if timeline_clip.warp_mode == 0 {
+            // Warp mode: use pre-stretched cached audio (pitch preserved)
+            if let Some(ref stretched) = timeline_clip.stretched_cache {
+                let frame = (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize;
+                (frame, stretched.as_ref())
+            } else {
+                // Fallback to Re-Pitch if cache not ready
+                let stretched_time =
+                    time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+                (
+                    (stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize,
+                    &*timeline_clip.clip,
+                )
+            }
+        } else {
+            // Re-Pitch mode: sample-rate shift (pitch follows speed)
+            let stretched_time =
+                time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
+            (
+                (stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize,
+                &*timeline_clip.clip,
+            )
+        }
+    } else {
+        // No warp — apply pitch ratio for transpose
+        (
+            (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize,
+            &*timeline_clip.clip,
+        )
+    };
+
+    let left = source_clip.get_sample(frame_in_clip, 0).unwrap_or(0.0) * clip_gain;
+    let right = if source_clip.channels > 1 {
+        source_clip.get_sample(frame_in_clip, 1).unwrap_or(0.0) * clip_gain
+    } else {
+        left // mono clip — duplicate to right
+    };
+
+    (left, right)
+}
+
+/// Process an effect chain through a locked `EffectManager`.
+/// When `silent` is true, feeds zeros to keep VST3 plugins alive (muted tracks).
+#[inline]
+fn process_effect_chain(
+    fx_chain: &[u64],
+    effect_mgr: &EffectManager,
+    left: f32,
+    right: f32,
+    silent: bool,
+) -> (f32, f32) {
+    let mut out_l = if silent { 0.0 } else { left };
+    let mut out_r = if silent { 0.0 } else { right };
+    for effect_id in fx_chain {
+        if !silent && effect_mgr.is_bypassed(*effect_id) {
+            continue;
+        }
+        if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+            let mut effect = effect_arc.lock();
+            let (fx_l, fx_r) = effect.process_frame(out_l, out_r);
+            out_l = fx_l;
+            out_r = fx_r;
+        }
+    }
+    (out_l, out_r)
+}
 
 impl AudioGraph {
     /// Create the audio output stream - native only
@@ -97,27 +253,6 @@ impl AudioGraph {
             eprintln!("🔊 [AudioGraph] Using device: {name}");
         }
 
-        // Track snapshot data extracted from locked tracks for lock-free audio processing.
-        // Defined at function scope so pre-allocated Vec<TrackSnapshot> can reference it.
-        #[allow(clippy::items_after_statements)]
-        struct TrackSnapshot {
-            id: u64,
-            audio_clips: Vec<TimelineClip>,
-            midi_clips: Vec<TimelineMidiClip>,
-            volume_gain: f32, // Static volume (used when no automation)
-            pan_left: f32,
-            pan_right: f32,
-            muted: bool,
-            soloed: bool,
-            fx_chain: Vec<u64>,
-            volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
-            armed: bool,
-            input_monitoring: bool,
-            input_channel: u32,
-            is_audio_track: bool,
-            monitoring_fade_gain: f64,
-        }
-
         let supported_config = device.default_output_config()?;
         eprintln!("🔊 [AudioGraph] Device config: {supported_config:?}");
 
@@ -154,8 +289,6 @@ impl AudioGraph {
         let actual_buffer_size = self.actual_buffer_size.clone();
 
         // Clone Arcs for the audio callback
-        let clips = self.clips.clone();
-        let midi_clips = self.midi_clips.clone();
         let playhead_samples = self.playhead_samples.clone();
         let state = self.state.clone();
         let input_manager = self.input_manager.clone();
@@ -199,32 +332,7 @@ impl AudioGraph {
                     let mut synth_guard = Some(track_synth_manager.lock());
 
                     for frame_idx in 0..frames {
-                        // Get input samples (if recording)
-                        // Use try_lock() to avoid deadlock - if lock is held by API thread, just skip this frame
-                        let (input_left, input_right) = if let Some(input_mgr) = input_manager.try_lock() {
-                            let channels = input_mgr.get_input_channels();
-
-                            if channels == 1 {
-                                // Mono input: read 1 sample and duplicate to both channels
-                                if let Some(samples) = input_mgr.read_samples(1) {
-                                    let mono_sample = samples.first().copied().unwrap_or(0.0);
-                                    (mono_sample, mono_sample)
-                                } else {
-                                    (0.0, 0.0)
-                                }
-                            } else {
-                                // Stereo input: read 2 samples
-                                if let Some(samples) = input_mgr.read_samples(2) {
-                                    (samples.first().copied().unwrap_or(0.0),
-                                     samples.get(1).copied().unwrap_or(0.0))
-                                } else {
-                                    (0.0, 0.0)
-                                }
-                            }
-                        } else {
-                            // Failed to acquire input manager lock - audio samples will be dropped
-                            (0.0, 0.0)
-                        };
+                        let (input_left, input_right) = read_input_samples(&input_manager);
 
                         // Process recording and get metronome output
                         let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, false, 0.0);
@@ -261,21 +369,10 @@ impl AudioGraph {
                                         }
 
                                         // Input monitoring: mix live input for armed audio tracks
-                                        // Uses fade gain for smooth transitions (20ms ramp avoids clicks)
                                         {
                                             let should_monitor = track.armed && track.input_monitoring
                                                 && track.track_type == crate::track::TrackType::Audio;
-                                            let target = if should_monitor { 1.0f64 } else { 0.0f64 };
-
-                                            #[allow(clippy::float_cmp)]
-                                            if track.monitoring_fade_gain != target {
-                                                let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
-                                                if target > track.monitoring_fade_gain {
-                                                    track.monitoring_fade_gain = (track.monitoring_fade_gain + step).min(1.0);
-                                                } else {
-                                                    track.monitoring_fade_gain = (track.monitoring_fade_gain - step).max(0.0);
-                                                }
-                                            }
+                                            update_monitoring_fade(&mut track.monitoring_fade_gain, should_monitor);
 
                                             if track.monitoring_fade_gain > 0.0 {
                                                 let ch = track.input_channel as usize;
@@ -287,50 +384,25 @@ impl AudioGraph {
 
                                         // Handle mute/solo
                                         if track.mute {
-                                            // Still process FX to keep VST3 alive, but don't mix
-                                            for effect_id in &track.fx_chain {
-                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    { let mut effect = effect_arc.lock();
-                                                        let _ = effect.process_frame(0.0, 0.0);
-                                                    }
-                                                }
-                                            }
-                                            // Update peaks to 0 for muted track
+                                            // Process FX with silence to keep VST3 alive
+                                            process_effect_chain(&track.fx_chain, &effect_mgr, 0.0, 0.0, true);
                                             if frame_idx == frames - 1 {
                                                 track.update_peaks(0.0, 0.0);
                                             }
                                             continue;
                                         }
                                         if has_solo && !track.solo {
-                                            // Still process FX to keep VST3 alive
-                                            for effect_id in &track.fx_chain {
-                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    { let mut effect = effect_arc.lock();
-                                                        let _ = effect.process_frame(0.0, 0.0);
-                                                    }
-                                                }
-                                            }
-                                            // Update peaks to 0 for non-soloed track
+                                            process_effect_chain(&track.fx_chain, &effect_mgr, 0.0, 0.0, true);
                                             if frame_idx == frames - 1 {
                                                 track.update_peaks(0.0, 0.0);
                                             }
                                             continue;
                                         }
 
-                                        // Process FX chain for this track (instruments generate audio from MIDI)
-                                        for effect_id in &track.fx_chain {
-                                            // Skip bypassed effects (audio passes through unchanged)
-                                            if effect_mgr.is_bypassed(*effect_id) {
-                                                continue;
-                                            }
-                                            if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                { let mut effect = effect_arc.lock();
-                                                    let (fx_l, fx_r) = effect.process_frame(track_left, track_right);
-                                                    track_left = fx_l;
-                                                    track_right = fx_r;
-                                                }
-                                            }
-                                        }
+                                        // Process FX chain for this track
+                                        let (fx_l, fx_r) = process_effect_chain(&track.fx_chain, &effect_mgr, track_left, track_right, false);
+                                        track_left = fx_l;
+                                        track_right = fx_r;
 
                                         // Apply track volume and pan AFTER FX chain
                                         let volume_gain = track.get_gain();
@@ -389,18 +461,6 @@ impl AudioGraph {
 
                 // frames already calculated at top of callback
                 let current_playhead = playhead_samples.load(Ordering::SeqCst);
-
-                // Get clips (lock briefly) - keeping for potential future use
-                let _clips_snapshot = {
-                    let clips_lock = clips.lock();
-                    clips_lock.clone()
-                };
-
-                // Get MIDI clips (lock briefly) - kept for potential future use
-                let _midi_clips_snapshot = {
-                    let midi_clips_lock = midi_clips.lock();
-                    midi_clips_lock.clone()
-                };
 
                 // Get current tempo for playback scaling
                 // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
@@ -473,25 +533,8 @@ impl AudioGraph {
                     let mut mix_left = 0.0;
                     let mut mix_right = 0.0;
 
-                    // Read input samples FIRST (needed for both recording and input monitoring)
-                    let (input_left, input_right) = if let Some(input_mgr) = input_manager.try_lock() {
-                        let channels = input_mgr.get_input_channels();
-                        if channels == 1 {
-                            if let Some(samples) = input_mgr.read_samples(1) {
-                                let mono_sample = samples.first().copied().unwrap_or(0.0);
-                                (mono_sample, mono_sample)
-                            } else {
-                                (0.0, 0.0)
-                            }
-                        } else if let Some(samples) = input_mgr.read_samples(2) {
-                            (samples.first().copied().unwrap_or(0.0),
-                             samples.get(1).copied().unwrap_or(0.0))
-                        } else {
-                            (0.0, 0.0)
-                        }
-                    } else {
-                        (0.0, 0.0)
-                    };
+                    // Read input samples (needed for both recording and input monitoring)
+                    let (input_left, input_right) = read_input_samples(&input_manager);
 
                     // Mix all tracks using snapshots (no locking!)
                     for track_snap in &mut snapshot_buf {
@@ -511,66 +554,11 @@ impl AudioGraph {
                         let skip_clips = track_snap.armed && is_recording;
 
                         // Mix all audio clips on this track
-                        for timeline_clip in &track_snap.audio_clips {
-                            if skip_clips { continue; }
-                            let clip_duration = timeline_clip.duration
-                                .unwrap_or(timeline_clip.clip.duration_seconds);
-                            // When warp is enabled, the clip's timeline duration changes:
-                            // stretch > 1 = faster playback = clip ends sooner
-                            // stretch < 1 = slower playback = clip ends later
-                            let effective_duration = if timeline_clip.warp_enabled {
-                                clip_duration / f64::from(timeline_clip.stretch_factor)
-                            } else {
-                                clip_duration
-                            };
-                            let clip_end = timeline_clip.start_time + effective_duration;
-
-                            if playhead_seconds >= timeline_clip.start_time
-                                && playhead_seconds < clip_end
-                            {
-                                let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                                let clip_gain = timeline_clip.get_gain();
-
-                                // Get pitch ratio for transpose (1.0 = no change)
-                                let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
-
-                                // Determine which audio source to use and calculate frame index
-                                let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
-                                    if timeline_clip.warp_mode == 0 {
-                                        // Warp mode: use pre-stretched cached audio (pitch preserved)
-                                        // Apply pitch ratio to playback rate for transpose
-                                        if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                            let frame = (time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize;
-                                            (frame, stretched.as_ref())
-                                        } else {
-                                            // Fallback to Re-Pitch if cache not ready
-                                            let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                                            ((stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
-                                        }
-                                    } else {
-                                        // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                        // Also apply any additional transpose
-                                        let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                                        ((stretched_time * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
-                                    }
-                                } else {
-                                    // No warp - apply pitch ratio for transpose
-                                    ((time_in_clip * pitch_ratio * f64::from(TARGET_SAMPLE_RATE)) as usize, &*timeline_clip.clip)
-                                };
-
-                                if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                    track_left += l * clip_gain;
-                                }
-                                if source_clip.channels > 1 {
-                                    if let Some(r) = source_clip.get_sample(frame_in_clip, 1) {
-                                        track_right += r * clip_gain;
-                                    }
-                                } else {
-                                    // Mono clip - duplicate to right
-                                    if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
-                                        track_right += l * clip_gain;
-                                    }
-                                }
+                        if !skip_clips {
+                            for timeline_clip in &track_snap.audio_clips {
+                                let (cl, cr) = render_audio_clip_sample(timeline_clip, playhead_seconds);
+                                track_left += cl;
+                                track_right += cr;
                             }
                         }
 
@@ -651,20 +639,9 @@ impl AudioGraph {
                         }
 
                         // Input monitoring: mix live input for armed audio tracks
-                        // Uses fade gain for smooth transitions (20ms ramp avoids clicks)
                         {
                             let should_monitor = track_snap.armed && track_snap.input_monitoring && track_snap.is_audio_track;
-                            let target = if should_monitor { 1.0f64 } else { 0.0f64 };
-
-                            #[allow(clippy::float_cmp)]
-                            if track_snap.monitoring_fade_gain != target {
-                                let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
-                                if target > track_snap.monitoring_fade_gain {
-                                    track_snap.monitoring_fade_gain = (track_snap.monitoring_fade_gain + step).min(1.0);
-                                } else {
-                                    track_snap.monitoring_fade_gain = (track_snap.monitoring_fade_gain - step).max(0.0);
-                                }
-                            }
+                            update_monitoring_fade(&mut track_snap.monitoring_fade_gain, should_monitor);
 
                             if track_snap.monitoring_fade_gain > 0.0 {
                                 let ch = track_snap.input_channel as usize;
@@ -674,27 +651,10 @@ impl AudioGraph {
                             }
                         }
 
-                        // Process FX chain on this track BEFORE volume/pan
-                        // This is important because VST3 instruments generate their own audio
-                        // and we want the fader to control the post-FX output level
-                        let mut fx_left = track_left;
-                        let mut fx_right = track_right;
-
-                        { let effect_mgr = effect_manager.lock();
-                            for effect_id in &track_snap.fx_chain {
-                                // Skip bypassed effects (audio passes through unchanged)
-                                if effect_mgr.is_bypassed(*effect_id) {
-                                    continue;
-                                }
-                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                    { let mut effect = effect_arc.lock();
-                                        let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
-                                        fx_left = out_l;
-                                        fx_right = out_r;
-                                    }
-                                }
-                            }
-                        }
+                        // Process FX chain BEFORE volume/pan (fader controls post-FX level)
+                        let (mut fx_left, mut fx_right) = { let effect_mgr = effect_manager.lock();
+                            process_effect_chain(&track_snap.fx_chain, &effect_mgr, track_left, track_right, false)
+                        };
 
                         // Apply track volume AFTER FX chain (from snapshot)
                         // This ensures VST3 instrument output is also affected by the fader
@@ -722,39 +682,6 @@ impl AudioGraph {
                         mix_right += fx_right;
                     }
 
-                    // NOTE: Legacy synth output removed - all synth now per-track
-
-                    // REMOVED: Legacy mixing that bypassed track controls
-                    // All clips now go through tracks with proper volume/pan/mute/solo
-
-                    /* LEGACY CODE REMOVED FOR MIXER FIX
-                    for timeline_clip in &clips_snapshot {
-                        let clip_duration = timeline_clip.duration
-                            .unwrap_or(timeline_clip.clip.duration_seconds);
-                        let clip_end = timeline_clip.start_time + clip_duration;
-
-                        if playhead_seconds >= timeline_clip.start_time
-                            && playhead_seconds < clip_end
-                        {
-                            let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
-                            let frame_in_clip = (time_in_clip * TARGET_SAMPLE_RATE as f64) as usize;
-
-                            if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                                mix_left += l;
-                            }
-                            if timeline_clip.clip.channels > 1 {
-                                if let Some(r) = timeline_clip.clip.get_sample(frame_in_clip, 1) {
-                                    mix_right += r;
-                                }
-                            } else {
-                                if let Some(l) = timeline_clip.clip.get_sample(frame_in_clip, 0) {
-                                    mix_right += l;
-                                }
-                            }
-                        }
-                    }
-                    */ // END LEGACY CODE REMOVAL
-
                     // Process recording (metronome handled separately below)
                     let (met_left, met_right) = recorder_refs.process_frame(input_left, input_right, true, playhead_seconds);
 
@@ -773,19 +700,9 @@ impl AudioGraph {
 
                         // Process master FX chain
                         { let effect_mgr = effect_manager.lock();
-                            for effect_id in &master_snap.fx_chain {
-                                // Skip bypassed effects (audio passes through unchanged)
-                                if effect_mgr.is_bypassed(*effect_id) {
-                                    continue;
-                                }
-                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                    { let mut effect = effect_arc.lock();
-                                        let (out_l, out_r) = effect.process_frame(master_left, master_right);
-                                        master_left = out_l;
-                                        master_right = out_r;
-                                    }
-                                }
-                            }
+                            let (ml, mr) = process_effect_chain(&master_snap.fx_chain, &effect_mgr, master_left, master_right, false);
+                            master_left = ml;
+                            master_right = mr;
                         }
                     }
 
