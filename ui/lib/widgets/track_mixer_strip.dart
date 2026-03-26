@@ -8,8 +8,10 @@ import '../models/instrument_data.dart';
 import '../models/track_automation_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/tool_mode_resolver.dart';
+import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
+import '../theme/tokens.dart';
 import '../utils/track_colors.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
@@ -192,6 +194,22 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   double _resizeStartY = 0.0;
   double _resizeStartHeight = 0.0;
 
+  /// Stored height before collapse, for restoring on double-click expand
+  double? _preCollapseHeight;
+
+  void _toggleCollapse() {
+    if (widget.clipHeight <= UIConstants.trackMinHeight + 1) {
+      // Currently collapsed — restore previous height
+      final restoreTo = _preCollapseHeight ?? UIConstants.trackStandardHeight;
+      _preCollapseHeight = null;
+      widget.onClipHeightChanged?.call(restoreTo);
+    } else {
+      // Collapse to minimum
+      _preCollapseHeight = widget.clipHeight;
+      widget.onClipHeightChanged?.call(UIConstants.trackMinHeight);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -246,9 +264,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
-  /// Calculate scale factor based on track height (0.0 at 40px, 1.0 at 76px+)
+  /// Calculate scale factor based on track height (0.0 at 50px, 1.0 at 76px+)
+  /// Only used by the 2-row layout (heights >= 50px).
   double get _scaleFactor {
-    const minHeight = UIConstants.trackMinHeight;
+    const minHeight = UIConstants.trackOneRowThreshold;
     const standardHeight = UIConstants.trackStandardHeight;
     return ((widget.clipHeight - minHeight) / (standardHeight - minHeight))
         .clamp(0.0, 1.0);
@@ -271,6 +290,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   /// - MSR button size, Pan knob size
   /// - Volume slider height (thinner when compact)
   Widget _buildStandardLayout(BuildContext context, bool isHovered) {
+    // Route to 1-row layout when height is below threshold
+    if (widget.clipHeight < UIConstants.trackOneRowThreshold) {
+      return _buildOneRowLayout(context);
+    }
+
     final scale = _scaleFactor;
 
     // Available height for content
@@ -415,6 +439,203 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           // Row 3-4: Automation Controls (only when visible)
           if (widget.showAutomation) _buildAutomationControlsSection(context),
         ],
+      ),
+    );
+  }
+
+  /// 1-row layout for heights below 50px.
+  /// Width-responsive: controls drop off progressively to protect fader width.
+  /// Drop order: automation → dB → pan → R → M/S → (name + fader always visible)
+  Widget _buildOneRowLayout(BuildContext context) {
+    final colors = context.colors;
+    final width = widget.stripWidth;
+
+    // Width breakpoints — controls drop to give fader more space
+    final showAutomation = width >= 380;
+    final showDb = width >= 350;
+    final showPan = width >= 280;
+    final showRecord = width >= 220;
+    final showMsr = width >= 160;
+
+    // Collapsed mode (< 24px): thin fader, no thumb, minimal text
+    final isCollapsed = widget.clipHeight < 24;
+    final fontSize = isCollapsed ? BT.fontCaption : BT.fontLabel;
+    final buttonSize = isCollapsed ? 12.0 : 16.0;
+
+    // Volume display
+    final displayVolumeDb = widget.volumeDb;
+    final dbText = displayVolumeDb <= -60.0
+        ? '-∞'
+        : displayVolumeDb.toStringAsFixed(1);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isCollapsed ? BT.xs : 6.0,
+        vertical: isCollapsed ? 1.0 : BT.xxs,
+      ),
+      child: Row(
+        children: [
+          // Track number + name (always visible)
+          Text(
+            '${widget.displayIndex}',
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: fontSize,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: BT.xs),
+          Expanded(
+            flex: 2,
+            child: Text(
+              widget.trackName,
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: fontSize,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: BT.xs),
+
+          // Automation button (first to drop)
+          if (showAutomation) ...[
+            GestureDetector(
+              onTap: widget.onAutomationToggle,
+              child: Icon(
+                Icons.show_chart,
+                size: buttonSize,
+                color: widget.showAutomation ? colors.accent : colors.textMuted,
+              ),
+            ),
+            const SizedBox(width: BT.xs),
+          ],
+
+          // M/S/R buttons (drop R first, then M/S)
+          if (showMsr) ...[
+            _buildMiniMsrButtons(
+              colors: colors,
+              size: buttonSize,
+              showRecord: showRecord,
+              isCollapsed: isCollapsed,
+            ),
+            const SizedBox(width: BT.xs),
+          ],
+
+          // Pan knob
+          if (showPan) ...[
+            PanKnob(
+              pan: widget.pan,
+              onChanged: widget.onPanChanged,
+              size: buttonSize,
+            ),
+            const SizedBox(width: BT.xs),
+          ],
+
+          // Volume fader (always visible, gets wider as controls drop)
+          Expanded(
+            flex: 3,
+            child: CapsuleFader(
+              leftLevel: widget.peakLevelLeft,
+              rightLevel: widget.peakLevelRight,
+              volumeDb: displayVolumeDb,
+              onVolumeChanged: widget.onVolumeChanged,
+              onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+              inputLevel: widget.isArmed ? widget.inputLevel : null,
+            ),
+          ),
+
+          // dB text (drops before pan)
+          if (showDb) ...[
+            const SizedBox(width: BT.xs),
+            SizedBox(
+              width: 38,
+              child: Text(
+                dbText,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: BT.fontCaption,
+                  fontFamily: 'monospace',
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Compact M/S/R buttons for 1-row layout.
+  Widget _buildMiniMsrButtons({
+    required BoojyColors colors,
+    required double size,
+    required bool showRecord,
+    required bool isCollapsed,
+  }) {
+    if (isCollapsed) {
+      // Dots only — 6px colored circles
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.isMuted ? colors.muteActive : colors.textMuted.withValues(alpha: BT.opacityMedium),
+            ),
+          ),
+          const SizedBox(width: 2),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.isSoloed ? colors.soloActive : colors.textMuted.withValues(alpha: BT.opacityMedium),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Small text buttons
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _miniButton('M', widget.isMuted, colors.muteActive, widget.onMuteToggle, size),
+        const SizedBox(width: 2),
+        _miniButton('S', widget.isSoloed, colors.soloActive, widget.onSoloToggle, size),
+        if (showRecord) ...[
+          const SizedBox(width: 2),
+          _miniButton('R', widget.isArmed, colors.recordActive, widget.onArmToggle, size),
+        ],
+      ],
+    );
+  }
+
+  Widget _miniButton(String label, bool active, Color activeColor, VoidCallback? onTap, double size) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? activeColor : colors.dark,
+          borderRadius: BT.borderSm,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? colors.darkest : colors.textMuted,
+            fontSize: size * 0.55,
+            fontWeight: BT.weightSemiBold,
+          ),
+        ),
       ),
     );
   }
@@ -902,6 +1123,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       child: MouseRegion(
                         cursor: SystemMouseCursors.resizeRow,
                         child: GestureDetector(
+                          onDoubleTap: _toggleCollapse,
                           onVerticalDragStart: (details) {
                             _isResizing = true;
                             _resizeStartY = details.globalPosition.dy;

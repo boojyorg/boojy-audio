@@ -60,7 +60,11 @@ class UIConstants {
   // ============================================
 
   /// Minimum track clip height (pixels).
-  static const double trackMinHeight = 40.0;
+  /// 16px allows ~50 tracks visible at once for arrangement overview.
+  static const double trackMinHeight = 16.0;
+
+  /// Height threshold below which the mixer strip uses 1-row layout.
+  static const double trackOneRowThreshold = 50.0;
 
   /// Maximum track clip height (pixels).
   static const double trackMaxHeight = 400.0;
