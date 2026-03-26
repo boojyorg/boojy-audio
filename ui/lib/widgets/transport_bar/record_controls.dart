@@ -143,8 +143,8 @@ class _RecordButtonState extends State<RecordButton>
     final isEnabled = widget.onPressed != null;
     final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
 
-    const recordColor = Color(0xFFFF4444);
-    const countInColor = Color(0xFFFFA600);
+    final recordColor = context.colors.recordActive;
+    final countInColor = context.colors.countInActive;
 
     String tooltip = widget.isRecording
         ? 'Stop Recording (R)'

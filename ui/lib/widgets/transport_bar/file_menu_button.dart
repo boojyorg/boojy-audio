@@ -121,15 +121,15 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'save_as',
           child: Row(
             children: [
-              Icon(Icons.save_as, size: 18),
-              SizedBox(width: 8),
-              Text('Save As...'),
-              Spacer(),
-              Text('⇧⌘S', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Icon(Icons.save_as, size: 18),
+              const SizedBox(width: 8),
+              const Text('Save As...'),
+              const Spacer(),
+              Text('⇧⌘S', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
             ],
           ),
         ),

@@ -141,6 +141,9 @@ class BoojyColors {
   /// Record button active state - Red
   Color get recordActive => const Color(0xFFEF4444);
 
+  /// Record count-in indicator - Amber
+  Color get countInActive => const Color(0xFFFFA600);
+
   /// Inactive button background
   Color get buttonInactive => const Color(0xFF909090);
 
