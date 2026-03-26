@@ -295,7 +295,7 @@ class _RecordButtonPainter extends CustomPainter {
     final dotPaint = Paint()
       ..color = recordColor
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.22, dotPaint);
+    canvas.drawCircle(center, radius * 0.30, dotPaint);
   }
 
   void _drawDisabled(Canvas canvas, Offset center, double radius, double bw) {
@@ -316,7 +316,7 @@ class _RecordButtonPainter extends CustomPainter {
     final dotPaint = Paint()
       ..color = textMutedColor
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.22, dotPaint);
+    canvas.drawCircle(center, radius * 0.30, dotPaint);
   }
 
   void _drawCountingIn(
@@ -400,7 +400,7 @@ class _RecordButtonPainter extends CustomPainter {
     final dotPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.2, dotPaint);
+    canvas.drawCircle(center, radius * 0.28, dotPaint);
 
     // Flash overlay (on transition from count-in)
     if (flashValue > 0) {

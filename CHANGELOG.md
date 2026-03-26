@@ -2,6 +2,35 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- **Top bar redesign**: Restructured transport bar into 4-cluster centre layout (Modifiers, Transport, Position, Tempo & Time) with consistent spacing and visual hierarchy
+- **Loop split button**: Consolidated Loop toggle + Punch In/Out into a single split button with dropdown — removes 3 standalone buttons
+- **MIDI Capture button**: New corner-bracket icon button next to Record for retroactive MIDI capture from the capture buffer
+- **Position display**: Click to toggle between bars (1.1.1) and time (0:00.000) modes; double-click to type a bar number and jump playhead
+- **Status pill**: Replaced simple status dot with `[checkmark Ready]` / `[hourglass Init...]` pill in the right group
+- **Tempo scroll wheel**: Scroll wheel on BPM display adjusts +/-1 BPM (Shift+scroll for +/-0.1 fine mode)
+- **Expanded snap menu**: Grouped dropdown with Auto, standard grid sizes, and triplet values (1/8T, 1/16T)
+- **Expanded time signature menu**: Grouped dropdown with Simple (2/4, 3/4, 4/4), Compound (6/8, 9/8, 12/8), and Odd (5/4, 7/8, 7/4) categories
+- **Responsive density system**: 6-level overflow-based compression (comfortable through minimum) — nothing disappears at any window size
+- **Value-text split buttons**: Split buttons show current setting value on right side instead of chevron (e.g., `[Loop | →|→]`, `[Snap | Beat]`, `[metronome | 1 Bar]`)
+- **Punch overlay**: Loop punch dropdown stays open for multi-select — toggle both Punch In and Punch Out without re-opening
+- **Cluster dividers**: 1px vertical dividers between Modifiers, Transport, and Readout clusters
+
+### Improvements
+
+- **Transport bar height**: Increased from 48px to 54px for more breathing room
+- **Split button styling**: All modifier split buttons (Loop, Snap, Metronome) now use accent-at-30% background when active instead of solid accent fill
+- **LCD readout style**: Position, tempo, and time signature displays use consistent darkest-background + divider-border + monospace 14px styling
+- **Left group spacing**: Updated to match Boojy design system (16px left pad, 12px gaps, 4px undo/redo pair)
+- **Transport button sizing**: Play, Stop, Record all same size (28px) — consistent visual weight
+- **Tap button reduced**: Smaller font/padding than LCD displays to visually subordinate it
+- **Status pill**: Color-coded green background when ready, hover tooltip shows engine stats (sample rate, latency, audio output)
+- **Snap label**: Always shows "Snap" on left side, current value on right side — no more confusing label swap
+- **Removed MIDI device selector** from metronome dropdown (moved to settings)
+
 ## 0.1.6 — 2026-03-25
 
 ### Bug Fixes

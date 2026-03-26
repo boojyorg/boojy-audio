@@ -622,34 +622,6 @@ class _DAWScreenState extends State<DAWScreen>
     recordingController.loadMidiDevices();
   }
 
-  void _onMidiDeviceSelected(int deviceIndex) {
-    recordingController.selectMidiDevice(deviceIndex);
-
-    // Show feedback
-    if (midiDevices.isNotEmpty &&
-        deviceIndex >= 0 &&
-        deviceIndex < midiDevices.length) {
-      final deviceName =
-          midiDevices[deviceIndex]['name'] as String? ?? 'Unknown';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🎹 Selected: $deviceName'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  void _refreshMidiDevices() {
-    recordingController.refreshMidiDevices();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🎹 MIDI devices refreshed'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   // M4: Mixer methods
   void _toggleMixer() {
     final windowWidth = MediaQuery.of(context).size.width;
@@ -3246,6 +3218,9 @@ class _DAWScreenState extends State<DAWScreen>
           onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
           onPunchInToggle: uiLayout.togglePunchIn,
           onPunchOutToggle: uiLayout.togglePunchOut,
+          onPositionChanged: (seconds) {
+            playbackController.seek(seconds);
+          },
         ),
         panels: PanelCallbacks(
           onToggleLibrary: _toggleLibraryPanel,
@@ -3321,10 +3296,6 @@ class _DAWScreenState extends State<DAWScreen>
         onTempoChanged: _onTempoChanged,
         onCountInChanged: _setCountInBars,
         countInBars: userSettings.countInBars,
-        midiDevices: midiDevices,
-        selectedMidiDeviceIndex: selectedMidiDeviceIndex,
-        onMidiDeviceSelected: _onMidiDeviceSelected,
-        onRefreshMidiDevices: _refreshMidiDevices,
         projectName: projectMetadata.name,
         hasProject: projectManager?.hasProject ?? false,
         libraryVisible: !uiLayout.isLibraryPanelCollapsed,
@@ -3344,6 +3315,7 @@ class _DAWScreenState extends State<DAWScreen>
         beatUnit: projectMetadata.timeSignatureDenominator,
         onTimeSignatureChanged: _onTimeSignatureChanged,
         isLoading: isLoading,
+        midiCaptureHasEvents: midiCaptureBuffer.hasEvents,
         isEngineReady: isAudioGraphInitialized,
       ),
     );
@@ -3944,7 +3916,7 @@ class _DAWScreenState extends State<DAWScreen>
                 Column(
                   children: [
                     // Top padding to reserve space for transport bar (rendered in Stack above)
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 54),
 
                     // Main content area - 3-column layout
                     Expanded(

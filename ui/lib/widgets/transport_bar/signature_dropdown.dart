@@ -6,14 +6,12 @@ class SignatureDropdown extends StatefulWidget {
   final int beatsPerBar;
   final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onChanged;
-  final bool isLabelHidden;
 
   const SignatureDropdown({
     super.key,
     required this.beatsPerBar,
     required this.beatUnit,
     this.onChanged,
-    this.isLabelHidden = false,
   });
 
   @override
@@ -37,12 +35,34 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
     final beatsPerBar = widget.beatsPerBar;
     final beatUnit = widget.beatUnit;
 
-    final signatures = [
-      (4, 4, '4/4'),
-      (3, 4, '3/4'),
-      (6, 8, '6/8'),
-      (2, 4, '2/4'),
-    ];
+    PopupMenuItem<(int, int)> sigItem(int num, int den, String label) {
+      final isSelected = num == beatsPerBar && den == beatUnit;
+      return PopupMenuItem<(int, int)>(
+        value: (num, den),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              child: isSelected
+                  ? Icon(
+                      Icons.radio_button_checked,
+                      size: 16,
+                      color: accentColor,
+                    )
+                  : const Icon(Icons.radio_button_unchecked, size: 16),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? accentColor : null,
+                fontWeight: isSelected ? FontWeight.w600 : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     showMenu<(int, int)>(
       context: context,
@@ -50,29 +70,58 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
         position & const Size(1, 1),
         Offset.zero & overlay.size,
       ),
-      items: signatures.map((sig) {
-        final isSelected = sig.$1 == beatsPerBar && sig.$2 == beatUnit;
-        return PopupMenuItem<(int, int)>(
-          value: (sig.$1, sig.$2),
-          child: Row(
-            children: [
-              Icon(
-                isSelected ? Icons.check : Icons.music_note,
-                size: 16,
-                color: isSelected ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                sig.$3,
-                style: TextStyle(
-                  color: isSelected ? accentColor : null,
-                  fontWeight: isSelected ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
+      items: [
+        // Simple
+        const PopupMenuItem<(int, int)>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            'SIMPLE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+            ),
           ),
-        );
-      }).toList(),
+        ),
+        sigItem(4, 4, '4/4'),
+        sigItem(3, 4, '3/4'),
+        sigItem(2, 4, '2/4'),
+        const PopupMenuDivider(),
+        // Compound
+        const PopupMenuItem<(int, int)>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            'COMPOUND',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        sigItem(6, 8, '6/8'),
+        sigItem(9, 8, '9/8'),
+        sigItem(12, 8, '12/8'),
+        const PopupMenuDivider(),
+        // Odd
+        const PopupMenuItem<(int, int)>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            'ODD',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        sigItem(5, 4, '5/4'),
+        sigItem(7, 8, '7/8'),
+        sigItem(7, 4, '7/4'),
+      ],
     ).then((value) {
       if (value != null) {
         widget.onChanged?.call(value.$1, value.$2);
@@ -93,34 +142,29 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // "Signature" label - hidden when space is tight
-              if (!widget.isLabelHidden) ...[
-                Text(
-                  'Signature',
-                  style: TextStyle(
-                    color: context.colors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 5),
-              ],
-              // [4/4] box - always shown
+              // [4/4] box - LCD readout style
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: _isHovered
-                      ? context.colors.surface
-                      : context.colors.dark,
-                  borderRadius: BorderRadius.circular(2),
-                  border: Border.all(color: context.colors.surface, width: 1.5),
+                  color: context.colors.darkest,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _isHovered
+                        ? context.colors.accent
+                        : context.colors.divider,
+                    width: 1,
+                  ),
                 ),
                 child: Text(
                   '${widget.beatsPerBar}/${widget.beatUnit}',
                   style: TextStyle(
                     color: context.colors.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
                   ),
                 ),
               ),

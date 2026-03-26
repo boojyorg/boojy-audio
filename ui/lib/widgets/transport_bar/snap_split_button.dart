@@ -58,6 +58,34 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
     }
   }
 
+  PopupMenuItem<SnapValue> _snapMenuItem(
+    SnapValue snapValue,
+    Color accentColor,
+  ) {
+    final isSelected = snapValue == widget.value;
+    return PopupMenuItem<SnapValue>(
+      value: snapValue,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            child: isSelected
+                ? Icon(Icons.radio_button_checked, size: 16, color: accentColor)
+                : const Icon(Icons.radio_button_unchecked, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            snapValue.displayName,
+            style: TextStyle(
+              color: isSelected ? accentColor : null,
+              fontWeight: isSelected ? FontWeight.w600 : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSnapMenu(BuildContext context, Color accentColor) {
     final RenderBox button =
         _buttonKey.currentContext!.findRenderObject() as RenderBox;
@@ -74,29 +102,23 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
         position & const Size(1, 1),
         Offset.zero & overlay.size,
       ),
-      items: SnapValue.values.map((snapValue) {
-        final isSelected = snapValue == widget.value;
-        return PopupMenuItem<SnapValue>(
-          value: snapValue,
-          child: Row(
-            children: [
-              Icon(
-                isSelected ? Icons.check : Icons.grid_on,
-                size: 18,
-                color: isSelected ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                snapValue.displayName,
-                style: TextStyle(
-                  color: isSelected ? accentColor : null,
-                  fontWeight: isSelected ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+      items: [
+        // Smart snap
+        _snapMenuItem(SnapValue.auto, accentColor),
+        const PopupMenuDivider(),
+        // Standard grid sizes
+        _snapMenuItem(SnapValue.bar, accentColor),
+        _snapMenuItem(SnapValue.beat, accentColor),
+        _snapMenuItem(SnapValue.half, accentColor),
+        _snapMenuItem(SnapValue.quarter, accentColor),
+        const PopupMenuDivider(),
+        // Triplets
+        _snapMenuItem(SnapValue.eighthTriplet, accentColor),
+        _snapMenuItem(SnapValue.sixteenthTriplet, accentColor),
+        const PopupMenuDivider(),
+        // Off
+        _snapMenuItem(SnapValue.off, accentColor),
+      ],
     ).then((value) {
       if (value != null) {
         widget.onChanged?.call(value);
@@ -108,8 +130,11 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isActive = widget.value != SnapValue.off;
-    final bgColor = isActive ? colors.accent : colors.dark;
-    final textColor = isActive ? colors.elevated : colors.textPrimary;
+    final leftBg = isActive
+        ? colors.accent.withValues(alpha: 0.3)
+        : Colors.transparent;
+    final iconColor = isActive ? colors.accent : colors.textSecondary;
+    final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 
     final tooltip = isActive
         ? 'Snap: ${widget.value.displayName} (click to toggle)'
@@ -120,13 +145,13 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
       child: DecoratedBox(
         key: _buttonKey,
         decoration: BoxDecoration(
-          color: bgColor,
           borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: colors.divider, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Left side: Label (clickable for toggle)
+            // Left zone: icon + "Snap" label (toggle on/off)
             MouseRegion(
               cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _isIconHovered = true),
@@ -136,13 +161,15 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 5,
+                    horizontal: 8,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _isIconHovered
-                        ? colors.textPrimary.withValues(alpha: 0.1)
-                        : Colors.transparent,
+                        ? (isActive
+                              ? colors.accent.withValues(alpha: 0.4)
+                              : colors.textPrimary.withValues(alpha: 0.1))
+                        : leftBg,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(2),
                       bottomLeft: Radius.circular(2),
@@ -151,14 +178,12 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.grid_on, size: 14, color: textColor),
+                      Icon(Icons.grid_on, size: 16, color: iconColor),
                       if (!widget.isIconOnly) ...[
                         const SizedBox(width: 5),
                         Text(
-                          isActive
-                              ? 'Snap ${widget.value.displayName}'
-                              : 'Snap',
-                          style: TextStyle(color: textColor, fontSize: 11),
+                          'Snap',
+                          style: TextStyle(color: textColor, fontSize: 12),
                         ),
                       ],
                     ],
@@ -166,13 +191,13 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 ),
               ),
             ),
-            // Divider line
+            // Divider
             Container(
               width: 1,
-              height: 17,
+              height: 19,
               color: colors.textPrimary.withValues(alpha: 0.2),
             ),
-            // Right side: Dropdown arrow
+            // Right zone: current value text (opens dropdown)
             MouseRegion(
               cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _isChevronHovered = true),
@@ -181,9 +206,10 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                 onTap: () => _showSnapMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
+                  constraints: const BoxConstraints(minWidth: 37),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 5,
+                    horizontal: 7,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: _isChevronHovered
@@ -194,10 +220,14 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                       bottomRight: Radius.circular(2),
                     ),
                   ),
-                  child: Icon(
-                    Icons.arrow_drop_down,
-                    size: 17,
-                    color: textColor,
+                  child: Text(
+                    widget.value.displayName,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isActive ? colors.accent : colors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
@@ -59,7 +61,7 @@ class _TapTempoPillState extends State<TapTempoPill> {
         DateTime.now().difference(_tapTimes.last).inMilliseconds < 500;
     final bgColor = isRecentTap
         ? context.colors.accent.withValues(alpha: 0.3)
-        : (_isHovered ? context.colors.elevated : context.colors.dark);
+        : context.colors.surface;
     final textColor = context.colors.textSecondary;
 
     return Tooltip(
@@ -81,26 +83,23 @@ class _TapTempoPillState extends State<TapTempoPill> {
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: context.colors.divider, width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.touch_app, size: 13, color: textColor),
-                  if (widget.mode == ButtonDisplayMode.wide) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      'Tap',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  Text(
+                    'Tap',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -178,56 +177,89 @@ class _TempoDisplayState extends State<TempoDisplay> {
     );
   }
 
+  void _onScroll(PointerScrollEvent event) {
+    if (widget.onTempoChanged == null) return;
+    // Scroll up = increase, scroll down = decrease
+    final direction = event.scrollDelta.dy < 0 ? 1.0 : -1.0;
+    // Shift held = fine mode (0.1 BPM), normal = 1 BPM
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final delta = isShift ? 0.1 : 1.0;
+    final newTempo = (widget.tempo + direction * delta).clamp(20.0, 999.0);
+    widget.onTempoChanged!(newTempo);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final tempoText = _formatTempo(widget.tempo);
 
     return Tooltip(
-      message: 'Tempo (drag to adjust, double-click for precise input)',
-      child: GestureDetector(
-        onVerticalDragStart: (details) {
-          setState(() {
-            _isDragging = true;
-            _dragStartY = details.globalPosition.dy;
-            // Snap start position to whole BPM for cleaner dragging
-            _dragStartTempo = widget.tempo.roundToDouble();
-          });
+      message: 'Click to edit tempo · Scroll to adjust',
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) _onScroll(event);
         },
-        onVerticalDragUpdate: (details) {
-          if (widget.onTempoChanged != null) {
-            // Drag up = increase tempo, drag down = decrease tempo
-            final deltaY = _dragStartY - details.globalPosition.dy;
-            // ~0.5 BPM per pixel, then round to whole BPM
-            final deltaTempo = (deltaY * 0.5).roundToDouble();
-            final newTempo = (_dragStartTempo + deltaTempo).clamp(20.0, 300.0);
-            widget.onTempoChanged!(newTempo);
-          }
-        },
-        onVerticalDragEnd: (details) {
-          setState(() {
-            _isDragging = false;
-          });
-        },
-        onDoubleTap: () => _showTempoDialog(context),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.resizeUpDown,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-            decoration: BoxDecoration(
-              color: _isDragging
-                  ? context.colors.accent.withValues(alpha: 0.2)
-                  : context.colors.dark,
-              borderRadius: BorderRadius.circular(2),
-              border: _isDragging
-                  ? Border.all(color: context.colors.accent, width: 1.5)
-                  : Border.all(color: context.colors.surface, width: 1.5),
-            ),
-            child: Text(
-              tempoText,
-              style: TextStyle(
-                color: context.colors.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+        child: GestureDetector(
+          onVerticalDragStart: (details) {
+            setState(() {
+              _isDragging = true;
+              _dragStartY = details.globalPosition.dy;
+              _dragStartTempo = widget.tempo.roundToDouble();
+            });
+          },
+          onVerticalDragUpdate: (details) {
+            if (widget.onTempoChanged != null) {
+              final deltaY = _dragStartY - details.globalPosition.dy;
+              final deltaTempo = (deltaY * 0.5).roundToDouble();
+              final newTempo = (_dragStartTempo + deltaTempo).clamp(
+                20.0,
+                999.0,
+              );
+              widget.onTempoChanged!(newTempo);
+            }
+          },
+          onVerticalDragEnd: (details) {
+            setState(() => _isDragging = false);
+          },
+          onDoubleTap: () => _showTempoDialog(context),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeUpDown,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 90),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _isDragging
+                    ? colors.accent.withValues(alpha: 0.2)
+                    : colors.darkest,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: _isDragging ? colors.accent : colors.divider,
+                  width: 1,
+                ),
+              ),
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: tempoText.replaceAll(' BPM', ''),
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' BPM',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

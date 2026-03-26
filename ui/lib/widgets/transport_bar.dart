@@ -16,10 +16,101 @@ import 'transport_bar/snap_split_button.dart';
 import 'transport_bar/metronome_split_button.dart';
 import 'transport_bar/file_menu_button.dart';
 
+import 'transport_bar/loop_split_button.dart';
+import 'transport_bar/position_display.dart';
 import 'transport_bar/record_controls.dart';
+import 'transport_bar/status_pill.dart';
 import 'transport_bar/transport_bar_models.dart';
 
 export 'transport_bar/transport_bar_models.dart';
+
+/// Responsive density levels for the centre group.
+/// Determined by comparing content width to available width.
+enum TransportDensity {
+  comfortable, // Full spacing, labels, full-size buttons
+  compact, // Reduced cluster gaps
+  tight, // Minimal gaps
+  iconsOnly, // Drop text labels from split buttons
+  compressed, // Shrink LCD padding + button sizes
+  minimum, // Everything at minimum size
+}
+
+extension TransportDensityValues on TransportDensity {
+  double get clusterGap {
+    switch (this) {
+      case TransportDensity.comfortable:
+        return 16.0;
+      case TransportDensity.compact:
+        return 10.0;
+      case TransportDensity.tight:
+        return 6.0;
+      case TransportDensity.iconsOnly:
+        return 4.0;
+      case TransportDensity.compressed:
+        return 3.0;
+      case TransportDensity.minimum:
+        return 2.0;
+    }
+  }
+
+  double get withinGap {
+    switch (this) {
+      case TransportDensity.comfortable:
+        return 4.0;
+      case TransportDensity.compact:
+        return 3.0;
+      case TransportDensity.tight:
+        return 2.0;
+      case TransportDensity.iconsOnly:
+        return 2.0;
+      case TransportDensity.compressed:
+        return 1.0;
+      case TransportDensity.minimum:
+        return 1.0;
+    }
+  }
+
+  bool get showLabels {
+    switch (this) {
+      case TransportDensity.comfortable:
+      case TransportDensity.compact:
+      case TransportDensity.tight:
+        return true;
+      case TransportDensity.iconsOnly:
+      case TransportDensity.compressed:
+      case TransportDensity.minimum:
+        return false;
+    }
+  }
+
+  double get transportButtonSize {
+    switch (this) {
+      case TransportDensity.comfortable:
+      case TransportDensity.compact:
+      case TransportDensity.tight:
+      case TransportDensity.iconsOnly:
+        return 30.0;
+      case TransportDensity.compressed:
+        return 26.0;
+      case TransportDensity.minimum:
+        return 24.0;
+    }
+  }
+}
+
+/// Compute density from available width.
+/// Approximate preferred content width at comfortable = ~620px.
+TransportDensity _computeDensity(double availableWidth) {
+  const preferredWidth = 620.0;
+  final overflow = preferredWidth - availableWidth;
+
+  if (overflow <= 0) return TransportDensity.comfortable;
+  if (overflow <= 40) return TransportDensity.compact;
+  if (overflow <= 80) return TransportDensity.tight;
+  if (overflow <= 150) return TransportDensity.iconsOnly;
+  if (overflow <= 220) return TransportDensity.compressed;
+  return TransportDensity.minimum;
+}
 
 /// Transport control bar for play/pause/stop/record controls
 /// Layout: LEFT GROUP | CENTRE GROUP (expanded) | RIGHT GROUP
@@ -46,12 +137,6 @@ class TransportBar extends StatefulWidget {
   // Count-in ring timer data
   final int countInBeat;
   final double countInProgress;
-
-  // MIDI device selection
-  final List<Map<String, dynamic>> midiDevices;
-  final int selectedMidiDeviceIndex;
-  final Function(int)? onMidiDeviceSelected;
-  final VoidCallback? onRefreshMidiDevices;
 
   // Project name
   final String projectName;
@@ -88,8 +173,14 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Engine status (for status dot)
+  // MIDI capture state
+  final bool midiCaptureHasEvents;
+
+  // Engine status (for status pill)
   final bool isEngineReady;
+  final int? sampleRate;
+  final double? latencyMs;
+  final String? audioOutputDevice;
 
   const TransportBar({
     super.key,
@@ -110,10 +201,6 @@ class TransportBar extends StatefulWidget {
     this.countInBars = 1,
     this.countInBeat = 0,
     this.countInProgress = 0.0,
-    this.midiDevices = const [],
-    this.selectedMidiDeviceIndex = -1,
-    this.onMidiDeviceSelected,
-    this.onRefreshMidiDevices,
     this.projectName = 'Untitled',
     this.hasProject = false,
     this.libraryVisible = true,
@@ -134,7 +221,11 @@ class TransportBar extends StatefulWidget {
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.isLoading = false,
+    this.midiCaptureHasEvents = false,
     this.isEngineReady = false,
+    this.sampleRate,
+    this.latencyMs,
+    this.audioOutputDevice,
   });
 
   @override
@@ -198,7 +289,7 @@ class _TransportBarState extends State<TransportBar> {
     final colors = context.colors;
 
     return Container(
-      height: 48,
+      height: 54,
       decoration: BoxDecoration(
         color: colors.dark,
         boxShadow: [
@@ -339,13 +430,13 @@ class _TransportBarState extends State<TransportBar> {
 
   Widget _buildLeftGroup(BoojyColors colors) {
     return Padding(
-      padding: const EdgeInsets.only(left: 12, right: 4),
+      padding: const EdgeInsets.only(left: 16, right: 0),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final available = constraints.maxWidth;
 
-          // Fixed: O(19)+gap(8)+gap(5)+undo(25)+gap(2)+redo(25)+minGap(5)+toggle(27)
-          const fixedWidth = 116.0;
+          // Fixed: O(19)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
+          const fixedWidth = 132.0;
           const maxAudiClip = 77.5;
           const nameComfortWidth = 120.0;
 
@@ -364,7 +455,7 @@ class _TransportBarState extends State<TransportBar> {
             children: [
               _buildLogo(colors, audiClipWidth: audiClipWidth),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
 
               // Project name — only flexible item, truncates with ellipsis
               Flexible(
@@ -386,7 +477,7 @@ class _TransportBarState extends State<TransportBar> {
                 ),
               ),
 
-              const SizedBox(width: 5),
+              const SizedBox(width: 12),
 
               // Undo button
               _SvgIconButton(
@@ -398,7 +489,7 @@ class _TransportBarState extends State<TransportBar> {
                     : 'Undo (⌘Z)',
               ),
 
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
 
               // Redo button
               _SvgIconButton(
@@ -441,10 +532,10 @@ class _TransportBarState extends State<TransportBar> {
               alignment: AlignmentDirectional.centerStart,
               maxWidth: double.infinity,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: SvgPicture.asset(
                   'assets/images/boojy_audio_audi.svg',
-                  height: 27,
+                  height: 30,
                 ),
               ),
             ),
@@ -464,8 +555,8 @@ class _TransportBarState extends State<TransportBar> {
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeInOut,
                 child: Container(
-                  width: 19,
-                  height: 19,
+                  width: 21,
+                  height: 21,
                   decoration: BoxDecoration(
                     color: colors.accent,
                     shape: BoxShape.circle,
@@ -486,205 +577,165 @@ class _TransportBarState extends State<TransportBar> {
   Widget _buildCentreGroup(BoojyColors colors) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Determine what to show based on available width
-        final width = constraints.maxWidth;
-        final showPosition = width > 500;
-        final showTapTempo = width > 420;
-        final showSignature = width > 340;
-        final showSignatureLabel = width > 550;
-        final isIconOnly = width < 600;
+        final density = _computeDensity(constraints.maxWidth);
+        final cGap = density.clusterGap;
+        final wGap = density.withinGap;
+        final showLabels = density.showLabels;
+        final btnSize = density.transportButtonSize;
 
-        const mode = ButtonDisplayMode.wide;
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const NeverScrollableScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Punch In button (→|)
-                _PunchButton(
-                  label: '→|',
-                  isActive: widget.punchInEnabled,
-                  onTap: widget.transport.onPunchInToggle,
-                  tooltip: widget.punchInEnabled
-                      ? 'Punch In On (I)'
-                      : 'Punch In Off (I)',
-                  mode: mode,
-                ),
-
-                const SizedBox(width: 2),
-
-                // Loop playback toggle
-                PillToggleButton(
-                  icon: Icons.loop,
-                  label: isIconOnly ? '' : 'Loop',
-                  isActive: widget.loopPlaybackEnabled,
-                  mode: mode,
-                  onTap: widget.transport.onLoopPlaybackToggle,
-                  tooltip: widget.loopPlaybackEnabled
-                      ? 'Loop Playback On (L)'
-                      : 'Loop Playback Off (L)',
-                  activeColor: colors.accent,
-                ),
-
-                const SizedBox(width: 2),
-
-                // Punch Out button (|→)
-                _PunchButton(
-                  label: '|→',
-                  isActive: widget.punchOutEnabled,
-                  onTap: widget.transport.onPunchOutToggle,
-                  tooltip: widget.punchOutEnabled
-                      ? 'Punch Out On (O)'
-                      : 'Punch Out Off (O)',
-                  mode: mode,
-                ),
-
-                const SizedBox(width: 8),
-
-                // Snap split button
-                SnapSplitButton(
-                  value: widget.arrangementSnap,
-                  onChanged: widget.onSnapChanged,
-                  mode: mode,
-                  isIconOnly: isIconOnly,
-                ),
-
-                const SizedBox(width: 8),
-
-                // Metronome split button
-                MetronomeSplitButton(
-                  isActive: widget.metronomeEnabled,
-                  countInBars: widget.countInBars,
-                  onToggle: widget.transport.onMetronomeToggle,
-                  onCountInChanged: widget.onCountInChanged,
-                  mode: mode,
-                ),
-
-                const SizedBox(width: 12),
-
-                // Transport buttons - Play/Pause, Stop, Record
-                CircularToggleButton(
-                  icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                  enabled:
-                      widget.canPlay ||
-                      widget.isRecording ||
-                      widget.isCountingIn,
-                  enabledColor: widget.isPlaying
-                      ? const Color(0xFFF97316)
-                      : const Color(0xFF22C55E),
-                  onPressed: () {
-                    if (widget.isRecording || widget.isCountingIn) {
-                      widget.transport.onPauseRecording?.call();
-                    } else if (widget.isPlaying) {
-                      widget.transport.onPause?.call();
-                    } else {
-                      widget.transport.onPlay?.call();
-                    }
-                  },
-                  tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
-                  size: 32,
-                  iconSize: 16,
-                ),
-
-                const SizedBox(width: 4),
-
-                CircularToggleButton(
-                  icon: Icons.stop,
-                  enabled:
-                      widget.canPlay ||
-                      widget.isRecording ||
-                      widget.isCountingIn,
-                  enabledColor: const Color(0xFFF97316),
-                  onPressed: () {
-                    if (widget.isRecording || widget.isCountingIn) {
-                      widget.transport.onStopRecording?.call();
-                    } else {
-                      widget.transport.onStop?.call();
-                    }
-                  },
-                  tooltip: 'Stop',
-                  size: 32,
-                  iconSize: 16,
-                ),
-
-                const SizedBox(width: 4),
-
-                RecordButton(
-                  isRecording: widget.isRecording,
-                  isCountingIn: widget.isCountingIn,
-                  countInBars: widget.countInBars,
-                  countInBeat: widget.countInBeat,
-                  countInProgress: widget.countInProgress,
-                  beatsPerBar: widget.beatsPerBar,
-                  onPressed:
-                      (widget.hasArmedTracks ||
-                          widget.isRecording ||
-                          widget.isCountingIn)
-                      ? widget.transport.onRecord
-                      : null,
-                  onCountInChanged: widget.onCountInChanged,
-                  size: 32,
-                ),
-
-                const SizedBox(width: 12),
-
-                // Position display
-                if (showPosition)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.darkest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: colors.divider, width: 1),
-                    ),
-                    child: Text(
-                      _formatPosition(widget.playheadPosition, widget.tempo),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              // ── Cluster 1: Modifiers — LEFT-aligned ──
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LoopSplitButton(
+                    loopEnabled: widget.loopPlaybackEnabled,
+                    punchInEnabled: widget.punchInEnabled,
+                    punchOutEnabled: widget.punchOutEnabled,
+                    showLabel: showLabels,
+                    onLoopToggle: widget.transport.onLoopPlaybackToggle,
+                    onPunchInToggle: widget.transport.onPunchInToggle,
+                    onPunchOutToggle: widget.transport.onPunchOutToggle,
                   ),
+                  SizedBox(width: wGap),
+                  SnapSplitButton(
+                    value: widget.arrangementSnap,
+                    onChanged: widget.onSnapChanged,
+                    mode: ButtonDisplayMode.wide,
+                    isIconOnly: !showLabels,
+                  ),
+                  SizedBox(width: wGap),
+                  MetronomeSplitButton(
+                    isActive: widget.metronomeEnabled,
+                    countInBars: widget.countInBars,
+                    onToggle: widget.transport.onMetronomeToggle,
+                    onCountInChanged: widget.onCountInChanged,
+                  ),
+                ],
+              ),
 
-                if (showPosition) const SizedBox(width: 12),
+              // Divider + spacer
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: cGap),
+                child: Container(width: 1, height: 24, color: colors.divider),
+              ),
 
-                // Tap tempo
-                if (showTapTempo)
+              const Spacer(),
+
+              // ── Cluster 2: Transport — CENTERED ──
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularToggleButton(
+                    icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
+                    enabled:
+                        widget.canPlay ||
+                        widget.isRecording ||
+                        widget.isCountingIn,
+                    enabledColor: widget.isPlaying
+                        ? const Color(0xFFF97316)
+                        : const Color(0xFF22C55E),
+                    onPressed: () {
+                      if (widget.isRecording || widget.isCountingIn) {
+                        widget.transport.onPauseRecording?.call();
+                      } else if (widget.isPlaying) {
+                        widget.transport.onPause?.call();
+                      } else {
+                        widget.transport.onPlay?.call();
+                      }
+                    },
+                    tooltip: widget.isPlaying
+                        ? 'Pause (Space)'
+                        : 'Play (Space)',
+                    size: btnSize,
+                    iconSize: 18,
+                  ),
+                  SizedBox(width: wGap),
+                  CircularToggleButton(
+                    icon: Icons.stop,
+                    enabled:
+                        widget.canPlay ||
+                        widget.isRecording ||
+                        widget.isCountingIn,
+                    enabledColor: const Color(0xFFF97316),
+                    onPressed: () {
+                      if (widget.isRecording || widget.isCountingIn) {
+                        widget.transport.onStopRecording?.call();
+                      } else {
+                        widget.transport.onStop?.call();
+                      }
+                    },
+                    tooltip: 'Stop',
+                    size: btnSize,
+                    iconSize: 18,
+                  ),
+                  SizedBox(width: wGap),
+                  RecordButton(
+                    isRecording: widget.isRecording,
+                    isCountingIn: widget.isCountingIn,
+                    countInBars: widget.countInBars,
+                    countInBeat: widget.countInBeat,
+                    countInProgress: widget.countInProgress,
+                    beatsPerBar: widget.beatsPerBar,
+                    onPressed:
+                        (widget.hasArmedTracks ||
+                            widget.isRecording ||
+                            widget.isCountingIn)
+                        ? widget.transport.onRecord
+                        : null,
+                    onCountInChanged: widget.onCountInChanged,
+                    size: btnSize,
+                  ),
+                  SizedBox(width: wGap),
+                  _MidiCaptureButton(
+                    hasEvents: widget.midiCaptureHasEvents,
+                    isRecording: widget.isRecording || widget.isCountingIn,
+                    onTap: widget.transport.onCaptureMidi,
+                  ),
+                ],
+              ),
+
+              const Spacer(),
+
+              // Divider + spacer
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: cGap),
+                child: Container(width: 1, height: 24, color: colors.divider),
+              ),
+
+              // ── Cluster 3: Readouts — RIGHT-aligned ──
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PositionDisplay(
+                    playheadPosition: widget.playheadPosition,
+                    tempo: widget.tempo,
+                    beatsPerBar: widget.beatsPerBar,
+                    onPositionChanged: widget.transport.onPositionChanged,
+                  ),
+                  SizedBox(width: wGap + 4),
                   TapTempoPill(
                     tempo: widget.tempo,
                     onTempoChanged: widget.onTempoChanged,
-                    mode: mode,
+                    mode: ButtonDisplayMode.wide,
                   ),
-
-                if (showTapTempo) const SizedBox(width: 4),
-
-                // Tempo display
-                TempoDisplay(
-                  tempo: widget.tempo,
-                  onTempoChanged: widget.onTempoChanged,
-                ),
-
-                if (showSignature) const SizedBox(width: 8),
-
-                // Signature display/dropdown
-                if (showSignature)
+                  SizedBox(width: wGap),
+                  TempoDisplay(
+                    tempo: widget.tempo,
+                    onTempoChanged: widget.onTempoChanged,
+                  ),
+                  SizedBox(width: wGap),
                   SignatureDropdown(
                     beatsPerBar: widget.beatsPerBar,
                     beatUnit: widget.beatUnit,
                     onChanged: widget.onTimeSignatureChanged,
-                    isLabelHidden: !showSignatureLabel,
                   ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -709,19 +760,14 @@ class _TransportBarState extends State<TransportBar> {
             mirrored: true,
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
 
-          // Status dot
-          Tooltip(
-            message: widget.isEngineReady ? 'Ready' : 'Initializing...',
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: widget.isEngineReady ? colors.success : colors.textMuted,
-                shape: BoxShape.circle,
-              ),
-            ),
+          // Status pill [✓ Ready]
+          StatusPill(
+            isReady: widget.isEngineReady,
+            sampleRate: widget.sampleRate,
+            latencyMs: widget.latencyMs,
+            audioOutputDevice: widget.audioOutputDevice,
           ),
 
           const Spacer(),
@@ -731,20 +777,6 @@ class _TransportBarState extends State<TransportBar> {
         ],
       ),
     );
-  }
-
-  String _formatPosition(double seconds, double bpm) {
-    final beatsPerSecond = bpm / 60.0;
-    final totalBeats = seconds * beatsPerSecond;
-
-    final beatsPerBar = widget.beatsPerBar;
-    const subdivisionsPerBeat = 4;
-
-    final bar = (totalBeats / beatsPerBar).floor() + 1;
-    final beat = (totalBeats % beatsPerBar).floor() + 1;
-    final subdivision = ((totalBeats % 1) * subdivisionsPerBeat).floor() + 1;
-
-    return '$bar.$beat.$subdivision';
   }
 }
 
@@ -801,7 +833,7 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 5),
               decoration: BoxDecoration(
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
@@ -810,8 +842,8 @@ class _SvgIconButtonState extends State<_SvgIconButton> with ButtonHoverMixin {
                 opacity: opacity,
                 child: SvgPicture.asset(
                   widget.assetPath,
-                  width: 16.5,
-                  height: 16.5,
+                  width: 18,
+                  height: 18,
                   colorFilter: ColorFilter.mode(
                     colors.textPrimary,
                     BlendMode.srcIn,
@@ -858,8 +890,8 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
 
     Widget svgIcon = SvgPicture.asset(
       widget.assetPath,
-      width: 16.5,
-      height: 16.5,
+      width: 18,
+      height: 18,
       colorFilter: ColorFilter.mode(
         isHovered ? colors.textPrimary : colors.textMuted,
         BlendMode.srcIn,
@@ -888,7 +920,7 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
@@ -938,14 +970,14 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
             child: Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(
                 Icons.help_outline,
-                size: 16.5,
+                size: 18,
                 color: isHovered ? colors.textPrimary : colors.textSecondary,
               ),
             ),
@@ -956,71 +988,69 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
   }
 }
 
-/// Punch In/Out toggle button with bold text label.
-class _PunchButton extends StatefulWidget {
-  final String label;
-  final bool isActive;
+/// MIDI Capture button — captures recent MIDI input into a clip.
+/// Shows corner-bracket icon. Dims when recording, brightens when buffer has events.
+class _MidiCaptureButton extends StatefulWidget {
+  final bool hasEvents;
+  final bool isRecording;
   final VoidCallback? onTap;
-  final String tooltip;
-  final ButtonDisplayMode mode;
 
-  const _PunchButton({
-    required this.label,
-    required this.isActive,
+  const _MidiCaptureButton({
+    required this.hasEvents,
+    required this.isRecording,
     this.onTap,
-    required this.tooltip,
-    required this.mode,
   });
 
   @override
-  State<_PunchButton> createState() => _PunchButtonState();
+  State<_MidiCaptureButton> createState() => _MidiCaptureButtonState();
 }
 
-class _PunchButtonState extends State<_PunchButton> with ButtonHoverMixin {
+class _MidiCaptureButtonState extends State<_MidiCaptureButton>
+    with ButtonHoverMixin {
   @override
   double get hoverScale => AnimationConstants.subtleHoverScale;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final activeColor = colors.accent;
-
-    final bgColor = widget.isActive
-        ? activeColor
-        : (isHovered ? colors.elevated : colors.dark);
-
-    final textColor = widget.isActive ? colors.elevated : colors.textPrimary;
+    final isEnabled = widget.hasEvents && !widget.isRecording;
+    final opacity = widget.isRecording ? 0.3 : (widget.hasEvents ? 1.0 : 0.5);
 
     return Tooltip(
-      message: widget.tooltip,
+      message: 'Capture MIDI — saves what you just played',
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: handleHoverEnter,
-        onExit: handleHoverExit,
+        cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: isEnabled ? handleHoverEnter : null,
+        onExit: isEnabled ? handleHoverExit : null,
         child: GestureDetector(
-          onTapDown: handleTapDown,
-          onTapUp: (details) {
-            handleTapUp(details);
-            widget.onTap?.call();
-          },
-          onTapCancel: handleTapCancel,
+          onTapDown: isEnabled ? handleTapDown : null,
+          onTapUp: isEnabled
+              ? (details) {
+                  handleTapUp(details);
+                  widget.onTap?.call();
+                }
+              : null,
+          onTapCancel: isEnabled ? handleTapCancel : null,
           child: AnimatedScale(
-            scale: scale,
+            scale: isEnabled ? scale : 1.0,
             duration: AnimationConstants.pressDuration,
             curve: AnimationConstants.standardCurve,
-            child: AnimatedContainer(
-              duration: AnimationConstants.pressDuration,
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+            child: Opacity(
+              opacity: opacity,
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: isHovered ? colors.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: CustomPaint(
+                  size: const Size(26, 26),
+                  painter: _CaptureIconPainter(
+                    color: widget.hasEvents
+                        ? colors.textSecondary
+                        : colors.textMuted,
+                  ),
                 ),
               ),
             ),
@@ -1028,5 +1058,55 @@ class _PunchButtonState extends State<_PunchButton> with ButtonHoverMixin {
         ),
       ),
     );
+  }
+}
+
+/// Draws the MIDI capture icon — four corner brackets forming a frame.
+class _CaptureIconPainter extends CustomPainter {
+  final Color color;
+
+  _CaptureIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    const inset = 6.0;
+    const len = 5.0;
+    final right = size.width - inset;
+    final bottom = size.height - inset;
+
+    // Top-left corner
+    canvas.drawLine(
+      const Offset(inset, inset + len),
+      const Offset(inset, inset),
+      paint,
+    );
+    canvas.drawLine(
+      const Offset(inset, inset),
+      const Offset(inset + len, inset),
+      paint,
+    );
+
+    // Top-right corner
+    canvas.drawLine(Offset(right - len, inset), Offset(right, inset), paint);
+    canvas.drawLine(Offset(right, inset), Offset(right, inset + len), paint);
+
+    // Bottom-left corner
+    canvas.drawLine(Offset(inset, bottom - len), Offset(inset, bottom), paint);
+    canvas.drawLine(Offset(inset, bottom), Offset(inset + len, bottom), paint);
+
+    // Bottom-right corner
+    canvas.drawLine(Offset(right - len, bottom), Offset(right, bottom), paint);
+    canvas.drawLine(Offset(right, bottom - len), Offset(right, bottom), paint);
+  }
+
+  @override
+  bool shouldRepaint(_CaptureIconPainter oldDelegate) {
+    return color != oldDelegate.color;
   }
 }

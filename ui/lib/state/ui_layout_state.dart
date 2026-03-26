@@ -7,10 +7,13 @@ export '../services/project_manager.dart' show UILayoutData;
 /// Snap values for arrangement timeline grid snapping
 enum SnapValue {
   off,
+  auto, // Smart snap based on zoom level
   bar,
   beat,
   half, // 1/2 beat (1/8th note)
   quarter, // 1/4 beat (1/16th note)
+  eighthTriplet, // 1/3 beat (1/8th triplet)
+  sixteenthTriplet, // 1/6 beat (1/16th triplet)
 }
 
 extension SnapValueExtension on SnapValue {
@@ -18,6 +21,8 @@ extension SnapValueExtension on SnapValue {
     switch (this) {
       case SnapValue.off:
         return 'Off';
+      case SnapValue.auto:
+        return 'Auto';
       case SnapValue.bar:
         return 'Bar';
       case SnapValue.beat:
@@ -26,14 +31,20 @@ extension SnapValueExtension on SnapValue {
         return '1/2';
       case SnapValue.quarter:
         return '1/4';
+      case SnapValue.eighthTriplet:
+        return '1/8T';
+      case SnapValue.sixteenthTriplet:
+        return '1/16T';
     }
   }
 
-  /// Get snap resolution in beats (returns 0 for off)
+  /// Get snap resolution in beats (returns 0 for off and auto)
   double get beatsResolution {
     switch (this) {
       case SnapValue.off:
         return 0.0;
+      case SnapValue.auto:
+        return 0.0; // Handled dynamically based on zoom level
       case SnapValue.bar:
         return 4.0; // 4 beats per bar (4/4 time)
       case SnapValue.beat:
@@ -42,6 +53,10 @@ extension SnapValueExtension on SnapValue {
         return 0.5;
       case SnapValue.quarter:
         return 0.25;
+      case SnapValue.eighthTriplet:
+        return 1.0 / 3.0;
+      case SnapValue.sixteenthTriplet:
+        return 1.0 / 6.0;
     }
   }
 }

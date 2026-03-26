@@ -49,6 +49,7 @@ class TransportCallbacks {
   final VoidCallback? onLoopPlaybackToggle;
   final VoidCallback? onPunchInToggle;
   final VoidCallback? onPunchOutToggle;
+  final Function(double seconds)? onPositionChanged;
 
   const TransportCallbacks({
     this.onPlay,
@@ -65,6 +66,7 @@ class TransportCallbacks {
     this.onLoopPlaybackToggle,
     this.onPunchInToggle,
     this.onPunchOutToggle,
+    this.onPositionChanged,
   });
 }
 

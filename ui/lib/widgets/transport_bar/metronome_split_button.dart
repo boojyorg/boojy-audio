@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
-import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
-/// Metronome split button: icon toggles metronome, chevron opens count-in menu
+/// Metronome split button with value-text design:
+///   Left zone: metronome icon — toggles metronome on/off
+///   Right zone: count-in value text — opens count-in dropdown
 class MetronomeSplitButton extends StatefulWidget {
   final bool isActive;
   final int countInBars;
   final VoidCallback? onToggle;
   final Function(int)? onCountInChanged;
-  final ButtonDisplayMode mode;
 
   const MetronomeSplitButton({
     super.key,
@@ -16,7 +16,6 @@ class MetronomeSplitButton extends StatefulWidget {
     required this.countInBars,
     this.onToggle,
     this.onCountInChanged,
-    required this.mode,
   });
 
   @override
@@ -24,9 +23,50 @@ class MetronomeSplitButton extends StatefulWidget {
 }
 
 class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
-  bool _isIconHovered = false;
-  bool _isChevronHovered = false;
+  bool _isLeftHovered = false;
+  bool _isRightHovered = false;
   final GlobalKey _buttonKey = GlobalKey();
+
+  /// Count-in display text for the right zone
+  String get _countInText {
+    switch (widget.countInBars) {
+      case 0:
+        return 'Off';
+      case 1:
+        return '1 Bar';
+      case 2:
+        return '2 Bars';
+      case 4:
+        return '4 Bars';
+      default:
+        return '${widget.countInBars} Bars';
+    }
+  }
+
+  PopupMenuItem<int> _countInItem(int bars, String label, Color accentColor) {
+    final isSelected = widget.countInBars == bars;
+    return PopupMenuItem<int>(
+      value: bars,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            child: isSelected
+                ? Icon(Icons.radio_button_checked, size: 16, color: accentColor)
+                : const Icon(Icons.radio_button_unchecked, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? accentColor : null,
+              fontWeight: isSelected ? FontWeight.w600 : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showCountInMenu(BuildContext context, Color accentColor) {
     final RenderBox button =
@@ -38,8 +78,6 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
       ancestor: overlay,
     );
 
-    final countInBars = widget.countInBars;
-
     showMenu<int>(
       context: context,
       position: RelativeRect.fromRect(
@@ -47,86 +85,22 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
         Offset.zero & overlay.size,
       ),
       items: [
-        PopupMenuItem<int>(
-          value: 0,
-          child: Row(
-            children: [
-              Icon(
-                countInBars == 0 ? Icons.check : Icons.close,
-                size: 16,
-                color: countInBars == 0 ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Count-in: Off',
-                style: TextStyle(
-                  color: countInBars == 0 ? accentColor : null,
-                  fontWeight: countInBars == 0 ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
+        const PopupMenuItem<int>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            'COUNT-IN',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.0,
+            ),
           ),
         ),
-        PopupMenuItem<int>(
-          value: 1,
-          child: Row(
-            children: [
-              Icon(
-                countInBars == 1 ? Icons.check : Icons.looks_one,
-                size: 16,
-                color: countInBars == 1 ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Count-in: 1 Bar',
-                style: TextStyle(
-                  color: countInBars == 1 ? accentColor : null,
-                  fontWeight: countInBars == 1 ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 2,
-          child: Row(
-            children: [
-              Icon(
-                countInBars == 2 ? Icons.check : Icons.looks_two,
-                size: 16,
-                color: countInBars == 2 ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Count-in: 2 Bars',
-                style: TextStyle(
-                  color: countInBars == 2 ? accentColor : null,
-                  fontWeight: countInBars == 2 ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 4,
-          child: Row(
-            children: [
-              Icon(
-                countInBars == 4 ? Icons.check : Icons.looks_4,
-                size: 16,
-                color: countInBars == 4 ? accentColor : null,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Count-in: 4 Bars',
-                style: TextStyle(
-                  color: countInBars == 4 ? accentColor : null,
-                  fontWeight: countInBars == 4 ? FontWeight.w600 : null,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _countInItem(1, '1 Bar', accentColor),
+        _countInItem(2, '2 Bars', accentColor),
+        _countInItem(4, '4 Bars', accentColor),
+        _countInItem(0, 'Off', accentColor),
       ],
     ).then((value) {
       if (value != null) {
@@ -138,47 +112,45 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final bgColor = widget.isActive ? colors.accent : colors.dark;
-    final textColor = widget.isActive ? colors.elevated : colors.textPrimary;
+    final leftBg = widget.isActive
+        ? colors.accent.withValues(alpha: 0.3)
+        : Colors.transparent;
+    final iconColor = widget.isActive ? colors.accent : colors.textSecondary;
 
-    // Build tooltip with count-in info
-    final countInText = widget.countInBars == 0
-        ? 'Off'
-        : widget.countInBars == 1
-        ? '1 Bar'
-        : '2 Bars';
     final tooltip = widget.isActive
-        ? 'Metronome On | Count-in: $countInText'
-        : 'Metronome Off | Count-in: $countInText';
+        ? 'Metronome On (M) · Count-in: $_countInText'
+        : 'Metronome Off (M)';
 
     return Tooltip(
       message: tooltip,
       child: DecoratedBox(
         key: _buttonKey,
         decoration: BoxDecoration(
-          color: bgColor,
           borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: colors.divider, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Left side: Icon (clickable for toggle)
+            // Left zone: metronome icon (toggle on/off)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isIconHovered = true),
-              onExit: (_) => setState(() => _isIconHovered = false),
+              onEnter: (_) => setState(() => _isLeftHovered = true),
+              onExit: (_) => setState(() => _isLeftHovered = false),
               child: GestureDetector(
                 onTap: widget.onToggle,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 5,
+                    horizontal: 8,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _isIconHovered
-                        ? colors.textPrimary.withValues(alpha: 0.1)
-                        : Colors.transparent,
+                    color: _isLeftHovered
+                        ? (widget.isActive
+                              ? colors.accent.withValues(alpha: 0.4)
+                              : colors.textPrimary.withValues(alpha: 0.1))
+                        : leftBg,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(2),
                       bottomLeft: Radius.circular(2),
@@ -186,34 +158,35 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                   ),
                   child: Image.asset(
                     'assets/images/metronome.png',
-                    width: 14,
-                    height: 14,
-                    color: textColor,
+                    width: 16,
+                    height: 16,
+                    color: iconColor,
                   ),
                 ),
               ),
             ),
-            // Divider line
+            // Divider
             Container(
               width: 1,
-              height: 17,
+              height: 19,
               color: colors.textPrimary.withValues(alpha: 0.2),
             ),
-            // Right side: Dropdown arrow
+            // Right zone: count-in value text (opens dropdown)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isChevronHovered = true),
-              onExit: (_) => setState(() => _isChevronHovered = false),
+              onEnter: (_) => setState(() => _isRightHovered = true),
+              onExit: (_) => setState(() => _isRightHovered = false),
               child: GestureDetector(
                 onTap: () => _showCountInMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
+                  constraints: const BoxConstraints(minWidth: 37),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 5,
+                    horizontal: 7,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _isChevronHovered
+                    color: _isRightHovered
                         ? colors.textPrimary.withValues(alpha: 0.1)
                         : Colors.transparent,
                     borderRadius: const BorderRadius.only(
@@ -221,10 +194,16 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                       bottomRight: Radius.circular(2),
                     ),
                   ),
-                  child: Icon(
-                    Icons.arrow_drop_down,
-                    size: 17,
-                    color: textColor,
+                  child: Text(
+                    _countInText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: widget.countInBars > 0
+                          ? colors.textSecondary
+                          : colors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
