@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/animation_constants.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
@@ -583,157 +584,156 @@ class _TransportBarState extends State<TransportBar> {
         final showLabels = density.showLabels;
         final btnSize = density.transportButtonSize;
 
+        // Transport buttons are slightly larger (32px) for visual hierarchy
+        final transportBtnSize = math.max(btnSize, 32.0);
+
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: BT.sm),
           child: Row(
             children: [
-              // ── Cluster 1: Modifiers — LEFT-aligned ──
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LoopSplitButton(
-                    loopEnabled: widget.loopPlaybackEnabled,
-                    punchInEnabled: widget.punchInEnabled,
-                    punchOutEnabled: widget.punchOutEnabled,
-                    showLabel: showLabels,
-                    onLoopToggle: widget.transport.onLoopPlaybackToggle,
-                    onPunchInToggle: widget.transport.onPunchInToggle,
-                    onPunchOutToggle: widget.transport.onPunchOutToggle,
-                  ),
-                  SizedBox(width: wGap),
-                  SnapSplitButton(
-                    value: widget.arrangementSnap,
-                    onChanged: widget.onSnapChanged,
-                    mode: ButtonDisplayMode.wide,
-                    isIconOnly: !showLabels,
-                  ),
-                  SizedBox(width: wGap),
-                  MetronomeSplitButton(
-                    isActive: widget.metronomeEnabled,
-                    countInBars: widget.countInBars,
-                    onToggle: widget.transport.onMetronomeToggle,
-                    onCountInChanged: widget.onCountInChanged,
-                  ),
-                ],
+              // ── Well 1: Modifiers — LEFT-aligned ──
+              _ClusterWell(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LoopSplitButton(
+                      loopEnabled: widget.loopPlaybackEnabled,
+                      punchInEnabled: widget.punchInEnabled,
+                      punchOutEnabled: widget.punchOutEnabled,
+                      showLabel: showLabels,
+                      onLoopToggle: widget.transport.onLoopPlaybackToggle,
+                      onPunchInToggle: widget.transport.onPunchInToggle,
+                      onPunchOutToggle: widget.transport.onPunchOutToggle,
+                    ),
+                    SizedBox(width: wGap),
+                    SnapSplitButton(
+                      value: widget.arrangementSnap,
+                      onChanged: widget.onSnapChanged,
+                      mode: ButtonDisplayMode.wide,
+                      isIconOnly: !showLabels,
+                    ),
+                    SizedBox(width: wGap),
+                    MetronomeSplitButton(
+                      isActive: widget.metronomeEnabled,
+                      countInBars: widget.countInBars,
+                      onToggle: widget.transport.onMetronomeToggle,
+                      onCountInChanged: widget.onCountInChanged,
+                    ),
+                  ],
+                ),
               ),
 
-              // Divider + spacer
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: cGap),
-                child: Container(width: 1, height: 24, color: colors.divider),
+              SizedBox(width: cGap),
+              const Spacer(),
+
+              // ── Well 2: Transport — CENTERED ──
+              _ClusterWell(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularToggleButton(
+                      icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
+                      enabled:
+                          widget.canPlay ||
+                          widget.isRecording ||
+                          widget.isCountingIn,
+                      enabledColor: widget.isPlaying
+                          ? const Color(0xFFF97316)
+                          : const Color(0xFF22C55E),
+                      onPressed: () {
+                        if (widget.isRecording || widget.isCountingIn) {
+                          widget.transport.onPauseRecording?.call();
+                        } else if (widget.isPlaying) {
+                          widget.transport.onPause?.call();
+                        } else {
+                          widget.transport.onPlay?.call();
+                        }
+                      },
+                      tooltip: widget.isPlaying
+                          ? 'Pause (Space)'
+                          : 'Play (Space)',
+                      size: transportBtnSize,
+                      iconSize: BT.iconLg,
+                    ),
+                    SizedBox(width: wGap),
+                    CircularToggleButton(
+                      icon: Icons.stop,
+                      enabled:
+                          widget.canPlay ||
+                          widget.isRecording ||
+                          widget.isCountingIn,
+                      enabledColor: const Color(0xFFF97316),
+                      onPressed: () {
+                        if (widget.isRecording || widget.isCountingIn) {
+                          widget.transport.onStopRecording?.call();
+                        } else {
+                          widget.transport.onStop?.call();
+                        }
+                      },
+                      tooltip: 'Stop',
+                      size: transportBtnSize,
+                      iconSize: BT.iconLg,
+                    ),
+                    SizedBox(width: wGap),
+                    RecordButton(
+                      isRecording: widget.isRecording,
+                      isCountingIn: widget.isCountingIn,
+                      countInBars: widget.countInBars,
+                      countInBeat: widget.countInBeat,
+                      countInProgress: widget.countInProgress,
+                      beatsPerBar: widget.beatsPerBar,
+                      onPressed:
+                          (widget.hasArmedTracks ||
+                              widget.isRecording ||
+                              widget.isCountingIn)
+                          ? widget.transport.onRecord
+                          : null,
+                      onCountInChanged: widget.onCountInChanged,
+                      size: transportBtnSize,
+                    ),
+                    SizedBox(width: wGap),
+                    _MidiCaptureButton(
+                      hasEvents: widget.midiCaptureHasEvents,
+                      isRecording: widget.isRecording || widget.isCountingIn,
+                      onTap: widget.transport.onCaptureMidi,
+                    ),
+                  ],
+                ),
               ),
 
               const Spacer(),
+              SizedBox(width: cGap),
 
-              // ── Cluster 2: Transport — CENTERED ──
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularToggleButton(
-                    icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
-                    enabled:
-                        widget.canPlay ||
-                        widget.isRecording ||
-                        widget.isCountingIn,
-                    enabledColor: widget.isPlaying
-                        ? const Color(0xFFF97316)
-                        : const Color(0xFF22C55E),
-                    onPressed: () {
-                      if (widget.isRecording || widget.isCountingIn) {
-                        widget.transport.onPauseRecording?.call();
-                      } else if (widget.isPlaying) {
-                        widget.transport.onPause?.call();
-                      } else {
-                        widget.transport.onPlay?.call();
-                      }
-                    },
-                    tooltip: widget.isPlaying
-                        ? 'Pause (Space)'
-                        : 'Play (Space)',
-                    size: btnSize,
-                    iconSize: 18,
-                  ),
-                  SizedBox(width: wGap),
-                  CircularToggleButton(
-                    icon: Icons.stop,
-                    enabled:
-                        widget.canPlay ||
-                        widget.isRecording ||
-                        widget.isCountingIn,
-                    enabledColor: const Color(0xFFF97316),
-                    onPressed: () {
-                      if (widget.isRecording || widget.isCountingIn) {
-                        widget.transport.onStopRecording?.call();
-                      } else {
-                        widget.transport.onStop?.call();
-                      }
-                    },
-                    tooltip: 'Stop',
-                    size: btnSize,
-                    iconSize: 18,
-                  ),
-                  SizedBox(width: wGap),
-                  RecordButton(
-                    isRecording: widget.isRecording,
-                    isCountingIn: widget.isCountingIn,
-                    countInBars: widget.countInBars,
-                    countInBeat: widget.countInBeat,
-                    countInProgress: widget.countInProgress,
-                    beatsPerBar: widget.beatsPerBar,
-                    onPressed:
-                        (widget.hasArmedTracks ||
-                            widget.isRecording ||
-                            widget.isCountingIn)
-                        ? widget.transport.onRecord
-                        : null,
-                    onCountInChanged: widget.onCountInChanged,
-                    size: btnSize,
-                  ),
-                  SizedBox(width: wGap),
-                  _MidiCaptureButton(
-                    hasEvents: widget.midiCaptureHasEvents,
-                    isRecording: widget.isRecording || widget.isCountingIn,
-                    onTap: widget.transport.onCaptureMidi,
-                  ),
-                ],
-              ),
-
-              const Spacer(),
-
-              // Divider + spacer
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: cGap),
-                child: Container(width: 1, height: 24, color: colors.divider),
-              ),
-
-              // ── Cluster 3: Readouts — RIGHT-aligned ──
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PositionDisplay(
-                    playheadPosition: widget.playheadPosition,
-                    tempo: widget.tempo,
-                    beatsPerBar: widget.beatsPerBar,
-                    onPositionChanged: widget.transport.onPositionChanged,
-                  ),
-                  SizedBox(width: wGap + 4),
-                  TapTempoPill(
-                    tempo: widget.tempo,
-                    onTempoChanged: widget.onTempoChanged,
-                    mode: ButtonDisplayMode.wide,
-                  ),
-                  SizedBox(width: wGap),
-                  TempoDisplay(
-                    tempo: widget.tempo,
-                    onTempoChanged: widget.onTempoChanged,
-                  ),
-                  SizedBox(width: wGap),
-                  SignatureDropdown(
-                    beatsPerBar: widget.beatsPerBar,
-                    beatUnit: widget.beatUnit,
-                    onChanged: widget.onTimeSignatureChanged,
-                  ),
-                ],
+              // ── Well 3: Readouts — RIGHT-aligned ──
+              _ClusterWell(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PositionDisplay(
+                      playheadPosition: widget.playheadPosition,
+                      tempo: widget.tempo,
+                      beatsPerBar: widget.beatsPerBar,
+                      onPositionChanged: widget.transport.onPositionChanged,
+                    ),
+                    SizedBox(width: wGap + BT.xs),
+                    TapTempoPill(
+                      tempo: widget.tempo,
+                      onTempoChanged: widget.onTempoChanged,
+                      mode: ButtonDisplayMode.wide,
+                    ),
+                    SizedBox(width: wGap),
+                    TempoDisplay(
+                      tempo: widget.tempo,
+                      onTempoChanged: widget.onTempoChanged,
+                    ),
+                    SizedBox(width: wGap),
+                    SignatureDropdown(
+                      beatsPerBar: widget.beatsPerBar,
+                      beatUnit: widget.beatUnit,
+                      onChanged: widget.onTimeSignatureChanged,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -783,6 +783,29 @@ class _TransportBarState extends State<TransportBar> {
 // ============================================
 // HELPER WIDGETS
 // ============================================
+
+/// Recessed "well" container for transport bar cluster grouping.
+/// Uses darkest bg with divider border to create visual separation
+/// against the dark chrome background.
+class _ClusterWell extends StatelessWidget {
+  final Widget child;
+
+  const _ClusterWell({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: BT.sm, vertical: BT.xs),
+      decoration: BoxDecoration(
+        color: colors.darkest,
+        borderRadius: BT.borderMd,
+        border: Border.all(color: colors.divider, width: 1),
+      ),
+      child: child,
+    );
+  }
+}
 
 /// SVG icon button for undo/redo
 class _SvgIconButton extends StatefulWidget {
