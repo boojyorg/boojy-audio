@@ -213,8 +213,10 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   ),
                   decoration: BoxDecoration(
                     color: _isChevronHovered
-                        ? colors.textPrimary.withValues(alpha: 0.1)
-                        : Colors.transparent,
+                        ? (isActive
+                              ? colors.accent.withValues(alpha: 0.4)
+                              : colors.textPrimary.withValues(alpha: 0.1))
+                        : leftBg,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(2),
                       bottomRight: Radius.circular(2),

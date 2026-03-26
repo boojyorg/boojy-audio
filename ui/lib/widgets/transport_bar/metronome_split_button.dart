@@ -187,8 +187,10 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                   ),
                   decoration: BoxDecoration(
                     color: _isRightHovered
-                        ? colors.textPrimary.withValues(alpha: 0.1)
-                        : Colors.transparent,
+                        ? (widget.isActive
+                              ? colors.accent.withValues(alpha: 0.4)
+                              : colors.textPrimary.withValues(alpha: 0.1))
+                        : leftBg,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(2),
                       bottomRight: Radius.circular(2),
@@ -198,9 +200,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                     _countInText,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: widget.countInBars > 0
-                          ? colors.textSecondary
-                          : colors.textMuted,
+                      color: widget.isActive ? colors.accent : colors.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),

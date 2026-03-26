@@ -182,8 +182,10 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                     ),
                     decoration: BoxDecoration(
                       color: _isRightHovered
-                          ? colors.textPrimary.withValues(alpha: 0.1)
-                          : Colors.transparent,
+                          ? (isActive
+                                ? colors.accent.withValues(alpha: 0.4)
+                                : colors.textPrimary.withValues(alpha: 0.1))
+                          : leftBg,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(2),
                         bottomRight: Radius.circular(2),
@@ -193,9 +195,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                       _punchText,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: (widget.punchInEnabled || widget.punchOutEnabled)
-                            ? colors.accent
-                            : colors.textMuted,
+                        color: isActive ? colors.accent : colors.textMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
