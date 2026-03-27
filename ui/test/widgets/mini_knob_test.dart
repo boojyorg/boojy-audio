@@ -46,10 +46,9 @@ void main() {
 
   testWidgets('MiniKnob drag up increases value', (tester) async {
     double currentValue = 0.5;
-    await tester.pumpWidget(buildTestWidget(
-      value: currentValue,
-      onChanged: (v) => currentValue = v,
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(value: currentValue, onChanged: (v) => currentValue = v),
+    );
     await tester.pumpAndSettle();
 
     // Drag upward (negative dy = increase)
@@ -62,10 +61,9 @@ void main() {
 
   testWidgets('MiniKnob drag down decreases value', (tester) async {
     double currentValue = 0.5;
-    await tester.pumpWidget(buildTestWidget(
-      value: currentValue,
-      onChanged: (v) => currentValue = v,
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(value: currentValue, onChanged: (v) => currentValue = v),
+    );
     await tester.pumpAndSettle();
 
     final knob = find.byType(MiniKnob);
@@ -77,12 +75,14 @@ void main() {
 
   testWidgets('MiniKnob clamps to min/max range', (tester) async {
     double currentValue = 0.9;
-    await tester.pumpWidget(buildTestWidget(
-      value: currentValue,
-      min: 0.0,
-      max: 1.0,
-      onChanged: (v) => currentValue = v,
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        value: currentValue,
+        min: 0.0,
+        max: 1.0,
+        onChanged: (v) => currentValue = v,
+      ),
+    );
     await tester.pumpAndSettle();
 
     // Drag far up — should clamp to max
@@ -95,12 +95,14 @@ void main() {
 
   testWidgets('MiniKnob double-tap resets to center', (tester) async {
     double currentValue = 0.9;
-    await tester.pumpWidget(buildTestWidget(
-      value: currentValue,
-      min: 0.0,
-      max: 1.0,
-      onChanged: (v) => currentValue = v,
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        value: currentValue,
+        min: 0.0,
+        max: 1.0,
+        onChanged: (v) => currentValue = v,
+      ),
+    );
     await tester.pumpAndSettle();
 
     final knob = find.byType(MiniKnob);
@@ -112,8 +114,9 @@ void main() {
     expect(currentValue, closeTo(0.5, 0.01));
   });
 
-  testWidgets('MiniKnob with no onChanged does not crash on drag',
-      (tester) async {
+  testWidgets('MiniKnob with no onChanged does not crash on drag', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildTestWidget(value: 0.5));
     await tester.pumpAndSettle();
 

@@ -21,7 +21,9 @@ void main() {
     });
 
     test('parses legacy "Error: " format', () {
-      final result = EngineResult.parse('Error: Audio graph already initialized');
+      final result = EngineResult.parse(
+        'Error: Audio graph already initialized',
+      );
       expect(result.isError, isTrue);
       expect(result.errorCode, 'internal');
       expect(result.errorMessage, 'Audio graph already initialized');

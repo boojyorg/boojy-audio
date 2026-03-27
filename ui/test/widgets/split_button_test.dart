@@ -5,9 +5,7 @@ import 'package:boojy_audio/widgets/shared/split_button.dart';
 import 'package:boojy_audio/theme/theme_provider.dart';
 
 void main() {
-  Widget buildTestWidget({
-    required Widget child,
-  }) {
+  Widget buildTestWidget({required Widget child}) {
     return MaterialApp(
       home: Scaffold(
         body: ChangeNotifierProvider<ThemeProvider>(
@@ -19,21 +17,23 @@ void main() {
   }
 
   testWidgets('SplitButton renders with label', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      child: const SplitButton<String>(label: 'Snap'),
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(child: const SplitButton<String>(label: 'Snap')),
+    );
 
     expect(find.text('Snap'), findsOneWidget);
   });
 
   testWidgets('SplitButton triggers onLabelTap', (tester) async {
     bool tapped = false;
-    await tester.pumpWidget(buildTestWidget(
-      child: SplitButton<String>(
-        label: 'Loop',
-        onLabelTap: () => tapped = true,
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: SplitButton<String>(
+          label: 'Loop',
+          onLabelTap: () => tapped = true,
+        ),
       ),
-    ));
+    );
 
     await tester.tap(find.text('Loop'));
     await tester.pump();
@@ -42,37 +42,40 @@ void main() {
   });
 
   testWidgets('SplitButton shows active state', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      child: const SplitButton<String>(label: 'Snap', isActive: true),
-    ));
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: const SplitButton<String>(label: 'Snap', isActive: true),
+      ),
+    );
 
     // Widget should render without error in active state
     expect(find.byType(SplitButton<String>), findsOneWidget);
   });
 
   testWidgets('SplitButton shows icon when provided', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      child: const SplitButton<String>(
-        label: 'Test',
-        icon: Icons.loop,
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: const SplitButton<String>(label: 'Test', icon: Icons.loop),
       ),
-    ));
+    );
 
     expect(find.byIcon(Icons.loop), findsOneWidget);
   });
 
   testWidgets('SplitButton opens dropdown on right zone tap', (tester) async {
     String? selected;
-    await tester.pumpWidget(buildTestWidget(
-      child: SplitButton<String>(
-        label: 'Grid',
-        dropdownItems: const [
-          PopupMenuItem(value: 'beat', child: Text('Beat')),
-          PopupMenuItem(value: 'bar', child: Text('Bar')),
-        ],
-        onItemSelected: (v) => selected = v,
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: SplitButton<String>(
+          label: 'Grid',
+          dropdownItems: const [
+            PopupMenuItem(value: 'beat', child: Text('Beat')),
+            PopupMenuItem(value: 'bar', child: Text('Bar')),
+          ],
+          onItemSelected: (v) => selected = v,
+        ),
       ),
-    ));
+    );
 
     // Find and tap the dropdown arrow zone (right side of split button)
     final dropdownIcon = find.byIcon(Icons.arrow_drop_down);
@@ -92,12 +95,11 @@ void main() {
   });
 
   testWidgets('SplitButton without dropdown hides arrow', (tester) async {
-    await tester.pumpWidget(buildTestWidget(
-      child: const SplitButton<String>(
-        label: 'Simple',
-        showDropdown: false,
+    await tester.pumpWidget(
+      buildTestWidget(
+        child: const SplitButton<String>(label: 'Simple', showDropdown: false),
       ),
-    ));
+    );
 
     expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
   });
