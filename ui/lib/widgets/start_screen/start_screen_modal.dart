@@ -4,8 +4,11 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/user_settings.dart';
 import '../../services/updater_service.dart';
+import '../../theme/animation_constants.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import 'recent_projects_grid.dart';
 
 /// Result returned when the start screen modal is dismissed with an action.
@@ -89,7 +92,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
                 }
               },
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: AnimationConstants.panelDuration,
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
@@ -154,7 +157,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
       child: Padding(
         padding: const EdgeInsets.only(top: 8, right: 8),
         child: IconButton(
-          icon: Icon(Icons.close, size: 18, color: colors.textMuted),
+          icon: Icon(BI.close, size: 18, color: colors.textMuted),
           onPressed: () => Navigator.of(
             context,
           ).pop(const StartScreenResult(StartScreenAction.dismissed)),
@@ -188,15 +191,16 @@ class _StartScreenModalState extends State<StartScreenModal> {
 
         // Action buttons
         _ActionButton(
-          icon: Icons.add,
+          icon: BI.add,
           label: 'New Project',
+          isPrimary: true,
           onTap: () => Navigator.of(
             context,
           ).pop(const StartScreenResult(StartScreenAction.newProject)),
         ),
         const SizedBox(height: 10),
         _ActionButton(
-          icon: Icons.folder_open,
+          icon: BI.folderOpen,
           label: 'Open...',
           onTap: () => Navigator.of(
             context,
@@ -204,7 +208,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
         ),
         const SizedBox(height: 10),
         _ActionButton(
-          icon: Icons.settings,
+          icon: BI.settings,
           label: 'Settings',
           onTap: () {
             // Close modal first, then settings will be opened by DAW
@@ -218,6 +222,35 @@ class _StartScreenModalState extends State<StartScreenModal> {
   Widget _buildRightColumn() {
     final colors = context.colors;
     final projects = widget.userSettings.recentProjects;
+
+    // First-time user: show welcome message
+    if (projects.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Welcome to Boojy Audio',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: BT.fontHeading,
+                fontWeight: BT.weightSemiBold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create a new project to start making music.',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: BT.fontBody,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Returning user: show recent projects grid
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -227,8 +260,8 @@ class _StartScreenModalState extends State<StartScreenModal> {
             'Recent Projects',
             style: TextStyle(
               color: colors.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontBody,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -263,7 +296,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
         children: [
           Text(
             _appVersion.isNotEmpty ? 'v$_appVersion' : '',
-            style: TextStyle(color: colors.textMuted, fontSize: 13),
+            style: TextStyle(color: colors.textMuted, fontSize: BT.fontBody),
           ),
           if (UpdaterService.isSupported) ...[
             const SizedBox(width: 12),
@@ -280,11 +313,13 @@ class _ActionButton extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isPrimary;
 
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isPrimary = false,
   });
 
   @override
@@ -305,14 +340,18 @@ class _ActionButtonState extends State<_ActionButton> {
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: AnimationConstants.quickDuration,
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _isHovering ? colors.hover : colors.standard,
+            color: widget.isPrimary
+                ? (_isHovering ? colors.accentHover : colors.accent)
+                : (_isHovering ? colors.hover : colors.standard),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _isHovering ? colors.divider : Colors.transparent,
+              color: widget.isPrimary
+                  ? Colors.transparent
+                  : (_isHovering ? colors.divider : Colors.transparent),
               width: 1,
             ),
           ),
@@ -320,18 +359,24 @@ class _ActionButtonState extends State<_ActionButton> {
             children: [
               Icon(
                 widget.icon,
-                size: 18,
-                color: _isHovering ? colors.textPrimary : colors.textSecondary,
+                size: BT.iconLg,
+                color: widget.isPrimary
+                    ? Colors.white
+                    : (_isHovering ? colors.textPrimary : colors.textSecondary),
               ),
               const SizedBox(width: 10),
               Text(
                 widget.label,
                 style: TextStyle(
-                  color: _isHovering
-                      ? colors.textPrimary
-                      : colors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  color: widget.isPrimary
+                      ? Colors.white
+                      : (_isHovering
+                            ? colors.textPrimary
+                            : colors.textSecondary),
+                  fontSize: BT.fontBody,
+                  fontWeight: widget.isPrimary
+                      ? BT.weightSemiBold
+                      : BT.weightMedium,
                 ),
               ),
             ],
@@ -366,7 +411,7 @@ class _UpdateButtonState extends State<_UpdateButton> {
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: AnimationConstants.quickDuration,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: _isHovering ? colors.hover : colors.standard,

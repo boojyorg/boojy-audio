@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/animation_constants.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -15,9 +16,9 @@ import '../../theme/tokens.dart';
 ///   Compact:  padding h:6 v:3, icon 12px, text 9px  (piano roll sidebar)
 ///
 /// Usage:
-///   BoojyButton(icon: Icons.loop, label: 'Loop', isActive: true, onTap: ...)
-///   BoojyButton(icon: Icons.grid_on, label: 'Snap', compact: true, onTap: ...)
-///   BoojyButton(icon: Icons.delete, label: 'Delete', onTap: ...) // action, never active
+///   BoojyButton(icon: BI.loop, label: 'Loop', isActive: true, onTap: ...)
+///   BoojyButton(icon: BI.gridOn, label: 'Snap', compact: true, onTap: ...)
+///   BoojyButton(icon: BI.delete, label: 'Delete', onTap: ...) // action, never active
 class BoojyButton extends StatefulWidget {
   final IconData? icon;
   final String? label;
@@ -48,6 +49,7 @@ class BoojyButton extends StatefulWidget {
 
 class _BoojyButtonState extends State<BoojyButton> {
   bool _isHovered = false;
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -102,42 +104,49 @@ class _BoojyButtonState extends State<BoojyButton> {
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          widget.onTap?.call();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
         onLongPress: widget.onLongPress,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: padding,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BT.borderSm,
-            border: Border.all(color: borderColor, width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.iconWidget != null)
-                SizedBox(
-                  width: iconSize,
-                  height: iconSize,
-                  child: widget.iconWidget,
-                )
-              else if (widget.icon != null)
-                Icon(widget.icon, size: iconSize, color: contentColor),
-              if (_hasLabel && _hasIcon)
-                SizedBox(width: gap),
-              if (_hasLabel) ...[
-                Text(
-                  widget.label!,
-                  style: TextStyle(
-                    color: contentColor,
-                    fontSize: fontSize,
-                    fontWeight: active ? BT.weightSemiBold : BT.weightMedium,
+        child: Transform.translate(
+          offset: Offset(0, _isPressed ? AnimationConstants.pressDepth : 0),
+          child: AnimatedContainer(
+            duration: AnimationConstants.hoverDuration,
+            padding: padding,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BT.borderSm,
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.iconWidget != null)
+                  SizedBox(
+                    width: iconSize,
+                    height: iconSize,
+                    child: widget.iconWidget,
+                  )
+                else if (widget.icon != null)
+                  Icon(widget.icon, size: iconSize, color: contentColor),
+                if (_hasLabel && _hasIcon) SizedBox(width: gap),
+                if (_hasLabel) ...[
+                  Text(
+                    widget.label!,
+                    style: TextStyle(
+                      color: contentColor,
+                      fontSize: fontSize,
+                      fontWeight: active ? BT.weightSemiBold : BT.weightMedium,
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

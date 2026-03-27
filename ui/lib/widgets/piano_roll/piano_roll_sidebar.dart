@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../shared/boojy_button.dart';
 import '../shared/mini_knob.dart';
 import '../shared/split_button.dart';
@@ -307,7 +309,7 @@ class PianoRollSidebar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Icon(
-                      Icons.chevron_right,
+                      BI.caretRight,
                       size: 18,
                       color: colors.textPrimary,
                     ),
@@ -331,21 +333,21 @@ class PianoRollSidebar extends StatelessWidget {
                 _buildViewSwitchButton(
                   context,
                   view: SidebarView.pianoRoll,
-                  icon: Icons.piano,
+                  icon: BI.piano,
                   tooltip: 'Piano Roll',
                 ),
                 const SizedBox(height: 4),
                 _buildViewSwitchButton(
                   context,
                   view: SidebarView.effects,
-                  icon: Icons.equalizer,
+                  icon: BI.equalizer,
                   tooltip: 'Effects',
                 ),
                 const SizedBox(height: 4),
                 _buildViewSwitchButton(
                   context,
                   view: SidebarView.instrument,
-                  icon: Icons.music_note,
+                  icon: BI.musicNote,
                   tooltip: 'Instrument',
                 ),
               ],
@@ -439,7 +441,7 @@ class PianoRollSidebar extends StatelessWidget {
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: BT.weightSemiBold,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -465,11 +467,7 @@ class PianoRollSidebar extends StatelessWidget {
                   color: colors.dark,
                   borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(
-                  Icons.chevron_left,
-                  size: 14,
-                  color: colors.textPrimary,
-                ),
+                child: Icon(BI.caretLeft, size: 14, color: colors.textPrimary),
               ),
             ),
           ),
@@ -500,9 +498,12 @@ class PianoRollSidebar extends StatelessWidget {
             children: [
               Text(
                 currentClipName,
-                style: TextStyle(color: colors.textMuted, fontSize: 9),
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: BT.fontCaption,
+                ),
               ),
-              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
+              Icon(BI.caretDown, size: 12, color: colors.textMuted),
             ],
           ),
         ),
@@ -534,10 +535,10 @@ class PianoRollSidebar extends StatelessWidget {
             clipNames[index],
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: index == selectedClipIndex
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         );
@@ -564,8 +565,8 @@ class PianoRollSidebar extends StatelessWidget {
             title,
             style: TextStyle(
               color: colors.textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontCaption,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 0.5,
             ),
           ),
@@ -588,7 +589,7 @@ class PianoRollSidebar extends StatelessWidget {
           // Loop toggle
           _buildToggleRow(
             context,
-            icon: Icons.loop,
+            icon: BI.loop,
             label: 'Loop',
             isActive: loopEnabled,
             onTap: onLoopToggle,
@@ -599,7 +600,10 @@ class PianoRollSidebar extends StatelessWidget {
             children: [
               Text(
                 'Sig',
-                style: TextStyle(color: colors.textMuted, fontSize: 9),
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: BT.fontCaption,
+                ),
               ),
               const SizedBox(width: 4),
               TimeSignatureDisplay(
@@ -648,7 +652,10 @@ class PianoRollSidebar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          label,
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -715,14 +722,14 @@ class PianoRollSidebar extends StatelessWidget {
         _buildResponsiveRow([
           _buildToggleRow(
             context,
-            icon: Icons.unfold_less,
+            icon: BI.compress,
             label: 'Fold',
             isActive: foldEnabled,
             onTap: onFoldToggle,
           ),
           _buildToggleRow(
             context,
-            icon: Icons.layers,
+            icon: BI.layers,
             label: 'Ghost',
             isActive: ghostNotesEnabled,
             onTap: onGhostNotesToggle,
@@ -732,7 +739,7 @@ class PianoRollSidebar extends StatelessWidget {
         // Swing knob with apply button
         _buildKnobRow(
           context,
-          icon: Icons.sync_alt,
+          icon: BI.sync,
           label: 'Swing',
           value: swingAmount,
           min: 0.0,
@@ -822,14 +829,14 @@ class PianoRollSidebar extends StatelessWidget {
         _buildResponsiveRow([
           _buildToggleRow(
             context,
-            icon: Icons.visibility,
+            icon: BI.eye,
             label: 'Highlight',
             isActive: highlightEnabled,
             onTap: onHighlightToggle,
           ),
           _buildToggleRow(
             context,
-            icon: Icons.lock,
+            icon: BI.lock,
             label: 'Lock',
             isActive: lockEnabled,
             onTap: onLockToggle,
@@ -848,13 +855,13 @@ class PianoRollSidebar extends StatelessWidget {
         _buildResponsiveRow([
           _buildActionButton(
             context,
-            icon: Icons.linear_scale,
+            icon: BI.linearScale,
             label: 'Legato',
             onTap: onLegato,
           ),
           _buildActionButton(
             context,
-            icon: Icons.swap_horiz,
+            icon: BI.swap,
             label: 'Reverse',
             onTap: onReverse,
           ),
@@ -864,7 +871,7 @@ class PianoRollSidebar extends StatelessWidget {
         _buildResponsiveRow([
           _buildKnobRow(
             context,
-            icon: Icons.expand,
+            icon: BI.expand,
             label: 'Stretch',
             value: stretchAmount,
             min: 0.5,
@@ -875,7 +882,7 @@ class PianoRollSidebar extends StatelessWidget {
           ),
           _buildKnobRow(
             context,
-            icon: Icons.gesture,
+            icon: BI.gesture,
             label: 'Humanize',
             value: humanizeAmount,
             min: 0.0,
@@ -897,7 +904,7 @@ class PianoRollSidebar extends StatelessWidget {
         // Row 1: [👁 Velocity] toggle
         _buildToggleRow(
           context,
-          icon: Icons.visibility,
+          icon: BI.eye,
           label: 'Velocity',
           isActive: velocityLaneVisible,
           onTap: onVelocityLaneToggle,
@@ -907,7 +914,7 @@ class PianoRollSidebar extends StatelessWidget {
         _buildResponsiveRow([
           _buildToggleRow(
             context,
-            icon: Icons.visibility,
+            icon: BI.eye,
             label: 'MIDI CC',
             isActive: ccLaneVisible,
             onTap: onCCLaneToggle,
@@ -964,7 +971,7 @@ class PianoRollSidebar extends StatelessWidget {
           width: 32,
           child: Text(
             label,
-            style: TextStyle(color: colors.textMuted, fontSize: 9),
+            style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
           ),
         ),
         Expanded(child: child),
@@ -999,12 +1006,7 @@ class PianoRollSidebar extends StatelessWidget {
   }) {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 120),
-      child: BoojyButton(
-        icon: icon,
-        label: label,
-        compact: true,
-        onTap: onTap,
-      ),
+      child: BoojyButton(icon: icon, label: label, compact: true, onTap: onTap),
     );
   }
 
@@ -1029,8 +1031,8 @@ class PianoRollSidebar extends StatelessWidget {
               'Chords',
               style: TextStyle(
                 color: isActive ? Colors.white : _chordsGreen,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
+                fontSize: BT.fontCaption,
+                fontWeight: BT.weightMedium,
               ),
             ),
           ),
@@ -1107,11 +1109,14 @@ class PianoRollSidebar extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(color: colors.textPrimary, fontSize: 9),
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: BT.fontCaption,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
+              Icon(BI.caretDown, size: 12, color: colors.textMuted),
             ],
           ),
         ),
@@ -1148,10 +1153,10 @@ class PianoRollSidebar extends StatelessWidget {
             label,
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: item == currentValue
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         );

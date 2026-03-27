@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -53,15 +54,15 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
           SizedBox(
             width: 18,
             child: isSelected
-                ? Icon(Icons.radio_button_checked, size: 16, color: accentColor)
-                : const Icon(Icons.radio_button_unchecked, size: 16),
+                ? Icon(BI.radioChecked, size: BT.iconMd, color: accentColor)
+                : Icon(BI.circle, size: BT.iconMd),
           ),
           const SizedBox(width: 8),
           Text(
             label,
             style: TextStyle(
               color: isSelected ? accentColor : null,
-              fontWeight: isSelected ? FontWeight.w600 : null,
+              fontWeight: isSelected ? BT.weightSemiBold : null,
             ),
           ),
         ],
@@ -93,7 +94,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
             'COUNT-IN',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.0,
             ),
           ),
@@ -146,8 +147,12 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                   decoration: BoxDecoration(
                     color: _isLeftHovered
                         ? (widget.isActive
-                              ? colors.accent.withValues(alpha: BT.opacityMedium)
-                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                              ? colors.accent.withValues(
+                                  alpha: BT.opacityMedium,
+                                )
+                              : colors.textPrimary.withValues(
+                                  alpha: BT.opacitySubtle,
+                                ))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(BT.radiusSm),
@@ -183,8 +188,12 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                   decoration: BoxDecoration(
                     color: _isRightHovered
                         ? (widget.isActive
-                              ? colors.accent.withValues(alpha: BT.opacityMedium)
-                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                              ? colors.accent.withValues(
+                                  alpha: BT.opacityMedium,
+                                )
+                              : colors.textPrimary.withValues(
+                                  alpha: BT.opacitySubtle,
+                                ))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(BT.radiusSm),

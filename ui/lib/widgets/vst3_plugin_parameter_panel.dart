@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/plugin_preferences_service.dart';
 import '../services/vst3_editor_service.dart';
@@ -91,18 +93,14 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.extension_off,
-                size: 64,
-                color: Color(0xFF909090),
-              ),
+              Icon(BI.pluginOff, size: 64, color: const Color(0xFF909090)),
               const SizedBox(height: 16),
               const Text(
                 'No VST3 Plugins',
                 style: TextStyle(
                   color: Color(0xFF202020),
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontSize: BT.fontHeading,
+                  fontWeight: BT.weightSemiBold,
                 ),
               ),
               const SizedBox(height: 8),
@@ -137,9 +135,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 decoration: InputDecoration(
                   hintText: 'Search parameters...',
                   hintStyle: const TextStyle(color: Color(0xFF808080)),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF808080),
+                  prefixIcon: Icon(
+                    BI.search,
+                    color: const Color(0xFF808080),
                     size: 18,
                   ),
                   filled: true,
@@ -199,12 +197,12 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             child: Row(
               children: [
                 Icon(
-                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  isExpanded ? BI.expandMore : BI.caretRight,
                   color: const Color(0xFFA0A0A0),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.extension, color: Color(0xFF4CAF50), size: 18),
+                Icon(BI.plugin, color: const Color(0xFF4CAF50), size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -214,8 +212,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                         plugin.pluginName,
                         style: const TextStyle(
                           color: Color(0xFFA0A0A0),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontSize: BT.fontBody,
+                          fontWeight: BT.weightSemiBold,
                         ),
                       ),
                       // Show different subtitle based on current view mode
@@ -235,8 +233,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 IconButton(
                   icon: Icon(
                     _showEmbeddedGUIForEffect == plugin.effectId
-                        ? Icons.tune
-                        : Icons.display_settings,
+                        ? BI.sliders
+                        : BI.monitor,
                   ),
                   color: _showEmbeddedGUIForEffect == plugin.effectId
                       ? const Color(0xFF2196F3)
@@ -255,7 +253,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 const SizedBox(width: 4),
                 // Open floating GUI button
                 IconButton(
-                  icon: const Icon(Icons.open_in_new),
+                  icon: Icon(BI.openInNew),
                   color: const Color(0xFF4CAF50),
                   iconSize: 18,
                   onPressed: () => _openPluginGUI(plugin),
@@ -269,7 +267,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 const SizedBox(width: 4),
                 // Delete button
                 IconButton(
-                  icon: const Icon(Icons.delete_outline),
+                  icon: Icon(BI.delete),
                   color: const Color(0xFFFF5722),
                   iconSize: 18,
                   onPressed: () => widget.onRemovePlugin?.call(plugin.effectId),
@@ -381,7 +379,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             child: Row(
               children: [
                 Icon(
-                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  isExpanded ? BI.expandMore : BI.caretRight,
                   color: const Color(0xFF909090),
                   size: 16,
                 ),
@@ -390,8 +388,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                   groupName,
                   style: const TextStyle(
                     color: Color(0xFF909090),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: BT.fontLabel,
+                    fontWeight: BT.weightSemiBold,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -435,7 +433,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             flex: 2,
             child: Text(
               param.name,
-              style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 11),
+              style: const TextStyle(
+                color: Color(0xFFA0A0A0),
+                fontSize: BT.fontLabel,
+              ),
             ),
           ),
 
@@ -489,7 +490,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 style: const TextStyle(
                   color: Color(0xFFA0A0A0),
                   fontSize: 10,
-                  fontFamily: 'monospace',
+                  fontFamily: BT.fontFamilyMono,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -523,7 +525,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           children: [
             Text(
               'Range: ${param.min.toStringAsFixed(2)} - ${param.max.toStringAsFixed(2)} ${param.unit}',
-              style: const TextStyle(color: Color(0xFF808080), fontSize: 11),
+              style: const TextStyle(
+                color: Color(0xFF808080),
+                fontSize: BT.fontLabel,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(

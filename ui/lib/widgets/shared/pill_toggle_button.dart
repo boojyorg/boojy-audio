@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/animation_constants.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import 'button_hover_mixin.dart';
 
 /// Display mode for responsive button layouts.
@@ -122,10 +123,10 @@ class _PillToggleButtonState extends State<PillToggleButton>
                       widget.label,
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 11,
+                        fontSize: BT.fontLabel,
                         fontWeight: widget.isActive
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+                            ? BT.weightSemiBold
+                            : BT.weightMedium,
                       ),
                     ),
                   ],

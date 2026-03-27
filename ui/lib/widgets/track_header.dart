@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 
 /// Track header widget - displays on left side of timeline for each track
 /// Supports drag navigation:
@@ -95,7 +97,7 @@ class _TrackHeaderState extends State<TrackHeader> {
                         style: TextStyle(
                           color: context.colors.darkest,
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: BT.weightMedium,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -127,7 +129,7 @@ class _TrackHeaderState extends State<TrackHeader> {
                             minimumSize: const Size(0, 24),
                             textStyle: const TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: BT.weightSemiBold,
                             ),
                           ),
                           child: const Text('S'),
@@ -153,7 +155,7 @@ class _TrackHeaderState extends State<TrackHeader> {
                             minimumSize: const Size(0, 24),
                             textStyle: const TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: BT.weightSemiBold,
                             ),
                           ),
                           child: const Text('M'),
@@ -228,7 +230,7 @@ class _TrackHeaderState extends State<TrackHeader> {
         value: 'rename',
         child: Row(
           children: [
-            Icon(Icons.edit, size: 16, color: context.colors.darkest),
+            Icon(BI.pencil, size: 16, color: context.colors.darkest),
             const SizedBox(width: 8),
             Text('Rename', style: TextStyle(color: context.colors.darkest)),
           ],
@@ -238,7 +240,7 @@ class _TrackHeaderState extends State<TrackHeader> {
         value: 'duplicate',
         child: Row(
           children: [
-            Icon(Icons.content_copy, size: 16, color: context.colors.darkest),
+            Icon(BI.copy, size: 16, color: context.colors.darkest),
             const SizedBox(width: 8),
             Text('Duplicate', style: TextStyle(color: context.colors.darkest)),
           ],
@@ -250,7 +252,7 @@ class _TrackHeaderState extends State<TrackHeader> {
           value: 'convert_to_sampler',
           child: Row(
             children: [
-              Icon(Icons.music_note, size: 16, color: context.colors.darkest),
+              Icon(BI.musicNote, size: 16, color: context.colors.darkest),
               const SizedBox(width: 8),
               Text(
                 'Convert to Sampler',
@@ -264,7 +266,7 @@ class _TrackHeaderState extends State<TrackHeader> {
         value: 'delete',
         child: Row(
           children: [
-            Icon(Icons.delete, size: 16, color: context.colors.error),
+            Icon(BI.delete, size: 16, color: context.colors.error),
             const SizedBox(width: 8),
             Text('Delete', style: TextStyle(color: context.colors.error)),
           ],
@@ -305,7 +307,7 @@ class _TrackHeaderState extends State<TrackHeader> {
           style: TextStyle(
             color: context.colors.hover,
             fontSize: 8,
-            fontWeight: FontWeight.bold,
+            fontWeight: BT.weightSemiBold,
             letterSpacing: 0.5,
           ),
           textAlign: TextAlign.center,
@@ -390,7 +392,7 @@ class MasterTrackHeader extends StatelessWidget {
           // Master label
           const Text(
             '🎚️',
-            style: TextStyle(fontSize: 20),
+            style: TextStyle(fontSize: BT.fontHeading),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
@@ -398,8 +400,8 @@ class MasterTrackHeader extends StatelessWidget {
             'MASTER',
             style: TextStyle(
               color: context.colors.success,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.5,
             ),
             textAlign: TextAlign.center,

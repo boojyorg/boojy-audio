@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../constants/ui_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../utils/track_colors.dart';
@@ -81,7 +83,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.piano,
+                                  BI.piano,
                                   size: 10,
                                   color: context.colors.textPrimary,
                                 ),
@@ -92,7 +94,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     style: TextStyle(
                                       color: context.colors.textPrimary,
                                       fontSize: 10,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: BT.weightSemiBold,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -211,7 +213,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.audiotrack,
+                                  BI.musicNote,
                                   size: 12,
                                   color: context.colors.textPrimary,
                                 ),
@@ -221,8 +223,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     sourceClip.fileName,
                                     style: TextStyle(
                                       color: context.colors.textPrimary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: BT.fontLabel,
+                                      fontWeight: BT.weightMedium,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -351,7 +353,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.audiotrack,
+                                  BI.musicNote,
                                   size: 12,
                                   color: context.colors.textPrimary,
                                 ),
@@ -361,8 +363,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     sourceClip.fileName,
                                     style: TextStyle(
                                       color: context.colors.textPrimary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: BT.fontLabel,
+                                      fontWeight: BT.weightMedium,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -478,7 +480,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.piano,
+                                  BI.piano,
                                   size: 10,
                                   color: context.colors.textPrimary,
                                 ),
@@ -489,7 +491,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     style: TextStyle(
                                       color: context.colors.textPrimary,
                                       fontSize: 10,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: BT.weightSemiBold,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -599,7 +601,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                           child: Row(
                             children: [
                               Icon(
-                                preview.isMidi ? Icons.piano : Icons.audiotrack,
+                                preview.isMidi ? BI.piano : BI.musicNote,
                                 size: preview.isMidi ? 10 : 12,
                                 color: context.colors.textPrimary,
                               ),
@@ -611,8 +613,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     color: context.colors.textPrimary,
                                     fontSize: preview.isMidi ? 10 : 11,
                                     fontWeight: preview.isMidi
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
+                                        ? BT.weightSemiBold
+                                        : BT.weightMedium,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -738,7 +740,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                           child: Row(
                             children: [
                               Icon(
-                                preview.isMidi ? Icons.piano : Icons.audiotrack,
+                                preview.isMidi ? BI.piano : BI.musicNote,
                                 size: preview.isMidi ? 10 : 12,
                                 color: context.colors.textPrimary,
                               ),
@@ -750,8 +752,8 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
                                     color: context.colors.textPrimary,
                                     fontSize: preview.isMidi ? 10 : 11,
                                     fontWeight: preview.isMidi
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
+                                        ? BT.weightSemiBold
+                                        : BT.weightMedium,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -854,7 +856,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -899,7 +901,7 @@ mixin ClipPreviewBuildersMixin on State<TimelineView>, TimelineViewStateMixin {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),

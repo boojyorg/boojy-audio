@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../shared/split_button.dart';
 
@@ -48,7 +49,7 @@ class PianoRollToolbar extends StatelessWidget {
       children: [
         // Zoom controls
         ToolbarButton(
-          icon: Icons.remove,
+          icon: BI.close,
           label: '',
           onTap: onZoomOut,
           tooltip: 'Zoom out',
@@ -63,7 +64,7 @@ class PianoRollToolbar extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         ToolbarButton(
-          icon: Icons.add,
+          icon: BI.add,
           label: '',
           onTap: onZoomIn,
           tooltip: 'Zoom in',
@@ -71,7 +72,7 @@ class PianoRollToolbar extends StatelessWidget {
         const SizedBox(width: 12),
         // Close button
         ToolbarButton(
-          icon: Icons.close,
+          icon: BI.close,
           label: '',
           onTap: onClose,
           tooltip: 'Close Piano Roll',

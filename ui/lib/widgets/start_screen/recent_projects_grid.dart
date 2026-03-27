@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/user_settings.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import 'project_card.dart';
 
 /// Responsive grid of recent project cards.
@@ -49,7 +51,7 @@ class RecentProjectsGrid extends StatelessWidget {
               style: TextStyle(
                 color: colors.textSecondary,
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: BT.weightMedium,
               ),
             ),
             const SizedBox(height: 8),
@@ -111,7 +113,7 @@ class RecentProjectsGrid extends StatelessWidget {
                   ),
                   child: Center(
                     child: Icon(
-                      Icons.add,
+                      BI.add,
                       size: 32,
                       color: colors.textMuted.withValues(alpha: 0.4),
                     ),

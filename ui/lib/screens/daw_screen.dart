@@ -9,7 +9,10 @@ import 'dart:io';
 import 'daw_screen_io.dart'
     if (dart.library.js_interop) 'daw_screen_io_web.dart';
 import '../audio_engine.dart';
+import '../theme/animation_constants.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/timeline/timeline_models.dart';
@@ -96,6 +99,13 @@ class _DAWScreenState extends State<DAWScreen>
       setState(() => _showPaletteEditor = !_showPaletteEditor);
       return true;
     }());
+  }
+
+  void _toggleIconSet() {
+    setState(() {
+      BI.usePhosphor = !BI.usePhosphor;
+      Log.i('Icons: ${BI.usePhosphor ? "Phosphor" : "Material"}');
+    });
   }
 
   @override
@@ -1850,7 +1860,7 @@ class _DAWScreenState extends State<DAWScreen>
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.open_in_new, size: 16),
+                            icon: Icon(BI.openInNew, size: 16),
                             label: const Text('Open GUI'),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
@@ -1898,13 +1908,13 @@ class _DAWScreenState extends State<DAWScreen>
                     'Parameter ${i + 1}',
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                   Text(
                     '0.50',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: BT.fontLabel,
                       color: context.colors.textSecondary,
                     ),
                   ),
@@ -3325,7 +3335,7 @@ class _DAWScreenState extends State<DAWScreen>
     return AnimatedContainer(
       duration: _isDraggingLibrary
           ? Duration.zero
-          : const Duration(milliseconds: 200),
+          : AnimationConstants.panelDuration,
       curve: Curves.easeInOut,
       width: uiLayout.isLibraryPanelCollapsed
           ? 0
@@ -3549,6 +3559,17 @@ class _DAWScreenState extends State<DAWScreen>
         // Tool mode (shared with piano roll)
         toolMode: currentToolMode,
         onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
+        // Playback state (for playhead glow)
+        isPlaying: isPlaying,
+        // Empty timeline: add track callbacks
+        onAddMidiTrack: () {
+          final trackId = audioEngine!.createTrack('midi', 'MIDI 1');
+          if (trackId >= 0) setState(() {});
+        },
+        onAddAudioTrack: () {
+          final trackId = audioEngine!.createTrack('audio', 'Audio 1');
+          if (trackId >= 0) setState(() {});
+        },
         // Recording state (for auto-scroll)
         isRecording: isRecording,
         // Automation state
@@ -3562,7 +3583,7 @@ class _DAWScreenState extends State<DAWScreen>
     return AnimatedContainer(
       duration: _isDraggingMixer
           ? Duration.zero
-          : const Duration(milliseconds: 200),
+          : AnimationConstants.panelDuration,
       curve: Curves.easeInOut,
       width: uiLayout.isMixerVisible ? uiLayout.mixerPanelWidth + 4 : 0,
       clipBehavior: Clip.hardEdge,
@@ -3903,6 +3924,12 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _togglePaletteEditor,
+          // Cmd+Shift+K to toggle Phosphor/Material icons (A/B test)
+          const SingleActivator(
+            LogicalKeyboardKey.keyK,
+            meta: true,
+            shift: true,
+          ): _toggleIconSet,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields
@@ -3910,6 +3937,7 @@ class _DAWScreenState extends State<DAWScreen>
           autofocus: true,
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
+            key: ValueKey('daw_${BI.usePhosphor}'),
             backgroundColor: context.colors.dark,
             body: Stack(
               children: [

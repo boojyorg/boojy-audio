@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Display mode for the position readout
 enum PositionDisplayMode { bars, time }
@@ -154,12 +155,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
         child: TextField(
           controller: _editController,
           focusNode: _focusNode,
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
-          ),
+          style: BT.display(colors.textPrimary),
           decoration: const InputDecoration(
             border: InputBorder.none,
             isDense: true,
@@ -197,13 +193,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
             child: Text(
               displayText,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+              style: BT.display(colors.textPrimary),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -134,8 +135,12 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                     decoration: BoxDecoration(
                       color: _isLeftHovered
                           ? (isActive
-                                ? colors.accent.withValues(alpha: BT.opacityMedium)
-                                : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                                ? colors.accent.withValues(
+                                    alpha: BT.opacityMedium,
+                                  )
+                                : colors.textPrimary.withValues(
+                                    alpha: BT.opacitySubtle,
+                                  ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(BT.radiusSm),
@@ -145,12 +150,15 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.loop, size: BT.iconMd, color: iconColor),
+                        Icon(BI.loop, size: BT.iconMd, color: iconColor),
                         if (widget.showLabel) ...[
                           const SizedBox(width: BT.xs),
                           Text(
                             'Loop',
-                            style: TextStyle(color: textColor, fontSize: BT.fontLabel),
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: BT.fontLabel,
+                            ),
                           ),
                         ],
                       ],
@@ -178,8 +186,12 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                     decoration: BoxDecoration(
                       color: _isRightHovered
                           ? (isActive
-                                ? colors.accent.withValues(alpha: BT.opacityMedium)
-                                : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                                ? colors.accent.withValues(
+                                    alpha: BT.opacityMedium,
+                                  )
+                                : colors.textPrimary.withValues(
+                                    alpha: BT.opacitySubtle,
+                                  ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(BT.radiusSm),
@@ -320,10 +332,8 @@ class _PunchOptionTileState extends State<_PunchOptionTile> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                widget.isEnabled
-                    ? Icons.check_box
-                    : Icons.check_box_outline_blank,
-                size: 16,
+                widget.isEnabled ? BI.checkBox : BI.checkBoxBlank,
+                size: BT.iconMd,
                 color: widget.isEnabled ? widget.accentColor : null,
               ),
               const SizedBox(width: 8),
@@ -331,8 +341,8 @@ class _PunchOptionTileState extends State<_PunchOptionTile> {
                 widget.label,
                 style: TextStyle(
                   color: widget.isEnabled ? widget.accentColor : null,
-                  fontWeight: widget.isEnabled ? FontWeight.w600 : null,
-                  fontSize: 13,
+                  fontWeight: widget.isEnabled ? BT.weightSemiBold : null,
+                  fontSize: BT.fontBody,
                 ),
               ),
               const SizedBox(width: 16),

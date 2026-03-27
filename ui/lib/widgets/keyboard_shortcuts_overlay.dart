@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 
 /// Modal overlay displaying all keyboard shortcuts organized by category
 class KeyboardShortcutsOverlay extends StatelessWidget {
@@ -42,23 +44,19 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.keyboard,
-                    color: Color(0xFF00BCD4),
-                    size: 24,
-                  ),
+                  Icon(BI.keyboard, color: const Color(0xFF00BCD4), size: 24),
                   const SizedBox(width: 12),
                   const Text(
                     'Keyboard Shortcuts',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                    icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close (Esc)',
                   ),
@@ -177,7 +175,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
           style: const TextStyle(
             color: Color(0xFF00BCD4),
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: BT.weightSemiBold,
             letterSpacing: 0.5,
           ),
         ),
@@ -196,7 +194,10 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
           Expanded(
             child: Text(
               shortcut.description,
-              style: const TextStyle(color: Color(0xFFE0E0E0), fontSize: 13),
+              style: const TextStyle(
+                color: Color(0xFFE0E0E0),
+                fontSize: BT.fontBody,
+              ),
             ),
           ),
         ],
@@ -228,7 +229,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
           fontSize: 12,
           fontFamily: 'SF Mono',
           fontFamilyFallback: ['Menlo', 'Consolas', 'monospace'],
-          fontWeight: FontWeight.w500,
+          fontWeight: BT.weightMedium,
         ),
       ),
     );

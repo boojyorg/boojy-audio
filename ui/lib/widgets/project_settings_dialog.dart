@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import '../models/project_metadata.dart';
 import '../models/project_version.dart';
 import '../models/version_type.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 
 /// Result type for project settings dialog
 typedef ProjectSettingsResult = ({
@@ -196,12 +198,12 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                         style: TextStyle(
                           color: context.colors.textPrimary,
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: BT.weightSemiBold,
                         ),
                       ),
                       IconButton(
                         icon: Icon(
-                          Icons.close,
+                          BI.close,
                           color: context.colors.textSecondary,
                           size: 20,
                         ),
@@ -248,9 +250,9 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                         ? Colors.black
                                         : context.colors.textSecondary,
                                     fontWeight: isSelected
-                                        ? FontWeight.w600
+                                        ? BT.weightSemiBold
                                         : FontWeight.normal,
-                                    fontSize: 13,
+                                    fontSize: BT.fontBody,
                                   ),
                                 ),
                               ),
@@ -421,15 +423,12 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                     'Project Settings',
                     style: TextStyle(
                       color: context.colors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                      fontSize: BT.fontHeading,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: context.colors.textSecondary,
-                    ),
+                    icon: Icon(BI.close, color: context.colors.textSecondary),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
@@ -482,7 +481,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                 widget.metadata.formattedCreatedDate,
                                 style: TextStyle(
                                   color: context.colors.textMuted,
-                                  fontSize: 13,
+                                  fontSize: BT.fontBody,
                                 ),
                               ),
                             ],
@@ -504,7 +503,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                 widget.metadata.formattedLastModified,
                                 style: TextStyle(
                                   color: context.colors.textMuted,
-                                  fontSize: 13,
+                                  fontSize: BT.fontBody,
                                 ),
                               ),
                             ],
@@ -825,7 +824,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                   style: TextStyle(
                                     color: context.colors.textPrimary,
                                     fontWeight: isCurrent
-                                        ? FontWeight.w600
+                                        ? BT.weightSemiBold
                                         : FontWeight.normal,
                                   ),
                                 ),
@@ -847,7 +846,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                                       style: TextStyle(
                                         color: context.colors.accent,
                                         fontSize: 10,
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: BT.weightMedium,
                                       ),
                                     ),
                                   ),
@@ -875,7 +874,10 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
               padding: const EdgeInsets.all(24),
               child: Text(
                 'No versions saved yet',
-                style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: BT.fontBody,
+                ),
               ),
             ),
 
@@ -891,11 +893,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                 Expanded(
                   child: TextButton.icon(
                     onPressed: _createNewVersion,
-                    icon: Icon(
-                      Icons.add,
-                      size: 18,
-                      color: context.colors.accent,
-                    ),
+                    icon: Icon(BI.add, size: 18, color: context.colors.accent),
                     label: Text(
                       'New Version',
                       style: TextStyle(color: context.colors.accent),
@@ -911,7 +909,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
                   child: TextButton.icon(
                     onPressed: canRestore ? _restoreSelectedVersion : null,
                     icon: Icon(
-                      Icons.restore,
+                      BI.history,
                       size: 18,
                       color: canRestore
                           ? context.colors.textPrimary
@@ -947,7 +945,7 @@ class _ProjectSettingsDialogState extends State<ProjectSettingsDialog> {
           style: TextStyle(
             color: context.colors.textSecondary,
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: BT.weightSemiBold,
             letterSpacing: 0.5,
           ),
         ),

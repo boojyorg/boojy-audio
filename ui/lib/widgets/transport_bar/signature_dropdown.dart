@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Time signature dropdown with optional "Signature" label (matches piano roll style)
 class SignatureDropdown extends StatefulWidget {
@@ -44,19 +46,15 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
             SizedBox(
               width: 18,
               child: isSelected
-                  ? Icon(
-                      Icons.radio_button_checked,
-                      size: 16,
-                      color: accentColor,
-                    )
-                  : const Icon(Icons.radio_button_unchecked, size: 16),
+                  ? Icon(BI.radioChecked, size: 16, color: accentColor)
+                  : Icon(BI.circle, size: 16),
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
                 color: isSelected ? accentColor : null,
-                fontWeight: isSelected ? FontWeight.w600 : null,
+                fontWeight: isSelected ? BT.weightSemiBold : null,
               ),
             ),
           ],
@@ -78,8 +76,8 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
           child: Text(
             'SIMPLE',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.0,
             ),
           ),
@@ -95,8 +93,8 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
           child: Text(
             'COMPOUND',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.0,
             ),
           ),
@@ -112,8 +110,8 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
           child: Text(
             'ODD',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.0,
             ),
           ),
@@ -160,12 +158,7 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
                 ),
                 child: Text(
                   '${widget.beatsPerBar}/${widget.beatUnit}',
-                  style: TextStyle(
-                    color: context.colors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
-                  ),
+                  style: BT.display(context.colors.textPrimary),
                 ),
               ),
             ],

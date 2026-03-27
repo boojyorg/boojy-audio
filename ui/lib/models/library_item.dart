@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
 
 /// Type of library item - determines drag behavior
 enum LibraryItemType {
@@ -25,16 +26,16 @@ class LibraryItem {
   final IconData icon;
   final bool isPlaceholder; // If true, shows [WIP] suffix
 
-  const LibraryItem({
+  LibraryItem({
     required this.id,
     required this.name,
     required this.type,
     this.path,
     this.category,
     this.parentId,
-    this.icon = Icons.music_note,
+    IconData? icon,
     this.isPlaceholder = false,
-  });
+  }) : icon = icon ?? BI.musicNote;
 
   /// Display name with [WIP] suffix if placeholder
   String get displayName => isPlaceholder ? '$name [WIP]' : name;
@@ -63,15 +64,15 @@ class PresetItem extends LibraryItem {
   final String instrumentId; // Which instrument this preset is for
   final Map<String, dynamic>? presetData; // Preset parameters
 
-  const PresetItem({
+  PresetItem({
     required super.id,
     required super.name,
     required this.instrumentId,
     super.category,
-    super.icon = Icons.queue_music,
+    IconData? icon,
     super.isPlaceholder = false,
     this.presetData,
-  }) : super(type: LibraryItemType.preset);
+  }) : super(type: LibraryItemType.preset, icon: icon ?? BI.queue);
 }
 
 /// Sample item (Samples category) - audio files
@@ -79,15 +80,19 @@ class SampleItem extends LibraryItem {
   final String filePath;
   final Duration? duration;
 
-  const SampleItem({
+  SampleItem({
     required super.id,
     required super.name,
     required this.filePath,
     super.category,
-    super.icon = Icons.audio_file,
+    IconData? icon,
     super.isPlaceholder = false,
     this.duration,
-  }) : super(type: LibraryItemType.sample, path: filePath);
+  }) : super(
+         type: LibraryItemType.sample,
+         path: filePath,
+         icon: icon ?? BI.audioFile,
+       );
 }
 
 /// Folder item for user directories
@@ -95,13 +100,17 @@ class FolderItem extends LibraryItem {
   final String folderPath;
   final List<LibraryItem> children;
 
-  const FolderItem({
+  FolderItem({
     required super.id,
     required super.name,
     required this.folderPath,
     this.children = const [],
-    super.icon = Icons.folder,
-  }) : super(type: LibraryItemType.folder, path: folderPath);
+    IconData? icon,
+  }) : super(
+         type: LibraryItemType.folder,
+         path: folderPath,
+         icon: icon ?? BI.folder,
+       );
 
   /// Create copy with updated children
   FolderItem copyWithChildren(List<LibraryItem> newChildren) {
@@ -119,36 +128,44 @@ class FolderItem extends LibraryItem {
 class AudioFileItem extends LibraryItem {
   final String filePath;
 
-  const AudioFileItem({
+  AudioFileItem({
     required super.id,
     required super.name,
     required this.filePath,
-    super.icon = Icons.audio_file,
-  }) : super(type: LibraryItemType.audioFile, path: filePath);
+    IconData? icon,
+  }) : super(
+         type: LibraryItemType.audioFile,
+         path: filePath,
+         icon: icon ?? BI.audioFile,
+       );
 }
 
 /// MIDI file from user folder
 class MidiFileItem extends LibraryItem {
   final String filePath;
 
-  const MidiFileItem({
+  MidiFileItem({
     required super.id,
     required super.name,
     required this.filePath,
-    super.icon = Icons.piano,
-  }) : super(type: LibraryItemType.midiFile, path: filePath);
+    IconData? icon,
+  }) : super(
+         type: LibraryItemType.midiFile,
+         path: filePath,
+         icon: icon ?? BI.piano,
+       );
 }
 
 /// Built-in effect item
 class EffectItem extends LibraryItem {
   final String effectType;
 
-  const EffectItem({
+  EffectItem({
     required super.id,
     required super.name,
     required this.effectType,
-    super.icon = Icons.tune,
-  }) : super(type: LibraryItemType.effect);
+    IconData? icon,
+  }) : super(type: LibraryItemType.effect, icon: icon ?? BI.equalizer);
 }
 
 /// Library category for organizing items

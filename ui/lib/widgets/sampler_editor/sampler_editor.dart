@@ -2,7 +2,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../audio_engine.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
 import '../shared/editors/nav_bar_with_zoom.dart';
 import 'sampler_controls_bar.dart';
@@ -420,14 +422,14 @@ class _SamplerEditorState extends State<SamplerEditor> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.music_note, size: 64, color: colors.textMuted),
+            Icon(BI.musicNote, size: 64, color: colors.textMuted),
             const SizedBox(height: 16),
             Text(
               'Sampler',
               style: TextStyle(
                 color: colors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: BT.fontHeading,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),

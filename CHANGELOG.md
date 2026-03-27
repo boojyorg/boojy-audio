@@ -2,7 +2,23 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
-## Unreleased
+## v0.1.7 — 2026-03-27
+
+### Improvements
+
+- **Phosphor icon set**: Replaced 120 Material Icons with Phosphor Icons for consistent 1.5px stroke weight. Centralized via `BoojyIcons` (`BI`) class. Standardized to 3 sizes: 12/14/18px via `BT.iconSm`/`BT.iconMd`/`BT.iconLg`
+- **Typography system**: 4 TextStyle factory methods (`BT.caption`/`BT.label`/`BT.body`/`BT.display`). Tabular figures added to all 18 numeric displays. All font sizes and weights now reference design tokens
+- **Animation constants enforcement**: Replaced 28+ hardcoded animation durations with `AnimationConstants` references. Added `quickDuration` (100ms) and `mediumDuration` (300ms)
+- **Fader glow micro-interaction**: Accent-colored glow on the capsule fader thumb during drag
+- **Button press depth**: 1px downward shift on BoojyButton press for tactile feedback
+- **Playhead glow**: Subtle blue glow on the playhead line during playback
+- **Icon A/B toggle**: Cmd+Shift+K toggles between Phosphor and Material icon sets at runtime (Material default)
+- **Empty timeline prompt**: Centered "Drag an instrument" message with + MIDI Track / + Audio Track buttons when project has no user tracks
+- **Start screen — first-time welcome**: "Welcome to Boojy Audio" message when no recent projects exist
+- **Start screen — accent New Project button**: Primary action button uses accent colour
+- **Project card colour bars**: Each recent project card has a unique colour bar derived from project name hash, plus track count and BPM metadata
+- **Editor panel empty states**: Simplified to text-only "Select a track to start editing" (no large icons)
+- **Library favourites hint**: Empty favourites shows "Right-click any item to add it here"
 
 ### Features
 

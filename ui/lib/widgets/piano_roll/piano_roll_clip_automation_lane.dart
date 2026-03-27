@@ -4,7 +4,9 @@ import '../../models/clip_automation_data.dart';
 import '../../models/track_automation_data.dart';
 import '../../models/tool_mode.dart';
 import '../../services/tool_mode_resolver.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../../utils/grid_utils.dart';
 import '../painters/clip_automation_painter.dart';
 import '../../utils/logger.dart';
@@ -244,7 +246,7 @@ class _PianoRollClipAutomationLaneState
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 10,
-              fontWeight: FontWeight.w500,
+              fontWeight: BT.weightMedium,
             ),
           ),
           const SizedBox(height: 8),
@@ -264,14 +266,13 @@ class _PianoRollClipAutomationLaneState
                   children: [
                     Text(
                       _getShortParameterName(widget.lane.parameter),
-                      style: TextStyle(color: colors.textPrimary, fontSize: 9),
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: BT.fontCaption,
+                      ),
                     ),
                     const SizedBox(width: 2),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      size: 12,
-                      color: colors.textMuted,
-                    ),
+                    Icon(BI.caretDown, size: 12, color: colors.textMuted),
                   ],
                 ),
               ),
@@ -283,8 +284,8 @@ class _PianoRollClipAutomationLaneState
             _formatCurrentValue(),
             style: TextStyle(
               color: colors.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightMedium,
             ),
           ),
         ],
@@ -350,10 +351,10 @@ class _PianoRollClipAutomationLaneState
             param.displayName,
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: param == widget.lane.parameter
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         );

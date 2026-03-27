@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import 'mini_knob.dart';
 
 /// A split button with a knob popup for value adjustment.
@@ -192,7 +194,7 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
                     ),
                   ),
                   child: Icon(
-                    Icons.arrow_drop_down,
+                    BI.caretDown,
                     size: 15,
                     color: colors.textPrimary,
                   ),
@@ -310,7 +312,7 @@ class _KnobPopupState extends State<_KnobPopup> {
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontSize: 10,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: BT.weightMedium,
                           ),
                         ),
                       ),

@@ -6,9 +6,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
 import '../services/updater_service.dart';
+import '../theme/animation_constants.dart';
 import '../services/user_settings.dart';
 import '../theme/app_colors.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
 import '../utils/logger.dart';
 
@@ -107,7 +110,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     if (key?.currentContext != null) {
       Scrollable.ensureVisible(
         key!.currentContext!,
-        duration: const Duration(milliseconds: 300),
+        duration: AnimationConstants.mediumDuration,
         curve: Curves.easeInOut,
       );
     }
@@ -115,13 +118,12 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
 
   Widget _buildSidebar() {
     final sections = [
-      ('appearance', 'Appearance', Icons.palette_outlined),
-      ('audio', 'Audio', Icons.volume_up_outlined),
-      ('midi', 'MIDI', Icons.piano_outlined),
-      ('saving', 'Saving', Icons.save_outlined),
-      ('projects', 'Projects', Icons.folder_outlined),
-      if (UpdaterService.isSupported)
-        ('updates', 'Updates', Icons.system_update_outlined),
+      ('appearance', 'Appearance', BI.colorLens),
+      ('audio', 'Audio', BI.speakerHigh),
+      ('midi', 'MIDI', BI.piano),
+      ('saving', 'Saving', BI.save),
+      ('projects', 'Projects', BI.folder),
+      if (UpdaterService.isSupported) ('updates', 'Updates', BI.download),
     ];
 
     return SizedBox(
@@ -162,7 +164,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   'v$_appVersion',
                   style: TextStyle(
                     color: context.colors.textMuted,
-                    fontSize: 11,
+                    fontSize: BT.fontLabel,
                   ),
                 ),
               ],
@@ -209,7 +211,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 color: isSelected
                     ? context.colors.accent
                     : context.colors.textPrimary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
                 fontSize: 14,
               ),
             ),
@@ -337,12 +339,12 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           'Settings',
           style: TextStyle(
             color: context.colors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+            fontSize: BT.fontHeading,
+            fontWeight: BT.weightSemiBold,
           ),
         ),
         IconButton(
-          icon: Icon(Icons.close, color: context.colors.textSecondary),
+          icon: Icon(BI.close, color: context.colors.textSecondary),
           onPressed: () => Navigator.of(context).pop(),
           tooltip: 'Close',
         ),
@@ -369,8 +371,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           title.toUpperCase(),
           style: TextStyle(
             color: context.colors.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            fontSize: BT.fontLabel,
+            fontWeight: BT.weightSemiBold,
             letterSpacing: 1.5,
           ),
         ),
@@ -448,7 +450,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         // Driver description
         Text(
           _getDriverDescription(_selectedDriver),
-          style: TextStyle(color: context.colors.textMuted, fontSize: 11),
+          style: TextStyle(
+            color: context.colors.textMuted,
+            fontSize: BT.fontLabel,
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -614,7 +619,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
           child: Row(
             children: [
               Icon(
-                _asioGuideExpanded ? Icons.expand_less : Icons.expand_more,
+                _asioGuideExpanded ? BI.expandLess : BI.expandMore,
                 size: 16,
                 color: context.colors.accent,
               ),
@@ -624,7 +629,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 style: TextStyle(
                   color: context.colors.accent,
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
             ],
@@ -663,11 +668,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.settings_input_hdmi,
-                        size: 18,
-                        color: context.colors.accent,
-                      ),
+                      Icon(BI.input, size: 18, color: context.colors.accent),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -678,14 +679,14 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                               style: TextStyle(
                                 color: context.colors.textPrimary,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: BT.weightSemiBold,
                               ),
                             ),
                             Text(
                               '(Focusrite, Universal Audio, PreSonus, etc.)',
                               style: TextStyle(
                                 color: context.colors.textMuted,
-                                fontSize: 11,
+                                fontSize: BT.fontLabel,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -693,7 +694,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                               'Install the ASIO driver from manufacturer website',
                               style: TextStyle(
                                 color: context.colors.textSecondary,
-                                fontSize: 11,
+                                fontSize: BT.fontLabel,
                               ),
                             ),
                           ],
@@ -713,11 +714,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.computer,
-                        size: 18,
-                        color: context.colors.accent,
-                      ),
+                      Icon(BI.monitor, size: 18, color: context.colors.accent),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -728,7 +725,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                               style: TextStyle(
                                 color: context.colors.textPrimary,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: BT.weightSemiBold,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -736,7 +733,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                               'Download ASIO4ALL (free): asio4all.org',
                               style: TextStyle(
                                 color: context.colors.textSecondary,
-                                fontSize: 11,
+                                fontSize: BT.fontLabel,
                               ),
                             ),
                           ],
@@ -750,7 +747,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   'After installing, restart Boojy Audio to see new drivers.',
                   style: TextStyle(
                     color: context.colors.textMuted,
-                    fontSize: 11,
+                    fontSize: BT.fontLabel,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -1035,14 +1032,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   ),
                   if (showWarning) ...[
                     const SizedBox(width: 8),
-                    const Tooltip(
+                    Tooltip(
                       message:
                           'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
-                      child: Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.amber,
-                        size: 20,
-                      ),
+                      child: Icon(BI.warning, color: Colors.amber, size: 20),
                     ),
                   ],
                 ],
@@ -1266,7 +1259,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   'Current version',
                   style: TextStyle(
                     color: context.colors.textSecondary,
-                    fontSize: 13,
+                    fontSize: BT.fontBody,
                   ),
                 ),
               ),
@@ -1274,7 +1267,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 _appVersion.isNotEmpty ? _appVersion : '...',
                 style: TextStyle(
                   color: context.colors.textPrimary,
-                  fontSize: 13,
+                  fontSize: BT.fontBody,
                 ),
               ),
             ],
@@ -1293,7 +1286,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   'Last checked',
                   style: TextStyle(
                     color: context.colors.textSecondary,
-                    fontSize: 13,
+                    fontSize: BT.fontBody,
                   ),
                 ),
               ),
@@ -1301,7 +1294,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                 _formatLastCheckDate(_lastUpdateCheck),
                 style: TextStyle(
                   color: context.colors.textPrimary,
-                  fontSize: 13,
+                  fontSize: BT.fontBody,
                 ),
               ),
             ],
@@ -1324,7 +1317,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                   });
                 }
               },
-              icon: Icon(Icons.refresh, size: 16, color: context.colors.accent),
+              icon: Icon(BI.refresh, size: 16, color: context.colors.accent),
               label: Text(
                 'Check for Updates Now',
                 style: TextStyle(color: context.colors.accent, fontSize: 14),

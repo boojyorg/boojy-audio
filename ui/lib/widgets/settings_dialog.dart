@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../services/user_settings.dart';
 import '../services/auto_save_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
 
 /// Settings dialog for configuring user preferences
@@ -99,22 +101,19 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.settings, color: context.colors.accent, size: 24),
+                  Icon(BI.settings, color: context.colors.accent, size: 24),
                   const SizedBox(width: 12),
                   Text(
                     'Settings',
                     style: TextStyle(
                       color: context.colors.textPrimary,
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: context.colors.textSecondary,
-                    ),
+                    icon: Icon(BI.close, color: context.colors.textSecondary),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close (Esc)',
                   ),
@@ -190,7 +189,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       style: TextStyle(
         color: context.colors.accent,
         fontSize: 14,
-        fontWeight: FontWeight.w600,
+        fontWeight: BT.weightSemiBold,
         letterSpacing: 0.5,
       ),
     );
@@ -391,14 +390,14 @@ class RecoveryDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.restore, color: context.colors.warning, size: 24),
+                  Icon(BI.history, color: context.colors.warning, size: 24),
                   const SizedBox(width: 12),
                   Text(
                     'Recover Unsaved Work?',
                     style: TextStyle(
                       color: context.colors.textPrimary,
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ],
@@ -429,7 +428,7 @@ class RecoveryDialog extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.access_time,
+                          BI.metronome,
                           color: context.colors.textSecondary,
                           size: 16,
                         ),
@@ -438,7 +437,7 @@ class RecoveryDialog extends StatelessWidget {
                           'Saved at: $_formattedDate',
                           style: TextStyle(
                             color: context.colors.textPrimary,
-                            fontSize: 13,
+                            fontSize: BT.fontBody,
                           ),
                         ),
                       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/tokens.dart';
 
 /// Custom painter for sampler waveform display.
 /// Matches the Audio Editor's WaveformEditorPainter visual style:
@@ -424,7 +425,7 @@ class SamplerRulerPainter extends CustomPainter {
                   ? const Color(0xFFFFFFFF)
                   : const Color(0xFFE0E0E0),
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           );
           textPainter.layout();
@@ -460,7 +461,7 @@ class SamplerRulerPainter extends CustomPainter {
                       ? const Color(0xFFFFFFFF)
                       : const Color(0xFFE0E0E0),
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: BT.weightSemiBold,
                 ),
               );
               textPainter.layout();
@@ -475,7 +476,7 @@ class SamplerRulerPainter extends CustomPainter {
                   color: isOverLoop
                       ? const Color(0xFFFFFFFF)
                       : const Color(0xFF808080),
-                  fontSize: 9,
+                  fontSize: BT.fontCaption,
                 ),
               );
               textPainter.layout();
@@ -519,7 +520,7 @@ class SamplerRulerPainter extends CustomPainter {
                 color: isOverLoop
                     ? const Color(0xFFFFFFFF)
                     : const Color(0xFF808080),
-                fontSize: 9,
+                fontSize: BT.fontCaption,
               ),
             );
             textPainter.layout();

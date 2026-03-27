@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Status pill showing engine state with color-coded background.
 ///
@@ -51,12 +53,12 @@ class StatusPill extends StatelessWidget {
     if (isReady) {
       bgColor = colors.success.withValues(alpha: 0.2);
       iconColor = colors.success;
-      icon = Icons.check;
+      icon = BI.check;
       label = 'Ready';
     } else {
       bgColor = colors.surface;
       iconColor = colors.textMuted;
-      icon = Icons.hourglass_empty;
+      icon = BI.hourglass;
       label = 'Init...';
     }
 
@@ -72,14 +74,14 @@ class StatusPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: iconColor),
+            Icon(icon, size: BT.iconMd, color: iconColor),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 color: isReady ? colors.textPrimary : colors.textSecondary,
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: BT.weightMedium,
               ),
             ),
           ],

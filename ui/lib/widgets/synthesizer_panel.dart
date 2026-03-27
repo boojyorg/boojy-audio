@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
 import '../models/instrument_data.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import 'instrument_browser.dart';
 
 /// Synthesizer instrument panel widget
@@ -101,11 +103,11 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
         children: [
           // Make instrument name draggable (instant drag)
           Draggable<Instrument>(
-            data: const Instrument(
+            data: Instrument(
               id: 'synthesizer',
               name: 'Synthesizer',
               category: 'Synthesizer',
-              icon: Icons.graphic_eq,
+              icon: BI.equalizer,
             ),
             feedback: Material(
               elevation: 8,
@@ -123,7 +125,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.graphic_eq,
+                      BI.equalizer,
                       color: context.colors.textPrimary,
                       size: 20,
                     ),
@@ -133,7 +135,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
                       style: TextStyle(
                         color: context.colors.textPrimary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                   ],
@@ -145,18 +147,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.piano,
-                    color: context.colors.textSecondary,
-                    size: 20,
-                  ),
+                  Icon(BI.piano, color: context.colors.textSecondary, size: 20),
                   const SizedBox(width: 12),
                   Text(
                     'SYNTHESIZER',
                     style: TextStyle(
                       color: context.colors.textSecondary,
                       fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: BT.weightSemiBold,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -168,18 +166,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.piano,
-                    color: context.colors.textSecondary,
-                    size: 20,
-                  ),
+                  Icon(BI.piano, color: context.colors.textSecondary, size: 20),
                   const SizedBox(width: 12),
                   Text(
                     'SYNTHESIZER',
                     style: TextStyle(
                       color: context.colors.textSecondary,
                       fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: BT.weightSemiBold,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -189,7 +183,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: Icon(BI.close),
             color: context.colors.textSecondary,
             iconSize: 20,
             onPressed: widget.onClose,
@@ -217,14 +211,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header with waveform preview
           Row(
             children: [
-              Icon(Icons.graphic_eq, color: context.colors.success, size: 18),
+              Icon(BI.equalizer, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'OSCILLATOR',
                 style: TextStyle(
                   color: context.colors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: BT.weightSemiBold,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -283,14 +277,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header
           Row(
             children: [
-              Icon(Icons.filter_alt, color: context.colors.success, size: 18),
+              Icon(BI.sliders, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'FILTER (LOWPASS)',
                 style: TextStyle(
                   color: context.colors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: BT.weightSemiBold,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -339,14 +333,14 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
           // Section header
           Row(
             children: [
-              Icon(Icons.show_chart, color: context.colors.success, size: 18),
+              Icon(BI.chartLine, color: context.colors.success, size: 18),
               const SizedBox(width: 8),
               Text(
                 'ENVELOPE (ADSR)',
                 style: TextStyle(
                   color: context.colors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: BT.weightSemiBold,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -458,7 +452,10 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: context.colors.standard,
-            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: BT.fontBody,
+            ),
             items: options.map((String option) {
               return DropdownMenuItem<String>(
                 value: option,
@@ -503,7 +500,7 @@ class _SynthesizerPanelState extends State<SynthesizerPanel> {
               style: TextStyle(
                 color: context.colors.textSecondary,
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
           ],

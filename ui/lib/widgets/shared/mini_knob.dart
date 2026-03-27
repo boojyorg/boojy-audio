@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A compact 24px knob widget for toolbar use.
 /// Drag vertically to change value, double-tap to reset.
@@ -115,7 +116,10 @@ class _MiniKnobState extends State<MiniKnob> {
           const SizedBox(height: 2),
           Text(
             widget.label!,
-            style: TextStyle(color: context.colors.textSecondary, fontSize: 9),
+            style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: BT.fontCaption,
+            ),
           ),
         ],
       ],
@@ -208,7 +212,7 @@ class _MiniKnobPainter extends CustomPainter {
           style: TextStyle(
             color: const Color(0xFFE0E0E0),
             fontSize: size.width * 0.28, // Bigger text
-            fontWeight: FontWeight.w500,
+            fontWeight: BT.weightMedium,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -287,7 +291,7 @@ class KnobWithApply extends StatelessWidget {
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
             ),

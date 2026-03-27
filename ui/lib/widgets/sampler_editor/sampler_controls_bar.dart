@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/audio_clip_edit_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../audio_editor/draggable_pitch_display.dart';
 import '../piano_roll/loop_time_display.dart';
 import '../shared/editors/bpm_display.dart';
@@ -235,7 +237,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.loop,
+                  BI.loop,
                   size: 13,
                   color: widget.loopEnabled
                       ? colors.elevated
@@ -270,7 +272,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Attack
-        Text('Atk', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Atk',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         SizedBox(
           width: 52,
@@ -287,15 +292,19 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             _formatMs(widget.attackMs),
             style: TextStyle(
               color: colors.textPrimary,
-              fontSize: 9,
-              fontFamily: 'monospace',
+              fontSize: BT.fontCaption,
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
         const SizedBox(width: 8),
 
         // Release
-        Text('Rel', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Rel',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         SizedBox(
           width: 52,
@@ -312,8 +321,9 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             _formatMs(widget.releaseMs),
             style: TextStyle(
               color: colors.textPrimary,
-              fontSize: 9,
-              fontFamily: 'monospace',
+              fontSize: BT.fontCaption,
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
@@ -331,7 +341,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Root', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Root',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         GestureDetector(
           key: _rootNoteButtonKey,
@@ -353,15 +366,12 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 10,
-                      fontFamily: 'monospace',
+                      fontFamily: BT.fontFamilyMono,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                   const SizedBox(width: 2),
-                  Icon(
-                    Icons.arrow_drop_down,
-                    size: 14,
-                    color: colors.textMuted,
-                  ),
+                  Icon(BI.caretDown, size: 14, color: colors.textMuted),
                 ],
               ),
             ),
@@ -386,7 +396,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Start
-        Text('Start', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Start',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -408,7 +421,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
         const SizedBox(width: 8),
 
         // Length
-        Text('Length', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Length',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -433,7 +449,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
         const SizedBox(width: 8),
 
         // Signature
-        Text('Sig', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Sig',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         _buildSignatureDropdown(context),
       ],
@@ -463,11 +482,12 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 10,
-                  fontFamily: 'monospace',
+                  fontFamily: BT.fontFamilyMono,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 2),
-              Icon(Icons.arrow_drop_down, size: 14, color: colors.textMuted),
+              Icon(BI.caretDown, size: 14, color: colors.textMuted),
             ],
           ),
         ),
@@ -500,14 +520,16 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
               SizedBox(
                 width: 18,
                 child: isSelected
-                    ? Icon(Icons.check, size: 14, color: colors.accent)
+                    ? Icon(BI.check, size: 14, color: colors.accent)
                     : null,
               ),
               Text(
                 '${sig.$1}/${sig.$2}',
                 style: TextStyle(
                   color: isSelected ? colors.accent : colors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected
+                      ? BT.weightSemiBold
+                      : FontWeight.normal,
                 ),
               ),
             ],
@@ -537,7 +559,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Warp label
-        Text('Warp', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Warp',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         // Split button
         DecoratedBox(
@@ -574,7 +599,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sync, size: 13, color: textColor),
+                        Icon(BI.sync, size: 13, color: textColor),
                         const SizedBox(width: 4),
                         Text(
                           modeLabel,
@@ -613,11 +638,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                         bottomRight: Radius.circular(2),
                       ),
                     ),
-                    child: Icon(
-                      Icons.arrow_drop_down,
-                      size: 14,
-                      color: textColor,
-                    ),
+                    child: Icon(BI.caretDown, size: 14, color: textColor),
                   ),
                 ),
               ),
@@ -708,7 +729,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Pitch', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Pitch',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -739,7 +763,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Volume',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           width: 52,
@@ -755,9 +782,10 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                 : '${widget.volumeDb.toStringAsFixed(1)} dB',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: BT.fontCaption,
               color: colors.textPrimary,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
@@ -801,7 +829,7 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_open, size: 13, color: colors.textPrimary),
+                Icon(BI.folderOpen, size: 13, color: colors.textPrimary),
                 const SizedBox(width: 4),
                 Text(
                   'Load',
@@ -886,8 +914,8 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
                                       : colors.textPrimary,
                                   fontSize: 12,
                                   fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                                      ? BT.weightSemiBold
+                                      : BT.weightRegular,
                                 ),
                               ),
                             ),
@@ -1063,7 +1091,7 @@ class _WarpModeMenuOverlay extends StatelessWidget {
             SizedBox(
               width: 18,
               child: isSelected
-                  ? Icon(Icons.check, size: 14, color: colors.accent)
+                  ? Icon(BI.check, size: 14, color: colors.accent)
                   : null,
             ),
             const SizedBox(width: 4),
@@ -1074,16 +1102,19 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: BT.fontLabel,
                     color: isSelected ? colors.accent : colors.textPrimary,
                     fontWeight: isSelected
-                        ? FontWeight.w600
+                        ? BT.weightSemiBold
                         : FontWeight.normal,
                   ),
                 ),
                 Text(
                   description,
-                  style: TextStyle(fontSize: 9, color: colors.textMuted),
+                  style: TextStyle(
+                    fontSize: BT.fontCaption,
+                    color: colors.textMuted,
+                  ),
                 ),
               ],
             ),

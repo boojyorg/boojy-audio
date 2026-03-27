@@ -10,7 +10,9 @@ import '../models/track_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import 'platform_drop_target.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
 import '../utils/logger.dart';
 import 'mixer/mixer_models.dart';
@@ -540,7 +542,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.add_circle_outline,
+                              BI.addCircle,
                               color: context.colors.textPrimary,
                               size: 20,
                             ),
@@ -550,7 +552,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                               style: TextStyle(
                                 color: context.colors.textPrimary,
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: BT.weightSemiBold,
                               ),
                             ),
                           ],
@@ -581,7 +583,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           if (widget.config.isEngineReady)
             PopupMenuButton<String>(
               icon: Icon(
-                Icons.add_circle_outline,
+                BI.addCircle,
                 color: context.colors.textPrimary,
                 size: 18,
               ),
@@ -604,7 +606,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     value: 'audio',
                     child: Row(
                       children: [
-                        Icon(Icons.audiotrack, size: 18, color: colors.darkest),
+                        Icon(BI.musicNote, size: 18, color: colors.darkest),
                         const SizedBox(width: 12),
                         const Text(
                           'Audio Track',
@@ -617,7 +619,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                     value: 'midi',
                     child: Row(
                       children: [
-                        Icon(Icons.piano, size: 18, color: colors.darkest),
+                        Icon(BI.piano, size: 18, color: colors.darkest),
                         const SizedBox(width: 12),
                         const Text(
                           'MIDI Track',
@@ -633,7 +635,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             Tooltip(
               message: 'Waiting for audio engine...',
               child: Icon(
-                Icons.add_circle_outline,
+                BI.addCircle,
                 color: context.colors.textMuted,
                 size: 18,
               ),
@@ -649,11 +651,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.audio_file_outlined,
-            size: 48,
-            color: context.colors.textMuted,
-          ),
+          Icon(BI.audioFile, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
             'No tracks yet',
@@ -662,7 +660,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           const SizedBox(height: 8),
           Text(
             'Create a track to get started',
-            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontBody,
+            ),
           ),
         ],
       ),

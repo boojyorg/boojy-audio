@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import '../theme/boojy_icons.dart';
 import '../constants/ui_constants.dart';
 import '../models/midi_note_data.dart';
 import '../models/midi_cc_data.dart';
@@ -9,6 +10,7 @@ import '../models/tool_mode.dart';
 import '../audio_engine.dart';
 import '../services/tool_mode_resolver.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import 'painters/painters.dart';
 import 'piano_roll/piano_roll_controls_bar.dart';
 import 'piano_roll/piano_roll_cc_lane.dart';
@@ -1096,7 +1098,7 @@ class _PianoRollState extends State<PianoRoll>
                     style: TextStyle(
                       color: context.colors.textMuted,
                       fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                 ),
@@ -1214,8 +1216,8 @@ class _PianoRollState extends State<PianoRoll>
                         : context.colors.textPrimary),
               fontSize: isC ? 9 : 8, // C notes slightly larger
               fontWeight: isC || isHighlighted
-                  ? FontWeight.w600
-                  : FontWeight.w400,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         ),
@@ -1380,7 +1382,7 @@ class _PianoRollState extends State<PianoRoll>
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Icon(
-                  auditionEnabled ? Icons.volume_up : Icons.volume_off,
+                  auditionEnabled ? BI.speakerHigh : BI.speakerNone,
                   size: 14,
                   color: auditionEnabled ? colors.elevated : colors.textMuted,
                 ),

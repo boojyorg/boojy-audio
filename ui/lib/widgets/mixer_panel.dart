@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../audio_engine.dart';
 import '../models/track_data.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../utils/logger.dart';
 
 /// Mixer panel widget - slide-in from right
@@ -122,11 +124,7 @@ class _MixerPanelState extends State<MixerPanel> {
           value: 'audio',
           child: Row(
             children: [
-              Icon(
-                Icons.audiotrack,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.musicNote, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 12),
               const Text('Audio Track', style: TextStyle(fontSize: 14)),
             ],
@@ -136,7 +134,7 @@ class _MixerPanelState extends State<MixerPanel> {
           value: 'midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18, color: context.colors.textSecondary),
+              Icon(BI.piano, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 12),
               const Text('MIDI Track', style: TextStyle(fontSize: 14)),
             ],
@@ -191,14 +189,14 @@ class _MixerPanelState extends State<MixerPanel> {
             style: TextStyle(
               color: context.colors.darkest,
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           // Add track button
           IconButton(
-            icon: const Icon(Icons.add_circle_outline),
+            icon: Icon(BI.addCircle),
             color: context.colors.darkest,
             iconSize: 20,
             onPressed: _showAddTrackMenu,
@@ -206,7 +204,7 @@ class _MixerPanelState extends State<MixerPanel> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: Icon(BI.close),
             color: context.colors.darkest,
             iconSize: 20,
             onPressed: widget.onClose,
@@ -222,11 +220,7 @@ class _MixerPanelState extends State<MixerPanel> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.audio_file_outlined,
-            size: 48,
-            color: context.colors.textMuted,
-          ),
+          Icon(BI.audioFile, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
             'No tracks yet',
@@ -235,7 +229,10 @@ class _MixerPanelState extends State<MixerPanel> {
           const SizedBox(height: 8),
           Text(
             'Create a track to get started',
-            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontBody,
+            ),
           ),
         ],
       ),
@@ -294,7 +291,7 @@ class _MixerPanelState extends State<MixerPanel> {
                   style: TextStyle(
                     color: context.colors.darkest,
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: BT.weightSemiBold,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -384,7 +381,7 @@ class _MixerPanelState extends State<MixerPanel> {
           SizedBox(
             width: 24,
             child: IconButton(
-              icon: const Icon(Icons.close, size: 14),
+              icon: Icon(BI.close, size: 14),
               color: context.colors.surface,
               padding: EdgeInsets.zero,
               onPressed: () => _confirmDeleteTrack(track),
@@ -452,7 +449,7 @@ class _MixerPanelState extends State<MixerPanel> {
                   style: TextStyle(
                     color: context.colors.success,
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: BT.weightSemiBold,
                     letterSpacing: 1.5,
                   ),
                   textAlign: TextAlign.center,
@@ -494,14 +491,14 @@ class _MixerPanelState extends State<MixerPanel> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.security, size: 12, color: context.colors.success),
+                  Icon(BI.lock, size: 12, color: context.colors.success),
                   const SizedBox(width: 4),
                   Text(
                     'LIMITER',
                     style: TextStyle(
                       color: context.colors.success,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                      fontSize: BT.fontCaption,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ],
@@ -616,7 +613,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 minimumSize: const Size(0, 24),
               ),
-              child: const Text('M', style: TextStyle(fontSize: 11)),
+              child: const Text('M', style: TextStyle(fontSize: BT.fontLabel)),
             ),
           ),
           const SizedBox(width: 4),
@@ -640,7 +637,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 minimumSize: const Size(0, 24),
               ),
-              child: const Text('S', style: TextStyle(fontSize: 11)),
+              child: const Text('S', style: TextStyle(fontSize: BT.fontLabel)),
             ),
           ),
           const SizedBox(width: 4),
@@ -666,7 +663,7 @@ class _MixerPanelState extends State<MixerPanel> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 minimumSize: const Size(0, 24),
               ),
-              child: const Text('R', style: TextStyle(fontSize: 11)),
+              child: const Text('R', style: TextStyle(fontSize: BT.fontLabel)),
             ),
           ),
         ],

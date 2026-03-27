@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Dialog asking user to opt-in to crash reporting on first launch
 class CrashReportingDialog extends StatelessWidget {
@@ -27,7 +28,7 @@ class CrashReportingDialog extends StatelessWidget {
         style: TextStyle(
           color: colors.textPrimary,
           fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontWeight: BT.weightSemiBold,
         ),
       ),
       content: SizedBox(
@@ -43,7 +44,10 @@ class CrashReportingDialog extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'This helps me fix bugs faster and improve the app for everyone.',
-              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: BT.fontBody,
+              ),
             ),
             const SizedBox(height: 16),
             Text(

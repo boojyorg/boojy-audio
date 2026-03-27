@@ -4,6 +4,7 @@ import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../services/undo_redo_manager.dart';
 import '../../services/commands/clip_commands.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../context_menus/clip_context_menu.dart';
 import 'timeline_state.dart';
@@ -128,11 +129,7 @@ mixin TimelineContextMenusMixin
           value: 'set_loop_start',
           child: Row(
             children: [
-              Icon(
-                Icons.first_page,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.skipBack, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Set Loop Start Here'),
             ],
@@ -143,7 +140,7 @@ mixin TimelineContextMenusMixin
           child: Row(
             children: [
               Icon(
-                Icons.last_page,
+                BI.skipForward,
                 size: 18,
                 color: context.colors.textSecondary,
               ),
@@ -157,11 +154,7 @@ mixin TimelineContextMenusMixin
           value: 'set_loop_1_bar',
           child: Row(
             children: [
-              Icon(
-                Icons.crop_square,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.selection, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Set 1 Bar Loop Here'),
             ],
@@ -171,11 +164,7 @@ mixin TimelineContextMenusMixin
           value: 'set_loop_4_bars',
           child: Row(
             children: [
-              Icon(
-                Icons.view_module,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.gridOn, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Set 4 Bar Loop Here'),
             ],
@@ -187,11 +176,7 @@ mixin TimelineContextMenusMixin
           enabled: false, // Placeholder for future feature
           child: Row(
             children: [
-              Icon(
-                Icons.bookmark_add,
-                size: 18,
-                color: context.colors.textMuted,
-              ),
+              Icon(BI.bookmark, size: 18, color: context.colors.textMuted),
               const SizedBox(width: 8),
               Text(
                 'Add Marker',
@@ -256,11 +241,7 @@ mixin TimelineContextMenusMixin
             value: 'create_clip',
             child: Row(
               children: [
-                Icon(
-                  Icons.add_box,
-                  size: 18,
-                  color: context.colors.textSecondary,
-                ),
+                Icon(BI.add, size: 18, color: context.colors.textSecondary),
                 const SizedBox(width: 8),
                 const Text('Create MIDI Clip Here'),
                 const Spacer(),
@@ -280,7 +261,7 @@ mixin TimelineContextMenusMixin
           child: Row(
             children: [
               Icon(
-                Icons.paste,
+                BI.paste,
                 size: 18,
                 color: clipboardMidiClip != null
                     ? context.colors.textSecondary
@@ -308,11 +289,7 @@ mixin TimelineContextMenusMixin
           value: 'select_all',
           child: Row(
             children: [
-              Icon(
-                Icons.select_all,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.selectAll, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Select All Clips'),
               const Spacer(),
@@ -369,7 +346,7 @@ mixin TimelineContextMenusMixin
           value: 'midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18, color: context.colors.textSecondary),
+              Icon(BI.piano, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('MIDI Track'),
             ],
@@ -379,11 +356,7 @@ mixin TimelineContextMenusMixin
           value: 'audio',
           child: Row(
             children: [
-              Icon(
-                Icons.audiotrack,
-                size: 18,
-                color: context.colors.textSecondary,
-              ),
+              Icon(BI.musicNote, size: 18, color: context.colors.textSecondary),
               const SizedBox(width: 8),
               const Text('Audio Track'),
             ],

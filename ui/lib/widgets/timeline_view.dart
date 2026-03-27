@@ -8,7 +8,10 @@ import 'dart:math' as math;
 import 'dart:async';
 import '../constants/ui_constants.dart';
 import '../audio_engine.dart';
+import '../theme/animation_constants.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../utils/clip_overlap_handler.dart';
 import '../utils/grid_utils.dart';
 import '../utils/track_colors.dart';
@@ -111,6 +114,13 @@ class TimelineView extends StatefulWidget {
   final ToolMode toolMode;
   final Function(ToolMode)? onToolModeChanged;
 
+  // Playback state (for playhead glow)
+  final bool isPlaying;
+
+  // Empty timeline callbacks (for adding tracks from empty state prompt)
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
+
   // Recording state (for auto-scroll and visual indicators)
   final bool isRecording;
 
@@ -151,6 +161,9 @@ class TimelineView extends StatefulWidget {
     this.onToolModeChanged,
     this.automationVisibleTrackId,
     this.automationScrollController,
+    this.isPlaying = false,
+    this.onAddMidiTrack,
+    this.onAddAudioTrack,
     this.isRecording = false,
   });
 
@@ -1078,6 +1091,8 @@ class TimelineViewState extends State<TimelineView>
             children: [
               // Star field background
               const Positioned.fill(child: StarField()),
+              // Empty timeline prompt (when no user tracks)
+              if (_shouldShowEmptyPrompt) _buildEmptyTimelinePrompt(context),
               // Main timeline content
               Column(
                 children: [
@@ -1109,6 +1124,7 @@ class TimelineViewState extends State<TimelineView>
                           loopStart: widget.loopStartBeats,
                           loopEnd: widget.loopEndBeats,
                           playheadPosition: _calculatePlayheadBeat(),
+                          isPlaying: widget.isPlaying,
                           punchInEnabled: widget.punchInEnabled,
                           punchOutEnabled: widget.punchOutEnabled,
                         ),
@@ -1734,7 +1750,7 @@ class TimelineViewState extends State<TimelineView>
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
-                                                Icons.add_circle_outline,
+                                                BI.addCircle,
                                                 color:
                                                     context.colors.textPrimary,
                                                 size: 16,
@@ -1747,7 +1763,7 @@ class TimelineViewState extends State<TimelineView>
                                                       .colors
                                                       .textPrimary,
                                                   fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: BT.weightSemiBold,
                                                 ),
                                               ),
                                             ],
@@ -1787,7 +1803,7 @@ class TimelineViewState extends State<TimelineView>
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
-                                                Icons.add_circle_outline,
+                                                BI.addCircle,
                                                 color:
                                                     context.colors.textPrimary,
                                                 size: 20,
@@ -1800,7 +1816,7 @@ class TimelineViewState extends State<TimelineView>
                                                       .colors
                                                       .textPrimary,
                                                   fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: BT.weightSemiBold,
                                                 ),
                                               ),
                                             ],
@@ -2662,7 +2678,7 @@ class TimelineViewState extends State<TimelineView>
                                     color: Colors.red.withValues(alpha: 0.15),
                                     child: Center(
                                       child: Icon(
-                                        Icons.block,
+                                        BI.pluginOff,
                                         color: Colors.red.withValues(
                                           alpha: 0.6,
                                         ),
@@ -2758,15 +2774,15 @@ class TimelineViewState extends State<TimelineView>
                 child: Row(
                   children: [
                     // Icon (headphones)
-                    const Text('🎧', style: TextStyle(fontSize: 11)),
+                    const Text('🎧', style: TextStyle(fontSize: BT.fontLabel)),
                     const SizedBox(width: 4),
                     // "Master" text (white)
                     Text(
                       'Master',
                       style: TextStyle(
                         color: context.colors.textPrimary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontSize: BT.fontLabel,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                   ],
@@ -3364,7 +3380,7 @@ class TimelineViewState extends State<TimelineView>
                                   ? Row(
                                       children: [
                                         Icon(
-                                          Icons.audiotrack,
+                                          BI.musicNote,
                                           size: 12,
                                           color: context.colors.textPrimary,
                                         ),
@@ -3374,8 +3390,8 @@ class TimelineViewState extends State<TimelineView>
                                             clip.fileName,
                                             style: TextStyle(
                                               color: context.colors.textPrimary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
+                                              fontSize: BT.fontLabel,
+                                              fontWeight: BT.weightMedium,
                                             ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -4353,7 +4369,7 @@ class TimelineViewState extends State<TimelineView>
                                     ? Row(
                                         children: [
                                           Icon(
-                                            Icons.piano,
+                                            BI.piano,
                                             size: 10,
                                             color: context.colors.textPrimary,
                                           ),
@@ -4365,7 +4381,7 @@ class TimelineViewState extends State<TimelineView>
                                                 color:
                                                     context.colors.textPrimary,
                                                 fontSize: 10,
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: BT.weightSemiBold,
                                               ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
@@ -4726,8 +4742,114 @@ class TimelineViewState extends State<TimelineView>
     widget.onSeek?.call(seconds);
   }
 
+  // ============================================
+  // EMPTY TIMELINE PROMPT
+  // ============================================
+
+  /// Show empty state when no user tracks exist (only master track).
+  bool get _shouldShowEmptyPrompt =>
+      tracks.where((t) => t.type != 'Master').isEmpty;
+
+  /// Centered prompt over star field with add-track buttons.
+  Widget _buildEmptyTimelinePrompt(BuildContext context) {
+    final colors = context.colors;
+
+    return Positioned.fill(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Drag an instrument from the library',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: BT.fontBody,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'or',
+                style: TextStyle(
+                  color: colors.textMuted.withValues(alpha: 0.5),
+                  fontSize: BT.fontLabel,
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _EmptyPromptButton(
+                  label: '+ MIDI Track',
+                  onTap: widget.onAddMidiTrack,
+                ),
+                const SizedBox(width: 8),
+                _EmptyPromptButton(
+                  label: '+ Audio Track',
+                  onTap: widget.onAddAudioTrack,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Calculate playhead position in beats.
   double _calculatePlayheadBeat() {
     return widget.playheadNotifier.value * widget.tempo / 60.0;
+  }
+}
+
+/// Outline button for the empty timeline prompt.
+class _EmptyPromptButton extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+
+  const _EmptyPromptButton({required this.label, this.onTap});
+
+  @override
+  State<_EmptyPromptButton> createState() => _EmptyPromptButtonState();
+}
+
+class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: AnimationConstants.hoverDuration,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: _isHovered ? colors.accent : colors.divider,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: _isHovered ? colors.textPrimary : colors.textSecondary,
+                  fontSize: BT.fontLabel,
+                  fontWeight: BT.weightMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

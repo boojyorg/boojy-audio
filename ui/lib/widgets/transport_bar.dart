@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/animation_constants.dart';
 import '../theme/app_colors.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
@@ -552,8 +553,8 @@ class _TransportBarState extends State<TransportBar> {
             child: GestureDetector(
               onTap: () => widget.fileMenu.onAppSettings?.call(),
               child: AnimatedScale(
-                scale: _logoHovered ? 1.05 : 1.0,
-                duration: const Duration(milliseconds: 150),
+                scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
+                duration: AnimationConstants.hoverDuration,
                 curve: Curves.easeInOut,
                 child: Container(
                   width: 21,
@@ -632,7 +633,7 @@ class _TransportBarState extends State<TransportBar> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircularToggleButton(
-                      icon: widget.isPlaying ? Icons.pause : Icons.play_arrow,
+                      icon: widget.isPlaying ? BI.pause : BI.play,
                       enabled:
                           widget.canPlay ||
                           widget.isRecording ||
@@ -657,7 +658,7 @@ class _TransportBarState extends State<TransportBar> {
                     ),
                     SizedBox(width: wGap),
                     CircularToggleButton(
-                      icon: Icons.stop,
+                      icon: BI.stop,
                       enabled:
                           widget.canPlay ||
                           widget.isRecording ||
@@ -999,8 +1000,8 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(
-                Icons.help_outline,
-                size: 18,
+                BI.help,
+                size: BT.iconLg,
                 color: isHovered ? colors.textPrimary : colors.textSecondary,
               ),
             ),

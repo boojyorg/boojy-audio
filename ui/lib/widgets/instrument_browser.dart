@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 
 /// Simple instrument data model
 class Instrument {
@@ -17,20 +19,20 @@ class Instrument {
 }
 
 /// Available instruments
-const List<Instrument> availableInstruments = [
+final List<Instrument> availableInstruments = [
   // Boojy's built-in Synthesizer
   Instrument(
     id: 'synthesizer',
     name: 'Synthesizer',
     category: 'Instruments',
-    icon: Icons.graphic_eq,
+    icon: BI.equalizer,
   ),
   // Sampler - pitch-shifted sample playback triggered by MIDI notes
   Instrument(
     id: 'sampler',
     name: 'Sampler',
     category: 'Instruments',
-    icon: Icons.waves,
+    icon: BI.waveform,
   ),
 ];
 
@@ -94,12 +96,12 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                   style: TextStyle(
                     color: context.colors.textSecondary,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(BI.close),
                   color: context.colors.textSecondary,
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
@@ -119,7 +121,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
               decoration: InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(color: context.colors.textMuted),
-                prefixIcon: Icon(Icons.search, color: context.colors.textMuted),
+                prefixIcon: Icon(BI.search, color: context.colors.textMuted),
                 filled: true,
                 fillColor: context.colors.hover,
                 border: OutlineInputBorder(
@@ -208,7 +210,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
           color: isSelected
               ? context.colors.textPrimary
               : context.colors.textSecondary,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontWeight: isSelected ? BT.weightSemiBold : BT.weightRegular,
         ),
         checkmarkColor: context.colors.textPrimary,
       ),
@@ -243,7 +245,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                   style: TextStyle(
                     color: context.colors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -287,7 +289,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                       style: TextStyle(
                         color: context.colors.textSecondary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -301,11 +303,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: context.colors.textMuted,
-                size: 20,
-              ),
+              Icon(BI.caretRight, color: context.colors.textMuted, size: 20),
             ],
           ),
         ),
@@ -354,7 +352,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
                       style: TextStyle(
                         color: context.colors.textSecondary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -370,11 +368,7 @@ class _InstrumentBrowserDialogState extends State<InstrumentBrowserDialog> {
               ),
 
               // Arrow icon
-              Icon(
-                Icons.chevron_right,
-                color: context.colors.textMuted,
-                size: 20,
-              ),
+              Icon(BI.caretRight, color: context.colors.textMuted, size: 20),
             ],
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 /// Painter for the unified navigation bar that combines loop region and bar numbers.
 /// Single row (~24px) that handles both loop visualization and time display.
@@ -12,6 +13,7 @@ class UnifiedNavBarPainter extends CustomPainter {
   final double? playheadPosition; // in beats (null = not shown)
   final double? hoverBeat; // For loop edge hover feedback
   final bool isHoveringPlayhead; // For expanded hover state
+  final bool isPlaying; // For playhead glow during playback
   final int beatsPerBar;
   final bool punchInEnabled;
   final bool punchOutEnabled;
@@ -26,6 +28,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.playheadPosition,
     this.hoverBeat,
     this.isHoveringPlayhead = false,
+    this.isPlaying = false,
     this.beatsPerBar = 4,
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
@@ -195,7 +198,7 @@ class UnifiedNavBarPainter extends CustomPainter {
             style: const TextStyle(
               color: Color(0xFFE0E0E0),
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           );
           textPainter.layout();
@@ -241,7 +244,7 @@ class UnifiedNavBarPainter extends CustomPainter {
                       ? const Color(0xFFFFFFFF)
                       : const Color(0xFFE8EAF0),
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: BT.weightSemiBold,
                 ),
               );
               textPainter.layout();
@@ -257,7 +260,7 @@ class UnifiedNavBarPainter extends CustomPainter {
                   color: isOverLoop
                       ? const Color(0xFFFFFFFF)
                       : const Color(0xFF646880),
-                  fontSize: 9,
+                  fontSize: BT.fontCaption,
                 ),
               );
               textPainter.layout();
@@ -310,7 +313,7 @@ class UnifiedNavBarPainter extends CustomPainter {
                 color: isOverLoop
                     ? const Color(0xFFFFFFFF)
                     : const Color(0xFF646880),
-                fontSize: 9,
+                fontSize: BT.fontCaption,
               ),
             );
             textPainter.layout();
@@ -355,6 +358,15 @@ class UnifiedNavBarPainter extends CustomPainter {
     final headRadius = isHoveringPlayhead ? 6.0 : 5.0;
     const lineWidth = 2.0;
 
+    // Draw subtle glow during playback
+    if (isPlaying) {
+      final glowPaint = Paint()
+        ..color = playheadColor.withValues(alpha: 0.15)
+        ..strokeWidth = 6.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), glowPaint);
+    }
+
     // Draw vertical line (full height, through circle center)
     final linePaint = Paint()
       ..color = playheadColor
@@ -389,6 +401,7 @@ class UnifiedNavBarPainter extends CustomPainter {
         playheadPosition != oldDelegate.playheadPosition ||
         hoverBeat != oldDelegate.hoverBeat ||
         isHoveringPlayhead != oldDelegate.isHoveringPlayhead ||
+        isPlaying != oldDelegate.isPlaying ||
         beatsPerBar != oldDelegate.beatsPerBar ||
         punchInEnabled != oldDelegate.punchInEnabled ||
         punchOutEnabled != oldDelegate.punchOutEnabled;

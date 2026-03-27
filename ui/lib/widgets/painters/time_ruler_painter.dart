@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 /// Painter for the time ruler (bar numbers with beat subdivisions)
 /// Note: Loop region is now drawn separately by LoopBarPainter in a dedicated row
@@ -70,8 +71,8 @@ class TimeRulerPainter extends CustomPainter {
           text: '$barNumber',
           style: const TextStyle(
             color: Color(0xFF9B9EB0), // TEXT.secondary
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+            fontSize: BT.fontLabel,
+            fontWeight: BT.weightMedium,
             fontFeatures: [FontFeature.tabularFigures()],
           ),
         );
@@ -88,7 +89,7 @@ class TimeRulerPainter extends CustomPainter {
             text: '$barNumber.$beatInBar',
             style: const TextStyle(
               color: Color(0xFF646880), // TEXT.muted
-              fontSize: 9,
+              fontSize: BT.fontCaption,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           );

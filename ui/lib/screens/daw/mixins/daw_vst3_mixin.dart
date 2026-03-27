@@ -3,7 +3,9 @@ import '../../../utils/logger.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
+import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
+import '../../../theme/tokens.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 import 'daw_recording_mixin.dart';
@@ -202,7 +204,7 @@ mixin DAWVst3Mixin
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.open_in_new, size: 16),
+                            icon: Icon(BI.openInNew, size: 16),
                             label: const Text('Open GUI'),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
@@ -251,13 +253,13 @@ mixin DAWVst3Mixin
                     'Parameter ${i + 1}',
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                   Text(
                     '0.50',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: BT.fontLabel,
                       color: context.colors.textSecondary,
                     ),
                   ),

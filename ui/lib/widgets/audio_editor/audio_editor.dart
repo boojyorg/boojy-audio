@@ -3,11 +3,13 @@ import 'dart:math' show pow;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/boojy_icons.dart';
 import '../../models/audio_clip_edit_data.dart';
 import '../../models/clip_data.dart';
 import '../../models/tool_mode.dart';
 import '../../audio_engine.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../../theme/app_colors.dart';
 import '../shared/editors/unified_nav_bar.dart';
 import '../shared/editors/nav_bar_with_zoom.dart';
@@ -194,14 +196,14 @@ class _AudioEditorState extends State<AudioEditor>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.audio_file, size: 64, color: colors.textMuted),
+            Icon(BI.audioFile, size: 64, color: colors.textMuted),
             const SizedBox(height: 16),
             Text(
               'Audio Editor',
               style: TextStyle(
                 color: colors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: BT.fontHeading,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),

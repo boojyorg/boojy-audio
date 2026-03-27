@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
+import '../theme/animation_constants.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
 import 'piano_roll.dart';
@@ -168,9 +171,9 @@ class _EditorPanelState extends State<EditorPanel>
 
   /// Get the first tab icon based on track type
   IconData get _firstTabIcon {
-    if (_isAudioTrack) return Icons.audio_file;
-    if (_isSamplerTrack) return Icons.music_note;
-    return Icons.piano;
+    if (_isAudioTrack) return BI.audioFile;
+    if (_isSamplerTrack) return BI.musicNote;
+    return BI.piano;
   }
 
   /// Get the number of tabs based on track type
@@ -366,31 +369,31 @@ class _EditorPanelState extends State<EditorPanel>
                             children: [
                               _buildToolButton(
                                 ToolMode.draw,
-                                Icons.edit,
+                                BI.pencil,
                                 'Draw (Z)',
                               ),
                               const SizedBox(width: 4),
                               _buildToolButton(
                                 ToolMode.select,
-                                Icons.open_with,
+                                BI.selection,
                                 'Select (X)',
                               ),
                               const SizedBox(width: 4),
                               _buildToolButton(
                                 ToolMode.eraser,
-                                Icons.backspace_outlined,
+                                BI.delete,
                                 'Erase (C) • Hold Alt',
                               ),
                               const SizedBox(width: 4),
                               _buildToolButton(
                                 ToolMode.duplicate,
-                                Icons.copy,
+                                BI.copy,
                                 'Duplicate (V) • Cmd+Drag',
                               ),
                               const SizedBox(width: 4),
                               _buildToolButton(
                                 ToolMode.slice,
-                                Icons.content_cut,
+                                BI.cut,
                                 'Slice (B) • Cmd+Click',
                               ),
                             ],
@@ -422,7 +425,7 @@ class _EditorPanelState extends State<EditorPanel>
                                       height: 28,
                                       alignment: Alignment.center,
                                       child: Icon(
-                                        Icons.keyboard_arrow_down,
+                                        BI.caretDown,
                                         size: 18,
                                         color: context.colors.textSecondary,
                                       ),
@@ -478,29 +481,25 @@ class _EditorPanelState extends State<EditorPanel>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildToolButton(ToolMode.draw, Icons.edit, 'Draw (Z)'),
+                _buildToolButton(ToolMode.draw, BI.pencil, 'Draw (Z)'),
                 const SizedBox(width: 4),
-                _buildToolButton(
-                  ToolMode.select,
-                  Icons.open_with,
-                  'Select (X)',
-                ),
+                _buildToolButton(ToolMode.select, BI.selection, 'Select (X)'),
                 const SizedBox(width: 4),
                 _buildToolButton(
                   ToolMode.eraser,
-                  Icons.backspace_outlined,
+                  BI.delete,
                   'Erase (C) • Hold Alt',
                 ),
                 const SizedBox(width: 4),
                 _buildToolButton(
                   ToolMode.duplicate,
-                  Icons.copy,
+                  BI.copy,
                   'Duplicate (V) • Cmd+Drag',
                 ),
                 const SizedBox(width: 4),
                 _buildToolButton(
                   ToolMode.slice,
-                  Icons.content_cut,
+                  BI.cut,
                   'Slice (B) • Cmd+Click',
                 ),
               ],
@@ -532,7 +531,7 @@ class _EditorPanelState extends State<EditorPanel>
                         height: 28,
                         alignment: Alignment.center,
                         child: Icon(
-                          Icons.keyboard_arrow_up,
+                          BI.caretUp,
                           color: context.colors.textSecondary,
                           size: 18,
                         ),
@@ -554,27 +553,27 @@ class _EditorPanelState extends State<EditorPanel>
       return [
         _buildCollapsedTabButton(0, _firstTabIcon, _firstTabLabel),
         const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, Icons.equalizer, 'Effects'),
+        _buildCollapsedTabButton(1, BI.lightning, 'Effects'),
       ];
     }
 
     if (_isSamplerTrack) {
       return [
-        _buildCollapsedTabButton(0, Icons.music_note, 'Sampler'),
+        _buildCollapsedTabButton(0, BI.musicNote, 'Sampler'),
         const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, Icons.piano, 'Piano Roll'),
+        _buildCollapsedTabButton(1, BI.piano, 'Piano Roll'),
         const SizedBox(width: 4),
-        _buildCollapsedTabButton(2, Icons.equalizer, 'Effects'),
+        _buildCollapsedTabButton(2, BI.lightning, 'Effects'),
       ];
     }
 
     // MIDI track: [Synthesizer] [Piano Roll] [Effects]
     return [
-      _buildCollapsedTabButton(0, Icons.music_note, _getInstrumentTabLabel()),
+      _buildCollapsedTabButton(0, BI.musicNote, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
       _buildCollapsedTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
-      _buildCollapsedTabButton(2, Icons.equalizer, 'Effects'),
+      _buildCollapsedTabButton(2, BI.lightning, 'Effects'),
     ];
   }
 
@@ -613,7 +612,9 @@ class _EditorPanelState extends State<EditorPanel>
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected
+                      ? BT.weightSemiBold
+                      : FontWeight.normal,
                   color: isSelected
                       ? context.colors.accent
                       : context.colors.textSecondary,
@@ -649,27 +650,27 @@ class _EditorPanelState extends State<EditorPanel>
       return [
         _buildTabButton(0, _firstTabIcon, _firstTabLabel),
         const SizedBox(width: 4),
-        _buildTabButton(1, Icons.equalizer, 'Effects'),
+        _buildTabButton(1, BI.lightning, 'Effects'),
       ];
     }
 
     if (_isSamplerTrack) {
       return [
-        _buildTabButton(0, Icons.music_note, 'Sampler'),
+        _buildTabButton(0, BI.musicNote, 'Sampler'),
         const SizedBox(width: 4),
-        _buildTabButton(1, Icons.piano, 'Piano Roll'),
+        _buildTabButton(1, BI.piano, 'Piano Roll'),
         const SizedBox(width: 4),
-        _buildTabButton(2, Icons.equalizer, 'Effects'),
+        _buildTabButton(2, BI.lightning, 'Effects'),
       ];
     }
 
     // MIDI track: [Synthesizer] [Piano Roll] [Effects]
     return [
-      _buildTabButton(0, Icons.music_note, _getInstrumentTabLabel()),
+      _buildTabButton(0, BI.musicNote, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
       _buildTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
-      _buildTabButton(2, Icons.equalizer, 'Effects'),
+      _buildTabButton(2, BI.lightning, 'Effects'),
     ];
   }
 
@@ -716,7 +717,7 @@ class _EditorPanelState extends State<EditorPanel>
           },
           borderRadius: BorderRadius.circular(6),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: AnimationConstants.hoverDuration,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: isSelected ? context.colors.accent : Colors.transparent,
@@ -737,7 +738,9 @@ class _EditorPanelState extends State<EditorPanel>
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: isSelected
+                        ? BT.weightSemiBold
+                        : BT.weightMedium,
                     color: isSelected
                         ? Colors.white
                         : context.colors.textSecondary,
@@ -815,7 +818,7 @@ class _EditorPanelState extends State<EditorPanel>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.keyboard,
+                  BI.keyboard,
                   size: 16,
                   color: isActive
                       ? context.colors.elevated
@@ -825,8 +828,8 @@ class _EditorPanelState extends State<EditorPanel>
                 Text(
                   'Piano',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: BT.fontLabel,
+                    fontWeight: BT.weightMedium,
                     color: isActive
                         ? context.colors.elevated
                         : context.colors.textPrimary,
@@ -862,20 +865,21 @@ class _EditorPanelState extends State<EditorPanel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.audio_file, size: 64, color: context.colors.textMuted),
-              const SizedBox(height: 16),
               Text(
-                'Audio Editor',
+                'Select a track to start editing',
                 style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: context.colors.textSecondary,
+                  fontSize: BT.fontBody,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                'Select an audio clip to start editing',
-                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
+                'Click a track in the mixer or a clip in the arrangement',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: BT.fontLabel,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -924,11 +928,7 @@ class _EditorPanelState extends State<EditorPanel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.piano_outlined,
-                size: 64,
-                color: context.colors.textMuted,
-              ),
+              Icon(BI.piano, size: 64, color: context.colors.textMuted),
               const SizedBox(height: 16),
               Text(
                 'Click to create MIDI clip',
@@ -948,24 +948,21 @@ class _EditorPanelState extends State<EditorPanel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.piano_outlined,
-                size: 64,
-                color: context.colors.textMuted,
-              ),
-              const SizedBox(height: 16),
               Text(
-                'Piano Roll',
+                'Select a track to start editing',
                 style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: context.colors.textSecondary,
+                  fontSize: BT.fontBody,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                'Select a MIDI track or clip to start editing',
-                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
+                'Click a track in the mixer or a clip in the arrangement',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: BT.fontLabel,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1018,20 +1015,21 @@ class _EditorPanelState extends State<EditorPanel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.piano, size: 64, color: context.colors.textMuted),
-              const SizedBox(height: 16),
               Text(
-                'Instrument',
+                'Select a track to start editing',
                 style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: context.colors.textSecondary,
+                  fontSize: BT.fontBody,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                'Select a track with an instrument to edit',
-                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
+                'Click a track in the mixer or a clip in the arrangement',
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: BT.fontLabel,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],

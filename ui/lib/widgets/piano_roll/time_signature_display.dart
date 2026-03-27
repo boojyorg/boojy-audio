@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A clickable time signature display showing numerator/denominator format.
 /// Each segment is individually clickable to edit.
@@ -181,7 +182,8 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 10,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
             decoration: const InputDecoration(
               isDense: true,
@@ -215,7 +217,8 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
@@ -230,7 +233,8 @@ class _TimeSignatureDisplayState extends State<TimeSignatureDisplay> {
       style: TextStyle(
         color: colors.textMuted,
         fontSize: 10,
-        fontFamily: 'monospace',
+        fontFamily: BT.fontFamilyMono,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }

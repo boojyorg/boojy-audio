@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/animation_constants.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
 /// Tap tempo pill button with tap-to-set-tempo functionality
@@ -55,7 +57,9 @@ class _TapTempoPillState extends State<TapTempoPill> {
 
   @override
   Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
+    final scale = _isPressed
+        ? AnimationConstants.pressScale
+        : (_isHovered ? AnimationConstants.subtleHoverScale : 1.0);
     final isRecentTap =
         _tapTimes.isNotEmpty &&
         DateTime.now().difference(_tapTimes.last).inMilliseconds < 500;
@@ -79,10 +83,10 @@ class _TapTempoPillState extends State<TapTempoPill> {
           onTapCancel: () => setState(() => _isPressed = false),
           child: AnimatedScale(
             scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
+            duration: AnimationConstants.hoverDuration,
+            curve: AnimationConstants.standardCurve,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
+              duration: AnimationConstants.hoverDuration,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: bgColor,
@@ -96,8 +100,8 @@ class _TapTempoPillState extends State<TapTempoPill> {
                     'Tap',
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontSize: BT.fontLabel,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                 ],
@@ -242,21 +246,11 @@ class _TempoDisplayState extends State<TempoDisplay> {
                   children: [
                     TextSpan(
                       text: tempoText.replaceAll(' BPM', ''),
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
+                      style: BT.display(colors.textPrimary),
                     ),
                     TextSpan(
                       text: ' BPM',
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
+                      style: BT.display(colors.textSecondary),
                     ),
                   ],
                 ),

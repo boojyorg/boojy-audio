@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/vst3_plugin_data.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 
 /// Shows VST3 plugin browser dialog and returns selected plugin
 Future<Vst3Plugin?> showVst3PluginBrowser(
@@ -65,25 +67,21 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
             // Header
             Row(
               children: [
-                Icon(
-                  Icons.extension,
-                  color: context.colors.textSecondary,
-                  size: 24,
-                ),
+                Icon(BI.plugin, color: context.colors.textSecondary, size: 24),
                 const SizedBox(width: 12),
                 Text(
                   'VST3 Plugin Browser',
                   style: TextStyle(
                     color: context.colors.textSecondary,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const Spacer(),
                 // Rescan button
                 if (widget.onRescanRequested != null)
                   IconButton(
-                    icon: const Icon(Icons.refresh),
+                    icon: Icon(BI.refresh),
                     color: context.colors.textSecondary,
                     onPressed: widget.isScanning
                         ? null
@@ -93,7 +91,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                     tooltip: 'Rescan plugins',
                   ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(BI.close),
                   color: context.colors.textSecondary,
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
@@ -113,7 +111,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
               decoration: InputDecoration(
                 hintText: 'Search plugins...',
                 hintStyle: TextStyle(color: context.colors.textMuted),
-                prefixIcon: Icon(Icons.search, color: context.colors.textMuted),
+                prefixIcon: Icon(BI.search, color: context.colors.textMuted),
                 filled: true,
                 fillColor: context.colors.hover,
                 border: OutlineInputBorder(
@@ -158,7 +156,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.extension_off,
+                              BI.pluginOff,
                               color: context.colors.textMuted,
                               size: 48,
                             ),
@@ -236,11 +234,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.extension,
-                color: context.colors.textPrimary,
-                size: 20,
-              ),
+              Icon(BI.plugin, color: context.colors.textPrimary, size: 20),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -248,7 +242,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                   style: TextStyle(
                     color: context.colors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -293,7 +287,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              plugin.isInstrument ? Icons.piano : Icons.graphic_eq,
+              plugin.isInstrument ? BI.piano : BI.equalizer,
               color: context.colors.success,
               size: 24,
             ),
@@ -311,7 +305,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                   style: TextStyle(
                     color: context.colors.textSecondary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -342,7 +336,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
                     ? context.colors.accent
                     : context.colors.warning,
                 fontSize: 10,
-                fontWeight: FontWeight.bold,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
           ),
@@ -350,7 +344,7 @@ class _Vst3PluginBrowserDialogState extends State<Vst3PluginBrowserDialog> {
           const SizedBox(width: 8),
 
           // Arrow icon
-          Icon(Icons.chevron_right, color: context.colors.textMuted, size: 20),
+          Icon(BI.caretRight, color: context.colors.textMuted, size: 20),
         ],
       ),
     );

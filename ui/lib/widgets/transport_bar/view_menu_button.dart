@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// View menu button that shows panel visibility toggles
 class ViewMenuButton extends StatefulWidget {
@@ -115,9 +117,9 @@ class _ViewMenuButtonState extends State<ViewMenuButton> {
       link: _layerLink,
       child: IconButton(
         icon: Icon(
-          Icons.visibility,
+          BI.eye,
           color: _isOpen ? context.colors.accent : context.colors.textSecondary,
-          size: 20,
+          size: BT.iconLg,
         ),
         onPressed: _showMenu,
         tooltip: 'View',
@@ -195,13 +197,13 @@ class _ViewMenuOverlay extends StatelessWidget {
                     onTap: onToggleMixer,
                   ),
                   _ViewMenuItem(
-                    icon: Icons.piano,
+                    icon: BI.piano,
                     label: 'Show Editor',
                     isChecked: editorVisible,
                     onTap: onToggleEditor,
                   ),
                   _ViewMenuItem(
-                    icon: Icons.keyboard,
+                    icon: BI.keyboard,
                     label: 'Show Virtual Piano',
                     isChecked: pianoVisible,
                     onTap: onTogglePiano,
@@ -214,7 +216,7 @@ class _ViewMenuOverlay extends StatelessWidget {
                     child: Divider(height: 1, color: context.colors.surface),
                   ),
                   _ViewMenuItem(
-                    icon: Icons.refresh,
+                    icon: BI.refresh,
                     label: 'Reset Panel Layout',
                     isChecked: false,
                     showCheckbox: false,
@@ -272,21 +274,25 @@ class _ViewMenuItemState extends State<_ViewMenuItem> {
                   width: 20,
                   child: widget.isChecked
                       ? Icon(
-                          Icons.check,
-                          size: 16,
+                          BI.check,
+                          size: BT.iconMd,
                           color: context.colors.accent,
                         )
                       : null,
                 ),
                 const SizedBox(width: 8),
               ],
-              Icon(widget.icon, size: 18, color: context.colors.textSecondary),
+              Icon(
+                widget.icon,
+                size: BT.iconLg,
+                color: context.colors.textSecondary,
+              ),
               const SizedBox(width: 8),
               Text(
                 widget.label,
                 style: TextStyle(
                   color: context.colors.textPrimary,
-                  fontSize: 13,
+                  fontSize: BT.fontBody,
                 ),
               ),
               const SizedBox(width: 24),

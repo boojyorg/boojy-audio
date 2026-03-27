@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A draggable pitch display showing semitones and cents in format: [+0 st. 0 ct]
 /// Each segment (semitones, cents) is individually draggable and editable.
@@ -235,7 +236,8 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
           style: TextStyle(
             color: colors.textMuted,
             fontSize: 10,
-            fontFamily: 'monospace',
+            fontFamily: BT.fontFamilyMono,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
         _buildSegment(1, _formatCents(widget.cents), 'ct', colors),
@@ -265,7 +267,8 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
               keyboardType: const TextInputType.numberWithOptions(signed: true),
               textAlign: TextAlign.center,
@@ -287,7 +290,8 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 10,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -317,7 +321,8 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 10,
-                    fontFamily: 'monospace',
+                    fontFamily: BT.fontFamilyMono,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 Text(
@@ -325,7 +330,8 @@ class _DraggablePitchDisplayState extends State<DraggablePitchDisplay> {
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 10,
-                    fontFamily: 'monospace',
+                    fontFamily: BT.fontFamilyMono,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],

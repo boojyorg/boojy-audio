@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/midi_cc_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../painters/cc_lane_painter.dart';
 
 /// CC automation lane widget for the Piano Roll.
@@ -132,7 +134,7 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 10,
-              fontWeight: FontWeight.w500,
+              fontWeight: BT.weightMedium,
             ),
           ),
           const SizedBox(height: 8),
@@ -152,14 +154,13 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
                   children: [
                     Text(
                       _getShortCCName(widget.lane.ccType),
-                      style: TextStyle(color: colors.textPrimary, fontSize: 9),
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: BT.fontCaption,
+                      ),
                     ),
                     const SizedBox(width: 2),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      size: 12,
-                      color: colors.textMuted,
-                    ),
+                    Icon(BI.caretDown, size: 12, color: colors.textMuted),
                   ],
                 ),
               ),
@@ -211,10 +212,10 @@ class _PianoRollCCLaneState extends State<PianoRollCCLane> {
             type.displayName,
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: type == widget.lane.ccType
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         );

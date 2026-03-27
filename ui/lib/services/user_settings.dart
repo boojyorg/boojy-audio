@@ -8,17 +8,23 @@ class RecentProject {
   final String path;
   final String name;
   final DateTime openedAt;
+  final int? trackCount;
+  final double? bpm;
 
   RecentProject({
     required this.path,
     required this.name,
     required this.openedAt,
+    this.trackCount,
+    this.bpm,
   });
 
   Map<String, dynamic> toJson() => {
     'path': path,
     'name': name,
     'openedAt': openedAt.toIso8601String(),
+    if (trackCount != null) 'trackCount': trackCount,
+    if (bpm != null) 'bpm': bpm,
   };
 
   factory RecentProject.fromJson(Map<String, dynamic> json) {
@@ -26,6 +32,8 @@ class RecentProject {
       path: json['path'] as String,
       name: json['name'] as String,
       openedAt: DateTime.parse(json['openedAt'] as String),
+      trackCount: json['trackCount'] as int?,
+      bpm: (json['bpm'] as num?)?.toDouble(),
     );
   }
 }
@@ -873,14 +881,25 @@ class UserSettings extends ChangeNotifier {
   }
 
   /// Add a project to the recent list (moves to top if already exists)
-  Future<void> addRecentProject(String path, String name) async {
+  Future<void> addRecentProject(
+    String path,
+    String name, {
+    int? trackCount,
+    double? bpm,
+  }) async {
     // Remove if already exists (we'll re-add at top)
     _recentProjects.removeWhere((p) => p.path == path);
 
     // Add at the beginning (most recent first)
     _recentProjects.insert(
       0,
-      RecentProject(path: path, name: name, openedAt: DateTime.now()),
+      RecentProject(
+        path: path,
+        name: name,
+        openedAt: DateTime.now(),
+        trackCount: trackCount,
+        bpm: bpm,
+      ),
     );
 
     // Enforce max limit

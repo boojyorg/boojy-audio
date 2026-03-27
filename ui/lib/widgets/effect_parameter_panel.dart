@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../utils/logger.dart';
 
 /// Effect data model
@@ -171,20 +173,20 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       ),
       child: Row(
         children: [
-          Icon(Icons.tune, color: context.colors.textSecondary, size: 20),
+          Icon(BI.sliders, color: context.colors.textSecondary, size: 20),
           const SizedBox(width: 12),
           Text(
             'EFFECTS',
             style: TextStyle(
               color: context.colors.textSecondary,
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: Icon(BI.close),
             color: context.colors.textSecondary,
             iconSize: 20,
             onPressed: widget.onClose,
@@ -200,7 +202,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.graphic_eq, size: 48, color: context.colors.textMuted),
+          Icon(BI.equalizer, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
             'No effects',
@@ -209,7 +211,10 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           const SizedBox(height: 8),
           Text(
             'Add an effect to get started',
-            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontBody,
+            ),
           ),
         ],
       ),
@@ -259,12 +264,12 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                   style: TextStyle(
                     color: context.colors.textSecondary,
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline),
+                  icon: Icon(BI.delete),
                   color: context.colors.textMuted,
                   iconSize: 18,
                   onPressed: () => _removeEffect(effect.id),
@@ -560,7 +565,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                 style: TextStyle(
                   color: context.colors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: BT.weightSemiBold,
                 ),
               ),
             ],
@@ -605,7 +610,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
         children: [
           ElevatedButton.icon(
             onPressed: () => _addEffect('eq'),
-            icon: const Icon(Icons.equalizer, size: 16),
+            icon: Icon(BI.equalizer, size: 16),
             label: const Text('EQ'),
             style: ElevatedButton.styleFrom(
               backgroundColor: context.colors.surface,
@@ -615,7 +620,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           const SizedBox(height: 4),
           ElevatedButton.icon(
             onPressed: () => _addEffect('compressor'),
-            icon: const Icon(Icons.compress, size: 16),
+            icon: Icon(BI.compress, size: 16),
             label: const Text('Compressor'),
             style: ElevatedButton.styleFrom(
               backgroundColor: context.colors.surface,
@@ -628,7 +633,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () => _addEffect('reverb'),
-                  icon: const Icon(Icons.blur_on, size: 16),
+                  icon: Icon(BI.waveSine, size: 16),
                   label: const Text('Reverb'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.colors.surface,
@@ -640,7 +645,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () => _addEffect('delay'),
-                  icon: const Icon(Icons.av_timer, size: 16),
+                  icon: Icon(BI.metronome, size: 16),
                   label: const Text('Delay'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: context.colors.surface,
@@ -653,7 +658,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           const SizedBox(height: 4),
           ElevatedButton.icon(
             onPressed: () => _addEffect('chorus'),
-            icon: const Icon(Icons.graphic_eq, size: 16),
+            icon: Icon(BI.equalizer, size: 16),
             label: const Text('Chorus'),
             style: ElevatedButton.styleFrom(
               backgroundColor: context.colors.surface,
@@ -668,17 +673,17 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
   IconData _getEffectIcon(String type) {
     switch (type) {
       case 'eq':
-        return Icons.equalizer;
+        return BI.equalizer;
       case 'compressor':
-        return Icons.compress;
+        return BI.compress;
       case 'reverb':
-        return Icons.blur_on;
+        return BI.waveSine;
       case 'delay':
-        return Icons.av_timer;
+        return BI.metronome;
       case 'chorus':
-        return Icons.graphic_eq;
+        return BI.equalizer;
       default:
-        return Icons.tune;
+        return BI.equalizer;
     }
   }
 

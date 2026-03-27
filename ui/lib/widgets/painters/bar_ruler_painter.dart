@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 
 /// Painter for bar number ruler (displays bar numbers and playhead).
 /// Loop rendering is now handled by LoopBarPainter in a separate row.
@@ -34,8 +35,8 @@ class BarRulerPainter extends CustomPainter {
         text: '$barNumber',
         style: const TextStyle(
           color: Color(0xFFE8EAF0), // TEXT.primary
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontSize: BT.fontBody,
+          fontWeight: BT.weightSemiBold,
         ),
       );
 

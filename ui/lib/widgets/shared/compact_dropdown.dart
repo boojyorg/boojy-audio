@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A compact dropdown widget for selecting from a list of items.
 ///
@@ -77,7 +79,7 @@ class CompactDropdown<T> extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(Icons.arrow_drop_down, size: 12, color: colors.textMuted),
+              Icon(BI.caretDown, size: BT.iconSm, color: colors.textMuted),
             ],
           ),
         ),
@@ -109,7 +111,7 @@ class CompactDropdown<T> extends StatelessWidget {
             style: TextStyle(
               color: context.colors.textPrimary,
               fontSize: 11,
-              fontWeight: item == value ? FontWeight.bold : FontWeight.normal,
+              fontWeight: item == value ? BT.weightSemiBold : BT.weightRegular,
             ),
           ),
         );

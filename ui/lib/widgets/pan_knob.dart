@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../theme/tokens.dart';
 
 /// Logic Pro-style minimal pan knob
 /// - Thin circular ring base (no fill)
@@ -127,7 +128,7 @@ class _PanKnobPainter extends CustomPainter {
           style: TextStyle(
             color: const Color(0xFFE0E0E0),
             fontSize: size.width * 0.34, // Larger text (was 0.28)
-            fontWeight: FontWeight.w600, // Bolder (was w500)
+            fontWeight: BT.weightSemiBold, // Bolder (was w500)
           ),
         ),
         textDirection: TextDirection.ltr,

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import '../audio_engine.dart';
 import '../services/user_settings.dart';
 import '../utils/logger.dart';
@@ -138,9 +140,9 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
       title: Row(
         children: [
           if (_exportError != null)
-            const Icon(Icons.error_outline, color: Colors.red, size: 24)
+            Icon(BI.error, color: Colors.red, size: 24)
           else if (_exportComplete)
-            const Icon(Icons.check_circle, color: Colors.green, size: 24)
+            Icon(BI.checkCircle, color: Colors.green, size: 24)
           else
             const SizedBox(
               width: 24,
@@ -187,7 +189,10 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
                   Expanded(
                     child: Text(
                       status,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                      style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: BT.fontBody,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -195,7 +200,7 @@ class _ExportProgressDialogState extends State<ExportProgressDialog> {
                     '$progress%',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ],
@@ -768,11 +773,14 @@ class _ExportDialogState extends State<ExportDialog> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2A2A2A),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 24),
-            SizedBox(width: 8),
-            Text('Export Complete', style: TextStyle(color: Colors.white)),
+            Icon(BI.checkCircle, color: Colors.green, size: 24),
+            const SizedBox(width: 8),
+            const Text(
+              'Export Complete',
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
         content: Column(
@@ -784,7 +792,7 @@ class _ExportDialogState extends State<ExportDialog> {
                 result.format,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: BT.weightSemiBold,
                 ),
               ),
               Text(
@@ -793,7 +801,10 @@ class _ExportDialogState extends State<ExportDialog> {
               ),
               Text(
                 result.path,
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: BT.fontLabel,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
@@ -879,19 +890,19 @@ class _ExportDialogState extends State<ExportDialog> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.file_download, color: Color(0xFF00BCD4), size: 24),
+          Icon(BI.download, color: const Color(0xFF00BCD4), size: 24),
           const SizedBox(width: 12),
           const Text(
             'Export Audio',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey),
+            icon: Icon(BI.close, color: Colors.grey),
             onPressed: () => Navigator.of(context).pop(),
             splashRadius: 20,
           ),
@@ -909,7 +920,7 @@ class _ExportDialogState extends State<ExportDialog> {
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: BT.weightSemiBold,
           ),
         ),
         const SizedBox(height: 12),
@@ -945,7 +956,7 @@ class _ExportDialogState extends State<ExportDialog> {
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: BT.weightSemiBold,
           ),
         ),
         const SizedBox(height: 12),
@@ -1008,9 +1019,7 @@ class _ExportDialogState extends State<ExportDialog> {
             child: Row(
               children: [
                 Icon(
-                  _showStems
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_right,
+                  _showStems ? BI.caretDown : BI.caretRight,
                   color: Colors.grey,
                   size: 20,
                 ),
@@ -1020,7 +1029,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1060,7 +1069,7 @@ class _ExportDialogState extends State<ExportDialog> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.select_all, size: 16),
+                  icon: Icon(BI.selectAll, size: 16),
                   label: const Text('Select All'),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey,
@@ -1075,7 +1084,7 @@ class _ExportDialogState extends State<ExportDialog> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.deselect, size: 16),
+                  icon: Icon(BI.deselect, size: 16),
                   label: const Text('Deselect All'),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey,
@@ -1122,14 +1131,14 @@ class _ExportDialogState extends State<ExportDialog> {
                         track.name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: BT.fontBody,
                         ),
                       ),
                       subtitle: Text(
                         track.type,
                         style: const TextStyle(
                           color: Colors.grey,
-                          fontSize: 11,
+                          fontSize: BT.fontLabel,
                         ),
                       ),
                       activeColor: const Color(0xFF00BCD4),
@@ -1158,9 +1167,7 @@ class _ExportDialogState extends State<ExportDialog> {
             child: Row(
               children: [
                 Icon(
-                  _showMetadata
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_right,
+                  _showMetadata ? BI.caretDown : BI.caretRight,
                   color: Colors.grey,
                   size: 20,
                 ),
@@ -1170,7 +1177,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1228,9 +1235,7 @@ class _ExportDialogState extends State<ExportDialog> {
             child: Row(
               children: [
                 Icon(
-                  _showAdvanced
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_right,
+                  _showAdvanced ? BI.caretDown : BI.caretRight,
                   color: Colors.grey,
                   size: 20,
                 ),
@@ -1240,7 +1245,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
               ],
@@ -1345,7 +1350,7 @@ class _ExportDialogState extends State<ExportDialog> {
                   style: TextStyle(
                     color: enabled ? Colors.white : Colors.grey,
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: BT.weightMedium,
                   ),
                 ),
                 Text(
@@ -1375,7 +1380,7 @@ class _ExportDialogState extends State<ExportDialog> {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: const TextStyle(color: Colors.grey, fontSize: BT.fontBody),
           ),
         ),
         Expanded(
@@ -1392,7 +1397,10 @@ class _ExportDialogState extends State<ExportDialog> {
               isExpanded: true,
               underline: const SizedBox(),
               dropdownColor: const Color(0xFF333333),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: BT.fontBody,
+              ),
             ),
           ),
         ),
@@ -1412,7 +1420,7 @@ class _ExportDialogState extends State<ExportDialog> {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: const TextStyle(color: Colors.grey, fontSize: BT.fontBody),
           ),
         ),
         Expanded(
@@ -1428,7 +1436,10 @@ class _ExportDialogState extends State<ExportDialog> {
               keyboardType: isNumber
                   ? TextInputType.number
                   : TextInputType.text,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: BT.fontBody,
+              ),
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1457,11 +1468,17 @@ class _ExportDialogState extends State<ExportDialog> {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: BT.fontBody,
+                ),
               ),
               Text(
                 subtitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: BT.fontLabel,
+                ),
               ),
             ],
           ),

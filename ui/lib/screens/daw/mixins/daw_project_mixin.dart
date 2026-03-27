@@ -203,8 +203,12 @@ mixin DAWProjectMixin
     // Refresh track widgets to show loaded tracks
     refreshTrackWidgets();
 
-    // Add/update recent projects
-    userSettings.addRecentProject(path, projectManager!.currentName);
+    // Add/update recent projects with metadata
+    userSettings.addRecentProject(
+      path,
+      projectManager!.currentName,
+      bpm: tempo,
+    );
 
     // Update window title and metadata with project name
     WindowTitleService.setProjectName(projectManager!.currentName);
@@ -313,7 +317,11 @@ mixin DAWProjectMixin
 
     // Add to recent projects and generate thumbnail on successful save
     if (result.success) {
-      userSettings.addRecentProject(path, projectManager!.currentName);
+      userSettings.addRecentProject(
+        path,
+        projectManager!.currentName,
+        bpm: tempo,
+      );
       _generateThumbnail(path);
     }
 

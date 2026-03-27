@@ -12,7 +12,9 @@ import '../models/vst3_plugin_data.dart';
 import '../services/library_preview_service.dart';
 import '../services/library_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import '../utils/logger.dart';
 import '../utils/text_utils.dart';
 
@@ -478,12 +480,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
   /// Returns (icon, label) for a category ID, or null for user folders
   (IconData, String)? _categoryMeta(String? id) {
     return switch (id) {
-      'favorites' => (Icons.star, 'Favorites'),
-      'sounds' => (Icons.music_note, 'Sounds'),
-      'samples' => (Icons.graphic_eq, 'Samples'),
-      'instruments' => (Icons.piano, 'Instruments'),
-      'effects' => (Icons.bolt, 'Effects'),
-      'plugins' => (Icons.extension, 'Plugins'),
+      'favorites' => (BI.star, 'Favorites'),
+      'sounds' => (BI.musicNote, 'Sounds'),
+      'samples' => (BI.equalizer, 'Samples'),
+      'instruments' => (BI.piano, 'Instruments'),
+      'effects' => (BI.lightning, 'Effects'),
+      'plugins' => (BI.plugin, 'Plugins'),
       _ => null,
     };
   }
@@ -548,7 +550,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
   Widget _buildSearchScopeChip(BoojyColors colors) {
     final meta = _categoryMeta(_selectedCategory);
-    final icon = meta?.$1 ?? Icons.folder;
+    final icon = meta?.$1 ?? BI.folder;
     final label = _selectedCategory != null
         ? _categoryLabel(_selectedCategory!)
         : 'All';
@@ -566,7 +568,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: colors.textSecondary),
+            style: TextStyle(
+              fontSize: BT.fontLabel,
+              color: colors.textSecondary,
+            ),
           ),
           const SizedBox(width: 4),
           GestureDetector(
@@ -575,7 +580,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 _selectedCategory = null;
               });
             },
-            child: Icon(Icons.close, size: 12, color: colors.textMuted),
+            child: Icon(BI.close, size: 12, color: colors.textMuted),
           ),
         ],
       ),
@@ -615,12 +620,12 @@ class _LibraryPanelState extends State<LibraryPanel> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         children: [
           // System categories
-          _buildCategoryItem('favorites', Icons.star, 'Favorites'),
-          _buildCategoryItem('sounds', Icons.music_note, 'Sounds'),
-          _buildCategoryItem('samples', Icons.graphic_eq, 'Samples'),
-          _buildCategoryItem('instruments', Icons.piano, 'Instruments'),
-          _buildCategoryItem('effects', Icons.bolt, 'Effects'),
-          _buildCategoryItem('plugins', Icons.extension, 'Plugins'),
+          _buildCategoryItem('favorites', BI.star, 'Favorites'),
+          _buildCategoryItem('sounds', BI.musicNote, 'Sounds'),
+          _buildCategoryItem('samples', BI.equalizer, 'Samples'),
+          _buildCategoryItem('instruments', BI.piano, 'Instruments'),
+          _buildCategoryItem('effects', BI.lightning, 'Effects'),
+          _buildCategoryItem('plugins', BI.plugin, 'Plugins'),
 
           // Divider before user folders
           if (userFolders.isNotEmpty) ...[
@@ -636,7 +641,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
             final folderId = 'folder_${path.hashCode}';
             return _buildCategoryItem(
               folderId,
-              Icons.folder,
+              BI.folder,
               name,
               isUserFolder: true,
               folderPath: path,
@@ -713,7 +718,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: Row(
           children: [
-            Icon(Icons.add, size: 16, color: colors.textMuted),
+            Icon(BI.add, size: 16, color: colors.textMuted),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -750,21 +755,21 @@ class _LibraryPanelState extends State<LibraryPanel> {
       ),
       items: [
         PopupMenuItem(
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.folder_open, size: 16),
-              SizedBox(width: 8),
-              Text('Show in Finder'),
+              Icon(BI.folderOpen, size: 16),
+              const SizedBox(width: 8),
+              const Text('Show in Finder'),
             ],
           ),
           onTap: () => Process.run('open', ['-R', path]),
         ),
         PopupMenuItem(
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.delete, size: 16),
-              SizedBox(width: 8),
-              Text('Remove from Library'),
+              Icon(BI.delete, size: 16),
+              const SizedBox(width: 8),
+              const Text('Remove from Library'),
             ],
           ),
           onTap: () => widget.libraryService.removeUserFolder(path),
@@ -783,11 +788,15 @@ class _LibraryPanelState extends State<LibraryPanel> {
     if (_selectedCategory == null) {
       return ColoredBox(
         color: colors.darkest,
-        child: Center(
-          child: Text(
-            'Select a category\nor search to browse.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: colors.textMuted),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Text(
+              'Select a category\nor search to browse.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: BT.fontBody, color: colors.textMuted),
+            ),
           ),
         ),
       );
@@ -936,7 +945,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final instrumentsExpanded = _expandedItems.contains('plugins_instruments');
     widgets.add(
       _buildExpandableHeader(
-        icon: Icons.piano,
+        icon: BI.piano,
         title: 'Instruments',
         isExpanded: instrumentsExpanded,
         onTap: () => _toggleItem('plugins_instruments'),
@@ -956,7 +965,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final effectsExpanded = _expandedItems.contains('plugins_effects');
     widgets.add(
       _buildExpandableHeader(
-        icon: Icons.graphic_eq,
+        icon: BI.equalizer,
         title: 'Effects',
         isExpanded: effectsExpanded,
         onTap: () => _toggleItem('plugins_effects'),
@@ -1016,7 +1025,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildExpandableHeader(
-          icon: Icons.folder,
+          icon: BI.folder,
           title: folder.name,
           isExpanded: isExpanded,
           onTap: () => _toggleItem(
@@ -1085,14 +1094,20 @@ class _LibraryPanelState extends State<LibraryPanel> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+              style: TextStyle(
+                color: context.colors.textMuted,
+                fontSize: BT.fontBody,
+              ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: context.colors.textMuted, fontSize: 12),
+                style: TextStyle(
+                  color: context.colors.textMuted,
+                  fontSize: BT.fontLabel,
+                ),
               ),
             ],
           ],
@@ -1106,7 +1121,10 @@ class _LibraryPanelState extends State<LibraryPanel> {
       padding: const EdgeInsets.only(left: 24, top: 4, bottom: 4),
       child: Text(
         message,
-        style: TextStyle(color: context.colors.textMuted, fontSize: 11),
+        style: TextStyle(
+          color: context.colors.textMuted,
+          fontSize: BT.fontLabel,
+        ),
       ),
     );
   }
@@ -1191,7 +1209,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
           child: Text(
             '${results.length} result${results.length == 1 ? '' : 's'}',
-            style: TextStyle(fontSize: 11, color: colors.textMuted),
+            style: TextStyle(fontSize: BT.fontLabel, color: colors.textMuted),
           ),
         ),
         // Flat A-Z list with type icons
@@ -1300,7 +1318,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
         item is AudioFileItem) {
       child = Draggable<AudioFileItem>(
         data: item,
-        feedback: _buildDragFeedback(item.displayName, Icons.graphic_eq),
+        feedback: _buildDragFeedback(item.displayName, BI.equalizer),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
@@ -1308,7 +1326,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
     } else if (item.type == LibraryItemType.midiFile && item is MidiFileItem) {
       child = Draggable<MidiFileItem>(
         data: item,
-        feedback: _buildDragFeedback(item.displayName, Icons.music_note),
+        feedback: _buildDragFeedback(item.displayName, BI.musicNote),
         childWhenDragging: Opacity(opacity: 0.5, child: child),
         onDragStarted: _handleDragStarted,
         child: child,
@@ -1330,14 +1348,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
       data: plugin,
       feedback: _buildDragFeedback(
         name,
-        isInstrument ? Icons.piano : Icons.graphic_eq,
+        isInstrument ? BI.piano : BI.equalizer,
       ),
       childWhenDragging: Opacity(
         opacity: 0.5,
         child: _LibraryItemWidget(
           name: name,
           indent: indent,
-          typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq,
+          typeIcon: isInstrument ? BI.piano : BI.equalizer,
         ),
       ),
       child: GestureDetector(
@@ -1353,7 +1371,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           indent: indent,
           isFavorite: widget.libraryService.isFavorite('vst3_${plugin.path}'),
           isSelected: _selectedItemId == 'vst3_${plugin.path}',
-          typeIcon: isInstrument ? Icons.piano : Icons.graphic_eq,
+          typeIcon: isInstrument ? BI.piano : BI.equalizer,
         ),
       ),
     );
@@ -1389,7 +1407,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
             ],
@@ -1419,11 +1437,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
         // Load actions for instruments
         if (isInstrument)
           PopupMenuItem(
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.play_arrow, size: 16),
-                SizedBox(width: 8),
-                Text('Load on Selected Track'),
+                Icon(BI.play, size: 16),
+                const SizedBox(width: 8),
+                const Text('Load on Selected Track'),
               ],
             ),
             onTap: () => widget.onItemDoubleClick?.call(item),
@@ -1431,11 +1449,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
         // Add action for effects
         if (isEffect)
           PopupMenuItem(
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.add, size: 16),
-                SizedBox(width: 8),
-                Text('Add to Selected Track'),
+                Icon(BI.add, size: 16),
+                const SizedBox(width: 8),
+                const Text('Add to Selected Track'),
               ],
             ),
             onTap: () => widget.onItemDoubleClick?.call(item),
@@ -1443,11 +1461,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
         // Open in Sampler for audio files
         if (isAudioFile && widget.onOpenInSampler != null)
           PopupMenuItem(
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.music_note, size: 16),
-                SizedBox(width: 8),
-                Text('Open in Sampler'),
+                Icon(BI.musicNote, size: 16),
+                const SizedBox(width: 8),
+                const Text('Open in Sampler'),
               ],
             ),
             onTap: () => widget.onOpenInSampler?.call(item),
@@ -1457,7 +1475,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           child: Row(
             children: [
               Icon(
-                isFavorite ? Icons.star : Icons.star_border,
+                isFavorite ? BI.star : BI.star,
                 size: 16,
                 color: isFavorite ? Colors.amber : null,
               ),
@@ -1471,11 +1489,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
         if (hasFilePath) ...[
           const PopupMenuDivider(),
           PopupMenuItem(
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.folder_open, size: 16),
-                SizedBox(width: 8),
-                Text('Show in Finder'),
+                Icon(BI.folderOpen, size: 16),
+                const SizedBox(width: 8),
+                const Text('Show in Finder'),
               ],
             ),
             onTap: () {
@@ -1486,11 +1504,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
             },
           ),
           PopupMenuItem(
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.copy, size: 16),
-                SizedBox(width: 8),
-                Text('Copy Path'),
+                Icon(BI.copy, size: 16),
+                const SizedBox(width: 8),
+                const Text('Copy Path'),
               ],
             ),
             onTap: () {
@@ -1518,11 +1536,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
       ),
       items: [
         PopupMenuItem(
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.play_arrow, size: 16),
-              SizedBox(width: 8),
-              Text('Load on Selected Track'),
+              Icon(BI.play, size: 16),
+              const SizedBox(width: 8),
+              const Text('Load on Selected Track'),
             ],
           ),
           onTap: () => widget.onVst3DoubleClick?.call(plugin),
@@ -1531,7 +1549,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
           child: Row(
             children: [
               Icon(
-                isFavorite ? Icons.star : Icons.star_border,
+                isFavorite ? BI.star : BI.star,
                 size: 16,
                 color: isFavorite ? Colors.amber : null,
               ),
@@ -1549,21 +1567,21 @@ class _LibraryPanelState extends State<LibraryPanel> {
   IconData _typeIconFor(LibraryItem item) {
     switch (item.type) {
       case LibraryItemType.preset:
-        return Icons.music_note;
+        return BI.musicNote;
       case LibraryItemType.sample:
       case LibraryItemType.audioFile:
-        return Icons.graphic_eq;
+        return BI.equalizer;
       case LibraryItemType.instrument:
-        return Icons.piano;
+        return BI.piano;
       case LibraryItemType.effect:
-        return Icons.bolt;
+        return BI.lightning;
       case LibraryItemType.vst3Instrument:
       case LibraryItemType.vst3Effect:
-        return Icons.extension;
+        return BI.plugin;
       case LibraryItemType.folder:
-        return Icons.folder;
+        return BI.folder;
       case LibraryItemType.midiFile:
-        return Icons.music_note;
+        return BI.musicNote;
     }
   }
 
@@ -1658,7 +1676,7 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
                     color: isActive || _isHovered
                         ? colors.textPrimary
                         : colors.textSecondary,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: isActive ? BT.weightSemiBold : BT.weightMedium,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1715,7 +1733,7 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
           child: Row(
             children: [
               Icon(
-                widget.isExpanded ? Icons.expand_more : Icons.chevron_right,
+                widget.isExpanded ? BI.expandMore : BI.caretRight,
                 size: 14,
                 color: colors.textMuted,
               ),
@@ -1730,7 +1748,7 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
                     color: _isHovered
                         ? colors.textPrimary
                         : colors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: BT.weightMedium,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1834,7 +1852,7 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
         child: Row(
           children: [
             if (widget.isPreviewing) ...[
-              Icon(Icons.volume_up, size: 14, color: iconColor),
+              Icon(BI.speakerHigh, size: 14, color: iconColor),
               const SizedBox(width: 6),
             ] else if (widget.typeIcon != null) ...[
               Icon(widget.typeIcon, size: 14, color: iconColor),
@@ -1850,7 +1868,7 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
                               ? colors.textPrimary
                               : colors.textSecondary),
                     fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: isActive ? BT.weightSemiBold : BT.weightMedium,
                   );
                   return Text(
                     TextUtils.truncateMiddleToFit(
@@ -1865,8 +1883,7 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
                 },
               ),
             ),
-            if (widget.isFavorite)
-              const Icon(Icons.star, size: 12, color: Colors.amber),
+            if (widget.isFavorite) Icon(BI.star, size: 12, color: Colors.amber),
           ],
         ),
       ),

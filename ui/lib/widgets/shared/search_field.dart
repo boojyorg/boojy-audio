@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/animation_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A styled search field matching the Boojy Notes pill-shaped design.
 ///
@@ -99,7 +102,7 @@ class _SearchFieldState extends State<SearchField> {
       onTap: () => _focusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: AnimationConstants.panelDuration,
         curve: Curves.easeInOut,
         width: _isExpanded ? widget.expandedWidth : 105,
         height: 28,
@@ -116,7 +119,7 @@ class _SearchFieldState extends State<SearchField> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
-            const Icon(Icons.search, size: 15.4, color: Color(0xFF646880)),
+            Icon(BI.search, size: BT.iconMd, color: const Color(0xFF646880)),
             const SizedBox(width: 8),
             Expanded(
               child: Focus(
@@ -129,15 +132,15 @@ class _SearchFieldState extends State<SearchField> {
                   onSubmitted: widget.onSubmitted,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: BT.fontBody,
+                    fontWeight: BT.weightMedium,
                   ),
                   decoration: InputDecoration(
                     hintText: widget.hintText,
                     hintStyle: TextStyle(
                       color: colors.textMuted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontSize: BT.fontBody,
+                      fontWeight: BT.weightMedium,
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -158,7 +161,7 @@ class _SearchFieldState extends State<SearchField> {
                     child: Text(
                       '\u2715',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: BT.fontBody,
                         color: _clearHovered
                             ? colors.textPrimary
                             : colors.textMuted,

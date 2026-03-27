@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../theme/animation_constants.dart';
+import '../theme/theme_extension.dart';
+
 /// Logic Pro-style capsule fader with integrated stereo level meters
 /// The level meters are rendered inside the capsule shape, with a draggable handle
-class CapsuleFader extends StatelessWidget {
+class CapsuleFader extends StatefulWidget {
   final double leftLevel; // 0.0 to 1.0
   final double rightLevel; // 0.0 to 1.0
   final double volumeDb; // -60 to +6
@@ -21,40 +24,54 @@ class CapsuleFader extends StatelessWidget {
   });
 
   @override
+  State<CapsuleFader> createState() => _CapsuleFaderState();
+}
+
+class _CapsuleFaderState extends State<CapsuleFader> {
+  bool _isDragging = false;
+
+  @override
   Widget build(BuildContext context) {
+    final accentColor = context.colors.accent;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
-          onDoubleTap: onDoubleTap,
+          onDoubleTap: widget.onDoubleTap,
+          onHorizontalDragStart: (_) => setState(() => _isDragging = true),
           onHorizontalDragUpdate: (details) {
-            if (onVolumeChanged == null) return;
+            if (widget.onVolumeChanged == null) return;
             final sliderValue =
                 (details.localPosition.dx / constraints.maxWidth).clamp(
                   0.0,
                   1.0,
                 );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
-            onVolumeChanged!(newVolumeDb);
+            widget.onVolumeChanged!(newVolumeDb);
           },
+          onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
+          onHorizontalDragCancel: () => setState(() => _isDragging = false),
           onTapDown: (details) {
-            if (onVolumeChanged == null) return;
+            if (widget.onVolumeChanged == null) return;
             final sliderValue =
                 (details.localPosition.dx / constraints.maxWidth).clamp(
                   0.0,
                   1.0,
                 );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
-            onVolumeChanged!(newVolumeDb);
+            widget.onVolumeChanged!(newVolumeDb);
           },
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: CustomPaint(
               size: Size(constraints.maxWidth, constraints.maxHeight),
               painter: _CapsuleFaderPainter(
-                leftLevel: leftLevel,
-                rightLevel: rightLevel,
-                volumeSliderValue: _volumeDbToSlider(volumeDb),
-                inputLevel: inputLevel,
+                leftLevel: widget.leftLevel,
+                rightLevel: widget.rightLevel,
+                volumeSliderValue: _volumeDbToSlider(widget.volumeDb),
+                inputLevel: widget.inputLevel,
+                isDragging: _isDragging,
+                accentColor: accentColor,
               ),
             ),
           ),
@@ -125,12 +142,16 @@ class _CapsuleFaderPainter extends CustomPainter {
   final double rightLevel;
   final double volumeSliderValue; // 0.0 to 1.0
   final double? inputLevel; // 0.0 to 1.0, faded overlay when armed
+  final bool isDragging;
+  final Color accentColor;
 
   _CapsuleFaderPainter({
     required this.leftLevel,
     required this.rightLevel,
     required this.volumeSliderValue,
     this.inputLevel,
+    required this.isDragging,
+    required this.accentColor,
   });
 
   @override
@@ -273,19 +294,31 @@ class _CapsuleFaderPainter extends CustomPainter {
     final usableWidth = size.width - handleRadius * 2;
     final handleX = handleRadius + volumeSliderValue * usableWidth;
     final handleY = size.height / 2;
+    final center = Offset(handleX, handleY);
 
-    // Draw semi-transparent grey circle (Logic Pro style - no glow, no indicator)
+    // Draw accent glow when dragging
+    if (isDragging) {
+      final glowPaint = Paint()
+        ..color = accentColor.withValues(alpha: AnimationConstants.glowOpacity)
+        ..maskFilter = const MaskFilter.blur(
+          BlurStyle.normal,
+          AnimationConstants.glowBlurRadius,
+        );
+      canvas.drawCircle(center, handleRadius + 2, glowPaint);
+    }
+
+    // Draw semi-transparent grey circle (Logic Pro style)
     final handlePaint = Paint()
       ..color = const Color(0xFF808080).withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(handleX, handleY), handleRadius - 1, handlePaint);
+    canvas.drawCircle(center, handleRadius - 1, handlePaint);
 
     // Draw subtle border
     final borderPaint = Paint()
       ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawCircle(Offset(handleX, handleY), handleRadius - 1, borderPaint);
+    canvas.drawCircle(center, handleRadius - 1, borderPaint);
   }
 
   @override
@@ -293,6 +326,8 @@ class _CapsuleFaderPainter extends CustomPainter {
     return oldDelegate.leftLevel != leftLevel ||
         oldDelegate.rightLevel != rightLevel ||
         oldDelegate.volumeSliderValue != volumeSliderValue ||
-        oldDelegate.inputLevel != inputLevel;
+        oldDelegate.inputLevel != inputLevel ||
+        oldDelegate.isDragging != isDragging ||
+        oldDelegate.accentColor != accentColor;
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../audio_engine.dart';
+import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
+import '../../../theme/tokens.dart';
 import '../../../widgets/dialogs/latency_settings_dialog.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
@@ -78,7 +80,8 @@ mixin DAWBuildMixin
         style: TextStyle(
           color: colors.textMuted,
           fontSize: 10,
-          fontFamily: 'monospace',
+          fontFamily: BT.fontFamilyMono,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       );
     }
@@ -107,7 +110,8 @@ mixin DAWBuildMixin
         style: TextStyle(
           color: latencyColor,
           fontSize: 10,
-          fontFamily: 'monospace',
+          fontFamily: BT.fontFamilyMono,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );
@@ -157,9 +161,7 @@ mixin DAWBuildMixin
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isAudioGraphInitialized
-                      ? Icons.check_circle
-                      : Icons.hourglass_empty,
+                  isAudioGraphInitialized ? BI.checkCircle : BI.hourglass,
                   size: 12,
                   color: isAudioGraphInitialized
                       ? colors.accent
@@ -173,7 +175,7 @@ mixin DAWBuildMixin
                         ? colors.accent
                         : colors.textMuted,
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: BT.weightMedium,
                   ),
                 ),
               ],
@@ -182,44 +184,47 @@ mixin DAWBuildMixin
           const Spacer(),
           // Duration (if clip selected)
           if (clipDuration != null) ...[
-            Icon(Icons.timelapse, size: 11, color: colors.textMuted),
+            Icon(BI.metronome, size: 11, color: colors.textMuted),
             const SizedBox(width: 4),
             Text(
               '${clipDuration!.toStringAsFixed(2)}s',
               style: TextStyle(
                 color: colors.textMuted,
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             const SizedBox(width: 16),
           ],
           // Sample rate with icon
-          Icon(Icons.graphic_eq, size: 11, color: colors.textMuted),
+          Icon(BI.equalizer, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
           Text(
             '48kHz',
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 10,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
           const SizedBox(width: 16),
           // Latency display with icon
-          Icon(Icons.speed, size: 11, color: colors.textMuted),
+          Icon(BI.speed, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
           buildLatencyDisplay(),
           const SizedBox(width: 16),
           // CPU with icon
-          Icon(Icons.memory, size: 11, color: colors.textMuted),
+          Icon(BI.cpu, size: 11, color: colors.textMuted),
           const SizedBox(width: 4),
           Text(
             '0%',
             style: TextStyle(
               color: colors.textMuted,
               fontSize: 10,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

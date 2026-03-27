@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../shared/compact_dropdown.dart';
 
@@ -117,7 +118,7 @@ class PianoRollScaleControls extends StatelessWidget {
           // Row 1: Highlight toggle
           _buildToggleButton(
             context,
-            icon: Icons.visibility,
+            icon: BI.eye,
             label: 'Hi',
             isActive: highlightEnabled,
             onTap: onHighlightToggle,
@@ -130,7 +131,7 @@ class PianoRollScaleControls extends StatelessWidget {
             children: [
               _buildToggleButton(
                 context,
-                icon: Icons.lock,
+                icon: BI.lock,
                 label: '',
                 isActive: lockEnabled,
                 onTap: onLockToggle,
@@ -140,7 +141,7 @@ class PianoRollScaleControls extends StatelessWidget {
               const SizedBox(width: 2),
               _buildToggleButton(
                 context,
-                icon: Icons.unfold_less,
+                icon: BI.compress,
                 label: '',
                 isActive: foldEnabled,
                 onTap: onFoldToggle,
@@ -153,7 +154,7 @@ class PianoRollScaleControls extends StatelessWidget {
           // Ghost notes toggle
           _buildToggleButton(
             context,
-            icon: Icons.layers,
+            icon: BI.layers,
             label: 'Gh',
             isActive: ghostNotesEnabled,
             onTap: onGhostNotesToggle,
@@ -229,7 +230,7 @@ class PianoRollScaleControls extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
             child: Icon(
-              auditionEnabled ? Icons.volume_up : Icons.volume_off,
+              auditionEnabled ? BI.speakerHigh : BI.speakerNone,
               size: 16,
               color: colors.textPrimary,
             ),

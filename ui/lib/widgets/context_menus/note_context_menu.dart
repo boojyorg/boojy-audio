@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/boojy_icons.dart';
 import '../shared/context_menu_item.dart';
 
 /// Shows a context menu for piano roll notes.
@@ -21,32 +22,32 @@ Future<String?> showNoteContextMenu({
   final items = <PopupMenuEntry<String>>[
     ContextMenuItem(
       value: 'delete',
-      icon: Icons.delete_outline,
+      icon: BI.delete,
       label: 'Delete $noteLabel',
       shortcut: '⌘⌫',
     ),
     ContextMenuItem(
       value: 'duplicate',
-      icon: Icons.content_copy,
+      icon: BI.copy,
       label: 'Duplicate $noteLabel',
       shortcut: '⌘D',
     ),
     const PopupMenuDivider(),
     ContextMenuItem(
       value: 'cut',
-      icon: Icons.content_cut,
+      icon: BI.cut,
       label: 'Cut $noteLabel',
       shortcut: '⌘X',
     ),
     ContextMenuItem(
       value: 'copy',
-      icon: Icons.copy,
+      icon: BI.copy,
       label: 'Copy $noteLabel',
       shortcut: '⌘C',
     ),
     ContextMenuItem(
       value: 'paste',
-      icon: Icons.paste,
+      icon: BI.paste,
       label: 'Paste',
       shortcut: '⌘V',
       enabled: canPaste,
@@ -54,13 +55,13 @@ Future<String?> showNoteContextMenu({
     const PopupMenuDivider(),
     ContextMenuItem(
       value: 'quantize',
-      icon: Icons.grid_on,
+      icon: BI.gridOn,
       label: 'Quantize',
       shortcut: 'Q',
     ),
     ContextMenuItem(
       value: 'velocity',
-      icon: Icons.speed,
+      icon: BI.speed,
       label: 'Velocity: $velocity',
     ),
   ];

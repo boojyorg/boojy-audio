@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import '../models/version_type.dart';
 
 /// Dialog for creating a new project version
@@ -115,12 +117,12 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   'New Version',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                    fontSize: BT.fontHeading,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -139,7 +141,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
               style: TextStyle(
                 color: Color(0xFF9E9E9E),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),
@@ -152,7 +154,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
               style: TextStyle(
                 color: Color(0xFF9E9E9E),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),
@@ -206,7 +208,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
               style: TextStyle(
                 color: Color(0xFF9E9E9E),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),
@@ -302,7 +304,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                           ? Colors.black
                           : const Color(0xFF9E9E9E),
                       fontWeight: isSelected
-                          ? FontWeight.w600
+                          ? BT.weightSemiBold
                           : FontWeight.normal,
                       fontSize: 14,
                     ),

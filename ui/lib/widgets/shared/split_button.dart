@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 
 /// A split button with two clickable zones:
@@ -156,11 +157,7 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
                       bottomRight: Radius.circular(2),
                     ),
                   ),
-                  child: Icon(
-                    Icons.arrow_drop_down,
-                    size: 14,
-                    color: textColor,
-                  ),
+                  child: Icon(BI.caretDown, size: 14, color: textColor),
                 ),
               ),
             ),

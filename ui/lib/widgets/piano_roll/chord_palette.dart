@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/chord_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Floating chord palette for selecting and stamping chords.
 /// Allows root selection, chord type, inversion, and preview.
@@ -81,14 +83,14 @@ class _ChordPaletteState extends State<ChordPalette> {
       ),
       child: Row(
         children: [
-          Icon(Icons.music_note, color: colors.textPrimary, size: 16),
+          Icon(BI.musicNote, color: colors.textPrimary, size: 16),
           const SizedBox(width: 8),
           Text(
             'Chord Palette',
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
           const Spacer(),
@@ -103,8 +105,8 @@ class _ChordPaletteState extends State<ChordPalette> {
               widget.configuration.displayName,
               style: TextStyle(
                 color: colors.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: BT.fontLabel,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
           ),
@@ -113,7 +115,7 @@ class _ChordPaletteState extends State<ChordPalette> {
             onTap: widget.onClose,
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: Icon(Icons.close, color: colors.textMuted, size: 16),
+              child: Icon(BI.close, color: colors.textMuted, size: 16),
             ),
           ),
         ],
@@ -139,7 +141,7 @@ class _ChordPaletteState extends State<ChordPalette> {
               style: TextStyle(
                 color: colors.textMuted,
                 fontSize: 10,
-                fontWeight: FontWeight.w500,
+                fontWeight: BT.weightMedium,
               ),
             ),
           ),
@@ -190,7 +192,7 @@ class _ChordPaletteState extends State<ChordPalette> {
             style: TextStyle(
               color: isSelected ? colors.elevated : colors.textPrimary,
               fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
             ),
           ),
         ),
@@ -236,7 +238,7 @@ class _ChordPaletteState extends State<ChordPalette> {
               style: TextStyle(
                 color: colors.textMuted,
                 fontSize: 10,
-                fontWeight: FontWeight.w500,
+                fontWeight: BT.weightMedium,
               ),
             ),
           ),
@@ -305,7 +307,7 @@ class _ChordPaletteState extends State<ChordPalette> {
             style: TextStyle(
               color: isSelected ? colors.elevated : colors.textPrimary,
               fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
             ),
           ),
         ),
@@ -332,7 +334,7 @@ class _ChordPaletteState extends State<ChordPalette> {
               style: TextStyle(
                 color: colors.textMuted,
                 fontSize: 10,
-                fontWeight: FontWeight.w500,
+                fontWeight: BT.weightMedium,
               ),
             ),
           ),
@@ -386,7 +388,7 @@ class _ChordPaletteState extends State<ChordPalette> {
             style: TextStyle(
               color: isSelected ? colors.elevated : colors.textPrimary,
               fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
             ),
           ),
         ),
@@ -408,7 +410,7 @@ class _ChordPaletteState extends State<ChordPalette> {
               child: Row(
                 children: [
                   Icon(
-                    widget.previewEnabled ? Icons.volume_up : Icons.volume_off,
+                    widget.previewEnabled ? BI.speakerHigh : BI.speakerNone,
                     color: widget.previewEnabled
                         ? colors.accent
                         : colors.textMuted,
@@ -421,7 +423,7 @@ class _ChordPaletteState extends State<ChordPalette> {
                       color: widget.previewEnabled
                           ? colors.textPrimary
                           : colors.textMuted,
-                      fontSize: 11,
+                      fontSize: BT.fontLabel,
                     ),
                   ),
                 ],
@@ -446,14 +448,14 @@ class _ChordPaletteState extends State<ChordPalette> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.play_arrow, color: colors.elevated, size: 14),
+                    Icon(BI.play, color: colors.elevated, size: 14),
                     const SizedBox(width: 4),
                     Text(
                       'Play',
                       style: TextStyle(
                         color: colors.elevated,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontSize: BT.fontLabel,
+                        fontWeight: BT.weightMedium,
                       ),
                     ),
                   ],

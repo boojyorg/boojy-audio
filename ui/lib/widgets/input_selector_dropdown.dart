@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../audio_engine.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 
 /// Shows a live input selector dropdown with animated level meters per channel.
 /// Replaces static PopupMenu with a custom overlay that polls input levels.
@@ -151,7 +153,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
     final noInputSelected = widget.currentDeviceIndex < 0;
     items.add(
       _buildMenuItem(
-        icon: Icons.block,
+        icon: BI.pluginOff,
         label: 'No Input',
         isSelected: noInputSelected,
         onTap: () => widget.onSelected(-1, 0),
@@ -178,8 +180,8 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
             '${isDefault ? "★ " : ""}$deviceName',
             style: TextStyle(
               color: colors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 0.3,
             ),
           ),
@@ -250,7 +252,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
               style: TextStyle(
                 color: isSelected ? colors.accent : colors.textPrimary,
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
               ),
             ),
           ],
@@ -275,9 +277,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
         child: Row(
           children: [
             Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
+              isSelected ? BI.radioChecked : BI.circle,
               size: 14,
               color: isSelected ? colors.accent : colors.textSecondary,
             ),
@@ -287,7 +287,7 @@ class _InputSelectorOverlayState extends State<_InputSelectorOverlay> {
               style: TextStyle(
                 color: isSelected ? colors.accent : colors.textPrimary,
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isSelected ? BT.weightSemiBold : FontWeight.normal,
               ),
             ),
             const SizedBox(width: 8),

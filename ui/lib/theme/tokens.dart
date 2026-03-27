@@ -91,6 +91,50 @@ class BoojyTokens {
   /// 15px — monospace displays (tempo, position, signature)
   static const double fontDisplay = 15.0;
 
+  /// 20px — dialog titles, section headings
+  static const double fontHeading = 20.0;
+
+  // ============================================
+  // FONT FAMILY
+  // ============================================
+
+  /// Monospace font for numeric displays
+  static const String fontFamilyMono = 'monospace';
+
+  // ============================================
+  // TEXT STYLES (factory methods)
+  // ============================================
+
+  /// 9px caption — compact labels, sidebar buttons
+  static TextStyle caption(Color color, {FontWeight? weight}) => TextStyle(
+    fontSize: fontCaption,
+    fontWeight: weight ?? weightRegular,
+    color: color,
+  );
+
+  /// 11px label — button text, secondary info
+  static TextStyle label(Color color, {FontWeight? weight}) => TextStyle(
+    fontSize: fontLabel,
+    fontWeight: weight ?? weightMedium,
+    color: color,
+  );
+
+  /// 13px body — primary content
+  static TextStyle body(Color color, {FontWeight? weight}) => TextStyle(
+    fontSize: fontBody,
+    fontWeight: weight ?? weightRegular,
+    color: color,
+  );
+
+  /// 15px display — monospace numeric readouts with tabular figures
+  static TextStyle display(Color color, {FontWeight? weight}) => TextStyle(
+    fontSize: fontDisplay,
+    fontWeight: weight ?? weightSemiBold,
+    fontFamily: fontFamilyMono,
+    fontFeatures: const [FontFeature.tabularFigures()],
+    color: color,
+  );
+
   // ============================================
   // FONT WEIGHTS
   // ============================================
@@ -122,18 +166,26 @@ class BoojyTokens {
   // ============================================
 
   /// Standard button padding (transport bar, toolbars)
-  static const EdgeInsets buttonPadding =
-      EdgeInsets.symmetric(horizontal: sm, vertical: 5.0);
+  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(
+    horizontal: sm,
+    vertical: 5.0,
+  );
 
   /// Compact button padding (piano roll sidebar, small controls)
-  static const EdgeInsets buttonPaddingCompact =
-      EdgeInsets.symmetric(horizontal: 6.0, vertical: 3.0);
+  static const EdgeInsets buttonPaddingCompact = EdgeInsets.symmetric(
+    horizontal: 6.0,
+    vertical: 3.0,
+  );
 
   /// Standard split button right-zone padding
-  static const EdgeInsets splitRightPadding =
-      EdgeInsets.symmetric(horizontal: 7.0, vertical: 5.0);
+  static const EdgeInsets splitRightPadding = EdgeInsets.symmetric(
+    horizontal: 7.0,
+    vertical: 5.0,
+  );
 
   /// Compact split button right-zone padding
-  static const EdgeInsets splitRightPaddingCompact =
-      EdgeInsets.symmetric(horizontal: 5.0, vertical: 3.0);
+  static const EdgeInsets splitRightPaddingCompact = EdgeInsets.symmetric(
+    horizontal: 5.0,
+    vertical: 3.0,
+  );
 }

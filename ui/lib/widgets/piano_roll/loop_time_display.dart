@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A clickable time display showing bar.beat.subdivision format.
 /// Each segment (bar, beat, sub) is individually clickable to edit.
@@ -383,7 +384,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 10,
-            fontFamily: 'monospace',
+            fontFamily: BT.fontFamilyMono,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
@@ -424,7 +426,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),
@@ -439,7 +442,8 @@ class _LoopTimeDisplayState extends State<LoopTimeDisplay> {
       style: TextStyle(
         color: colors.textMuted,
         fontSize: 10,
-        fontFamily: 'monospace',
+        fontFamily: BT.fontFamilyMono,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }

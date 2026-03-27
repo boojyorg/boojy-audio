@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../effect_parameter_panel.dart';
 import '../../audio_engine.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A card representing a single effect in the horizontal FX chain.
 /// Displays effect name, bypass toggle, and parameter controls.
@@ -94,7 +96,7 @@ class EffectCard extends StatelessWidget {
                 ),
               ),
               child: Icon(
-                effect.bypassed ? Icons.circle_outlined : Icons.circle,
+                effect.bypassed ? BI.circle : BI.circle,
                 size: 10,
                 color: context.colors.textPrimary,
               ),
@@ -111,7 +113,7 @@ class EffectCard extends StatelessWidget {
                     ? context.colors.textMuted
                     : context.colors.textSecondary,
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
+                fontWeight: BT.weightSemiBold,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -120,7 +122,7 @@ class EffectCard extends StatelessWidget {
           // Pop-out button (VST3 only)
           if (isVst3 && !isFloating)
             IconButton(
-              icon: const Icon(Icons.open_in_new),
+              icon: Icon(BI.openInNew),
               color: context.colors.accent,
               iconSize: 16,
               padding: EdgeInsets.zero,
@@ -132,7 +134,7 @@ class EffectCard extends StatelessWidget {
           // Bring back button (VST3 floating only)
           if (isVst3 && isFloating)
             IconButton(
-              icon: const Icon(Icons.input),
+              icon: Icon(BI.input),
               color: context.colors.accent,
               iconSize: 16,
               padding: EdgeInsets.zero,
@@ -143,7 +145,7 @@ class EffectCard extends StatelessWidget {
 
           // Delete button
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: Icon(BI.close),
             color: context.colors.textMuted,
             iconSize: 16,
             padding: EdgeInsets.zero,
@@ -161,11 +163,14 @@ class EffectCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.open_in_new, size: 32, color: context.colors.textMuted),
+          Icon(BI.openInNew, size: 32, color: context.colors.textMuted),
           const SizedBox(height: 8),
           Text(
             'Open in separate window',
-            style: TextStyle(color: context.colors.textMuted, fontSize: 11),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontLabel,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -200,7 +205,10 @@ class EffectCard extends StatelessWidget {
       default:
         return Text(
           'Unknown effect: ${effect.type}',
-          style: TextStyle(color: context.colors.textMuted, fontSize: 11),
+          style: TextStyle(
+            color: context.colors.textMuted,
+            fontSize: BT.fontLabel,
+          ),
         );
     }
   }
@@ -398,7 +406,10 @@ class EffectCard extends StatelessWidget {
     return Center(
       child: Text(
         effect.parameters['name']?.toString() ?? 'VST3 Plugin',
-        style: TextStyle(color: context.colors.textMuted, fontSize: 11),
+        style: TextStyle(
+          color: context.colors.textMuted,
+          fontSize: BT.fontLabel,
+        ),
         textAlign: TextAlign.center,
       ),
     );
@@ -457,7 +468,7 @@ class EffectCard extends StatelessWidget {
               '${value.toStringAsFixed(1)}$unit',
               style: TextStyle(
                 color: context.colors.textSecondary,
-                fontSize: 9,
+                fontSize: BT.fontCaption,
               ),
               textAlign: TextAlign.right,
             ),

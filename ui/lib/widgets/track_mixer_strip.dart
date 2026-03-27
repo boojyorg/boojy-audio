@@ -9,6 +9,7 @@ import '../models/track_automation_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/tool_mode_resolver.dart';
 import '../theme/app_colors.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/theme_provider.dart';
 import '../theme/tokens.dart';
@@ -414,7 +415,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                                 ? context.colors.textPrimary
                                 : context.colors.textSecondary,
                             fontSize: dbFontSize,
-                            fontFamily: 'monospace',
+                            fontFamily: BT.fontFamilyMono,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),
@@ -489,10 +491,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             flex: 2,
             child: Text(
               widget.trackName,
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: fontSize,
-              ),
+              style: TextStyle(color: colors.textSecondary, fontSize: fontSize),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
@@ -504,7 +503,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             GestureDetector(
               onTap: widget.onAutomationToggle,
               child: Icon(
-                Icons.show_chart,
+                BI.chartLine,
                 size: buttonSize,
                 color: widget.showAutomation ? colors.accent : colors.textMuted,
               ),
@@ -557,7 +556,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 style: TextStyle(
                   color: colors.textMuted,
                   fontSize: BT.fontCaption,
-                  fontFamily: 'monospace',
+                  fontFamily: BT.fontFamilyMono,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -585,7 +584,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.isMuted ? colors.muteActive : colors.textMuted.withValues(alpha: BT.opacityMedium),
+              color: widget.isMuted
+                  ? colors.muteActive
+                  : colors.textMuted.withValues(alpha: BT.opacityMedium),
             ),
           ),
           const SizedBox(width: 2),
@@ -594,7 +595,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             height: 6,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: widget.isSoloed ? colors.soloActive : colors.textMuted.withValues(alpha: BT.opacityMedium),
+              color: widget.isSoloed
+                  ? colors.soloActive
+                  : colors.textMuted.withValues(alpha: BT.opacityMedium),
             ),
           ),
         ],
@@ -605,18 +608,42 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _miniButton('M', widget.isMuted, colors.muteActive, widget.onMuteToggle, size),
+        _miniButton(
+          'M',
+          widget.isMuted,
+          colors.muteActive,
+          widget.onMuteToggle,
+          size,
+        ),
         const SizedBox(width: 2),
-        _miniButton('S', widget.isSoloed, colors.soloActive, widget.onSoloToggle, size),
+        _miniButton(
+          'S',
+          widget.isSoloed,
+          colors.soloActive,
+          widget.onSoloToggle,
+          size,
+        ),
         if (showRecord) ...[
           const SizedBox(width: 2),
-          _miniButton('R', widget.isArmed, colors.recordActive, widget.onArmToggle, size),
+          _miniButton(
+            'R',
+            widget.isArmed,
+            colors.recordActive,
+            widget.onArmToggle,
+            size,
+          ),
         ],
       ],
     );
   }
 
-  Widget _miniButton(String label, bool active, Color activeColor, VoidCallback? onTap, double size) {
+  Widget _miniButton(
+    String label,
+    bool active,
+    Color activeColor,
+    VoidCallback? onTap,
+    double size,
+  ) {
     final colors = context.colors;
     return GestureDetector(
       onTap: onTap,
@@ -692,11 +719,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: param,
           isDense: true,
           dropdownColor: colors.elevated,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            size: 14,
-            color: colors.textSecondary,
-          ),
+          icon: Icon(BI.caretDown, size: 14, color: colors.textSecondary),
           style: TextStyle(color: colors.textPrimary, fontSize: fontSize),
           items: AutomationParameter.values.map((p) {
             return DropdownMenuItem<AutomationParameter>(
@@ -768,7 +791,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ? colors.textPrimary
               : colors.textSecondary, // Highlight during drag
           fontSize: dbFontSize, // Match volume display
-          fontFamily: 'monospace',
+          fontFamily: BT.fontFamilyMono,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );
@@ -790,7 +814,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             borderRadius: BorderRadius.circular(2),
           ),
           child: Icon(
-            Icons.refresh,
+            BI.refresh,
             size: rowHeight * 0.6,
             color: colors.textSecondary,
           ),
@@ -819,11 +843,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             color: colors.dark,
             borderRadius: BorderRadius.circular(2),
           ),
-          child: Icon(
-            Icons.add,
-            size: fontSize + 2,
-            color: colors.textSecondary,
-          ),
+          child: Icon(BI.add, size: fontSize + 2, color: colors.textSecondary),
         ),
       ),
     );
@@ -857,7 +877,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           style: TextStyle(
             color: textColor,
             fontSize: fontSize,
-            fontWeight: FontWeight.w600,
+            fontWeight: BT.weightSemiBold,
           ),
         ),
         const SizedBox(width: 8),
@@ -870,7 +890,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   style: TextStyle(
                     color: textColor,
                     fontSize: fontSize,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: BT.weightMedium,
                   ),
                   decoration: InputDecoration(
                     isDense: true,
@@ -892,7 +912,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     style: TextStyle(
                       color: textColor,
                       fontSize: fontSize,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -982,13 +1002,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       ? colors.textPrimary
                       : colors.textSecondary,
                   fontSize: fontSize,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: BT.weightMedium,
                 ),
               ),
               if (!isLocked) ...[
                 const SizedBox(width: 1),
                 Icon(
-                  Icons.arrow_drop_down,
+                  BI.caretDown,
                   size: fontSize + 4,
                   color: colors.textSecondary,
                 ),
@@ -1179,7 +1199,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         value: 'rename',
         child: Row(
           children: [
-            Icon(Icons.edit, size: 16, color: colors.textPrimary),
+            Icon(BI.pencil, size: 16, color: colors.textPrimary),
             const SizedBox(width: 8),
             Text('Rename', style: TextStyle(color: colors.textPrimary)),
           ],
@@ -1207,7 +1227,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         value: 'duplicate',
         child: Row(
           children: [
-            Icon(Icons.content_copy, size: 16, color: colors.textPrimary),
+            Icon(BI.copy, size: 16, color: colors.textPrimary),
             const SizedBox(width: 8),
             Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
           ],
@@ -1219,7 +1239,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           value: 'convert_to_sampler',
           child: Row(
             children: [
-              Icon(Icons.music_note, size: 16, color: colors.textPrimary),
+              Icon(BI.musicNote, size: 16, color: colors.textPrimary),
               const SizedBox(width: 8),
               Text(
                 'Convert to Sampler',
@@ -1233,7 +1253,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         value: 'delete',
         child: Row(
           children: [
-            Icon(Icons.delete, size: 16, color: colors.error),
+            Icon(BI.delete, size: 16, color: colors.error),
             const SizedBox(width: 8),
             Text('Delete', style: TextStyle(color: colors.error)),
           ],
@@ -1284,7 +1304,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 style: TextStyle(
                   color: dialogContext.colors.textPrimary,
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: BT.weightSemiBold,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1450,7 +1470,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   ? context.colors.darkest
                   : context.colors.textSecondary,
               fontSize: fontSize,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1491,7 +1511,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   ? context.colors.darkest
                   : context.colors.textSecondary,
               fontSize: fontSize,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),
@@ -1544,7 +1564,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   'Automation',
                   style: TextStyle(
                     fontSize: fontSize,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: BT.weightMedium,
                     color: isActive ? colors.elevated : colors.textPrimary,
                   ),
                 ),
@@ -1662,7 +1682,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         style: TextStyle(
                           color: dialogContext.colors.textPrimary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: BT.weightSemiBold,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1716,7 +1736,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         style: TextStyle(
                           color: dialogContext.colors.textPrimary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: BT.weightSemiBold,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1901,7 +1921,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                           style: TextStyle(
                             color: masterColor,
                             fontSize: fontSize,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: BT.weightSemiBold,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1941,7 +1961,10 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                               style: TextStyle(
                                 color: context.colors.textSecondary,
                                 fontSize: dbFontSize,
-                                fontFamily: 'monospace',
+                                fontFamily: BT.fontFamilyMono,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                           ),

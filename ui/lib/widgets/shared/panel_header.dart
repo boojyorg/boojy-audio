@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../theme/animation_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A consistent panel header used across the application.
 ///
@@ -59,14 +62,14 @@ class PanelHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: colors.textPrimary, size: 18),
+          Icon(icon, color: colors.textPrimary, size: BT.iconLg),
           const SizedBox(width: 8),
           Text(
             uppercase ? title.toUpperCase() : title,
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: fontSize,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: uppercase ? 1.2 : 0,
             ),
           ),
@@ -126,14 +129,14 @@ class CollapsiblePanelHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: colors.textPrimary, size: 18),
+          Icon(icon, color: colors.textPrimary, size: BT.iconLg),
           const SizedBox(width: 8),
           Text(
             title.toUpperCase(),
             style: TextStyle(
               color: colors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
               letterSpacing: 1.2,
             ),
           ),
@@ -143,11 +146,11 @@ class CollapsiblePanelHeader extends StatelessWidget {
             IconButton(
               icon: AnimatedRotation(
                 turns: isExpanded ? 0 : 0.5,
-                duration: const Duration(milliseconds: 200),
-                child: const Icon(Icons.chevron_left),
+                duration: AnimationConstants.panelDuration,
+                child: Icon(BI.caretLeft),
               ),
               color: colors.textSecondary,
-              iconSize: 18,
+              iconSize: BT.iconLg,
               onPressed: onToggle,
               tooltip: toggleTooltip,
               padding: EdgeInsets.zero,
@@ -192,15 +195,15 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, color: colors.textMuted, size: 14),
+            Icon(icon, color: colors.textMuted, size: BT.iconMd),
             const SizedBox(width: 6),
           ],
           Text(
             title,
             style: TextStyle(
               color: colors.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: BT.fontLabel,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
           if (trailing != null) ...[const Spacer(), trailing!],

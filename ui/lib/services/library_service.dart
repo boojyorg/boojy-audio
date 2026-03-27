@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/library_item.dart';
+import '../theme/boojy_icons.dart';
 import '../widgets/instrument_browser.dart';
 import '../screens/daw_screen_io.dart'
     if (dart.library.js_interop) '../screens/daw_screen_io_web.dart';
@@ -186,7 +187,7 @@ class LibraryService extends ChangeNotifier {
                 id: 'file_${entity.path.hashCode}',
                 name: name,
                 filePath: entity.path,
-                icon: Icons.audio_file,
+                icon: BI.audioFile,
               ),
             );
           } else if (_isMidiFile(ext)) {
@@ -206,7 +207,7 @@ class LibraryService extends ChangeNotifier {
               id: 'folder_${entity.path.hashCode}',
               name: folderName,
               folderPath: entity.path,
-              icon: Icons.folder,
+              icon: BI.folder,
             ),
           );
         }
@@ -263,10 +264,10 @@ class LibraryService extends ChangeNotifier {
 
   /// Build Sounds category (empty - not yet implemented)
   LibraryCategory _buildSoundsCategory() {
-    return const LibraryCategory(
+    return LibraryCategory(
       id: 'sounds',
       name: 'Sounds',
-      icon: Icons.queue_music,
+      icon: BI.queue,
       subcategories: [],
       items: [],
     );
@@ -274,10 +275,10 @@ class LibraryService extends ChangeNotifier {
 
   /// Build Samples category (empty - not yet implemented)
   LibraryCategory _buildSamplesCategory() {
-    return const LibraryCategory(
+    return LibraryCategory(
       id: 'samples',
       name: 'Samples',
-      icon: Icons.audio_file,
+      icon: BI.audioFile,
       subcategories: [],
       items: [],
     );
@@ -303,53 +304,53 @@ class LibraryService extends ChangeNotifier {
     return LibraryCategory(
       id: 'instruments',
       name: 'Instruments',
-      icon: Icons.piano,
+      icon: BI.piano,
       items: items,
     );
   }
 
   /// Build Effects category
   LibraryCategory _buildEffectsCategory() {
-    return const LibraryCategory(
+    return LibraryCategory(
       id: 'effects',
       name: 'Effects',
-      icon: Icons.graphic_eq,
+      icon: BI.equalizer,
       items: [
         EffectItem(
           id: 'effect_eq',
           name: 'EQ',
           effectType: 'eq',
-          icon: Icons.equalizer,
+          icon: BI.equalizer,
         ),
         EffectItem(
           id: 'effect_compressor',
           name: 'Compressor',
           effectType: 'compressor',
-          icon: Icons.compress,
+          icon: BI.compress,
         ),
         EffectItem(
           id: 'effect_reverb',
           name: 'Reverb',
           effectType: 'reverb',
-          icon: Icons.blur_on,
+          icon: BI.waveSine,
         ),
         EffectItem(
           id: 'effect_delay',
           name: 'Delay',
           effectType: 'delay',
-          icon: Icons.timer,
+          icon: BI.metronome,
         ),
         EffectItem(
           id: 'effect_chorus',
           name: 'Chorus',
           effectType: 'chorus',
-          icon: Icons.waves,
+          icon: BI.waveform,
         ),
         EffectItem(
           id: 'effect_limiter',
           name: 'Limiter',
           effectType: 'limiter',
-          icon: Icons.vertical_align_center,
+          icon: BI.arrowsHorizontal,
         ),
       ],
     );

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 
@@ -78,7 +80,7 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isWindows ? Icons.desktop_windows : Icons.error_outline,
+              isWindows ? BI.monitor : BI.error,
               color: isWindows ? Colors.orange : Colors.red,
               size: 48,
             ),
@@ -88,7 +90,7 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),

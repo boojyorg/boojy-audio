@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import '../models/snapshot.dart';
 
 /// Dialog for viewing and managing project snapshots
@@ -56,12 +58,12 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                   'Snapshots',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                    fontSize: BT.fontHeading,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -101,7 +103,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                       vertical: 12,
                     ),
                   ),
-                  icon: const Icon(Icons.delete, size: 18),
+                  icon: Icon(BI.delete, size: 18),
                   label: const Text('Delete'),
                 ),
 
@@ -153,11 +155,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 64,
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          Icon(BI.list, size: 64, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           const Text(
             'No snapshots yet',
@@ -209,9 +207,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
         child: Row(
           children: [
             Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
+              isSelected ? BI.radioChecked : BI.circle,
               color: isSelected
                   ? const Color(0xFF7FD4A0)
                   : const Color(0xFF616161),
@@ -227,13 +223,16 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
                     'Working state',
-                    style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
+                    style: TextStyle(
+                      color: Color(0xFF9E9E9E),
+                      fontSize: BT.fontBody,
+                    ),
                   ),
                 ],
               ),
@@ -253,9 +252,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
         child: Row(
           children: [
             Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
+              isSelected ? BI.radioChecked : BI.circle,
               color: isSelected
                   ? const Color(0xFF7FD4A0)
                   : const Color(0xFF616161),
@@ -271,7 +268,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -279,7 +276,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     snapshot.formattedDate,
                     style: const TextStyle(
                       color: Color(0xFF9E9E9E),
-                      fontSize: 13,
+                      fontSize: BT.fontBody,
                     ),
                   ),
                   if (snapshot.note != null && snapshot.note!.isNotEmpty) ...[

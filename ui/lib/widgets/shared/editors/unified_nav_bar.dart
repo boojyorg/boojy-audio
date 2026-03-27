@@ -13,6 +13,7 @@ class UnifiedNavBarConfig {
   final double? playheadPosition; // in beats (null = not shown)
   final bool punchInEnabled;
   final bool punchOutEnabled;
+  final bool isPlaying;
 
   const UnifiedNavBarConfig({
     required this.pixelsPerBeat,
@@ -24,6 +25,7 @@ class UnifiedNavBarConfig {
     this.playheadPosition,
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
+    this.isPlaying = false,
   });
 }
 
@@ -155,6 +157,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
                 playheadPosition: widget.config.playheadPosition,
                 hoverBeat: _isHoveringLoopEdge ? _hoverBeat : null,
                 isHoveringPlayhead: _isHoveringPlayhead,
+                isPlaying: widget.config.isPlaying,
                 punchInEnabled: widget.config.punchInEnabled,
                 punchOutEnabled: widget.config.punchOutEnabled,
               ),

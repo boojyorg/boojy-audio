@@ -1,6 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../theme/animation_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Record button states for the CustomPainter
 enum _RecordButtonVisualState { idle, disabled, countingIn, recording }
@@ -51,7 +54,7 @@ class _RecordButtonState extends State<RecordButton>
     super.initState();
     _flashController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: AnimationConstants.hoverDuration,
     );
     _pulseController = AnimationController(
       vsync: this,
@@ -90,13 +93,13 @@ class _RecordButtonState extends State<RecordButton>
         Offset.zero & overlay.size,
       ),
       items: [
-        const PopupMenuItem<int>(
+        PopupMenuItem<int>(
           value: 0,
           child: Row(
             children: [
-              Icon(Icons.close, size: 16),
-              SizedBox(width: 8),
-              Text('Count-in: Off'),
+              Icon(BI.close, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('Count-in: Off'),
             ],
           ),
         ),
@@ -104,7 +107,7 @@ class _RecordButtonState extends State<RecordButton>
           value: 1,
           child: Row(
             children: [
-              Icon(Icons.looks_one, size: 16),
+              Icon(Icons.looks_one, size: BT.iconMd),
               SizedBox(width: 8),
               Text('Count-in: 1 Bar'),
             ],
@@ -114,7 +117,7 @@ class _RecordButtonState extends State<RecordButton>
           value: 2,
           child: Row(
             children: [
-              Icon(Icons.looks_two, size: 16),
+              Icon(Icons.looks_two, size: BT.iconMd),
               SizedBox(width: 8),
               Text('Count-in: 2 Bars'),
             ],
@@ -124,7 +127,7 @@ class _RecordButtonState extends State<RecordButton>
           value: 4,
           child: Row(
             children: [
-              Icon(Icons.looks_4, size: 16),
+              Icon(Icons.looks_4, size: BT.iconMd),
               SizedBox(width: 8),
               Text('Count-in: 4 Bars'),
             ],
@@ -141,7 +144,9 @@ class _RecordButtonState extends State<RecordButton>
   @override
   Widget build(BuildContext context) {
     final isEnabled = widget.onPressed != null;
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
+    final scale = _isPressed
+        ? AnimationConstants.pressScale
+        : (_isHovered ? AnimationConstants.hoverScale : 1.0);
 
     final recordColor = context.colors.recordActive;
     final countInColor = context.colors.countInActive;
@@ -186,8 +191,8 @@ class _RecordButtonState extends State<RecordButton>
           },
           child: AnimatedScale(
             scale: scale,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
+            duration: AnimationConstants.hoverDuration,
+            curve: AnimationConstants.standardCurve,
             child: AnimatedBuilder(
               animation: Listenable.merge([_flashController, _pulseController]),
               builder: (context, child) {
@@ -361,7 +366,7 @@ class _RecordButtonPainter extends CustomPainter {
           style: TextStyle(
             color: countInColor,
             fontSize: radius * 0.9,
-            fontWeight: FontWeight.bold,
+            fontWeight: BT.weightSemiBold,
           ),
         ),
         textDirection: TextDirection.ltr,

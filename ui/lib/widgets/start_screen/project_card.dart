@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../services/user_settings.dart';
+import '../../theme/animation_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A card displaying a recent project with thumbnail, name, and relative time.
 /// Hover shows metadata row. Right-click shows context menu.
@@ -41,7 +44,7 @@ class _ProjectCardState extends State<ProjectCard> {
         onExit: (_) => setState(() => _isHovering = false),
         cursor: SystemMouseCursors.click,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: AnimationConstants.hoverDuration,
           decoration: BoxDecoration(
             color: _isHovering ? colors.hover : colors.standard,
             borderRadius: BorderRadius.circular(8),
@@ -56,6 +59,9 @@ class _ProjectCardState extends State<ProjectCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Colour bar at top (4px, derived from project name hash)
+              Container(height: 4, color: _projectColor(widget.project.name)),
+
               // Thumbnail area
               Expanded(
                 child: hasThumbnail
@@ -70,10 +76,7 @@ class _ProjectCardState extends State<ProjectCard> {
 
               // Name + relative time row
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
                 child: Row(
                   children: [
                     Expanded(
@@ -81,8 +84,8 @@ class _ProjectCardState extends State<ProjectCard> {
                         widget.project.name,
                         style: TextStyle(
                           color: colors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          fontSize: BT.fontBody,
+                          fontWeight: BT.weightSemiBold,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -91,13 +94,53 @@ class _ProjectCardState extends State<ProjectCard> {
                     const SizedBox(width: 8),
                     Text(
                       _relativeTime(widget.project.openedAt),
-                      style: TextStyle(color: colors.textMuted, fontSize: 11),
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: BT.fontLabel,
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              // Metadata row (visible on hover)
+              // Track count + BPM row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: Row(
+                  children: [
+                    if (widget.project.trackCount != null)
+                      Text(
+                        '${widget.project.trackCount} tracks',
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: BT.fontLabel,
+                        ),
+                      ),
+                    if (widget.project.trackCount != null &&
+                        widget.project.bpm != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          '·',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: BT.fontLabel,
+                          ),
+                        ),
+                      ),
+                    if (widget.project.bpm != null)
+                      Text(
+                        '${widget.project.bpm!.round()} BPM',
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: BT.fontLabel,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Path row (visible on hover)
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
                 secondChild: Container(
@@ -120,7 +163,7 @@ class _ProjectCardState extends State<ProjectCard> {
                 crossFadeState: _isHovering
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 150),
+                duration: AnimationConstants.hoverDuration,
               ),
             ],
           ),
@@ -135,7 +178,7 @@ class _ProjectCardState extends State<ProjectCard> {
       color: colors.darkest,
       child: Center(
         child: Icon(
-          Icons.music_note_rounded,
+          BI.musicNote,
           size: 32,
           color: colors.textMuted.withValues(alpha: 0.3),
         ),
@@ -159,7 +202,7 @@ class _ProjectCardState extends State<ProjectCard> {
           value: 'open',
           child: Text(
             'Open',
-            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+            style: TextStyle(color: colors.textPrimary, fontSize: BT.fontBody),
           ),
         ),
         const PopupMenuDivider(),
@@ -167,14 +210,14 @@ class _ProjectCardState extends State<ProjectCard> {
           value: 'finder',
           child: Text(
             'Show in Finder',
-            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+            style: TextStyle(color: colors.textPrimary, fontSize: BT.fontBody),
           ),
         ),
         PopupMenuItem<String>(
           value: 'remove',
           child: Text(
             'Remove from Recent',
-            style: TextStyle(color: colors.textPrimary, fontSize: 13),
+            style: TextStyle(color: colors.textPrimary, fontSize: BT.fontBody),
           ),
         ),
       ],
@@ -200,6 +243,21 @@ class _ProjectCardState extends State<ProjectCard> {
     if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w';
     if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo';
     return '${(diff.inDays / 365).floor()}y';
+  }
+
+  /// Generate a colour from the project name hash for the card accent bar.
+  static Color _projectColor(String name) {
+    const palette = [
+      Color(0xFFEF4444), // red
+      Color(0xFFF97316), // orange
+      Color(0xFF22C55E), // green
+      Color(0xFF3B82F6), // blue
+      Color(0xFF9775FA), // purple
+      Color(0xFFEC4899), // pink
+      Color(0xFF40B3E8), // cyan
+      Color(0xFFFACC15), // yellow
+    ];
+    return palette[name.hashCode.abs() % palette.length];
   }
 
   /// Shorten a path for display (replace home dir with ~)

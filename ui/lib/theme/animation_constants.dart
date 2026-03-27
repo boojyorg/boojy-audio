@@ -24,6 +24,12 @@ class AnimationConstants {
   /// Panel show/hide transition duration
   static const Duration panelDuration = Duration(milliseconds: 200);
 
+  /// Quick transition for compact controls
+  static const Duration quickDuration = Duration(milliseconds: 100);
+
+  /// Medium-slow transition for dialogs/modals
+  static const Duration mediumDuration = Duration(milliseconds: 300);
+
   // ============================================
   // SCALE VALUES
   // ============================================
@@ -75,4 +81,11 @@ class AnimationConstants {
 
   /// Glow spread radius
   static const double glowSpreadRadius = 1.0;
+
+  // ============================================
+  // PRESS DEPTH
+  // ============================================
+
+  /// Press depth offset (subtle 1px downward shift on press)
+  static const double pressDepth = 1.0;
 }

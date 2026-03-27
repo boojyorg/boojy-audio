@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// Shows a dialog for configuring audio latency/buffer size settings.
 ///
@@ -56,7 +58,7 @@ void showLatencySettingsDialog({
                 child: Row(
                   children: [
                     if (isSelected)
-                      Icon(Icons.check, size: 16, color: colors.accent)
+                      Icon(BI.check, size: 16, color: colors.accent)
                     else
                       const SizedBox(width: 16),
                     const SizedBox(width: 8),
@@ -67,7 +69,7 @@ void showLatencySettingsDialog({
                           color: isSelected
                               ? colors.accent
                               : colors.textPrimary,
-                          fontSize: 13,
+                          fontSize: BT.fontBody,
                         ),
                       ),
                     ),
@@ -80,7 +82,7 @@ void showLatencySettingsDialog({
           Text(
             'Lower latency = more responsive but higher CPU usage.\n'
             'If you hear audio glitches, try a higher buffer size.',
-            style: TextStyle(color: colors.textMuted, fontSize: 11),
+            style: TextStyle(color: colors.textMuted, fontSize: BT.fontLabel),
           ),
         ],
       ),

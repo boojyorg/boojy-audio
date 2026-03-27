@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../state/ui_layout_state.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
@@ -71,15 +72,15 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
           SizedBox(
             width: 18,
             child: isSelected
-                ? Icon(Icons.radio_button_checked, size: 16, color: accentColor)
-                : const Icon(Icons.radio_button_unchecked, size: 16),
+                ? Icon(BI.radioChecked, size: BT.iconMd, color: accentColor)
+                : Icon(BI.circle, size: BT.iconMd),
           ),
           const SizedBox(width: 8),
           Text(
             snapValue.displayName,
             style: TextStyle(
               color: isSelected ? accentColor : null,
-              fontWeight: isSelected ? FontWeight.w600 : null,
+              fontWeight: isSelected ? BT.weightSemiBold : null,
             ),
           ),
         ],
@@ -165,8 +166,12 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   decoration: BoxDecoration(
                     color: _isIconHovered
                         ? (isActive
-                              ? colors.accent.withValues(alpha: BT.opacityMedium)
-                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                              ? colors.accent.withValues(
+                                  alpha: BT.opacityMedium,
+                                )
+                              : colors.textPrimary.withValues(
+                                  alpha: BT.opacitySubtle,
+                                ))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(BT.radiusSm),
@@ -176,12 +181,15 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.grid_on, size: BT.iconMd, color: iconColor),
+                      Icon(BI.gridOn, size: BT.iconMd, color: iconColor),
                       if (!widget.isIconOnly) ...[
                         const SizedBox(width: BT.xs),
                         Text(
                           'Snap',
-                          style: TextStyle(color: textColor, fontSize: BT.fontLabel),
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: BT.fontLabel,
+                          ),
                         ),
                       ],
                     ],
@@ -209,8 +217,12 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   decoration: BoxDecoration(
                     color: _isChevronHovered
                         ? (isActive
-                              ? colors.accent.withValues(alpha: BT.opacityMedium)
-                              : colors.textPrimary.withValues(alpha: BT.opacitySubtle))
+                              ? colors.accent.withValues(
+                                  alpha: BT.opacityMedium,
+                                )
+                              : colors.textPrimary.withValues(
+                                  alpha: BT.opacitySubtle,
+                                ))
                         : leftBg,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(2),

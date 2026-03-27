@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/library_preview_service.dart';
+import '../theme/animation_constants.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import 'library_preview_waveform.dart';
 
@@ -113,13 +115,13 @@ class _AuditionToggleButtonState extends State<_AuditionToggleButton> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: AnimationConstants.hoverDuration,
             width: 32,
             height: 48,
             color: _isHovered ? colors.hover : Colors.transparent,
             child: Center(
               child: Icon(
-                isActive ? Icons.volume_up : Icons.volume_off,
+                isActive ? BI.speakerHigh : BI.speakerNone,
                 size: 18,
                 color: isActive ? colors.accent : colors.textMuted,
               ),
@@ -157,13 +159,13 @@ class _PlayStopButtonState extends State<_PlayStopButton> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: AnimationConstants.hoverDuration,
             width: 32,
             height: 48,
             color: _isHovered ? colors.hover : Colors.transparent,
             child: Center(
               child: Icon(
-                widget.isPlaying ? Icons.stop : Icons.play_arrow,
+                widget.isPlaying ? BI.stop : BI.play,
                 size: 20,
                 color: _isHovered ? colors.accent : colors.textSecondary,
               ),

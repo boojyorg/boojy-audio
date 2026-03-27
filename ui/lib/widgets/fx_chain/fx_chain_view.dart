@@ -3,7 +3,9 @@ import '../effect_parameter_panel.dart';
 import '../../audio_engine.dart';
 import '../../services/undo_redo_manager.dart';
 import '../../services/commands/effect_commands.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import 'effect_card.dart';
 
 /// Horizontal FX chain view for the bottom panel.
@@ -201,7 +203,7 @@ class _FxChainViewState extends State<FxChainView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.touch_app, size: 48, color: context.colors.textMuted),
+            Icon(BI.cursor, size: 48, color: context.colors.textMuted),
             const SizedBox(height: 16),
             Text(
               'Select a track to view effects',
@@ -223,20 +225,23 @@ class _FxChainViewState extends State<FxChainView> {
       child: Row(
         children: [
           // Track name
-          Icon(Icons.tune, size: 16, color: context.colors.textMuted),
+          Icon(BI.sliders, size: 16, color: context.colors.textMuted),
           const SizedBox(width: 8),
           Text(
             widget.trackName ?? 'Track ${widget.selectedTrackId}',
             style: TextStyle(
               color: context.colors.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
+              fontSize: BT.fontBody,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '— Effects',
-            style: TextStyle(color: context.colors.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textMuted,
+              fontSize: BT.fontBody,
+            ),
           ),
           const Spacer(),
 
@@ -262,7 +267,7 @@ class _FxChainViewState extends State<FxChainView> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 16, color: context.colors.textSecondary),
+            Icon(BI.add, size: 16, color: context.colors.textSecondary),
             const SizedBox(width: 4),
             Text(
               'Add Effect',
@@ -275,11 +280,11 @@ class _FxChainViewState extends State<FxChainView> {
         ),
       ),
       itemBuilder: (context) => [
-        _buildMenuItem(context, 'eq', Icons.equalizer, 'EQ'),
-        _buildMenuItem(context, 'compressor', Icons.compress, 'Compressor'),
-        _buildMenuItem(context, 'reverb', Icons.blur_on, 'Reverb'),
-        _buildMenuItem(context, 'delay', Icons.av_timer, 'Delay'),
-        _buildMenuItem(context, 'chorus', Icons.graphic_eq, 'Chorus'),
+        _buildMenuItem(context, 'eq', BI.equalizer, 'EQ'),
+        _buildMenuItem(context, 'compressor', BI.compress, 'Compressor'),
+        _buildMenuItem(context, 'reverb', BI.waveSine, 'Reverb'),
+        _buildMenuItem(context, 'delay', BI.metronome, 'Delay'),
+        _buildMenuItem(context, 'chorus', BI.equalizer, 'Chorus'),
       ],
     );
   }
@@ -298,7 +303,10 @@ class _FxChainViewState extends State<FxChainView> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
+            style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: BT.fontBody,
+            ),
           ),
         ],
       ),
@@ -310,7 +318,7 @@ class _FxChainViewState extends State<FxChainView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.graphic_eq, size: 48, color: context.colors.textMuted),
+          Icon(BI.equalizer, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
             'No effects',
@@ -364,7 +372,7 @@ class _FxChainViewState extends State<FxChainView> {
           const SizedBox(width: 8),
 
           // Signal flow arrow
-          Icon(Icons.arrow_forward, size: 16, color: context.colors.textMuted),
+          Icon(BI.arrowRight, size: 16, color: context.colors.textMuted),
           const SizedBox(width: 8),
 
           // Reorderable effects chain
@@ -408,7 +416,7 @@ class _FxChainViewState extends State<FxChainView> {
                       if (index < _effects.length - 1) ...[
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.arrow_forward,
+                          BI.arrowRight,
                           size: 16,
                           color: context.colors.textMuted,
                         ),
@@ -423,7 +431,7 @@ class _FxChainViewState extends State<FxChainView> {
 
           const SizedBox(width: 8),
           // Signal flow arrow
-          Icon(Icons.arrow_forward, size: 16, color: context.colors.textMuted),
+          Icon(BI.arrowRight, size: 16, color: context.colors.textMuted),
           const SizedBox(width: 8),
 
           // Output indicator
@@ -446,7 +454,7 @@ class _FxChainViewState extends State<FxChainView> {
         style: TextStyle(
           color: context.colors.textMuted,
           fontSize: 10,
-          fontWeight: FontWeight.bold,
+          fontWeight: BT.weightSemiBold,
           letterSpacing: 1,
         ),
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 import '../services/midi_capture_buffer.dart';
 import '../models/midi_event.dart';
 
@@ -54,22 +56,22 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.history, color: Color(0xFF7FD4A0), size: 24),
-                    SizedBox(width: 8),
-                    Text(
+                    Icon(BI.history, color: const Color(0xFF7FD4A0), size: 24),
+                    const SizedBox(width: 8),
+                    const Text(
                       'Capture MIDI',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontSize: BT.fontHeading,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -146,16 +148,16 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.preview, color: Color(0xFF7FD4A0), size: 16),
-                      SizedBox(width: 8),
-                      Text(
+                      Icon(BI.eye, color: const Color(0xFF7FD4A0), size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
                         'Preview',
                         style: TextStyle(
                           color: Color(0xFF7FD4A0),
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: BT.weightSemiBold,
                           letterSpacing: 1.2,
                         ),
                       ),

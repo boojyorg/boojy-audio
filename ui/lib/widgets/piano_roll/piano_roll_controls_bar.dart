@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/scale_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../shared/knob_split_button.dart';
 import 'loop_time_display.dart';
 import 'time_signature_display.dart';
@@ -294,7 +296,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Loop toggle - controls clip's canRepeat property
         _buildToggleButton(
           context,
-          icon: Icons.loop,
+          icon: BI.loop,
           label: 'Loop',
           isActive: widget.loopEnabled,
           onTap: widget.onLoopToggle,
@@ -302,7 +304,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
         const SizedBox(width: 8),
         // Start label + input
-        Text('Start', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Start',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -321,7 +326,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         ),
         const SizedBox(width: 8),
         // Length label + input
-        Text('Length', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Length',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -342,7 +350,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Signature label + input
         Text(
           'Signature',
-          style: TextStyle(color: colors.textMuted, fontSize: 9),
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
         Container(
@@ -435,7 +443,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                   children: [
                     // Show icon only in wide mode
                     if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Icon(Icons.grid_on, size: 13, color: textColor),
+                      Icon(BI.gridOn, size: 13, color: textColor),
                       const SizedBox(width: 4),
                     ],
                     Text(
@@ -474,7 +482,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
+                child: Icon(BI.caretDown, size: 15, color: textColor),
               ),
             ),
           ),
@@ -599,7 +607,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
+                child: Icon(BI.caretDown, size: 15, color: textColor),
               ),
             ),
           ),
@@ -653,7 +661,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Lock to scale toggle
         _buildToggleButton(
           context,
-          icon: Icons.lock,
+          icon: BI.lock,
           label: 'Lock',
           isActive: widget.lockEnabled,
           onTap: widget.onLockToggle,
@@ -662,7 +670,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Fold toggle
         _buildToggleButton(
           context,
-          icon: Icons.unfold_less,
+          icon: BI.compress,
           label: 'Fold',
           isActive: widget.foldEnabled,
           onTap: widget.onFoldToggle,
@@ -671,7 +679,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Ghost toggle
         _buildToggleButton(
           context,
-          icon: Icons.layers,
+          icon: BI.layers,
           label: 'Ghost',
           isActive: widget.ghostNotesEnabled,
           onTap: widget.onGhostNotesToggle,
@@ -688,7 +696,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Legato button
         _buildActionButton(
           context,
-          icon: Icons.linear_scale,
+          icon: BI.linearScale,
           label: 'Legato',
           onTap: widget.onLegato,
         ),
@@ -696,7 +704,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Reverse button
         _buildActionButton(
           context,
-          icon: Icons.swap_horiz,
+          icon: BI.swap,
           label: 'Reverse',
           onTap: widget.onReverse,
         ),
@@ -725,7 +733,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Velocity lane visibility toggle
         _buildToggleButton(
           context,
-          icon: Icons.visibility,
+          icon: BI.eye,
           label: 'Velocity',
           isActive: widget.velocityLaneVisible,
           onTap: widget.onVelocityLaneToggle,
@@ -734,7 +742,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         // Clip automation lane visibility toggle
         _buildToggleButton(
           context,
-          icon: Icons.show_chart,
+          icon: BI.chartLine,
           label: 'Automation',
           isActive: widget.clipAutomationLaneVisible,
           onTap: widget.onClipAutomationLaneToggle,
@@ -880,7 +888,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     // Show icon only in wide mode
                     if (_displayMode == _ButtonDisplayMode.wide) ...[
                       Icon(
-                        Icons.contrast, // Half-circle icon for scale highlight
+                        BI.circle, // Half-circle icon for scale highlight
                         size: 13,
                         color: textColor,
                       ),
@@ -922,7 +930,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(Icons.arrow_drop_down, size: 15, color: textColor),
+                child: Icon(BI.caretDown, size: 15, color: textColor),
               ),
             ),
           ),
@@ -963,10 +971,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             root,
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: root == widget.scaleRoot
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         ),
@@ -985,10 +993,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             type.displayName,
             style: TextStyle(
               color: context.colors.textPrimary,
-              fontSize: 11,
+              fontSize: BT.fontLabel,
               fontWeight: type == widget.scaleType
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+                  ? BT.weightSemiBold
+                  : BT.weightRegular,
             ),
           ),
         ),
@@ -1183,10 +1191,8 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
               width: 18,
               child: Icon(
                 isCheckbox
-                    ? (isSelected
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank)
-                    : (isSelected ? Icons.check : null),
+                    ? (isSelected ? BI.checkBox : BI.checkBoxBlank)
+                    : (isSelected ? BI.check : null),
                 size: 14,
                 color: menuTextColor,
               ),
@@ -1194,7 +1200,10 @@ class _SnapMenuOverlayState extends State<_SnapMenuOverlay> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(color: menuTextColor, fontSize: 11),
+              style: const TextStyle(
+                color: menuTextColor,
+                fontSize: BT.fontLabel,
+              ),
             ),
           ],
         ),
@@ -1346,10 +1355,8 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
               width: 18,
               child: Icon(
                 isCheckbox
-                    ? (isSelected
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank)
-                    : (isSelected ? Icons.check : null),
+                    ? (isSelected ? BI.checkBox : BI.checkBoxBlank)
+                    : (isSelected ? BI.check : null),
                 size: 14,
                 color: menuTextColor,
               ),
@@ -1357,7 +1364,10 @@ class _QuantizeMenuOverlayState extends State<_QuantizeMenuOverlay> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(color: menuTextColor, fontSize: 11),
+              style: const TextStyle(
+                color: menuTextColor,
+                fontSize: BT.fontLabel,
+              ),
             ),
           ],
         ),

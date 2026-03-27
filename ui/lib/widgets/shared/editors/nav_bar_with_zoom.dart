@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../theme/boojy_icons.dart';
 import 'zoom_button.dart';
 
 /// A wrapper widget that combines a nav bar with zoom controls.
@@ -55,16 +56,12 @@ class NavBarWithZoom extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ZoomButton(
-                    icon: Icons.remove,
+                    icon: BI.close,
                     tooltip: 'Zoom out',
                     onTap: onZoomOut,
                   ),
                   const SizedBox(width: 2),
-                  ZoomButton(
-                    icon: Icons.add,
-                    tooltip: 'Zoom in',
-                    onTap: onZoomIn,
-                  ),
+                  ZoomButton(icon: BI.add, tooltip: 'Zoom in', onTap: onZoomIn),
                 ],
               ),
             ),

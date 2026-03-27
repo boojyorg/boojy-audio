@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../theme/theme_extension.dart';
+import '../../../theme/tokens.dart';
 
 /// BPM display widget with drag-to-adjust and double-click for precise input.
 /// Reusable across Audio Editor and Sampler Editor.
@@ -137,7 +138,8 @@ class _BpmDisplayState extends State<BpmDisplay> {
                     ? colors.textPrimary
                     : colors.textMuted.withValues(alpha: 0.5),
                 fontSize: 10,
-                fontFamily: 'monospace',
+                fontFamily: BT.fontFamilyMono,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),

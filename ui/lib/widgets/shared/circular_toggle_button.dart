@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../theme/animation_constants.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 
 /// A circular toggle button with hover/press animations.
 ///
@@ -26,7 +28,7 @@ class CircularToggleButton extends StatefulWidget {
   /// Size of the button (default 40)
   final double size;
 
-  /// Icon size (default 20)
+  /// Icon size (default BT.iconLg)
   final double iconSize;
 
   /// Color when enabled (defaults to accent color)
@@ -42,7 +44,7 @@ class CircularToggleButton extends StatefulWidget {
     required this.icon,
     this.tooltip,
     this.size = 40,
-    this.iconSize = 20,
+    this.iconSize = BT.iconLg,
     this.enabledColor,
     this.showGlow = true,
   });
@@ -59,7 +61,9 @@ class _CircularToggleButtonState extends State<CircularToggleButton> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final enabledColor = widget.enabledColor ?? colors.accent;
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.05 : 1.0);
+    final scale = _isPressed
+        ? AnimationConstants.pressScale
+        : (_isHovered ? AnimationConstants.hoverScale : 1.0);
 
     Widget button = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -73,10 +77,10 @@ class _CircularToggleButtonState extends State<CircularToggleButton> {
         onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedScale(
           scale: scale,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOutCubic,
+          duration: AnimationConstants.hoverDuration,
+          curve: AnimationConstants.standardCurve,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: AnimationConstants.hoverDuration,
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
@@ -171,7 +175,7 @@ class _CompactToggleButtonState extends State<CompactToggleButton> {
       child: GestureDetector(
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
+          duration: AnimationConstants.quickDuration,
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
@@ -186,7 +190,7 @@ class _CompactToggleButtonState extends State<CompactToggleButton> {
             style: TextStyle(
               color: widget.enabled ? colors.textPrimary : colors.textMuted,
               fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontWeight: BT.weightSemiBold,
             ),
           ),
         ),

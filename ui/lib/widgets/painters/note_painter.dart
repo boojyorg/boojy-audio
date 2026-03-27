@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/tokens.dart';
 import '../../models/midi_note_data.dart';
 
 /// Custom painter for MIDI notes in piano roll
@@ -188,7 +189,7 @@ class NotePainter extends CustomPainter {
             alpha: 0.9,
           ), // White text on cyan background
           fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontWeight: BT.weightSemiBold,
         ),
       );
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/boojy_icons.dart';
+import '../theme/tokens.dart';
 
 /// Dialog for creating a new project snapshot
 class CreateSnapshotDialog extends StatefulWidget {
@@ -75,12 +77,12 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                   'New Snapshot',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                    fontSize: BT.fontHeading,
+                    fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -99,7 +101,7 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
               style: TextStyle(
                 color: Color(0xFF9E9E9E),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),
@@ -153,7 +155,7 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
               style: TextStyle(
                 color: Color(0xFF9E9E9E),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),

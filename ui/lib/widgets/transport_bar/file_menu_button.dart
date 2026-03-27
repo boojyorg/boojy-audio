@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../theme/animation_constants.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../shared/pill_toggle_button.dart' show ButtonDisplayMode;
 
 /// File menu button showing project name with dropdown menu
@@ -89,35 +92,35 @@ class _FileMenuButtonState extends State<FileMenuButton> {
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'new',
           child: Row(
             children: [
-              Icon(Icons.description, size: 18),
-              SizedBox(width: 8),
-              Text('New Project'),
+              Icon(BI.fileText, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('New Project'),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'open',
           child: Row(
             children: [
-              Icon(Icons.folder_open, size: 18),
-              SizedBox(width: 8),
-              Text('Open Project...'),
+              Icon(BI.folderOpen, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Open Project...'),
             ],
           ),
         ),
         // Future: Open Recent submenu (v0.6.0)
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'save',
           child: Row(
             children: [
-              Icon(Icons.save, size: 18),
-              SizedBox(width: 8),
-              Text('Save'),
+              Icon(BI.save, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Save'),
             ],
           ),
         ),
@@ -125,87 +128,90 @@ class _FileMenuButtonState extends State<FileMenuButton> {
           value: 'save_as',
           child: Row(
             children: [
-              const Icon(Icons.save_as, size: 18),
+              Icon(BI.saveAs, size: BT.iconLg),
               const SizedBox(width: 8),
               const Text('Save As...'),
               const Spacer(),
-              Text('⇧⌘S', style: TextStyle(fontSize: 12, color: context.colors.textMuted)),
+              Text(
+                '⇧⌘S',
+                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
+              ),
             ],
           ),
         ),
         const PopupMenuDivider(),
         // Only show Rename and Save New Version when project has been saved
         if (widget.hasProject)
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'rename',
             child: Row(
               children: [
-                Icon(Icons.drive_file_rename_outline, size: 18),
-                SizedBox(width: 8),
-                Text('Rename...'),
+                Icon(BI.rename, size: BT.iconLg),
+                const SizedBox(width: 8),
+                const Text('Rename...'),
               ],
             ),
           ),
         if (widget.hasProject)
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'save_new_version',
             child: Row(
               children: [
-                Icon(Icons.history, size: 18),
-                SizedBox(width: 8),
-                Text('Save New Version...'),
+                Icon(BI.history, size: BT.iconLg),
+                const SizedBox(width: 8),
+                const Text('Save New Version...'),
               ],
             ),
           ),
         if (widget.hasProject) const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'export_mp3',
           child: Row(
             children: [
-              Icon(Icons.music_note, size: 18),
-              SizedBox(width: 8),
-              Text('Export MP3'),
+              Icon(BI.musicNote, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Export MP3'),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'export_wav',
           child: Row(
             children: [
-              Icon(Icons.audio_file, size: 18),
-              SizedBox(width: 8),
-              Text('Export WAV'),
+              Icon(BI.audioFile, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Export WAV'),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'export_audio',
           child: Row(
             children: [
-              Icon(Icons.settings, size: 18),
-              SizedBox(width: 8),
-              Text('Export Audio...'),
+              Icon(BI.settings, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Export Audio...'),
             ],
           ),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'export_midi',
           child: Row(
             children: [
-              Icon(Icons.piano, size: 18),
-              SizedBox(width: 8),
-              Text('Export MIDI...'),
+              Icon(BI.piano, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Export MIDI...'),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'close',
           child: Row(
             children: [
-              Icon(Icons.close, size: 18),
-              SizedBox(width: 8),
-              Text('Close Project'),
+              Icon(BI.close, size: BT.iconLg),
+              const SizedBox(width: 8),
+              const Text('Close Project'),
             ],
           ),
         ),
@@ -215,7 +221,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: AnimationConstants.hoverDuration,
           padding: EdgeInsets.symmetric(
             horizontal: widget.mode == ButtonDisplayMode.narrow ? 8 : 12,
             vertical: 6,
@@ -233,7 +239,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
                   ? context.colors.textPrimary
                   : context.colors.textSecondary,
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontWeight: BT.weightMedium,
             ),
           ),
         ),

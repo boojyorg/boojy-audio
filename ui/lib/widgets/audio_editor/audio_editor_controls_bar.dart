@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/audio_clip_edit_data.dart';
+import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
+import '../../theme/tokens.dart';
 import '../piano_roll/loop_time_display.dart';
 import '../shared/editors/bpm_display.dart';
 import '../shared/editors/capsule_slider.dart';
@@ -177,7 +179,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.loop,
+                  BI.loop,
                   size: 13,
                   color: widget.loopEnabled
                       ? colors.elevated
@@ -209,7 +211,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Start label + input
-        Text('Start', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Start',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -229,7 +234,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         const SizedBox(width: 8),
 
         // Length label + input
-        Text('Length', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Length',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -251,7 +259,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
         // Signature label + dropdown
         Text(
           'Signature',
-          style: TextStyle(color: colors.textMuted, fontSize: 9),
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
         ),
         const SizedBox(width: 4),
         _buildSignatureDropdown(context),
@@ -283,11 +291,12 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                 style: TextStyle(
                   color: colors.textPrimary,
                   fontSize: 10,
-                  fontFamily: 'monospace',
+                  fontFamily: BT.fontFamilyMono,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 2),
-              Icon(Icons.arrow_drop_down, size: 14, color: colors.textMuted),
+              Icon(BI.caretDown, size: 14, color: colors.textMuted),
             ],
           ),
         ),
@@ -320,14 +329,16 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               SizedBox(
                 width: 18,
                 child: isSelected
-                    ? Icon(Icons.check, size: 14, color: colors.accent)
+                    ? Icon(BI.check, size: 14, color: colors.accent)
                     : null,
               ),
               Text(
                 '${sig.$1}/${sig.$2}',
                 style: TextStyle(
                   color: isSelected ? colors.accent : colors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected
+                      ? BT.weightSemiBold
+                      : FontWeight.normal,
                 ),
               ),
             ],
@@ -348,7 +359,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Pitch', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Pitch',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -410,7 +424,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Volume label
-        Text('Volume', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Volume',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         // dB display box (matches track mixer style)
         Container(
@@ -427,9 +444,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                 : '${widget.gainDb.toStringAsFixed(1)} dB',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: BT.fontCaption,
               color: colors.textPrimary,
-              fontFamily: 'monospace',
+              fontFamily: BT.fontFamilyMono,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
@@ -464,7 +482,10 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Warp label
-        Text('Warp', style: TextStyle(color: colors.textMuted, fontSize: 9)),
+        Text(
+          'Warp',
+          style: TextStyle(color: colors.textMuted, fontSize: BT.fontCaption),
+        ),
         const SizedBox(width: 4),
         // Split button: [icon + Stretch | ▼] - like Piano Roll's Snap button
         DecoratedBox(
@@ -501,7 +522,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sync, size: 13, color: textColor),
+                        Icon(BI.sync, size: 13, color: textColor),
                         const SizedBox(width: 4),
                         Text(
                           modeLabel,
@@ -540,11 +561,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
                         bottomRight: Radius.circular(2),
                       ),
                     ),
-                    child: Icon(
-                      Icons.arrow_drop_down,
-                      size: 14,
-                      color: textColor,
-                    ),
+                    child: Icon(BI.caretDown, size: 14, color: textColor),
                   ),
                 ),
               ),
@@ -647,7 +664,7 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.piano, size: 13, color: colors.textPrimary),
+                Icon(BI.piano, size: 13, color: colors.textPrimary),
                 const SizedBox(width: 4),
                 Text(
                   'Sampler',
@@ -782,7 +799,7 @@ class _WarpModeMenuOverlay extends StatelessWidget {
             SizedBox(
               width: 18,
               child: isSelected
-                  ? Icon(Icons.check, size: 14, color: colors.accent)
+                  ? Icon(BI.check, size: 14, color: colors.accent)
                   : null,
             ),
             const SizedBox(width: 4),
@@ -793,16 +810,19 @@ class _WarpModeMenuOverlay extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: BT.fontLabel,
                     color: isSelected ? colors.accent : colors.textPrimary,
                     fontWeight: isSelected
-                        ? FontWeight.w600
+                        ? BT.weightSemiBold
                         : FontWeight.normal,
                   ),
                 ),
                 Text(
                   description,
-                  style: TextStyle(fontSize: 9, color: colors.textMuted),
+                  style: TextStyle(
+                    fontSize: BT.fontCaption,
+                    color: colors.textMuted,
+                  ),
                 ),
               ],
             ),

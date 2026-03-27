@@ -58,12 +58,16 @@ class EngineResult {
   /// Unwrap the data or throw an [EngineException].
   String unwrap() {
     if (data != null) return data!;
-    throw EngineException(errorCode ?? 'unknown', errorMessage ?? 'Unknown error');
+    throw EngineException(
+      errorCode ?? 'unknown',
+      errorMessage ?? 'Unknown error',
+    );
   }
 
   @override
-  String toString() =>
-      isOk ? 'EngineResult.ok($data)' : 'EngineResult.error($errorCode: $errorMessage)';
+  String toString() => isOk
+      ? 'EngineResult.ok($data)'
+      : 'EngineResult.error($errorCode: $errorMessage)';
 }
 
 /// Exception thrown when an engine FFI call fails.

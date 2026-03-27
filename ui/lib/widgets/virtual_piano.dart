@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
+import '../theme/animation_constants.dart';
+import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
+import '../theme/tokens.dart';
 import 'shared/mini_knob.dart';
 
 /// Compact virtual piano keyboard widget for testing MIDI without physical hardware
@@ -152,7 +155,7 @@ class _VirtualPianoState extends State<VirtualPiano>
 
     // Setup slide animation
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: AnimationConstants.panelDuration,
       vsync: this,
     );
 
@@ -470,13 +473,13 @@ class _VirtualPianoState extends State<VirtualPiano>
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildCompactButton(
-                  icon: Icons.remove,
+                  icon: BI.close,
                   sublabel: 'Z',
                   onPressed: _currentOctave > -1 ? _decreaseOctave : null,
                 ),
                 Container(width: 1, height: 24, color: context.colors.surface),
                 _buildCompactButton(
-                  icon: Icons.add,
+                  icon: BI.add,
                   sublabel: 'X',
                   onPressed: _currentOctave < 9 ? _increaseOctave : null,
                 ),
@@ -548,7 +551,10 @@ class _VirtualPianoState extends State<VirtualPiano>
           ),
           child: Text(
             'Vel $_velocity',
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 9),
+            style: TextStyle(
+              color: context.colors.textPrimary,
+              fontSize: BT.fontCaption,
+            ),
           ),
         ),
         // Divider
@@ -572,7 +578,7 @@ class _VirtualPianoState extends State<VirtualPiano>
                 ),
               ),
               child: Icon(
-                Icons.arrow_drop_down,
+                BI.caretDown,
                 size: 14,
                 color: context.colors.textPrimary,
               ),
@@ -628,7 +634,7 @@ class _VirtualPianoState extends State<VirtualPiano>
           ),
         ),
         child: Icon(
-          Icons.keyboard,
+          BI.keyboard,
           size: 18,
           color: _keyboardEnabled
               ? context.colors.accent
@@ -782,7 +788,7 @@ class _VirtualPianoState extends State<VirtualPiano>
                             ? context.colors.textPrimary
                             : const Color(0xFF333333),
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                     Text(
@@ -864,7 +870,7 @@ class _VirtualPianoState extends State<VirtualPiano>
                           ? this.context.colors.textPrimary
                           : const Color(0xFF888888),
                       fontSize: 7,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                 ),
@@ -944,7 +950,7 @@ class _VelocityKnobPopupState extends State<_VelocityKnobPopup> {
                     style: TextStyle(
                       color: colors.textPrimary,
                       fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: BT.weightMedium,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -979,7 +985,7 @@ class _VelocityKnobPopupState extends State<_VelocityKnobPopup> {
                           style: TextStyle(
                             color: colors.textPrimary,
                             fontSize: 10,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: BT.weightMedium,
                           ),
                         ),
                       ),
