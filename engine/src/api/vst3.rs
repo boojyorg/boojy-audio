@@ -480,6 +480,118 @@ pub fn set_vst3_state(_effect_id: u64, _data: &[u8]) -> Result<(), String> {
 }
 
 // ============================================================================
+// VST3 Preset Enumeration (via IUnitInfo)
+// ============================================================================
+
+#[cfg(not(target_os = "ios"))]
+/// Get presets for a VST3 plugin as JSON
+/// Returns JSON array: [{"listId":0,"name":"Factory","presets":["Init","Warm Pad",...]}, ...]
+pub fn get_vst3_presets(effect_id: u64) -> Result<String, String> {
+    use crate::effects::EffectType;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+
+    if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
+        let effect = effect_arc.lock();
+
+        if let EffectType::VST3(vst3) = &*effect {
+            let list_count = vst3.get_program_list_count();
+            if list_count <= 0 {
+                return Ok("[]".to_string());
+            }
+
+            let mut lists = Vec::new();
+            for i in 0..list_count {
+                if let Ok((list_id, list_name, program_count)) = vst3.get_program_list_info(i) {
+                    let mut presets = Vec::new();
+                    for p in 0..program_count {
+                        if let Ok(name) = vst3.get_program_name(list_id, p) {
+                            presets.push(format!("\"{}\"", name.replace('"', "\\\"")));
+                        }
+                    }
+                    lists.push(format!(
+                        "{{\"listId\":{},\"name\":\"{}\",\"programCount\":{},\"presets\":[{}]}}",
+                        list_id,
+                        list_name.replace('"', "\\\""),
+                        program_count,
+                        presets.join(",")
+                    ));
+                }
+            }
+
+            Ok(format!("[{}]", lists.join(",")))
+        } else {
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
+        }
+    } else {
+        Err(format!("Effect {effect_id} not found"))
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+/// Set the active program (preset) for a VST3 plugin
+pub fn set_vst3_program(effect_id: u64, list_id: i32, program_index: i32) -> Result<(), String> {
+    use crate::effects::EffectType;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+
+    if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
+        let mut effect = effect_arc.lock();
+
+        if let EffectType::VST3(vst3) = &mut *effect {
+            vst3.set_program(list_id, program_index)
+        } else {
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
+        }
+    } else {
+        Err(format!("Effect {effect_id} not found"))
+    }
+}
+
+#[cfg(not(target_os = "ios"))]
+/// Set max editor size constraint for a VST3 plugin (for embedded scale-to-fit)
+/// Pass 0,0 to unconstrain (floating window mode)
+pub fn set_vst3_editor_max_size(effect_id: u64, max_w: i32, max_h: i32) -> Result<(), String> {
+    use crate::effects::EffectType;
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+
+    if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
+        let effect = effect_arc.lock();
+
+        if let EffectType::VST3(vst3) = &*effect {
+            vst3.set_editor_max_size(max_w, max_h);
+            Ok(())
+        } else {
+            Err(format!("Effect {effect_id} is not a VST3 plugin"))
+        }
+    } else {
+        Err(format!("Effect {effect_id} not found"))
+    }
+}
+
+#[cfg(target_os = "ios")]
+pub fn set_vst3_editor_max_size(_effect_id: u64, _max_w: i32, _max_h: i32) -> Result<(), String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn get_vst3_presets(_effect_id: u64) -> Result<String, String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+#[cfg(target_os = "ios")]
+pub fn set_vst3_program(_effect_id: u64, _list_id: i32, _program_index: i32) -> Result<(), String> {
+    Err("VST3 plugins are not supported on iOS".to_string())
+}
+
+// ============================================================================
 // iOS stub functions for VST3 (return "not supported" errors)
 // ============================================================================
 

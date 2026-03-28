@@ -390,6 +390,15 @@ class AudioEngine implements AudioEngineInterface {
     int velocity,
   ) => throw UnsupportedError('stub');
 
+  String getVst3State(int effectId) => throw UnsupportedError('stub');
+  String setVst3State(int effectId, String stateBase64) =>
+      throw UnsupportedError('stub');
+  String getVst3Presets(int effectId) => throw UnsupportedError('stub');
+  String setVst3Program(int effectId, int listId, int programIndex) =>
+      throw UnsupportedError('stub');
+  String setVst3EditorMaxSize(int effectId, int maxW, int maxH) =>
+      throw UnsupportedError('stub');
+
   // ========================================================================
   // Project Operations
   // ========================================================================

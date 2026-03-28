@@ -12,8 +12,8 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(NSRect(x: 0, y: 0, width: 1280, height: 800), display: true)
     self.center()
 
-    // Set minimum window size (800x600) for responsive panel layout
-    self.minSize = NSSize(width: 800, height: 600)
+    // Set minimum window size (960x600) for responsive panel layout
+    self.minSize = NSSize(width: 960, height: 600)
 
     // Dark title bar appearance
     self.appearance = NSAppearance(named: .darkAqua)

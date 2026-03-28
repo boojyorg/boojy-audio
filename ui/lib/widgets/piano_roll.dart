@@ -955,7 +955,7 @@ class _PianoRollState extends State<PianoRoll>
       canRepeat: currentClip!.canRepeat,
       clipDurationBeats: totalBeats,
       laneHeight: clipAutomationLaneHeight,
-      trackColor: currentClip!.color ?? const Color(0xFF4FC3F7),
+      trackColor: currentClip!.color ?? context.colors.accent,
       toolMode: widget.toolMode,
       horizontalScrollController: horizontalScroll,
       snapEnabled: snapEnabled,
@@ -1065,7 +1065,7 @@ class _PianoRollState extends State<PianoRoll>
                 child: Container(
                   height: 2,
                   width: double.infinity,
-                  color: const Color(0xFF404040),
+                  color: context.colors.divider,
                 ),
               ),
             ),

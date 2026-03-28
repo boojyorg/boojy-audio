@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
@@ -11,7 +12,9 @@ import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'sampler_editor/sampler_editor.dart';
 import 'synthesizer_panel.dart';
-import 'vst3_plugin_parameter_panel.dart';
+import 'vst3_instrument_view.dart';
+import 'preset_nav.dart';
+import 'preset_browser_dropdown.dart';
 import 'fx_chain/fx_chain_view.dart';
 import 'instrument_browser.dart';
 import '../models/midi_note_data.dart';
@@ -122,6 +125,18 @@ class _EditorPanelState extends State<EditorPanel>
   // Highlighted note from Virtual Piano (for Piano Roll sync)
   int? _highlightedNote;
 
+  // Preset state
+  List<PresetFolder> _presetFolders = [];
+  int? _currentPresetListId;
+  int? _currentPresetIndex;
+  String _currentPresetName = '- Init -';
+  bool _presetDropdownOpen = false;
+  final LayerLink _presetLayerLink = LayerLink();
+  OverlayEntry? _presetOverlayEntry;
+
+  // Callback for resetting VST3 instrument to default state
+  VoidCallback? _resetPluginToDefault;
+
   /// Whether the selected track is an audio track
   bool get _isAudioTrack =>
       widget.trackContext.selectedTrackType?.toLowerCase() == 'audio';
@@ -207,6 +222,10 @@ class _EditorPanelState extends State<EditorPanel>
 
   /// Handle user manually tapping a tab
   void _onManualTabTap(int index) {
+    // If clicking instrument tab while plugin is floated, redirect to Effects
+    if (index == 0 && _isCurrentPluginFloated && _isCurrentPluginVst3) {
+      index = _isAudioTrack ? 1 : 2;
+    }
     _userManuallySelectedTab = true;
     _switchedToPianoRollAwaitingData =
         false; // Reset awaiting flag on manual selection
@@ -248,7 +267,11 @@ class _EditorPanelState extends State<EditorPanel>
     if (trackChanged && widget.trackContext.selectedTrackId != null) {
       _userManuallySelectedTab = false; // Reset manual flag on track change
       _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
-      if (_isMidiTrack || _isSamplerTrack) {
+      _loadPresets(); // Reload presets for new track
+      // If new track's plugin is floated, auto-switch to Effects tab
+      if (_isCurrentPluginFloated && _isCurrentPluginVst3) {
+        _tabController.index = _isAudioTrack ? 1 : 2;
+      } else if (_isMidiTrack || _isSamplerTrack) {
         _tabController.index = 0; // Instrument/Sampler tab
       } else if (_isAudioTrack) {
         _tabController.index = 0; // Audio Editor tab
@@ -284,6 +307,9 @@ class _EditorPanelState extends State<EditorPanel>
 
   @override
   void dispose() {
+    // Remove overlay directly without setState (widget is being disposed)
+    _presetOverlayEntry?.remove();
+    _presetOverlayEntry = null;
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _tabController.dispose();
     super.dispose();
@@ -399,7 +425,7 @@ class _EditorPanelState extends State<EditorPanel>
                             ],
                           ),
                         ),
-                        // Right side: Virtual Piano toggle + Collapse button
+                        // Right side: Preset nav + Piano toggle + Collapse button
                         Positioned(
                           right: 8,
                           top: 0,
@@ -407,6 +433,41 @@ class _EditorPanelState extends State<EditorPanel>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // Preset navigation - for VST3 instruments with presets
+                              if (_shouldShowPresetNav) ...[
+                                CompositedTransformTarget(
+                                  link: _presetLayerLink,
+                                  child: PresetNav(
+                                    currentPresetName: _currentPresetName,
+                                    hasPrevious:
+                                        _currentPresetIndex != null &&
+                                        _currentPresetIndex! > 0,
+                                    hasNext:
+                                        _currentPresetIndex != null &&
+                                        _currentPresetListId != null &&
+                                        _presetFolders
+                                            .where(
+                                              (f) =>
+                                                  f.listId ==
+                                                  _currentPresetListId,
+                                            )
+                                            .any(
+                                              (f) =>
+                                                  _currentPresetIndex! <
+                                                  f.programCount - 1,
+                                            ),
+                                    onPrevious: _onPreviousPreset,
+                                    onNext: _onNextPreset,
+                                    onDropdownTap: _showPresetBrowser,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              // Float/Embed toggle - for VST3 instruments only
+                              if (_isCurrentPluginVst3) ...[
+                                _buildFloatToggle(),
+                                const SizedBox(width: 8),
+                              ],
                               // Virtual Piano toggle - for MIDI and Sampler tracks
                               if (!_isAudioTrack) ...[
                                 _buildPianoToggle(),
@@ -567,9 +628,9 @@ class _EditorPanelState extends State<EditorPanel>
       ];
     }
 
-    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
+    // MIDI track: [Instrument] [Piano Roll] [Effects]
     return [
-      _buildCollapsedTabButton(0, BI.musicNote, _getInstrumentTabLabel()),
+      _buildCollapsedTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
       _buildCollapsedTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
@@ -627,6 +688,15 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
+  /// Get dynamic instrument tab icon based on current instrument
+  /// VST3 third-party → plugin icon, built-in → piano icon
+  IconData get _instrumentTabIcon {
+    if (widget.trackContext.currentInstrumentData?.isVst3 == true) {
+      return BI.plugin;
+    }
+    return BI.piano;
+  }
+
   /// Get dynamic instrument tab label based on current instrument
   String _getInstrumentTabLabel() {
     if (widget.trackContext.currentInstrumentData == null) {
@@ -638,7 +708,234 @@ class _EditorPanelState extends State<EditorPanel>
       // Truncate to max 15 characters with ellipsis
       return name.length > 15 ? '${name.substring(0, 12)}...' : name;
     }
-    return 'Synthesizer';
+    return 'Synth';
+  }
+
+  /// Whether the current track has a VST3 instrument
+  bool get _isCurrentPluginVst3 =>
+      widget.trackContext.currentInstrumentData?.isVst3 == true;
+
+  /// Whether the current track's VST3 plugin is in a floating window
+  bool get _isCurrentPluginFloated {
+    final effectId = widget.trackContext.currentInstrumentData?.effectId;
+    return effectId != null &&
+        widget.trackContext.floatedPluginEffectIds.contains(effectId);
+  }
+
+  /// Whether preset nav should be shown
+  bool get _shouldShowPresetNav =>
+      _isCurrentPluginVst3 && _presetFolders.isNotEmpty;
+
+  /// Load presets for the current VST3 instrument
+  void _loadPresets() {
+    final instrument = widget.trackContext.currentInstrumentData;
+    if (instrument == null ||
+        !instrument.isVst3 ||
+        widget.audioEngine == null) {
+      _presetFolders = [];
+      _currentPresetListId = null;
+      _currentPresetIndex = null;
+      _currentPresetName = '- Init -';
+      return;
+    }
+
+    final json = widget.audioEngine!.getVst3Presets(instrument.effectId!);
+    if (json.startsWith('Error') || json == '[]') {
+      _presetFolders = [];
+      return;
+    }
+
+    try {
+      final List<dynamic> lists = jsonDecode(json) as List<dynamic>;
+      _presetFolders = lists.map((dynamic item) {
+        final map = item as Map<String, dynamic>;
+        final presets = (map['presets'] as List<dynamic>)
+            .map((p) => p as String)
+            .toList();
+        return PresetFolder(
+          listId: map['listId'] as int,
+          name: map['name'] as String,
+          programCount: map['programCount'] as int,
+          presets: presets,
+        );
+      }).toList();
+    } catch (_) {
+      _presetFolders = [];
+    }
+  }
+
+  /// Navigate to previous preset in current folder
+  void _onPreviousPreset() {
+    if (_currentPresetListId == null || _currentPresetIndex == null) return;
+    if (_currentPresetIndex! <= 0) return;
+    _selectPreset(_currentPresetListId!, _currentPresetIndex! - 1);
+  }
+
+  /// Navigate to next preset in current folder
+  void _onNextPreset() {
+    if (_currentPresetListId == null || _currentPresetIndex == null) return;
+    final folder = _presetFolders
+        .where((f) => f.listId == _currentPresetListId)
+        .firstOrNull;
+    if (folder == null) return;
+    if (_currentPresetIndex! >= folder.programCount - 1) return;
+    _selectPreset(_currentPresetListId!, _currentPresetIndex! + 1);
+  }
+
+  /// Select a preset by list ID and index
+  void _selectPreset(int listId, int presetIndex) {
+    final instrument = widget.trackContext.currentInstrumentData;
+    if (instrument == null ||
+        !instrument.isVst3 ||
+        widget.audioEngine == null) {
+      return;
+    }
+
+    final result = widget.audioEngine!.setVst3Program(
+      instrument.effectId!,
+      listId,
+      presetIndex,
+    );
+    if (result.isEmpty || !result.startsWith('Error')) {
+      final folder = _presetFolders
+          .where((f) => f.listId == listId)
+          .firstOrNull;
+      setState(() {
+        _currentPresetListId = listId;
+        _currentPresetIndex = presetIndex;
+        _currentPresetName =
+            folder != null && presetIndex < folder.presets.length
+            ? folder.presets[presetIndex]
+            : '- Init -';
+      });
+    }
+  }
+
+  /// Show the preset browser dropdown
+  void _showPresetBrowser() {
+    if (_presetDropdownOpen) {
+      _dismissPresetBrowser();
+      return;
+    }
+    setState(() => _presetDropdownOpen = true);
+
+    _presetOverlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Dismiss backdrop
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissPresetBrowser,
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // Positioned dropdown
+          CompositedTransformFollower(
+            link: _presetLayerLink,
+            targetAnchor: Alignment.bottomLeft,
+            followerAnchor: Alignment.topLeft,
+            offset: const Offset(0, 4),
+            child: PresetBrowserDropdown(
+              folders: _presetFolders,
+              currentListId: _currentPresetListId,
+              currentPresetIndex: _currentPresetIndex,
+              onPresetSelected: _selectPreset,
+              onResetToDefault: () => _resetPluginToDefault?.call(),
+              onDismiss: _dismissPresetBrowser,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_presetOverlayEntry!);
+  }
+
+  /// Dismiss the preset browser dropdown
+  void _dismissPresetBrowser() {
+    _presetOverlayEntry?.remove();
+    _presetOverlayEntry = null;
+    if (mounted) {
+      setState(() => _presetDropdownOpen = false);
+    }
+  }
+
+  /// Float the current VST3 plugin to a separate window
+  Future<void> _onFloatPlugin() async {
+    final instrument = widget.trackContext.currentInstrumentData;
+    if (instrument == null || !instrument.isVst3) return;
+
+    final success = await widget.vst3Callbacks.onFloatPlugin?.call(
+      instrument.effectId!,
+      instrument.pluginName ?? 'Plugin',
+    );
+    if (success == true && mounted) {
+      // Auto-switch to Effects tab
+      setState(() {
+        _tabController.index = _isAudioTrack ? 1 : 2;
+      });
+    }
+  }
+
+  /// Embed the current floating VST3 plugin back into the panel
+  Future<void> _onEmbedPlugin() async {
+    final instrument = widget.trackContext.currentInstrumentData;
+    if (instrument == null || !instrument.isVst3) return;
+
+    final success = await widget.vst3Callbacks.onEmbedPlugin?.call(
+      instrument.effectId!,
+    );
+    if (success == true && mounted) {
+      // Switch back to instrument tab
+      setState(() => _tabController.index = 0);
+    }
+  }
+
+  /// Build the float/embed toggle button for Row 1
+  Widget _buildFloatToggle() {
+    final isFloated = _isCurrentPluginFloated;
+    return Tooltip(
+      message: isFloated ? 'Embed' : 'Float',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isFloated ? _onEmbedPlugin : _onFloatPlugin,
+          borderRadius: BorderRadius.circular(BT.radiusMd),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isFloated
+                  ? context.colors.accent.withValues(alpha: BT.opacityLight)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(BT.radiusMd),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isFloated ? BI.arrowDown : BI.openInNew,
+                  size: 14,
+                  color: isFloated
+                      ? context.colors.accent
+                      : context.colors.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isFloated ? 'Embed' : 'Float',
+                  style: TextStyle(
+                    fontSize: BT.fontLabel,
+                    color: isFloated
+                        ? context.colors.accent
+                        : context.colors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Build the tab buttons based on track type
@@ -664,9 +961,9 @@ class _EditorPanelState extends State<EditorPanel>
       ];
     }
 
-    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
+    // MIDI track: [Instrument] [Piano Roll] [Effects]
     return [
-      _buildTabButton(0, BI.musicNote, _getInstrumentTabLabel()),
+      _buildTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
       const SizedBox(width: 4),
       _buildTabButton(1, _firstTabIcon, _firstTabLabel),
       const SizedBox(width: 4),
@@ -1040,50 +1337,18 @@ class _EditorPanelState extends State<EditorPanel>
 
     // Check if this is a VST3 instrument
     if (widget.trackContext.currentInstrumentData!.isVst3) {
-      // Create Vst3PluginInstance from the track's instrument data
-      // This ensures the Instruments panel shows the VST3 instrument,
-      // not the FX chain plugins
       final effectId = widget.trackContext.currentInstrumentData!.effectId!;
+      final pluginName =
+          widget.trackContext.currentInstrumentData!.pluginName ??
+          'VST3 Instrument';
 
-      // Fetch parameter count and info from the audio engine
-      final paramCount =
-          widget.audioEngine?.getVst3ParameterCount(effectId) ?? 0;
-      final parameters = <int, Vst3ParameterInfo>{};
-      final parameterValues = <int, double>{};
-
-      for (int i = 0; i < paramCount; i++) {
-        final info = widget.audioEngine?.getVst3ParameterInfo(effectId, i);
-        if (info != null) {
-          parameters[i] = Vst3ParameterInfo(
-            index: i,
-            name: info['name'] as String? ?? 'Parameter $i',
-            min: (info['min'] as num?)?.toDouble() ?? 0.0,
-            max: (info['max'] as num?)?.toDouble() ?? 1.0,
-            defaultValue: (info['default'] as num?)?.toDouble() ?? 0.5,
-            unit: '',
-          );
-          parameterValues[i] =
-              widget.audioEngine?.getVst3ParameterValue(effectId, i) ?? 0.5;
-        }
-      }
-
-      final vst3Instrument = Vst3PluginInstance(
+      // Show native plugin GUI directly — no search bar, no parameter list
+      return Vst3InstrumentView(
         effectId: effectId,
-        pluginName:
-            widget.trackContext.currentInstrumentData!.pluginName ??
-            'VST3 Instrument',
-        pluginPath: widget.trackContext.currentInstrumentData!.pluginPath ?? '',
-        parameters: parameters,
-        parameterValues: parameterValues,
-      );
-
-      // Show VST3 plugin parameter panel for VST3 instruments
-      return Vst3PluginParameterPanel(
+        pluginName: pluginName,
         audioEngine: widget.audioEngine,
-        trackId: widget.trackContext.selectedTrackId!,
-        plugins: [vst3Instrument],
-        onParameterChanged: widget.vst3Callbacks.onVst3ParameterChanged,
-        onRemovePlugin: widget.vst3Callbacks.onVst3PluginRemoved,
+        isFloated: _isCurrentPluginFloated,
+        onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
       );
     }
 

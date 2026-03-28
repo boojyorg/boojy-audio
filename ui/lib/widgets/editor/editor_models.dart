@@ -6,15 +6,19 @@ import '../../models/vst3_plugin_data.dart';
 /// Track context information for the editor panel
 class EditorPanelContext {
   final int? selectedTrackId;
+  final int? selectedTrackNumber;
   final String? selectedTrackName;
   final String? selectedTrackType;
   final InstrumentData? currentInstrumentData;
+  final Set<int> floatedPluginEffectIds;
 
   const EditorPanelContext({
     this.selectedTrackId,
+    this.selectedTrackNumber,
     this.selectedTrackName,
     this.selectedTrackType,
     this.currentInstrumentData,
+    this.floatedPluginEffectIds = const {},
   });
 }
 
@@ -43,10 +47,14 @@ class Vst3EditorCallbacks {
   onVst3ParameterChanged;
   final Function(int effectId)? onVst3PluginRemoved;
   final Function(Vst3Plugin)? onVst3InstrumentDropped;
+  final Future<bool> Function(int effectId, String pluginName)? onFloatPlugin;
+  final Future<bool> Function(int effectId)? onEmbedPlugin;
 
   const Vst3EditorCallbacks({
     this.onVst3ParameterChanged,
     this.onVst3PluginRemoved,
     this.onVst3InstrumentDropped,
+    this.onFloatPlugin,
+    this.onEmbedPlugin,
   });
 }

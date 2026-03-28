@@ -1,6 +1,7 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
+use base64::Engine;
 use crate::api;
 use super::{safe_cstring, ffi_catch};
 
@@ -229,6 +230,82 @@ pub extern "C" fn vst3_attach_editor_ffi(
             }
         }
     }))
+}
+
+// ============================================================================
+// VST3 Plugin State FFI (for preset reset and project save/load)
+// ============================================================================
+
+/// Get a VST3 plugin's state as a base64-encoded string
+/// Returns base64-encoded state data, or "Error: ..." on failure
+#[no_mangle]
+pub extern "C" fn get_vst3_state_ffi(effect_id: i64) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
+        match api::get_vst3_state(effect_id as u64) {
+            Ok(data) => {
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&data);
+                safe_cstring(encoded).into_raw()
+            }
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Set a VST3 plugin's state from a base64-encoded string
+/// Returns empty string on success, "Error: ..." on failure
+#[no_mangle]
+pub extern "C" fn set_vst3_state_ffi(effect_id: i64, state_b64: *const c_char) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
+        let c_str = unsafe { CStr::from_ptr(state_b64) };
+        let b64_str = c_str.to_str().unwrap_or("");
+        match base64::engine::general_purpose::STANDARD.decode(b64_str) {
+            Ok(data) => match api::set_vst3_state(effect_id as u64, &data) {
+                Ok(()) => safe_cstring(String::new()).into_raw(),
+                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+            },
+            Err(e) => safe_cstring(format!("Error: invalid base64: {e}")).into_raw(),
+        }
+    })
+}
+
+// ============================================================================
+// VST3 Preset Enumeration FFI
+// ============================================================================
+
+/// Get all presets for a VST3 plugin as a JSON string
+/// Returns JSON array or "Error: ..." on failure
+#[no_mangle]
+pub extern "C" fn get_vst3_presets_ffi(effect_id: i64) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
+        match api::get_vst3_presets(effect_id as u64) {
+            Ok(json) => safe_cstring(json).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Set the active program (preset) for a VST3 plugin
+/// Returns empty string on success, "Error: ..." on failure
+#[no_mangle]
+pub extern "C" fn set_vst3_program_ffi(effect_id: i64, list_id: i32, program_index: i32) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
+        match api::set_vst3_program(effect_id as u64, list_id, program_index) {
+            Ok(()) => safe_cstring(String::new()).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Set max editor size constraint for embedded scale-to-fit
+/// Pass 0,0 to unconstrain (floating window mode)
+#[no_mangle]
+pub extern "C" fn set_vst3_editor_max_size_ffi(effect_id: i64, max_w: i32, max_h: i32) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
+        match api::set_vst3_editor_max_size(effect_id as u64, max_w, max_h) {
+            Ok(()) => safe_cstring(String::new()).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
 }
 
 /// Send a MIDI note event to a VST3 plugin

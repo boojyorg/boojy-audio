@@ -753,6 +753,82 @@ mixin _PluginsMixin on _AudioEngineBase {
   }
 
   // ========================================================================
+  // VST3 State API (for preset reset / project save-load)
+  // ========================================================================
+
+  /// Get a VST3 plugin's state as a base64-encoded string
+  /// Returns base64-encoded state data, or "Error: ..." on failure
+  String getVst3State(int effectId) {
+    try {
+      final resultPtr = _getVst3State(effectId);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: Failed to get VST3 state: $e';
+    }
+  }
+
+  /// Set a VST3 plugin's state from a base64-encoded string
+  /// Returns empty string on success, "Error: ..." on failure
+  String setVst3State(int effectId, String stateBase64) {
+    try {
+      final statePtr = stateBase64.toNativeUtf8();
+      final resultPtr = _setVst3State(effectId, statePtr);
+      final result = resultPtr.toDartString();
+      calloc.free(statePtr);
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: Failed to set VST3 state: $e';
+    }
+  }
+
+  // ========================================================================
+  // VST3 Preset Enumeration API
+  // ========================================================================
+
+  /// Get all presets for a VST3 plugin as a JSON string
+  /// Returns JSON array: [{"listId":0,"name":"Factory","programCount":12,"presets":["Init",...]}, ...]
+  /// Returns "Error: ..." on failure, or "[]" if no presets available
+  String getVst3Presets(int effectId) {
+    try {
+      final resultPtr = _getVst3Presets(effectId);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: Failed to get VST3 presets: $e';
+    }
+  }
+
+  /// Set the active program (preset) for a VST3 plugin
+  /// Returns empty string on success, "Error: ..." on failure
+  String setVst3Program(int effectId, int listId, int programIndex) {
+    try {
+      final resultPtr = _setVst3Program(effectId, listId, programIndex);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: Failed to set VST3 program: $e';
+    }
+  }
+
+  /// Set max editor size constraint for embedded scale-to-fit.
+  /// Pass 0,0 to unconstrain (floating window mode).
+  String setVst3EditorMaxSize(int effectId, int maxW, int maxH) {
+    try {
+      final resultPtr = _setVst3EditorMaxSize(effectId, maxW, maxH);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return 'Error: Failed to set editor max size: $e';
+    }
+  }
+
+  // ========================================================================
   // Library Preview API
   // ========================================================================
 
