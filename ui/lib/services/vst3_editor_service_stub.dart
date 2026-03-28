@@ -28,4 +28,10 @@ class VST3EditorService {
   static Future<bool> detachEditor({required int effectId}) async {
     return false; // Not supported on web
   }
+
+  static void setEmbeddedMaxSize(int effectId, int maxW, int maxH) {
+    // No-op on web
+  }
+
+  static final Map<int, (int, int)> preferredEditorSize = {};
 }

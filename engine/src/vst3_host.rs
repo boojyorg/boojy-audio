@@ -186,6 +186,35 @@ extern "C" {
     ) -> bool;
     pub fn vst3_attach_editor(handle: *mut VST3PluginHandle, parent: *mut c_void) -> bool;
 
+    // Preset enumeration via IUnitInfo
+    pub fn vst3_get_program_list_count(handle: *mut VST3PluginHandle) -> c_int;
+    pub fn vst3_get_program_list_info(
+        handle: *mut VST3PluginHandle,
+        index: c_int,
+        list_id: *mut c_int,
+        name: *mut c_char,
+        name_len: c_int,
+        count: *mut c_int,
+    ) -> bool;
+    pub fn vst3_get_program_name(
+        handle: *mut VST3PluginHandle,
+        list_id: c_int,
+        program_index: c_int,
+        name: *mut c_char,
+        name_len: c_int,
+    ) -> bool;
+    pub fn vst3_set_program(
+        handle: *mut VST3PluginHandle,
+        list_id: c_int,
+        program_index: c_int,
+    ) -> bool;
+
+    pub fn vst3_set_editor_max_size(
+        handle: *mut VST3PluginHandle,
+        max_w: c_int,
+        max_h: c_int,
+    );
+
     pub fn vst3_get_last_error() -> *const c_char;
 }
 
@@ -496,6 +525,70 @@ impl VST3Plugin {
         }
     }
 
+    // Preset enumeration via IUnitInfo
+    pub fn get_program_list_count(&self) -> i32 {
+        unsafe { vst3_get_program_list_count(self.handle) }
+    }
+
+    pub fn get_program_list_info(&self, index: i32) -> Result<(i32, String, i32), String> {
+        let mut list_id: c_int = 0;
+        let mut name_buf = [0u8; 256];
+        let mut count: c_int = 0;
+
+        unsafe {
+            if vst3_get_program_list_info(
+                self.handle,
+                index,
+                &raw mut list_id,
+                name_buf.as_mut_ptr().cast::<c_char>(),
+                256,
+                &raw mut count,
+            ) {
+                let name = CStr::from_ptr(name_buf.as_ptr().cast::<c_char>())
+                    .to_string_lossy()
+                    .into_owned();
+                Ok((list_id, name, count))
+            } else {
+                Err(VST3Host::get_last_error())
+            }
+        }
+    }
+
+    pub fn get_program_name(&self, list_id: i32, program_index: i32) -> Result<String, String> {
+        let mut name_buf = [0u8; 256];
+
+        unsafe {
+            if vst3_get_program_name(
+                self.handle,
+                list_id,
+                program_index,
+                name_buf.as_mut_ptr().cast::<c_char>(),
+                256,
+            ) {
+                let name = CStr::from_ptr(name_buf.as_ptr().cast::<c_char>())
+                    .to_string_lossy()
+                    .into_owned();
+                Ok(name)
+            } else {
+                Err(VST3Host::get_last_error())
+            }
+        }
+    }
+
+    pub fn set_program(&self, list_id: i32, program_index: i32) -> Result<(), String> {
+        unsafe {
+            if vst3_set_program(self.handle, list_id, program_index) {
+                Ok(())
+            } else {
+                Err(VST3Host::get_last_error())
+            }
+        }
+    }
+
+    pub fn set_editor_max_size(&self, max_w: i32, max_h: i32) {
+        unsafe { vst3_set_editor_max_size(self.handle, max_w, max_h) }
+    }
+
     // M7 Phase 1: Native Editor Support
     pub fn has_editor(&self) -> bool {
         unsafe { vst3_has_editor(self.handle) }
@@ -700,6 +793,36 @@ impl VST3Effect {
     pub fn set_state(&mut self, data: &[u8]) -> Result<(), String> {
         let plugin = self.plugin.lock();
         plugin.set_state(data)
+    }
+
+    /// Get number of preset program lists (0 if plugin doesn't support IUnitInfo)
+    pub fn get_program_list_count(&self) -> i32 {
+        let plugin = self.plugin.lock();
+        plugin.get_program_list_count()
+    }
+
+    /// Get info for a program list: (list_id, name, program_count)
+    pub fn get_program_list_info(&self, index: i32) -> Result<(i32, String, i32), String> {
+        let plugin = self.plugin.lock();
+        plugin.get_program_list_info(index)
+    }
+
+    /// Get the name of a specific program (preset) in a list
+    pub fn get_program_name(&self, list_id: i32, program_index: i32) -> Result<String, String> {
+        let plugin = self.plugin.lock();
+        plugin.get_program_name(list_id, program_index)
+    }
+
+    /// Set the active program (preset) in a list
+    pub fn set_program(&mut self, list_id: i32, program_index: i32) -> Result<(), String> {
+        let plugin = self.plugin.lock();
+        plugin.set_program(list_id, program_index)
+    }
+
+    /// Set max editor size constraint (for embedded scale-to-fit)
+    pub fn set_editor_max_size(&self, max_w: i32, max_h: i32) {
+        let plugin = self.plugin.lock();
+        plugin.set_editor_max_size(max_w, max_h);
     }
 
     // M7 Phase 1: Native Editor Support

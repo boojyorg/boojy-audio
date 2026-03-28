@@ -614,6 +614,27 @@ typedef _Vst3SendMidiNoteFfiNative =
 typedef _Vst3SendMidiNoteFfi =
     ffi.Pointer<Utf8> Function(int, int, int, int, int);
 
+// VST3 State (preset reset / project save-load)
+typedef _GetVst3StateFfiNative = ffi.Pointer<Utf8> Function(ffi.Int64);
+typedef _GetVst3StateFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _SetVst3StateFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Int64, ffi.Pointer<Utf8>);
+typedef _SetVst3StateFfi = ffi.Pointer<Utf8> Function(int, ffi.Pointer<Utf8>);
+
+// VST3 Preset enumeration
+typedef _GetVst3PresetsFfiNative = ffi.Pointer<Utf8> Function(ffi.Int64);
+typedef _GetVst3PresetsFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _SetVst3ProgramFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Int64, ffi.Int32, ffi.Int32);
+typedef _SetVst3ProgramFfi = ffi.Pointer<Utf8> Function(int, int, int);
+
+// VST3 Editor max size constraint
+typedef _SetVst3EditorMaxSizeFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Int64, ffi.Int32, ffi.Int32);
+typedef _SetVst3EditorMaxSizeFfi = ffi.Pointer<Utf8> Function(int, int, int);
+
 // MIDI Recording types
 typedef _GetMidiInputDevicesFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetMidiInputDevicesFfi = ffi.Pointer<Utf8> Function();

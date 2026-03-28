@@ -2,6 +2,31 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
+## Unreleased
+
+### Features
+
+- **Plugin-as-Instrument redesign (#11)**: Native VST3 plugin GUIs embedded directly in the editor panel. Removed search bar and plugin header rows — plugin GUI fills the freed vertical space
+- **Plugin preset navigation**: [◀][Preset Name ▾][▶] controls in Row 1 for browsing and loading VST3 presets
+- **Preset browser dropdown**: Searchable dropdown with folder structure, preset counts, and "Reset to Default" via state capture
+- **Plugin float/embed toggle**: [Float] / [Embed] button in Row 1 for third-party VST3 instruments. Auto-switches to Effects tab when floating, remembers preference per plugin
+- **Plugin state FFI**: `get_vst3_state` / `set_vst3_state` bridge for plugin state save/restore (base64 over FFI)
+- **VST3 preset enumeration FFI**: `get_vst3_presets` / `set_vst3_program` bridge via IUnitInfo program lists
+- **First-run tooltip tour (#10)**: 6-step guided tour with spotlight cutouts on first launch. Skippable, re-triggerable from Help > Take a Tour
+- **Tour persistence**: `hasCompletedTour` in UserSettings (SharedPreferences)
+
+### Improvements
+
+- **Row 1 tab icons**: VST3 instruments show plugin icon (🔌), built-in show piano icon (🎹). "Synthesizer" label shortened to "Synth"
+- **Minimum window size**: 800px → 960px width for responsive panel layout
+- **Track delete cleanup**: Floating plugin windows auto-close when their track is deleted
+
+### Bug Fixes
+
+- **setState on unmounted widget**: Added `mounted` guards before `setState()` in async trim drag handlers in timeline_view.dart
+- **File picker .single crash**: Replaced `result.files.single` with safe `.first` + `.isNotEmpty` guard in file_drop_zone.dart
+- **Debug cleanup**: Removed `_loadStartTime` debug timing variable and automation lane debug trace logging
+
 ## v0.1.7 — 2026-03-27
 
 ### Improvements

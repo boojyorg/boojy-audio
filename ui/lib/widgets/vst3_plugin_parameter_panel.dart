@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/plugin_preferences_service.dart';
@@ -88,17 +89,17 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
   Widget build(BuildContext context) {
     if (widget.plugins.isEmpty) {
       return ColoredBox(
-        color: const Color(0xFF707070),
+        color: context.colors.surface,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(BI.pluginOff, size: 64, color: const Color(0xFF909090)),
+              Icon(BI.pluginOff, size: 64, color: context.colors.textMuted),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'No VST3 Plugins',
                 style: TextStyle(
-                  color: Color(0xFF202020),
+                  color: context.colors.darkest,
                   fontSize: BT.fontHeading,
                   fontWeight: BT.weightSemiBold,
                 ),
@@ -106,7 +107,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               const SizedBox(height: 8),
               Text(
                 'Click the FX button on the track to add plugins',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                style: TextStyle(color: context.colors.textMuted, fontSize: 14),
               ),
             ],
           ),
@@ -118,14 +119,14 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     final showingEmbeddedGUI = _showEmbeddedGUIForEffect != null;
 
     return ColoredBox(
-      color: const Color(0xFF707070),
+      color: context.colors.surface,
       child: Column(
         children: [
           // Search bar - hide when embedded GUI is shown (not useful for native GUI)
           if (!showingEmbeddedGUI)
             Container(
               padding: const EdgeInsets.all(8),
-              color: const Color(0xFF656565),
+              color: context.colors.surface,
               child: TextField(
                 onChanged: (value) {
                   setState(() {
@@ -134,14 +135,14 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Search parameters...',
-                  hintStyle: const TextStyle(color: Color(0xFF808080)),
+                  hintStyle: TextStyle(color: context.colors.textMuted),
                   prefixIcon: Icon(
                     BI.search,
-                    color: const Color(0xFF808080),
+                    color: context.colors.textMuted,
                     size: 18,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFF505050),
+                  fillColor: context.colors.dark,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
@@ -152,7 +153,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                   ),
                   isDense: true,
                 ),
-                style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 12),
+                style: TextStyle(
+                  color: context.colors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
             ),
 
@@ -187,22 +191,20 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isExpanded
-                  ? const Color(0xFF505050)
-                  : const Color(0xFF606060),
-              border: const Border(
-                bottom: BorderSide(color: Color(0xFF808080), width: 1),
+              color: isExpanded ? context.colors.dark : context.colors.surface,
+              border: Border(
+                bottom: BorderSide(color: context.colors.textMuted, width: 1),
               ),
             ),
             child: Row(
               children: [
                 Icon(
                   isExpanded ? BI.expandMore : BI.caretRight,
-                  color: const Color(0xFFA0A0A0),
+                  color: context.colors.textSecondary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Icon(BI.plugin, color: const Color(0xFF4CAF50), size: 18),
+                Icon(BI.plugin, color: context.colors.accent, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -210,8 +212,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                     children: [
                       Text(
                         plugin.pluginName,
-                        style: const TextStyle(
-                          color: Color(0xFFA0A0A0),
+                        style: TextStyle(
+                          color: context.colors.textSecondary,
                           fontSize: BT.fontBody,
                           fontWeight: BT.weightSemiBold,
                         ),
@@ -221,8 +223,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                         _showEmbeddedGUIForEffect == plugin.effectId
                             ? 'Native GUI'
                             : '${plugin.parameters.length} parameters',
-                        style: const TextStyle(
-                          color: Color(0xFF808080),
+                        style: TextStyle(
+                          color: context.colors.textMuted,
                           fontSize: 10,
                         ),
                       ),
@@ -236,9 +238,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                         ? BI.sliders
                         : BI.monitor,
                   ),
-                  color: _showEmbeddedGUIForEffect == plugin.effectId
-                      ? const Color(0xFF2196F3)
-                      : const Color(0xFF4CAF50),
+                  color: context.colors.accent,
                   iconSize: 18,
                   onPressed: () => _toggleEmbeddedGUI(plugin),
                   tooltip: _showEmbeddedGUIForEffect == plugin.effectId
@@ -254,7 +254,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 // Open floating GUI button
                 IconButton(
                   icon: Icon(BI.openInNew),
-                  color: const Color(0xFF4CAF50),
+                  color: context.colors.accent,
                   iconSize: 18,
                   onPressed: () => _openPluginGUI(plugin),
                   tooltip: 'Open Plugin GUI (Floating Window)',
@@ -268,7 +268,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 // Delete button
                 IconButton(
                   icon: Icon(BI.delete),
-                  color: const Color(0xFFFF5722),
+                  color: context.colors.error,
                   iconSize: 18,
                   onPressed: () => widget.onRemovePlugin?.call(plugin.effectId),
                   tooltip: 'Remove Plugin',
@@ -294,7 +294,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
   Widget _buildEmbeddedGUI(Vst3PluginInstance plugin) {
     return Container(
-      color: const Color(0xFF303030),
+      color: context.colors.darkest,
       constraints: const BoxConstraints(minHeight: 400, maxHeight: 600),
       child: VST3EditorWidget(
         effectId: plugin.effectId,
@@ -311,13 +311,13 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     if (filteredParams.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        color: const Color(0xFF505050),
+        color: context.colors.dark,
         child: Center(
           child: Text(
             _searchQuery.isEmpty
                 ? 'No parameters available'
                 : 'No parameters match "$_searchQuery"',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            style: TextStyle(color: context.colors.textMuted, fontSize: 12),
           ),
         ),
       );
@@ -338,7 +338,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     }
 
     return ColoredBox(
-      color: const Color(0xFF505050),
+      color: context.colors.dark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -370,24 +370,24 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF454545),
+            decoration: BoxDecoration(
+              color: context.colors.dark,
               border: Border(
-                bottom: BorderSide(color: Color(0xFF606060), width: 1),
+                bottom: BorderSide(color: context.colors.surface, width: 1),
               ),
             ),
             child: Row(
               children: [
                 Icon(
                   isExpanded ? BI.expandMore : BI.caretRight,
-                  color: const Color(0xFF909090),
+                  color: context.colors.textMuted,
                   size: 16,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   groupName,
-                  style: const TextStyle(
-                    color: Color(0xFF909090),
+                  style: TextStyle(
+                    color: context.colors.textMuted,
                     fontSize: BT.fontLabel,
                     fontWeight: BT.weightSemiBold,
                     letterSpacing: 0.5,
@@ -396,10 +396,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 const Spacer(),
                 Text(
                   '${parameters.length}',
-                  style: const TextStyle(
-                    color: Color(0xFF707070),
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: context.colors.surface, fontSize: 10),
                 ),
               ],
             ),
@@ -421,9 +418,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Color(0xFF606060), width: 0.5),
+          bottom: BorderSide(color: context.colors.surface, width: 0.5),
         ),
       ),
       child: Row(
@@ -433,8 +430,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
             flex: 2,
             child: Text(
               param.name,
-              style: const TextStyle(
-                color: Color(0xFFA0A0A0),
+              style: TextStyle(
+                color: context.colors.textSecondary,
                 fontSize: BT.fontLabel,
               ),
             ),
@@ -446,13 +443,13 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           Expanded(
             flex: 3,
             child: SliderTheme(
-              data: const SliderThemeData(
+              data: SliderThemeData(
                 trackHeight: 3,
-                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-                activeTrackColor: Color(0xFF4CAF50),
-                inactiveTrackColor: Color(0xFF606060),
-                thumbColor: Color(0xFF4CAF50),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                activeTrackColor: context.colors.accent,
+                inactiveTrackColor: context.colors.surface,
+                thumbColor: context.colors.accent,
               ),
               child: Slider(
                 value: value.clamp(param.min, param.max),
@@ -481,17 +478,17 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               width: 60,
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF404040),
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: const Color(0xFF606060)),
+                border: Border.all(color: context.colors.surface),
               ),
               child: Text(
                 '${value.toStringAsFixed(2)}${param.unit}',
-                style: const TextStyle(
-                  color: Color(0xFFA0A0A0),
+                style: TextStyle(
+                  color: context.colors.textSecondary,
                   fontSize: 10,
                   fontFamily: BT.fontFamilyMono,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -514,10 +511,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF656565),
+        backgroundColor: context.colors.surface,
         title: Text(
           param.name,
-          style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 14),
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 14),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -525,8 +522,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
           children: [
             Text(
               'Range: ${param.min.toStringAsFixed(2)} - ${param.max.toStringAsFixed(2)} ${param.unit}',
-              style: const TextStyle(
-                color: Color(0xFF808080),
+              style: TextStyle(
+                color: context.colors.textMuted,
                 fontSize: BT.fontLabel,
               ),
             ),
@@ -542,15 +539,15 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               ],
               decoration: InputDecoration(
                 hintText: 'Enter value',
-                hintStyle: const TextStyle(color: Color(0xFF808080)),
+                hintStyle: TextStyle(color: context.colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF505050),
+                fillColor: context.colors.dark,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
-              style: const TextStyle(color: Color(0xFFA0A0A0)),
+              style: TextStyle(color: context.colors.textSecondary),
               onSubmitted: (text) {
                 final newValue = double.tryParse(text);
                 if (newValue != null) {
@@ -572,9 +569,9 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF808080)),
+              style: TextStyle(color: context.colors.textMuted),
             ),
           ),
           TextButton(
@@ -593,7 +590,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
               }
               Navigator.of(context).pop();
             },
-            child: const Text('OK', style: TextStyle(color: Color(0xFF4CAF50))),
+            child: Text('OK', style: TextStyle(color: context.colors.accent)),
           ),
         ],
       ),
@@ -672,7 +669,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to open GUI for ${plugin.pluginName}'),
-            backgroundColor: Colors.red,
+            backgroundColor: context.colors.error,
             duration: const Duration(seconds: 3),
           ),
         );

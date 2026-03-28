@@ -398,19 +398,6 @@ class _PianoRollClipAutomationLaneState
     final clickedPoint = _findPointAtPosition(details.localPosition);
     final toolMode = _effectiveToolMode;
 
-    // DEBUG: Trace what's happening with tool mode and hit detection
-    Log.d(
-      '[AutomationLane] _onTapDown: toolMode=$toolMode, clickedPoint=${clickedPoint?.id}, localPos=${details.localPosition}',
-    );
-    Log.d('[AutomationLane] Points in lane: ${_displayLane.points.length}');
-    for (final p in _displayLane.points) {
-      final px = p.time * widget.pixelsPerBeat;
-      final py = _valueToY(p.value);
-      Log.d(
-        '[AutomationLane]   Point ${p.id}: time=${p.time}, value=${p.value}, screenPos=($px, $py)',
-      );
-    }
-
     switch (toolMode) {
       case ToolMode.draw:
         if (clickedPoint != null) {
