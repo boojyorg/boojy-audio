@@ -31,6 +31,13 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
 
   AudioEngine? audioEngine;
 
+  // Tour GlobalKeys for spotlight anchors
+  final tourTransportKey = GlobalKey(debugLabel: 'tour_transport');
+  final tourLibraryKey = GlobalKey(debugLabel: 'tour_library');
+  final tourTimelineKey = GlobalKey(debugLabel: 'tour_timeline');
+  final tourMixerKey = GlobalKey(debugLabel: 'tour_mixer');
+  final tourEditorKey = GlobalKey(debugLabel: 'tour_editor');
+
   // ============================================
   // CONTROLLERS
   // ============================================
@@ -55,6 +62,9 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   final LibraryService libraryService = LibraryService();
   LibraryPreviewService? libraryPreviewService;
   Vst3PluginManager? vst3PluginManager;
+
+  /// Set of VST3 effect IDs currently in floating windows
+  final Set<int> floatedPluginEffectIds = {};
   ProjectManager? projectManager;
   VersionManager? versionManager;
   MidiPlaybackManager? midiPlaybackManager;

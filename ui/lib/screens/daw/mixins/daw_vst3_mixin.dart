@@ -3,6 +3,8 @@ import '../../../utils/logger.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/vst3_plugin_data.dart';
 import '../../../services/commands/track_commands.dart';
+import '../../../services/plugin_preferences_service.dart';
+import '../../../services/vst3_editor_service.dart';
 import '../../../theme/boojy_icons.dart';
 import '../../../theme/theme_extension.dart';
 import '../../../theme/tokens.dart';
@@ -105,6 +107,39 @@ mixin DAWVst3Mixin
   /// Handle VST3 parameter change
   void onVst3ParameterChanged(int effectId, int paramIndex, double value) {
     vst3PluginManager?.updateParameter(effectId, paramIndex, value);
+  }
+
+  // ============================================
+  // VST3 FLOAT / EMBED
+  // ============================================
+
+  /// Float a VST3 plugin to a separate window
+  Future<bool> onFloatPlugin(int effectId, String pluginName) async {
+    final success = await VST3EditorService.openFloatingWindow(
+      effectId: effectId,
+      pluginName: pluginName,
+      width: 800,
+      height: 600,
+    );
+    if (success) {
+      setState(() => floatedPluginEffectIds.add(effectId));
+      await PluginPreferencesService.setDisplayMode(
+        pluginName,
+        PluginDisplayMode.floating,
+      );
+    }
+    return success;
+  }
+
+  /// Embed a floating VST3 plugin back into the panel
+  Future<bool> onEmbedPlugin(int effectId) async {
+    final success = await VST3EditorService.closeFloatingWindow(
+      effectId: effectId,
+    );
+    if (success) {
+      setState(() => floatedPluginEffectIds.remove(effectId));
+    }
+    return success;
   }
 
   // ============================================

@@ -3,6 +3,7 @@ import '../../../models/clip_data.dart';
 import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/commands/track_commands.dart';
+import '../../../services/vst3_editor_service.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
@@ -154,6 +155,15 @@ mixin DAWTrackMixin
 
   /// Handle track deletion
   void onTrackDeleted(int trackId) {
+    // Close any floating plugin windows for this track
+    final effectIds = vst3PluginManager?.getTrackEffectIds(trackId) ?? [];
+    for (final id in effectIds) {
+      if (floatedPluginEffectIds.contains(id)) {
+        VST3EditorService.closeFloatingWindow(effectId: id);
+        floatedPluginEffectIds.remove(id);
+      }
+    }
+
     // Remove all MIDI clips for this track via manager
     midiPlaybackManager?.removeClipsForTrack(trackId);
 

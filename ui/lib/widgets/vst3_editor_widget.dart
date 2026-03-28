@@ -5,12 +5,21 @@ import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 
 /// Widget that embeds a VST3 plugin editor GUI
-/// Uses platform views to show the native plugin editor
+/// Uses platform views to show the native plugin editor.
+///
+/// For embedded mode: pass [width]/[height] as the available panel space
+/// and [nativeWidth]/[nativeHeight] as the plugin's preferred size.
+/// The widget calculates a scale-to-fit factor and passes both frame
+/// and bounds dimensions to the Swift platform view for Cocoa scaling.
 class VST3EditorWidget extends StatefulWidget {
   final int effectId;
   final String pluginName;
   final double width;
   final double height;
+
+  /// Plugin's native/preferred GUI size. If null, no scaling is applied.
+  final double? nativeWidth;
+  final double? nativeHeight;
 
   const VST3EditorWidget({
     super.key,
@@ -18,6 +27,8 @@ class VST3EditorWidget extends StatefulWidget {
     required this.pluginName,
     required this.width,
     required this.height,
+    this.nativeWidth,
+    this.nativeHeight,
   });
 
   @override
@@ -50,22 +61,29 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
   }
 
   Widget _buildMacOSView() {
-    // Use a unique key that combines effectId and instanceId to force
-    // Flutter to create a completely new platform view on each show/hide cycle.
-    // Without this, Flutter may reuse the cached platform view which causes
-    // the freeze on second toggle because viewDidMoveToWindow doesn't fire.
     final uniqueKey = ValueKey('vst3_editor_${widget.effectId}_$_instanceId');
 
+    // Pass available size directly — the plugin handles its own layout
+    // via IPlugView::onSize() called by PlugFrame during attachment.
+    final frameW = widget.width.round();
+    final frameH = widget.height.round();
+
+    final view = AppKitView(
+      key: uniqueKey,
+      viewType: 'boojy_audio.vst3.editor_view',
+      creationParams: {
+        'effectId': widget.effectId,
+        'width': frameW,
+        'height': frameH,
+      },
+      creationParamsCodec: const StandardMessageCodec(),
+      onPlatformViewCreated: (id) {},
+    );
+
     return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: AppKitView(
-        key: uniqueKey,
-        viewType: 'boojy_audio.vst3.editor_view',
-        creationParams: {'effectId': widget.effectId},
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: (id) {},
-      ),
+      width: frameW.toDouble(),
+      height: frameH.toDouble(),
+      child: view,
     );
   }
 

@@ -1289,7 +1289,7 @@ class TimelineViewState extends State<TimelineView>
                                           child: IgnorePointer(
                                             child: Container(
                                               width: 2,
-                                              color: const Color(0xFF3B82F6),
+                                              color: context.colors.accent,
                                             ),
                                           ),
                                         );
@@ -2675,11 +2675,13 @@ class TimelineViewState extends State<TimelineView>
                                   platformDragOverMidiTrackId == track.id)
                                 Positioned.fill(
                                   child: ColoredBox(
-                                    color: Colors.red.withValues(alpha: 0.15),
+                                    color: context.colors.error.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     child: Center(
                                       child: Icon(
                                         BI.pluginOff,
-                                        color: Colors.red.withValues(
+                                        color: context.colors.error.withValues(
                                           alpha: 0.6,
                                         ),
                                         size: 32,
@@ -3584,10 +3586,12 @@ class TimelineViewState extends State<TimelineView>
                             await UndoRedoManager().execute(command);
                           }
 
-                          setState(() {
-                            trimmingAudioClipId = null;
-                            isTrimmingLeftEdge = false;
-                          });
+                          if (mounted) {
+                            setState(() {
+                              trimmingAudioClipId = null;
+                              isTrimmingLeftEdge = false;
+                            });
+                          }
                         },
                         child: MouseRegion(
                           cursor: SystemMouseCursors.resizeLeft,
@@ -3712,9 +3716,11 @@ class TimelineViewState extends State<TimelineView>
                                 await UndoRedoManager().execute(command);
                               }
 
-                              setState(() {
-                                trimmingAudioClipId = null;
-                              });
+                              if (mounted) {
+                                setState(() {
+                                  trimmingAudioClipId = null;
+                                });
+                              }
                             },
                             child: Tooltip(
                               message: atLoopLimit
@@ -3844,7 +3850,7 @@ class TimelineViewState extends State<TimelineView>
         trackHeight -
         UIConstants.clipContentPadding; // Track height minus padding
     final isLiveRecording = midiClip.clipId == LiveRecordingNotifier.liveClipId;
-    const recordingColor = Color(0xFFE53935); // Red for recording indicator
+    final recordingColor = context.colors.error; // Red for recording indicator
 
     // Check if this clip has split preview active
     final hasSplitPreview = splitPreviewMidiClipId == midiClip.clipId;

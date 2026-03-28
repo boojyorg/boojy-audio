@@ -30,8 +30,10 @@ class _FileDropZoneState extends State<FileDropZone> {
       dialogTitle: 'Select Audio File',
     );
 
-    if (result != null && result.files.single.path != null) {
-      widget.onFileLoaded(result.files.single.path!);
+    if (result != null &&
+        result.files.isNotEmpty &&
+        result.files.first.path != null) {
+      widget.onFileLoaded(result.files.first.path!);
     }
   }
 

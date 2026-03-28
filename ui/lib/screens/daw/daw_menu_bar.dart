@@ -55,6 +55,9 @@ class DawMenuConfig {
   final VoidCallback onResetPanelLayout;
   final VoidCallback onAppSettings;
 
+  // Help menu callbacks
+  final VoidCallback? onStartTour;
+
   // Undo/redo callbacks
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
@@ -91,6 +94,7 @@ class DawMenuConfig {
     required this.onAppSettings,
     this.onUndo,
     this.onRedo,
+    this.onStartTour,
   });
 }
 
@@ -352,6 +356,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             label: 'Check for Updates...',
             onSelected: () => UpdaterService.checkForUpdates(),
           ),
+        PlatformMenuItem(label: 'Take a Tour', onSelected: config.onStartTour),
         PlatformMenuItem(
           label: 'Boojy Audio Help',
           onSelected: () {

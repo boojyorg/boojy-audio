@@ -33,7 +33,6 @@ class LibraryPreviewService extends ChangeNotifier {
 
   // Async loading state
   bool _isLoading = false;
-  DateTime? _loadStartTime; // DEBUG: timing
 
   LibraryPreviewService(this._audioEngine) {
     _loadAuditionPreference();
@@ -109,7 +108,6 @@ class LibraryPreviewService extends ChangeNotifier {
     _duration = 0.0;
 
     // Start async load in Rust background thread (returns immediately)
-    _loadStartTime = DateTime.now();
     Log.d('[PREVIEW-DART] Starting async load for: $name');
     _audioEngine.previewLoadAudioAsync(path);
 
@@ -194,19 +192,14 @@ class LibraryPreviewService extends ChangeNotifier {
       if (_isLoading) {
         try {
           if (_audioEngine.previewIsLoaded()) {
-            final elapsed = _loadStartTime != null
-                ? DateTime.now().difference(_loadStartTime!).inMilliseconds
-                : -1;
-            Log.d('[PREVIEW-DART] Loaded! Total wait: ${elapsed}ms');
+            Log.d('[PREVIEW-DART] Loaded!');
             _isLoading = false;
             _duration = _audioEngine.previewGetDuration();
             _audioEngine.previewSetLooping(false);
             // Start playback immediately — fetch waveform after
             _audioEngine.previewPlay();
             _isPlaying = true;
-            Log.d(
-              '[PREVIEW-DART] Play started at +${DateTime.now().difference(_loadStartTime!).inMilliseconds}ms',
-            );
+            Log.d('[PREVIEW-DART] Play started');
             // Fetch waveform in next microtask so play isn't delayed
             Future.microtask(() {
               _waveformPeaks = _audioEngine.previewGetWaveform(200);

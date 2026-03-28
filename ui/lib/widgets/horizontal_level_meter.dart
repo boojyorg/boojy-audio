@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/theme_extension.dart';
 
 /// Horizontal stereo level meter with volume slider overlaid
 /// Ableton-style: meter shows signal level, slider thumb adjusts volume
@@ -50,6 +51,14 @@ class HorizontalLevelMeter extends StatelessWidget {
                 leftLevel: leftLevel,
                 rightLevel: rightLevel,
                 volumeSliderValue: _volumeDbToSlider(volumeDb),
+                greenLit: context.colors.success,
+                greenDim: context.colors.success.withValues(alpha: 0.3),
+                yellowLit: context.colors.warning,
+                yellowDim: context.colors.warning.withValues(alpha: 0.3),
+                redLit: context.colors.error,
+                redDim: context.colors.error.withValues(alpha: 0.3),
+                thumbColor: context.colors.textPrimary,
+                thumbBorderColor: context.colors.success,
               ),
             ),
           ),
@@ -80,6 +89,14 @@ class _MeterPainter extends CustomPainter {
   final double leftLevel;
   final double rightLevel;
   final double volumeSliderValue; // 0.0 to 1.0
+  final Color greenLit;
+  final Color greenDim;
+  final Color yellowLit;
+  final Color yellowDim;
+  final Color redLit;
+  final Color redDim;
+  final Color thumbColor;
+  final Color thumbBorderColor;
 
   static const int segmentCount = 20;
   static const double segmentGap = 2;
@@ -88,6 +105,14 @@ class _MeterPainter extends CustomPainter {
     required this.leftLevel,
     required this.rightLevel,
     required this.volumeSliderValue,
+    required this.greenLit,
+    required this.greenDim,
+    required this.yellowLit,
+    required this.yellowDim,
+    required this.redLit,
+    required this.redDim,
+    required this.thumbColor,
+    required this.thumbBorderColor,
   });
 
   @override
@@ -133,13 +158,13 @@ class _MeterPainter extends CustomPainter {
       Color color;
       if (i < 12) {
         // Green (60%)
-        color = isLit ? const Color(0xFF4CAF50) : const Color(0xFF2E5A32);
+        color = isLit ? greenLit : greenDim;
       } else if (i < 16) {
         // Yellow (60-80%)
-        color = isLit ? const Color(0xFFFFC107) : const Color(0xFF5A4A1F);
+        color = isLit ? yellowLit : yellowDim;
       } else {
         // Red (80-100%)
-        color = isLit ? const Color(0xFFFF5722) : const Color(0xFF5A2A1A);
+        color = isLit ? redLit : redDim;
       }
 
       final rect = RRect.fromRectAndRadius(
@@ -166,19 +191,19 @@ class _MeterPainter extends CustomPainter {
 
     // Vertical line
     final linePaint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = thumbColor
       ..strokeWidth = 2;
     canvas.drawLine(Offset(thumbX, 0), Offset(thumbX, size.height), linePaint);
 
     // Thumb circle
     final thumbPaint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = thumbColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(thumbX, thumbY), 6, thumbPaint);
 
     // Thumb border
     final borderPaint = Paint()
-      ..color = const Color(0xFF4CAF50)
+      ..color = thumbBorderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(Offset(thumbX, thumbY), 6, borderPaint);

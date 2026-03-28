@@ -125,6 +125,7 @@ class UserSettings extends ChangeNotifier {
   // Privacy keys
   static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
   static const String _keyCrashReportingAsked = 'crash_reporting_asked';
+  static const String _keyHasCompletedTour = 'has_completed_tour';
 
   // Limits
   static const int maxRecentProjects = 20;
@@ -199,6 +200,7 @@ class UserSettings extends ChangeNotifier {
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
   bool _crashReportingAsked = false; // Whether user has been asked
+  bool _hasCompletedTour = false;
 
   /// Whether settings have been loaded
   bool get isLoaded => _isLoaded;
@@ -588,6 +590,16 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Whether the first-run tour has been completed
+  bool get hasCompletedTour => _hasCompletedTour;
+  set hasCompletedTour(bool value) {
+    if (_hasCompletedTour != value) {
+      _hasCompletedTour = value;
+      _savePrivacySettings();
+      notifyListeners();
+    }
+  }
+
   /// Convenience method to set auto-save minutes
   void setAutoSaveMinutes(int value) {
     autoSaveMinutes = value;
@@ -697,6 +709,7 @@ class UserSettings extends ChangeNotifier {
       _crashReportingEnabled =
           _prefs?.getBool(_keyCrashReportingEnabled) ?? false;
       _crashReportingAsked = _prefs?.getBool(_keyCrashReportingAsked) ?? false;
+      _hasCompletedTour = _prefs?.getBool(_keyHasCompletedTour) ?? false;
 
       _isLoaded = true;
       notifyListeners();
@@ -875,6 +888,7 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setBool(_keyCrashReportingEnabled, _crashReportingEnabled);
       await _prefs!.setBool(_keyCrashReportingAsked, _crashReportingAsked);
+      await _prefs!.setBool(_keyHasCompletedTour, _hasCompletedTour);
     } catch (e) {
       Log.e('UserSettings: Failed to save privacy settings: $e');
     }
