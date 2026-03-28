@@ -157,6 +157,11 @@ class _AudioEngineBase {
   late final _Vst3GetEditorSizeFfi _vst3GetEditorSize;
   late final _Vst3AttachEditorFfi _vst3AttachEditor;
   late final _Vst3SendMidiNoteFfi _vst3SendMidiNote;
+  late final _GetVst3StateFfi _getVst3State;
+  late final _SetVst3StateFfi _setVst3State;
+  late final _GetVst3PresetsFfi _getVst3Presets;
+  late final _SetVst3ProgramFfi _setVst3Program;
+  late final _SetVst3EditorMaxSizeFfi _setVst3EditorMaxSize;
 
   // MIDI Recording functions
   late final _GetMidiInputDevicesFfi _getMidiInputDevices;
@@ -1035,6 +1040,36 @@ class _AudioEngineBase {
       _vst3SendMidiNote = _lib
           .lookup<ffi.NativeFunction<_Vst3SendMidiNoteFfiNative>>(
             'vst3_send_midi_note_ffi',
+          )
+          .asFunction();
+
+      _getVst3State = _lib
+          .lookup<ffi.NativeFunction<_GetVst3StateFfiNative>>(
+            'get_vst3_state_ffi',
+          )
+          .asFunction();
+
+      _setVst3State = _lib
+          .lookup<ffi.NativeFunction<_SetVst3StateFfiNative>>(
+            'set_vst3_state_ffi',
+          )
+          .asFunction();
+
+      _getVst3Presets = _lib
+          .lookup<ffi.NativeFunction<_GetVst3PresetsFfiNative>>(
+            'get_vst3_presets_ffi',
+          )
+          .asFunction();
+
+      _setVst3Program = _lib
+          .lookup<ffi.NativeFunction<_SetVst3ProgramFfiNative>>(
+            'set_vst3_program_ffi',
+          )
+          .asFunction();
+
+      _setVst3EditorMaxSize = _lib
+          .lookup<ffi.NativeFunction<_SetVst3EditorMaxSizeFfiNative>>(
+            'set_vst3_editor_max_size_ffi',
           )
           .asFunction();
 

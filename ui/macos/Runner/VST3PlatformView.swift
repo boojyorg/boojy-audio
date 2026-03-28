@@ -52,13 +52,23 @@ class VST3EditorView: NSView {
     private var editorView: NSView?
     /// Child window that hosts the actual plugin view
     private var childWindow: NSWindow?
-    /// The content view inside the child window that receives the plugin
+    /// The content view inside the child window (visual size)
     private var pluginContainerView: NSView?
+    /// Subview of container at NATIVE size — plugin attaches here.
+    /// CATransform3D on this view's layer handles visual scaling.
+    private var pluginHostView: NSView?
     private(set) var effectId: Int = -1
     private(set) var isEditorAttached = false
     private var editorWidth: Int = 800
     private var editorHeight: Int = 600
     private var hasNotifiedReady = false
+
+    /// Plugin's native/preferred size
+    var nativeWidth: Int = 800
+    var nativeHeight: Int = 600
+
+    /// Whether child window is currently hidden (tab switch away)
+    private var isChildWindowHidden = false
 
     init(frame: NSRect, effectId: Int) {
         self.effectId = effectId
@@ -90,13 +100,14 @@ class VST3EditorView: NSView {
 
         createChildWindow()
 
-        // Return the container view pointer for FFI attachment
-        guard let container = pluginContainerView else {
-            print("❌ VST3EditorView: prepareForAttachment failed - no container view")
+        // Return the PLUGIN HOST view pointer (not container) for FFI attachment.
+        // The host view is at native size with CATransform3D for scaling.
+        guard let hostView = pluginHostView else {
+            print("❌ VST3EditorView: prepareForAttachment failed - no plugin host view")
             return nil
         }
 
-        let viewPtr = Unmanaged.passUnretained(container).toOpaque()
+        let viewPtr = Unmanaged.passUnretained(hostView).toOpaque()
         let viewPtrInt = Int64(Int(bitPattern: viewPtr))
         print("✅ VST3EditorView: prepareForAttachment succeeded - viewPointer=\(viewPtrInt)")
         return viewPtrInt
@@ -119,11 +130,9 @@ class VST3EditorView: NSView {
     private func createChildWindow() {
         guard childWindow == nil, let parentWindow = window else { return }
 
-        // Calculate the screen position for the child window
         let frameInWindow = convert(bounds, to: nil)
         let frameInScreen = parentWindow.convertToScreen(frameInWindow)
 
-        // Create a borderless child window
         let child = NSWindow(
             contentRect: frameInScreen,
             styleMask: [.borderless],
@@ -138,25 +147,62 @@ class VST3EditorView: NSView {
         child.ignoresMouseEvents = false
         child.level = parentWindow.level
 
-        // Create the container view for the plugin
+        // Container at VISUAL size (matches child window)
         let container = NSView(frame: NSRect(origin: .zero, size: frameInScreen.size))
-        container.wantsLayer = false  // No layer backing for plugin
-        container.autoresizingMask = [.width, .height]
+        container.wantsLayer = false
+        container.autoresizingMask = []
         child.contentView = container
         pluginContainerView = container
 
-        // Add as child window so it moves with parent
+        // Plugin host — frame matches container (visual size),
+        // bounds set to native size for coordinate remapping + rendering scale.
+        let host = NSView(frame: NSRect(origin: .zero, size: frameInScreen.size))
+        host.wantsLayer = false  // Let the plugin manage its own layers
+        if nativeWidth > 0 && nativeHeight > 0 {
+            host.setBoundsSize(NSSize(width: nativeWidth, height: nativeHeight))
+        }
+        container.addSubview(host)
+        pluginHostView = host
+
         parentWindow.addChildWindow(child, ordered: .above)
-
-        // Show the child window
         child.orderFront(nil)
-
         childWindow = child
 
-        print("🪟 VST3EditorView: Created child window at \(frameInScreen)")
+        print("🪟 VST3EditorView: Created child window — container=\(frameInScreen.size), host=\(nativeWidth)x\(nativeHeight)")
     }
 
-    /// Update the child window position to match this view
+    /// Apply scale via setBoundsSize — handles BOTH coordinate remapping
+    /// (for correct mouse events) AND rendering scale (bounds→frame mapping).
+    /// No CATransform3D — coordinates and visuals are both correct.
+    private func applyScaleTransform() {
+        guard let host = pluginHostView,
+              let container = pluginContainerView,
+              nativeWidth > 0, nativeHeight > 0 else { return }
+
+        let cw = container.frame.size.width
+        let ch = container.frame.size.height
+        guard cw > 0, ch > 0 else { return }
+
+        let nw = CGFloat(nativeWidth)
+        let nh = CGFloat(nativeHeight)
+        let scale = min(cw / nw, ch / nh, 1.0)
+
+        let scaledW = nw * scale
+        let scaledH = nh * scale
+
+        // Center in container with letterbox
+        let offsetX = (cw - scaledW) / 2
+        let offsetY = (ch - scaledH) / 2
+
+        // Frame = visual pixel size (for hit testing + rendering surface)
+        host.frame = NSRect(x: offsetX, y: offsetY, width: scaledW, height: scaledH)
+
+        // Bounds = native coordinate space (what the plugin sees).
+        // AppKit maps bounds→frame for coordinates AND rendering.
+        host.setBoundsSize(NSSize(width: nw, height: nh))
+    }
+
+    /// Update the child window position/size and reapply CATransform3D scale.
     private func updateChildWindowPosition() {
         guard let child = childWindow, let parentWindow = window else { return }
 
@@ -164,6 +210,12 @@ class VST3EditorView: NSView {
         let frameInScreen = parentWindow.convertToScreen(frameInWindow)
 
         child.setFrame(frameInScreen, display: true)
+
+        if let container = pluginContainerView {
+            container.frame = NSRect(origin: .zero, size: frameInScreen.size)
+        }
+
+        applyScaleTransform()
     }
 
     /// Destroy the child window
@@ -173,6 +225,8 @@ class VST3EditorView: NSView {
         if let parent = child.parent {
             parent.removeChildWindow(child)
         }
+        pluginHostView?.removeFromSuperview()
+        pluginHostView = nil
         child.orderOut(nil)
         child.close()
         childWindow = nil
@@ -187,27 +241,45 @@ class VST3EditorView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        print("🪟 VST3EditorView: viewDidMoveToWindow - window=\(window != nil), hasNotifiedReady=\(hasNotifiedReady)")
-
-        if window != nil && !hasNotifiedReady && effectId >= 0 {
-            // View is now in a window hierarchy - notify Dart that we're ready
-            // Dart will then call attachEditor to create the child window and get the view pointer
-            hasNotifiedReady = true
-            print("🔔 VST3EditorView: Notifying Dart that view is ready for effect \(effectId)")
-
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                // Send simple ready notification without view pointer
-                // Dart will call attachEditor which creates child window and returns the pointer
-                VST3PlatformChannelHandler.shared.notifyViewReady(
-                    effectId: self.effectId,
-                    viewPointer: 0  // Placeholder - actual pointer returned by attachEditor
-                )
-            }
+        // Only log on actual state changes to avoid spam during divider drag
+        if window != nil && !hasNotifiedReady {
+            print("🪟 VST3EditorView: viewDidMoveToWindow - FIRST TIME, will notify Dart")
         } else if window == nil {
-            // View removed from window - cleanup
-            hasNotifiedReady = false
-            destroyChildWindow()
+            print("🪟 VST3EditorView: viewDidMoveToWindow - removed from window")
+        }
+
+        if window != nil && effectId >= 0 {
+            if childWindow != nil && isChildWindowHidden {
+                // Tab switch BACK — re-show the hidden child window
+                isChildWindowHidden = false
+                if let parentWindow = window {
+                    parentWindow.addChildWindow(childWindow!, ordered: .above)
+                    childWindow!.orderFront(nil)
+                    updateChildWindowPosition()
+                    print("🪟 VST3EditorView: Re-shown child window for effect \(effectId)")
+                }
+            } else if childWindow == nil && !hasNotifiedReady {
+                // First time in window — notify Dart to create child window + attach editor
+                hasNotifiedReady = true
+                print("🔔 VST3EditorView: Notifying Dart that view is ready for effect \(effectId)")
+
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    VST3PlatformChannelHandler.shared.notifyViewReady(
+                        effectId: self.effectId,
+                        viewPointer: 0
+                    )
+                }
+            }
+        } else if window == nil && childWindow != nil && !isChildWindowHidden {
+            // Tab switch AWAY — hide child window, don't destroy.
+            // Plugin editor stays attached in C++.
+            isChildWindowHidden = true
+            if let child = childWindow, let parent = child.parent {
+                parent.removeChildWindow(child)
+                child.orderOut(nil)
+            }
+            print("🪟 VST3EditorView: Hidden child window for effect \(effectId)")
         }
     }
 
@@ -224,9 +296,21 @@ class VST3EditorView: NSView {
         // }
     }
 
+    private var lastLoggedSize: NSSize = .zero
+
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         updateChildWindowPosition()
+
+        // Throttled debug: only log when size changes significantly (>10px)
+        if abs(newSize.width - lastLoggedSize.width) > 10 || abs(newSize.height - lastLoggedSize.height) > 10 {
+            lastLoggedSize = newSize
+            if let container = pluginContainerView {
+                print("📐 [RESIZE] view.frame=\(newSize), container.frame=\(container.frame.size), container.bounds=\(container.bounds.size), native=\(nativeWidth)x\(nativeHeight)")
+            } else {
+                print("📐 [RESIZE] view.frame=\(newSize), NO container yet")
+            }
+        }
     }
 
     override func setFrameOrigin(_ newOrigin: NSPoint) {
@@ -292,16 +376,19 @@ class VST3EditorView: NSView {
         }
     }
 
-    /// Called by Dart after FFI attachment succeeds
+    /// Called by Dart after FFI attachment succeeds.
+    /// width/height are the plugin's native size (from vst3GetEditorSize after open).
     func markAsAttached(width: Int, height: Int) {
         isEditorAttached = true
         editorWidth = width
         editorHeight = height
-        print("✅ VST3EditorView: Marked as attached for effect \(effectId), size \(width)x\(height)")
+        nativeWidth = width
+        nativeHeight = height
 
-        // Force redraw
-        needsDisplay = true
-        needsLayout = true
+        // Reapply scale with real native size (applyScaleTransform sets frame + bounds)
+        applyScaleTransform()
+
+        print("✅ VST3EditorView: Marked as attached for effect \(effectId), nativeSize=\(width)x\(height)")
     }
 
     /// Attach a native VST3 editor view (for subview management)
@@ -405,14 +492,20 @@ class VST3PlatformViewFactory: NSObject, FlutterPlatformViewFactory {
             return NSView()
         }
 
-        print("✅ VST3PlatformViewFactory: Creating view for effect \(effectId)")
+        // Read frame size (visual display) and native size (plugin coordinate space)
+        let width = args["width"] as? Int ?? 800
+        let height = args["height"] as? Int ?? 600
+        let nativeWidth = args["nativeWidth"] as? Int ?? width
+        let nativeHeight = args["nativeHeight"] as? Int ?? height
 
-        // Create the editor view container with a default size
-        // The actual size will be set when the editor is attached in viewDidMoveToWindow()
+        print("✅ VST3PlatformViewFactory: Creating view for effect \(effectId), frame=\(width)x\(height), native=\(nativeWidth)x\(nativeHeight)")
+
         let editorView = VST3EditorView(
-            frame: NSRect(x: 0, y: 0, width: 800, height: 600),
+            frame: NSRect(x: 0, y: 0, width: width, height: height),
             effectId: effectId
         )
+        editorView.nativeWidth = nativeWidth
+        editorView.nativeHeight = nativeHeight
 
         // DON'T attach here - let viewDidMoveToWindow() handle it
         // when the view is properly in the window hierarchy.

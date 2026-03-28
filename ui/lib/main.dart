@@ -73,7 +73,7 @@ class BoojyAudioApp extends StatelessWidget {
         dividerTheme: DividerThemeData(color: colors.divider, thickness: 1),
         tooltipTheme: TooltipThemeData(
           decoration: BoxDecoration(
-            color: const Color(0xF0141419),
+            color: colors.darkest,
             borderRadius: BorderRadius.circular(5),
           ),
           textStyle: TextStyle(color: colors.textPrimary, fontSize: 11),

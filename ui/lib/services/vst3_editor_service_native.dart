@@ -12,6 +12,13 @@ class VST3EditorService {
   static AudioEngine? _audioEngine;
   static bool _initialized = false;
 
+  /// Pending max size constraints for embedded editor, keyed by effectId.
+  static final Map<int, (int, int)> _pendingMaxSize = {};
+
+  /// Plugin's original preferred editor size, stored after first attachment.
+  /// Used by Vst3InstrumentView for uniform scale-to-fit calculation.
+  static final Map<int, (int, int)> preferredEditorSize = {};
+
   /// Initialize the service with an AudioEngine instance
   /// This must be called before the service can handle view attachments
   static void initialize(AudioEngine engine) {
@@ -55,6 +62,15 @@ class VST3EditorService {
     await PluginPreferencesService.saveWindowPosition(pluginName, x, y);
   }
 
+  /// Register the max embedded size for a plugin effect.
+  /// Called by Vst3InstrumentView when the platform view is about to be created.
+  static void setEmbeddedMaxSize(int effectId, int maxW, int maxH) {
+    print(
+      '[VST3Service] setEmbeddedMaxSize: effectId=$effectId, max=${maxW}x$maxH',
+    );
+    _pendingMaxSize[effectId] = (maxW, maxH);
+  }
+
   /// Handle view ready notification from Swift
   /// Swift sends effectId when the platform view is in window hierarchy
   /// We then call attachEditor to complete the attachment
@@ -70,11 +86,23 @@ class VST3EditorService {
       return;
     }
 
+    // Retrieve and consume pending max size for embedded mode
+    final maxSize = _pendingMaxSize.remove(effectId);
+    final maxW = maxSize?.$1 ?? 0;
+    final maxH = maxSize?.$2 ?? 0;
+    print(
+      '[VST3Service] _handleViewReady: effectId=$effectId, pendingMax=${maxW}x$maxH (found=${maxSize != null})',
+    );
+
     // Schedule attachEditor asynchronously to avoid deadlocking the platform channel
     // We can't await here because attachEditor sends a message back to Swift,
     // and Swift is waiting for this handler to return first.
     Future.delayed(const Duration(milliseconds: 100), () async {
-      final success = await attachEditor(effectId: effectId);
+      final success = await attachEditor(
+        effectId: effectId,
+        maxWidth: maxW,
+        maxHeight: maxH,
+      );
       if (!success) {}
     });
   }
@@ -209,9 +237,32 @@ class VST3EditorService {
   /// 2. Open the editor via FFI (creates IPlugView)
   /// 3. Attach the editor to the view via FFI
   /// 4. Confirm attachment to Swift
-  static Future<bool> attachEditor({required int effectId}) async {
+  /// [maxWidth]/[maxHeight]: if > 0, constrain plugin resize requests
+  /// (embedded mode). Pass 0,0 for floating windows (unconstrained).
+  static Future<bool> attachEditor({
+    required int effectId,
+    int maxWidth = 0,
+    int maxHeight = 0,
+  }) async {
     if (_audioEngine == null) {
       return false;
+    }
+
+    // Set max size constraint BEFORE attachment so PlugFrame::resizeView()
+    // clamps immediately when the plugin requests resize during attached()
+    print(
+      '[VST3Service] attachEditor: effectId=$effectId, maxSize=${maxWidth}x$maxHeight',
+    );
+    if (maxWidth > 0 || maxHeight > 0) {
+      print(
+        '[VST3Service] → Setting max editor size: ${maxWidth}x$maxHeight (embedded mode)',
+      );
+      _audioEngine!.setVst3EditorMaxSize(effectId, maxWidth, maxHeight);
+    } else {
+      print(
+        '[VST3Service] → Clearing max editor size (unconstrained/floating)',
+      );
+      _audioEngine!.setVst3EditorMaxSize(effectId, 0, 0);
     }
 
     try {
@@ -248,10 +299,13 @@ class VST3EditorService {
         return false;
       }
 
-      // Step 3: Get editor size
+      // Step 3: Get editor size (this is the PREFERRED size before any onSize)
       final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
       final int width = sizeResult?['width'] ?? 800;
       final int height = sizeResult?['height'] ?? 600;
+
+      // Store preferred size for uniform scale-to-fit in the widget
+      preferredEditorSize[effectId] = (width, height);
 
       // Step 4: Attach editor to the NSView via FFI
       final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(viewPointer);

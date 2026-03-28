@@ -75,4 +75,21 @@ void vst3_resize_nsview(void* nsview, int width, int height) {
     fflush(stderr);
 }
 
+/// Set the BOUNDS of an NSView (for visual scaling) without changing its frame.
+/// Used in embedded mode: the view frame stays at Flutter's allocated size,
+/// bounds are set to the plugin's native size. Cocoa scales content automatically.
+void vst3_set_nsview_bounds(void* nsview, int width, int height) {
+    if (!nsview) return;
+
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            vst3_set_nsview_bounds(nsview, width, height);
+        });
+        return;
+    }
+
+    NSView* view = (__bridge NSView*)nsview;
+    [view setBoundsSize:NSMakeSize((CGFloat)width, (CGFloat)height)];
+}
+
 } // extern "C"

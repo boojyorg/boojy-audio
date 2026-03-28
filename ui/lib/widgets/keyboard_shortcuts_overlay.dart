@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 
 /// Modal overlay displaying all keyboard shortcuts organized by category
@@ -22,9 +23,9 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
         width: 600,
         constraints: const BoxConstraints(maxHeight: 600),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: context.colors.dark,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF404040)),
+          border: Border.all(color: context.colors.surface),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -39,24 +40,26 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFF404040))),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.colors.surface),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(BI.keyboard, color: const Color(0xFF00BCD4), size: 24),
+                  Icon(BI.keyboard, color: context.colors.accent, size: 24),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Keyboard Shortcuts',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.colors.textPrimary,
                       fontSize: 18,
                       fontWeight: BT.weightSemiBold,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
+                    icon: Icon(BI.close, color: context.colors.textMuted),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close (Esc)',
                   ),
@@ -71,7 +74,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSection('Transport', [
+                    _buildSection(context, 'Transport', [
                       _Shortcut('Space', 'Play / Pause'),
                       _Shortcut('R', 'Start / Stop Recording'),
                       _Shortcut('.', 'Stop'),
@@ -79,7 +82,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('M', 'Toggle Metronome'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('File', [
+                    _buildSection(context, 'File', [
                       _Shortcut('\u2318 N', 'New Project'),
                       _Shortcut('\u2318 O', 'Open Project'),
                       _Shortcut('\u2318 S', 'Save Project'),
@@ -87,7 +90,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('\u2318 W', 'Close Project'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('Edit', [
+                    _buildSection(context, 'Edit', [
                       _Shortcut('\u2318 Z', 'Undo'),
                       _Shortcut('\u21E7 \u2318 Z', 'Redo'),
                       _Shortcut('\u2318 C', 'Copy'),
@@ -96,7 +99,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('Delete', 'Delete Selected'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('View', [
+                    _buildSection(context, 'View', [
                       _Shortcut('\u2318 L', 'Toggle Library Panel'),
                       _Shortcut('\u2318 M', 'Toggle Mixer Panel'),
                       _Shortcut('\u2318 E', 'Toggle Editor Panel'),
@@ -104,7 +107,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('\u2318 ,', 'Project Settings'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('Piano Roll Tools', [
+                    _buildSection(context, 'Piano Roll Tools', [
                       _Shortcut('Z', 'Draw Tool'),
                       _Shortcut('X', 'Select Tool'),
                       _Shortcut('C', 'Erase Tool'),
@@ -113,7 +116,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('Esc', 'Deselect All'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('Piano Roll Modifiers', [
+                    _buildSection(context, 'Piano Roll Modifiers', [
                       _Shortcut('Alt + Click', 'Delete Note'),
                       _Shortcut('\u2318 + Drag', 'Duplicate Note'),
                       _Shortcut('\u2318 + Click', 'Slice at Cursor'),
@@ -121,7 +124,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('Delete', 'Delete Selected'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('Piano Roll Actions', [
+                    _buildSection(context, 'Piano Roll Actions', [
                       _Shortcut('Click', 'Add Note'),
                       _Shortcut('Drag', 'Move Note'),
                       _Shortcut('Edge Drag', 'Resize Note'),
@@ -130,7 +133,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('Q', 'Quantize Selected'),
                     ]),
                     const SizedBox(height: 20),
-                    _buildSection('Virtual Piano', [
+                    _buildSection(context, 'Virtual Piano', [
                       _Shortcut('A S D F G H J K L', 'White Keys'),
                       _Shortcut('W E  T Y U  O P', 'Black Keys'),
                     ]),
@@ -142,20 +145,26 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
             // Footer
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFF404040))),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: context.colors.surface)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     'Press ',
-                    style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.textMuted,
+                      fontSize: 12,
+                    ),
                   ),
-                  _buildKeyBadge('?'),
-                  const Text(
+                  _buildKeyBadge(context, '?'),
+                  Text(
                     ' anytime to show this overlay',
-                    style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.textMuted,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -166,36 +175,40 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, List<_Shortcut> shortcuts) {
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<_Shortcut> shortcuts,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF00BCD4),
+          style: TextStyle(
+            color: context.colors.accent,
             fontSize: 14,
             fontWeight: BT.weightSemiBold,
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 12),
-        ...shortcuts.map((s) => _buildShortcutRow(s)),
+        ...shortcuts.map((s) => _buildShortcutRow(context, s)),
       ],
     );
   }
 
-  Widget _buildShortcutRow(_Shortcut shortcut) {
+  Widget _buildShortcutRow(BuildContext context, _Shortcut shortcut) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          SizedBox(width: 150, child: _buildKeyCombo(shortcut.keys)),
+          SizedBox(width: 150, child: _buildKeyCombo(context, shortcut.keys)),
           Expanded(
             child: Text(
               shortcut.description,
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
+              style: TextStyle(
+                color: context.colors.textPrimary,
                 fontSize: BT.fontBody,
               ),
             ),
@@ -205,30 +218,30 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
     );
   }
 
-  Widget _buildKeyCombo(String keys) {
+  Widget _buildKeyCombo(BuildContext context, String keys) {
     // Split by spaces to handle multi-key combos
     final parts = keys.split(' ');
     return Wrap(
       spacing: 4,
-      children: parts.map((key) => _buildKeyBadge(key)).toList(),
+      children: parts.map((key) => _buildKeyBadge(context, key)).toList(),
     );
   }
 
-  Widget _buildKeyBadge(String key) {
+  Widget _buildKeyBadge(BuildContext context, String key) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF363636),
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF505050)),
+        border: Border.all(color: context.colors.divider),
       ),
       child: Text(
         key,
-        style: const TextStyle(
-          color: Color(0xFFE0E0E0),
+        style: TextStyle(
+          color: context.colors.textPrimary,
           fontSize: 12,
           fontFamily: 'SF Mono',
-          fontFamilyFallback: ['Menlo', 'Consolas', 'monospace'],
+          fontFamilyFallback: const ['Menlo', 'Consolas', 'monospace'],
           fontWeight: BT.weightMedium,
         ),
       ),

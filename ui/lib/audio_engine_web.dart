@@ -704,6 +704,12 @@ class AudioEngine implements AudioEngineInterface {
     int velocity,
   ) => 'OK';
 
+  String getVst3State(int effectId) => '';
+  String setVst3State(int effectId, String stateBase64) => '';
+  String getVst3Presets(int effectId) => '[]';
+  String setVst3Program(int effectId, int listId, int programIndex) => '';
+  String setVst3EditorMaxSize(int effectId, int maxW, int maxH) => '';
+
   // ============================================================================
   // Project Save/Load
   // ============================================================================

@@ -26,6 +26,9 @@ import '../widgets/virtual_piano.dart';
 import '../widgets/resizable_divider.dart';
 import '../widgets/instrument_browser.dart';
 import '../widgets/keyboard_shortcuts_overlay.dart';
+import '../widgets/tour/tour_step.dart';
+import '../widgets/tour/tour_controller.dart';
+import '../widgets/tour/tour_overlay.dart';
 import '../models/midi_note_data.dart';
 import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
@@ -153,7 +156,13 @@ class _DAWScreenState extends State<DAWScreen>
 
         // Show start screen modal on launch
         if (mounted) {
-          _showStartScreen();
+          await _showStartScreen();
+          // Start tour after start screen if not completed
+          if (mounted && !userSettings.hasCompletedTour) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) _startTour();
+            });
+          }
         }
       }
     });
@@ -3121,6 +3130,71 @@ class _DAWScreenState extends State<DAWScreen>
   // End Snapshot Methods
   // ========================================================================
 
+  /// Start the guided first-run tour
+  void _startTour() {
+    final controller = TourController(
+      steps: [
+        TourStep(
+          title: 'Transport Controls',
+          description:
+              'Play, stop, and record your music. Toggle loop mode and set your tempo here.',
+          targetKey: tourTransportKey,
+          placement: TourPlacement.below,
+        ),
+        TourStep(
+          title: 'Instrument Library',
+          description:
+              'Browse instruments, audio samples, and plugins. Drag or double-click to add to your project.',
+          targetKey: tourLibraryKey,
+          placement: TourPlacement.right,
+        ),
+        TourStep(
+          title: 'Timeline',
+          description:
+              'This is your canvas. Drag instruments from the library to create tracks and arrange your song.',
+          targetKey: tourTimelineKey,
+          placement: TourPlacement.below,
+        ),
+        TourStep(
+          title: 'Mixer',
+          description: 'Adjust volume, pan, and effects for each track.',
+          targetKey: tourMixerKey,
+          placement: TourPlacement.above,
+        ),
+        TourStep(
+          title: 'Editor',
+          description:
+              'Edit MIDI notes in the piano roll or tweak audio clips. Select a clip to start editing.',
+          targetKey: tourEditorKey,
+          placement: TourPlacement.above,
+        ),
+        const TourStep(
+          title: 'Keyboard Shortcuts',
+          description:
+              'Press ? anytime to see all shortcuts. Space to play/pause, R to record.',
+        ),
+      ],
+    );
+
+    late OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => TourOverlay(
+        controller: controller,
+        onComplete: () {
+          overlayEntry.remove();
+          userSettings.hasCompletedTour = true;
+        },
+        onSkip: () {
+          overlayEntry.remove();
+          userSettings.hasCompletedTour = true;
+        },
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+    controller.start();
+  }
+
   Future<void> _showStartScreen() async {
     final result = await StartScreenModal.show(context, userSettings);
     if (!mounted || result == null) return;
@@ -3896,6 +3970,7 @@ class _DAWScreenState extends State<DAWScreen>
           // Undo/redo callbacks
           onUndo: _performUndo,
           onRedo: _performRedo,
+          onStartTour: _startTour,
         ),
       ),
       child: CallbackShortcuts(
@@ -4027,6 +4102,7 @@ class _DAWScreenState extends State<DAWScreen>
                                 currentInstrumentData: selectedTrackId != null
                                     ? trackInstruments[selectedTrackId]
                                     : null,
+                                floatedPluginEffectIds: floatedPluginEffectIds,
                               ),
                               callbacks: EditorPanelCallbacks(
                                 onVirtualPianoClose: _toggleVirtualPiano,
@@ -4048,6 +4124,8 @@ class _DAWScreenState extends State<DAWScreen>
                                 onVst3ParameterChanged:
                                     _onVst3ParameterChanged, // M10
                                 onVst3PluginRemoved: _removeVst3Plugin, // M10
+                                onFloatPlugin: onFloatPlugin,
+                                onEmbedPlugin: onEmbedPlugin,
                                 onVst3InstrumentDropped: (plugin) {
                                   if (selectedTrackId != null) {
                                     _onVst3InstrumentDropped(

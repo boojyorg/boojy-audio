@@ -138,6 +138,54 @@ bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height);
 // Returns true if attached successfully
 bool vst3_attach_editor(VST3PluginHandle handle, void* parent);
 
+// Preset enumeration via IUnitInfo
+// Returns number of program lists, or 0 if IUnitInfo not supported
+int vst3_get_program_list_count(VST3PluginHandle handle);
+
+// Get program list info
+// index: 0-based index into program lists
+// list_id: output — unique ID for this list
+// name: output — UTF-8 name (caller provides buffer)
+// name_len: size of name buffer
+// count: output — number of programs in this list
+// Returns true if successful
+bool vst3_get_program_list_info(
+    VST3PluginHandle handle,
+    int index,
+    int* list_id,
+    char* name,
+    int name_len,
+    int* count
+);
+
+// Get program (preset) name
+// list_id: program list ID (from vst3_get_program_list_info)
+// program_index: 0-based index into the list
+// name: output — UTF-8 name (caller provides buffer)
+// name_len: size of name buffer
+// Returns true if successful
+bool vst3_get_program_name(
+    VST3PluginHandle handle,
+    int list_id,
+    int program_index,
+    char* name,
+    int name_len
+);
+
+// Set the active program (preset)
+// list_id: program list ID
+// program_index: 0-based index
+// Returns true if successful
+bool vst3_set_program(
+    VST3PluginHandle handle,
+    int list_id,
+    int program_index
+);
+
+// Editor max size constraint (for embedded mode scale-to-fit)
+// Set to 0,0 to unconstrain (floating window mode)
+void vst3_set_editor_max_size(VST3PluginHandle handle, int maxW, int maxH);
+
 // Error handling
 const char* vst3_get_last_error();
 

@@ -29,6 +29,7 @@
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstmessage.h"  // For IConnectionPoint
 #include "pluginterfaces/base/ibstream.h"     // For IBStream (state save/load)
+#include "pluginterfaces/vst/ivstunits.h"     // For IUnitInfo (preset enumeration)
 #include "public.sdk/source/vst/hosting/module.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/plugprovider.h"
@@ -120,8 +121,9 @@ static IPtr<ComponentHandler> g_component_handler;
 //------------------------------------------------------------------------
 
 #ifdef __APPLE__
-// Forward declare the Objective-C helper function
+// Forward declare the Objective-C helper functions
 extern "C" void vst3_resize_nsview(void* nsview, int width, int height);
+extern "C" void vst3_set_nsview_bounds(void* nsview, int width, int height);
 #endif
 
 class PlugFrame : public IPlugFrame
@@ -188,6 +190,14 @@ struct VST3PluginInstance {
     void* parent_window;  // Platform-specific window handle (NSView* on macOS)
     bool editor_open;
 
+    // Max editor size constraints (0 = unconstrained, e.g. floating windows)
+    int max_editor_width;
+    int max_editor_height;
+
+    // Original preferred editor size (stored on first attachment, never changes)
+    int preferred_editor_width;
+    int preferred_editor_height;
+
     VST3PluginInstance()
         : sample_rate(44100.0)
         , max_block_size(512)
@@ -195,7 +205,11 @@ struct VST3PluginInstance {
         , active(false)
         , midi_events(128)  // Up to 128 MIDI events per buffer
         , parent_window(nullptr)
-        , editor_open(false) {
+        , editor_open(false)
+        , max_editor_width(0)
+        , max_editor_height(0)
+        , preferred_editor_width(0)
+        , preferred_editor_height(0) {
         std::memset(&process_data, 0, sizeof(ProcessData));
     }
 };
@@ -218,28 +232,42 @@ tresult PLUGIN_API PlugFrame::resizeView(IPlugView* view, ViewRect* newSize) {
     int width = newSize->right - newSize->left;
     int height = newSize->bottom - newSize->top;
 
-    fprintf(stderr, "📐 [PlugFrame] resizeView: %dx%d\n", width, height);
+    // Save ORIGINAL size before clamping (needed for bounds in embedded mode)
+    int origWidth = width;
+    int origHeight = height;
+
+    // Clamp to max size if constraints are set (embedded mode)
+    if (instance_->max_editor_width > 0 && width > instance_->max_editor_width) {
+        width = instance_->max_editor_width;
+        newSize->right = newSize->left + width;
+    }
+    if (instance_->max_editor_height > 0 && height > instance_->max_editor_height) {
+        height = instance_->max_editor_height;
+        newSize->bottom = newSize->top + height;
+    }
+
+    fprintf(stderr, "📐 [PlugFrame] resizeView: requested=%dx%d, clamped=%dx%d\n",
+            origWidth, origHeight, width, height);
     fflush(stderr);
 
     // Prevent recursion
     if (resizeRecursionGuard_) {
-        fprintf(stderr, "📐 [PlugFrame] resizeView: recursion guard - returning kResultFalse\n");
-        fflush(stderr);
         return kResultFalse;
     }
 
     resizeRecursionGuard_ = true;
 
 #ifdef __APPLE__
-    // Actually resize the parent NSView to match the plugin's requested size
+    if (instance_->max_editor_width > 0 || instance_->max_editor_height > 0) {
+        // Embedded mode: plugin stays at native size, CATransform3D scales visually.
+        // Just acknowledge the resize — don't change container or call onSize.
+        resizeRecursionGuard_ = false;
+        return kResultTrue;
+    }
+
+    // Floating/unconstrained: resize container normally
     if (instance_ && instance_->parent_window) {
-        fprintf(stderr, "📐 [PlugFrame] Resizing NSView %p to %dx%d\n",
-                instance_->parent_window, width, height);
-        fflush(stderr);
         vst3_resize_nsview(instance_->parent_window, width, height);
-    } else {
-        fprintf(stderr, "📐 [PlugFrame] No parent window to resize\n");
-        fflush(stderr);
     }
 #endif
 
@@ -1346,11 +1374,12 @@ bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
     // Get the plugin's preferred size and log it
     ViewRect preferredSize;
     if (view->getSize(&preferredSize) == kResultOk) {
-        fprintf(stderr, "📏 [C++] Plugin preferred size: %dx%d (rect: l=%d,t=%d,r=%d,b=%d)\n",
-                preferredSize.right - preferredSize.left,
-                preferredSize.bottom - preferredSize.top,
-                preferredSize.left, preferredSize.top,
-                preferredSize.right, preferredSize.bottom);
+        // Store the original preferred size (for grow-back during resize)
+        instance->preferred_editor_width = preferredSize.right - preferredSize.left;
+        instance->preferred_editor_height = preferredSize.bottom - preferredSize.top;
+
+        fprintf(stderr, "📏 [C++] Plugin preferred size: %dx%d (stored as preferred)\n",
+                instance->preferred_editor_width, instance->preferred_editor_height);
         fflush(stderr);
     } else {
         fprintf(stderr, "⚠️ [C++] Could not get plugin preferred size\n");
@@ -1419,6 +1448,163 @@ bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
     fflush(stderr);
 
     return true;
+}
+
+void vst3_set_editor_max_size(VST3PluginHandle handle, int maxW, int maxH) {
+    if (!handle) return;
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+
+    instance->max_editor_width = maxW;
+    instance->max_editor_height = maxH;
+    // In embedded mode, CATransform3D handles visual scaling on the Swift side.
+    // No onSize or native resize needed — just store the max values for PlugFrame.
+}
+
+// ============================================================================
+// Preset Enumeration via IUnitInfo
+// ============================================================================
+
+// Helper: convert Steinberg::Vst::String128 (UTF-16) to UTF-8 char buffer
+static void string128_to_utf8(const Vst::String128& src, char* dst, int dst_len) {
+    if (!dst || dst_len <= 0) return;
+    int j = 0;
+    for (int i = 0; i < 128 && src[i] && j < dst_len - 1; i++) {
+        // Simplified: truncate to ASCII. For full Unicode, use a proper converter.
+        char16_t ch = static_cast<char16_t>(src[i]);
+        if (ch < 0x80) {
+            dst[j++] = static_cast<char>(ch);
+        } else if (ch < 0x800 && j + 1 < dst_len - 1) {
+            dst[j++] = static_cast<char>(0xC0 | (ch >> 6));
+            dst[j++] = static_cast<char>(0x80 | (ch & 0x3F));
+        } else if (j + 2 < dst_len - 1) {
+            dst[j++] = static_cast<char>(0xE0 | (ch >> 12));
+            dst[j++] = static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
+            dst[j++] = static_cast<char>(0x80 | (ch & 0x3F));
+        }
+    }
+    dst[j] = '\0';
+}
+
+int vst3_get_program_list_count(VST3PluginHandle handle) {
+    if (!handle) return 0;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->controller) return 0;
+
+    FUnknownPtr<IUnitInfo> unitInfo(instance->controller);
+    if (!unitInfo) return 0;
+
+    return unitInfo->getProgramListCount();
+}
+
+bool vst3_get_program_list_info(
+    VST3PluginHandle handle,
+    int index,
+    int* list_id,
+    char* name,
+    int name_len,
+    int* count
+) {
+    if (!handle || !list_id || !name || !count) return false;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->controller) return false;
+
+    FUnknownPtr<IUnitInfo> unitInfo(instance->controller);
+    if (!unitInfo) return false;
+
+    ProgramListInfo info;
+    if (unitInfo->getProgramListInfo(index, info) != kResultOk) {
+        return false;
+    }
+
+    *list_id = info.id;
+    *count = info.programCount;
+    string128_to_utf8(info.name, name, name_len);
+
+    return true;
+}
+
+bool vst3_get_program_name(
+    VST3PluginHandle handle,
+    int list_id,
+    int program_index,
+    char* name,
+    int name_len
+) {
+    if (!handle || !name) return false;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->controller) return false;
+
+    FUnknownPtr<IUnitInfo> unitInfo(instance->controller);
+    if (!unitInfo) return false;
+
+    String128 name128;
+    if (unitInfo->getProgramName(list_id, program_index, name128) != kResultOk) {
+        return false;
+    }
+
+    string128_to_utf8(name128, name, name_len);
+    return true;
+}
+
+bool vst3_set_program(
+    VST3PluginHandle handle,
+    int list_id,
+    int program_index
+) {
+    if (!handle) return false;
+
+    auto instance = static_cast<VST3PluginInstance*>(handle);
+    if (!instance->controller) return false;
+
+    // Find the parameter that controls program selection for this list.
+    // VST3 uses a special parameter with the ProgramListID to switch programs.
+    // We iterate parameters to find one associated with this program list.
+    int param_count = instance->controller->getParameterCount();
+    for (int i = 0; i < param_count; i++) {
+        ParameterInfo param_info;
+        if (instance->controller->getParameterInfo(i, param_info) == kResultOk) {
+            if (param_info.flags & ParameterInfo::kIsProgramChange) {
+                // Found a program change parameter.
+                // In VST3, program change is set as normalized value:
+                // value = programIndex / (programCount - 1)
+                // We need the program count from the list.
+                FUnknownPtr<IUnitInfo> unitInfo(instance->controller);
+                if (!unitInfo) return false;
+
+                int list_count = unitInfo->getProgramListCount();
+                for (int li = 0; li < list_count; li++) {
+                    ProgramListInfo pl_info;
+                    if (unitInfo->getProgramListInfo(li, pl_info) == kResultOk) {
+                        if (pl_info.id == list_id && pl_info.programCount > 0) {
+                            double value = (pl_info.programCount > 1)
+                                ? static_cast<double>(program_index) / static_cast<double>(pl_info.programCount - 1)
+                                : 0.0;
+
+                            // Set parameter on controller
+                            instance->controller->setParamNormalized(param_info.id, value);
+
+                            // Also push to component via IComponentHandler pattern
+                            // This ensures the processor gets the update
+                            if (instance->component) {
+                                FUnknownPtr<IEditController> editCtrl(instance->controller);
+                                if (editCtrl) {
+                                    editCtrl->setParamNormalized(param_info.id, value);
+                                }
+                            }
+
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    set_error("No program change parameter found for list " + std::to_string(list_id));
+    return false;
 }
 
 const char* vst3_get_last_error() {
