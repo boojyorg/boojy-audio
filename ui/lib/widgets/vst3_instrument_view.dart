@@ -18,6 +18,7 @@ class Vst3InstrumentView extends StatefulWidget {
   final AudioEngine? audioEngine;
   final bool isFloated;
   final VoidCallback? onRescanPlugins;
+  final VoidCallback? onFloat;
   final void Function(VoidCallback resetFn)? onResetRegistered;
 
   const Vst3InstrumentView({
@@ -27,6 +28,7 @@ class Vst3InstrumentView extends StatefulWidget {
     this.audioEngine,
     this.isFloated = false,
     this.onRescanPlugins,
+    this.onFloat,
     this.onResetRegistered,
   });
 
@@ -225,7 +227,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
   /// appear if aspect ratios differ. When the panel is large enough, the
   /// plugin displays at its native 1:1 size.
   /// Minimum panel height to show the plugin. Below this, show a placeholder.
-  static const double _minHeightForPlugin = 100;
+  static const double _minHeightForPlugin = 250;
 
   Widget _buildEditorView(BoojyColors colors) {
     return LayoutBuilder(
@@ -284,25 +286,60 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
   /// Shown when the editor panel is too small to display the plugin.
   Widget _buildTooSmallPlaceholder(BoojyColors colors) {
     return ColoredBox(
-      color: colors.editor,
+      color: colors.dark,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(BI.plugin, size: 24, color: colors.textMuted),
-            const SizedBox(height: BT.sm),
             Text(
-              "Press 'Float' to view ${widget.pluginName}",
+              'Press Float to open ${widget.pluginName}',
               style: TextStyle(
                 color: colors.textSecondary,
-                fontSize: BT.fontLabel,
+                fontSize: 15,
               ),
             ),
+            const SizedBox(height: BT.lg),
+            if (widget.onFloat != null)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onFloat,
+                  borderRadius: BorderRadius.circular(BT.radiusMd),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(BT.radiusMd),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          BI.openInNew,
+                          size: 16,
+                          color: colors.textMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Float',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: BT.lg),
             Text(
-              'or increase editor panel height',
+              'Or increase editor panel height',
               style: TextStyle(
                 color: colors.textMuted,
-                fontSize: BT.fontCaption,
+                fontSize: 13,
               ),
             ),
           ],
