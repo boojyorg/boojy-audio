@@ -1351,6 +1351,7 @@ class _EditorPanelState extends State<EditorPanel>
         pluginName: pluginName,
         audioEngine: widget.audioEngine,
         isFloated: _isCurrentPluginFloated,
+        onFloat: _onFloatPlugin,
         onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
       );
     }
