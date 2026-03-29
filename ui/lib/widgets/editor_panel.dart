@@ -263,7 +263,7 @@ class _EditorPanelState extends State<EditorPanel>
     final currentClipId = _getCurrentClipId();
     final clipChanged = currentClipId != _lastClipId;
 
-    // Track changed → reset to Instrument tab (tab 0) for MIDI/Sampler
+    // Track changed → choose appropriate default tab
     if (trackChanged && widget.trackContext.selectedTrackId != null) {
       _userManuallySelectedTab = false; // Reset manual flag on track change
       _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
@@ -271,6 +271,9 @@ class _EditorPanelState extends State<EditorPanel>
       // If new track's plugin is floated, auto-switch to Effects tab
       if (_isCurrentPluginFloated && _isCurrentPluginVst3) {
         _tabController.index = _isAudioTrack ? 1 : 2;
+      } else if ((_isMidiTrack || _isSamplerTrack) && currentClipId != null) {
+        // Clip already selected (e.g. new track with default clip) → Piano Roll
+        _tabController.index = 1;
       } else if (_isMidiTrack || _isSamplerTrack) {
         _tabController.index = 0; // Instrument/Sampler tab
       } else if (_isAudioTrack) {

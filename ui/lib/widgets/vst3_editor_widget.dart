@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/vst3_editor_service.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +49,12 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
 
   @override
   void dispose() {
+    // Close the C++ editor BEFORE the platform view is destroyed.
+    VST3EditorService.closeEditorOnDispose(widget.effectId);
+    // Fire-and-forget: tell Swift to destroy the child window and unregister
+    // from the registry. This runs before the next frame, ensuring the old
+    // native view is fully cleaned up before a new platform view is created.
+    VST3EditorService.cleanupViewOnDispose(widget.effectId);
     super.dispose();
   }
 

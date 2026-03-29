@@ -29,6 +29,38 @@ class VST3EditorService {
     return false; // Not supported on web
   }
 
+  static void closeEditorOnDispose(int effectId) {
+    // No-op on web
+  }
+
+  static void cleanupViewOnDispose(int effectId) {
+    // No-op on web
+  }
+
+  static void hideAllEditors() {
+    // No-op on web
+  }
+
+  static void showAllEditors() {
+    // No-op on web
+  }
+
+  static Future<String?> showNativeContextMenu({
+    required List<Map<String, dynamic>> items,
+    required double x,
+    required double y,
+  }) async {
+    return null;
+  }
+
+  static Future<int?> showNativeAlert({
+    required String title,
+    required String message,
+    required List<Map<String, dynamic>> buttons,
+  }) async {
+    return null;
+  }
+
   static void setEmbeddedMaxSize(int effectId, int maxW, int maxH) {
     // No-op on web
   }
