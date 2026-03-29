@@ -59,6 +59,18 @@ class VST3PlatformChannel {
         case "showNativeAlert":
             showNativeAlert(args: args, result: result)
 
+        case "hideFloatingWindow":
+            if let effectId = args["effectId"] as? Int {
+                windowManager.hideWindow(effectId: effectId)
+            }
+            result(true)
+
+        case "showFloatingWindow":
+            if let effectId = args["effectId"] as? Int {
+                windowManager.showWindow(effectId: effectId)
+            }
+            result(true)
+
         default:
             result(FlutterMethodNotImplemented)
         }
