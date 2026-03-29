@@ -34,12 +34,16 @@ class Vst3InstrumentView extends StatefulWidget {
   State<Vst3InstrumentView> createState() => _Vst3InstrumentViewState();
 }
 
-class _Vst3InstrumentViewState extends State<Vst3InstrumentView> {
+class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
+    with AutomaticKeepAliveClientMixin {
   bool _isLoading = true;
   bool _hasError = false;
 
   /// Default state captured on first load, used for "Reset to Default"
   String? _defaultStateBase64;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -102,6 +106,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
     final colors = context.colors;
 
     return AnimatedSwitcher(

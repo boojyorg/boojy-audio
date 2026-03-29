@@ -65,9 +65,6 @@ class VST3EditorService {
   /// Register the max embedded size for a plugin effect.
   /// Called by Vst3InstrumentView when the platform view is about to be created.
   static void setEmbeddedMaxSize(int effectId, int maxW, int maxH) {
-    print(
-      '[VST3Service] setEmbeddedMaxSize: effectId=$effectId, max=${maxW}x$maxH',
-    );
     _pendingMaxSize[effectId] = (maxW, maxH);
   }
 
@@ -90,20 +87,15 @@ class VST3EditorService {
     final maxSize = _pendingMaxSize.remove(effectId);
     final maxW = maxSize?.$1 ?? 0;
     final maxH = maxSize?.$2 ?? 0;
-    print(
-      '[VST3Service] _handleViewReady: effectId=$effectId, pendingMax=${maxW}x$maxH (found=${maxSize != null})',
-    );
-
     // Schedule attachEditor asynchronously to avoid deadlocking the platform channel
     // We can't await here because attachEditor sends a message back to Swift,
     // and Swift is waiting for this handler to return first.
     Future.delayed(const Duration(milliseconds: 100), () async {
-      final success = await attachEditor(
+      await attachEditor(
         effectId: effectId,
         maxWidth: maxW,
         maxHeight: maxH,
       );
-      if (!success) {}
     });
   }
 
@@ -250,24 +242,14 @@ class VST3EditorService {
 
     // Set max size constraint BEFORE attachment so PlugFrame::resizeView()
     // clamps immediately when the plugin requests resize during attached()
-    print(
-      '[VST3Service] attachEditor: effectId=$effectId, maxSize=${maxWidth}x$maxHeight',
-    );
     if (maxWidth > 0 || maxHeight > 0) {
-      print(
-        '[VST3Service] → Setting max editor size: ${maxWidth}x$maxHeight (embedded mode)',
-      );
       _audioEngine!.setVst3EditorMaxSize(effectId, maxWidth, maxHeight);
     } else {
-      print(
-        '[VST3Service] → Clearing max editor size (unconstrained/floating)',
-      );
       _audioEngine!.setVst3EditorMaxSize(effectId, 0, 0);
     }
 
     try {
       // Step 1: Ask Swift to prepare the view and return the pointer
-      // Use timeout to prevent infinite blocking if something goes wrong
       final result = await _channel
           .invokeMethod('attachEditor', {'effectId': effectId})
           .timeout(
@@ -277,11 +259,7 @@ class VST3EditorService {
             },
           );
 
-      if (result == null) {
-        return false;
-      }
-
-      if (result is! Map) {
+      if (result == null || result is! Map) {
         return false;
       }
 
@@ -327,6 +305,64 @@ class VST3EditorService {
     } catch (e) {
       return false;
     }
+  }
+
+  /// Close the C++ editor during widget dispose, BEFORE the platform view
+  /// is destroyed. This prevents use-after-free when the NSView is deallocated
+  /// while C++ still holds a parent_window pointer to it.
+  static void closeEditorOnDispose(int effectId) {
+    if (_audioEngine == null) return;
+    try {
+      _audioEngine!.vst3CloseEditor(effectId);
+    } catch (e) {
+      // FFI cleanup during dispose - ignore errors
+    }
+  }
+
+  /// Tell Swift to destroy the child window and unregister the old view.
+  /// Called fire-and-forget from dispose() — the platform channel message
+  /// is processed before the next frame, ensuring cleanup before any new
+  /// platform view is created for the same effectId.
+  static void cleanupViewOnDispose(int effectId) {
+    _channel.invokeMethod('detachEditor', {'effectId': effectId});
+  }
+
+  /// Hide all plugin child windows (when a Flutter popup/dialog appears)
+  static void hideAllEditors() {
+    _channel.invokeMethod('hideAllEditors');
+  }
+
+  /// Show all plugin child windows (when a Flutter popup/dialog is dismissed)
+  static void showAllEditors() {
+    _channel.invokeMethod('showAllEditors');
+  }
+
+  /// Show a native macOS context menu that appears above plugin child windows.
+  /// Returns the selected item's `id`, or null if dismissed.
+  static Future<String?> showNativeContextMenu({
+    required List<Map<String, dynamic>> items,
+    required double x,
+    required double y,
+  }) async {
+    return _channel.invokeMethod<String>('showContextMenu', {
+      'items': items,
+      'x': x,
+      'y': y,
+    });
+  }
+
+  /// Show a native macOS alert that appears above plugin child windows.
+  /// Returns the button index (0-based), or null on failure.
+  static Future<int?> showNativeAlert({
+    required String title,
+    required String message,
+    required List<Map<String, dynamic>> buttons,
+  }) async {
+    return _channel.invokeMethod<int>('showNativeAlert', {
+      'title': title,
+      'message': message,
+      'buttons': buttons,
+    });
   }
 
   /// Detach a VST3 editor from a docked platform view

@@ -31,6 +31,24 @@ class VST3EditorViewRegistry {
         return views[effectId]
     }
 
+    /// Dim all child windows (when a Flutter modal dialog is shown)
+    func dimAllChildWindows() {
+        lock.lock()
+        defer { lock.unlock() }
+        for (_, view) in views {
+            view.setChildWindowDimmed(true)
+        }
+    }
+
+    /// Restore all child windows (when a Flutter modal dialog is dismissed)
+    func restoreAllChildWindows() {
+        lock.lock()
+        defer { lock.unlock() }
+        for (_, view) in views {
+            view.setChildWindowDimmed(false)
+        }
+    }
+
     /// Get the NSView pointer for an effect ID (for Dart FFI)
     func getViewPointer(effectId: Int) -> Int64? {
         lock.lock()
@@ -49,6 +67,9 @@ class VST3EditorViewRegistry {
 /// because they need a real window context for OpenGL/Metal rendering.
 /// The child window is positioned over this view and moves with it.
 class VST3EditorView: NSView {
+    private static var nextInstanceId: Int = 0
+    let instanceId: Int
+
     private var editorView: NSView?
     /// Child window that hosts the actual plugin view
     private var childWindow: NSWindow?
@@ -70,7 +91,12 @@ class VST3EditorView: NSView {
     /// Whether child window is currently hidden (tab switch away)
     private var isChildWindowHidden = false
 
+    /// Tag for debug logs
+    private var logTag: String { "VST3EditorView#\(instanceId)[fx\(effectId)]" }
+
     init(frame: NSRect, effectId: Int) {
+        self.instanceId = VST3EditorView.nextInstanceId
+        VST3EditorView.nextInstanceId += 1
         self.effectId = effectId
         super.init(frame: frame)
 
@@ -81,20 +107,21 @@ class VST3EditorView: NSView {
         // Register with the registry so Dart can find us
         VST3EditorViewRegistry.shared.register(view: self, effectId: effectId)
 
-        print("📦 VST3EditorView: Created for effect \(effectId) with frame \(frame)")
+        print("📦 \(logTag): Created with frame \(frame)")
     }
 
     /// Create the child window for plugin hosting
     /// This is called when the view is added to the window hierarchy or when Dart requests attachment
     /// Returns the container view pointer for FFI attachment, or nil on failure
     func prepareForAttachment() -> Int64? {
+        print("🔧 \(logTag): prepareForAttachment — isEditorAttached=\(isEditorAttached), childWindow=\(childWindow != nil)")
         // Reset state to allow re-attachment after hide/show cycles
         // This is critical for fixing the freeze on second toggle
         isEditorAttached = false
 
         // Destroy any existing child window before creating a new one
         if childWindow != nil {
-            print("⚠️ VST3EditorView: Destroying existing child window before re-attachment")
+            print("⚠️ \(logTag): Destroying existing child window before re-attachment")
             destroyChildWindow()
         }
 
@@ -103,13 +130,13 @@ class VST3EditorView: NSView {
         // Return the PLUGIN HOST view pointer (not container) for FFI attachment.
         // The host view is at native size with CATransform3D for scaling.
         guard let hostView = pluginHostView else {
-            print("❌ VST3EditorView: prepareForAttachment failed - no plugin host view")
+            print("❌ \(logTag): prepareForAttachment failed - no plugin host view")
             return nil
         }
 
         let viewPtr = Unmanaged.passUnretained(hostView).toOpaque()
         let viewPtrInt = Int64(Int(bitPattern: viewPtr))
-        print("✅ VST3EditorView: prepareForAttachment succeeded - viewPointer=\(viewPtrInt)")
+        print("✅ \(logTag): prepareForAttachment succeeded - viewPointer=\(viewPtrInt)")
         return viewPtrInt
     }
 
@@ -124,7 +151,7 @@ class VST3EditorView: NSView {
         // This prevents race conditions when a new view is created immediately
         VST3EditorViewRegistry.shared.unregister(effectId: effectId)
 
-        print("✅ VST3EditorView: cleanupAfterDetachment complete (unregistered from registry)")
+        print("✅ \(logTag): cleanupAfterDetachment complete (unregistered from registry)")
     }
 
     private func createChildWindow() {
@@ -168,7 +195,7 @@ class VST3EditorView: NSView {
         child.orderFront(nil)
         childWindow = child
 
-        print("🪟 VST3EditorView: Created child window — container=\(frameInScreen.size), host=\(nativeWidth)x\(nativeHeight)")
+        print("🪟 \(logTag): Created child window — container=\(frameInScreen.size), host=\(nativeWidth)x\(nativeHeight)")
     }
 
     /// Apply scale via setBoundsSize — handles BOTH coordinate remapping
@@ -232,7 +259,7 @@ class VST3EditorView: NSView {
         childWindow = nil
         pluginContainerView = nil
 
-        print("🗑️ VST3EditorView: Destroyed child window")
+        print("🗑️ \(logTag): Destroyed child window")
     }
 
     required init?(coder: NSCoder) {
@@ -241,11 +268,13 @@ class VST3EditorView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Only log on actual state changes to avoid spam during divider drag
-        if window != nil && !hasNotifiedReady {
-            print("🪟 VST3EditorView: viewDidMoveToWindow - FIRST TIME, will notify Dart")
-        } else if window == nil {
-            print("🪟 VST3EditorView: viewDidMoveToWindow - removed from window")
+
+        // Only log on actual state transitions — plugin render loops fire this constantly
+        let isActionable = (window != nil && !hasNotifiedReady) ||
+                           (window != nil && childWindow != nil && isChildWindowHidden) ||
+                           (window == nil && childWindow != nil && !isChildWindowHidden)
+        if isActionable {
+            print("🪟 \(logTag): viewDidMoveToWindow — window=\(window != nil), hasNotifiedReady=\(hasNotifiedReady), childWindow=\(childWindow != nil), isChildWindowHidden=\(isChildWindowHidden)")
         }
 
         if window != nil && effectId >= 0 {
@@ -256,20 +285,23 @@ class VST3EditorView: NSView {
                     parentWindow.addChildWindow(childWindow!, ordered: .above)
                     childWindow!.orderFront(nil)
                     updateChildWindowPosition()
-                    print("🪟 VST3EditorView: Re-shown child window for effect \(effectId)")
+                    print("🪟 \(logTag): Re-shown child window")
                 }
             } else if childWindow == nil && !hasNotifiedReady {
                 // First time in window — notify Dart to create child window + attach editor
                 hasNotifiedReady = true
-                print("🔔 VST3EditorView: Notifying Dart that view is ready for effect \(effectId)")
+                print("🔔 \(logTag): Notifying Dart that view is ready")
 
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
+                    print("🔔 \(self.tag): Sending viewReady via platform channel")
                     VST3PlatformChannelHandler.shared.notifyViewReady(
                         effectId: self.effectId,
                         viewPointer: 0
                     )
                 }
+            } else {
+                // Suppress — plugin render loop fires this constantly
             }
         } else if window == nil && childWindow != nil && !isChildWindowHidden {
             // Tab switch AWAY — hide child window, don't destroy.
@@ -279,7 +311,9 @@ class VST3EditorView: NSView {
                 parent.removeChildWindow(child)
                 child.orderOut(nil)
             }
-            print("🪟 VST3EditorView: Hidden child window for effect \(effectId)")
+            print("🪟 \(logTag): Hidden child window")
+        } else if window == nil {
+            print("🪟 \(logTag): viewDidMoveToWindow(nil) — no child window to hide")
         }
     }
 
@@ -388,7 +422,7 @@ class VST3EditorView: NSView {
         // Reapply scale with real native size (applyScaleTransform sets frame + bounds)
         applyScaleTransform()
 
-        print("✅ VST3EditorView: Marked as attached for effect \(effectId), nativeSize=\(width)x\(height)")
+        print("✅ \(logTag): Marked as attached, nativeSize=\(width)x\(height)")
     }
 
     /// Attach a native VST3 editor view (for subview management)
@@ -411,27 +445,45 @@ class VST3EditorView: NSView {
         editorView = nil
     }
 
+    /// Hide the child window when a modal dialog appears so the dialog
+    /// renders cleanly. The plugin returns instantly when the dialog closes.
+    private var isHiddenForDialog = false
+
+    func setChildWindowDimmed(_ dimmed: Bool) {
+        guard let child = childWindow, !isChildWindowHidden else { return }
+        if dimmed && !isHiddenForDialog {
+            isHiddenForDialog = true
+            child.alphaValue = 0.0
+            child.ignoresMouseEvents = true
+        } else if !dimmed && isHiddenForDialog {
+            isHiddenForDialog = false
+            child.alphaValue = 1.0
+            child.ignoresMouseEvents = false
+        }
+    }
+
     /// Get the preferred editor size
     func getPreferredSize() -> NSSize {
         return NSSize(width: editorWidth, height: editorHeight)
     }
 
     deinit {
-        // Unregister from registry (may already be done in cleanupAfterDetachment)
-        // The registry handles duplicate unregister calls gracefully
-        VST3EditorViewRegistry.shared.unregister(effectId: effectId)
+        print("🗑️ \(logTag): deinit — isEditorAttached=\(isEditorAttached), childWindow=\(childWindow != nil)")
 
-        // DON'T notify Dart about view closed - Dart already knows and may have
-        // already started creating a new view. Sending a notification here can
-        // cause race conditions and crashes.
-        // The editor is closed by Dart BEFORE calling detachEditor, so we don't
-        // need to close it again here.
+        // Only unregister if WE are still the registered view.
+        // A new view for the same effectId may already have registered itself.
+        if VST3EditorViewRegistry.shared.getView(effectId: effectId) === self {
+            VST3EditorViewRegistry.shared.unregister(effectId: effectId)
+            print("🗑️ \(logTag): Unregistered from registry (was still registered)")
+        } else {
+            print("🗑️ \(logTag): Skipped unregister (new view already registered)")
+        }
 
         // Clean up child window (may already be done in cleanupAfterDetachment)
         destroyChildWindow()
 
         detachEditor()
-        print("🗑️ VST3EditorView: Deallocated for effect \(effectId)")
+        print("🗑️ \(logTag): Deallocated")
     }
 }
 
@@ -498,7 +550,14 @@ class VST3PlatformViewFactory: NSObject, FlutterPlatformViewFactory {
         let nativeWidth = args["nativeWidth"] as? Int ?? width
         let nativeHeight = args["nativeHeight"] as? Int ?? height
 
-        print("✅ VST3PlatformViewFactory: Creating view for effect \(effectId), frame=\(width)x\(height), native=\(nativeWidth)x\(nativeHeight)")
+        // Force cleanup of any existing view for this effectId.
+        // When switching tracks, the old view may not have been deinited yet
+        // (registry holds a strong reference). Clean it up now to destroy
+        // its child window and release the reference before creating a new one.
+        if let existing = VST3EditorViewRegistry.shared.getView(effectId: effectId) {
+            print("🧹 VST3PlatformViewFactory: Cleaning up existing view for effect \(effectId)")
+            existing.cleanupAfterDetachment()
+        }
 
         let editorView = VST3EditorView(
             frame: NSRect(x: 0, y: 0, width: width, height: height),
