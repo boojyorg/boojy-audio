@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'screens/daw_screen.dart';
 import 'services/user_settings.dart';
+import 'services/vst3_editor_service.dart';
 import 'services/window_title_service.dart';
 import 'theme/theme_provider.dart';
 
@@ -80,8 +81,45 @@ class BoojyAudioApp extends StatelessWidget {
           waitDuration: const Duration(milliseconds: 200),
         ),
       ),
+      navigatorObservers: [_VST3OverlayObserver()],
       home: const DAWScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
+
+/// Dims embedded VST3 plugin child windows when modal dialogs appear,
+/// so the dialog is readable through the faintly visible plugin.
+/// Context menus (transparent barrier) are excluded.
+class _VST3OverlayObserver extends NavigatorObserver {
+  int _overlayCount = 0;
+
+  bool _isModalOverlay(Route<dynamic> route) {
+    if (route is PopupRoute) {
+      final color = route.barrierColor;
+      return color != null && color.a > 0;
+    }
+    return false;
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (_isModalOverlay(route)) {
+      _overlayCount++;
+      if (_overlayCount == 1) {
+        VST3EditorService.hideAllEditors();
+      }
+    }
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (_isModalOverlay(route)) {
+      _overlayCount = (_overlayCount - 1).clamp(0, 999);
+      if (_overlayCount == 0) {
+        VST3EditorService.showAllEditors();
+      }
+    }
+  }
+}
+

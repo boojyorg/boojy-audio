@@ -346,14 +346,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         widget.audioEngine?.setTrackInput(command.createdTrackId!, 0, channel);
       }
 
-      _loadTracksAsync();
+      await _loadTracksAsync();
 
       // Notify parent to create default MIDI clip for MIDI tracks
       if (type == 'midi') {
         widget.trackCallbacks.onMidiTrackCreated?.call(command.createdTrackId!);
       }
 
-      // Notify parent to refresh timeline (for both MIDI and Audio tracks)
+      // Notify parent to refresh timeline and select the new track
       widget.trackCallbacks.onTrackCreated?.call(command.createdTrackId!, type);
     } else {
       // Show error to user when track creation fails
