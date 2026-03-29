@@ -1223,9 +1223,15 @@ bool vst3_open_editor(VST3PluginHandle handle) {
 }
 
 void vst3_close_editor(VST3PluginHandle handle) {
+    fprintf(stderr, "🔒 [C++] vst3_close_editor: handle=%p\n", handle);
+    fflush(stderr);
     if (!handle) return;
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
+    fprintf(stderr, "🔒 [C++] vst3_close_editor: editor_open=%d, parent_window=%p, editor_view=%p\n",
+            instance->editor_open, instance->parent_window,
+            instance->editor_view ? (void*)instance->editor_view.get() : nullptr);
+    fflush(stderr);
 
     if (instance->editor_view) {
         // Clear the frame first
@@ -1245,6 +1251,8 @@ void vst3_close_editor(VST3PluginHandle handle) {
     instance->plug_frame = nullptr;
 
     instance->editor_open = false;
+    fprintf(stderr, "🔒 [C++] vst3_close_editor: complete\n");
+    fflush(stderr);
 }
 
 bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height) {
@@ -1272,181 +1280,94 @@ bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height) {
 }
 
 bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
-    // Immediate flush to ensure output appears before any crash
-    fprintf(stderr, "🔗 [C++] ENTER vst3_attach_editor\n");
-    fflush(stderr);
-
-    fprintf(stderr, "🔗 [C++] vst3_attach_editor called: handle=%p, parent=%p\n", handle, parent);
-    fflush(stderr);
-
     if (!handle) {
         set_error("Invalid handle (null)");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: handle is null\n");
-        fflush(stderr);
         return false;
     }
 
     if (!parent) {
         set_error("Invalid parent (null)");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: parent is null\n");
-        fflush(stderr);
         return false;
     }
-
-    fprintf(stderr, "🔗 [C++] About to cast handle to VST3PluginInstance*\n");
-    fflush(stderr);
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
 
-    fprintf(stderr, "🔗 [C++] Cast successful, instance=%p\n", (void*)instance);
-    fflush(stderr);
-
-    fprintf(stderr, "🔗 [C++] Checking instance->editor_open...\n");
-    fflush(stderr);
-
-    // Check if editor was opened first
     if (!instance->editor_open) {
         set_error("Editor not opened - call vst3_open_editor first");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor not opened first\n");
-        fflush(stderr);
         return false;
     }
-
-    fprintf(stderr, "🔗 [C++] editor_open=%d, checking editor_view...\n", instance->editor_open);
-    fflush(stderr);
 
     if (!instance->editor_view) {
         set_error("No editor view available (editor_view is null)");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor_view is null\n");
-        fflush(stderr);
         return false;
     }
 
-    fprintf(stderr, "✅ [C++] vst3_attach_editor: editor_view=%p, editor_open=%d\n",
-            (void*)instance->editor_view.get(), instance->editor_open);
-    fflush(stderr);
-
-    // Detach from previous parent if needed
+    // Detach from previous parent if needed.
+    // IMPORTANT: Don't call editor_view->removed() here — the old parent NSView
+    // may have been deallocated by Flutter's platform view lifecycle.
+    // Instead, release the old IPlugView entirely and create a fresh one.
     if (instance->parent_window) {
-        fprintf(stderr, "📤 [C++] Detaching from previous parent: %p\n", instance->parent_window);
+        fprintf(stderr, "📤 [C++] vst3_attach_editor: recreating editor view (old parent=%p)\n", instance->parent_window);
         fflush(stderr);
-        instance->editor_view->setFrame(nullptr);  // Clear frame before removing
-        instance->editor_view->removed();
+        instance->editor_view->setFrame(nullptr);
+        instance->editor_view = nullptr;
+        instance->plug_frame = nullptr;
         instance->parent_window = nullptr;
-        fprintf(stderr, "📤 [C++] Detach complete\n");
-        fflush(stderr);
+        instance->editor_open = false;
+
+        auto fresh_view = instance->controller->createView(ViewType::kEditor);
+        if (!fresh_view) {
+            set_error("Failed to recreate editor view after stale detach");
+            return false;
+        }
+        instance->editor_view = fresh_view;
+        instance->editor_open = true;
     }
 
-    // Attach to new parent
-    // On macOS, parent is NSView*
-    fprintf(stderr, "📥 [C++] Calling IPlugView->attached with parent=%p, type=%s\n", parent, kPlatformTypeNSView);
-    fflush(stderr);
-
-#ifdef __APPLE__
-    // Check if we're on the main thread
-    bool is_main_thread = pthread_main_np() != 0;
-    fprintf(stderr, "📥 [C++] Is main thread: %s\n", is_main_thread ? "YES" : "NO");
-    fflush(stderr);
-#endif
-
-    // Try to get the IPlugView pointer and check it's valid before calling attached()
     IPlugView* view = instance->editor_view.get();
     if (!view) {
         set_error("IPlugView pointer is null");
-        fprintf(stderr, "❌ [C++] IPlugView pointer is null\n");
-        fflush(stderr);
         return false;
     }
 
-    fprintf(stderr, "📥 [C++] IPlugView pointer valid: %p\n", (void*)view);
-    fflush(stderr);
-
-    // Check if the platform type is supported before attaching
     if (view->isPlatformTypeSupported(kPlatformTypeNSView) != kResultTrue) {
-        fprintf(stderr, "❌ [C++] NSView platform type NOT supported by this plugin\n");
-        fflush(stderr);
         set_error("Plugin does not support NSView platform type");
         return false;
     }
-    fprintf(stderr, "✅ [C++] NSView platform type is supported\n");
-    fflush(stderr);
 
-    // Get the plugin's preferred size and log it
+    // Store the plugin's preferred size
     ViewRect preferredSize;
     if (view->getSize(&preferredSize) == kResultOk) {
-        // Store the original preferred size (for grow-back during resize)
         instance->preferred_editor_width = preferredSize.right - preferredSize.left;
         instance->preferred_editor_height = preferredSize.bottom - preferredSize.top;
-
-        fprintf(stderr, "📏 [C++] Plugin preferred size: %dx%d (stored as preferred)\n",
-                instance->preferred_editor_width, instance->preferred_editor_height);
-        fflush(stderr);
-    } else {
-        fprintf(stderr, "⚠️ [C++] Could not get plugin preferred size\n");
-        fflush(stderr);
     }
 
     // CRITICAL: Create and set the IPlugFrame BEFORE calling attached()
-    // Many plugins (especially Serum) crash if setFrame() is not called first
-    // The IPlugFrame allows plugins to request view resizes
     if (!instance->plug_frame) {
         instance->plug_frame = owned(new PlugFrame(instance));
-        fprintf(stderr, "📐 [C++] Created PlugFrame: %p\n", (void*)instance->plug_frame.get());
-        fflush(stderr);
     }
+    view->setFrame(instance->plug_frame.get());
 
-    fprintf(stderr, "📐 [C++] Calling view->setFrame()...\n");
-    fflush(stderr);
-    tresult frameResult = view->setFrame(instance->plug_frame.get());
-    fprintf(stderr, "📐 [C++] setFrame returned: %d\n", frameResult);
-    fflush(stderr);
-
-    fprintf(stderr, "📥 [C++] Calling view->attached(parent=%p, type=%s)...\n", parent, kPlatformTypeNSView);
-    fflush(stderr);
-
-    // Additional validation: Check that the view is in a valid state
-    ViewRect currentRect;
-    tresult sizeResult = view->getSize(&currentRect);
-    fprintf(stderr, "📏 [C++] Pre-attach getSize result: %d, rect: (%d,%d,%d,%d)\n",
-            sizeResult, currentRect.left, currentRect.top, currentRect.right, currentRect.bottom);
-    fflush(stderr);
-
-    // Call attached() - this is where plugins can crash if not on main thread or context is wrong
+    // Call attached()
     tresult result;
-    fprintf(stderr, "🚀 [C++] About to call view->attached NOW...\n");
-    fflush(stderr);
-
     try {
         result = view->attached(parent, kPlatformTypeNSView);
     } catch (const std::exception& e) {
-        fprintf(stderr, "❌ [C++] C++ exception in attached(): %s\n", e.what());
+        fprintf(stderr, "❌ [C++] Exception in attached(): %s\n", e.what());
         fflush(stderr);
         set_error("C++ exception in IPlugView->attached()");
         return false;
     } catch (...) {
-        fprintf(stderr, "❌ [C++] Unknown exception in attached()\n");
-        fflush(stderr);
         set_error("Unknown exception in IPlugView->attached()");
         return false;
     }
 
-    fprintf(stderr, "✅ [C++] view->attached returned!\n");
-    fflush(stderr);
-
-    fprintf(stderr, "📥 [C++] IPlugView->attached returned: %d\n", result);
-    fflush(stderr);
-
     if (result != kResultOk) {
         set_error("Failed to attach editor to parent window");
-        fprintf(stderr, "❌ [C++] IPlugView->attached failed with result: %d\n", result);
-        fflush(stderr);
         return false;
     }
 
     instance->parent_window = parent;
-    fprintf(stderr, "✅ [C++] vst3_attach_editor: success\n");
-    fflush(stderr);
-
     return true;
 }
 

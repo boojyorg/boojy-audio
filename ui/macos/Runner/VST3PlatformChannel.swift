@@ -45,6 +45,20 @@ class VST3PlatformChannel {
         case "confirmAttachment":
             confirmAttachment(args: args, result: result)
 
+        case "hideAllEditors":
+            VST3EditorViewRegistry.shared.dimAllChildWindows()
+            result(true)
+
+        case "showAllEditors":
+            VST3EditorViewRegistry.shared.restoreAllChildWindows()
+            result(true)
+
+        case "showContextMenu":
+            showNativeContextMenu(args: args, result: result)
+
+        case "showNativeAlert":
+            showNativeAlert(args: args, result: result)
+
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -221,5 +235,98 @@ class VST3PlatformChannel {
         )
 
         result(true)
+    }
+
+    // MARK: - Native Context Menu
+
+    /// Show a native macOS context menu that appears above all windows (including plugin child windows)
+    private func showNativeContextMenu(args: [String: Any], result: @escaping FlutterResult) {
+        guard let items = args["items"] as? [[String: Any]],
+              let x = args["x"] as? Double,
+              let y = args["y"] as? Double else {
+            result(nil)
+            return
+        }
+
+        guard let mainWindow = NSApplication.shared.mainWindow,
+              let contentView = mainWindow.contentView else {
+            result(nil)
+            return
+        }
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        for item in items {
+            guard let itemId = item["id"] as? String,
+                  let title = item["title"] as? String else { continue }
+
+            if item["isSeparator"] as? Bool == true {
+                menu.addItem(.separator())
+                continue
+            }
+
+            let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            menuItem.representedObject = itemId
+            menuItem.isEnabled = true
+
+            if item["isDestructive"] as? Bool == true {
+                menuItem.attributedTitle = NSAttributedString(
+                    string: title,
+                    attributes: [.foregroundColor: NSColor.systemRed]
+                )
+            }
+
+            menu.addItem(menuItem)
+        }
+
+        // Convert Flutter screen coordinates to NSWindow coordinates.
+        // Flutter uses top-left origin; macOS uses bottom-left.
+        let screenFrame = mainWindow.screen?.frame ?? NSScreen.main!.frame
+        let nsPoint = NSPoint(x: x, y: screenFrame.height - y)
+        let windowPoint = mainWindow.convertPoint(fromScreen: nsPoint)
+        let viewPoint = contentView.convert(windowPoint, from: nil)
+
+        // popUp blocks until the menu is dismissed
+        let clicked = menu.popUp(positioning: nil, at: viewPoint, in: contentView)
+
+        if clicked, let selectedItem = menu.highlightedItem,
+           let selectedId = selectedItem.representedObject as? String {
+            result(selectedId)
+        } else {
+            result(nil)
+        }
+    }
+
+    // MARK: - Native Alert Dialog
+
+    /// Show a native macOS alert that appears above all windows (including plugin child windows)
+    private func showNativeAlert(args: [String: Any], result: @escaping FlutterResult) {
+        guard let title = args["title"] as? String,
+              let message = args["message"] as? String,
+              let buttons = args["buttons"] as? [[String: Any]] else {
+            result(nil)
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+
+        for button in buttons {
+            guard let buttonTitle = button["title"] as? String else { continue }
+            let nsButton = alert.addButton(withTitle: buttonTitle)
+            if button["isDestructive"] as? Bool == true {
+                if #available(macOS 11.0, *) {
+                    nsButton.hasDestructiveAction = true
+                }
+            }
+        }
+
+        let response = alert.runModal()
+        // NSApplication.ModalResponse.alertFirstButtonReturn = 1000
+        let buttonIndex = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        result(buttonIndex)
     }
 }
