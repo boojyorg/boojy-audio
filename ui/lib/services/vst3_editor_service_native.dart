@@ -19,6 +19,11 @@ class VST3EditorService {
   /// Used by Vst3InstrumentView for uniform scale-to-fit calculation.
   static final Map<int, (int, int)> preferredEditorSize = {};
 
+  /// Effect IDs that currently have a floating window open.
+  /// Used to skip closeEditorOnDispose when the embedded widget is disposed
+  /// during the float transition (the editor is still alive in the float window).
+  static final Set<int> _floatingEffectIds = {};
+
   /// Initialize the service with an AudioEngine instance
   /// This must be called before the service can handle view attachments
   static void initialize(AudioEngine engine) {
@@ -197,6 +202,7 @@ class VST3EditorService {
         return false;
       }
 
+      _floatingEffectIds.add(effectId);
       return true;
     } catch (e) {
       return false;
@@ -205,6 +211,7 @@ class VST3EditorService {
 
   /// Close a floating editor window
   static Future<bool> closeFloatingWindow({required int effectId}) async {
+    _floatingEffectIds.remove(effectId);
     try {
       // First close the editor via FFI
       if (_audioEngine != null) {
@@ -312,6 +319,10 @@ class VST3EditorService {
   /// while C++ still holds a parent_window pointer to it.
   static void closeEditorOnDispose(int effectId) {
     if (_audioEngine == null) return;
+    // Don't close the editor if it's currently in a floating window —
+    // the embedded widget is being disposed during the float transition
+    // but the editor is still alive in the floating window.
+    if (_floatingEffectIds.contains(effectId)) return;
     try {
       _audioEngine!.vst3CloseEditor(effectId);
     } catch (e) {
@@ -363,6 +374,16 @@ class VST3EditorService {
       'message': message,
       'buttons': buttons,
     });
+  }
+
+  /// Hide a floating window (when switching away from its track)
+  static void hideFloatingWindow(int effectId) {
+    _channel.invokeMethod('hideFloatingWindow', {'effectId': effectId});
+  }
+
+  /// Show a floating window (when switching back to its track)
+  static void showFloatingWindow(int effectId) {
+    _channel.invokeMethod('showFloatingWindow', {'effectId': effectId});
   }
 
   /// Detach a VST3 editor from a docked platform view

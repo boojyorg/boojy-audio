@@ -725,9 +725,8 @@ class _EditorPanelState extends State<EditorPanel>
         widget.trackContext.floatedPluginEffectIds.contains(effectId);
   }
 
-  /// Whether preset nav should be shown
-  bool get _shouldShowPresetNav =>
-      _isCurrentPluginVst3 && _presetFolders.isNotEmpty;
+  /// Whether preset nav should be shown — disabled for v0.1.8
+  bool get _shouldShowPresetNav => false;
 
   /// Load presets for the current VST3 instrument
   void _loadPresets() {
@@ -1160,7 +1159,7 @@ class _EditorPanelState extends State<EditorPanel>
     if (clipData == null) {
       // No audio clip selected - show empty state
       return ColoredBox(
-        color: context.colors.dark,
+        color: context.colors.darkest,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1218,12 +1217,12 @@ class _EditorPanelState extends State<EditorPanel>
       // If we're awaiting clip data (just switched tabs), show minimal empty state
       if (_switchedToPianoRollAwaitingData) {
         return ColoredBox(
-          color: context.colors.editor,
+          color: context.colors.darkest,
           child: const SizedBox(),
         );
       }
       return ColoredBox(
-        color: context.colors.editor,
+        color: context.colors.darkest,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1243,7 +1242,7 @@ class _EditorPanelState extends State<EditorPanel>
     // No track selected - show empty state
     if (clipData == null) {
       return ColoredBox(
-        color: context.colors.dark,
+        color: context.colors.darkest,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1310,7 +1309,7 @@ class _EditorPanelState extends State<EditorPanel>
     if (widget.trackContext.selectedTrackId == null ||
         widget.trackContext.currentInstrumentData == null) {
       return ColoredBox(
-        color: context.colors.dark,
+        color: context.colors.darkest,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

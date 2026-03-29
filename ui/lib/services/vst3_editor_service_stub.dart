@@ -37,6 +37,9 @@ class VST3EditorService {
     // No-op on web
   }
 
+  static void hideFloatingWindow(int effectId) {}
+  static void showFloatingWindow(int effectId) {}
+
   static void hideAllEditors() {
     // No-op on web
   }

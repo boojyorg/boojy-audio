@@ -37,6 +37,9 @@ mixin DAWTrackMixin
       uiLayout.isEditorPanelVisible = true;
     });
 
+    // Hide floating windows for other tracks, show for selected track
+    _updateFloatingWindowVisibility(trackId);
+
     // Try to find an existing clip for this track and select it
     // instead of clearing the clip selection (only for single selection)
     // When autoSelectClip is false (e.g., after instrument drop), don't auto-select clip
@@ -56,6 +59,23 @@ mixin DAWTrackMixin
     } else if (!isShiftHeld && !autoSelectClip) {
       // Clear clip selection when autoSelectClip is false
       midiPlaybackManager?.selectClip(null, null);
+    }
+  }
+
+  /// Hide floating windows for all tracks except the selected one,
+  /// and show the selected track's floating windows.
+  void _updateFloatingWindowVisibility(int selectedTrackId) {
+    final selectedEffectIds =
+        vst3PluginManager?.getTrackEffectIds(selectedTrackId) ?? [];
+    print('[DAW] _updateFloatingWindowVisibility: selectedTrackId=$selectedTrackId, selectedEffectIds=$selectedEffectIds, floatedPluginEffectIds=$floatedPluginEffectIds');
+    for (final effectId in floatedPluginEffectIds) {
+      if (selectedEffectIds.contains(effectId)) {
+        print('[DAW] → SHOW floating window for effectId=$effectId');
+        VST3EditorService.showFloatingWindow(effectId);
+      } else {
+        print('[DAW] → HIDE floating window for effectId=$effectId');
+        VST3EditorService.hideFloatingWindow(effectId);
+      }
     }
   }
 
