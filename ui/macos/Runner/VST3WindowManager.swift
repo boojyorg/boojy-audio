@@ -16,6 +16,8 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
     private var pluginNames: [Int: String] = [:]
     /// Reverse lookup: window -> effectId
     private var windowToEffectId: [NSWindow: Int] = [:]
+    /// Plugin's native/preferred size (for scaling on resize)
+    private var nativeSizes: [Int: NSSize] = [:]
     /// Platform channel for notifying Dart
     private var methodChannel: FlutterMethodChannel?
 
@@ -56,7 +58,7 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
         window.title = pluginName
         window.isReleasedWhenClosed = false
         window.delegate = self  // Track window events
-        // Don't set backgroundColor - let it use default
+        window.level = .floating  // Stay on top of main window
 
         // USE THE WINDOW'S DEFAULT CONTENT VIEW - don't create a custom one
         // This matches the Steinberg SDK approach exactly
@@ -70,10 +72,16 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
 
         containerViews[effectId] = containerView
         pluginNames[effectId] = pluginName
+        nativeSizes[effectId] = size
         windowToEffectId[window] = effectId
 
-        print("🪟 VST3WindowManager: Using window's default contentView: \(containerView), frame=\(containerView.frame)")
-        print("🪟 VST3WindowManager: ContentView wantsLayer=\(containerView.wantsLayer)")
+        // Lock aspect ratio and set min size to half native
+        window.contentAspectRatio = size
+        window.contentMinSize = NSSize(width: size.width / 2, height: size.height / 2)
+
+        // Set bounds to native size so the plugin sees its preferred coordinates.
+        // AppKit maps bounds→frame for both rendering and mouse events.
+        containerView.setBoundsSize(size)
 
         // Position window - use saved position if provided, otherwise center
         if let pos = position {
@@ -123,6 +131,7 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
         // Clean up all tracking
         containerViews.removeValue(forKey: effectId)
         pluginNames.removeValue(forKey: effectId)
+        nativeSizes.removeValue(forKey: effectId)
         windowToEffectId.removeValue(forKey: window)
 
         window.close()
@@ -140,6 +149,7 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
         windows.removeAll()
         containerViews.removeAll()
         pluginNames.removeAll()
+        nativeSizes.removeAll()
         windowToEffectId.removeAll()
     }
 
@@ -153,7 +163,29 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
         return windows[effectId] != nil
     }
 
+    /// Hide a floating window (track deselected) — keeps position
+    func hideWindow(effectId: Int) {
+        windows[effectId]?.orderOut(nil)
+    }
+
+    /// Show a previously hidden floating window (track re-selected)
+    func showWindow(effectId: Int) {
+        guard let window = windows[effectId] else { return }
+        window.orderFront(nil)
+    }
+
     // MARK: - NSWindowDelegate
+
+    /// Called when window is resized — reapply bounds so plugin scales uniformly
+    func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              let effectId = windowToEffectId[window],
+              let nativeSize = nativeSizes[effectId],
+              let containerView = containerViews[effectId] else { return }
+        // Frame = current visual size, bounds = plugin's native coordinate space.
+        // AppKit maps bounds→frame for rendering + mouse coordinates.
+        containerView.setBoundsSize(nativeSize)
+    }
 
     /// Called when window finishes moving
     func windowDidMove(_ notification: Notification) {
@@ -174,6 +206,7 @@ class VST3WindowManager: NSObject, NSWindowDelegate {
         // Clean up (in case closeWindow wasn't called directly)
         containerViews.removeValue(forKey: effectId)
         pluginNames.removeValue(forKey: effectId)
+        nativeSizes.removeValue(forKey: effectId)
         windowToEffectId.removeValue(forKey: window)
         windows.removeValue(forKey: effectId)
     }

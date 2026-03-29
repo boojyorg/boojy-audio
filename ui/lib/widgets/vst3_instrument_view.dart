@@ -127,7 +127,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
   Widget _buildFloatedPlaceholder(BoojyColors colors) {
     return ColoredBox(
       key: const ValueKey('floated'),
-      color: colors.editor,
+      color: colors.darkest,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -152,7 +152,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
   Widget _buildLoadingState(BoojyColors colors) {
     return ColoredBox(
       key: const ValueKey('loading'),
-      color: colors.editor,
+      color: colors.darkest,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -180,7 +180,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
   Widget _buildErrorState(BoojyColors colors) {
     return ColoredBox(
       key: const ValueKey('error'),
-      color: colors.editor,
+      color: colors.darkest,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -269,7 +269,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
         );
 
         return ColoredBox(
-          color: colors.editor,
+          color: colors.darkest,
           child: Center(
             child: VST3EditorWidget(
               effectId: widget.effectId,

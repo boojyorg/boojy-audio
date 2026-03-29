@@ -117,7 +117,7 @@ class UILayoutState extends ChangeNotifier {
   // Hard maximums (prevent absurdly large panels on big screens)
   static const double libraryHardMax = 600.0;
   static const double mixerHardMax = 500.0;
-  static const double editorHardMax = 600.0;
+  static const double editorHardMax = 800.0;
 
   // Percentage-based constraints
   static const double libraryDefaultPct = 0.15;
@@ -125,7 +125,7 @@ class UILayoutState extends ChangeNotifier {
   static const double mixerDefaultPct = 0.25;
   static const double mixerMaxPct = 0.35;
   static const double editorDefaultPct = 0.35;
-  static const double editorMaxPct = 0.55;
+  static const double editorMaxPct = 0.65;
 
   // Minimum arrangement view width (protects timeline visibility)
   static const double minArrangementWidth = 200.0;
