@@ -144,7 +144,7 @@ fn render_audio_clip_sample(timeline_clip: &TimelineClip, playhead_seconds: f64)
 #[inline]
 fn process_effect_chain(
     fx_chain: &[u64],
-    effect_mgr: &EffectManager,
+    effect_mgr: &mut EffectManager,
     left: f32,
     right: f32,
     silent: bool,
@@ -153,6 +153,8 @@ fn process_effect_chain(
     let mut out_r = if silent { 0.0 } else { right };
     for effect_id in fx_chain {
         if !silent && effect_mgr.is_bypassed(*effect_id) {
+            // Bypassed: signal passes through, update peaks with passthrough level
+            effect_mgr.update_peaks(*effect_id, out_l.abs(), out_r.abs());
             continue;
         }
         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
@@ -160,6 +162,8 @@ fn process_effect_chain(
             let (fx_l, fx_r) = effect.process_frame(out_l, out_r);
             out_l = fx_l;
             out_r = fx_r;
+            // Capture output peak after this effect
+            effect_mgr.update_peaks(*effect_id, out_l.abs(), out_r.abs());
         }
     }
     (out_l, out_r)
@@ -348,7 +352,7 @@ impl AudioGraph {
                         // 1. Per-track synthesizer output from MIDI input
                         // 2. VST3 instruments that need continuous process() calls
                         // 3. Track-level metering for level meters in UI
-                        { let effect_mgr = effect_manager.lock();
+                        { let mut effect_mgr = effect_manager.lock();
                             { let tm = track_manager.lock();
                                 let has_solo = tm.has_solo();
                                 for track_arc in tm.get_all_tracks() {
@@ -385,14 +389,14 @@ impl AudioGraph {
                                         // Handle mute/solo
                                         if track.mute {
                                             // Process FX with silence to keep VST3 alive
-                                            process_effect_chain(&track.fx_chain, &effect_mgr, 0.0, 0.0, true);
+                                            process_effect_chain(&track.fx_chain, &mut effect_mgr, 0.0, 0.0, true);
                                             if frame_idx == frames - 1 {
                                                 track.update_peaks(0.0, 0.0);
                                             }
                                             continue;
                                         }
                                         if has_solo && !track.solo {
-                                            process_effect_chain(&track.fx_chain, &effect_mgr, 0.0, 0.0, true);
+                                            process_effect_chain(&track.fx_chain, &mut effect_mgr, 0.0, 0.0, true);
                                             if frame_idx == frames - 1 {
                                                 track.update_peaks(0.0, 0.0);
                                             }
@@ -400,7 +404,7 @@ impl AudioGraph {
                                         }
 
                                         // Process FX chain for this track
-                                        let (fx_l, fx_r) = process_effect_chain(&track.fx_chain, &effect_mgr, track_left, track_right, false);
+                                        let (fx_l, fx_r) = process_effect_chain(&track.fx_chain, &mut effect_mgr, track_left, track_right, false);
                                         track_left = fx_l;
                                         track_right = fx_r;
 
@@ -652,8 +656,8 @@ impl AudioGraph {
                         }
 
                         // Process FX chain BEFORE volume/pan (fader controls post-FX level)
-                        let (mut fx_left, mut fx_right) = { let effect_mgr = effect_manager.lock();
-                            process_effect_chain(&track_snap.fx_chain, &effect_mgr, track_left, track_right, false)
+                        let (mut fx_left, mut fx_right) = { let mut effect_mgr = effect_manager.lock();
+                            process_effect_chain(&track_snap.fx_chain, &mut effect_mgr, track_left, track_right, false)
                         };
 
                         // Apply track volume AFTER FX chain (from snapshot)
@@ -699,8 +703,8 @@ impl AudioGraph {
                         master_right *= master_snap.pan_right;
 
                         // Process master FX chain
-                        { let effect_mgr = effect_manager.lock();
-                            let (ml, mr) = process_effect_chain(&master_snap.fx_chain, &effect_mgr, master_left, master_right, false);
+                        { let mut effect_mgr = effect_manager.lock();
+                            let (ml, mr) = process_effect_chain(&master_snap.fx_chain, &mut effect_mgr, master_left, master_right, false);
                             master_left = ml;
                             master_right = mr;
                         }

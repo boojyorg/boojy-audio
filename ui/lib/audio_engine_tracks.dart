@@ -238,6 +238,18 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
+  /// Get effect output peak levels as CSV: "peak_left_db,peak_right_db"
+  String getEffectPeakLevels(int effectId) {
+    try {
+      final resultPtr = _getEffectPeakLevels(effectId);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      return '-96.0,-96.0';
+    }
+  }
+
   /// Delete a track (cannot delete master track)
   String deleteTrack(int trackId) {
     try {

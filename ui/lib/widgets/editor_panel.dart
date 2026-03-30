@@ -11,8 +11,8 @@ import '../services/tool_mode_resolver.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'sampler_editor/sampler_editor.dart';
-import 'synthesizer_panel.dart';
-import 'vst3_instrument_view.dart';
+import 'device_chain/device_chain_view.dart';
+import 'device_chain/device_dropdown.dart';
 import 'preset_nav.dart';
 import 'preset_browser_dropdown.dart';
 import 'fx_chain/fx_chain_view.dart';
@@ -137,6 +137,9 @@ class _EditorPanelState extends State<EditorPanel>
   // Callback for resetting VST3 instrument to default state
   VoidCallback? _resetPluginToDefault;
 
+  // Key for instrument tab button (used to position dropdown)
+  final _instrumentTabKey = GlobalKey();
+
   /// Whether the selected track is an audio track
   bool get _isAudioTrack =>
       widget.trackContext.selectedTrackType?.toLowerCase() == 'audio';
@@ -192,13 +195,12 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Get the number of tabs based on track type
-  /// Audio: 2 tabs (Editor, Effects)
-  /// MIDI: 3 tabs (Piano Roll, Effects, Instrument)
-  /// Sampler: 3 tabs (Sampler, Piano Roll, Effects)
+  /// Audio: 1 tab (Chain — effects only)
+  /// MIDI: 2 tabs (Chain + MIDI)
+  /// Sampler: 2 tabs (Chain + MIDI)
   int get _tabCount {
-    if (_isAudioTrack) return 2;
-    if (_isSamplerTrack) return 3;
-    return 3; // MIDI
+    if (_isAudioTrack) return 1;
+    return 2; // MIDI or Sampler
   }
 
   @override
@@ -220,15 +222,16 @@ class _EditorPanelState extends State<EditorPanel>
         widget.currentEditingAudioClip?.clipId;
   }
 
-  /// Handle user manually tapping a tab
+  /// Handle user manually tapping a tab.
+  /// If already on the instrument tab (index 0) and not audio track,
+  /// open the instrument dropdown instead of no-op.
   void _onManualTabTap(int index) {
-    // If clicking instrument tab while plugin is floated, redirect to Effects
-    if (index == 0 && _isCurrentPluginFloated && _isCurrentPluginVst3) {
-      index = _isAudioTrack ? 1 : 2;
+    if (_selectedTabIndex == index && index == 0 && !_isAudioTrack) {
+      _showInstrumentDropdownFromTab();
+      return;
     }
     _userManuallySelectedTab = true;
-    _switchedToPianoRollAwaitingData =
-        false; // Reset awaiting flag on manual selection
+    _switchedToPianoRollAwaitingData = false;
     _tabController.index = index;
   }
 
@@ -265,41 +268,32 @@ class _EditorPanelState extends State<EditorPanel>
 
     // Track changed → choose appropriate default tab
     if (trackChanged && widget.trackContext.selectedTrackId != null) {
-      _userManuallySelectedTab = false; // Reset manual flag on track change
-      _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
-      _loadPresets(); // Reload presets for new track
-      // If new track's plugin is floated, auto-switch to Effects tab
-      if (_isCurrentPluginFloated && _isCurrentPluginVst3) {
-        _tabController.index = _isAudioTrack ? 1 : 2;
-      } else if ((_isMidiTrack || _isSamplerTrack) && currentClipId != null) {
-        // Clip already selected (e.g. new track with default clip) → Piano Roll
+      _userManuallySelectedTab = false;
+      _switchedToPianoRollAwaitingData = false;
+      _loadPresets();
+      if ((_isMidiTrack || _isSamplerTrack) && currentClipId != null) {
+        // Clip already selected (e.g. new track with default clip) → MIDI tab
         _tabController.index = 1;
-      } else if (_isMidiTrack || _isSamplerTrack) {
-        _tabController.index = 0; // Instrument/Sampler tab
-      } else if (_isAudioTrack) {
-        _tabController.index = 0; // Audio Editor tab
+      } else {
+        // Default to chain tab (tab 0) for all track types
+        _tabController.index = 0;
       }
     }
-    // Clip selected (and user hasn't manually chosen a tab) → Piano Roll
+    // Clip selected (and user hasn't manually chosen a tab) → MIDI tab
     else if (clipChanged &&
         currentClipId != null &&
         !_userManuallySelectedTab) {
       if (_isMidiTrack || _isSamplerTrack) {
-        // Set flag to prevent showing "Click to create clip" placeholder during transition
-        // This handles the case where tab switches but clip data takes a frame to propagate
         _switchedToPianoRollAwaitingData = widget.currentEditingClip == null;
-        _tabController.index = 1; // Piano Roll tab
-      } else if (_isAudioTrack) {
-        _tabController.index = 0; // Audio Editor tab
+        _tabController.index = 1; // MIDI tab
       }
     }
-    // Clip deselected → back to Instrument tab
+    // Clip deselected → back to chain tab
     else if (clipChanged && currentClipId == null && _lastClipId != null) {
-      _userManuallySelectedTab =
-          false; // Reset manual flag when clip deselected
-      _switchedToPianoRollAwaitingData = false; // Reset awaiting flag
+      _userManuallySelectedTab = false;
+      _switchedToPianoRollAwaitingData = false;
       if (_isMidiTrack || _isSamplerTrack) {
-        _tabController.index = 0; // Instrument/Sampler tab
+        _tabController.index = 0; // Chain tab
       }
     }
 
@@ -466,11 +460,7 @@ class _EditorPanelState extends State<EditorPanel>
                                 ),
                                 const SizedBox(width: 8),
                               ],
-                              // Float/Embed toggle - for VST3 instruments only
-                              if (_isCurrentPluginVst3) ...[
-                                _buildFloatToggle(),
-                                const SizedBox(width: 8),
-                              ],
+                              // Float toggle moved to device header (v0.1.9)
                               // Virtual Piano toggle - for MIDI and Sampler tracks
                               if (!_isAudioTrack) ...[
                                 _buildPianoToggle(),
@@ -863,6 +853,35 @@ class _EditorPanelState extends State<EditorPanel>
     }
   }
 
+  /// Show instrument dropdown positioned below the instrument tab button.
+  /// Called when the user clicks the instrument tab while already on it.
+  Future<void> _showInstrumentDropdownFromTab() async {
+    final box =
+        _instrumentTabKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final position = box.localToGlobal(Offset(0, box.size.height));
+    final instrumentName = _getInstrumentTabLabel();
+
+    final action = await DeviceDropdown.showForInstrument(
+      context,
+      position,
+      currentName: instrumentName,
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case ResetAction():
+        _resetPluginToDefault?.call();
+      case SwapAction():
+        // Future: swap instrument implementation
+        break;
+      case DeleteAction():
+        // Future: remove instrument from track
+        break;
+    }
+  }
+
   /// Float the current VST3 plugin to a separate window
   Future<void> _onFloatPlugin() async {
     final instrument = widget.trackContext.currentInstrumentData;
@@ -873,10 +892,8 @@ class _EditorPanelState extends State<EditorPanel>
       instrument.pluginName ?? 'Plugin',
     );
     if (success == true && mounted) {
-      // Auto-switch to Effects tab
-      setState(() {
-        _tabController.index = _isAudioTrack ? 1 : 2;
-      });
+      // Stay on chain tab (tab 0) — the chain shows the floated placeholder
+      setState(() {});
     }
   }
 
@@ -941,57 +958,74 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Build the tab buttons based on track type
-  /// Audio: [Editor, Effects]
-  /// MIDI: [Piano Roll, Effects, Instrument]
-  /// Sampler: [Sampler, Piano Roll, Effects]
+  /// Audio: [Audio] (single tab — chain with effects only)
+  /// MIDI: [Instrument] [MIDI]
+  /// Sampler: [Sampler] [MIDI]
   List<Widget> _buildTabButtons() {
     if (_isAudioTrack) {
-      return [
-        _buildTabButton(0, _firstTabIcon, _firstTabLabel),
-        const SizedBox(width: 4),
-        _buildTabButton(1, BI.lightning, 'Effects'),
-      ];
+      return [_buildTabButton(0, BI.audioFile, 'Audio')];
     }
 
     if (_isSamplerTrack) {
       return [
-        _buildTabButton(0, BI.musicNote, 'Sampler'),
+        _buildTabButton(
+          0,
+          BI.musicNote,
+          'Sampler',
+          buttonKey: _instrumentTabKey,
+        ),
         const SizedBox(width: 4),
-        _buildTabButton(1, BI.piano, 'Piano Roll'),
-        const SizedBox(width: 4),
-        _buildTabButton(2, BI.lightning, 'Effects'),
+        _buildTabButton(1, BI.piano, 'MIDI'),
       ];
     }
 
-    // MIDI track: [Instrument] [Piano Roll] [Effects]
+    // MIDI track: [Instrument] [MIDI]
     return [
-      _buildTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
+      _buildTabButton(
+        0,
+        _instrumentTabIcon,
+        _getInstrumentTabLabel(),
+        buttonKey: _instrumentTabKey,
+      ),
       const SizedBox(width: 4),
-      _buildTabButton(1, _firstTabIcon, _firstTabLabel),
-      const SizedBox(width: 4),
-      _buildTabButton(2, BI.lightning, 'Effects'),
+      _buildTabButton(1, BI.piano, 'MIDI'),
     ];
   }
 
   /// Build the tab content based on track type
-  /// Audio: [AudioEditor, FXChain]
-  /// MIDI: [PianoRoll, FXChain, Instrument]
-  /// Sampler: [SamplerEditor, PianoRoll, FXChain]
+  /// Audio: [Chain (effects only)]
+  /// MIDI: [Chain (instrument + effects), MIDI Piano Roll]
+  /// Sampler: [Chain (sampler + effects), MIDI Piano Roll]
   List<Widget> _buildTabContent() {
     if (_isAudioTrack) {
-      return [_buildEditorTab(), _buildFXChainTab()];
+      // Single tab: effects chain only (no instrument)
+      return [_buildChainTab()];
     }
 
     if (_isSamplerTrack) {
-      return [
-        _buildSamplerEditorTab(),
-        _buildPianoRollTab(),
-        _buildFXChainTab(),
-      ];
+      // Tab 0: sampler + effects chain, Tab 1: piano roll
+      return [_buildChainTab(), _buildPianoRollTab()];
     }
 
-    // MIDI track: [Synthesizer] [Piano Roll] [Effects]
-    return [_buildInstrumentTab(), _buildEditorTab(), _buildFXChainTab()];
+    // MIDI track: Tab 0: instrument + effects chain, Tab 1: piano roll
+    return [_buildChainTab(), _buildEditorTab()];
+  }
+
+  /// Combined device chain view — instrument (if any) + effects in one row.
+  /// Used as tab 0 for all track types.
+  Widget _buildChainTab() {
+    return DeviceChainView(
+      selectedTrackId: widget.trackContext.selectedTrackId,
+      audioEngine: widget.audioEngine,
+      instrumentData: widget.trackContext.currentInstrumentData,
+      isFloated: _isCurrentPluginFloated,
+      trackName: widget.trackContext.selectedTrackName,
+      onFloatPlugin: widget.vst3Callbacks.onFloatPlugin,
+      onEmbedPlugin: widget.vst3Callbacks.onEmbedPlugin,
+      onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
+      onInstrumentParameterChanged: widget.onInstrumentParameterChanged,
+      onTrackVolumeChanged: widget.callbacks.onTrackVolumeChanged,
+    );
   }
 
   /// Build the Sampler Editor tab
@@ -1004,9 +1038,15 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  Widget _buildTabButton(int index, IconData icon, String label) {
+  Widget _buildTabButton(
+    int index,
+    IconData icon,
+    String label, {
+    Key? buttonKey,
+  }) {
     final isSelected = _selectedTabIndex == index;
     return Tooltip(
+      key: buttonKey,
       message: label,
       child: Material(
         color: Colors.transparent,
@@ -1305,67 +1345,5 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  Widget _buildInstrumentTab() {
-    if (widget.trackContext.selectedTrackId == null ||
-        widget.trackContext.currentInstrumentData == null) {
-      return ColoredBox(
-        color: context.colors.darkest,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Select a track to start editing',
-                style: TextStyle(
-                  color: context.colors.textSecondary,
-                  fontSize: BT.fontBody,
-                  fontWeight: BT.weightMedium,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Click a track in the mixer or a clip in the arrangement',
-                style: TextStyle(
-                  color: context.colors.textMuted,
-                  fontSize: BT.fontLabel,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Check if this is a VST3 instrument
-    if (widget.trackContext.currentInstrumentData!.isVst3) {
-      final effectId = widget.trackContext.currentInstrumentData!.effectId!;
-      final pluginName =
-          widget.trackContext.currentInstrumentData!.pluginName ??
-          'VST3 Instrument';
-
-      // Show native plugin GUI directly — no search bar, no parameter list
-      return Vst3InstrumentView(
-        effectId: effectId,
-        pluginName: pluginName,
-        audioEngine: widget.audioEngine,
-        isFloated: _isCurrentPluginFloated,
-        onFloat: _onFloatPlugin,
-        onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
-      );
-    }
-
-    // Show synthesizer panel for built-in instruments
-    return SynthesizerPanel(
-      audioEngine: widget.audioEngine,
-      trackId: widget.trackContext.selectedTrackId!,
-      instrumentData: widget.trackContext.currentInstrumentData,
-      onParameterChanged: (instrumentData) {
-        widget.onInstrumentParameterChanged?.call(instrumentData);
-      },
-      onClose: () {
-        // Parent widget handles clearing selectedTrackId
-      },
-    );
-  }
+  // _buildInstrumentTab removed — replaced by _buildChainTab
 }

@@ -4119,6 +4119,7 @@ class _DAWScreenState extends State<DAWScreen>
                                 },
                                 onToolModeChanged: (mode) =>
                                     setState(() => currentToolMode = mode),
+                                onTrackVolumeChanged: (_) => setState(() {}),
                               ),
                               vst3Callbacks: Vst3EditorCallbacks(
                                 onVst3ParameterChanged:

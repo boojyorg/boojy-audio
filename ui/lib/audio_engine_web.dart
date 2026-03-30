@@ -600,6 +600,8 @@ class AudioEngine implements AudioEngineInterface {
 
   String getTrackPeakLevels(int trackId) => '{"left": 0.0, "right": 0.0}';
 
+  String getEffectPeakLevels(int effectId) => '-96.0,-96.0';
+
   @override
   String deleteTrack(int trackId) {
     _callEngineWith('delete_track', [_intToBigInt(trackId)]);

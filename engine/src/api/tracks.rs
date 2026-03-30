@@ -308,7 +308,7 @@ pub fn get_track_peak_levels(track_id: TrackId) -> Result<String, String> {
     let track_manager = graph.track_manager.lock();
 
     if let Some(track_arc) = track_manager.get_track(track_id) {
-        let track = track_arc.lock();
+        let mut track = track_arc.lock();
         let (peak_left_db, peak_right_db) = track.get_peak_db();
         Ok(format!("{peak_left_db:.2},{peak_right_db:.2}"))
     } else {

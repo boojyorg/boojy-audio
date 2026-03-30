@@ -305,6 +305,9 @@ typedef _GetTrackInfoFfi = ffi.Pointer<Utf8> Function(int);
 typedef _GetTrackPeakLevelsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _GetTrackPeakLevelsFfi = ffi.Pointer<Utf8> Function(int);
 
+typedef _GetEffectPeakLevelsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetEffectPeakLevelsFfi = ffi.Pointer<Utf8> Function(int);
+
 typedef _DeleteTrackFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _DeleteTrackFfi = ffi.Pointer<Utf8> Function(int);
 

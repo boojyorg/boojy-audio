@@ -136,3 +136,15 @@ pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *cons
         }
     }))
 }
+
+/// Get effect output peak levels
+/// Returns: "peak_left_db,peak_right_db"
+#[no_mangle]
+pub extern "C" fn get_effect_peak_levels_ffi(effect_id: u64) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), AssertUnwindSafe(|| {
+        match api::get_effect_peak_levels(effect_id) {
+            Ok(levels) => safe_cstring(levels).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    }))
+}

@@ -122,6 +122,7 @@ class _AudioEngineBase {
   late final _SetEffectBypassFfi _setEffectBypass;
   late final _GetEffectBypassFfi _getEffectBypass;
   late final _ReorderTrackEffectsFfi _reorderTrackEffects;
+  late final _GetEffectPeakLevelsFfi _getEffectPeakLevels;
 
   // M5 functions - Save/Load Project
   late final _SaveProjectFfi _saveProject;
@@ -819,6 +820,12 @@ class _AudioEngineBase {
       _reorderTrackEffects = _lib
           .lookup<ffi.NativeFunction<_ReorderTrackEffectsFfiNative>>(
             'reorder_track_effects_ffi',
+          )
+          .asFunction();
+
+      _getEffectPeakLevels = _lib
+          .lookup<ffi.NativeFunction<_GetEffectPeakLevelsFfiNative>>(
+            'get_effect_peak_levels_ffi',
           )
           .asFunction();
 

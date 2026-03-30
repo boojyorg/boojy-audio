@@ -181,6 +181,7 @@ class AudioEngine implements AudioEngineInterface {
   int getTrackCount() => throw UnsupportedError('stub');
   List<int> getAllTrackIds() => throw UnsupportedError('stub');
   String getTrackPeakLevels(int trackId) => throw UnsupportedError('stub');
+  String getEffectPeakLevels(int effectId) => throw UnsupportedError('stub');
   String clearAllTracks() => throw UnsupportedError('stub');
 
   // Track input

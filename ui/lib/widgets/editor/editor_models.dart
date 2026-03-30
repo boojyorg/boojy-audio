@@ -30,6 +30,7 @@ class EditorPanelCallbacks {
   final VoidCallback? onVirtualPianoClose;
   final VoidCallback? onVirtualPianoToggle;
   final Function(ToolMode)? onToolModeChanged;
+  final Function(double volumeDb)? onTrackVolumeChanged;
 
   const EditorPanelCallbacks({
     this.onClosePanel,
@@ -38,6 +39,7 @@ class EditorPanelCallbacks {
     this.onVirtualPianoClose,
     this.onVirtualPianoToggle,
     this.onToolModeChanged,
+    this.onTrackVolumeChanged,
   });
 }
 
