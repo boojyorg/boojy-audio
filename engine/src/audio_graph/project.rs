@@ -50,6 +50,7 @@ impl AudioGraph {
                             parameters.insert("mid2_q".to_string(), eq.mid2_q);
                             parameters.insert("high_freq".to_string(), eq.high_freq);
                             parameters.insert("high_gain_db".to_string(), eq.high_gain_db);
+                            parameters.insert("wet_dry_mix".to_string(), eq.wet_dry_mix);
                         }
                         ET::Compressor(comp) => {
                             effect_type_str = "compressor".to_string();
@@ -58,6 +59,7 @@ impl AudioGraph {
                             parameters.insert("attack_ms".to_string(), comp.attack_ms);
                             parameters.insert("release_ms".to_string(), comp.release_ms);
                             parameters.insert("makeup_gain_db".to_string(), comp.makeup_gain_db);
+                            parameters.insert("wet_dry_mix".to_string(), comp.wet_dry_mix);
                         }
                         ET::Reverb(rev) => {
                             effect_type_str = "reverb".to_string();
@@ -77,9 +79,11 @@ impl AudioGraph {
                             parameters.insert("depth".to_string(), chr.depth);
                             parameters.insert("wet_dry_mix".to_string(), chr.wet_dry_mix);
                         }
-                        ET::Limiter(_) => {
+                        ET::Limiter(lim) => {
                             effect_type_str = "limiter".to_string();
-                            // Limiter has no user-adjustable parameters
+                            parameters.insert("threshold_db".to_string(), lim.threshold_db);
+                            parameters.insert("release_ms".to_string(), lim.release_ms);
+                            parameters.insert("wet_dry_mix".to_string(), lim.wet_dry_mix);
                         }
                         #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                         ET::VST3(_vst3) => {
@@ -408,6 +412,7 @@ impl AudioGraph {
                         if let Some(&v) = effect_data.parameters.get("mid2_q") { eq.mid2_q = v; }
                         if let Some(&v) = effect_data.parameters.get("high_freq") { eq.high_freq = v; }
                         if let Some(&v) = effect_data.parameters.get("high_gain_db") { eq.high_gain_db = v; }
+                        if let Some(&v) = effect_data.parameters.get("wet_dry_mix") { eq.wet_dry_mix = v; }
                         eq.update_coefficients();
                         EffectType::EQ(eq)
                     }
@@ -418,6 +423,7 @@ impl AudioGraph {
                         if let Some(&v) = effect_data.parameters.get("attack_ms") { comp.attack_ms = v; }
                         if let Some(&v) = effect_data.parameters.get("release_ms") { comp.release_ms = v; }
                         if let Some(&v) = effect_data.parameters.get("makeup_gain_db") { comp.makeup_gain_db = v; }
+                        if let Some(&v) = effect_data.parameters.get("wet_dry_mix") { comp.wet_dry_mix = v; }
                         comp.update_coefficients();
                         EffectType::Compressor(comp)
                     }
@@ -442,7 +448,14 @@ impl AudioGraph {
                         if let Some(&v) = effect_data.parameters.get("wet_dry_mix") { chr.wet_dry_mix = v; }
                         EffectType::Chorus(chr)
                     }
-                    "limiter" => EffectType::Limiter(Limiter::new()),
+                    "limiter" => {
+                        let mut lim = Limiter::new();
+                        if let Some(&v) = effect_data.parameters.get("threshold_db") { lim.threshold_db = v; }
+                        if let Some(&v) = effect_data.parameters.get("release_ms") { lim.release_ms = v; }
+                        if let Some(&v) = effect_data.parameters.get("wet_dry_mix") { lim.wet_dry_mix = v; }
+                        lim.update_coefficients();
+                        EffectType::Limiter(lim)
+                    }
                     _ => {
                         eprintln!("⚠️  Unknown effect type: {}", effect_data.effect_type);
                         continue;

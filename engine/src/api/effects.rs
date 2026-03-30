@@ -88,6 +88,15 @@ pub fn get_track_effects(track_id: TrackId) -> Result<String, String> {
     }
 }
 
+/// Get effect output peak levels in dB. Returns "peak_left_db,peak_right_db".
+pub fn get_effect_peak_levels(effect_id: u64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut effect_mgr = graph.effect_manager.lock();
+    let (left_db, right_db) = effect_mgr.get_peak_db(effect_id);
+    Ok(format!("{left_db:.2},{right_db:.2}"))
+}
+
 /// Get effect info (returns JSON-like string with type and parameters)
 pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
     use crate::effects::{EffectType, Effect};
@@ -105,13 +114,13 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
 
         let info = match &*effect {
             EffectType::EQ(eq) => format!(
-                "type:eq,bypassed:{},low_freq:{},low_gain:{},mid1_freq:{},mid1_gain:{},mid1_q:{},mid2_freq:{},mid2_gain:{},mid2_q:{},high_freq:{},high_gain:{}",
+                "type:eq,bypassed:{},low_freq:{},low_gain:{},mid1_freq:{},mid1_gain:{},mid1_q:{},mid2_freq:{},mid2_gain:{},mid2_q:{},high_freq:{},high_gain:{},wet_dry:{}",
                 bypass_str, eq.low_freq, eq.low_gain_db, eq.mid1_freq, eq.mid1_gain_db, eq.mid1_q,
-                eq.mid2_freq, eq.mid2_gain_db, eq.mid2_q, eq.high_freq, eq.high_gain_db
+                eq.mid2_freq, eq.mid2_gain_db, eq.mid2_q, eq.high_freq, eq.high_gain_db, eq.wet_dry_mix
             ),
             EffectType::Compressor(comp) => format!(
-                "type:compressor,bypassed:{},threshold:{},ratio:{},attack:{},release:{},makeup:{}",
-                bypass_str, comp.threshold_db, comp.ratio, comp.attack_ms, comp.release_ms, comp.makeup_gain_db
+                "type:compressor,bypassed:{},threshold:{},ratio:{},attack:{},release:{},makeup:{},wet_dry:{}",
+                bypass_str, comp.threshold_db, comp.ratio, comp.attack_ms, comp.release_ms, comp.makeup_gain_db, comp.wet_dry_mix
             ),
             EffectType::Reverb(rev) => format!(
                 "type:reverb,bypassed:{},room_size:{},damping:{},wet_dry:{}",
@@ -126,8 +135,8 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
                 bypass_str, chorus.rate_hz, chorus.depth, chorus.wet_dry_mix
             ),
             EffectType::Limiter(lim) => format!(
-                "type:limiter,bypassed:{},threshold:{},release:{}",
-                bypass_str, lim.threshold_db, lim.release_ms
+                "type:limiter,bypassed:{},threshold:{},release:{},wet_dry:{}",
+                bypass_str, lim.threshold_db, lim.release_ms, lim.wet_dry_mix
             ),
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(vst3) => {
@@ -269,6 +278,9 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                     eq.high_gain_db = value;
                     eq.update_coefficients();
                 }
+                "wet_dry" => {
+                    eq.wet_dry_mix = value;
+                }
                 _ => return Err(format!("Unknown EQ parameter: {param_name}")),
             },
             EffectType::Compressor(comp) => match param_name {
@@ -288,6 +300,9 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 }
                 "makeup" => {
                     comp.makeup_gain_db = value;
+                }
+                "wet_dry" => {
+                    comp.wet_dry_mix = value;
                 }
                 _ => return Err(format!("Unknown Compressor parameter: {param_name}")),
             },
@@ -334,6 +349,9 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 "release" => {
                     lim.release_ms = value;
                     lim.update_coefficients();
+                }
+                "wet_dry" => {
+                    lim.wet_dry_mix = value;
                 }
                 _ => return Err(format!("Unknown Limiter parameter: {param_name}")),
             },

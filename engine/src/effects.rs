@@ -187,6 +187,7 @@ pub struct ParametricEQ {
     pub mid2_q: f32,
     pub high_freq: f32,
     pub high_gain_db: f32,
+    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
 }
 
 impl Default for ParametricEQ {
@@ -216,6 +217,7 @@ impl ParametricEQ {
             mid2_q: 1.0,
             high_freq: 8000.0,
             high_gain_db: 0.0,
+            wet_dry_mix: 1.0,
         };
         eq.update_coefficients();
         eq
@@ -252,7 +254,12 @@ impl Effect for ParametricEQ {
         right_out = self.mid2_r.process(right_out);
         right_out = self.high_shelf_r.process(right_out);
 
-        (left_out, right_out)
+        // Wet/dry blend
+        let mix = self.wet_dry_mix;
+        (
+            left * (1.0 - mix) + left_out * mix,
+            right * (1.0 - mix) + right_out * mix,
+        )
     }
 
     fn reset(&mut self) {
@@ -284,6 +291,7 @@ pub struct Compressor {
     pub attack_ms: f32,
     pub release_ms: f32,
     pub makeup_gain_db: f32,
+    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
 
     // State
     envelope: f32,           // Current gain reduction envelope
@@ -305,6 +313,7 @@ impl Compressor {
             attack_ms: 10.0,
             release_ms: 100.0,
             makeup_gain_db: 0.0,
+            wet_dry_mix: 1.0,
             envelope: 1.0,       // Start at no gain reduction
             attack_coeff: 0.0,
             release_coeff: 0.0,
@@ -359,7 +368,15 @@ impl Effect for Compressor {
         let makeup_gain = 10_f32.powf(self.makeup_gain_db / 20.0);
         let total_gain = self.envelope * makeup_gain;
 
-        (left * total_gain, right * total_gain)
+        let comp_left = left * total_gain;
+        let comp_right = right * total_gain;
+
+        // Wet/dry blend
+        let mix = self.wet_dry_mix;
+        (
+            left * (1.0 - mix) + comp_left * mix,
+            right * (1.0 - mix) + comp_right * mix,
+        )
     }
 
     fn reset(&mut self) {
@@ -648,6 +665,7 @@ impl Effect for Reverb {
 pub struct Limiter {
     pub threshold_db: f32,
     pub release_ms: f32,
+    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
 
     envelope_left: f32,
     envelope_right: f32,
@@ -665,6 +683,7 @@ impl Limiter {
         let mut limiter = Self {
             threshold_db: -0.1, // Just below 0 dBFS
             release_ms: 50.0,
+            wet_dry_mix: 1.0,
             envelope_left: 0.0,
             envelope_right: 0.0,
             release_coeff: 0.0,
@@ -715,7 +734,15 @@ impl Effect for Limiter {
         // Use minimum gain for both channels (link)
         let gain = gain_left.min(gain_right);
 
-        (left * gain, right * gain)
+        let lim_left = left * gain;
+        let lim_right = right * gain;
+
+        // Wet/dry blend
+        let mix = self.wet_dry_mix;
+        (
+            left * (1.0 - mix) + lim_left * mix,
+            right * (1.0 - mix) + lim_right * mix,
+        )
     }
 
     fn reset(&mut self) {
@@ -888,6 +915,8 @@ pub struct EffectManager {
     effects: HashMap<EffectId, Arc<Mutex<EffectType>>>,
     /// Bypass state per effect (true = bypassed, audio passes through unchanged)
     bypass_states: HashMap<EffectId, bool>,
+    /// Per-effect output peak levels (linear 0.0+), written by audio thread
+    peak_levels: HashMap<EffectId, (f32, f32)>,
     next_id: EffectId,
 }
 
@@ -902,6 +931,7 @@ impl EffectManager {
         Self {
             effects: HashMap::new(),
             bypass_states: HashMap::new(),
+            peak_levels: HashMap::new(),
             next_id: 0,
         }
     }
@@ -915,6 +945,7 @@ impl EffectManager {
 
         self.effects.insert(id, Arc::new(Mutex::new(effect)));
         self.bypass_states.insert(id, false); // Effects start not bypassed
+        self.peak_levels.insert(id, (0.0, 0.0));
         id
     }
 
@@ -927,6 +958,7 @@ impl EffectManager {
     pub fn remove_effect(&mut self, id: EffectId) -> bool {
         if self.effects.remove(&id).is_some() {
             self.bypass_states.remove(&id);
+            self.peak_levels.remove(&id);
             eprintln!("🗑️ [EffectManager] Removed effect {id}");
             true
         } else {
@@ -953,6 +985,24 @@ impl EffectManager {
     /// Check if an effect is bypassed (returns false if effect doesn't exist)
     pub fn is_bypassed(&self, id: EffectId) -> bool {
         self.bypass_states.get(&id).copied().unwrap_or(false)
+    }
+
+    /// Update peak levels for an effect (called per-sample from audio thread).
+    /// Accumulates the maximum level since last read.
+    pub fn update_peaks(&mut self, id: EffectId, left: f32, right: f32) {
+        let entry = self.peak_levels.entry(id).or_insert((0.0, 0.0));
+        entry.0 = entry.0.max(left);
+        entry.1 = entry.1.max(right);
+    }
+
+    /// Get peak levels for an effect as dB values, then reset for next poll.
+    pub fn get_peak_db(&mut self, id: EffectId) -> (f32, f32) {
+        let (left, right) = self.peak_levels.get(&id).copied().unwrap_or((0.0, 0.0));
+        // Reset after reading so next poll gets fresh max
+        self.peak_levels.insert(id, (0.0, 0.0));
+        let left_db = if left > 0.0 { 20.0 * left.log10() } else { -96.0 };
+        let right_db = if right > 0.0 { 20.0 * right.log10() } else { -96.0 };
+        (left_db, right_db)
     }
 
     /// Get all effect IDs

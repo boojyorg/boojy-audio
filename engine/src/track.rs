@@ -447,14 +447,15 @@ impl Track {
         (left_gain, right_gain)
     }
 
-    /// Update peak meters (called from audio thread)
+    /// Update peak meters (called from audio thread).
+    /// Accumulates the maximum level since last read.
     pub fn update_peaks(&mut self, left: f32, right: f32) {
-        self.peak_left = left.abs();
-        self.peak_right = right.abs();
+        self.peak_left = self.peak_left.max(left.abs());
+        self.peak_right = self.peak_right.max(right.abs());
     }
 
-    /// Get peak levels in dB
-    pub fn get_peak_db(&self) -> (f32, f32) {
+    /// Get peak levels in dB, then reset for next poll cycle.
+    pub fn get_peak_db(&mut self) -> (f32, f32) {
         let left_db = if self.peak_left > 0.0 {
             20.0 * self.peak_left.log10()
         } else {
@@ -466,6 +467,10 @@ impl Track {
         } else {
             -96.0
         };
+
+        // Reset after reading so next poll gets fresh max
+        self.peak_left = 0.0;
+        self.peak_right = 0.0;
 
         (left_db, right_db)
     }
