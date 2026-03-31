@@ -1004,6 +1004,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   .instrumentCallbacks
                   .onInstrumentDropped
                   ?.call(track.id, instrument),
+              onBuiltInEffectDropped: (effect) => widget
+                  .instrumentCallbacks
+                  .onBuiltInEffectDropped
+                  ?.call(track.id, effect),
               onEditPluginsPressed: () => widget
                   .instrumentCallbacks
                   .onEditPluginsPressed

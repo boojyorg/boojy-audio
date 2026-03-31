@@ -45,7 +45,7 @@ class DeviceDropdown {
     required bool isInstrument,
     required String currentName,
   }) async {
-    final colors = context.colors;
+    final colors = context.themeProvider.colors;
 
     final items = <PopupMenuEntry<DeviceAction>>[
       // Reset to Default

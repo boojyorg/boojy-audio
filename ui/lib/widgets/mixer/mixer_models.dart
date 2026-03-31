@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import '../../models/track_automation_data.dart';
+import '../../models/library_item.dart';
 import '../../models/vst3_plugin_data.dart';
 import '../../widgets/instrument_browser.dart';
 
@@ -39,6 +40,7 @@ class MixerInstrumentCallbacks {
   final Function(int trackId, Instrument instrument)? onInstrumentDropped;
   final Function(int trackId, Vst3Plugin plugin)? onVst3InstrumentDropped;
   final Function(int trackId, Vst3Plugin plugin)? onVst3PluginDropped;
+  final Function(int trackId, EffectItem effect)? onBuiltInEffectDropped;
   final Function(int)? onFxButtonPressed; // (trackId)
   final Function(int)? onEditPluginsPressed; // (trackId)
 
@@ -47,6 +49,7 @@ class MixerInstrumentCallbacks {
     this.onInstrumentDropped,
     this.onVst3InstrumentDropped,
     this.onVst3PluginDropped,
+    this.onBuiltInEffectDropped,
     this.onFxButtonPressed,
     this.onEditPluginsPressed,
   });

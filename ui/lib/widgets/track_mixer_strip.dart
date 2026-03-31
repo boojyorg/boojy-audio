@@ -6,6 +6,7 @@ import '../audio_engine.dart';
 import '../constants/ui_constants.dart';
 import '../models/instrument_data.dart';
 import '../models/track_automation_data.dart';
+import '../models/library_item.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/tool_mode_resolver.dart';
 import '../theme/app_colors.dart';
@@ -88,6 +89,7 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(Vst3Plugin)? onVst3PluginDropped;
   final Function(Vst3Plugin)? onVst3InstrumentDropped; // VST3 instrument swap
   final Function(Instrument)? onInstrumentDropped; // Built-in instrument swap
+  final Function(EffectItem)? onBuiltInEffectDropped; // Built-in effect drop
   final VoidCallback? onEditPluginsPressed; // New: Edit active plugins
 
   // Track height management (synced with timeline)
@@ -164,6 +166,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onVst3PluginDropped,
     this.onVst3InstrumentDropped,
     this.onInstrumentDropped,
+    this.onBuiltInEffectDropped,
     this.onEditPluginsPressed,
     this.clipHeight = 100.0,
     this.automationHeight = 60.0,
@@ -1048,31 +1051,31 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         ? widget.clipHeight + widget.automationHeight
         : widget.clipHeight;
 
-    // Nested DragTargets: VST3 (instruments + effects) -> Built-in Instruments
-    return DragTarget<Vst3Plugin>(
+    // Unified DragTarget: accepts effects (built-in + VST3), instruments (built-in + VST3)
+    return DragTarget<Object>(
       onWillAcceptWithDetails: (details) {
-        // Accept VST3 instruments only on MIDI tracks, effects on any track
-        if (details.data.isInstrument) {
-          return isMidiTrack;
+        final data = details.data;
+        if (data is EffectItem) return true; // Built-in effects on any track
+        if (data is Vst3Plugin) {
+          return data.isInstrument ? isMidiTrack : true;
         }
-        return true; // Effects accepted on any track
+        if (data is Instrument) return isMidiTrack;
+        return false;
       },
       onAcceptWithDetails: (details) {
-        if (details.data.isInstrument) {
-          widget.onVst3InstrumentDropped?.call(details.data);
-        } else {
-          widget.onVst3PluginDropped?.call(details.data);
+        final data = details.data;
+        if (data is EffectItem) {
+          widget.onBuiltInEffectDropped?.call(data);
+        } else if (data is Vst3Plugin && data.isInstrument) {
+          widget.onVst3InstrumentDropped?.call(data);
+        } else if (data is Vst3Plugin) {
+          widget.onVst3PluginDropped?.call(data);
+        } else if (data is Instrument) {
+          widget.onInstrumentDropped?.call(data);
         }
       },
-      builder: (context, candidateVst3, rejectedVst3) {
-        return DragTarget<Instrument>(
-          onWillAcceptWithDetails: (_) => isMidiTrack,
-          onAcceptWithDetails: (details) {
-            widget.onInstrumentDropped?.call(details.data);
-          },
-          builder: (context, candidateInstrument, rejectedInstrument) {
-            final isHovered =
-                candidateVst3.isNotEmpty || candidateInstrument.isNotEmpty;
+      builder: (context, candidates, rejected) {
+            final isHovered = candidates.isNotEmpty;
 
             return GestureDetector(
               onTap: () {
@@ -1172,8 +1175,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 ),
               ),
             );
-          },
-        );
       },
     );
   }

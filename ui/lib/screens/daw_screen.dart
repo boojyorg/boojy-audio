@@ -3763,6 +3763,8 @@ class _DAWScreenState extends State<DAWScreen>
                   onVst3InstrumentDropped:
                       _onVst3InstrumentDropped, // Swap VST3 instrument
                   onVst3PluginDropped: _onVst3PluginDropped, // M10
+                  onBuiltInEffectDropped: (trackId, effect) =>
+                      _addBuiltInEffectToTrack(trackId, effect.effectType),
                   onFxButtonPressed: _showVst3PluginBrowser, // M10
                   onEditPluginsPressed: _showVst3PluginEditor, // M10
                 ),
@@ -4153,6 +4155,22 @@ class _DAWScreenState extends State<DAWScreen>
                                   _onInstrumentDropped(
                                     selectedTrackId!,
                                     instrument,
+                                  );
+                                }
+                              },
+                              onBuiltInEffectDropped: (effectType) {
+                                if (selectedTrackId != null) {
+                                  _addBuiltInEffectToTrack(
+                                    selectedTrackId!,
+                                    effectType,
+                                  );
+                                }
+                              },
+                              onVst3EffectDropped: (plugin) {
+                                if (selectedTrackId != null) {
+                                  _onVst3PluginDropped(
+                                    selectedTrackId!,
+                                    plugin,
                                   );
                                 }
                               },

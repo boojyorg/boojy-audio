@@ -1336,6 +1336,14 @@ class _LibraryPanelState extends State<LibraryPanel> {
         onDragStarted: _handleDragStarted,
         child: child,
       );
+    } else if (item.type == LibraryItemType.effect && item is EffectItem) {
+      child = Draggable<EffectItem>(
+        data: item,
+        feedback: _buildDragFeedback(item.displayName, BI.lightning),
+        childWhenDragging: Opacity(opacity: 0.5, child: child),
+        onDragStarted: _handleDragStarted,
+        child: child,
+      );
     }
 
     return child;

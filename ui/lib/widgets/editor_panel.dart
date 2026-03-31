@@ -57,6 +57,10 @@ class EditorPanel extends StatefulWidget {
   // Instrument swap via drag-and-drop (non-VST3)
   final Function(Instrument)? onInstrumentDropped;
 
+  // Effect drag-and-drop callbacks from device chain
+  final Function(String effectType)? onBuiltInEffectDropped;
+  final Function(Vst3Plugin plugin)? onVst3EffectDropped;
+
   // Tool mode (shared with arrangement view)
   final ToolMode toolMode;
 
@@ -90,6 +94,8 @@ class EditorPanel extends StatefulWidget {
     this.currentTrackPlugins,
     this.isCollapsed = false,
     this.onInstrumentDropped,
+    this.onBuiltInEffectDropped,
+    this.onVst3EffectDropped,
     this.toolMode = ToolMode.draw,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
@@ -1025,6 +1031,14 @@ class _EditorPanelState extends State<EditorPanel>
       onResetRegistered: (resetFn) => _resetPluginToDefault = resetFn,
       onInstrumentParameterChanged: widget.onInstrumentParameterChanged,
       onTrackVolumeChanged: widget.callbacks.onTrackVolumeChanged,
+      onBuiltInEffectDropped: (effectType, {insertIndex}) {
+        widget.onBuiltInEffectDropped?.call(effectType);
+      },
+      onVst3EffectDropped: (plugin, {insertIndex}) {
+        widget.onVst3EffectDropped?.call(plugin);
+      },
+      onInstrumentDropped: widget.onInstrumentDropped,
+      onVst3InstrumentDropped: widget.vst3Callbacks.onVst3InstrumentDropped,
     );
   }
 
