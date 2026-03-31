@@ -174,8 +174,20 @@ class _PositionDisplayState extends State<PositionDisplay> {
       message: 'Click to switch bars/time · Double-click to jump',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) {
+          if (!_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = false);
+            });
+          }
+        },
         child: GestureDetector(
           onTap: _toggleMode,
           onDoubleTap: _startEdit,

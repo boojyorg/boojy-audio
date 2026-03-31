@@ -100,8 +100,20 @@ class _BoojyButtonState extends State<BoojyButton> {
     final gap = widget.compact ? BT.xxs : BT.xs;
 
     Widget button = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = false);
+          });
+        }
+      },
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),

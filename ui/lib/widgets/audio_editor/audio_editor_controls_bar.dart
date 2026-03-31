@@ -499,8 +499,22 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
             children: [
               // Left side: Icon + Label (clickable to toggle warp on/off)
               MouseRegion(
-                onEnter: (_) => setState(() => _isHoveringWarpLabel = true),
-                onExit: (_) => setState(() => _isHoveringWarpLabel = false),
+                onEnter: (_) {
+                  if (!_isHoveringWarpLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isHoveringWarpLabel = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringWarpLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpLabel = false);
+                      }
+                    });
+                  }
+                },
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: widget.onWarpToggle,
@@ -541,8 +555,24 @@ class _AudioEditorControlsBarState extends State<AudioEditorControlsBar> {
               ),
               // Right side: Dropdown arrow (opens mode menu)
               MouseRegion(
-                onEnter: (_) => setState(() => _isHoveringWarpDropdown = true),
-                onExit: (_) => setState(() => _isHoveringWarpDropdown = false),
+                onEnter: (_) {
+                  if (!_isHoveringWarpDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpDropdown = true);
+                      }
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringWarpDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpDropdown = false);
+                      }
+                    });
+                  }
+                },
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () => _showWarpModeMenu(context),

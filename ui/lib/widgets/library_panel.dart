@@ -1274,12 +1274,17 @@ class _LibraryPanelState extends State<LibraryPanel> {
 
     Widget child = GestureDetector(
       onTap: () {
-        _libraryFocusNode.requestFocus();
-        setState(() {
-          _selectedItemId = item.id;
-          _focusOnRightPanel = true;
+        // Defer setState to avoid conflict with MouseTracker._deviceUpdatePhase
+        // (flutter assertion: '!_debugDuringDeviceUpdate')
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _libraryFocusNode.requestFocus();
+          setState(() {
+            _selectedItemId = item.id;
+            _focusOnRightPanel = true;
+          });
+          _handleItemClick(item);
         });
-        _handleItemClick(item);
       },
       onDoubleTap: () => widget.onItemDoubleClick?.call(item),
       onSecondaryTapUp: (details) => _showItemContextMenu(details, item),
@@ -1359,10 +1364,16 @@ class _LibraryPanelState extends State<LibraryPanel> {
         ),
       ),
       child: GestureDetector(
-        onTap: () => setState(() {
-          _selectedItemId = 'vst3_${plugin.path}';
-          _focusOnRightPanel = true;
-        }),
+        onTap: () {
+          // Defer setState to avoid conflict with MouseTracker._deviceUpdatePhase
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            setState(() {
+              _selectedItemId = 'vst3_${plugin.path}';
+              _focusOnRightPanel = true;
+            });
+          });
+        },
         onDoubleTap: () => widget.onVst3DoubleClick?.call(plugin),
         onSecondaryTapUp: (details) => _showVst3ContextMenu(details, plugin),
         child: _LibraryItemWidget(
@@ -1647,8 +1658,20 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
     }
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = false);
+          });
+        }
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         onSecondaryTapUp: widget.onSecondaryTapUp,
@@ -1717,8 +1740,20 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
     final colors = context.colors;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = false);
+          });
+        }
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
@@ -1839,8 +1874,20 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = false);
+          });
+        }
+      },
       child: Container(
         margin: EdgeInsets.only(left: 5.0 + (widget.indent * 16.0), right: 3),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

@@ -133,8 +133,20 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
       message: 'Time Signature',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) {
+          if (!_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = false);
+            });
+          }
+        },
         child: GestureDetector(
           onTap: () => _showSignatureMenu(context),
           child: Row(

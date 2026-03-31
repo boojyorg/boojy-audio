@@ -125,8 +125,20 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
               // Left zone: icon + label (toggle loop)
               MouseRegion(
                 cursor: SystemMouseCursors.click,
-                onEnter: (_) => setState(() => _isLeftHovered = true),
-                onExit: (_) => setState(() => _isLeftHovered = false),
+                onEnter: (_) {
+                  if (!_isLeftHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isLeftHovered = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isLeftHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isLeftHovered = false);
+                    });
+                  }
+                },
                 child: GestureDetector(
                   onTap: widget.onLoopToggle,
                   behavior: HitTestBehavior.opaque,
@@ -175,8 +187,20 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
               // Right zone: punch status text (opens dropdown)
               MouseRegion(
                 cursor: SystemMouseCursors.click,
-                onEnter: (_) => setState(() => _isRightHovered = true),
-                onExit: (_) => setState(() => _isRightHovered = false),
+                onEnter: (_) {
+                  if (!_isRightHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isRightHovered = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isRightHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isRightHovered = false);
+                    });
+                  }
+                },
                 child: GestureDetector(
                   onTap: _toggleOverlay,
                   behavior: HitTestBehavior.opaque,
@@ -320,8 +344,20 @@ class _PunchOptionTileState extends State<_PunchOptionTile> {
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        if (!_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovered) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovered = false);
+          });
+        }
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,

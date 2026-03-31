@@ -576,8 +576,22 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
             children: [
               // Left side: toggle
               MouseRegion(
-                onEnter: (_) => setState(() => _isHoveringWarpLabel = true),
-                onExit: (_) => setState(() => _isHoveringWarpLabel = false),
+                onEnter: (_) {
+                  if (!_isHoveringWarpLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isHoveringWarpLabel = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringWarpLabel) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpLabel = false);
+                      }
+                    });
+                  }
+                },
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: widget.onWarpToggle,
@@ -618,8 +632,24 @@ class _SamplerControlsBarState extends State<SamplerControlsBar> {
               ),
               // Right side: dropdown
               MouseRegion(
-                onEnter: (_) => setState(() => _isHoveringWarpDropdown = true),
-                onExit: (_) => setState(() => _isHoveringWarpDropdown = false),
+                onEnter: (_) {
+                  if (!_isHoveringWarpDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpDropdown = true);
+                      }
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isHoveringWarpDropdown) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) {
+                        setState(() => _isHoveringWarpDropdown = false);
+                      }
+                    });
+                  }
+                },
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () => _showWarpModeMenu(context),

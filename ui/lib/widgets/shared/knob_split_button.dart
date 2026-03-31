@@ -117,8 +117,20 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
           children: [
             // Left side: Label + Value (clickable for apply action)
             MouseRegion(
-              onEnter: (_) => setState(() => _isHoveringLabel = true),
-              onExit: (_) => setState(() => _isHoveringLabel = false),
+              onEnter: (_) {
+                if (!_isHoveringLabel) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringLabel = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isHoveringLabel) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringLabel = false);
+                  });
+                }
+              },
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: widget.onApply,
@@ -174,8 +186,20 @@ class _KnobSplitButtonState extends State<KnobSplitButton> {
 
             // Right side: Dropdown arrow (opens knob popup)
             MouseRegion(
-              onEnter: (_) => setState(() => _isHoveringDropdown = true),
-              onExit: (_) => setState(() => _isHoveringDropdown = false),
+              onEnter: (_) {
+                if (!_isHoveringDropdown) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringDropdown = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isHoveringDropdown) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringDropdown = false);
+                  });
+                }
+              },
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: _showKnobPopup,

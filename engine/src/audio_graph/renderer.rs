@@ -522,6 +522,10 @@ impl AudioGraph {
                 // This prevents lock contention that causes audio dropouts
                 let mut synth_guard = Some(track_synth_manager.lock());
 
+                // OPTIMIZATION: Lock effect manager ONCE before the frame loop
+                // This prevents per-track per-frame lock contention that can cause audio dropouts
+                let mut effect_guard = effect_manager.lock();
+
                 // Check if recording is active (skip clip playback on armed tracks)
                 let is_recording = *recorder_refs.state.lock() == crate::recorder::RecordingState::Recording;
 
@@ -594,15 +598,12 @@ impl AudioGraph {
 
                                                     // Send to VST3 instruments in FX chain
                                                     if has_vst3 {
-                                                        { let effect_mgr = effect_manager.lock();
-                                                            for effect_id in &track_snap.fx_chain {
-                                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                    { let mut effect = effect_arc.lock();
-                                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                            let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
-                                                                        }
-                                                                    }
+                                                        for effect_id in &track_snap.fx_chain {
+                                                            if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                                                                let mut effect = effect_arc.lock();
+                                                                #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                                if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                    let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
                                                                 }
                                                             }
                                                         }
@@ -616,15 +617,12 @@ impl AudioGraph {
 
                                                     // Send to VST3 instruments in FX chain
                                                     if has_vst3 {
-                                                        { let effect_mgr = effect_manager.lock();
-                                                            for effect_id in &track_snap.fx_chain {
-                                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                                    { let mut effect = effect_arc.lock();
-                                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                                            let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
-                                                                        }
-                                                                    }
+                                                        for effect_id in &track_snap.fx_chain {
+                                                            if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                                                                let mut effect = effect_arc.lock();
+                                                                #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                                if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                    let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
                                                                 }
                                                             }
                                                         }
@@ -656,9 +654,7 @@ impl AudioGraph {
                         }
 
                         // Process FX chain BEFORE volume/pan (fader controls post-FX level)
-                        let (mut fx_left, mut fx_right) = { let mut effect_mgr = effect_manager.lock();
-                            process_effect_chain(&track_snap.fx_chain, &mut effect_mgr, track_left, track_right, false)
-                        };
+                        let (mut fx_left, mut fx_right) = process_effect_chain(&track_snap.fx_chain, &mut effect_guard, track_left, track_right, false);
 
                         // Apply track volume AFTER FX chain (from snapshot)
                         // This ensures VST3 instrument output is also affected by the fader
@@ -703,11 +699,9 @@ impl AudioGraph {
                         master_right *= master_snap.pan_right;
 
                         // Process master FX chain
-                        { let mut effect_mgr = effect_manager.lock();
-                            let (ml, mr) = process_effect_chain(&master_snap.fx_chain, &mut effect_mgr, master_left, master_right, false);
-                            master_left = ml;
-                            master_right = mr;
-                        }
+                        let (ml, mr) = process_effect_chain(&master_snap.fx_chain, &mut effect_guard, master_left, master_right, false);
+                        master_left = ml;
+                        master_right = mr;
                     }
 
                     // Apply master limiter to prevent clipping
@@ -739,6 +733,9 @@ impl AudioGraph {
                     data[frame_idx * 2] = output_left;
                     data[frame_idx * 2 + 1] = output_right;
                 }
+
+                // Release effect manager lock before acquiring track_manager lock for peak updates
+                drop(effect_guard);
 
                 // Update track peak levels and monitoring fade gains (brief lock after buffer processing)
                 { let tm = track_manager.lock();

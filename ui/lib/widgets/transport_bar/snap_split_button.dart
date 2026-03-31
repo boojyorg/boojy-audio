@@ -156,8 +156,20 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
             // Left zone: icon + "Snap" label (toggle on/off)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isIconHovered = true),
-              onExit: (_) => setState(() => _isIconHovered = false),
+              onEnter: (_) {
+                if (!_isIconHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isIconHovered = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isIconHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isIconHovered = false);
+                  });
+                }
+              },
               child: GestureDetector(
                 onTap: _toggleSnap,
                 behavior: HitTestBehavior.opaque,
@@ -206,8 +218,20 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
             // Right zone: current value text (opens dropdown)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isChevronHovered = true),
-              onExit: (_) => setState(() => _isChevronHovered = false),
+              onEnter: (_) {
+                if (!_isChevronHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isChevronHovered = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isChevronHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isChevronHovered = false);
+                  });
+                }
+              },
               child: GestureDetector(
                 onTap: () => _showSnapMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,
