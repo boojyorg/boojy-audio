@@ -96,7 +96,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: colors.darkest,
+                  color: colors.dark,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _isDragging ? colors.accent : colors.divider,
@@ -172,7 +172,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
 
         // App logo
         Image.asset(
@@ -183,7 +183,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
         const SizedBox(height: 4),
         Image.asset(
           'assets/images/boojy_audio_text.png',
-          width: 130,
+          width: 160,
           fit: BoxFit.contain,
         ),
 
@@ -260,7 +260,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
             'Recent Projects',
             style: TextStyle(
               color: colors.textSecondary,
-              fontSize: BT.fontBody,
+              fontSize: 20,
               fontWeight: BT.weightSemiBold,
             ),
           ),
@@ -270,7 +270,10 @@ class _StartScreenModalState extends State<StartScreenModal> {
             projects: projects,
             onOpen: (project) {
               Navigator.of(context).pop(
-                StartScreenResult(StartScreenAction.openRecent, project.path),
+                StartScreenResult(
+                  StartScreenAction.openRecent,
+                  project.path,
+                ),
               );
             },
             onRemove: (project) {
@@ -291,7 +294,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
 
   Widget _buildBottomBar(BoojyColors colors) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 6, 32, 12),
+      padding: const EdgeInsets.fromLTRB(32, 6, 32, 6),
       child: Row(
         children: [
           Text(
@@ -358,7 +361,7 @@ class _ActionButtonState extends State<_ActionButton> {
           decoration: BoxDecoration(
             color: widget.isPrimary
                 ? (_isHovering ? colors.accentHover : colors.accent)
-                : (_isHovering ? colors.hover : colors.standard),
+                : (_isHovering ? colors.dark : colors.darkest),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: widget.isPrimary
@@ -438,7 +441,7 @@ class _UpdateButtonState extends State<_UpdateButton> {
           duration: AnimationConstants.quickDuration,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: _isHovering ? colors.hover : colors.standard,
+            color: _isHovering ? colors.dark : colors.darkest,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: _isHovering ? colors.divider : Colors.transparent,

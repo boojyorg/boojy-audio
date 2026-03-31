@@ -58,22 +58,19 @@ class _ProjectCardState extends State<ProjectCard> {
         child: AnimatedContainer(
           duration: AnimationConstants.hoverDuration,
           decoration: BoxDecoration(
-            color: _isHovering ? colors.hover : colors.standard,
+            color: colors.darkest,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _isHovering
                   ? colors.accent.withValues(alpha: 0.6)
                   : colors.divider,
-              width: _isHovering ? 1.5 : 1.0,
+              width: _isHovering ? 1.5 : 1,
             ),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Colour bar at top (4px, derived from project name hash)
-              Container(height: 4, color: _projectColor(widget.project.name)),
-
               // Thumbnail area
               Expanded(
                 child: hasThumbnail
@@ -86,38 +83,43 @@ class _ProjectCardState extends State<ProjectCard> {
                     : _buildPlaceholder(context),
               ),
 
-              // Name + relative time row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.project.name,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: BT.fontBody,
-                          fontWeight: BT.weightSemiBold,
+              // Name + metadata area — slightly lighter than thumbnail
+              ColoredBox(
+                color: colors.dark,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.project.name,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: BT.fontBody,
+                            fontWeight: BT.weightSemiBold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _relativeTime(widget.project.openedAt),
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: BT.fontLabel,
+                      const SizedBox(width: 8),
+                      Text(
+                        _relativeTime(widget.project.openedAt),
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: BT.fontLabel,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
               // Track count + BPM row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              ColoredBox(
+                color: colors.dark,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
                 child: Row(
                   children: [
                     if (widget.project.trackCount != null)
@@ -148,7 +150,8 @@ class _ProjectCardState extends State<ProjectCard> {
                           fontSize: BT.fontLabel,
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -258,20 +261,6 @@ class _ProjectCardState extends State<ProjectCard> {
   }
 
   /// Generate a colour from the project name hash for the card accent bar.
-  static Color _projectColor(String name) {
-    const palette = [
-      Color(0xFFEF4444), // red
-      Color(0xFFF97316), // orange
-      Color(0xFF22C55E), // green
-      Color(0xFF3B82F6), // blue
-      Color(0xFF9775FA), // purple
-      Color(0xFFEC4899), // pink
-      Color(0xFF40B3E8), // cyan
-      Color(0xFFFACC15), // yellow
-    ];
-    return palette[name.hashCode.abs() % palette.length];
-  }
-
   /// Shorten a path for display (replace home dir with ~)
   static String _shortenPath(String path) {
     final home = Platform.environment['HOME'] ?? '';
