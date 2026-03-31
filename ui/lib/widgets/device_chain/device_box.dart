@@ -150,19 +150,13 @@ class _DeviceBoxState extends State<DeviceBox> {
       ],
     );
 
-    final row = Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: content),
         strip,
       ],
     );
-
-    // For content-height devices (effects), use IntrinsicHeight so the
-    // strip matches the content Column's height instead of stretching.
-    if (!widget.expandContent) {
-      return IntrinsicHeight(child: row);
-    }
-    return row;
   }
 
   Widget _buildHeader(BoojyColors colors) {

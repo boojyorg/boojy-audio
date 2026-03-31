@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../audio_engine.dart';
 import '../../models/instrument_data.dart';
+import '../../models/library_item.dart';
+import '../../models/vst3_plugin_data.dart';
 import '../../services/undo_redo_manager.dart';
 import '../../services/commands/effect_commands.dart';
 import '../../services/vst3_editor_service.dart';
@@ -11,6 +13,7 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 import '../effect_parameter_panel.dart';
+import '../instrument_browser.dart';
 import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
 import 'device_box.dart';
@@ -34,6 +37,12 @@ class DeviceChainView extends StatefulWidget {
   final Function(InstrumentData)? onInstrumentParameterChanged;
   final Function(double volumeDb)? onTrackVolumeChanged;
 
+  // External drag-and-drop callbacks
+  final Function(String effectType, {int? insertIndex})? onBuiltInEffectDropped;
+  final Function(Vst3Plugin plugin, {int? insertIndex})? onVst3EffectDropped;
+  final Function(Instrument)? onInstrumentDropped;
+  final Function(Vst3Plugin)? onVst3InstrumentDropped;
+
   const DeviceChainView({
     super.key,
     required this.selectedTrackId,
@@ -46,6 +55,10 @@ class DeviceChainView extends StatefulWidget {
     this.onResetRegistered,
     this.onInstrumentParameterChanged,
     this.onTrackVolumeChanged,
+    this.onBuiltInEffectDropped,
+    this.onVst3EffectDropped,
+    this.onInstrumentDropped,
+    this.onVst3InstrumentDropped,
   });
 
   @override
@@ -62,6 +75,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
   final Map<String, double> _localParamOverrides =
       {}; // "effectId:paramName" → value
   bool _isDraggingSlider = false;
+
+  // External drag state for insertion gap animation
+  int? _externalDragInsertionIndex; // null = no external drag, else insertion position
+  bool _isExternalDragOver = false; // true when a compatible external item hovers over chain
 
   // Per-effect display levels (after decay smoothing). Key = effectId.
   final Map<int, (double, double)> _displayLevels = {};
@@ -259,7 +276,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     await UndoRedoManager().execute(command);
   }
 
-  Future<void> _addEffect(String type) async {
+  Future<void> _addEffect(String type, {int? insertIndex}) async {
     if (widget.selectedTrackId == null) return;
 
     final command = AddEffectCommand(
@@ -268,8 +285,14 @@ class _DeviceChainViewState extends State<DeviceChainView>
       effectType: type,
       effectName: _getEffectDisplayName(type),
       isVst3: false,
-      onEffectAdded: (_) {
-        if (mounted) _loadEffects();
+      onEffectAdded: (effectId) {
+        if (mounted) {
+          _loadEffects();
+          // If a specific insertion position was requested, reorder after adding
+          if (insertIndex != null && insertIndex < _effects.length) {
+            _reorderEffect(effectId, insertIndex);
+          }
+        }
       },
       onEffectRemoved: (_) {
         if (mounted) _loadEffects();
@@ -365,6 +388,201 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   VoidCallback? _resetPluginToDefault;
+
+  // --- Right-click context menus ---
+
+  Future<void> _showEffectContextMenu(
+    Offset position,
+    EffectData effect,
+  ) async {
+    final colors = context.themeProvider.colors;
+    setState(() => _selectedDeviceId = effect.id);
+
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'bypass',
+          child: Row(
+            children: [
+              Icon(
+                effect.bypassed ? BI.lightning : BI.lightning,
+                size: 14,
+                color: colors.textPrimary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                effect.bypassed ? 'Enable' : 'Bypass',
+                style: TextStyle(color: colors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'duplicate',
+          child: Row(
+            children: [
+              Icon(BI.copy, size: 14, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text('Duplicate', style: TextStyle(color: colors.textPrimary)),
+              const Spacer(),
+              Text(
+                '⌘D',
+                style: TextStyle(color: colors.textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'reset',
+          child: Row(
+            children: [
+              Icon(BI.refresh, size: 14, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text(
+                'Reset to Default',
+                style: TextStyle(color: colors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(BI.delete, size: 14, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: colors.textPrimary)),
+              const Spacer(),
+              Text(
+                '⌫',
+                style: TextStyle(color: colors.textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case 'bypass':
+        await _toggleBypass(effect.id);
+      case 'duplicate':
+        setState(() => _selectedDeviceId = effect.id);
+        await _duplicateSelectedEffect();
+      case 'reset':
+        // Reset effect parameters to defaults — reload from engine
+        break;
+      case 'delete':
+        await _removeEffect(effect.id);
+    }
+  }
+
+  Future<void> _showInstrumentContextMenu(
+    Offset position,
+    InstrumentData instrument,
+    String name,
+  ) async {
+    final colors = context.themeProvider.colors;
+    final isVst3 = instrument.isVst3;
+    setState(() => _selectedDeviceId = -1);
+
+    final items = <PopupMenuEntry<String>>[
+      if (isVst3) ...[
+        PopupMenuItem(
+          value: 'float',
+          enabled: widget.onFloatPlugin != null && !widget.isFloated,
+          child: Row(
+            children: [
+              Icon(BI.openInNew, size: 14, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              Text(
+                'Float to Window',
+                style: TextStyle(color: colors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+        if (widget.isFloated)
+          PopupMenuItem(
+            value: 'embed',
+            child: Row(
+              children: [
+                Icon(BI.arrowDown, size: 14, color: colors.textPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  'Embed in Panel',
+                  style: TextStyle(color: colors.textPrimary),
+                ),
+              ],
+            ),
+          ),
+        const PopupMenuDivider(),
+      ],
+      PopupMenuItem(
+        value: 'reset',
+        child: Row(
+          children: [
+            Icon(BI.refresh, size: 14, color: colors.textPrimary),
+            const SizedBox(width: 8),
+            Text(
+              'Reset to Default',
+              style: TextStyle(color: colors.textPrimary),
+            ),
+          ],
+        ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(BI.delete, size: 14, color: colors.textPrimary),
+            const SizedBox(width: 8),
+            Text('Delete', style: TextStyle(color: colors.textPrimary)),
+          ],
+        ),
+      ),
+    ];
+
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: items,
+    );
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case 'float':
+        if (instrument.effectId != null) {
+          widget.onFloatPlugin?.call(instrument.effectId!, name);
+        }
+      case 'embed':
+        if (instrument.effectId != null) {
+          widget.onEmbedPlugin?.call(instrument.effectId!);
+        }
+      case 'reset':
+        _resetPluginToDefault?.call();
+      case 'delete':
+        // Remove instrument — leaves empty placeholder
+        // TODO: implement instrument removal (creates empty placeholder)
+        break;
+    }
+  }
 
   // --- Keyboard ---
 
@@ -462,19 +680,28 @@ class _DeviceChainViewState extends State<DeviceChainView>
         onTap: () => setState(() => _selectedDeviceId = null),
         child: ColoredBox(
           color: colors.darkest,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final chainHeight = constraints.maxHeight;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _buildChainItems(colors, chainHeight),
-                  ),
-                );
-              },
+          child: _wrapWithDragHighlight(
+            isActive: _isExternalDragOver,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: colors.accent.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final chainHeight = constraints.maxHeight;
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _buildChainItems(colors, chainHeight),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -482,74 +709,265 @@ class _DeviceChainViewState extends State<DeviceChainView>
     );
   }
 
+  /// Whether a drag data object is a compatible effect for drop.
+  bool _isEffectDragData(Object data) {
+    if (data is int) return false; // Internal reorder — handled by inner target
+    if (data is EffectItem) return true;
+    if (data is Vst3Plugin && !data.isInstrument) return true;
+    return false;
+  }
+
+  /// Whether a drag data object is a compatible instrument for drop.
+  bool _isInstrumentDragData(Object data) {
+    if (data is Instrument) return true;
+    if (data is Vst3Plugin && data.isInstrument) return true;
+    return false;
+  }
+
+  /// Handle an accepted effect drop.
+  void _handleEffectDrop(Object data, {int? insertIndex}) {
+    setState(() {
+      _externalDragInsertionIndex = null;
+      _isExternalDragOver = false;
+    });
+    if (data is EffectItem) {
+      // Use chain's own _addEffect for immediate refresh + undo support
+      _addEffect(data.effectType, insertIndex: insertIndex);
+    } else if (data is Vst3Plugin) {
+      // VST3 effects need external callback (chain doesn't have VST3 add logic)
+      widget.onVst3EffectDropped?.call(data, insertIndex: insertIndex);
+    }
+  }
+
+  /// Handle an accepted instrument drop.
+  void _handleInstrumentDrop(Object data) {
+    setState(() {
+      _externalDragInsertionIndex = null;
+      _isExternalDragOver = false;
+    });
+    if (data is Instrument) {
+      widget.onInstrumentDropped?.call(data);
+    } else if (data is Vst3Plugin && data.isInstrument) {
+      widget.onVst3InstrumentDropped?.call(data);
+    }
+  }
+
   List<Widget> _buildChainItems(BoojyColors colors, double chainHeight) {
     final items = <Widget>[];
     final hasInstrument = widget.instrumentData != null;
 
-    // Instrument device box (MIDI/Sampler tracks only)
+    // Instrument device box (MIDI/Sampler tracks only) — wrapped with instrument DragTarget
     if (hasInstrument) {
-      items.add(_buildInstrumentDevice(colors, chainHeight));
-      items.add(_buildArrow(colors, chainHeight));
+      items.add(_buildInstrumentDeviceWithDragTarget(colors, chainHeight));
+      items.add(_buildArrowWithDragTarget(colors, chainHeight, 0));
     }
 
-    // Effect device boxes (draggable for reorder)
+    // Insertion gap at position 0 (before first effect, after instrument arrow)
+    if (_externalDragInsertionIndex == 0) {
+      items.add(_buildInsertionGap(colors, chainHeight));
+    }
+
+    // Effect device boxes (draggable for reorder + external drop targets)
     for (var i = 0; i < _effects.length; i++) {
       final effect = _effects[i];
       items.add(
-        DragTarget<int>(
-          onWillAcceptWithDetails: (details) => details.data != effect.id,
-          onAcceptWithDetails: (details) {
-            _reorderEffect(details.data, i);
+        DragTarget<Object>(
+          onWillAcceptWithDetails: (details) {
+            return _isEffectDragData(details.data);
           },
-          builder: (context, candidateData, rejectedData) {
-            final isDropTarget = candidateData.isNotEmpty;
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isDropTarget)
-                  Container(
-                    width: 2,
-                    color: colors.accent,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                  ),
-                LongPressDraggable<int>(
-                  data: effect.id,
-                  axis: Axis.horizontal,
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.75,
-                      child: SizedBox(
-                        width: _getEffectWidth(effect.type),
-                        height: 120,
+          onAcceptWithDetails: (details) {
+            final idx = _externalDragInsertionIndex;
+            _handleEffectDrop(details.data, insertIndex: idx);
+          },
+          onLeave: (_) {
+            if (_externalDragInsertionIndex == i + 1) {
+              setState(() => _externalDragInsertionIndex = null);
+            }
+          },
+          onMove: (details) {
+            if (_externalDragInsertionIndex != i + 1) {
+              setState(() {
+                _externalDragInsertionIndex = i + 1;
+                _isExternalDragOver = true;
+              });
+            }
+          },
+          builder: (context, candidates, rejected) {
+            // Inner: internal reorder DragTarget + LongPressDraggable
+            return DragTarget<int>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data != effect.id,
+              onAcceptWithDetails: (details) {
+                _reorderEffect(details.data, i);
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isDropTarget = candidateData.isNotEmpty;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isDropTarget)
+                      Container(
+                        width: 2,
+                        color: colors.accent,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                      ),
+                    SizedBox(
+                      height: chainHeight,
+                      child: LongPressDraggable<int>(
+                        data: effect.id,
+                        axis: Axis.horizontal,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Opacity(
+                            opacity: 0.75,
+                            child: SizedBox(
+                              width: _getEffectWidth(effect.type),
+                              height: 120,
+                              child: _buildEffectDevice(colors, effect),
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.3,
+                          child: _buildEffectDevice(colors, effect),
+                        ),
                         child: _buildEffectDevice(colors, effect),
                       ),
                     ),
-                  ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _buildEffectDevice(colors, effect),
-                  ),
-                  child: _buildEffectDevice(colors, effect),
-                ),
-              ],
+                  ],
+                );
+              },
             );
           },
         ),
       );
       items.add(_buildArrow(colors, chainHeight));
+
+      // Insertion gap after this effect
+      if (_externalDragInsertionIndex == i + 1) {
+        items.add(_buildInsertionGap(colors, chainHeight));
+      }
     }
 
     // Effect hint placeholder (no effects yet) — replaces [+] button
     if (_effects.isEmpty) {
-      items.add(_buildEffectHintPlaceholder(colors, chainHeight));
+      items.add(_buildEffectHintPlaceholderWithDragTarget(colors, chainHeight));
     } else {
+      // Insertion gap at the end (before [+] button)
+      if (_externalDragInsertionIndex == _effects.length &&
+          _externalDragInsertionIndex != 0) {
+        // Gap already added after last effect above
+      }
       // [+] Add effect button (only when effects already exist)
-      items.add(_buildAddButton(colors, chainHeight));
+      items.add(_buildAddButtonWithDragTarget(colors, chainHeight));
     }
 
     return items;
+  }
+
+  /// Conditionally wraps a child with an accent highlight decoration.
+  /// Returns the child directly when inactive to satisfy use_decorated_box lint.
+  Widget _wrapWithDragHighlight({
+    required bool isActive,
+    required Widget child,
+    double borderRadius = 8,
+    Decoration? decoration,
+  }) {
+    if (!isActive) return child;
+    final colors = context.colors;
+    return DecoratedBox(
+      decoration: decoration ??
+          BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: colors.accent, width: 2),
+            color: colors.accent.withValues(alpha: 0.15),
+          ),
+      child: child,
+    );
+  }
+
+  /// Animated insertion gap shown between effects during external drag.
+  Widget _buildInsertionGap(BoojyColors colors, double chainHeight) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      width: 50,
+      height: chainHeight,
+      child: Center(
+        child: Container(
+          width: 2,
+          height: chainHeight - 16,
+          decoration: BoxDecoration(
+            color: colors.accent,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Instrument device with drag target ---
+
+  /// Wraps the instrument device box with a DragTarget for instrument drops.
+  Widget _buildInstrumentDeviceWithDragTarget(
+    BoojyColors colors,
+    double chainHeight,
+  ) {
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) =>
+          _isInstrumentDragData(details.data),
+      onAcceptWithDetails: (details) {
+        _handleInstrumentDrop(details.data);
+      },
+      onMove: (_) {
+        if (!_isExternalDragOver) {
+          setState(() => _isExternalDragOver = true);
+        }
+      },
+      onLeave: (_) {
+        setState(() => _isExternalDragOver = false);
+      },
+      builder: (context, candidates, rejected) {
+        final isHovered = candidates.isNotEmpty;
+        return _wrapWithDragHighlight(
+          isActive: isHovered,
+          borderRadius: 6,
+          child: _buildInstrumentDevice(colors, chainHeight),
+        );
+      },
+    );
+  }
+
+  /// Arrow between instrument and effects — acts as drop target for index 0.
+  Widget _buildArrowWithDragTarget(
+    BoojyColors colors,
+    double chainHeight,
+    int insertIndex,
+  ) {
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) =>
+          _isEffectDragData(details.data),
+      onAcceptWithDetails: (details) {
+        _handleEffectDrop(details.data, insertIndex: insertIndex);
+      },
+      onMove: (_) {
+        if (_externalDragInsertionIndex != insertIndex) {
+          setState(() {
+            _externalDragInsertionIndex = insertIndex;
+            _isExternalDragOver = true;
+          });
+        }
+      },
+      onLeave: (_) {
+        if (_externalDragInsertionIndex == insertIndex) {
+          setState(() => _externalDragInsertionIndex = null);
+        }
+      },
+      builder: (context, candidates, rejected) {
+        return _buildArrow(colors, chainHeight);
+      },
+    );
   }
 
   // --- Instrument device ---
@@ -568,36 +986,40 @@ class _DeviceChainViewState extends State<DeviceChainView>
         ? (_displayLevels[instrument.effectId!] ?? (0.0, 0.0))
         : (0.0, 0.0);
 
-    return SizedBox(
-      height: chainHeight,
-      child: DeviceBox(
-        deviceType: DeviceType.instrument,
-        deviceKind: isVst3 ? DeviceKind.vst3Plugin : DeviceKind.builtIn,
-        headerMode: headerMode,
-        name: name,
-        icon: icon,
-        isEnabled: true,
-        isSelected: _selectedDeviceId == -1,
-        isFloated: widget.isFloated,
-        width: _getInstrumentWidth(chainHeight),
-        leftLevel: instrumentLevels.$1,
-        rightLevel: instrumentLevels.$2,
-        showVolumeThumb: true,
-        volumeDb: _trackVolumeDb,
-        onVolumeChanged: (db) {
-          setState(() => _trackVolumeDb = db);
-          widget.audioEngine?.setTrackVolume(widget.selectedTrackId!, db);
-          widget.onTrackVolumeChanged?.call(db);
-        },
-        onToggleEnabled: null, // Instrument on/off: future
-        onFloat: isVst3 && widget.onFloatPlugin != null
-            ? () => widget.onFloatPlugin!(instrument.effectId!, name)
-            : null,
-        onEmbed: isVst3 && widget.onEmbedPlugin != null
-            ? () => widget.onEmbedPlugin!(instrument.effectId!)
-            : null,
-        onNameTap: () => _showInstrumentDropdown(context, name),
-        child: _buildInstrumentContent(chainHeight),
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showInstrumentContextMenu(details.globalPosition, instrument, name),
+      child: SizedBox(
+        height: chainHeight,
+        child: DeviceBox(
+          deviceType: DeviceType.instrument,
+          deviceKind: isVst3 ? DeviceKind.vst3Plugin : DeviceKind.builtIn,
+          headerMode: headerMode,
+          name: name,
+          icon: icon,
+          isEnabled: true,
+          isSelected: _selectedDeviceId == -1,
+          isFloated: widget.isFloated,
+          width: _getInstrumentWidth(chainHeight),
+          leftLevel: instrumentLevels.$1,
+          rightLevel: instrumentLevels.$2,
+          showVolumeThumb: true,
+          volumeDb: _trackVolumeDb,
+          onVolumeChanged: (db) {
+            setState(() => _trackVolumeDb = db);
+            widget.audioEngine?.setTrackVolume(widget.selectedTrackId!, db);
+            widget.onTrackVolumeChanged?.call(db);
+          },
+          onToggleEnabled: null, // Instrument on/off: future
+          onFloat: isVst3 && widget.onFloatPlugin != null
+              ? () => widget.onFloatPlugin!(instrument.effectId!, name)
+              : null,
+          onEmbed: isVst3 && widget.onEmbedPlugin != null
+              ? () => widget.onEmbedPlugin!(instrument.effectId!)
+              : null,
+          onNameTap: () => _showInstrumentDropdown(context, name),
+          child: _buildInstrumentContent(chainHeight),
+        ),
       ),
     );
   }
@@ -727,7 +1149,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   Widget _buildEffectDevice(BoojyColors colors, EffectData effect) {
     final levels = _displayLevels[effect.id] ?? (0.0, 0.0);
-    return DeviceBox(
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showEffectContextMenu(details.globalPosition, effect),
+      child: DeviceBox(
       deviceType: DeviceType.effect,
       deviceKind: effect.type.startsWith('vst3:')
           ? DeviceKind.vst3Plugin
@@ -748,6 +1173,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         _getEffectDisplayName(effect.type),
       ),
       child: _buildEffectContent(effect),
+    ),
     );
   }
 
@@ -914,6 +1340,78 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   // --- Empty state placeholders ---
+
+  /// Empty placeholder wrapped with DragTarget for effect drops.
+  Widget _buildEffectHintPlaceholderWithDragTarget(
+    BoojyColors colors,
+    double chainHeight,
+  ) {
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) =>
+          _isEffectDragData(details.data),
+      onAcceptWithDetails: (details) {
+        _handleEffectDrop(details.data);
+      },
+      onMove: (_) {
+        if (!_isExternalDragOver) {
+          setState(() {
+            _isExternalDragOver = true;
+            _externalDragInsertionIndex = _effects.length;
+          });
+        }
+      },
+      onLeave: (_) {
+        setState(() {
+          _isExternalDragOver = false;
+          _externalDragInsertionIndex = null;
+        });
+      },
+      builder: (context, candidates, rejected) {
+        final isHovered = candidates.isNotEmpty;
+        return _wrapWithDragHighlight(
+          isActive: isHovered,
+          borderRadius: 6,
+          child: _buildEffectHintPlaceholder(colors, chainHeight),
+        );
+      },
+    );
+  }
+
+  /// [+] button wrapped with DragTarget for effect drops (append).
+  Widget _buildAddButtonWithDragTarget(
+    BoojyColors colors,
+    double chainHeight,
+  ) {
+    return DragTarget<Object>(
+      onWillAcceptWithDetails: (details) =>
+          _isEffectDragData(details.data),
+      onAcceptWithDetails: (details) {
+        _handleEffectDrop(details.data);
+      },
+      onMove: (_) {
+        if (!_isExternalDragOver) {
+          setState(() {
+            _isExternalDragOver = true;
+            _externalDragInsertionIndex = _effects.length;
+          });
+        }
+      },
+      onLeave: (_) {
+        setState(() {
+          _isExternalDragOver = false;
+          _externalDragInsertionIndex = null;
+        });
+      },
+      builder: (context, candidates, rejected) {
+        final isHovered = candidates.isNotEmpty;
+        return _wrapWithDragHighlight(
+          isActive: isHovered,
+          borderRadius: 6,
+          child: _buildAddButton(colors, chainHeight),
+        );
+      },
+    );
+  }
 
   Widget _buildEffectHintPlaceholder(BoojyColors colors, double chainHeight) {
     return Builder(
