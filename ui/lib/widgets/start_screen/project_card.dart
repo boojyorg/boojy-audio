@@ -40,8 +40,20 @@ class _ProjectCardState extends State<ProjectCard> {
       onTap: widget.onTap,
       onSecondaryTapUp: (details) => _showContextMenu(context, details),
       child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit: (_) => setState(() => _isHovering = false),
+        onEnter: (_) {
+          if (!_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = false);
+            });
+          }
+        },
         cursor: SystemMouseCursors.click,
         child: AnimatedContainer(
           duration: AnimationConstants.hoverDuration,

@@ -421,8 +421,20 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         children: [
           // Left side: Label (clickable for toggle)
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringSnapLabel = true),
-            onExit: (_) => setState(() => _isHoveringSnapLabel = false),
+            onEnter: (_) {
+              if (!_isHoveringSnapLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _isHoveringSnapLabel = true);
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringSnapLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _isHoveringSnapLabel = false);
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: widget.onSnapToggle,
@@ -465,8 +477,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
           // Right side: Dropdown arrow
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringSnapDropdown = true),
-            onExit: (_) => setState(() => _isHoveringSnapDropdown = false),
+            onEnter: (_) {
+              if (!_isHoveringSnapDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringSnapDropdown = true);
+                  }
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringSnapDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringSnapDropdown = false);
+                  }
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => _showSnapMenu(context),
@@ -541,8 +569,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         children: [
           // Left side: Icon + Label (clickable for quantize action)
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringQuantizeLabel = true),
-            onExit: (_) => setState(() => _isHoveringQuantizeLabel = false),
+            onEnter: (_) {
+              if (!_isHoveringQuantizeLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringQuantizeLabel = true);
+                  }
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringQuantizeLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringQuantizeLabel = false);
+                  }
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: widget.onQuantize,
@@ -590,8 +634,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
           // Right side: Dropdown arrow
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringQuantizeDropdown = true),
-            onExit: (_) => setState(() => _isHoveringQuantizeDropdown = false),
+            onEnter: (_) {
+              if (!_isHoveringQuantizeDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringQuantizeDropdown = true);
+                  }
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringQuantizeDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringQuantizeDropdown = false);
+                  }
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => _showQuantizeMenu(context),
@@ -865,8 +925,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         children: [
           // Left side: Toggle icon + label (clickable to toggle highlight)
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringScaleToggle = true),
-            onExit: (_) => setState(() => _isHoveringScaleToggle = false),
+            onEnter: (_) {
+              if (!_isHoveringScaleToggle) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringScaleToggle = true);
+                  }
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringScaleToggle) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringScaleToggle = false);
+                  }
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: widget.onHighlightToggle,
@@ -913,8 +989,24 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
           // Right side: Dropdown arrow (opens scale menu)
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringScaleDropdown = true),
-            onExit: (_) => setState(() => _isHoveringScaleDropdown = false),
+            onEnter: (_) {
+              if (!_isHoveringScaleDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringScaleDropdown = true);
+                  }
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringScaleDropdown) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _isHoveringScaleDropdown = false);
+                  }
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => _showScaleMenuFromButton(context),

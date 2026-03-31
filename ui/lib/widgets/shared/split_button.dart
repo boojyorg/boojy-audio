@@ -93,8 +93,20 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
         children: [
           // Left side: Icon + Label (clickable for primary action)
           MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringLabel = true),
-            onExit: (_) => setState(() => _isHoveringLabel = false),
+            onEnter: (_) {
+              if (!_isHoveringLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _isHoveringLabel = true);
+                });
+              }
+            },
+            onExit: (_) {
+              if (_isHoveringLabel) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _isHoveringLabel = false);
+                });
+              }
+            },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: widget.onLabelTap,
@@ -138,8 +150,20 @@ class _SplitButtonState<T> extends State<SplitButton<T>> {
           // Right side: Dropdown arrow
           if (widget.showDropdown && widget.dropdownItems.isNotEmpty)
             MouseRegion(
-              onEnter: (_) => setState(() => _isHoveringDropdown = true),
-              onExit: (_) => setState(() => _isHoveringDropdown = false),
+              onEnter: (_) {
+                if (!_isHoveringDropdown) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringDropdown = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isHoveringDropdown) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isHoveringDropdown = false);
+                  });
+                }
+              },
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: _showDropdown,
@@ -201,8 +225,20 @@ class _ToolbarButtonState extends State<ToolbarButton> {
     final textColor = colors.textPrimary;
 
     Widget button = MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      onEnter: (_) {
+        if (!_isHovering) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovering = true);
+          });
+        }
+      },
+      onExit: (_) {
+        if (_isHovering) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isHovering = false);
+          });
+        }
+      },
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,

@@ -195,8 +195,20 @@ class _IconToggleButtonState extends State<IconToggleButton> {
         cursor: widget.enabled
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) {
+          if (!_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = false);
+            });
+          }
+        },
         child: GestureDetector(
           onTap: widget.enabled ? widget.onTap : null,
           child: Padding(

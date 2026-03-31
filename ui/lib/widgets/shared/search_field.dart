@@ -152,8 +152,20 @@ class _SearchFieldState extends State<SearchField> {
             if (widget.showClearButton && _hasText) ...[
               const SizedBox(width: 4),
               MouseRegion(
-                onEnter: (_) => setState(() => _clearHovered = true),
-                onExit: (_) => setState(() => _clearHovered = false),
+                onEnter: (_) {
+                  if (!_clearHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _clearHovered = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_clearHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _clearHovered = false);
+                    });
+                  }
+                },
                 child: GestureDetector(
                   onTap: _clear,
                   child: Padding(

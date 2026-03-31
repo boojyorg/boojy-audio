@@ -337,8 +337,20 @@ class _ActionButtonState extends State<_ActionButton> {
       onTap: widget.onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit: (_) => setState(() => _isHovering = false),
+        onEnter: (_) {
+          if (!_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = false);
+            });
+          }
+        },
         child: AnimatedContainer(
           duration: AnimationConstants.quickDuration,
           width: double.infinity,
@@ -408,8 +420,20 @@ class _UpdateButtonState extends State<_UpdateButton> {
       onTap: widget.onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit: (_) => setState(() => _isHovering = false),
+        onEnter: (_) {
+          if (!_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovering) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovering = false);
+            });
+          }
+        },
         child: AnimatedContainer(
           duration: AnimationConstants.quickDuration,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

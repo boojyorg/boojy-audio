@@ -218,8 +218,20 @@ class _FileMenuButtonState extends State<FileMenuButton> {
       ],
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) {
+          if (!_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = false);
+            });
+          }
+        },
         child: AnimatedContainer(
           duration: AnimationConstants.hoverDuration,
           padding: EdgeInsets.symmetric(

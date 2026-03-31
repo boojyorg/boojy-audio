@@ -50,11 +50,25 @@ class _ZoomButtonState extends State<ZoomButton> {
         onTap: widget.onTap,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          }),
+          onEnter: (_) {
+            if (!_isHovered) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _isHovered = true);
+              });
+            }
+          },
+          onExit: (_) {
+            if (_isHovered || _isPressed) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _isHovered = false;
+                    _isPressed = false;
+                  });
+                }
+              });
+            }
+          },
           child: Container(
             width: 19,
             height: 19,

@@ -137,8 +137,20 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
             // Left zone: metronome icon (toggle on/off)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isLeftHovered = true),
-              onExit: (_) => setState(() => _isLeftHovered = false),
+              onEnter: (_) {
+                if (!_isLeftHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isLeftHovered = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isLeftHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isLeftHovered = false);
+                  });
+                }
+              },
               child: GestureDetector(
                 onTap: widget.onToggle,
                 behavior: HitTestBehavior.opaque,
@@ -177,8 +189,20 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
             // Right zone: count-in value text (opens dropdown)
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isRightHovered = true),
-              onExit: (_) => setState(() => _isRightHovered = false),
+              onEnter: (_) {
+                if (!_isRightHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isRightHovered = true);
+                  });
+                }
+              },
+              onExit: (_) {
+                if (_isRightHovered) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _isRightHovered = false);
+                  });
+                }
+              },
               child: GestureDetector(
                 onTap: () => _showCountInMenu(context, colors.accent),
                 behavior: HitTestBehavior.opaque,

@@ -431,8 +431,20 @@ class _VirtualPianoState extends State<VirtualPiano>
       onPanEnd: (_) => setState(() => _isResizeDragging = false),
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeRow,
-        onEnter: (_) => setState(() => _isResizeHovered = true),
-        onExit: (_) => setState(() => _isResizeHovered = false),
+        onEnter: (_) {
+          if (!_isResizeHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isResizeHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isResizeHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isResizeHovered = false);
+            });
+          }
+        },
         child: Container(
           // 8px invisible hit area for dragging (matching ResizableDivider)
           height: 8.0,

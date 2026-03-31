@@ -67,13 +67,10 @@ mixin DAWTrackMixin
   void _updateFloatingWindowVisibility(int selectedTrackId) {
     final selectedEffectIds =
         vst3PluginManager?.getTrackEffectIds(selectedTrackId) ?? [];
-    print('[DAW] _updateFloatingWindowVisibility: selectedTrackId=$selectedTrackId, selectedEffectIds=$selectedEffectIds, floatedPluginEffectIds=$floatedPluginEffectIds');
     for (final effectId in floatedPluginEffectIds) {
       if (selectedEffectIds.contains(effectId)) {
-        print('[DAW] → SHOW floating window for effectId=$effectId');
         VST3EditorService.showFloatingWindow(effectId);
       } else {
-        print('[DAW] → HIDE floating window for effectId=$effectId');
         VST3EditorService.hideFloatingWindow(effectId);
       }
     }

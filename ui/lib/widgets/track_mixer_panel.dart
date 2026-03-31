@@ -79,8 +79,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   /// Public getter for tracks (used by parent to access track state)
   List<TrackData> get tracks => _tracks;
   Timer? _levelTimer;
-  Map<int, (double, double)> _peakLevels = {}; // (left, right) stereo peaks
-  Map<int, (double, double)> _displayLevels = {}; // Smoothed levels with decay
+  final ValueNotifier<Map<int, (double, double)>> _displayLevelsNotifier =
+      ValueNotifier({}); // Smoothed stereo peak levels with decay
   DateTime _lastLevelUpdate = DateTime.now();
   bool _isAudioFileDragging = false;
   bool _forceDecayToZero = false; // When true, decay all meters to zero
@@ -89,7 +89,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   List<Map<String, dynamic>> _inputDevices = [];
 
   // Input level for armed tracks (track_id -> input level 0.0-1.0)
-  Map<int, double> _inputLevels = {};
+  final ValueNotifier<Map<int, double>> _inputLevelsNotifier = ValueNotifier(
+    {},
+  );
 
   // Drag-and-drop state
   int? _draggingIndex; // Current position of dragged track in the list
@@ -144,6 +146,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     widget.automationState.previewNotifier?.removeListener(_onPreviewChanged);
     _refreshTimer?.cancel();
     _levelTimer?.cancel();
+    _displayLevelsNotifier.dispose();
+    _inputLevelsNotifier.dispose();
     super.dispose();
   }
 
@@ -182,8 +186,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         }
 
         // Get previous display levels
-        final prevLeft = _displayLevels[track.id]?.$1 ?? 0.0;
-        final prevRight = _displayLevels[track.id]?.$2 ?? 0.0;
+        final prevLeft = _displayLevelsNotifier.value[track.id]?.$1 ?? 0.0;
+        final prevRight = _displayLevelsNotifier.value[track.id]?.$2 ?? 0.0;
 
         // Instant attack (new peak strictly higher), smooth decay otherwise
         // Using > instead of >= ensures decay happens when values are equal
@@ -227,11 +231,8 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
 
     if (mounted && (newLevels.isNotEmpty || newInputLevels.isNotEmpty)) {
-      setState(() {
-        _displayLevels = newLevels;
-        _peakLevels = newLevels;
-        _inputLevels = newInputLevels;
-      });
+      _displayLevelsNotifier.value = newLevels;
+      _inputLevelsNotifier.value = newInputLevels;
     }
   }
 
@@ -740,26 +741,29 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 
         // Master track pinned at bottom (outside scroll area)
         if (masterTrack.id != -1)
-          MasterTrackMixerStrip(
-            volumeDb: masterTrack.volumeDb,
-            pan: masterTrack.pan,
-            peakLevelLeft: _peakLevels[masterTrack.id]?.$1 ?? 0.0,
-            peakLevelRight: _peakLevels[masterTrack.id]?.$2 ?? 0.0,
-            trackHeight: widget.trackHeightState.masterTrackHeight,
-            onHeightChanged: widget.onMasterTrackHeightChanged,
-            stripWidth: widget.config.panelWidth,
-            onVolumeChanged: (volumeDb) {
-              setState(() {
-                masterTrack.volumeDb = volumeDb;
-              });
-              widget.audioEngine?.setTrackVolume(masterTrack.id, volumeDb);
-            },
-            onPanChanged: (pan) {
-              setState(() {
-                masterTrack.pan = pan;
-              });
-              widget.audioEngine?.setTrackPan(masterTrack.id, pan);
-            },
+          ValueListenableBuilder<Map<int, (double, double)>>(
+            valueListenable: _displayLevelsNotifier,
+            builder: (context, levels, _) => MasterTrackMixerStrip(
+              volumeDb: masterTrack.volumeDb,
+              pan: masterTrack.pan,
+              peakLevelLeft: levels[masterTrack.id]?.$1 ?? 0.0,
+              peakLevelRight: levels[masterTrack.id]?.$2 ?? 0.0,
+              trackHeight: widget.trackHeightState.masterTrackHeight,
+              onHeightChanged: widget.onMasterTrackHeightChanged,
+              stripWidth: widget.config.panelWidth,
+              onVolumeChanged: (volumeDb) {
+                setState(() {
+                  masterTrack.volumeDb = volumeDb;
+                });
+                widget.audioEngine?.setTrackVolume(masterTrack.id, volumeDb);
+              },
+              onPanChanged: (pan) {
+                setState(() {
+                  masterTrack.pan = pan;
+                });
+                widget.audioEngine?.setTrackPan(masterTrack.id, pan);
+              },
+            ),
           ),
       ],
     );
@@ -943,7 +947,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     return top + _dragOffsetY;
   }
 
-  /// Build the TrackMixerStrip widget
+  /// Build the TrackMixerStrip widget.
+  /// Meter levels are delivered via ValueListenableBuilder so only the meters
+  /// rebuild on the 50ms poll — the rest of the strip (name, fader, buttons)
+  /// stays untouched.
   Widget _buildTrackStrip(
     TrackData track,
     int index,
@@ -953,173 +960,209 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         widget.getTrackColor?.call(track.id, track.name, track.type) ??
         TrackColors.getTrackColor(index);
 
-    return TrackMixerStrip(
-      trackId: track.id,
-      displayIndex: index + 1, // 1-based sequential number
-      trackName: track.name,
-      trackType: track.type,
-      volumeDb: track.volumeDb,
-      pan: track.pan,
-      isMuted: track.mute,
-      isSoloed: track.solo,
-      peakLevelLeft: _peakLevels[track.id]?.$1 ?? 0.0,
-      peakLevelRight: _peakLevels[track.id]?.$2 ?? 0.0,
-      trackColor: trackColor,
-      audioEngine: widget.audioEngine,
-      isSelected:
-          widget.selectionState.selectedTrackIds?.contains(track.id) ??
-          widget.selectionState.selectedTrackId == track.id,
-      instrumentData: widget.trackInstruments?[track.id],
-      onInstrumentSelect: (instrumentId) {
-        widget.instrumentCallbacks.onInstrumentSelected?.call(
-          track.id,
-          instrumentId,
-        );
-      },
-      vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0,
-      onFxButtonPressed: () =>
-          widget.instrumentCallbacks.onFxButtonPressed?.call(track.id),
-      onVst3PluginDropped: (plugin) => widget
-          .instrumentCallbacks
-          .onVst3PluginDropped
-          ?.call(track.id, plugin),
-      onVst3InstrumentDropped: (plugin) => widget
-          .instrumentCallbacks
-          .onVst3InstrumentDropped
-          ?.call(track.id, plugin),
-      onInstrumentDropped: (instrument) => widget
-          .instrumentCallbacks
-          .onInstrumentDropped
-          ?.call(track.id, instrument),
-      onEditPluginsPressed: () =>
-          widget.instrumentCallbacks.onEditPluginsPressed?.call(track.id),
-      clipHeight: widget.trackHeightState.clipHeights[track.id] ?? 100.0,
-      automationHeight:
-          widget.trackHeightState.automationHeights[track.id] ?? 60.0,
-      stripWidth: widget.config.panelWidth,
-      onClipHeightChanged: (height) {
-        widget.trackHeightState.onClipHeightChanged?.call(track.id, height);
-      },
-      onAutomationHeightChanged: (height) {
-        widget.trackHeightState.onAutomationHeightChanged?.call(
-          track.id,
-          height,
-        );
-      },
-      onTap: (isShiftHeld) {
-        widget.selectionState.onTrackSelected?.call(
-          track.id,
-          isShiftHeld: isShiftHeld,
-        );
-      },
-      onDoubleTap: () {
-        widget.trackCallbacks.onDoubleClick?.call(track.id);
-      },
-      onVolumeChanged: (volumeDb) {
-        setState(() {
-          track.volumeDb = volumeDb;
-        });
-        widget.audioEngine?.setTrackVolume(track.id, volumeDb);
-      },
-      onPanChanged: (pan) {
-        setState(() {
-          track.pan = pan;
-        });
-        widget.audioEngine?.setTrackPan(track.id, pan);
-      },
-      onMuteToggle: () {
-        setState(() {
-          track.mute = !track.mute;
-        });
-        Future.microtask(
-          () => widget.audioEngine?.setTrackMute(track.id, mute: track.mute),
-        );
-      },
-      onSoloToggle: () {
-        setState(() {
-          track.solo = !track.solo;
-        });
-        Future.microtask(
-          () => widget.audioEngine?.setTrackSolo(track.id, solo: track.solo),
-        );
-      },
-      isArmed: track.armed,
-      onArmToggle: () => _handleArmToggle(track, allTracks),
-      onArmShiftClick: () => _handleArmShiftClick(track),
-      showAutomation: widget.automationState.visibleTrackId == track.id,
-      onAutomationToggle: () => widget.automationState.onToggle?.call(track.id),
-      selectedParameter:
-          widget.automationState.getSelectedParameter?.call(track.id) ??
-          AutomationParameter.volume,
-      onParameterChanged: (param) =>
-          widget.automationState.onParameterChanged?.call(track.id, param),
-      onResetParameter: () =>
-          widget.automationState.onResetParameter?.call(track.id),
-      onAddParameter: () =>
-          widget.automationState.onAddParameter?.call(track.id),
-      automationLane: widget.automationCallbacks.getAutomationLane?.call(
-        track.id,
-      ),
-      pixelsPerBeat: widget.automationState.pixelsPerBeat,
-      totalBeats: widget.automationState.totalBeats,
-      onAutomationPointAdded: (point) =>
-          widget.automationCallbacks.onPointAdded?.call(track.id, point),
-      onAutomationPointUpdated: (pointId, point) => widget
-          .automationCallbacks
-          .onPointUpdated
-          ?.call(track.id, pointId, point),
-      onAutomationPointDeleted: (pointId) =>
-          widget.automationCallbacks.onPointDeleted?.call(track.id, pointId),
-      onPreviewValue: (value) =>
-          widget.automationCallbacks.onPreviewValue?.call(track.id, value),
-      previewParameterValue:
-          widget.automationState.previewNotifier?.value[track.id],
-      onDuplicatePressed: () => _duplicateTrack(track),
-      onDeletePressed: () => _confirmDeleteTrack(track),
-      onConvertToSampler:
-          track.type.toLowerCase() == 'audio' &&
-              widget.trackCallbacks.onConvertToSampler != null
-          ? () => widget.trackCallbacks.onConvertToSampler!(track.id)
-          : null,
-      onNameChanged: (newName) async {
-        final oldName = track.name;
-        if (oldName == newName) return;
+    return ValueListenableBuilder<Map<int, (double, double)>>(
+      valueListenable: _displayLevelsNotifier,
+      builder: (context, levels, _) {
+        return ValueListenableBuilder<Map<int, double>>(
+          valueListenable: _inputLevelsNotifier,
+          builder: (context, inputLevels, _) {
+            return TrackMixerStrip(
+              trackId: track.id,
+              displayIndex: index + 1, // 1-based sequential number
+              trackName: track.name,
+              trackType: track.type,
+              volumeDb: track.volumeDb,
+              pan: track.pan,
+              isMuted: track.mute,
+              isSoloed: track.solo,
+              peakLevelLeft: levels[track.id]?.$1 ?? 0.0,
+              peakLevelRight: levels[track.id]?.$2 ?? 0.0,
+              trackColor: trackColor,
+              audioEngine: widget.audioEngine,
+              isSelected:
+                  widget.selectionState.selectedTrackIds?.contains(track.id) ??
+                  widget.selectionState.selectedTrackId == track.id,
+              instrumentData: widget.trackInstruments?[track.id],
+              onInstrumentSelect: (instrumentId) {
+                widget.instrumentCallbacks.onInstrumentSelected?.call(
+                  track.id,
+                  instrumentId,
+                );
+              },
+              vst3PluginCount: widget.trackVst3PluginCounts?[track.id] ?? 0,
+              onFxButtonPressed: () =>
+                  widget.instrumentCallbacks.onFxButtonPressed?.call(track.id),
+              onVst3PluginDropped: (plugin) => widget
+                  .instrumentCallbacks
+                  .onVst3PluginDropped
+                  ?.call(track.id, plugin),
+              onVst3InstrumentDropped: (plugin) => widget
+                  .instrumentCallbacks
+                  .onVst3InstrumentDropped
+                  ?.call(track.id, plugin),
+              onInstrumentDropped: (instrument) => widget
+                  .instrumentCallbacks
+                  .onInstrumentDropped
+                  ?.call(track.id, instrument),
+              onEditPluginsPressed: () => widget
+                  .instrumentCallbacks
+                  .onEditPluginsPressed
+                  ?.call(track.id),
+              clipHeight:
+                  widget.trackHeightState.clipHeights[track.id] ?? 100.0,
+              automationHeight:
+                  widget.trackHeightState.automationHeights[track.id] ?? 60.0,
+              stripWidth: widget.config.panelWidth,
+              onClipHeightChanged: (height) {
+                widget.trackHeightState.onClipHeightChanged?.call(
+                  track.id,
+                  height,
+                );
+              },
+              onAutomationHeightChanged: (height) {
+                widget.trackHeightState.onAutomationHeightChanged?.call(
+                  track.id,
+                  height,
+                );
+              },
+              onTap: (isShiftHeld) {
+                widget.selectionState.onTrackSelected?.call(
+                  track.id,
+                  isShiftHeld: isShiftHeld,
+                );
+              },
+              onDoubleTap: () {
+                widget.trackCallbacks.onDoubleClick?.call(track.id);
+              },
+              onVolumeChanged: (volumeDb) {
+                setState(() {
+                  track.volumeDb = volumeDb;
+                });
+                widget.audioEngine?.setTrackVolume(track.id, volumeDb);
+              },
+              onPanChanged: (pan) {
+                setState(() {
+                  track.pan = pan;
+                });
+                widget.audioEngine?.setTrackPan(track.id, pan);
+              },
+              onMuteToggle: () {
+                setState(() {
+                  track.mute = !track.mute;
+                });
+                Future.microtask(
+                  () => widget.audioEngine?.setTrackMute(
+                    track.id,
+                    mute: track.mute,
+                  ),
+                );
+              },
+              onSoloToggle: () {
+                setState(() {
+                  track.solo = !track.solo;
+                });
+                Future.microtask(
+                  () => widget.audioEngine?.setTrackSolo(
+                    track.id,
+                    solo: track.solo,
+                  ),
+                );
+              },
+              isArmed: track.armed,
+              onArmToggle: () => _handleArmToggle(track, allTracks),
+              onArmShiftClick: () => _handleArmShiftClick(track),
+              showAutomation: widget.automationState.visibleTrackId == track.id,
+              onAutomationToggle: () =>
+                  widget.automationState.onToggle?.call(track.id),
+              selectedParameter:
+                  widget.automationState.getSelectedParameter?.call(track.id) ??
+                  AutomationParameter.volume,
+              onParameterChanged: (param) => widget
+                  .automationState
+                  .onParameterChanged
+                  ?.call(track.id, param),
+              onResetParameter: () =>
+                  widget.automationState.onResetParameter?.call(track.id),
+              onAddParameter: () =>
+                  widget.automationState.onAddParameter?.call(track.id),
+              automationLane: widget.automationCallbacks.getAutomationLane
+                  ?.call(track.id),
+              pixelsPerBeat: widget.automationState.pixelsPerBeat,
+              totalBeats: widget.automationState.totalBeats,
+              onAutomationPointAdded: (point) => widget
+                  .automationCallbacks
+                  .onPointAdded
+                  ?.call(track.id, point),
+              onAutomationPointUpdated: (pointId, point) => widget
+                  .automationCallbacks
+                  .onPointUpdated
+                  ?.call(track.id, pointId, point),
+              onAutomationPointDeleted: (pointId) => widget
+                  .automationCallbacks
+                  .onPointDeleted
+                  ?.call(track.id, pointId),
+              onPreviewValue: (value) => widget
+                  .automationCallbacks
+                  .onPreviewValue
+                  ?.call(track.id, value),
+              previewParameterValue:
+                  widget.automationState.previewNotifier?.value[track.id],
+              onDuplicatePressed: () => _duplicateTrack(track),
+              onDeletePressed: () => _confirmDeleteTrack(track),
+              onConvertToSampler:
+                  track.type.toLowerCase() == 'audio' &&
+                      widget.trackCallbacks.onConvertToSampler != null
+                  ? () => widget.trackCallbacks.onConvertToSampler!(track.id)
+                  : null,
+              onNameChanged: (newName) async {
+                final oldName = track.name;
+                if (oldName == newName) return;
 
-        final command = RenameTrackCommand(
-          trackId: track.id,
-          oldName: oldName,
-          newName: newName,
-          onTrackRenamed: (trackId, name) {
-            if (mounted) {
-              setState(() {
-                track.name = name;
-              });
-              widget.trackCallbacks.onNameChanged?.call(trackId, name);
-            }
+                final command = RenameTrackCommand(
+                  trackId: track.id,
+                  oldName: oldName,
+                  newName: newName,
+                  onTrackRenamed: (trackId, name) {
+                    if (mounted) {
+                      setState(() {
+                        track.name = name;
+                      });
+                      widget.trackCallbacks.onNameChanged?.call(trackId, name);
+                    }
+                  },
+                );
+                await UndoRedoManager().execute(command);
+              },
+              onColorChanged: widget.trackCallbacks.onColorChanged != null
+                  ? (color) =>
+                        widget.trackCallbacks.onColorChanged!(track.id, color)
+                  : null,
+              // Custom icon
+              customIcon: widget.getTrackIcon?.call(track.id),
+              onIconChanged: widget.trackCallbacks.onIconChanged != null
+                  ? (icon) =>
+                        widget.trackCallbacks.onIconChanged!(track.id, icon)
+                  : null,
+              // Input routing
+              inputDeviceIndex: track.inputDeviceIndex,
+              inputChannel: track.inputChannel,
+              inputDevices: _inputDevices,
+              isRecording: widget.config.isRecording,
+              inputLevel: inputLevels[track.id],
+              onInputChanged: (deviceIndex, channel) {
+                setState(() {
+                  track.inputDeviceIndex = deviceIndex;
+                  track.inputChannel = channel;
+                });
+                widget.audioEngine?.setTrackInput(
+                  track.id,
+                  deviceIndex,
+                  channel,
+                );
+              },
+            );
           },
         );
-        await UndoRedoManager().execute(command);
-      },
-      onColorChanged: widget.trackCallbacks.onColorChanged != null
-          ? (color) => widget.trackCallbacks.onColorChanged!(track.id, color)
-          : null,
-      // Custom icon
-      customIcon: widget.getTrackIcon?.call(track.id),
-      onIconChanged: widget.trackCallbacks.onIconChanged != null
-          ? (icon) => widget.trackCallbacks.onIconChanged!(track.id, icon)
-          : null,
-      // Input routing
-      inputDeviceIndex: track.inputDeviceIndex,
-      inputChannel: track.inputChannel,
-      inputDevices: _inputDevices,
-      isRecording: widget.config.isRecording,
-      inputLevel: _inputLevels[track.id],
-      onInputChanged: (deviceIndex, channel) {
-        setState(() {
-          track.inputDeviceIndex = deviceIndex;
-          track.inputChannel = channel;
-        });
-        widget.audioEngine?.setTrackInput(track.id, deviceIndex, channel);
       },
     );
   }

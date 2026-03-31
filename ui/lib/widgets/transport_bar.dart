@@ -546,8 +546,20 @@ class _TransportBarState extends State<TransportBar> {
         // Blue circle "O" — settings button
         MouseRegion(
           cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _logoHovered = true),
-          onExit: (_) => setState(() => _logoHovered = false),
+          onEnter: (_) {
+            if (!_logoHovered) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _logoHovered = true);
+              });
+            }
+          },
+          onExit: (_) {
+            if (_logoHovered) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _logoHovered = false);
+              });
+            }
+          },
           child: Tooltip(
             message: 'Settings',
             child: GestureDetector(

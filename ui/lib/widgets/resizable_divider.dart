@@ -69,11 +69,22 @@ class _ResizableDividerState extends State<ResizableDivider> {
     super.dispose();
   }
 
-  void _setLocalActive(bool hovered, bool dragging) {
-    setState(() {
-      _isHovered = hovered;
-      _isDragging = dragging;
-    });
+  void _setLocalActive(bool hovered, bool dragging, {bool defer = false}) {
+    if (defer) {
+      // Defer setState to avoid conflict with MouseTracker._deviceUpdatePhase
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _isHovered = hovered;
+          _isDragging = dragging;
+        });
+      });
+    } else {
+      setState(() {
+        _isHovered = hovered;
+        _isDragging = dragging;
+      });
+    }
     widget.activeNotifier?.value = hovered || dragging;
   }
 
@@ -104,8 +115,8 @@ class _ResizableDividerState extends State<ResizableDivider> {
         cursor: isVertical
             ? SystemMouseCursors.resizeColumn
             : SystemMouseCursors.resizeRow,
-        onEnter: (_) => _setLocalActive(true, _isDragging),
-        onExit: (_) => _setLocalActive(false, _isDragging),
+        onEnter: (_) => _setLocalActive(true, _isDragging, defer: true),
+        onExit: (_) => _setLocalActive(false, _isDragging, defer: true),
         child: Container(
           width: isVertical ? _dividerWidth : double.infinity,
           height: isVertical ? double.infinity : _dividerWidth,
