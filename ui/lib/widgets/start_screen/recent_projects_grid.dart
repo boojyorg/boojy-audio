@@ -30,9 +30,9 @@ class RecentProjectsGrid extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.dark,
+        color: colors.darkest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.divider, width: 1),
+        border: Border.all(color: colors.divider),
       ),
       child: projects.isEmpty ? _buildEmptyState(context) : _buildGrid(context),
     );

@@ -353,21 +353,34 @@ class RecoveryDialog extends StatelessWidget {
     );
   }
 
-  String get _formattedDate {
-    return '${backupDate.year}-${backupDate.month.toString().padLeft(2, '0')}-${backupDate.day.toString().padLeft(2, '0')} '
-        '${backupDate.hour.toString().padLeft(2, '0')}:${backupDate.minute.toString().padLeft(2, '0')}';
+  String get _friendlyDate {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    final month = months[backupDate.month - 1];
+    final day = backupDate.day;
+    final year = backupDate.year;
+    final hour = backupDate.hour > 12
+        ? backupDate.hour - 12
+        : (backupDate.hour == 0 ? 12 : backupDate.hour);
+    final minute = backupDate.minute.toString().padLeft(2, '0');
+    final period = backupDate.hour >= 12 ? 'PM' : 'AM';
+    return '$month $day, $year at $hour:$minute $period';
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 400,
+        width: 420,
         decoration: BoxDecoration(
-          color: context.colors.standard,
+          color: colors.dark,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.colors.divider),
+          border: Border.all(color: colors.divider),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -376,114 +389,155 @@ class RecoveryDialog extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: context.colors.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Logo — Boojy + Audio on one row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Image.asset(
+                    'assets/images/boojy-logo.png',
+                    width: 120,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 5),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Image.asset(
+                      'assets/images/boojy_audio_text.png',
+                      width: 128,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Message
+              Text(
+                'Your project was not saved before',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 15,
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(BI.history, color: context.colors.warning, size: 24),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Recover Unsaved Work?',
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: BT.weightSemiBold,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 4),
+              Text(
+                'Boojy Audio closed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 15,
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
 
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'It looks like the app closed unexpectedly. A backup of your work was found:',
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 14,
-                    ),
+              // Backup info card — centred content
+              FractionallySizedBox(
+                widthFactor: 0.8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: context.colors.elevated,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: context.colors.hover),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          BI.metronome,
-                          color: context.colors.textSecondary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Saved at: $_formattedDate',
-                          style: TextStyle(
-                            color: context.colors.textPrimary,
-                            fontSize: BT.fontBody,
+                  decoration: BoxDecoration(
+                    color: colors.darkest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.divider),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            BI.history,
+                            color: colors.textMuted,
+                            size: 14,
                           ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Untitled',
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: BT.weightSemiBold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _friendlyDate,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 13,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Would you like to recover this backup?',
-                    style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
 
-            // Footer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: context.colors.divider)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // Bottom row — equal-width buttons, centred
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: Text(
-                      'Start Fresh',
-                      style: TextStyle(color: context.colors.textSecondary),
+                  // Start Fresh — ghost style, same size as Recover
+                  SizedBox(
+                    width: 175,
+                    height: 36,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: TextButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Start fresh',
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: context.colors.warning,
-                      foregroundColor: Colors.white,
+                  // Recover Backup — accent pill button
+                  SizedBox(
+                    width: 175,
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.accent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Recover Backup',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: BT.weightSemiBold,
+                        ),
+                      ),
                     ),
-                    child: const Text('Recover Backup'),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
