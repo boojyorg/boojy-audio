@@ -184,6 +184,10 @@ class TransportBar extends StatefulWidget {
   final double? latencyMs;
   final String? audioOutputDevice;
 
+  // Add track callbacks
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
+
   const TransportBar({
     super.key,
     this.fileMenu = const FileMenuCallbacks(),
@@ -228,6 +232,8 @@ class TransportBar extends StatefulWidget {
     this.sampleRate,
     this.latencyMs,
     this.audioOutputDevice,
+    this.onAddMidiTrack,
+    this.onAddAudioTrack,
   });
 
   @override
@@ -543,6 +549,7 @@ class _TransportBarState extends State<TransportBar> {
             ),
           ),
         ),
+        const SizedBox(width: 2),
         // Blue circle "O" — settings button
         MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -569,8 +576,8 @@ class _TransportBarState extends State<TransportBar> {
                 duration: AnimationConstants.hoverDuration,
                 curve: Curves.easeInOut,
                 child: Container(
-                  width: 21,
-                  height: 21,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
                     color: colors.accent,
                     shape: BoxShape.circle,
@@ -775,6 +782,15 @@ class _TransportBarState extends State<TransportBar> {
 
           const SizedBox(width: 8),
 
+          // (+) Add track — accent circle
+          if (widget.isEngineReady)
+            _AddTrackButton(
+              onAddMidiTrack: widget.onAddMidiTrack,
+              onAddAudioTrack: widget.onAddAudioTrack,
+            ),
+
+          if (widget.isEngineReady) const SizedBox(width: 8),
+
           // Status pill [✓ Ready]
           StatusPill(
             isReady: widget.isEngineReady,
@@ -797,9 +813,8 @@ class _TransportBarState extends State<TransportBar> {
 // HELPER WIDGETS
 // ============================================
 
-/// Recessed "well" container for transport bar cluster grouping.
-/// Uses darkest bg with divider border to create visual separation
-/// against the dark chrome background.
+/// Spacing-only container for transport bar cluster grouping.
+/// No border or background — spacing alone defines the groups.
 class _ClusterWell extends StatelessWidget {
   final Widget child;
 
@@ -807,14 +822,8 @@ class _ClusterWell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: BT.sm, vertical: BT.xs),
-      decoration: BoxDecoration(
-        color: colors.darkest,
-        borderRadius: BT.borderMd,
-        border: Border.all(color: colors.divider, width: 1),
-      ),
       child: child,
     );
   }
@@ -1144,5 +1153,114 @@ class _CaptureIconPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CaptureIconPainter oldDelegate) {
     return color != oldDelegate.color;
+  }
+}
+
+/// Accent-colored circular (+) button that opens a dropdown for adding tracks.
+class _AddTrackButton extends StatefulWidget {
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
+
+  const _AddTrackButton({this.onAddMidiTrack, this.onAddAudioTrack});
+
+  @override
+  State<_AddTrackButton> createState() => _AddTrackButtonState();
+}
+
+class _AddTrackButtonState extends State<_AddTrackButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: 'Add Track',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          if (!_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = true);
+            });
+          }
+        },
+        onExit: (_) {
+          if (_isHovered) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _isHovered = false);
+            });
+          }
+        },
+        child: PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+          position: PopupMenuPosition.under,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: colors.divider),
+          ),
+          color: colors.darkest,
+          elevation: 8,
+          onSelected: (value) {
+            if (value == 'midi') {
+              widget.onAddMidiTrack?.call();
+            } else if (value == 'audio') {
+              widget.onAddAudioTrack?.call();
+            }
+          },
+          itemBuilder: (menuContext) => [
+            PopupMenuItem<String>(
+              value: 'midi',
+              height: 36,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(BI.piano, size: 14, color: colors.textMuted),
+                  const SizedBox(width: 8),
+                  Text(
+                    'MIDI Track',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: BT.fontLabel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'audio',
+              height: 36,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(BI.waveform, size: 14, color: colors.textMuted),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Audio Track',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: BT.fontLabel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: AnimatedContainer(
+            duration: AnimationConstants.hoverDuration,
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? colors.accent.withValues(alpha: 0.9)
+                  : colors.accent,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.add, size: 14, color: Colors.white),
+          ),
+        ),
+      ),
+    );
   }
 }

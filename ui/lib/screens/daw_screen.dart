@@ -3401,6 +3401,14 @@ class _DAWScreenState extends State<DAWScreen>
         isLoading: isLoading,
         midiCaptureHasEvents: midiCaptureBuffer.hasEvents,
         isEngineReady: isAudioGraphInitialized,
+        onAddMidiTrack: () {
+          final trackId = audioEngine!.createTrack('midi', 'MIDI 1');
+          if (trackId >= 0) setState(() {});
+        },
+        onAddAudioTrack: () {
+          final trackId = audioEngine!.createTrack('audio', 'Audio 1');
+          if (trackId >= 0) setState(() {});
+        },
       ),
     );
   }

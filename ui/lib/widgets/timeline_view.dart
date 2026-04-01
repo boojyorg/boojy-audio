@@ -4762,41 +4762,55 @@ class TimelineViewState extends State<TimelineView>
 
     return Positioned.fill(
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Drag an instrument from the library',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: BT.fontBody,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'or',
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Drag an instrument from the',
                 style: TextStyle(
-                  color: colors.textMuted.withValues(alpha: 0.5),
-                  fontSize: BT.fontLabel,
+                  color: colors.textSecondary,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                'library to start making music',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'or',
+                  style: TextStyle(
+                    color: colors.textMuted.withValues(alpha: 0.5),
+                    fontSize: BT.fontLabel,
+                  ),
                 ),
               ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _EmptyPromptButton(
-                  label: '+ MIDI Track',
-                  onTap: widget.onAddMidiTrack,
-                ),
-                const SizedBox(width: 8),
-                _EmptyPromptButton(
-                  label: '+ Audio Track',
-                  onTap: widget.onAddAudioTrack,
-                ),
-              ],
-            ),
-          ],
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _EmptyPromptButton(
+                    icon: BI.piano,
+                    label: 'MIDI Track',
+                    onTap: widget.onAddMidiTrack,
+                  ),
+                  const SizedBox(width: 12),
+                  _EmptyPromptButton(
+                    icon: BI.waveform,
+                    label: 'Audio Track',
+                    onTap: widget.onAddAudioTrack,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4808,12 +4822,13 @@ class TimelineViewState extends State<TimelineView>
   }
 }
 
-/// Outline button for the empty timeline prompt.
+/// Styled button for the empty timeline prompt with icon.
 class _EmptyPromptButton extends StatefulWidget {
+  final IconData? icon;
   final String label;
   final VoidCallback? onTap;
 
-  const _EmptyPromptButton({required this.label, this.onTap});
+  const _EmptyPromptButton({this.icon, required this.label, this.onTap});
 
   @override
   State<_EmptyPromptButton> createState() => _EmptyPromptButtonState();
@@ -4846,8 +4861,9 @@ class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: AnimationConstants.hoverDuration,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
+            color: colors.surface,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: _isHovered ? colors.accent : colors.divider,
@@ -4856,6 +4872,20 @@ class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(
+                BI.add,
+                size: 13,
+                color: _isHovered ? colors.textPrimary : colors.textSecondary,
+              ),
+              if (widget.icon != null) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  widget.icon,
+                  size: 14,
+                  color: _isHovered ? colors.textPrimary : colors.textMuted,
+                ),
+              ],
+              const SizedBox(width: 6),
               Text(
                 widget.label,
                 style: TextStyle(

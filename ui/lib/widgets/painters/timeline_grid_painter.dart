@@ -18,10 +18,10 @@ class TimelineGridPainter extends CustomPainter {
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
     this.beatsPerBar = 4,
-    this.barLineColor = const Color(0xFF4A4D5A),
-    this.beatLineColor = const Color(0xFF3A3D4A),
-    this.subBeatLineColor = const Color(0xFF353845),
-    this.minorGridColor = const Color(0xFF292B36),
+    this.barLineColor = const Color(0xFF555868),
+    this.beatLineColor = const Color(0xFF454860),
+    this.subBeatLineColor = const Color(0xFF3A3D50),
+    this.minorGridColor = const Color(0xFF303345),
   });
 
   /// Get the smallest grid subdivision to show based on zoom level
