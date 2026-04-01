@@ -201,12 +201,11 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Get the number of tabs based on track type
-  /// Audio: 1 tab (Chain — effects only)
+  /// Audio: 2 tabs (Audio Editor + Effects chain)
   /// MIDI: 2 tabs (Chain + MIDI)
   /// Sampler: 2 tabs (Chain + MIDI)
   int get _tabCount {
-    if (_isAudioTrack) return 1;
-    return 2; // MIDI or Sampler
+    return 2;
   }
 
   @override
@@ -381,14 +380,18 @@ class _EditorPanelState extends State<EditorPanel>
                     ),
                     child: Stack(
                       children: [
-                        // Left side: Tab buttons
+                        // Left side: Chevron + Tab buttons
                         Positioned(
                           left: 8,
                           top: 0,
                           bottom: 0,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: _buildTabButtons(),
+                            children: [
+                              _buildCollapseChevron(isCollapsed: false),
+                              const SizedBox(width: 4),
+                              ..._buildTabButtons(),
+                            ],
                           ),
                         ),
                         // Center: Tool buttons (truly centered)
@@ -472,27 +475,7 @@ class _EditorPanelState extends State<EditorPanel>
                                 _buildPianoToggle(),
                                 const SizedBox(width: 8),
                               ],
-                              // Collapse button (down arrow)
-                              Tooltip(
-                                message: 'Collapse Panel',
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: widget.callbacks.onClosePanel,
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Container(
-                                      width: 28,
-                                      height: 28,
-                                      alignment: Alignment.center,
-                                      child: Icon(
-                                        BI.caretDown,
-                                        size: 18,
-                                        color: context.colors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              // Collapse button moved to left side (chevron)
                             ],
                           ),
                         ),
@@ -526,14 +509,18 @@ class _EditorPanelState extends State<EditorPanel>
       ),
       child: Stack(
         children: [
-          // Left side: Tab buttons
+          // Left side: Chevron + Tab buttons
           Positioned(
             left: 8,
             top: 0,
             bottom: 0,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: _buildCollapsedTabButtons(),
+              children: [
+                _buildCollapseChevron(isCollapsed: true),
+                const SizedBox(width: 4),
+                ..._buildCollapsedTabButtons(),
+              ],
             ),
           ),
           // Center: Tool buttons (truly centered)
@@ -578,31 +565,38 @@ class _EditorPanelState extends State<EditorPanel>
                   _buildPianoToggle(),
                   const SizedBox(width: 8),
                 ],
-                // Expand arrow (up arrow)
-                Tooltip(
-                  message: 'Expand Editor',
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: widget.callbacks.onExpandPanel,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          BI.caretUp,
-                          color: context.colors.textSecondary,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // Expand button moved to left side (chevron)
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Chevron toggle at the left edge of the toolbar.
+  /// ▼ when expanded (click to collapse), ▲ when collapsed (click to expand).
+  Widget _buildCollapseChevron({required bool isCollapsed}) {
+    return Tooltip(
+      message: isCollapsed ? 'Expand Editor' : 'Collapse Panel',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isCollapsed
+              ? widget.callbacks.onExpandPanel
+              : widget.callbacks.onClosePanel,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            child: Icon(
+              isCollapsed ? BI.caretUp : BI.caretDown,
+              size: 14,
+              color: context.colors.textMuted,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -964,12 +958,16 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Build the tab buttons based on track type
-  /// Audio: [Audio] (single tab — chain with effects only)
+  /// Audio: [Audio] [Effects]
   /// MIDI: [Instrument] [MIDI]
   /// Sampler: [Sampler] [MIDI]
   List<Widget> _buildTabButtons() {
     if (_isAudioTrack) {
-      return [_buildTabButton(0, BI.audioFile, 'Audio')];
+      return [
+        _buildTabButton(0, BI.audioFile, 'Audio'),
+        const SizedBox(width: 4),
+        _buildTabButton(1, BI.lightning, 'Effects'),
+      ];
     }
 
     if (_isSamplerTrack) {
@@ -999,13 +997,13 @@ class _EditorPanelState extends State<EditorPanel>
   }
 
   /// Build the tab content based on track type
-  /// Audio: [Chain (effects only)]
+  /// Audio: [Audio Editor (waveform), Chain (effects only)]
   /// MIDI: [Chain (instrument + effects), MIDI Piano Roll]
   /// Sampler: [Chain (sampler + effects), MIDI Piano Roll]
   List<Widget> _buildTabContent() {
     if (_isAudioTrack) {
-      // Single tab: effects chain only (no instrument)
-      return [_buildChainTab()];
+      // Tab 0: audio editor (waveform), Tab 1: effects chain
+      return [_buildAudioEditorTab(), _buildChainTab()];
     }
 
     if (_isSamplerTrack) {
