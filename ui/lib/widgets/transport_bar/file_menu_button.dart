@@ -50,6 +50,9 @@ class _FileMenuButtonState extends State<FileMenuButton> {
   @override
   Widget build(BuildContext context) {
     final displayName = widget.projectName;
+    // Capture colors here — itemBuilder's context is in the overlay,
+    // outside the Provider tree.
+    final colors = context.colors;
 
     return PopupMenuButton<String>(
       tooltip: 'File Menu',
@@ -134,7 +137,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
               const Spacer(),
               Text(
                 '⇧⌘S',
-                style: TextStyle(fontSize: 12, color: context.colors.textMuted),
+                style: TextStyle(fontSize: 12, color: colors.textMuted),
               ),
             ],
           ),
@@ -239,7 +242,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             vertical: 6,
           ),
           decoration: BoxDecoration(
-            color: _isHovered ? context.colors.elevated : Colors.transparent,
+            color: _isHovered ? colors.elevated : Colors.transparent,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Text(
@@ -248,8 +251,8 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: _isHovered
-                  ? context.colors.textPrimary
-                  : context.colors.textSecondary,
+                  ? colors.textPrimary
+                  : colors.textSecondary,
               fontSize: 14,
               fontWeight: BT.weightMedium,
             ),
