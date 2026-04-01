@@ -56,7 +56,7 @@ class NavBarWithZoom extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ZoomButton(
-                    icon: BI.close,
+                    icon: BI.remove,
                     tooltip: 'Zoom out',
                     onTap: onZoomOut,
                   ),

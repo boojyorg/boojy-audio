@@ -1091,8 +1091,6 @@ class TimelineViewState extends State<TimelineView>
             children: [
               // Star field background
               const Positioned.fill(child: StarField()),
-              // Empty timeline prompt (when no user tracks)
-              if (_shouldShowEmptyPrompt) _buildEmptyTimelinePrompt(context),
               // Main timeline content
               Column(
                 children: [
@@ -1309,6 +1307,8 @@ class TimelineViewState extends State<TimelineView>
                   ),
                 ],
               ), // end Column
+              // Empty timeline prompt — on top of grid and stars
+              if (_shouldShowEmptyPrompt) _buildEmptyTimelinePrompt(context),
             ], // end Stack children
           ), // end Stack (child of DecoratedBox)
         ), // end DecoratedBox (child of Focus)

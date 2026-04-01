@@ -380,18 +380,14 @@ class _EditorPanelState extends State<EditorPanel>
                     ),
                     child: Stack(
                       children: [
-                        // Left side: Chevron + Tab buttons
+                        // Left side: Tab buttons
                         Positioned(
                           left: 8,
                           top: 0,
                           bottom: 0,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildCollapseChevron(isCollapsed: false),
-                              const SizedBox(width: 4),
-                              ..._buildTabButtons(),
-                            ],
+                            children: _buildTabButtons(),
                           ),
                         ),
                         // Center: Tool buttons (truly centered)
@@ -475,7 +471,8 @@ class _EditorPanelState extends State<EditorPanel>
                                 _buildPianoToggle(),
                                 const SizedBox(width: 8),
                               ],
-                              // Collapse button moved to left side (chevron)
+                              // Collapse chevron (rightmost)
+                              _buildCollapseChevron(isCollapsed: false),
                             ],
                           ),
                         ),
@@ -509,18 +506,14 @@ class _EditorPanelState extends State<EditorPanel>
       ),
       child: Stack(
         children: [
-          // Left side: Chevron + Tab buttons
+          // Left side: Tab buttons
           Positioned(
             left: 8,
             top: 0,
             bottom: 0,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildCollapseChevron(isCollapsed: true),
-                const SizedBox(width: 4),
-                ..._buildCollapsedTabButtons(),
-              ],
+              children: _buildCollapsedTabButtons(),
             ),
           ),
           // Center: Tool buttons (truly centered)
@@ -565,7 +558,8 @@ class _EditorPanelState extends State<EditorPanel>
                   _buildPianoToggle(),
                   const SizedBox(width: 8),
                 ],
-                // Expand button moved to left side (chevron)
+                // Expand chevron (rightmost)
+                _buildCollapseChevron(isCollapsed: true),
               ],
             ),
           ),
@@ -574,7 +568,7 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  /// Chevron toggle at the left edge of the toolbar.
+  /// Chevron toggle at the right edge of the toolbar.
   /// ▼ when expanded (click to collapse), ▲ when collapsed (click to expand).
   Widget _buildCollapseChevron({required bool isCollapsed}) {
     return Tooltip(
@@ -587,12 +581,12 @@ class _EditorPanelState extends State<EditorPanel>
               : widget.callbacks.onClosePanel,
           borderRadius: BorderRadius.circular(4),
           child: Container(
-            width: 24,
-            height: 24,
+            width: 28,
+            height: 28,
             alignment: Alignment.center,
             child: Icon(
               isCollapsed ? BI.caretUp : BI.caretDown,
-              size: 14,
+              size: 20,
               color: context.colors.textMuted,
             ),
           ),
