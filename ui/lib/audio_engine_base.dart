@@ -74,6 +74,7 @@ class _AudioEngineBase {
 
   // M6 functions - Per-track Synthesizer
   late final _SetTrackInstrumentFfi _setTrackInstrument;
+  late final _SetSynthBypassFfi _setSynthBypass;
   late final _SetSynthParameterFfi _setSynthParameter;
   late final _GetSynthParametersFfi _getSynthParameters;
   late final _SendTrackMidiNoteOnFfi _sendTrackMidiNoteOn;
@@ -906,6 +907,12 @@ class _AudioEngineBase {
       _setTrackInstrument = _lib
           .lookup<ffi.NativeFunction<_SetTrackInstrumentFfiNative>>(
             'set_track_instrument_ffi',
+          )
+          .asFunction();
+
+      _setSynthBypass = _lib
+          .lookup<ffi.NativeFunction<_SetSynthBypassFfiNative>>(
+            'set_synth_bypass_ffi',
           )
           .asFunction();
 

@@ -8,6 +8,17 @@ use super::{safe_cstring, ffi_catch};
 // M6: PER-TRACK SYNTHESIZER FFI
 // ============================================================================
 
+/// Set bypass state for a track's built-in instrument
+#[no_mangle]
+pub extern "C" fn set_synth_bypass_ffi(track_id: u64, bypassed: i32) -> *mut c_char {
+    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), AssertUnwindSafe(|| {
+        match api::set_synth_bypass(track_id, bypassed != 0) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    }))
+}
+
 /// Set instrument for a track (returns instrument ID, or -1 on error)
 #[no_mangle]
 pub extern "C" fn set_track_instrument_ffi(

@@ -639,6 +639,9 @@ class AudioEngine implements AudioEngineInterface {
   @override
   void setEffectBypass(int effectId, {required bool bypassed}) {}
 
+  @override
+  void setSynthBypass(int trackId, {required bool bypassed}) {}
+
   bool getEffectBypass(int effectId) => false;
 
   @override

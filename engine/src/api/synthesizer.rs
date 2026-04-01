@@ -50,6 +50,19 @@ pub fn get_synth_parameters(_track_id: u64) -> Result<String, String> {
     Ok(String::new())
 }
 
+/// Set bypass state for a track's built-in instrument
+pub fn set_synth_bypass(track_id: u64, bypassed: bool) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    synth_manager.set_bypass(track_id, bypassed);
+    Ok(format!(
+        "Track {track_id} synth bypass: {}",
+        if bypassed { "on" } else { "off" }
+    ))
+}
+
 /// Send MIDI note on to track synthesizer and any VST3 instruments
 /// Also records the event if MIDI recording is active
 pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<String, String> {

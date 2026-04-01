@@ -76,6 +76,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
       {}; // "effectId:paramName" → value
   bool _isDraggingSlider = false;
 
+  // Instrument bypass state (VST3 instruments use setEffectBypass via effectId)
+  bool _instrumentBypassed = false;
+
   // External drag state for insertion gap animation
   int? _externalDragInsertionIndex; // null = no external drag, else insertion position
   bool _isExternalDragOver = false; // true when a compatible external item hovers over chain
@@ -112,6 +115,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     if (oldWidget.selectedTrackId != widget.selectedTrackId) {
       _loadEffects();
       _selectedDeviceId = null;
+      _instrumentBypassed = false;
     }
   }
 
@@ -251,6 +255,16 @@ class _DeviceChainViewState extends State<DeviceChainView>
     );
     await UndoRedoManager().execute(command);
     _loadEffects();
+  }
+
+  void _toggleInstrumentBypass(InstrumentData instrument) {
+    final newBypassed = !_instrumentBypassed;
+    if (instrument.isVst3 && instrument.effectId != null) {
+      widget.audioEngine?.setEffectBypass(instrument.effectId!, bypassed: newBypassed);
+    } else {
+      widget.audioEngine?.setSynthBypass(instrument.trackId, bypassed: newBypassed);
+    }
+    setState(() => _instrumentBypassed = newBypassed);
   }
 
   Future<void> _removeEffect(int effectId) async {
@@ -997,7 +1011,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
           headerMode: headerMode,
           name: name,
           icon: icon,
-          isEnabled: true,
+          isEnabled: !_instrumentBypassed,
           isSelected: _selectedDeviceId == -1,
           isFloated: widget.isFloated,
           width: _getInstrumentWidth(chainHeight),
@@ -1010,7 +1024,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
             widget.audioEngine?.setTrackVolume(widget.selectedTrackId!, db);
             widget.onTrackVolumeChanged?.call(db);
           },
-          onToggleEnabled: null, // Instrument on/off: future
+          onToggleEnabled: () => _toggleInstrumentBypass(instrument),
           onFloat: isVst3 && widget.onFloatPlugin != null
               ? () => widget.onFloatPlugin!(instrument.effectId!, name)
               : null,

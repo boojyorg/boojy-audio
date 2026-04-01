@@ -196,6 +196,10 @@ class MockAudioEngine implements AudioEngineInterface {
       _record('setEffectBypass');
 
   @override
+  void setSynthBypass(int trackId, {required bool bypassed}) =>
+      _record('setSynthBypass');
+
+  @override
   void reorderTrackEffects(int trackId, List<int> order) =>
       _record('reorderTrackEffects');
 

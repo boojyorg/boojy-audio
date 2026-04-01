@@ -528,35 +528,23 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
 
                 // Get the edit controller
                 TUID controller_cid;
-                auto cidResult = component->getControllerClassId(controller_cid);
-                fprintf(stderr, "🔌 [C++] getControllerClassId result=%d\n", cidResult);
-                fflush(stderr);
-
-                if (cidResult == kResultOk) {
+                if (component->getControllerClassId(controller_cid) == kResultOk) {
                     auto controller = factory.createInstance<IEditController>(VST3::UID::fromTUID(controller_cid));
-                    fprintf(stderr, "🔌 [C++] Separate controller created: %s\n", controller ? "yes" : "no");
-                    fflush(stderr);
-
                     if (controller) {
                         instance->controller = controller;
                         controller->initialize(g_host_app);
 
-                        // Set the component handler on the controller
-                        // This allows the plugin to notify us of parameter changes, restarts, etc.
                         if (g_component_handler) {
                             controller->setComponentHandler(g_component_handler);
                         }
 
                         // Connect component and controller via IConnectionPoint
-                        // This allows them to communicate - required by many plugins
                         FUnknownPtr<IConnectionPoint> componentCP(component);
                         FUnknownPtr<IConnectionPoint> controllerCP(controller);
 
                         if (componentCP && controllerCP) {
                             componentCP->connect(controllerCP);
                             controllerCP->connect(componentCP);
-                            fprintf(stderr, "🔌 [C++] Connected component <-> controller via IConnectionPoint\n");
-                            fflush(stderr);
                         }
                     }
                 }
@@ -567,23 +555,12 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
                     FUnknownPtr<IEditController> controllerFromComponent(component);
                     if (controllerFromComponent) {
                         instance->controller = controllerFromComponent;
-                        fprintf(stderr, "🔌 [C++] Controller found on component itself (combined mode)\n");
-                        fflush(stderr);
-
                         // Don't call initialize() — already initialized as part of the component
                         if (g_component_handler) {
                             controllerFromComponent->setComponentHandler(g_component_handler);
                         }
-                    } else {
-                        fprintf(stderr, "⚠️ [C++] No controller found — neither separate nor on component\n");
-                        fflush(stderr);
                     }
                 }
-
-                fprintf(stderr, "🔌 [C++] Plugin loaded: controller=%s, processor=%s\n",
-                        instance->controller ? "yes" : "NO",
-                        instance->processor ? "yes" : "NO");
-                fflush(stderr);
 
                 return instance.release();
             }
@@ -599,8 +576,6 @@ VST3PluginHandle vst3_load_plugin(const char* file_path) {
 }
 
 void vst3_unload_plugin(VST3PluginHandle handle) {
-    fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: handle=%p\n", handle);
-    fflush(stderr);
     if (!handle) return;
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
@@ -608,27 +583,15 @@ void vst3_unload_plugin(VST3PluginHandle handle) {
     // Check if this is a combined component/controller (same object)
     bool isCombinedMode = (instance->component && instance->controller &&
         instance->component.get() == FUnknownPtr<IComponent>(instance->controller).get());
-    fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: combinedMode=%d, active=%d\n",
-            isCombinedMode, instance->active);
-    fflush(stderr);
 
     // Close editor first if still open
     if (instance->editor_open) {
-        fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: closing editor first\n");
-        fflush(stderr);
         vst3_close_editor(handle);
     }
 
     // Deactivate if active
     if (instance->active && instance->processor) {
-        fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: setProcessing(false)\n");
-        fflush(stderr);
-        try {
-            instance->processor->setProcessing(false);
-        } catch (...) {
-            fprintf(stderr, "💥 [C++] vst3_unload_plugin: CRASH in setProcessing(false)\n");
-            fflush(stderr);
-        }
+        instance->processor->setProcessing(false);
         instance->active = false;
     }
 
@@ -639,58 +602,25 @@ void vst3_unload_plugin(VST3PluginHandle handle) {
         FUnknownPtr<IConnectionPoint> controllerCP(instance->controller);
 
         if (componentCP && controllerCP) {
-            fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: disconnecting IConnectionPoint\n");
-            fflush(stderr);
-            try {
-                componentCP->disconnect(controllerCP);
-                controllerCP->disconnect(componentCP);
-            } catch (...) {
-                fprintf(stderr, "💥 [C++] vst3_unload_plugin: CRASH in disconnect\n");
-                fflush(stderr);
-            }
+            componentCP->disconnect(controllerCP);
+            controllerCP->disconnect(componentCP);
         }
     }
 
     // Cleanup — for combined mode, only terminate once (component == controller)
     if (isCombinedMode) {
-        fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: combined mode — terminating component only\n");
-        fflush(stderr);
-        try {
-            instance->controller = nullptr;  // Release ref without terminate
-            instance->component->terminate();
-        } catch (...) {
-            fprintf(stderr, "💥 [C++] vst3_unload_plugin: CRASH in component->terminate()\n");
-            fflush(stderr);
-        }
+        instance->controller = nullptr;  // Release ref without terminate
+        instance->component->terminate();
     } else {
         if (instance->controller) {
-            fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: terminating controller\n");
-            fflush(stderr);
-            try {
-                instance->controller->terminate();
-            } catch (...) {
-                fprintf(stderr, "💥 [C++] vst3_unload_plugin: CRASH in controller->terminate()\n");
-                fflush(stderr);
-            }
+            instance->controller->terminate();
         }
-
         if (instance->component) {
-            fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: terminating component\n");
-            fflush(stderr);
-            try {
-                instance->component->terminate();
-            } catch (...) {
-                fprintf(stderr, "💥 [C++] vst3_unload_plugin: CRASH in component->terminate()\n");
-                fflush(stderr);
-            }
+            instance->component->terminate();
         }
     }
 
-    fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: deleting instance\n");
-    fflush(stderr);
     delete instance;
-    fprintf(stderr, "🗑️ [C++] vst3_unload_plugin: complete\n");
-    fflush(stderr);
 }
 
 bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
@@ -1259,42 +1189,24 @@ bool vst3_set_state(VST3PluginHandle handle, const void* data, int size) {
 // ============================================================================
 
 bool vst3_has_editor(VST3PluginHandle handle) {
-    fprintf(stderr, "🖥️ [C++] vst3_has_editor: handle=%p\n", handle);
-    fflush(stderr);
-
-    if (!handle) {
-        fprintf(stderr, "🖥️ [C++] vst3_has_editor: handle is null → false\n");
-        fflush(stderr);
-        return false;
-    }
+    if (!handle) return false;
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
-    if (!instance->controller) {
-        fprintf(stderr, "🖥️ [C++] vst3_has_editor: controller is null → false\n");
-        fflush(stderr);
-        return false;
-    }
+    if (!instance->controller) return false;
 
     // Check if controller supports creating an editor view
     auto view = instance->controller->createView(ViewType::kEditor);
     if (view) {
         view->release();
-        fprintf(stderr, "🖥️ [C++] vst3_has_editor: createView succeeded → true\n");
-        fflush(stderr);
         return true;
     }
 
-    fprintf(stderr, "🖥️ [C++] vst3_has_editor: createView returned null → false\n");
-    fflush(stderr);
     return false;
 }
 
 bool vst3_open_editor(VST3PluginHandle handle) {
-    fprintf(stderr, "🎨 [C++] vst3_open_editor called: handle=%p\n", handle);
-
     if (!handle) {
         set_error("Invalid handle");
-        fprintf(stderr, "❌ [C++] vst3_open_editor: handle is null\n");
         return false;
     }
 
@@ -1302,88 +1214,45 @@ bool vst3_open_editor(VST3PluginHandle handle) {
 
     if (!instance->controller) {
         set_error("No edit controller available");
-        fprintf(stderr, "❌ [C++] vst3_open_editor: no edit controller\n");
         return false;
     }
 
     if (instance->editor_open) {
-        // Already open is okay, just return success
-        fprintf(stderr, "⏭️ [C++] vst3_open_editor: editor already open\n");
         return true;
     }
 
-    // Create the editor view
-    fprintf(stderr, "📝 [C++] Creating editor view via controller->createView\n");
     auto view = instance->controller->createView(ViewType::kEditor);
     if (!view) {
         set_error("Failed to create editor view");
-        fprintf(stderr, "❌ [C++] vst3_open_editor: createView returned null\n");
         return false;
     }
 
     instance->editor_view = view;
     instance->editor_open = true;
-
-    fprintf(stderr, "✅ [C++] vst3_open_editor: success, editor_view=%p\n", (void*)view);
-
     return true;
 }
 
 void vst3_close_editor(VST3PluginHandle handle) {
-    fprintf(stderr, "🔒 [C++] vst3_close_editor: handle=%p\n", handle);
-    fflush(stderr);
     if (!handle) return;
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
-    fprintf(stderr, "🔒 [C++] vst3_close_editor: editor_open=%d, parent_window=%p, editor_view=%p\n",
-            instance->editor_open, instance->parent_window,
-            instance->editor_view ? (void*)instance->editor_view.get() : nullptr);
-    fflush(stderr);
 
     if (instance->editor_view) {
-        // Clear the frame first
-        fprintf(stderr, "🔒 [C++] vst3_close_editor: setFrame(nullptr)\n");
-        fflush(stderr);
-        try {
-            instance->editor_view->setFrame(nullptr);
-        } catch (...) {
-            fprintf(stderr, "💥 [C++] vst3_close_editor: CRASH in setFrame(nullptr)\n");
-            fflush(stderr);
-        }
+        instance->editor_view->setFrame(nullptr);
 
-        // Detach from parent if attached
         if (instance->parent_window) {
-            fprintf(stderr, "🔒 [C++] vst3_close_editor: calling removed()\n");
-            fflush(stderr);
-            try {
-                instance->editor_view->removed();
-            } catch (...) {
-                fprintf(stderr, "💥 [C++] vst3_close_editor: CRASH in removed()\n");
-                fflush(stderr);
-            }
+            instance->editor_view->removed();
             instance->parent_window = nullptr;
         }
 
-        // Release the view
-        fprintf(stderr, "🔒 [C++] vst3_close_editor: releasing editor_view\n");
-        fflush(stderr);
         instance->editor_view = nullptr;
     }
 
-    // Release the plug frame
-    fprintf(stderr, "🔒 [C++] vst3_close_editor: releasing plug_frame\n");
-    fflush(stderr);
     instance->plug_frame = nullptr;
-
     instance->editor_open = false;
-    fprintf(stderr, "🔒 [C++] vst3_close_editor: complete\n");
-    fflush(stderr);
 }
 
 bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height) {
-    fprintf(stderr, "📏 [C++] vst3_get_editor_size: handle=%p\n", handle);
-    fflush(stderr);
-
     if (!handle || !width || !height) {
         set_error("Invalid parameters");
         return false;
@@ -1392,34 +1261,21 @@ bool vst3_get_editor_size(VST3PluginHandle handle, int* width, int* height) {
     auto instance = static_cast<VST3PluginInstance*>(handle);
     if (!instance->editor_view) {
         set_error("No editor view available");
-        fprintf(stderr, "❌ [C++] vst3_get_editor_size: editor_view is null\n");
-        fflush(stderr);
         return false;
     }
 
     ViewRect rect;
-    auto result = instance->editor_view->getSize(&rect);
-    if (result != kResultOk) {
+    if (instance->editor_view->getSize(&rect) != kResultOk) {
         set_error("Failed to get editor size");
-        fprintf(stderr, "❌ [C++] vst3_get_editor_size: getSize() failed, result=%d\n", result);
-        fflush(stderr);
         return false;
     }
 
     *width = rect.right - rect.left;
     *height = rect.bottom - rect.top;
-
-    fprintf(stderr, "📏 [C++] vst3_get_editor_size: rect=(%d,%d,%d,%d) → %dx%d\n",
-            rect.left, rect.top, rect.right, rect.bottom, *width, *height);
-    fflush(stderr);
-
     return true;
 }
 
 bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
-    fprintf(stderr, "📤 [C++] vst3_attach_editor: handle=%p, parent=%p\n", handle, parent);
-    fflush(stderr);
-
     if (!handle) {
         set_error("Invalid handle (null)");
         return false;
@@ -1434,15 +1290,11 @@ bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
 
     if (!instance->editor_open) {
         set_error("Editor not opened - call vst3_open_editor first");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor not opened\n");
-        fflush(stderr);
         return false;
     }
 
     if (!instance->editor_view) {
         set_error("No editor view available (editor_view is null)");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: editor_view is null\n");
-        fflush(stderr);
         return false;
     }
 
@@ -1451,8 +1303,6 @@ bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
     // may have been deallocated by Flutter's platform view lifecycle.
     // Instead, release the old IPlugView entirely and create a fresh one.
     if (instance->parent_window) {
-        fprintf(stderr, "📤 [C++] vst3_attach_editor: recreating editor view (old parent=%p)\n", instance->parent_window);
-        fflush(stderr);
         instance->editor_view->setFrame(nullptr);
         instance->editor_view = nullptr;
         instance->plug_frame = nullptr;
@@ -1474,68 +1324,42 @@ bool vst3_attach_editor(VST3PluginHandle handle, void* parent) {
         return false;
     }
 
-    auto platformResult = view->isPlatformTypeSupported(kPlatformTypeNSView);
-    fprintf(stderr, "📤 [C++] vst3_attach_editor: isPlatformTypeSupported(NSView)=%d\n", platformResult);
-    fflush(stderr);
-    if (platformResult != kResultTrue) {
+    if (view->isPlatformTypeSupported(kPlatformTypeNSView) != kResultTrue) {
         set_error("Plugin does not support NSView platform type");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: NSView not supported\n");
-        fflush(stderr);
         return false;
     }
 
     // Store the plugin's preferred size
     ViewRect preferredSize;
-    auto sizeResult = view->getSize(&preferredSize);
-    if (sizeResult == kResultOk) {
+    if (view->getSize(&preferredSize) == kResultOk) {
         instance->preferred_editor_width = preferredSize.right - preferredSize.left;
         instance->preferred_editor_height = preferredSize.bottom - preferredSize.top;
-        fprintf(stderr, "📤 [C++] vst3_attach_editor: preferredSize=%dx%d (rect=%d,%d,%d,%d)\n",
-                instance->preferred_editor_width, instance->preferred_editor_height,
-                preferredSize.left, preferredSize.top, preferredSize.right, preferredSize.bottom);
-    } else {
-        fprintf(stderr, "⚠️ [C++] vst3_attach_editor: getSize() failed, result=%d\n", sizeResult);
     }
-    fflush(stderr);
 
     // CRITICAL: Create and set the IPlugFrame BEFORE calling attached()
     if (!instance->plug_frame) {
         instance->plug_frame = owned(new PlugFrame(instance));
     }
     view->setFrame(instance->plug_frame.get());
-    fprintf(stderr, "📤 [C++] vst3_attach_editor: setFrame done, calling attached(parent=%p)\n", parent);
-    fflush(stderr);
 
     // Call attached()
     tresult result;
     try {
         result = view->attached(parent, kPlatformTypeNSView);
     } catch (const std::exception& e) {
-        fprintf(stderr, "❌ [C++] Exception in attached(): %s\n", e.what());
-        fflush(stderr);
         set_error("C++ exception in IPlugView->attached()");
         return false;
     } catch (...) {
-        fprintf(stderr, "❌ [C++] Unknown exception in attached()\n");
-        fflush(stderr);
         set_error("Unknown exception in IPlugView->attached()");
         return false;
     }
 
-    fprintf(stderr, "📤 [C++] vst3_attach_editor: attached() returned %d\n", result);
-    fflush(stderr);
-
     if (result != kResultOk) {
         set_error("Failed to attach editor to parent window");
-        fprintf(stderr, "❌ [C++] vst3_attach_editor: attached() failed\n");
-        fflush(stderr);
         return false;
     }
 
     instance->parent_window = parent;
-    fprintf(stderr, "✅ [C++] vst3_attach_editor: success, parent=%p, size=%dx%d\n",
-            parent, instance->preferred_editor_width, instance->preferred_editor_height);
-    fflush(stderr);
     return true;
 }
 
