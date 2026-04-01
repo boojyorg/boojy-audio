@@ -1252,12 +1252,17 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: _isHovered
-                  ? colors.accent.withValues(alpha: 0.9)
-                  : colors.accent,
+              color: _isHovered ? colors.surface : Colors.transparent,
               shape: BoxShape.circle,
+              border: Border.all(
+                color: _isHovered ? colors.textSecondary : colors.divider,
+              ),
             ),
-            child: const Icon(Icons.add, size: 14, color: Colors.white),
+            child: Icon(
+              BI.add,
+              size: 14,
+              color: _isHovered ? colors.textPrimary : colors.textPrimary,
+            ),
           ),
         ),
       ),

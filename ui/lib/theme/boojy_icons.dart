@@ -80,6 +80,8 @@ class BoojyIcons {
       usePhosphor ? PhosphorIconsRegular.x : Icons.close;
   static IconData get add =>
       usePhosphor ? PhosphorIconsRegular.plus : Icons.add;
+  static IconData get remove =>
+      usePhosphor ? PhosphorIconsRegular.minus : Icons.remove;
   static IconData get addCircle =>
       usePhosphor ? PhosphorIconsRegular.plusCircle : Icons.add_circle_outline;
   static IconData get delete =>
