@@ -58,6 +58,7 @@ abstract class AudioEngineInterface {
   int addVst3EffectToTrack(int trackId, String effectPath);
   String removeEffectFromTrack(int trackId, int effectId);
   void setEffectBypass(int effectId, {required bool bypassed});
+  void setSynthBypass(int trackId, {required bool bypassed});
   void reorderTrackEffects(int trackId, List<int> order);
   bool setVst3ParameterValue(int effectId, int paramIndex, double value);
 

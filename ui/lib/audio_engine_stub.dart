@@ -211,6 +211,10 @@ class AudioEngine implements AudioEngineInterface {
   void setEffectBypass(int effectId, {required bool bypassed}) =>
       throw UnsupportedError('stub');
 
+  @override
+  void setSynthBypass(int trackId, {required bool bypassed}) =>
+      throw UnsupportedError('stub');
+
   bool getEffectBypass(int effectId) => throw UnsupportedError('stub');
 
   @override

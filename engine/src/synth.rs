@@ -455,6 +455,7 @@ impl TrackInstrument {
 
 pub struct TrackSynthManager {
     instruments: HashMap<u64, TrackInstrument>,
+    bypass_states: HashMap<u64, bool>,
     sample_rate: f32,
 }
 
@@ -462,6 +463,7 @@ impl TrackSynthManager {
     pub fn new(sample_rate: f32) -> Self {
         Self {
             instruments: HashMap::new(),
+            bypass_states: HashMap::new(),
             sample_rate,
         }
     }
@@ -525,11 +527,22 @@ impl TrackSynthManager {
 
     /// Process and return stereo output
     pub fn process_sample_stereo(&mut self, track_id: u64) -> (f32, f32) {
+        if self.is_bypassed(track_id) {
+            return (0.0, 0.0);
+        }
         if let Some(inst) = self.instruments.get_mut(&track_id) {
             inst.process_sample_stereo()
         } else {
             (0.0, 0.0)
         }
+    }
+
+    pub fn set_bypass(&mut self, track_id: u64, bypassed: bool) {
+        self.bypass_states.insert(track_id, bypassed);
+    }
+
+    pub fn is_bypassed(&self, track_id: u64) -> bool {
+        self.bypass_states.get(&track_id).copied().unwrap_or(false)
     }
 
     pub fn has_synth(&self, track_id: u64) -> bool {

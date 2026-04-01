@@ -571,10 +571,20 @@ impl AudioGraph {
                         }
 
                         // Process per-track MIDI clips (using pre-acquired synth lock)
-                        // Route MIDI to EITHER built-in synth OR VST3 instruments (not both)
+                        // Route MIDI to built-in synth AND/OR VST3 instruments
                         if let Some(ref mut synth_manager) = synth_guard {
-                            // Check if track has VST3 plugins - if so, skip built-in synth
-                            let has_vst3 = !track_snap.fx_chain.is_empty();
+                            // Check if track has actual VST3 instrument plugins (not built-in effects)
+                            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                            let has_vst3_instrument = track_snap.fx_chain.iter().any(|effect_id| {
+                                if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                                    let effect = effect_arc.lock();
+                                    matches!(*effect, crate::effects::EffectType::VST3(_))
+                                } else {
+                                    false
+                                }
+                            });
+                            #[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
+                            let has_vst3_instrument = false;
 
                             for timeline_midi_clip in &track_snap.midi_clips {
                                 if skip_clips { continue; }
@@ -591,13 +601,13 @@ impl AudioGraph {
                                         if event.timestamp_samples == frame_in_clip {
                                             match event.event_type {
                                                 crate::midi::MidiEventType::NoteOn { note, velocity } => {
-                                                    // Send to built-in synth ONLY if no VST3 plugins
-                                                    if !has_vst3 {
+                                                    // Send to built-in synth if no VST3 instrument replaces it
+                                                    if !has_vst3_instrument {
                                                         synth_manager.note_on(track_snap.id, note, velocity);
                                                     }
 
                                                     // Send to VST3 instruments in FX chain
-                                                    if has_vst3 {
+                                                    if has_vst3_instrument {
                                                         for effect_id in &track_snap.fx_chain {
                                                             if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
                                                                 let mut effect = effect_arc.lock();
@@ -610,13 +620,13 @@ impl AudioGraph {
                                                     }
                                                 }
                                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                                    // Send to built-in synth ONLY if no VST3 plugins
-                                                    if !has_vst3 {
+                                                    // Send to built-in synth if no VST3 instrument replaces it
+                                                    if !has_vst3_instrument {
                                                         synth_manager.note_off(track_snap.id, note);
                                                     }
 
                                                     // Send to VST3 instruments in FX chain
-                                                    if has_vst3 {
+                                                    if has_vst3_instrument {
                                                         for effect_id in &track_snap.fx_chain {
                                                             if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
                                                                 let mut effect = effect_arc.lock();

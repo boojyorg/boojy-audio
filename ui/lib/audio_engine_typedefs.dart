@@ -459,6 +459,10 @@ typedef _SetTrackInstrumentFfiNative =
     ffi.Int64 Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
 typedef _SetTrackInstrumentFfi = int Function(int, ffi.Pointer<ffi.Char>);
 
+typedef _SetSynthBypassFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Int32);
+typedef _SetSynthBypassFfi = ffi.Pointer<Utf8> Function(int, int);
+
 typedef _SetSynthParameterFfiNative =
     ffi.Pointer<Utf8> Function(
       ffi.Uint64,

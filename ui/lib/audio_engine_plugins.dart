@@ -292,6 +292,16 @@ mixin _PluginsMixin on _AudioEngineBase {
   }
 
   /// Set a synthesizer parameter for a track
+  /// Set bypass state for built-in synth/sampler on a track
+  void setSynthBypass(int trackId, {required bool bypassed}) {
+    try {
+      final resultPtr = _setSynthBypass(trackId, bypassed ? 1 : 0);
+      _freeRustString(resultPtr);
+    } catch (e) {
+      print('[FFI] setSynthBypass error: $e');
+    }
+  }
+
   /// paramName: parameter name (e.g., 'osc1_type', 'filter_cutoff')
   /// value: parameter value (will be converted to string)
   String setSynthParameter(int trackId, String paramName, dynamic value) {
