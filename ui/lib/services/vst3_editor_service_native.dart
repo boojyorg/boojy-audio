@@ -244,8 +244,11 @@ class VST3EditorService {
     int maxHeight = 0,
   }) async {
     if (_audioEngine == null) {
+      print('🔌 [VST3Service] attachEditor($effectId): no audio engine');
       return false;
     }
+
+    print('🔌 [VST3Service] attachEditor($effectId): maxSize=${maxWidth}x$maxHeight');
 
     // Set max size constraint BEFORE attachment so PlugFrame::resizeView()
     // clamps immediately when the plugin requests resize during attached()
@@ -262,11 +265,13 @@ class VST3EditorService {
           .timeout(
             const Duration(seconds: 5),
             onTimeout: () {
+              print('🔌 [VST3Service] attachEditor($effectId): Swift timed out');
               return null;
             },
           );
 
       if (result == null || result is! Map) {
+        print('🔌 [VST3Service] attachEditor($effectId): Swift returned null/invalid: $result');
         return false;
       }
 
@@ -274,20 +279,26 @@ class VST3EditorService {
       final viewPointer = result['viewPointer'] as int?;
 
       if (!success || viewPointer == null) {
+        print('🔌 [VST3Service] attachEditor($effectId): Swift failed — success=$success, viewPtr=$viewPointer');
         return false;
       }
+
+      print('🔌 [VST3Service] attachEditor($effectId): Swift ready, viewPtr=0x${viewPointer.toRadixString(16)}');
 
       // Step 2: Open the editor via FFI (creates IPlugView)
       final openResult = _audioEngine!.vst3OpenEditor(effectId);
       if (openResult.isNotEmpty) {
+        print('🔌 [VST3Service] attachEditor($effectId): openEditor FAILED: $openResult');
         await _channel.invokeMethod('detachEditor', {'effectId': effectId});
         return false;
       }
+      print('🔌 [VST3Service] attachEditor($effectId): openEditor OK');
 
       // Step 3: Get editor size (this is the PREFERRED size before any onSize)
       final sizeResult = _audioEngine!.vst3GetEditorSize(effectId);
       final int width = sizeResult?['width'] ?? 800;
       final int height = sizeResult?['height'] ?? 600;
+      print('🔌 [VST3Service] attachEditor($effectId): editorSize=${width}x$height (raw=$sizeResult)');
 
       // Store preferred size for uniform scale-to-fit in the widget
       preferredEditorSize[effectId] = (width, height);
@@ -296,10 +307,12 @@ class VST3EditorService {
       final viewPtr = ffi.Pointer<ffi.Void>.fromAddress(viewPointer);
       final attachResult = _audioEngine!.vst3AttachEditor(effectId, viewPtr);
       if (attachResult.isNotEmpty) {
+        print('🔌 [VST3Service] attachEditor($effectId): attachEditor FAILED: $attachResult');
         _audioEngine!.vst3CloseEditor(effectId);
         await _channel.invokeMethod('detachEditor', {'effectId': effectId});
         return false;
       }
+      print('🔌 [VST3Service] attachEditor($effectId): attachEditor OK');
 
       // Step 5: Confirm attachment back to Swift
       await _channel.invokeMethod('confirmAttachment', {
@@ -308,8 +321,10 @@ class VST3EditorService {
         'height': height,
       });
 
+      print('🔌 [VST3Service] attachEditor($effectId): ✅ complete, size=${width}x$height');
       return true;
     } catch (e) {
+      print('🔌 [VST3Service] attachEditor($effectId): ❌ exception: $e');
       return false;
     }
   }

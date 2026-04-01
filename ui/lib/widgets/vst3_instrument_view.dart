@@ -67,6 +67,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
     // Check if plugin has an editor GUI
     final hasEditor =
         widget.audioEngine?.vst3HasEditor(widget.effectId) ?? false;
+    print('🔌 [VST3View] _initEditor effectId=${widget.effectId}: hasEditor=$hasEditor');
     setState(() {
       _hasError = !hasEditor;
       // If the plugin has an editor, show loading briefly while platform view

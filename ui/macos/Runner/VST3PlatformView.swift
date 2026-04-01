@@ -155,10 +155,15 @@ class VST3EditorView: NSView {
     }
 
     private func createChildWindow() {
-        guard childWindow == nil, let parentWindow = window else { return }
+        guard childWindow == nil, let parentWindow = window else {
+            print("🪟 \(logTag): createChildWindow skipped — childWindow=\(childWindow != nil), window=\(window != nil)")
+            return
+        }
 
         let frameInWindow = convert(bounds, to: nil)
         let frameInScreen = parentWindow.convertToScreen(frameInWindow)
+
+        print("🪟 \(logTag): createChildWindow — visual=\(frameInScreen.size), native=\(nativeWidth)x\(nativeHeight), bounds=\(bounds.size)")
 
         let child = NSWindow(
             contentRect: frameInScreen,
@@ -187,6 +192,9 @@ class VST3EditorView: NSView {
         host.wantsLayer = false  // Let the plugin manage its own layers
         if nativeWidth > 0 && nativeHeight > 0 {
             host.setBoundsSize(NSSize(width: nativeWidth, height: nativeHeight))
+            print("🪟 \(logTag): host.setBoundsSize(\(nativeWidth)x\(nativeHeight)), frame=\(frameInScreen.size)")
+        } else {
+            print("⚠️ \(logTag): nativeSize is 0 — skipping setBoundsSize! Plugin may be invisible")
         }
         container.addSubview(host)
         pluginHostView = host
@@ -204,11 +212,17 @@ class VST3EditorView: NSView {
     private func applyScaleTransform() {
         guard let host = pluginHostView,
               let container = pluginContainerView,
-              nativeWidth > 0, nativeHeight > 0 else { return }
+              nativeWidth > 0, nativeHeight > 0 else {
+            print("⚠️ \(logTag): applyScaleTransform skipped — host=\(pluginHostView != nil), container=\(pluginContainerView != nil), native=\(nativeWidth)x\(nativeHeight)")
+            return
+        }
 
         let cw = container.frame.size.width
         let ch = container.frame.size.height
-        guard cw > 0, ch > 0 else { return }
+        guard cw > 0, ch > 0 else {
+            print("⚠️ \(logTag): applyScaleTransform skipped — container size=\(cw)x\(ch)")
+            return
+        }
 
         let nw = CGFloat(nativeWidth)
         let nh = CGFloat(nativeHeight)
