@@ -789,7 +789,7 @@ class _TransportBarState extends State<TransportBar> {
               onAddAudioTrack: widget.onAddAudioTrack,
             ),
 
-          if (widget.isEngineReady) const SizedBox(width: 8),
+          if (widget.isEngineReady) const SizedBox(width: 10),
 
           // Status pill [✓ Ready]
           StatusPill(
@@ -1193,6 +1193,7 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
           }
         },
         child: PopupMenuButton<String>(
+          tooltip: 'Add Track',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 0, minHeight: 0),
           position: PopupMenuPosition.under,
@@ -1247,22 +1248,10 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
               ),
             ),
           ],
-          child: AnimatedContainer(
-            duration: AnimationConstants.hoverDuration,
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: _isHovered ? colors.surface : Colors.transparent,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: _isHovered ? colors.textSecondary : colors.divider,
-              ),
-            ),
-            child: Icon(
-              BI.add,
-              size: 14,
-              color: _isHovered ? colors.textPrimary : colors.textPrimary,
-            ),
+          child: Icon(
+            BI.addCircle,
+            size: 20,
+            color: _isHovered ? colors.textPrimary : colors.textSecondary,
           ),
         ),
       ),

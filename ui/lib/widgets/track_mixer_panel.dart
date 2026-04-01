@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+
 import 'dart:async';
 import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
@@ -13,7 +13,7 @@ import 'platform_drop_target.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
-import '../theme/theme_provider.dart';
+
 import '../utils/logger.dart';
 import 'mixer/mixer_models.dart';
 import 'timeline/timeline_models.dart';
@@ -318,57 +318,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
   }
 
-  Future<void> _createTrack(String type) async {
-    if (widget.audioEngine == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Audio engine not ready'),
-          backgroundColor: context.colors.error,
-        ),
-      );
-      return;
-    }
-
-    // Use simple type name - visual numbering comes from displayIndex
-    final name = type == 'audio' ? 'Audio' : 'MIDI';
-
-    // Use UndoRedoManager for undoable track creation
-    final command = CreateTrackCommand(trackType: type, trackName: name);
-
-    await UndoRedoManager().execute(command);
-
-    if (command.createdTrackId != null && command.createdTrackId! >= 0) {
-      // Auto-assign input channel for audio tracks
-      if (type == 'audio' && _inputDevices.isNotEmpty) {
-        final existingAudioCount = _tracks
-            .where((t) => t.type.toLowerCase() == 'audio')
-            .length;
-        final channel = existingAudioCount % 2; // Alternate L/R channels
-        widget.audioEngine?.setTrackInput(command.createdTrackId!, 0, channel);
-      }
-
-      await _loadTracksAsync();
-
-      // Notify parent to create default MIDI clip for MIDI tracks
-      if (type == 'midi') {
-        widget.trackCallbacks.onMidiTrackCreated?.call(command.createdTrackId!);
-      }
-
-      // Notify parent to refresh timeline and select the new track
-      widget.trackCallbacks.onTrackCreated?.call(command.createdTrackId!, type);
-    } else {
-      // Show error to user when track creation fails
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to create track - please try again'),
-            backgroundColor: context.colors.error,
-          ),
-        );
-      }
-    }
-  }
-
   /// Handle arm button toggle with exclusive arm behavior for MIDI tracks.
   /// Clicking arm on a MIDI track disarms all other MIDI tracks (Ableton-style).
   void _handleArmToggle(TrackData track, List<TrackData> allTracks) {
@@ -577,70 +526,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const Spacer(),
-          // Add track button (disabled until engine ready)
-          if (widget.config.isEngineReady)
-            PopupMenuButton<String>(
-              icon: Icon(
-                BI.addCircle,
-                color: context.colors.textPrimary,
-                size: 18,
-              ),
-              tooltip: 'Add track',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              onSelected: (value) {
-                if (mounted) {
-                  _createTrack(value);
-                }
-              },
-              itemBuilder: (menuContext) {
-                // Use menuContext for colors in popup menu callback
-                final colors = Provider.of<ThemeProvider>(
-                  menuContext,
-                  listen: false,
-                ).colors;
-                return [
-                  PopupMenuItem<String>(
-                    value: 'audio',
-                    child: Row(
-                      children: [
-                        Icon(BI.musicNote, size: 18, color: colors.darkest),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Audio Track',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'midi',
-                    child: Row(
-                      children: [
-                        Icon(BI.piano, size: 18, color: colors.darkest),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'MIDI Track',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ];
-              },
-            )
-          else
-            Tooltip(
-              message: 'Waiting for audio engine...',
-              child: Icon(
-                BI.addCircle,
-                color: context.colors.textMuted,
-                size: 18,
-              ),
-            ),
+          Spacer(),
         ],
       ),
     );
