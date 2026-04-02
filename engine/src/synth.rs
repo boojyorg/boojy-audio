@@ -88,6 +88,7 @@ struct Voice {
     env_level: f32,
     env_time: f32,
     is_active: bool,
+    sustain_pending: bool, // note-off received while sustain pedal held
 }
 
 impl Voice {
@@ -101,6 +102,7 @@ impl Voice {
             env_level: 0.0,
             env_time: 0.0,
             is_active: false,
+            sustain_pending: false,
         }
     }
 
@@ -113,10 +115,23 @@ impl Voice {
         self.env_level = 0.0;
         self.env_time = 0.0;
         self.is_active = true;
+        self.sustain_pending = false;
     }
 
-    fn note_off(&mut self) {
+    fn note_off(&mut self, sustain_held: bool) {
         if self.is_active && self.env_state != EnvelopeState::Release {
+            if sustain_held {
+                self.sustain_pending = true;
+            } else {
+                self.env_state = EnvelopeState::Release;
+                self.env_time = 0.0;
+            }
+        }
+    }
+
+    fn release_sustain(&mut self) {
+        if self.sustain_pending {
+            self.sustain_pending = false;
             self.env_state = EnvelopeState::Release;
             self.env_time = 0.0;
         }
@@ -222,6 +237,7 @@ pub struct Synth {
     sample_rate: f32,
     // Simple one-pole lowpass filter state
     filter_state: f32,
+    sustain_held: bool,
 }
 
 impl Synth {
@@ -233,6 +249,7 @@ impl Synth {
             envelope: EnvelopeParams::default(),
             sample_rate,
             filter_state: 0.0,
+            sustain_held: false,
         }
     }
 
@@ -245,7 +262,21 @@ impl Synth {
     pub fn note_off(&mut self, note: u8) {
         for voice in &mut self.voices {
             if voice.is_active && voice.note == note {
-                voice.note_off();
+                voice.note_off(self.sustain_held);
+            }
+        }
+    }
+
+    /// Handle MIDI Control Change — CC64 = sustain pedal
+    pub fn control_change(&mut self, controller: u8, value: u8) {
+        if controller == 64 {
+            let pedal_on = value >= 64;
+            self.sustain_held = pedal_on;
+
+            if !pedal_on {
+                for voice in &mut self.voices {
+                    voice.release_sustain();
+                }
             }
         }
     }
@@ -386,6 +417,13 @@ impl TrackInstrument {
         }
     }
 
+    pub fn control_change(&mut self, controller: u8, value: u8) {
+        match self {
+            TrackInstrument::Synth(s) => s.control_change(controller, value),
+            TrackInstrument::Sampler(_) => {} // Sampler doesn't handle CC yet
+        }
+    }
+
     pub fn all_notes_off(&mut self) {
         match self {
             TrackInstrument::Synth(s) => s.all_notes_off(),
@@ -514,6 +552,12 @@ impl TrackSynthManager {
     pub fn note_off(&mut self, track_id: u64, note: u8) {
         if let Some(inst) = self.instruments.get_mut(&track_id) {
             inst.note_off(note);
+        }
+    }
+
+    pub fn control_change(&mut self, track_id: u64, controller: u8, value: u8) {
+        if let Some(inst) = self.instruments.get_mut(&track_id) {
+            inst.control_change(controller, value);
         }
     }
 

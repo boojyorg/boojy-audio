@@ -28,6 +28,8 @@
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/gui/iplugview.h"
 #include "pluginterfaces/vst/ivstmessage.h"  // For IConnectionPoint
+#include "pluginterfaces/vst/ivstmidicontrollers.h"  // For IMidiMapping, CtrlNumber
+#include "public.sdk/source/vst/hosting/parameterchanges.h"  // For ParameterChanges
 #include "pluginterfaces/base/ibstream.h"     // For IBStream (state save/load)
 #include "pluginterfaces/vst/ivstunits.h"     // For IUnitInfo (preset enumeration)
 #include "public.sdk/source/vst/hosting/module.h"
@@ -183,6 +185,9 @@ struct VST3PluginInstance {
 
     // Event list for MIDI - concrete class for queuing MIDI events
     EventList midi_events;
+
+    // Parameter changes queue for CC → parameter mapping
+    Vst::ParameterChanges param_changes;
 
     // Editor view (M7 Phase 1: Native GUI support)
     IPtr<IPlugView> editor_view;
@@ -794,7 +799,8 @@ bool vst3_process_audio(
     data.numOutputs = 1;
     data.inputs = &input_bus;
     data.outputs = &output_bus;
-    data.inputParameterChanges = nullptr;
+    // Pass queued parameter changes (from CC → IMidiMapping)
+    data.inputParameterChanges = (instance->param_changes.getParameterCount() > 0) ? &instance->param_changes : nullptr;
     data.outputParameterChanges = nullptr;
 
     // Pass queued MIDI events to the plugin
@@ -806,8 +812,9 @@ bool vst3_process_audio(
     // Process the audio
     tresult result = instance->processor->process(data);
 
-    // Clear MIDI events after processing (they've been consumed)
+    // Clear queues after processing (they've been consumed)
     instance->midi_events.clear();
+    instance->param_changes.clearQueue();
 
     if (result != kResultOk && result != kResultTrue) {
         set_error("Audio processing failed");
@@ -865,10 +872,30 @@ bool vst3_process_midi_event(
             event.noteOff.noteId = -1;
             break;
 
-        case 2: // Control Change (CC)
-            // VST3 doesn't have direct CC events - they're typically handled via parameter changes
-            // For now, we'll skip CC events as they require IParameterChanges
+        case 2: { // Control Change (CC) via IMidiMapping → parameter change queue
+            if (instance->controller) {
+                FUnknownPtr<IMidiMapping> midiMapping(instance->controller);
+                if (midiMapping) {
+                    ParamID paramId = 0;
+                    if (midiMapping->getMidiControllerAssignment(
+                            0, static_cast<int16>(channel),
+                            static_cast<CtrlNumber>(data1),
+                            paramId) == kResultTrue) {
+                        double normalizedValue = static_cast<double>(data2) / 127.0;
+                        // Queue for delivery during next process() call
+                        int32 queueIndex = 0;
+                        auto* queue = instance->param_changes.addParameterData(paramId, queueIndex);
+                        if (queue) {
+                            int32 pointIndex = 0;
+                            queue->addPoint(sample_offset, normalizedValue, pointIndex);
+                        }
+                        // Also update the controller state for UI sync
+                        instance->controller->setParamNormalized(paramId, normalizedValue);
+                    }
+                }
+            }
             return true;
+        }
 
         default:
             set_error("Unknown MIDI event type");

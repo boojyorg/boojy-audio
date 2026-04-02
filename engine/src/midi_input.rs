@@ -275,13 +275,15 @@ fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
             Some(MidiEvent::note_off(note, velocity, timestamp))
         }
 
-        // Ignore other message types for now (CC, pitch bend, etc.)
-        _ => {
-            eprintln!(
-                "🎹 [MIDI] Ignoring message type: 0x{message_type:02X} (channel {channel})"
-            );
-            None
+        // Control Change (0xB0)
+        0xB0 if message.len() >= 3 => {
+            let controller = message[1];
+            let value = message[2];
+            Some(MidiEvent::control_change(controller, value, timestamp))
         }
+
+        // Ignore other message types for now (pitch bend, aftertouch, etc.)
+        _ => None
     }
 }
 

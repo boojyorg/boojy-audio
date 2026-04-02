@@ -12,7 +12,7 @@ pub type MidiVelocity = u8;
 pub enum MidiEventType {
     NoteOn { note: MidiNote, velocity: MidiVelocity },
     NoteOff { note: MidiNote, velocity: MidiVelocity },
-    // Future: CC, PitchBend, etc.
+    ControlChange { controller: u8, value: u8 },
 }
 
 /// MIDI event with sample-accurate timestamp
@@ -44,6 +44,14 @@ impl MidiEvent {
     pub fn note_off(note: MidiNote, velocity: MidiVelocity, timestamp_samples: u64) -> Self {
         Self::new(
             MidiEventType::NoteOff { note, velocity },
+            timestamp_samples,
+        )
+    }
+
+    /// Create a control change event
+    pub fn control_change(controller: u8, value: u8, timestamp_samples: u64) -> Self {
+        Self::new(
+            MidiEventType::ControlChange { controller, value },
             timestamp_samples,
         )
     }

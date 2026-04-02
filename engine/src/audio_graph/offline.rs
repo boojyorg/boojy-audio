@@ -193,13 +193,11 @@ impl AudioGraph {
                                         }
                                     }
                                     crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                        // Send to built-in synth ONLY if no VST3 plugins
                                         if !has_vst3 {
                                             { let mut synth_manager = self.track_synth_manager.lock();
                                                 synth_manager.note_off(track_snap.id, note);
                                             }
                                         }
-                                        // Send to VST3 instruments in FX chain
                                         if has_vst3 {
                                             { let effect_mgr = self.effect_manager.lock();
                                                 for effect_id in &track_snap.fx_chain {
@@ -215,6 +213,7 @@ impl AudioGraph {
                                             }
                                         }
                                     }
+                                    crate::midi::MidiEventType::ControlChange { .. } => {}
                                 }
                             }
                         }
@@ -475,13 +474,11 @@ impl AudioGraph {
                                     }
                                 }
                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                    // Send to built-in synth ONLY if no VST3 plugins
                                     if !has_vst3 {
                                         { let mut synth_manager = self.track_synth_manager.lock();
                                             synth_manager.note_off(track_id, note);
                                         }
                                     }
-                                    // Send to VST3 instruments in FX chain
                                     if has_vst3 {
                                         { let effect_mgr = self.effect_manager.lock();
                                             for effect_id in &track_snap.fx_chain {
@@ -497,6 +494,7 @@ impl AudioGraph {
                                         }
                                     }
                                 }
+                                crate::midi::MidiEventType::ControlChange { .. } => {}
                             }
                         }
                     }

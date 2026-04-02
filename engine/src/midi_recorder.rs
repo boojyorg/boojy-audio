@@ -120,6 +120,7 @@ impl MidiRecorder {
                 MidiEventType::NoteOff { note, .. } => {
                     self.held_notes.remove(&note);
                 }
+                MidiEventType::ControlChange { .. } => {} // CC not tracked during count-in
             }
             return;
         }
@@ -137,7 +138,7 @@ impl MidiRecorder {
                         );
                         MidiEvent::note_on(note, velocity, 0)
                     }
-                    MidiEventType::NoteOff { .. } => unreachable!(), // held_notes only stores NoteOn
+                    MidiEventType::NoteOff { .. } | MidiEventType::ControlChange { .. } => unreachable!(), // held_notes only stores NoteOn
                 }
             }).collect();
             for e in held {
