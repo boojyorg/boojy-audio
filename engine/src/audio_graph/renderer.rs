@@ -191,7 +191,7 @@ impl AudioGraph {
         #[cfg(all(windows, feature = "asio"))]
         let device = if let Some(ref name) = selected_name {
             if name.starts_with("[ASIO] ") {
-                let actual_name = name.strip_prefix("[ASIO] ").unwrap();
+                let actual_name = name.strip_prefix("[ASIO] ").unwrap_or(name);
                 eprintln!("🔊 [AudioGraph] Attempting to use ASIO device: {}", actual_name);
 
                 match cpal::host_from_id(cpal::HostId::Asio) {
@@ -519,12 +519,23 @@ impl AudioGraph {
                 let mut master_peak_right = 0.0f32;
 
                 // OPTIMIZATION: Lock synth manager ONCE before the frame loop
-                // This prevents lock contention that causes audio dropouts
-                let mut synth_guard = Some(track_synth_manager.lock());
+                // Use try_lock first to detect contention, fall back to blocking lock
+                let mut synth_guard = Some(match track_synth_manager.try_lock() {
+                    Some(guard) => guard,
+                    None => {
+                        eprintln!("⚠️ [Audio] synth_manager lock contention — blocking");
+                        track_synth_manager.lock()
+                    }
+                });
 
                 // OPTIMIZATION: Lock effect manager ONCE before the frame loop
-                // This prevents per-track per-frame lock contention that can cause audio dropouts
-                let mut effect_guard = effect_manager.lock();
+                let mut effect_guard = match effect_manager.try_lock() {
+                    Some(guard) => guard,
+                    None => {
+                        eprintln!("⚠️ [Audio] effect_manager lock contention — blocking");
+                        effect_manager.lock()
+                    }
+                };
 
                 // Check if recording is active (skip clip playback on armed tracks)
                 let is_recording = *recorder_refs.state.lock() == crate::recorder::RecordingState::Recording;
