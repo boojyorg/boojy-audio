@@ -122,4 +122,3 @@ class _VST3OverlayObserver extends NavigatorObserver {
     }
   }
 }
-

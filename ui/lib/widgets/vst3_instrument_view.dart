@@ -293,10 +293,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
           children: [
             Text(
               'Press Float to open ${widget.pluginName}',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 15,
-              ),
+              style: TextStyle(color: colors.textSecondary, fontSize: 15),
             ),
             const SizedBox(height: BT.lg),
             if (widget.onFloat != null)
@@ -316,11 +313,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          BI.openInNew,
-                          size: 16,
-                          color: colors.textMuted,
-                        ),
+                        Icon(BI.openInNew, size: 16, color: colors.textMuted),
                         const SizedBox(width: 6),
                         Text(
                           'Float',
@@ -337,10 +330,7 @@ class _Vst3InstrumentViewState extends State<Vst3InstrumentView>
             const SizedBox(height: BT.lg),
             Text(
               'Or increase editor panel height',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: colors.textMuted, fontSize: 13),
             ),
           ],
         ),

@@ -80,8 +80,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
   bool _instrumentBypassed = false;
 
   // External drag state for insertion gap animation
-  int? _externalDragInsertionIndex; // null = no external drag, else insertion position
-  bool _isExternalDragOver = false; // true when a compatible external item hovers over chain
+  int?
+  _externalDragInsertionIndex; // null = no external drag, else insertion position
+  bool _isExternalDragOver =
+      false; // true when a compatible external item hovers over chain
 
   // Per-effect display levels (after decay smoothing). Key = effectId.
   final Map<int, (double, double)> _displayLevels = {};
@@ -260,9 +262,15 @@ class _DeviceChainViewState extends State<DeviceChainView>
   void _toggleInstrumentBypass(InstrumentData instrument) {
     final newBypassed = !_instrumentBypassed;
     if (instrument.isVst3 && instrument.effectId != null) {
-      widget.audioEngine?.setEffectBypass(instrument.effectId!, bypassed: newBypassed);
+      widget.audioEngine?.setEffectBypass(
+        instrument.effectId!,
+        bypassed: newBypassed,
+      );
     } else {
-      widget.audioEngine?.setSynthBypass(instrument.trackId, bypassed: newBypassed);
+      widget.audioEngine?.setSynthBypass(
+        instrument.trackId,
+        bypassed: newBypassed,
+      );
     }
     setState(() => _instrumentBypassed = newBypassed);
   }
@@ -698,9 +706,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
             isActive: _isExternalDragOver,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: colors.accent.withValues(alpha: 0.4),
-              ),
+              border: Border.all(color: colors.accent.withValues(alpha: 0.4)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(8),
@@ -809,8 +815,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
           builder: (context, candidates, rejected) {
             // Inner: internal reorder DragTarget + LongPressDraggable
             return DragTarget<int>(
-              onWillAcceptWithDetails: (details) =>
-                  details.data != effect.id,
+              onWillAcceptWithDetails: (details) => details.data != effect.id,
               onAcceptWithDetails: (details) {
                 _reorderEffect(details.data, i);
               },
@@ -891,7 +896,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
     if (!isActive) return child;
     final colors = context.colors;
     return DecoratedBox(
-      decoration: decoration ??
+      decoration:
+          decoration ??
           BoxDecoration(
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(color: colors.accent, width: 2),
@@ -929,8 +935,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     double chainHeight,
   ) {
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) =>
-          _isInstrumentDragData(details.data),
+      onWillAcceptWithDetails: (details) => _isInstrumentDragData(details.data),
       onAcceptWithDetails: (details) {
         _handleInstrumentDrop(details.data);
       },
@@ -960,8 +965,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     int insertIndex,
   ) {
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) =>
-          _isEffectDragData(details.data),
+      onWillAcceptWithDetails: (details) => _isEffectDragData(details.data),
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data, insertIndex: insertIndex);
       },
@@ -1167,27 +1171,27 @@ class _DeviceChainViewState extends State<DeviceChainView>
       onSecondaryTapUp: (details) =>
           _showEffectContextMenu(details.globalPosition, effect),
       child: DeviceBox(
-      deviceType: DeviceType.effect,
-      deviceKind: effect.type.startsWith('vst3:')
-          ? DeviceKind.vst3Plugin
-          : DeviceKind.builtIn,
-      headerMode: HeaderMode.full24,
-      name: _getEffectDisplayName(effect.type),
-      icon: _getEffectIcon(effect.type),
-      isEnabled: !effect.bypassed,
-      isSelected: _selectedDeviceId == effect.id,
-      width: _getEffectWidth(effect.type),
-      expandContent: false,
-      leftLevel: levels.$1,
-      rightLevel: levels.$2,
-      onToggleEnabled: () => _toggleBypass(effect.id),
-      onNameTap: () => _showEffectDropdown(
-        context,
-        effect,
-        _getEffectDisplayName(effect.type),
+        deviceType: DeviceType.effect,
+        deviceKind: effect.type.startsWith('vst3:')
+            ? DeviceKind.vst3Plugin
+            : DeviceKind.builtIn,
+        headerMode: HeaderMode.full24,
+        name: _getEffectDisplayName(effect.type),
+        icon: _getEffectIcon(effect.type),
+        isEnabled: !effect.bypassed,
+        isSelected: _selectedDeviceId == effect.id,
+        width: _getEffectWidth(effect.type),
+        expandContent: false,
+        leftLevel: levels.$1,
+        rightLevel: levels.$2,
+        onToggleEnabled: () => _toggleBypass(effect.id),
+        onNameTap: () => _showEffectDropdown(
+          context,
+          effect,
+          _getEffectDisplayName(effect.type),
+        ),
+        child: _buildEffectContent(effect),
       ),
-      child: _buildEffectContent(effect),
-    ),
     );
   }
 
@@ -1361,8 +1365,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
     double chainHeight,
   ) {
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) =>
-          _isEffectDragData(details.data),
+      onWillAcceptWithDetails: (details) => _isEffectDragData(details.data),
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data);
       },
@@ -1392,13 +1395,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   /// [+] button wrapped with DragTarget for effect drops (append).
-  Widget _buildAddButtonWithDragTarget(
-    BoojyColors colors,
-    double chainHeight,
-  ) {
+  Widget _buildAddButtonWithDragTarget(BoojyColors colors, double chainHeight) {
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) =>
-          _isEffectDragData(details.data),
+      onWillAcceptWithDetails: (details) => _isEffectDragData(details.data),
       onAcceptWithDetails: (details) {
         _handleEffectDrop(details.data);
       },

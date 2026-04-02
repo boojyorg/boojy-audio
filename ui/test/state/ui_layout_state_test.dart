@@ -324,8 +324,8 @@ void main() {
       });
 
       test('getEditorMaxHeight respects percentage cap', () {
-        // 600 * 0.55 = 330, < editorHardMax (600)
-        expect(UILayoutState.getEditorMaxHeight(600), 330.0);
+        // 600 * 0.65 = 390, < editorHardMax (600)
+        expect(UILayoutState.getEditorMaxHeight(600), 390.0);
       });
 
       test('getEditorMaxHeight respects hard max', () {

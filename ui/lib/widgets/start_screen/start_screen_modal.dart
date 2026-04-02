@@ -270,10 +270,7 @@ class _StartScreenModalState extends State<StartScreenModal> {
             projects: projects,
             onOpen: (project) {
               Navigator.of(context).pop(
-                StartScreenResult(
-                  StartScreenAction.openRecent,
-                  project.path,
-                ),
+                StartScreenResult(StartScreenAction.openRecent, project.path),
               );
             },
             onRemove: (project) {

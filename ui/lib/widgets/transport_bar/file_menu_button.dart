@@ -250,9 +250,7 @@ class _FileMenuButtonState extends State<FileMenuButton> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: _isHovered
-                  ? colors.textPrimary
-                  : colors.textSecondary,
+              color: _isHovered ? colors.textPrimary : colors.textSecondary,
               fontSize: 14,
               fontWeight: BT.weightMedium,
             ),

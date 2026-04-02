@@ -251,6 +251,7 @@ fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
     }
 
     let status = message[0];
+    #[allow(unused_variables)]
     let channel = status & 0x0F;
     let message_type = status & 0xF0;
 

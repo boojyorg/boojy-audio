@@ -10,12 +10,10 @@ import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
-import 'sampler_editor/sampler_editor.dart';
 import 'device_chain/device_chain_view.dart';
 import 'device_chain/device_dropdown.dart';
 import 'preset_nav.dart';
 import 'preset_browser_dropdown.dart';
-import 'fx_chain/fx_chain_view.dart';
 import 'instrument_browser.dart';
 import '../models/midi_note_data.dart';
 import '../models/clip_data.dart';
@@ -276,13 +274,9 @@ class _EditorPanelState extends State<EditorPanel>
       _userManuallySelectedTab = false;
       _switchedToPianoRollAwaitingData = false;
       _loadPresets();
-      if ((_isMidiTrack || _isSamplerTrack) && currentClipId != null) {
-        // Clip already selected (e.g. new track with default clip) → MIDI tab
-        _tabController.index = 1;
-      } else {
-        // Default to chain tab (tab 0) for all track types
-        _tabController.index = 0;
-      }
+      // Always default to Instrument/Effects tab (tab 0) on track change.
+      // User clicks MIDI/Piano Roll tab when they want to edit notes.
+      _tabController.index = 0;
     }
     // Clip selected (and user hasn't manually chosen a tab) → MIDI tab
     else if (clipChanged &&
@@ -698,10 +692,6 @@ class _EditorPanelState extends State<EditorPanel>
     return 'Synth';
   }
 
-  /// Whether the current track has a VST3 instrument
-  bool get _isCurrentPluginVst3 =>
-      widget.trackContext.currentInstrumentData?.isVst3 == true;
-
   /// Whether the current track's VST3 plugin is in a floating window
   bool get _isCurrentPluginFloated {
     final effectId = widget.trackContext.currentInstrumentData?.effectId;
@@ -876,81 +866,6 @@ class _EditorPanelState extends State<EditorPanel>
     }
   }
 
-  /// Float the current VST3 plugin to a separate window
-  Future<void> _onFloatPlugin() async {
-    final instrument = widget.trackContext.currentInstrumentData;
-    if (instrument == null || !instrument.isVst3) return;
-
-    final success = await widget.vst3Callbacks.onFloatPlugin?.call(
-      instrument.effectId!,
-      instrument.pluginName ?? 'Plugin',
-    );
-    if (success == true && mounted) {
-      // Stay on chain tab (tab 0) — the chain shows the floated placeholder
-      setState(() {});
-    }
-  }
-
-  /// Embed the current floating VST3 plugin back into the panel
-  Future<void> _onEmbedPlugin() async {
-    final instrument = widget.trackContext.currentInstrumentData;
-    if (instrument == null || !instrument.isVst3) return;
-
-    final success = await widget.vst3Callbacks.onEmbedPlugin?.call(
-      instrument.effectId!,
-    );
-    if (success == true && mounted) {
-      // Switch back to instrument tab
-      setState(() => _tabController.index = 0);
-    }
-  }
-
-  /// Build the float/embed toggle button for Row 1
-  Widget _buildFloatToggle() {
-    final isFloated = _isCurrentPluginFloated;
-    return Tooltip(
-      message: isFloated ? 'Embed' : 'Float',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isFloated ? _onEmbedPlugin : _onFloatPlugin,
-          borderRadius: BorderRadius.circular(BT.radiusMd),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isFloated
-                  ? context.colors.accent.withValues(alpha: BT.opacityLight)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(BT.radiusMd),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isFloated ? BI.arrowDown : BI.openInNew,
-                  size: 14,
-                  color: isFloated
-                      ? context.colors.accent
-                      : context.colors.textMuted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isFloated ? 'Embed' : 'Float',
-                  style: TextStyle(
-                    fontSize: BT.fontLabel,
-                    color: isFloated
-                        ? context.colors.accent
-                        : context.colors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Build the tab buttons based on track type
   /// Audio: [Audio] [Effects]
   /// MIDI: [Instrument] [MIDI]
@@ -1036,14 +951,6 @@ class _EditorPanelState extends State<EditorPanel>
 
   /// Build the Sampler Editor tab
   /// Shows audio waveform with sampler-specific controls (Attack, Release, Root Note)
-  Widget _buildSamplerEditorTab() {
-    return SamplerEditor(
-      audioEngine: widget.audioEngine,
-      trackId: widget.trackContext.selectedTrackId,
-      onClose: widget.callbacks.onClosePanel,
-    );
-  }
-
   Widget _buildTabButton(
     int index,
     IconData icon,
@@ -1335,21 +1242,4 @@ class _EditorPanelState extends State<EditorPanel>
       },
     );
   }
-
-  Widget _buildFXChainTab() {
-    // Use the new horizontal FxChainView
-    return FxChainView(
-      selectedTrackId: widget.trackContext.selectedTrackId,
-      audioEngine: widget.audioEngine,
-      trackName: widget.trackContext.selectedTrackName,
-      onVst3PopOut: (effectId) {
-        // Future: VST3 pop-out to native floating window via platform channel (v0.3.0)
-      },
-      onVst3BringBack: (effectId) {
-        // Future: VST3 bring back from floating window (v0.3.0)
-      },
-    );
-  }
-
-  // _buildInstrumentTab removed — replaced by _buildChainTab
 }

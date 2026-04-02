@@ -859,7 +859,7 @@ class _DAWScreenState extends State<DAWScreen>
     // Create default 1-bar empty clip for the new track
     _createDefaultMidiClip(trackId);
 
-    // Select the newly created track and its clip (opens Piano Roll)
+    // Select track and highlight the clip (editor stays on Instrument tab)
     _onTrackSelected(trackId, autoSelectClip: true);
 
     // Immediately refresh track widgets so the new track appears instantly
@@ -921,7 +921,10 @@ class _DAWScreenState extends State<DAWScreen>
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
+      final command = CreateTrackCommand(
+        trackType: 'midi',
+        trackName: 'MIDI 1',
+      );
 
       await undoRedoManager.execute(command);
 
@@ -969,7 +972,7 @@ class _DAWScreenState extends State<DAWScreen>
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
 
-      // Select the newly created track and its clip (opens Piano Roll)
+      // Select track and highlight the clip (editor stays on Instrument tab)
       _onTrackSelected(trackId, autoSelectClip: true);
 
       // Immediately refresh track widgets so the new track appears instantly
@@ -3417,7 +3420,6 @@ class _DAWScreenState extends State<DAWScreen>
     final trackId = command.createdTrackId;
     if (trackId == null || trackId < 0) return;
 
-    _onInstrumentSelected(trackId, 'synthesizer');
     _createDefaultMidiClip(trackId);
     _onTrackSelected(trackId, autoSelectClip: true);
     refreshTrackWidgets();

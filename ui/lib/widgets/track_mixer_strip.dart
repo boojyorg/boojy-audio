@@ -1075,106 +1075,105 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         }
       },
       builder: (context, candidates, rejected) {
-            final isHovered = candidates.isNotEmpty;
+        final isHovered = candidates.isNotEmpty;
 
-            return GestureDetector(
-              onTap: () {
-                final isShiftHeld = ModifierKeyState.current().isShiftPressed;
-                widget.onTap?.call(isShiftHeld);
-              },
-              onDoubleTap: widget.onDoubleTap,
-              onSecondaryTapDown: (TapDownDetails details) {
-                _showContextMenu(context, details.globalPosition);
-              },
-              child: SizedBox(
-                width: widget.stripWidth,
-                height: totalHeight,
-                child: Stack(
-                  children: [
-                    // Main content container
-                    Container(
-                      width: widget.stripWidth,
-                      height: totalHeight,
-                      decoration: BoxDecoration(
-                        // Track color at 20% opacity (like Master track left section)
-                        color: isHovered
-                            ? context.colors.accent.withValues(alpha: 0.3)
-                            : _getTintedBackgroundColor(),
-                        // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
-                        // When selected, border changes to white
-                        border: isHovered
-                            ? Border.all(color: context.colors.accent, width: 2)
-                            : Border(
-                                left: BorderSide(
-                                  color: widget.isSelected
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : (widget.trackColor ??
-                                            context.colors.textSecondary),
-                                  width: 4,
-                                ),
-                                top: BorderSide(
-                                  color: widget.isSelected
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : (widget.trackColor ??
-                                            context.colors.textSecondary),
-                                  width: 2,
-                                ),
-                                right: BorderSide(
-                                  color: widget.isSelected
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : (widget.trackColor ??
-                                            context.colors.textSecondary),
-                                  width: 2,
-                                ),
-                                bottom: BorderSide(
-                                  color: widget.isSelected
-                                      ? Colors.white.withValues(alpha: 0.9)
-                                      : (widget.trackColor ??
-                                            context.colors.textSecondary),
-                                  width: 2,
-                                ),
-                              ),
-                      ),
-                      child: _buildStandardLayout(context, isHovered),
-                    ),
-                    // Bottom resize handle
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: UIConstants.trackResizeHandleHeight,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.resizeRow,
-                        child: GestureDetector(
-                          onDoubleTap: _toggleCollapse,
-                          onVerticalDragStart: (details) {
-                            _isResizing = true;
-                            _resizeStartY = details.globalPosition.dy;
-                            _resizeStartHeight = widget.clipHeight;
-                          },
-                          onVerticalDragUpdate: (details) {
-                            if (_isResizing) {
-                              final delta =
-                                  details.globalPosition.dy - _resizeStartY;
-                              final newHeight = (_resizeStartHeight + delta)
-                                  .clamp(
-                                    TrackMixerStrip.kMinHeight,
-                                    TrackMixerStrip.kMaxHeight,
-                                  );
-                              widget.onClipHeightChanged?.call(newHeight);
-                            }
-                          },
-                          onVerticalDragEnd: (details) {
-                            _isResizing = false;
-                          },
-                          child: Container(color: Colors.transparent),
-                        ),
-                      ),
-                    ),
-                  ],
+        return GestureDetector(
+          onTap: () {
+            final isShiftHeld = ModifierKeyState.current().isShiftPressed;
+            widget.onTap?.call(isShiftHeld);
+          },
+          onDoubleTap: widget.onDoubleTap,
+          onSecondaryTapDown: (TapDownDetails details) {
+            _showContextMenu(context, details.globalPosition);
+          },
+          child: SizedBox(
+            width: widget.stripWidth,
+            height: totalHeight,
+            child: Stack(
+              children: [
+                // Main content container
+                Container(
+                  width: widget.stripWidth,
+                  height: totalHeight,
+                  decoration: BoxDecoration(
+                    // Track color at 20% opacity (like Master track left section)
+                    color: isHovered
+                        ? context.colors.accent.withValues(alpha: 0.3)
+                        : _getTintedBackgroundColor(),
+                    // Asymmetric border: 4px left, 2px top/right/bottom (like Master track)
+                    // When selected, border changes to white
+                    border: isHovered
+                        ? Border.all(color: context.colors.accent, width: 2)
+                        : Border(
+                            left: BorderSide(
+                              color: widget.isSelected
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : (widget.trackColor ??
+                                        context.colors.textSecondary),
+                              width: 4,
+                            ),
+                            top: BorderSide(
+                              color: widget.isSelected
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : (widget.trackColor ??
+                                        context.colors.textSecondary),
+                              width: 2,
+                            ),
+                            right: BorderSide(
+                              color: widget.isSelected
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : (widget.trackColor ??
+                                        context.colors.textSecondary),
+                              width: 2,
+                            ),
+                            bottom: BorderSide(
+                              color: widget.isSelected
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : (widget.trackColor ??
+                                        context.colors.textSecondary),
+                              width: 2,
+                            ),
+                          ),
+                  ),
+                  child: _buildStandardLayout(context, isHovered),
                 ),
-              ),
-            );
+                // Bottom resize handle
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: UIConstants.trackResizeHandleHeight,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.resizeRow,
+                    child: GestureDetector(
+                      onDoubleTap: _toggleCollapse,
+                      onVerticalDragStart: (details) {
+                        _isResizing = true;
+                        _resizeStartY = details.globalPosition.dy;
+                        _resizeStartHeight = widget.clipHeight;
+                      },
+                      onVerticalDragUpdate: (details) {
+                        if (_isResizing) {
+                          final delta =
+                              details.globalPosition.dy - _resizeStartY;
+                          final newHeight = (_resizeStartHeight + delta).clamp(
+                            TrackMixerStrip.kMinHeight,
+                            TrackMixerStrip.kMaxHeight,
+                          );
+                          widget.onClipHeightChanged?.call(newHeight);
+                        }
+                      },
+                      onVerticalDragEnd: (details) {
+                        _isResizing = false;
+                      },
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
