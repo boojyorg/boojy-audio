@@ -152,10 +152,10 @@ fn extract_notes_from_clip(clip: &crate::midi::MidiClip, sample_rate: u32) -> St
                     let end_time = event.timestamp_samples as f64 / f64::from(sample_rate);
                     let duration = end_time - start_time;
 
-                    // Format: note,velocity,start_time,duration
                     notes_info.push(format!("{note},{velocity},{start_time},{duration}"));
                 }
             }
+            MidiEventType::ControlChange { .. } => {}
         }
     }
 
@@ -377,6 +377,7 @@ pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, Str
             let (event_type, note, velocity) = match event.event_type {
                 MidiEventType::NoteOn { note, velocity } => (0, note, velocity),
                 MidiEventType::NoteOff { note, velocity } => (1, note, velocity),
+                MidiEventType::ControlChange { controller, value } => (2, controller, value),
             };
             let timestamp_seconds = event.timestamp_samples as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
             (event_type, note, velocity, timestamp_seconds)

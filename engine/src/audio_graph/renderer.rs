@@ -620,12 +620,10 @@ impl AudioGraph {
                                                     }
                                                 }
                                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
-                                                    // Send to built-in synth if no VST3 instrument replaces it
                                                     if !has_vst3_instrument {
                                                         synth_manager.note_off(track_snap.id, note);
                                                     }
 
-                                                    // Send to VST3 instruments in FX chain
                                                     if has_vst3_instrument {
                                                         for effect_id in &track_snap.fx_chain {
                                                             if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
@@ -633,6 +631,23 @@ impl AudioGraph {
                                                                 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                                 if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                     let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                crate::midi::MidiEventType::ControlChange { controller, value } => {
+                                                    if !has_vst3_instrument {
+                                                        synth_manager.control_change(track_snap.id, controller, value);
+                                                    }
+
+                                                    if has_vst3_instrument {
+                                                        for effect_id in &track_snap.fx_chain {
+                                                            if let Some(effect_arc) = effect_guard.get_effect(*effect_id) {
+                                                                let mut effect = effect_arc.lock();
+                                                                #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+                                                                if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                                                    let _ = vst3.process_midi_event(2, 0, i32::from(controller), i32::from(value), 0);
                                                                 }
                                                             }
                                                         }

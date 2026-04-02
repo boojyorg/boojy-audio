@@ -152,26 +152,24 @@ pub fn start_midi_input() -> Result<String, String> {
 
         // Route to each armed track's synthesizer OR VST3 instruments (not both)
         for (track_id, fx_chain) in armed_tracks_with_fx {
-            // Check if track has VST3 plugins - if so, skip built-in synth
-            let has_vst3 = !fx_chain.is_empty();
-
-            // Only route to built-in synth if NO VST3 plugins in the chain
-            if !has_vst3 {
-                { let mut sm = synth_manager.lock();
-                    match &engine_event.event_type {
-                        MidiEventType::NoteOn { note, velocity } => {
-                            sm.note_on(track_id, *note, *velocity);
-                        }
-                        MidiEventType::NoteOff { note, velocity: _ } => {
-                            sm.note_off(track_id, *note);
-                        }
+            // Route to built-in synth (no-op if no instrument for this track)
+            { let mut sm = synth_manager.lock();
+                match &engine_event.event_type {
+                    MidiEventType::NoteOn { note, velocity } => {
+                        sm.note_on(track_id, *note, *velocity);
+                    }
+                    MidiEventType::NoteOff { note, velocity: _ } => {
+                        sm.note_off(track_id, *note);
+                    }
+                    MidiEventType::ControlChange { controller, value } => {
+                        sm.control_change(track_id, *controller, *value);
                     }
                 }
             }
 
-            // Route to VST3 instruments in the track's FX chain
+            // Also route to VST3 instruments in the track's FX chain
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-            if has_vst3 {
+            {
                 { let em = effect_manager.lock();
                     for effect_id in fx_chain {
                         if let Some(effect_arc) = em.get_effect(effect_id) {
@@ -179,16 +177,13 @@ pub fn start_midi_input() -> Result<String, String> {
                                 if let EffectType::VST3(ref mut vst3) = *effect {
                                     match &engine_event.event_type {
                                         MidiEventType::NoteOn { note, velocity } => {
-                                            // event_type 0 = note on
-                                            if let Err(e) = vst3.process_midi_event(0, 0, i32::from(*note), i32::from(*velocity), 0) {
-                                                eprintln!("⚠️ [MIDI] Failed to send note on to VST3 {effect_id}: {e}");
-                                            }
+                                            let _ = vst3.process_midi_event(0, 0, i32::from(*note), i32::from(*velocity), 0);
                                         }
                                         MidiEventType::NoteOff { note, velocity } => {
-                                            // event_type 1 = note off
-                                            if let Err(e) = vst3.process_midi_event(1, 0, i32::from(*note), i32::from(*velocity), 0) {
-                                                eprintln!("⚠️ [MIDI] Failed to send note off to VST3 {effect_id}: {e}");
-                                            }
+                                            let _ = vst3.process_midi_event(1, 0, i32::from(*note), i32::from(*velocity), 0);
+                                        }
+                                        MidiEventType::ControlChange { controller, value } => {
+                                            let _ = vst3.process_midi_event(2, 0, i32::from(*controller), i32::from(*value), 0);
                                         }
                                     }
                                 }
@@ -374,6 +369,10 @@ pub fn get_midi_recorder_live_events() -> Result<String, String> {
             MidiEventType::NoteOff { note, velocity } => {
                 use std::fmt::Write;
                 let _ = write!(result, "{},{},0,{}", note, velocity, event.timestamp_samples);
+            }
+            MidiEventType::ControlChange { controller, value } => {
+                use std::fmt::Write;
+                let _ = write!(result, "{},{},2,{}", controller, value, event.timestamp_samples);
             }
         }
     }

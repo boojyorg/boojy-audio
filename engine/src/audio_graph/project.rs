@@ -629,7 +629,7 @@ pub(crate) fn convert_midi_events_to_notes(
                     });
                 }
             }
-            MidiEventType::NoteOn { .. } => {}
+            MidiEventType::NoteOn { .. } | MidiEventType::ControlChange { .. } => {}
         }
     }
 
