@@ -2,30 +2,39 @@
 
 All notable changes to Boojy Audio will be documented in this file.
 
-## Unreleased
+## v0.2.0 — 2026-04-02
 
 ### Features
 
-- **Plugin-as-Instrument redesign (#11)**: Native VST3 plugin GUIs embedded directly in the editor panel. Removed search bar and plugin header rows — plugin GUI fills the freed vertical space
-- **Plugin preset navigation**: [◀][Preset Name ▾][▶] controls in Row 1 for browsing and loading VST3 presets
-- **Preset browser dropdown**: Searchable dropdown with folder structure, preset counts, and "Reset to Default" via state capture
-- **Plugin float/embed toggle**: [Float] / [Embed] button in Row 1 for third-party VST3 instruments. Auto-switches to Effects tab when floating, remembers preference per plugin
-- **Plugin state FFI**: `get_vst3_state` / `set_vst3_state` bridge for plugin state save/restore (base64 over FFI)
-- **VST3 preset enumeration FFI**: `get_vst3_presets` / `set_vst3_program` bridge via IUnitInfo program lists
-- **First-run tooltip tour (#10)**: 6-step guided tour with spotlight cutouts on first launch. Skippable, re-triggerable from Help > Take a Tour
-- **Tour persistence**: `hasCompletedTour` in UserSettings (SharedPreferences)
+- **Sustain pedal (CC64) support**: MIDI Control Change messages parsed and routed to both built-in synth and VST3 plugins. Built-in synth holds voices past note-off when pedal held; VST3 CC delivered via IMidiMapping + IParameterChanges
+- **Instrument on/off toggle**: Bypass button works for both VST3 instruments (via effect bypass) and built-in synth (new `set_synth_bypass` FFI)
+- **MIDI track creation with default clip**: (+) button and instrument drag both create a 1-bar empty MIDI clip, highlighted in arrangement. Editor defaults to Instrument/Effects tab
+- **Audio editor tab for audio tracks**: Audio tracks now show 2 tabs — [Audio] for waveform editing and [Effects] for the device chain
+- **Add track button in top bar**: Accent (+) button between mixer toggle and Ready pill with MIDI/Audio dropdown
+- **Serum v1 editor support**: Combined-mode VST3 controller fallback for plugins that implement IEditController on the component itself
 
 ### Improvements
 
-- **Row 1 tab icons**: VST3 instruments show plugin icon (🔌), built-in show piano icon (🎹). "Synthesizer" label shortened to "Synth"
-- **Minimum window size**: 800px → 960px width for responsive panel layout
-- **Track delete cleanup**: Floating plugin windows auto-close when their track is deleted
+- **UI polish**: Removed transport bar cluster borders (spacing only), star field brightness tiers, brighter grid lines, logo dot refined
+- **Drag preview**: Instrument drag onto empty arrangement shows full-width track strip instead of floating card
+- **Empty arrangement prompt**: Text renders on top of grid lines, restyled with instrument icons on buttons
+- **Zoom out icon**: Changed from X/close to minus icon
+- **Editor panel chevron**: Moved to right side, enlarged to 20px
+- **Track naming**: Consistent "MIDI 1" across all creation methods. Clips named after instrument ("Synthesizer", "Serum 2")
+- **Plugin-as-Instrument redesign (#11)**: Native VST3 plugin GUIs embedded directly in the editor panel
+- **Plugin preset navigation**: Preset browser with folder structure and "Reset to Default"
+- **Plugin float/embed toggle**: Float/Embed for third-party VST3 instruments
+- **First-run tooltip tour (#10)**: 6-step guided tour with spotlight cutouts
 
 ### Bug Fixes
 
-- **setState on unmounted widget**: Added `mounted` guards before `setState()` in async trim drag handlers in timeline_view.dart
-- **File picker .single crash**: Replaced `result.files.single` with safe `.first` + `.isNotEmpty` guard in file_drop_zone.dart
-- **Debug cleanup**: Removed `_loadStartTime` debug timing variable and automation lane debug trace logging
+- **Renderer: built-in synth silenced by effects**: `has_vst3` incorrectly checked `fx_chain.is_empty()` instead of actual VST3 effects. Adding EQ to a synth track no longer kills audio
+- **VST3 combined-mode crash**: Safe unload for plugins with combined component/controller (no double-terminate, skip self-disconnect)
+- **File menu Provider crash**: Captured colors before popup overlay's `itemBuilder` context
+- **MIDI input deadlock**: Removed `effect_manager.lock()` from has_vst3 check in live MIDI callback. Routes to both synth and VST3 without contention
+- **Editor panel dead code**: Removed unused `_buildFloatToggle`, `_buildSamplerEditorTab`, `_buildFXChainTab`, `_isCurrentPluginVst3`
+
+## Unreleased
 
 ## v0.1.7 — 2026-03-27
 

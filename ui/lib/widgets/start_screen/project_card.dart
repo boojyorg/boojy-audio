@@ -120,36 +120,36 @@ class _ProjectCardState extends State<ProjectCard> {
                 color: colors.dark,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                child: Row(
-                  children: [
-                    if (widget.project.trackCount != null)
-                      Text(
-                        '${widget.project.trackCount} tracks',
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: BT.fontLabel,
-                        ),
-                      ),
-                    if (widget.project.trackCount != null &&
-                        widget.project.bpm != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text(
-                          '·',
+                  child: Row(
+                    children: [
+                      if (widget.project.trackCount != null)
+                        Text(
+                          '${widget.project.trackCount} tracks',
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: BT.fontLabel,
                           ),
                         ),
-                      ),
-                    if (widget.project.bpm != null)
-                      Text(
-                        '${widget.project.bpm!.round()} BPM',
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: BT.fontLabel,
+                      if (widget.project.trackCount != null &&
+                          widget.project.bpm != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Text(
+                            '·',
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: BT.fontLabel,
+                            ),
+                          ),
                         ),
-                      ),
+                      if (widget.project.bpm != null)
+                        Text(
+                          '${widget.project.bpm!.round()} BPM',
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            fontSize: BT.fontLabel,
+                          ),
+                        ),
                     ],
                   ),
                 ),

@@ -1780,9 +1780,8 @@ class TimelineViewState extends State<TimelineView>
                                       height: UIConstants.defaultClipHeight,
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: context.colors.accent.withValues(
-                                            alpha: 0.08,
-                                          ),
+                                          color: context.colors.accent
+                                              .withValues(alpha: 0.08),
                                           border: Border.all(
                                             color: context.colors.accent
                                                 .withValues(alpha: 0.5),
@@ -1790,14 +1789,17 @@ class TimelineViewState extends State<TimelineView>
                                           ),
                                         ),
                                         child: Padding(
-                                          padding: const EdgeInsets.only(left: 16),
+                                          padding: const EdgeInsets.only(
+                                            left: 16,
+                                          ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
                                                 BI.addCircle,
-                                                color:
-                                                    context.colors.textSecondary,
+                                                color: context
+                                                    .colors
+                                                    .textSecondary,
                                                 size: 16,
                                               ),
                                               const SizedBox(width: 8),
@@ -4761,18 +4763,12 @@ class TimelineViewState extends State<TimelineView>
             children: [
               Text(
                 'Drag an instrument from the',
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               Text(
                 'library to start making music',
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               Padding(

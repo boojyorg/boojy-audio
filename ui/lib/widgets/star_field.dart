@@ -174,8 +174,10 @@ class _StarFieldPainter extends CustomPainter {
     for (final star in stars) {
       // Gentle pulse: opacity oscillates around baseOpacity
       final pulse = sin(time * star.pulseSpeed + star.pulseOffset);
-      final opacity =
-          (star.baseOpacity + pulse * star.pulseAmplitude).clamp(0.05, 0.9);
+      final opacity = (star.baseOpacity + pulse * star.pulseAmplitude).clamp(
+        0.05,
+        0.9,
+      );
 
       if (star.isAccent) {
         paint.color = _accentColor.withValues(alpha: opacity * 0.5);

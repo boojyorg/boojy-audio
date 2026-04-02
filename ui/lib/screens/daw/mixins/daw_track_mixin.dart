@@ -269,7 +269,7 @@ mixin DAWTrackMixin
     // Create default 1-bar empty clip for the new track
     createDefaultMidiClip(trackId);
 
-    // Select the newly created track and its clip (opens Piano Roll)
+    // Select track and highlight the clip (editor stays on Instrument tab)
     onTrackSelected(trackId, autoSelectClip: true);
 
     // Immediately refresh track widgets so the new track appears instantly

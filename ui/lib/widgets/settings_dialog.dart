@@ -355,8 +355,18 @@ class RecoveryDialog extends StatelessWidget {
 
   String get _friendlyDate {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     final month = months[backupDate.month - 1];
     final day = backupDate.day;
@@ -421,19 +431,13 @@ class RecoveryDialog extends StatelessWidget {
               Text(
                 'Your project was not saved before',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 15),
               ),
               const SizedBox(height: 4),
               Text(
                 'Boojy Audio closed.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 15),
               ),
               const SizedBox(height: 24),
 
@@ -456,11 +460,7 @@ class RecoveryDialog extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            BI.history,
-                            color: colors.textMuted,
-                            size: 14,
-                          ),
+                          Icon(BI.history, color: colors.textMuted, size: 14),
                           const SizedBox(width: 6),
                           Text(
                             'Untitled',
@@ -475,10 +475,7 @@ class RecoveryDialog extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         _friendlyDate,
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: colors.textMuted, fontSize: 13),
                       ),
                     ],
                   ),
@@ -503,10 +500,7 @@ class RecoveryDialog extends StatelessWidget {
                       ),
                       child: Text(
                         'Start fresh',
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: colors.textMuted, fontSize: 14),
                       ),
                     ),
                   ),

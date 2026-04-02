@@ -526,11 +526,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
       ),
-      child: const Row(
-        children: [
-          Spacer(),
-        ],
-      ),
+      child: const Row(children: [Spacer()]),
     );
   }
 

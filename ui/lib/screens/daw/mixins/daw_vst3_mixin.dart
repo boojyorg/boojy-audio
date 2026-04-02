@@ -378,7 +378,10 @@ mixin DAWVst3Mixin
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
+      final command = CreateTrackCommand(
+        trackType: 'midi',
+        trackName: 'MIDI 1',
+      );
 
       await undoRedoManager.execute(command);
 
@@ -427,7 +430,7 @@ mixin DAWVst3Mixin
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0);
       });
 
-      // Select the newly created track and its clip (opens Piano Roll)
+      // Select track and highlight the clip (editor stays on Instrument tab)
       onTrackSelected(trackId, autoSelectClip: true);
 
       // Immediately refresh track widgets so the new track appears instantly

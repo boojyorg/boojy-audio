@@ -96,11 +96,7 @@ class VST3EditorService {
     // We can't await here because attachEditor sends a message back to Swift,
     // and Swift is waiting for this handler to return first.
     Future.delayed(const Duration(milliseconds: 100), () async {
-      await attachEditor(
-        effectId: effectId,
-        maxWidth: maxW,
-        maxHeight: maxH,
-      );
+      await attachEditor(effectId: effectId, maxWidth: maxW, maxHeight: maxH);
     });
   }
 
@@ -257,10 +253,7 @@ class VST3EditorService {
       // Step 1: Ask Swift to prepare the view and return the pointer
       final result = await _channel
           .invokeMethod('attachEditor', {'effectId': effectId})
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => null,
-          );
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
 
       if (result == null || result is! Map) return false;
 
