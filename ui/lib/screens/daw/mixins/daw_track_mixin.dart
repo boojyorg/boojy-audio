@@ -254,7 +254,7 @@ mixin DAWTrackMixin
     }
 
     // Create a new MIDI track for Synthesizer (and other instruments)
-    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
+    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
 
     await undoRedoManager.execute(command);
 
@@ -263,14 +263,14 @@ mixin DAWTrackMixin
       return;
     }
 
-    // Create default 4-bar empty clip for the new track
-    createDefaultMidiClip(trackId);
-
-    // Assign the instrument to the new track
+    // Assign the instrument to the new track (before clip so name resolves)
     onInstrumentSelected(trackId, instrument.id);
 
-    // Select the newly created track but NOT the clip (so Instrument tab shows)
-    onTrackSelected(trackId, autoSelectClip: false);
+    // Create default 1-bar empty clip for the new track
+    createDefaultMidiClip(trackId);
+
+    // Select the newly created track and its clip (opens Piano Roll)
+    onTrackSelected(trackId, autoSelectClip: true);
 
     // Immediately refresh track widgets so the new track appears instantly
     refreshTrackWidgets();

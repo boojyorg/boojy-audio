@@ -378,7 +378,7 @@ mixin DAWVst3Mixin
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
 
       await undoRedoManager.execute(command);
 
@@ -386,9 +386,6 @@ mixin DAWVst3Mixin
       if (trackId == null || trackId < 0) {
         return;
       }
-
-      // Create default 4-bar empty clip for the new track
-      createDefaultMidiClip(trackId);
 
       // Load the VST3 plugin as a track instrument
       final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
@@ -410,6 +407,9 @@ mixin DAWVst3Mixin
       // Auto-populate track name with plugin name (new track, so not user-edited)
       audioEngine?.setTrackName(trackId, plugin.name);
 
+      // Create default 1-bar clip AFTER instrument so clip name resolves to plugin name
+      createDefaultMidiClip(trackId);
+
       // Send a test note to trigger audio processing
       final noteOnResult = audioEngine!.vst3SendMidiNote(
         effectId,
@@ -427,8 +427,8 @@ mixin DAWVst3Mixin
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0);
       });
 
-      // Select the newly created track but NOT the clip (so Instrument tab shows)
-      onTrackSelected(trackId, autoSelectClip: false);
+      // Select the newly created track and its clip (opens Piano Roll)
+      onTrackSelected(trackId, autoSelectClip: true);
 
       // Immediately refresh track widgets so the new track appears instantly
       refreshTrackWidgets();

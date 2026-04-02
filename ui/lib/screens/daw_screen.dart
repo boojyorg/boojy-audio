@@ -844,7 +844,7 @@ class _DAWScreenState extends State<DAWScreen>
     }
 
     // Create a new MIDI track for Synthesizer (and other instruments)
-    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
+    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
 
     await undoRedoManager.execute(command);
 
@@ -853,14 +853,14 @@ class _DAWScreenState extends State<DAWScreen>
       return;
     }
 
-    // Create default 4-bar empty clip for the new track
-    _createDefaultMidiClip(trackId);
-
-    // Assign the instrument to the new track
+    // Assign instrument BEFORE clip so clip name resolves to instrument name
     _onInstrumentSelected(trackId, instrument.id);
 
-    // Select the newly created track but NOT the clip (so Instrument tab shows)
-    _onTrackSelected(trackId, autoSelectClip: false);
+    // Create default 1-bar empty clip for the new track
+    _createDefaultMidiClip(trackId);
+
+    // Select the newly created track and its clip (opens Piano Roll)
+    _onTrackSelected(trackId, autoSelectClip: true);
 
     // Immediately refresh track widgets so the new track appears instantly
     refreshTrackWidgets();
@@ -921,7 +921,7 @@ class _DAWScreenState extends State<DAWScreen>
 
     try {
       // Create a new MIDI track using UndoRedoManager
-      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI');
+      final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
 
       await undoRedoManager.execute(command);
 
@@ -929,9 +929,6 @@ class _DAWScreenState extends State<DAWScreen>
       if (trackId == null || trackId < 0) {
         return;
       }
-
-      // Create default 4-bar empty clip for the new track
-      _createDefaultMidiClip(trackId);
 
       // Load the VST3 plugin as a track instrument
       final effectId = audioEngine!.addVst3EffectToTrack(trackId, plugin.path);
@@ -953,6 +950,9 @@ class _DAWScreenState extends State<DAWScreen>
       // Auto-populate track name with plugin name (new track, so not user-edited)
       audioEngine?.setTrackName(trackId, plugin.name);
 
+      // Create default 1-bar clip AFTER instrument so clip name = plugin name
+      _createDefaultMidiClip(trackId);
+
       // Send a test note to trigger audio processing (some VST3 instruments
       // like Serum show "Audio Processing disabled" until they receive MIDI)
       final noteOnResult = audioEngine!.vst3SendMidiNote(
@@ -969,8 +969,8 @@ class _DAWScreenState extends State<DAWScreen>
         audioEngine!.vst3SendMidiNote(effectId, 1, 0, 60, 0); // Note off
       });
 
-      // Select the newly created track but NOT the clip (so Instrument tab shows)
-      _onTrackSelected(trackId, autoSelectClip: false);
+      // Select the newly created track and its clip (opens Piano Roll)
+      _onTrackSelected(trackId, autoSelectClip: true);
 
       // Immediately refresh track widgets so the new track appears instantly
       refreshTrackWidgets();
@@ -3401,16 +3401,26 @@ class _DAWScreenState extends State<DAWScreen>
         isLoading: isLoading,
         midiCaptureHasEvents: midiCaptureBuffer.hasEvents,
         isEngineReady: isAudioGraphInitialized,
-        onAddMidiTrack: () {
-          final trackId = audioEngine!.createTrack('midi', 'MIDI 1');
-          if (trackId >= 0) setState(() {});
-        },
+        onAddMidiTrack: _addMidiTrackWithClip,
         onAddAudioTrack: () {
           final trackId = audioEngine!.createTrack('audio', 'Audio 1');
           if (trackId >= 0) setState(() {});
         },
       ),
     );
+  }
+
+  /// Create MIDI track with default 1-bar clip and open Piano Roll.
+  Future<void> _addMidiTrackWithClip() async {
+    final command = CreateTrackCommand(trackType: 'midi', trackName: 'MIDI 1');
+    await undoRedoManager.execute(command);
+    final trackId = command.createdTrackId;
+    if (trackId == null || trackId < 0) return;
+
+    _onInstrumentSelected(trackId, 'synthesizer');
+    _createDefaultMidiClip(trackId);
+    _onTrackSelected(trackId, autoSelectClip: true);
+    refreshTrackWidgets();
   }
 
   Widget _buildLibrarySection() {
@@ -3644,10 +3654,7 @@ class _DAWScreenState extends State<DAWScreen>
         // Playback state (for playhead glow)
         isPlaying: isPlaying,
         // Empty timeline: add track callbacks
-        onAddMidiTrack: () {
-          final trackId = audioEngine!.createTrack('midi', 'MIDI 1');
-          if (trackId >= 0) setState(() {});
-        },
+        onAddMidiTrack: _addMidiTrackWithClip,
         onAddAudioTrack: () {
           final trackId = audioEngine!.createTrack('audio', 'Audio 1');
           if (trackId >= 0) setState(() {});

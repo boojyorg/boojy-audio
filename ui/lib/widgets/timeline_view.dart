@@ -1772,41 +1772,33 @@ class TimelineViewState extends State<TimelineView>
                                       ),
                                     ),
                                   ] else if (isAnyHovering) ...[
-                                    // Instrument/VST3 drag — keep the green border feedback
-                                    // ignore: use_decorated_box
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: context.colors.accent.withValues(
-                                          alpha: 0.08,
-                                        ),
-                                        border: Border.all(
-                                          color: context.colors.accent
-                                              .withValues(alpha: 0.5),
-                                          width: 2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
+                                    // Instrument/VST3 drag — full-width track strip
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      top: 0,
+                                      height: UIConstants.defaultClipHeight,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: context.colors.accent.withValues(
+                                            alpha: 0.08,
                                           ),
-                                          decoration: BoxDecoration(
+                                          border: Border.all(
                                             color: context.colors.accent
-                                                .withValues(alpha: 0.2),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                                .withValues(alpha: 0.5),
+                                            width: 1,
                                           ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(left: 16),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
                                                 BI.addCircle,
                                                 color:
-                                                    context.colors.textPrimary,
-                                                size: 20,
+                                                    context.colors.textSecondary,
+                                                size: 16,
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
@@ -1814,9 +1806,9 @@ class TimelineViewState extends State<TimelineView>
                                                 style: TextStyle(
                                                   color: context
                                                       .colors
-                                                      .textPrimary,
-                                                  fontSize: 14,
-                                                  fontWeight: BT.weightSemiBold,
+                                                      .textSecondary,
+                                                  fontSize: 13,
+                                                  fontWeight: BT.weightMedium,
                                                 ),
                                               ),
                                             ],
