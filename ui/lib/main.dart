@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -36,6 +37,20 @@ Future<void> main() async {
 }
 
 void _runApp(UserSettings settings) {
+  // Catch Flutter framework errors (layout, rendering, etc.)
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('💥 [Flutter] ${details.exceptionAsString()}');
+    debugPrint('💥 [Flutter] ${details.stack}');
+  };
+
+  // Catch uncaught async errors (Futures, isolate errors)
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('💥 [Async] $error');
+    debugPrint('💥 [Async] $stack');
+    return true; // Prevent app termination
+  };
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

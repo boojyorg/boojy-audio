@@ -122,6 +122,25 @@ pub extern "C" fn play_sine_wave_ffi(frequency: f32, duration_ms: u32) -> *mut c
 /// Initialize audio engine - C-compatible wrapper
 #[no_mangle]
 pub extern "C" fn init_audio_engine_ffi() -> *mut c_char {
+    // Install panic hook once — logs panics to stderr (visible in flutter run console)
+    use std::sync::Once;
+    static PANIC_HOOK: Once = Once::new();
+    PANIC_HOOK.call_once(|| {
+        std::panic::set_hook(Box::new(|info| {
+            let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())).unwrap_or_default();
+            let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+                s.to_string()
+            } else if let Some(s) = info.payload().downcast_ref::<String>() {
+                s.clone()
+            } else {
+                "unknown".to_string()
+            };
+            eprintln!("💥 [RUST PANIC] {payload}");
+            eprintln!("💥 [RUST PANIC] at {location}");
+            eprintln!("💥 [RUST PANIC] backtrace:\n{}", std::backtrace::Backtrace::force_capture());
+        }));
+    });
+
     ffi_catch(std::ptr::null_mut(), || {
         match api::init_audio_engine() {
             Ok(msg) => safe_cstring(msg).into_raw(),
