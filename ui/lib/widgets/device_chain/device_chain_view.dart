@@ -226,9 +226,21 @@ class _DeviceChainViewState extends State<DeviceChainView>
       // Read track volume for instrument strip thumb
       _loadTrackVolume();
 
+      // Only clear overrides where the engine has caught up to the user's value
+      _localParamOverrides.removeWhere((key, localVal) {
+        final parts = key.split(':');
+        if (parts.length != 2) return true;
+        final effectId = int.tryParse(parts[0]);
+        final paramName = parts[1];
+        final effect = effects.where((e) => e.id == effectId).firstOrNull;
+        if (effect == null) return true;
+        final engineVal = effect.parameters[paramName];
+        if (engineVal == null) return true;
+        return (engineVal - localVal).abs() < 0.01;
+      });
+
       setState(() {
         _effects = effects;
-        _localParamOverrides.clear();
       });
     } catch (e) {
       if (_effects.isNotEmpty) setState(() => _effects = []);
@@ -327,6 +339,34 @@ class _DeviceChainViewState extends State<DeviceChainView>
     widget.audioEngine?.setEffectParameter(effectId, paramName, value);
   }
 
+  void _resetEffectToDefaults(EffectData effect) {
+    final defaults = _getEffectDefaults(effect.type);
+    for (final entry in defaults.entries) {
+      _setEffectParameter(effect.id, entry.key, entry.value);
+    }
+    _localParamOverrides.clear();
+    _loadEffects();
+  }
+
+  Map<String, double> _getEffectDefaults(String type) {
+    switch (type) {
+      case 'eq':
+        return {'low_gain': 0, 'mid1_gain': 0, 'mid2_gain': 0, 'high_gain': 0, 'wet_dry': 1};
+      case 'compressor':
+        return {'threshold': -20, 'ratio': 4, 'attack': 10, 'release': 100, 'wet_dry': 1};
+      case 'reverb':
+        return {'room_size': 0.5, 'damping': 0.5, 'wet_dry': 0.3};
+      case 'delay':
+        return {'time': 250, 'feedback': 0.3, 'wet_dry': 0.3};
+      case 'chorus':
+        return {'rate': 1.5, 'depth': 0.5, 'wet_dry': 0.5};
+      case 'limiter':
+        return {'threshold': -1, 'release': 100, 'wet_dry': 1};
+      default:
+        return {};
+    }
+  }
+
   String _getEffectDisplayName(String type) {
     if (type.startsWith('vst3:')) return type.substring(5);
     switch (type) {
@@ -337,7 +377,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       case 'chorus':
         return 'Chorus';
       case 'compressor':
-        return 'Comp';
+        return 'Compressor';
       case 'eq':
         return 'EQ';
       case 'limiter':
@@ -398,8 +438,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
     switch (action) {
       case ResetAction():
-        // Reset effect parameters to defaults — reload from engine
-        break;
+        _resetEffectToDefaults(effect);
       case SwapAction(:final type):
         // Remove old, add new at same position
         await _removeEffect(effect.id);
@@ -502,7 +541,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         setState(() => _selectedDeviceId = effect.id);
         await _duplicateSelectedEffect();
       case 'reset':
-        // Reset effect parameters to defaults — reload from engine
+        _resetEffectToDefaults(effect);
         break;
       case 'delete':
         await _removeEffect(effect.id);
@@ -1335,7 +1374,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
                     ? null
                     : (_) {
                         _isDraggingSlider = false;
-                        _localParamOverrides.remove(paramKey);
+                        // Keep override — removed by _loadEffects when engine catches up
                       },
               ),
             ),
