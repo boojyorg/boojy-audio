@@ -218,6 +218,18 @@ jobs:
         with:
           workspaces: engine
 
+      - name: Build VST3 host libraries
+        run: |
+          cd engine\vst3_host
+          mkdir build_win
+          cd build_win
+          cmake -G "Visual Studio 17 2022" -A x64 ..
+          cmake --build . --config Release
+          # Copy rebuilt libraries to engine/lib/ (overwrite stale pre-built ones)
+          Copy-Item -Path "lib\Release\*.lib" -Destination "..\..\lib\" -Force
+          # Also copy SDK libraries built by CMake
+          Copy-Item -Path "vst3sdk_build\lib\Release\*.lib" -Destination "..\..\lib\" -Force
+
       - name: Build Rust engine
         run: |
           cd engine
