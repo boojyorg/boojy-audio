@@ -338,23 +338,26 @@ mixin DAWProjectMixin
   }
 
   /// Capture the arrangement view as a thumbnail for the start screen.
+  /// Uses low pixelRatio and a timeout to avoid freezing on complex projects.
   Future<void> captureScreenshot(String projectPath) async {
     try {
       final boundary = screenshotKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
-      if (boundary == null) {
-        Log.e('Screenshot: RepaintBoundary not found');
-        return;
-      }
+      if (boundary == null) return;
 
-      final image = await boundary.toImage(pixelRatio: 0.5);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      // Low resolution + 3s timeout to prevent UI freeze
+      final image = await boundary
+          .toImage(pixelRatio: 0.25)
+          .timeout(const Duration(seconds: 3));
+      final byteData = await image
+          .toByteData(format: ui.ImageByteFormat.png)
+          .timeout(const Duration(seconds: 3));
       if (byteData == null) return;
 
       final file = File('$projectPath/thumbnail.png');
       await file.writeAsBytes(byteData.buffer.asUint8List());
-    } catch (e) {
-      Log.e('Screenshot capture failed: $e');
+    } catch (_) {
+      // Non-critical — silently skip on timeout or error
     }
   }
 
@@ -851,6 +854,25 @@ mixin DAWProjectMixin
 
     automationController.loadFromJson(layout.automationData);
     syncAllVolumeAutomationToEngine();
+
+    // Restore track color overrides
+    if (layout.trackColors != null) {
+      for (final entry in layout.trackColors!.entries) {
+        trackController.setTrackColor(entry.key, Color(entry.value));
+      }
+    }
+
+    // Restore loop region (overrides the default reset)
+    if (layout.loopEnabled != null) {
+      uiLayout.loopPlaybackEnabled = layout.loopEnabled!;
+    }
+    if (layout.loopStartBeats != null && layout.loopEndBeats != null) {
+      uiLayout.setLoopRegion(
+        layout.loopStartBeats!,
+        layout.loopEndBeats!,
+        manual: true,
+      );
+    }
   }
 
   /// Sync all volume automation lanes to engine

@@ -50,6 +50,8 @@ class TrackController extends ChangeNotifier {
   double get masterTrackHeight => _masterTrackHeight;
   Map<int, InstrumentData> get trackInstruments =>
       Map.unmodifiable(_trackInstruments);
+  Map<int, Color> get trackColorOverrides =>
+      Map.unmodifiable(_trackColorOverrides);
 
   /// Check if track name was manually edited by user
   bool isTrackNameUserEdited(int trackId) {
