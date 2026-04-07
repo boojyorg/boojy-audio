@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../../utils/logger.dart';
 import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
@@ -45,7 +46,7 @@ mixin DAWProjectMixin
     final hasActiveProject =
         projectManager?.currentPath != null || undoRedoManager.canUndo;
     if (!hasActiveProject) {
-      _executeNewProject();
+      executeNewProject();
       return;
     }
 
@@ -65,7 +66,7 @@ mixin DAWProjectMixin
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _executeNewProject();
+              executeNewProject();
             },
             child: const Text('Create'),
           ),
@@ -75,7 +76,7 @@ mixin DAWProjectMixin
   }
 
   /// Execute the new project creation (shared by confirmed and unconfirmed paths)
-  void _executeNewProject() {
+  void executeNewProject() {
     // Stop playback if active
     if (isPlaying) {
       stopPlayback();
@@ -106,10 +107,6 @@ mixin DAWProjectMixin
       waveformPeaks = [];
       statusMessage = 'New project created';
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('New project created')));
   }
 
   // ============================================
@@ -322,7 +319,10 @@ mixin DAWProjectMixin
         projectManager!.currentName,
         bpm: tempo,
       );
-      _generateThumbnail(path);
+      // Capture thumbnail after frame completes (non-blocking)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        captureScreenshot(path);
+      });
     }
 
     setState(() {
@@ -337,128 +337,24 @@ mixin DAWProjectMixin
     }
   }
 
-  /// Generate an arrangement thumbnail PNG for the start screen.
-  /// Renders tracks as colored rows with clip rectangles.
-  Future<void> _generateThumbnail(String projectPath) async {
+  /// Capture the arrangement view as a thumbnail for the start screen.
+  Future<void> captureScreenshot(String projectPath) async {
     try {
-      const thumbWidth = 300.0;
-      const thumbHeight = 100.0;
-
-      // Gather track info
-      final trackIds = audioEngine?.getAllTrackIds() ?? [];
-      if (trackIds.isEmpty) return;
-
-      final tracks = <({int id, String type})>[];
-      for (final id in trackIds) {
-        final info = audioEngine?.getTrackInfo(id) ?? '';
-        if (info.isEmpty) continue;
-        final parts = info.split(',');
-        if (parts.length < 3) continue;
-        final type = parts[2]; // "MIDI", "Audio", "Sampler", "Master"
-        if (type == 'Master') continue;
-        tracks.add((id: id, type: type));
-      }
-      if (tracks.isEmpty) return;
-
-      // Gather clips and find total duration
-      final audioClips = timelineKey.currentState?.clips.toList() ?? [];
-      final midiClips = midiPlaybackManager?.midiClips ?? [];
-      final beatsPerSecond = tempo / 60.0;
-
-      double maxEndSeconds = 0;
-      for (final clip in audioClips) {
-        final end = clip.startTime + clip.duration;
-        if (end > maxEndSeconds) maxEndSeconds = end;
-      }
-      for (final clip in midiClips) {
-        final end = (clip.startTime + clip.duration) / beatsPerSecond;
-        if (end > maxEndSeconds) maxEndSeconds = end;
-      }
-      if (maxEndSeconds <= 0) return;
-
-      // Track colors by type
-      const typeColors = {
-        'Audio': Color(0xFF3B82F6), // Blue
-        'MIDI': Color(0xFF4CAF50), // Green
-        'Sampler': Color(0xFF9C27B0), // Purple
-      };
-
-      final trackHeight = thumbHeight / tracks.length;
-      final pxPerSecond = thumbWidth / maxEndSeconds;
-
-      // Paint onto a recorder
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(
-        recorder,
-        const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight),
-      );
-
-      // Dark background
-      canvas.drawRect(
-        const Rect.fromLTWH(0, 0, thumbWidth, thumbHeight),
-        Paint()..color = const Color(0xFF1A1A1A),
-      );
-
-      // Draw clips per track
-      for (int i = 0; i < tracks.length; i++) {
-        final track = tracks[i];
-        final y = i * trackHeight;
-        final color = typeColors[track.type] ?? const Color(0xFF666666);
-        final clipPaint = Paint()..color = color.withValues(alpha: 0.8);
-
-        // Audio clips for this track
-        for (final clip in audioClips) {
-          if (clip.trackId != track.id) continue;
-          final x = clip.startTime * pxPerSecond;
-          final w = clip.duration * pxPerSecond;
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                x,
-                y + 1,
-                w.clamp(1.0, thumbWidth),
-                trackHeight - 2,
-              ),
-              const Radius.circular(1),
-            ),
-            clipPaint,
-          );
-        }
-
-        // MIDI clips for this track
-        for (final clip in midiClips) {
-          if (clip.trackId != track.id) continue;
-          final x = (clip.startTime / beatsPerSecond) * pxPerSecond;
-          final w = (clip.duration / beatsPerSecond) * pxPerSecond;
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                x,
-                y + 1,
-                w.clamp(1.0, thumbWidth),
-                trackHeight - 2,
-              ),
-              const Radius.circular(1),
-            ),
-            clipPaint,
-          );
-        }
+      final boundary = screenshotKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        Log.e('Screenshot: RepaintBoundary not found');
+        return;
       }
 
-      // Encode to PNG
-      final picture = recorder.endRecording();
-      final image = await picture.toImage(
-        thumbWidth.toInt(),
-        thumbHeight.toInt(),
-      );
+      final image = await boundary.toImage(pixelRatio: 0.5);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
       final file = File('$projectPath/thumbnail.png');
       await file.writeAsBytes(byteData.buffer.asUint8List());
     } catch (e) {
-      // Non-critical — don't fail the save
-      Log.e('Thumbnail generation failed: $e');
+      Log.e('Screenshot capture failed: $e');
     }
   }
 

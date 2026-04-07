@@ -1,8 +1,16 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.2.0
-**Working On:** v0.2.1 — [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md)
+**Working On:** v0.2.1 — Quality of Life — [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md)
 **Goal:** v1.0 public release
+
+---
+
+## What's Next
+
+QoL pass: remove unused UI (MIDI capture button, virtual piano button, new project toast), fix bugs (master mixer overflow, new project dialog, toolbar centering), visual polish (record button always-red, darker piano roll toolbar, better empty mixer state), and real project screenshots.
+
+See [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md) for the full spec.
 
 ---
 

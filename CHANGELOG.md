@@ -40,6 +40,25 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **Real project screenshots**: Project thumbnails on start screen now show actual DAW window screenshots instead of generated clip rectangles
+- **Record button always red**: Record button shows subtle muted red when no track is armed (was grey), brighter red when armed, solid red when recording
+- **Piano Roll toolbar darkened**: Toolbar background behind Loop, Start, Automation buttons changed to darkest (#13151C) for better contrast
+- **Empty mixer messaging**: Mixer sidebar now shows sliders icon and "Mixer" heading instead of generic "No tracks yet"
+- **Toolbar centering**: Editor panel tools (Draw, Select, Erase, Duplicate, Slice) now truly centered across full toolbar width
+
+### Bug Fixes
+
+- **New Project dialog on fresh load**: No longer shows "unsaved changes" confirmation when clicking New Project from start screen
+- **Master mixer overflow**: Fixed 0.358px bottom overflow on master track strip at certain heights
+- **"New Project Created" toast removed**: Redundant SnackBar removed (status bar already shows the message)
+
+### Removals
+
+- **MIDI Capture button**: Removed from transport bar (backend logic retained for future use)
+- **Virtual Piano button**: Removed from editor toolbar (still accessible via P key and View menu)
+
 ## v0.1.7 — 2026-03-27
 
 ### Improvements
