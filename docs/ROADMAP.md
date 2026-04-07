@@ -1,16 +1,14 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.2.1
-**Working On:** v0.2.1 — Quality of Life — [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md)
+**Working On:** v0.2.2 — [plans/v0.2.2-plan.md](plans/v0.2.2-plan.md)
 **Goal:** v1.0 public release
 
 ---
 
 ## What's Next
 
-QoL pass: remove unused UI (MIDI capture button, virtual piano button, new project toast), fix bugs (master mixer overflow, new project dialog, toolbar centering), visual polish (record button always-red, darker piano roll toolbar, better empty mixer state), and real project screenshots.
-
-See [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md) for the full spec.
+See the active plan doc: [plans/v0.2.2-plan.md](plans/v0.2.2-plan.md)
 
 ---
 
@@ -23,6 +21,10 @@ Core DAW functionality: multi-track timeline, audio/MIDI recording, piano roll e
 ### v0.2.0 — Recording & Mixing Essentials
 
 Sustain pedal support, instrument on/off toggle, plugin-as-instrument redesign (embedded native GUIs), plugin preset navigation, float/embed toggle, first-run tooltip tour, device chain view, MIDI track creation with default clips, audio editor tab, crash logging, effect Reset to Default.
+
+### v0.2.1 — Quality of Life
+
+Removed unused UI (MIDI capture, virtual piano button, new project toast). Fixed data persistence (track colors, loop region, duplicate save paths). Arrangement screenshot thumbnails. Visual polish (record button always-red, darker piano roll toolbar, mixer empty state). Fixed mixer overflow.
 
 ---
 
