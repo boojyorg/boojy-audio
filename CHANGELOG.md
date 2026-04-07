@@ -25,6 +25,9 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Plugin preset navigation**: Preset browser with folder structure and "Reset to Default"
 - **Plugin float/embed toggle**: Float/Embed for third-party VST3 instruments
 - **First-run tooltip tour (#10)**: 6-step guided tour with spotlight cutouts
+- **Crash logging**: Rust panic hook with backtrace, Flutter error handlers (widget + platform), lock contention detection
+- **Effect Reset to Default**: Reset individual effects to their default parameter values
+- **Effect naming**: Renamed "Comp" to "Compressor" for clarity
 
 ### Bug Fixes
 
@@ -33,6 +36,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - **File menu Provider crash**: Captured colors before popup overlay's `itemBuilder` context
 - **MIDI input deadlock**: Removed `effect_manager.lock()` from has_vst3 check in live MIDI callback. Routes to both synth and VST3 without contention
 - **Editor panel dead code**: Removed unused `_buildFloatToggle`, `_buildSamplerEditorTab`, `_buildFXChainTab`, `_isCurrentPluginVst3`
+- **Effect slider jumping**: Fixed slider values snapping to wrong position on drag start
 
 ## Unreleased
 
