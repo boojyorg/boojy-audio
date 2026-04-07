@@ -2397,7 +2397,6 @@ class _DAWScreenState extends State<DAWScreen>
 
   // M5: Project file methods
 
-
   void _newProject() => newProject();
 
   Future<void> _openProject() => openProject();
@@ -3430,146 +3429,148 @@ class _DAWScreenState extends State<DAWScreen>
       child: RepaintBoundary(
         key: screenshotKey,
         child: TimelineView(
-        key: timelineKey,
-        playheadNotifier: playbackController.playheadNotifier,
-        clipDuration: clipDuration,
-        waveformPeaks: waveformPeaks,
-        audioEngine: audioEngine,
-        tempo: tempo,
-        selectedMidiTrackId: selectedTrackId,
-        selectedMidiClipId: midiPlaybackManager?.selectedClipId,
-        currentEditingClip: midiPlaybackManager?.currentEditingClip,
-        midiClips: midiPlaybackManager?.midiClips ?? [],
-        onMidiTrackSelected: _onTrackSelected,
-        getRustClipId: (dartClipId) =>
-            midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
-        midiClipCallbacks: MidiClipCallbacks(
-          onSelected: _onMidiClipSelected,
-          onUpdated: _onMidiClipUpdated,
-          onCopied: onMidiClipCopied,
-          onDeleted: _deleteMidiClip,
-          onBatchDeleted: _deleteMidiClipsBatch,
-          onExported: _exportMidiClip,
-          onOverlapResolved: (result) {
-            ClipOverlapHandler.applyMidiResult(
-              result: result,
-              deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
-              updateClipInPlace: (clip) =>
-                  midiPlaybackManager?.updateClipInPlace(clip),
-              rescheduleClip: (clip, t) =>
-                  midiPlaybackManager?.rescheduleClip(clip, t),
-              addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
-              tempo: tempo,
-            );
-          },
-        ),
-        audioClipCallbacks: AudioClipCallbacks(
-          onSelected: _onAudioClipSelected,
-          onCopied: onAudioClipCopied,
-          onBatchDeleted: _deleteAudioClipsBatch,
-        ),
-        dragDropCallbacks: DragDropCallbacks(
-          onInstrumentDropped: _onInstrumentDropped,
-          onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
-          onVst3InstrumentDropped: _onVst3InstrumentDropped,
-          onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
-          onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
-          onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
-          onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
-          onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
-          onCreateTrackWithClip: _onCreateTrackWithClip,
-          onCreateClipOnTrack: _onCreateClipOnTrack,
-        ),
-        automationCallbacks: AutomationCallbacks(
-          onPointAdded: (trackId, point) {
-            automationController.addPoint(
-              trackId,
-              automationController.visibleParameter,
-              point,
-            );
-            if (automationController.visibleParameter ==
-                AutomationParameter.volume) {
-              syncVolumeAutomationToEngine(trackId);
-            }
-          },
-          onPointUpdated: (trackId, pointId, point) {
-            automationController.updatePoint(
-              trackId,
-              automationController.visibleParameter,
-              pointId,
-              point,
-            );
-            if (automationController.visibleParameter ==
-                AutomationParameter.volume) {
-              syncVolumeAutomationToEngine(trackId);
-            }
-          },
-          onPointDeleted: (trackId, pointId) {
-            automationController.removePoint(
-              trackId,
-              automationController.visibleParameter,
-              pointId,
-            );
-            if (automationController.visibleParameter ==
-                AutomationParameter.volume) {
-              syncVolumeAutomationToEngine(trackId);
-            }
-          },
-          onPreviewValue: onAutomationPreviewValue,
-          getAutomationLane: (trackId) => automationController.getLane(
-            trackId,
-            automationController.visibleParameter,
+          key: timelineKey,
+          playheadNotifier: playbackController.playheadNotifier,
+          clipDuration: clipDuration,
+          waveformPeaks: waveformPeaks,
+          audioEngine: audioEngine,
+          tempo: tempo,
+          selectedMidiTrackId: selectedTrackId,
+          selectedMidiClipId: midiPlaybackManager?.selectedClipId,
+          currentEditingClip: midiPlaybackManager?.currentEditingClip,
+          midiClips: midiPlaybackManager?.midiClips ?? [],
+          onMidiTrackSelected: _onTrackSelected,
+          getRustClipId: (dartClipId) =>
+              midiPlaybackManager?.dartToRustClipIds[dartClipId] ?? dartClipId,
+          midiClipCallbacks: MidiClipCallbacks(
+            onSelected: _onMidiClipSelected,
+            onUpdated: _onMidiClipUpdated,
+            onCopied: onMidiClipCopied,
+            onDeleted: _deleteMidiClip,
+            onBatchDeleted: _deleteMidiClipsBatch,
+            onExported: _exportMidiClip,
+            onOverlapResolved: (result) {
+              ClipOverlapHandler.applyMidiResult(
+                result: result,
+                deleteClip: (cId, tId) =>
+                    midiClipController.deleteClip(cId, tId),
+                updateClipInPlace: (clip) =>
+                    midiPlaybackManager?.updateClipInPlace(clip),
+                rescheduleClip: (clip, t) =>
+                    midiPlaybackManager?.rescheduleClip(clip, t),
+                addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+                tempo: tempo,
+              );
+            },
           ),
+          audioClipCallbacks: AudioClipCallbacks(
+            onSelected: _onAudioClipSelected,
+            onCopied: onAudioClipCopied,
+            onBatchDeleted: _deleteAudioClipsBatch,
+          ),
+          dragDropCallbacks: DragDropCallbacks(
+            onInstrumentDropped: _onInstrumentDropped,
+            onInstrumentDroppedOnEmpty: _onInstrumentDroppedOnEmpty,
+            onVst3InstrumentDropped: _onVst3InstrumentDropped,
+            onVst3InstrumentDroppedOnEmpty: _onVst3InstrumentDroppedOnEmpty,
+            onMidiFileDroppedOnEmpty: _onMidiFileDroppedOnEmpty,
+            onMidiFileDroppedOnTrack: onMidiFileDroppedOnTrack,
+            onAudioFileDroppedOnEmpty: _onAudioFileDroppedOnEmpty,
+            onAudioFileDroppedOnTrack: onAudioFileDroppedOnTrack,
+            onCreateTrackWithClip: _onCreateTrackWithClip,
+            onCreateClipOnTrack: _onCreateClipOnTrack,
+          ),
+          automationCallbacks: AutomationCallbacks(
+            onPointAdded: (trackId, point) {
+              automationController.addPoint(
+                trackId,
+                automationController.visibleParameter,
+                point,
+              );
+              if (automationController.visibleParameter ==
+                  AutomationParameter.volume) {
+                syncVolumeAutomationToEngine(trackId);
+              }
+            },
+            onPointUpdated: (trackId, pointId, point) {
+              automationController.updatePoint(
+                trackId,
+                automationController.visibleParameter,
+                pointId,
+                point,
+              );
+              if (automationController.visibleParameter ==
+                  AutomationParameter.volume) {
+                syncVolumeAutomationToEngine(trackId);
+              }
+            },
+            onPointDeleted: (trackId, pointId) {
+              automationController.removePoint(
+                trackId,
+                automationController.visibleParameter,
+                pointId,
+              );
+              if (automationController.visibleParameter ==
+                  AutomationParameter.volume) {
+                syncVolumeAutomationToEngine(trackId);
+              }
+            },
+            onPreviewValue: onAutomationPreviewValue,
+            getAutomationLane: (trackId) => automationController.getLane(
+              trackId,
+              automationController.visibleParameter,
+            ),
+          ),
+          trackHeightState: TrackHeightState(
+            clipHeights: clipHeights,
+            automationHeights: automationHeights,
+            masterTrackHeight: masterTrackHeight,
+            onClipHeightChanged: setClipHeight,
+            onAutomationHeightChanged: setAutomationHeight,
+          ),
+          trackOrder: trackController.trackOrder,
+          getTrackColor: getTrackColor,
+          onSeek: (position) {
+            audioEngine?.transportSeek(position);
+            playheadPosition = position;
+            // Update the notifier so ValueListenableBuilder rebuilds immediately
+            playbackController.playheadNotifier.value = position;
+          },
+          // Loop playback state
+          loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
+          loopStartBeats: uiLayout.loopStartBeats,
+          loopEndBeats: uiLayout.loopEndBeats,
+          punchInEnabled: uiLayout.punchInEnabled,
+          punchOutEnabled: uiLayout.punchOutEnabled,
+          onLoopRegionChanged: (start, end) {
+            // Mark as manual adjustment - disables auto-follow
+            uiLayout.setLoopRegion(start, end, manual: true);
+            // Update playback controller in real-time during playback
+            playbackController.updateLoopBounds(
+              loopStartBeats: start,
+              loopEndBeats: end,
+            );
+          },
+          // Vertical scroll sync with mixer panel
+          verticalScrollController: timelineVerticalScrollController,
+          // Tool mode (shared with piano roll)
+          toolMode: currentToolMode,
+          onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
+          // Playback state (for playhead glow)
+          isPlaying: isPlaying,
+          // Empty timeline: add track callbacks
+          onAddMidiTrack: _addMidiTrackWithClip,
+          onAddAudioTrack: () {
+            final trackId = audioEngine!.createTrack('audio', 'Audio 1');
+            if (trackId >= 0) setState(() {});
+          },
+          // Recording state (for auto-scroll)
+          isRecording: isRecording,
+          // Automation state
+          automationVisibleTrackId: automationController.visibleTrackId,
+          automationScrollController:
+              timelineKey.currentState?.scrollController,
         ),
-        trackHeightState: TrackHeightState(
-          clipHeights: clipHeights,
-          automationHeights: automationHeights,
-          masterTrackHeight: masterTrackHeight,
-          onClipHeightChanged: setClipHeight,
-          onAutomationHeightChanged: setAutomationHeight,
-        ),
-        trackOrder: trackController.trackOrder,
-        getTrackColor: getTrackColor,
-        onSeek: (position) {
-          audioEngine?.transportSeek(position);
-          playheadPosition = position;
-          // Update the notifier so ValueListenableBuilder rebuilds immediately
-          playbackController.playheadNotifier.value = position;
-        },
-        // Loop playback state
-        loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
-        loopStartBeats: uiLayout.loopStartBeats,
-        loopEndBeats: uiLayout.loopEndBeats,
-        punchInEnabled: uiLayout.punchInEnabled,
-        punchOutEnabled: uiLayout.punchOutEnabled,
-        onLoopRegionChanged: (start, end) {
-          // Mark as manual adjustment - disables auto-follow
-          uiLayout.setLoopRegion(start, end, manual: true);
-          // Update playback controller in real-time during playback
-          playbackController.updateLoopBounds(
-            loopStartBeats: start,
-            loopEndBeats: end,
-          );
-        },
-        // Vertical scroll sync with mixer panel
-        verticalScrollController: timelineVerticalScrollController,
-        // Tool mode (shared with piano roll)
-        toolMode: currentToolMode,
-        onToolModeChanged: (mode) => setState(() => currentToolMode = mode),
-        // Playback state (for playhead glow)
-        isPlaying: isPlaying,
-        // Empty timeline: add track callbacks
-        onAddMidiTrack: _addMidiTrackWithClip,
-        onAddAudioTrack: () {
-          final trackId = audioEngine!.createTrack('audio', 'Audio 1');
-          if (trackId >= 0) setState(() {});
-        },
-        // Recording state (for auto-scroll)
-        isRecording: isRecording,
-        // Automation state
-        automationVisibleTrackId: automationController.visibleTrackId,
-        automationScrollController: timelineKey.currentState?.scrollController,
-      ),
       ),
     );
   }

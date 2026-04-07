@@ -351,9 +351,21 @@ class _DeviceChainViewState extends State<DeviceChainView>
   Map<String, double> _getEffectDefaults(String type) {
     switch (type) {
       case 'eq':
-        return {'low_gain': 0, 'mid1_gain': 0, 'mid2_gain': 0, 'high_gain': 0, 'wet_dry': 1};
+        return {
+          'low_gain': 0,
+          'mid1_gain': 0,
+          'mid2_gain': 0,
+          'high_gain': 0,
+          'wet_dry': 1,
+        };
       case 'compressor':
-        return {'threshold': -20, 'ratio': 4, 'attack': 10, 'release': 100, 'wet_dry': 1};
+        return {
+          'threshold': -20,
+          'ratio': 4,
+          'attack': 10,
+          'release': 100,
+          'wet_dry': 1,
+        };
       case 'reverb':
         return {'room_size': 0.5, 'damping': 0.5, 'wet_dry': 0.3};
       case 'delay':

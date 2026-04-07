@@ -341,8 +341,9 @@ mixin DAWProjectMixin
   /// Uses low pixelRatio and a timeout to avoid freezing on complex projects.
   Future<void> captureScreenshot(String projectPath) async {
     try {
-      final boundary = screenshotKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          screenshotKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) return;
 
       // Low resolution + 3s timeout to prevent UI freeze
