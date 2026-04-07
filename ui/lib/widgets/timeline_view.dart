@@ -1778,7 +1778,7 @@ class TimelineViewState extends State<TimelineView>
                                       right: 0,
                                       top: 0,
                                       height: UIConstants.defaultClipHeight,
-                                      child: Container(
+                                      child: DecoratedBox(
                                         decoration: BoxDecoration(
                                           color: context.colors.accent
                                               .withValues(alpha: 0.08),

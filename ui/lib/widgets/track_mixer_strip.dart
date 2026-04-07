@@ -1057,7 +1057,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         final data = details.data;
         if (data is EffectItem) return true; // Built-in effects on any track
         if (data is Vst3Plugin) {
-          return data.isInstrument ? isMidiTrack : true;
+          return !data.isInstrument || isMidiTrack;
         }
         if (data is Instrument) return isMidiTrack;
         return false;
