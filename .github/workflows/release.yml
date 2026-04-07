@@ -221,6 +221,7 @@ jobs:
       - name: Build VST3 host libraries
         run: |
           cd engine\vst3_host
+          if (Test-Path build_win) { Remove-Item -Recurse -Force build_win }
           mkdir build_win
           cd build_win
           cmake -G "Visual Studio 17 2022" -A x64 ..
