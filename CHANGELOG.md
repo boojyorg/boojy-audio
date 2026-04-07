@@ -38,7 +38,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Editor panel dead code**: Removed unused `_buildFloatToggle`, `_buildSamplerEditorTab`, `_buildFXChainTab`, `_isCurrentPluginVst3`
 - **Effect slider jumping**: Fixed slider values snapping to wrong position on drag start
 
-## Unreleased
+## v0.2.1 — 2026-04-07
 
 ### Improvements
 
@@ -50,6 +50,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Track colors now persist**: Track color overrides saved to `ui_layout.json` and restored on project load
+- **Loop region now persists**: Loop start/end/enabled state saved and restored (no longer resets to 1 bar on load)
+- **Regular track mixer overflow**: Fixed 0.617px bottom overflow on regular track mixer strips
+- **Duplicate save paths consolidated**: Cmd+S now uses the correct save path (was missing BPM in recent projects)
+- **Screenshot freeze**: Thumbnail capture uses lower resolution + 3s timeout to prevent UI freeze on complex projects
 - **New Project dialog on fresh load**: No longer shows "unsaved changes" confirmation when clicking New Project from start screen
 - **Master mixer overflow**: Fixed 0.358px bottom overflow on master track strip at certain heights
 - **"New Project Created" toast removed**: Redundant SnackBar removed (status bar already shows the message)

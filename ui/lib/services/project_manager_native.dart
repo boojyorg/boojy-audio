@@ -30,6 +30,10 @@ class UILayoutData {
   final ProjectViewState? viewState;
   final List<ClipData>? audioClips;
   final Map<String, dynamic>? automationData;
+  final Map<int, int>? trackColors; // trackId → color value (ARGB int)
+  final bool? loopEnabled;
+  final double? loopStartBeats;
+  final double? loopEndBeats;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -41,6 +45,10 @@ class UILayoutData {
     this.viewState,
     this.audioClips,
     this.automationData,
+    this.trackColors,
+    this.loopEnabled,
+    this.loopStartBeats,
+    this.loopEndBeats,
   });
 
   Map<String, dynamic> toJson() => {
@@ -60,6 +68,11 @@ class UILayoutData {
       'audio_clips': audioClips!.map((c) => c.toJson()).toList(),
     if (automationData != null && automationData!.isNotEmpty)
       'automation': automationData,
+    if (trackColors != null && trackColors!.isNotEmpty)
+      'track_colors': trackColors!.map((k, v) => MapEntry(k.toString(), v)),
+    if (loopEnabled != null) 'loop_enabled': loopEnabled,
+    if (loopStartBeats != null) 'loop_start_beats': loopStartBeats,
+    if (loopEndBeats != null) 'loop_end_beats': loopEndBeats,
   };
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
@@ -69,6 +82,7 @@ class UILayoutData {
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
     final audioClipsJson = json['audio_clips'] as List<dynamic>?;
     final automationJson = json['automation'] as Map<String, dynamic>?;
+    final trackColorsJson = json['track_colors'] as Map<String, dynamic>?;
 
     return UILayoutData(
       libraryWidth: (panelSizes['library_width'] as num?)?.toDouble() ?? 200.0,
@@ -84,6 +98,12 @@ class UILayoutData {
           ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
           .toList(),
       automationData: automationJson,
+      trackColors: trackColorsJson?.map(
+        (k, v) => MapEntry(int.parse(k), (v as num).toInt()),
+      ),
+      loopEnabled: json['loop_enabled'] as bool?,
+      loopStartBeats: (json['loop_start_beats'] as num?)?.toDouble(),
+      loopEndBeats: (json['loop_end_beats'] as num?)?.toDouble(),
     );
   }
 }

@@ -1095,6 +1095,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 Container(
                   width: widget.stripWidth,
                   height: totalHeight,
+                  clipBehavior: Clip.hardEdge,
                   decoration: BoxDecoration(
                     // Track color at 20% opacity (like Master track left section)
                     color: isHovered

@@ -2465,6 +2465,12 @@ class _DAWScreenState extends State<DAWScreen>
     final timelineState = timelineKey.currentState;
     final audioClips = timelineState?.clips.toList();
 
+    // Collect track color overrides for persistence
+    final colorOverrides = trackController.trackColorOverrides;
+    final trackColors = colorOverrides.isNotEmpty
+        ? colorOverrides.map((k, v) => MapEntry(k, v.toARGB32()))
+        : null;
+
     return UILayoutData(
       libraryWidth: uiLayout.libraryPanelWidth,
       mixerWidth: uiLayout.mixerPanelWidth,
@@ -2476,6 +2482,10 @@ class _DAWScreenState extends State<DAWScreen>
       viewState: viewState,
       audioClips: audioClips,
       automationData: automationController.toJson(),
+      trackColors: trackColors,
+      loopEnabled: uiLayout.loopPlaybackEnabled,
+      loopStartBeats: uiLayout.loopStartBeats,
+      loopEndBeats: uiLayout.loopEndBeats,
     );
   }
 

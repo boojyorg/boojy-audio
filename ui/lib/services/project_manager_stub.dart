@@ -30,6 +30,10 @@ class UILayoutData {
   final ProjectViewState? viewState;
   final List<ClipData>? audioClips;
   final Map<String, dynamic>? automationData;
+  final Map<int, int>? trackColors;
+  final bool? loopEnabled;
+  final double? loopStartBeats;
+  final double? loopEndBeats;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -41,6 +45,10 @@ class UILayoutData {
     this.viewState,
     this.audioClips,
     this.automationData,
+    this.trackColors,
+    this.loopEnabled,
+    this.loopStartBeats,
+    this.loopEndBeats,
   });
 
   Map<String, dynamic> toJson() => throw UnsupportedError('stub');

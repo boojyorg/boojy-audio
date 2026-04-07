@@ -1,6 +1,6 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.2.0
+**Current Version:** v0.2.1
 **Working On:** v0.2.1 — Quality of Life — [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md)
 **Goal:** v1.0 public release
 
