@@ -74,9 +74,9 @@ class _ProjectCardState extends State<ProjectCard> {
               // Thumbnail area
               Expanded(
                 child: hasThumbnail
-                    ? Image.file(
-                        thumbnailFile,
-                        fit: BoxFit.cover,
+                    ? Image.memory(
+                        thumbnailFile.readAsBytesSync(),
+                        fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) =>
                             _buildPlaceholder(context),
                       )

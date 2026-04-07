@@ -384,41 +384,43 @@ class _EditorPanelState extends State<EditorPanel>
                             children: _buildTabButtons(),
                           ),
                         ),
-                        // Center: Tool buttons (truly centered)
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildToolButton(
-                                ToolMode.draw,
-                                BI.pencil,
-                                'Draw (Z)',
-                              ),
-                              const SizedBox(width: 4),
-                              _buildToolButton(
-                                ToolMode.select,
-                                BI.selection,
-                                'Select (X)',
-                              ),
-                              const SizedBox(width: 4),
-                              _buildToolButton(
-                                ToolMode.eraser,
-                                BI.delete,
-                                'Erase (C) • Hold Alt',
-                              ),
-                              const SizedBox(width: 4),
-                              _buildToolButton(
-                                ToolMode.duplicate,
-                                BI.copy,
-                                'Duplicate (V) • Cmd+Drag',
-                              ),
-                              const SizedBox(width: 4),
-                              _buildToolButton(
-                                ToolMode.slice,
-                                BI.cut,
-                                'Slice (B) • Cmd+Click',
-                              ),
-                            ],
+                        // Center: Tool buttons (truly centered across full width)
+                        Positioned.fill(
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildToolButton(
+                                  ToolMode.draw,
+                                  BI.pencil,
+                                  'Draw (Z)',
+                                ),
+                                const SizedBox(width: 4),
+                                _buildToolButton(
+                                  ToolMode.select,
+                                  BI.selection,
+                                  'Select (X)',
+                                ),
+                                const SizedBox(width: 4),
+                                _buildToolButton(
+                                  ToolMode.eraser,
+                                  BI.delete,
+                                  'Erase (C) • Hold Alt',
+                                ),
+                                const SizedBox(width: 4),
+                                _buildToolButton(
+                                  ToolMode.duplicate,
+                                  BI.copy,
+                                  'Duplicate (V) • Cmd+Drag',
+                                ),
+                                const SizedBox(width: 4),
+                                _buildToolButton(
+                                  ToolMode.slice,
+                                  BI.cut,
+                                  'Slice (B) • Cmd+Click',
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         // Right side: Preset nav + Piano toggle + Collapse button
@@ -459,12 +461,8 @@ class _EditorPanelState extends State<EditorPanel>
                                 ),
                                 const SizedBox(width: 8),
                               ],
-                              // Float toggle moved to device header (v0.1.9)
-                              // Virtual Piano toggle - for MIDI and Sampler tracks
-                              if (!_isAudioTrack) ...[
-                                _buildPianoToggle(),
-                                const SizedBox(width: 8),
-                              ],
+                              // Virtual Piano toggle removed from toolbar (v0.2.1)
+                              // Still accessible via P key and View menu
                               // Collapse chevron (rightmost)
                               _buildCollapseChevron(isCollapsed: false),
                             ],

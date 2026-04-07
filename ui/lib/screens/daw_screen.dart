@@ -115,6 +115,9 @@ class _DAWScreenState extends State<DAWScreen>
   void initState() {
     super.initState();
 
+    // Clean slate on every start (prevents stale undo state from hot restart)
+    undoRedoManager.clear();
+
     // Listen for undo/redo state changes to update menu
     undoRedoManager.addListener(_onUndoRedoChanged);
 
@@ -393,7 +396,7 @@ class _DAWScreenState extends State<DAWScreen>
       // Initialize auto-save service
       autoSaveService.initialize(
         projectManager: projectManager!,
-        getUILayout: _getCurrentUILayout,
+        getUILayout: getCurrentUILayout,
       );
       autoSaveService.start();
 
@@ -2394,21 +2397,6 @@ class _DAWScreenState extends State<DAWScreen>
 
   // M5: Project file methods
 
-  /// Get the default projects folder path: ~/Documents/Boojy/Audio/Projects
-  Future<String> _getDefaultProjectsFolder() async {
-    final home =
-        Platform.environment['HOME'] ??
-        '/Users/${Platform.environment['USER']}';
-    final projectsPath = '$home/Documents/Boojy/Audio/Projects';
-
-    // Create the folder if it doesn't exist
-    final dir = Directory(projectsPath);
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
-    return projectsPath;
-  }
 
   void _newProject() => newProject();
 
@@ -2448,109 +2436,12 @@ class _DAWScreenState extends State<DAWScreen>
     ];
   }
 
-  Future<void> _saveProject() async {
-    if (projectManager?.currentPath != null) {
-      _saveProjectToPath(projectManager!.currentPath!);
-    } else {
-      _saveProjectAs();
-    }
-  }
-
-  Future<void> _saveProjectAs() async {
-    // Show dialog to enter project name
-    final nameController = TextEditingController(
-      text: projectManager?.currentName ?? 'Untitled',
-    );
-
-    final projectName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Save Project As'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Project Name',
-            hintText: 'Enter project name',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, nameController.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (projectName == null || projectName.isEmpty) return;
-
-    // Update project name in manager, metadata, and window title
-    projectManager?.setProjectName(projectName);
-    WindowTitleService.setProjectName(projectName);
-    setState(() {
-      projectMetadata = projectMetadata.copyWith(name: projectName);
-    });
-
-    try {
-      // Get default projects folder
-      final defaultFolder = await _getDefaultProjectsFolder();
-
-      // Use macOS native file picker for save location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")',
-      ]);
-
-      if (result.exitCode == 0) {
-        final parentPath = result.stdout.toString().trim();
-        if (parentPath.isNotEmpty) {
-          final projectPath = '$parentPath/$projectName.audio';
-          _saveProjectToPath(projectPath);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save project: $e')));
-      }
-    }
-  }
-
-  Future<void> _saveProjectToPath(String path) async {
-    setState(() => isLoading = true);
-
-    final result = await projectManager!.saveProjectToPath(
-      path,
-      _getCurrentUILayout(),
-    );
-
-    // Add to recent projects on successful save
-    if (result.success) {
-      userSettings.addRecentProject(path, projectManager!.currentName);
-    }
-
-    setState(() {
-      statusMessage = result.success ? 'Project saved' : result.message;
-      isLoading = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result.message)));
-    }
-  }
-
   /// Apply UI layout from loaded project
   void _applyUILayout(UILayoutData layout) => applyUILayout(layout);
 
   /// Get current UI layout for saving
-  UILayoutData _getCurrentUILayout() {
+  @override
+  UILayoutData getCurrentUILayout() {
     // Only save view state if "continue where I left off" is enabled
     ProjectViewState? viewState;
     if (userSettings.continueWhereLeftOff) {
@@ -2866,7 +2757,7 @@ class _DAWScreenState extends State<DAWScreen>
       projectManager!.setProjectName(newVersionName);
       await projectManager!.saveProjectToPath(
         newVersionPath,
-        _getCurrentUILayout(),
+        getCurrentUILayout(),
       );
 
       // Update UI
@@ -2967,7 +2858,7 @@ class _DAWScreenState extends State<DAWScreen>
         projectManager!.setProjectName(newName);
 
         // Save project to update internal metadata with new name
-        await projectManager!.saveProjectToPath(newPath, _getCurrentUILayout());
+        await projectManager!.saveProjectToPath(newPath, getCurrentUILayout());
 
         // Update UI
         setState(() {
@@ -3204,7 +3095,7 @@ class _DAWScreenState extends State<DAWScreen>
 
     switch (result.action) {
       case StartScreenAction.newProject:
-        newProject();
+        executeNewProject();
       case StartScreenAction.openProject:
         openProject();
       case StartScreenAction.openRecent:
@@ -3278,8 +3169,8 @@ class _DAWScreenState extends State<DAWScreen>
         fileMenu: FileMenuCallbacks(
           onNewProject: _newProject,
           onOpenProject: _openProject,
-          onSaveProject: _saveProject,
-          onSaveProjectAs: _saveProjectAs,
+          onSaveProject: saveProject,
+          onSaveProjectAs: saveProjectAs,
           onSaveNewVersion: _saveNewVersion,
           onRenameProject: _renameProject,
           onExportAudio: _exportAudio,
@@ -3526,7 +3417,9 @@ class _DAWScreenState extends State<DAWScreen>
 
   Widget _buildTimelineSection() {
     return Expanded(
-      child: TimelineView(
+      child: RepaintBoundary(
+        key: screenshotKey,
+        child: TimelineView(
         key: timelineKey,
         playheadNotifier: playbackController.playheadNotifier,
         clipDuration: clipDuration,
@@ -3666,6 +3559,7 @@ class _DAWScreenState extends State<DAWScreen>
         // Automation state
         automationVisibleTrackId: automationController.visibleTrackId,
         automationScrollController: timelineKey.currentState?.scrollController,
+      ),
       ),
     );
   }
@@ -3934,8 +3828,8 @@ class _DAWScreenState extends State<DAWScreen>
           // File menu callbacks
           onNewProject: _newProject,
           onOpenProject: _openProject,
-          onSaveProject: _saveProject,
-          onSaveProjectAs: _saveProjectAs,
+          onSaveProject: saveProject,
+          onSaveProjectAs: saveProjectAs,
           onSaveNewVersion: _saveNewVersion,
           onRenameProject: _renameProject,
           onExportAudio: _exportAudio,

@@ -31,6 +31,9 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
 
   AudioEngine? audioEngine;
 
+  // Screenshot capture key for project thumbnails
+  final screenshotKey = GlobalKey(debugLabel: 'screenshot_boundary');
+
   // Tour GlobalKeys for spotlight anchors
   final tourTransportKey = GlobalKey(debugLabel: 'tour_transport');
   final tourLibraryKey = GlobalKey(debugLabel: 'tour_library');

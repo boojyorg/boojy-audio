@@ -316,22 +316,22 @@ class _RecordButtonPainter extends CustomPainter {
   }
 
   void _drawDisabled(Canvas canvas, Offset center, double radius, double bw) {
-    // Fill
+    // Subtle red fill (muted, not grey)
     final fillPaint = Paint()
-      ..color = disabledColor.withValues(alpha: isHovered ? 1.0 : 0.8)
+      ..color = recordColor.withValues(alpha: isHovered ? 0.25 : 0.15)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius - bw, fillPaint);
 
-    // Border
+    // Dim red border
     final borderPaint = Paint()
-      ..color = disabledColor
+      ..color = recordColor.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = bw;
     canvas.drawCircle(center, radius - bw / 2, borderPaint);
 
-    // Grey dot
+    // Dim red dot
     final dotPaint = Paint()
-      ..color = textMutedColor
+      ..color = recordColor.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius * 0.30, dotPaint);
   }

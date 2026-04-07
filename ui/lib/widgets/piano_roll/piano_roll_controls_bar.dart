@@ -241,7 +241,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: colors.standard,
+            color: colors.darkest,
             border: Border(bottom: BorderSide(color: colors.surface, width: 1)),
           ),
           child: Row(

@@ -1888,6 +1888,7 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
           Container(
             width: widget.stripWidth,
             height: widget.trackHeight,
+            clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
               color: _getTintedBackgroundColor(context),
               border: Border(

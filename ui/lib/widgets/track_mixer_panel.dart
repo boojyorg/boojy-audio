@@ -536,15 +536,15 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(BI.audioFile, size: 48, color: context.colors.textMuted),
+          Icon(BI.sliders, size: 48, color: context.colors.textMuted),
           const SizedBox(height: 16),
           Text(
-            'No tracks yet',
+            'Mixer',
             style: TextStyle(color: context.colors.textMuted, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
-            'Create a track to get started',
+            'Add tracks to see mixer controls',
             style: TextStyle(
               color: context.colors.textMuted,
               fontSize: BT.fontBody,

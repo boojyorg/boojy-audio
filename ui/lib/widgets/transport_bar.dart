@@ -711,12 +711,7 @@ class _TransportBarState extends State<TransportBar> {
                       onCountInChanged: widget.onCountInChanged,
                       size: transportBtnSize,
                     ),
-                    SizedBox(width: wGap),
-                    _MidiCaptureButton(
-                      hasEvents: widget.midiCaptureHasEvents,
-                      isRecording: widget.isRecording || widget.isCountingIn,
-                      onTap: widget.transport.onCaptureMidi,
-                    ),
+                    // MIDI Capture button removed (v0.2.1) — backend logic retained
                   ],
                 ),
               ),
@@ -1030,129 +1025,6 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
         ),
       ),
     );
-  }
-}
-
-/// MIDI Capture button — captures recent MIDI input into a clip.
-/// Shows corner-bracket icon. Dims when recording, brightens when buffer has events.
-class _MidiCaptureButton extends StatefulWidget {
-  final bool hasEvents;
-  final bool isRecording;
-  final VoidCallback? onTap;
-
-  const _MidiCaptureButton({
-    required this.hasEvents,
-    required this.isRecording,
-    this.onTap,
-  });
-
-  @override
-  State<_MidiCaptureButton> createState() => _MidiCaptureButtonState();
-}
-
-class _MidiCaptureButtonState extends State<_MidiCaptureButton>
-    with ButtonHoverMixin {
-  @override
-  double get hoverScale => AnimationConstants.subtleHoverScale;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final isEnabled = widget.hasEvents && !widget.isRecording;
-    final opacity = widget.isRecording ? 0.3 : (widget.hasEvents ? 1.0 : 0.5);
-
-    return Tooltip(
-      message: 'Capture MIDI — saves what you just played',
-      child: MouseRegion(
-        cursor: isEnabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        onEnter: isEnabled ? handleHoverEnter : null,
-        onExit: isEnabled ? handleHoverExit : null,
-        child: GestureDetector(
-          onTapDown: isEnabled ? handleTapDown : null,
-          onTapUp: isEnabled
-              ? (details) {
-                  handleTapUp(details);
-                  widget.onTap?.call();
-                }
-              : null,
-          onTapCancel: isEnabled ? handleTapCancel : null,
-          child: AnimatedScale(
-            scale: isEnabled ? scale : 1.0,
-            duration: AnimationConstants.pressDuration,
-            curve: AnimationConstants.standardCurve,
-            child: Opacity(
-              opacity: opacity,
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: isHovered ? colors.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: CustomPaint(
-                  size: const Size(26, 26),
-                  painter: _CaptureIconPainter(
-                    color: widget.hasEvents
-                        ? colors.textSecondary
-                        : colors.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Draws the MIDI capture icon — four corner brackets forming a frame.
-class _CaptureIconPainter extends CustomPainter {
-  final Color color;
-
-  _CaptureIconPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    const inset = 6.0;
-    const len = 5.0;
-    final right = size.width - inset;
-    final bottom = size.height - inset;
-
-    // Top-left corner
-    canvas.drawLine(
-      const Offset(inset, inset + len),
-      const Offset(inset, inset),
-      paint,
-    );
-    canvas.drawLine(
-      const Offset(inset, inset),
-      const Offset(inset + len, inset),
-      paint,
-    );
-
-    // Top-right corner
-    canvas.drawLine(Offset(right - len, inset), Offset(right, inset), paint);
-    canvas.drawLine(Offset(right, inset), Offset(right, inset + len), paint);
-
-    // Bottom-left corner
-    canvas.drawLine(Offset(inset, bottom - len), Offset(inset, bottom), paint);
-    canvas.drawLine(Offset(inset, bottom), Offset(inset + len, bottom), paint);
-
-    // Bottom-right corner
-    canvas.drawLine(Offset(right - len, bottom), Offset(right, bottom), paint);
-    canvas.drawLine(Offset(right, bottom - len), Offset(right, bottom), paint);
-  }
-
-  @override
-  bool shouldRepaint(_CaptureIconPainter oldDelegate) {
-    return color != oldDelegate.color;
   }
 }
 
