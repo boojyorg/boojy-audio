@@ -92,6 +92,36 @@ When making bug fixes or feature changes:
 4. GitHub Actions builds and creates draft release
 5. Edit release notes in GitHub, then publish
 
+## Documentation Layout
+
+- `docs/ROADMAP.md` — version plan and what's being worked on now
+- `docs/plans/vX.Y-plan.md` — detailed spec for the active version (features, mockups, scope)
+- `docs/ARCHITECTURE.md` — system design, folder structure, FFI patterns
+- `docs/FEATURE_TRACKER.md` — v1.0 feature checklist (what exists vs what's planned)
+- `CHANGELOG.md` — release history; add entries under "Unreleased" during development
+
+## Version Sync
+
+All markdown files must stay in sync with the current development version.
+
+**When starting a new version (creating a new plan doc):**
+1. Update `docs/ROADMAP.md` — set "Current Version" and "Working On" lines, update version table
+2. Update `README.md` — update the version/status line
+3. Verify `CHANGELOG.md` has an empty `## Unreleased` section ready
+
+**When releasing a version:**
+1. `CHANGELOG.md` — rename `## Unreleased` → `## vX.Y.Z — YYYY-MM-DD`, add new empty `## Unreleased`
+2. `docs/ROADMAP.md` — update "Current Version", mark version as Complete in table, update "Working On" to next version
+3. `README.md` — update version reference
+4. Move completed plan from `docs/plans/` → `docs/archive/plans/`
+5. Update `docs/FEATURE_TRACKER.md` — check off newly completed features
+
+**Files that reference the version (keep in sync):**
+- `README.md` — project status line
+- `docs/ROADMAP.md` — "Current Version" and "Working On" header lines
+- `CHANGELOG.md` — release section headers
+- `docs/FEATURE_TRACKER.md` — checked/unchecked items
+
 ## Linting & Formatting
 
 - **Dart**: `flutter_lints` with 60+ rules in `analysis_options.yaml` — strict mode
