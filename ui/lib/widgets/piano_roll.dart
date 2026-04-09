@@ -1208,18 +1208,19 @@ class _PianoRollState extends State<PianoRoll>
       textColor = Colors.white;
       borderColor = context.colors.accent;
     } else if (isBlackKey) {
-      keyColor = context.colors.pianoBlackKey;
-      textColor = context.colors.textMuted;
+      keyColor = const Color(0xFF2A2A2A);
+      textColor = context.colors.textSecondary;
       borderColor = const Color(0xFF1A1A1A);
     } else if (isC) {
-      // C notes: light grey to visually separate octaves (FL Studio style)
-      keyColor = const Color(0xFFD8D8D8);
-      textColor = const Color(0xFF2A2A2A);
-      borderColor = const Color(0xFFC0C0C0);
+      // C notes: darker grey to visually separate octaves
+      keyColor = const Color(0xFF555555);
+      textColor = context.colors.textPrimary;
+      borderColor = const Color(0xFF444444);
     } else {
-      keyColor = context.colors.pianoWhiteKey;
-      textColor = const Color(0xFF3A3D4A);
-      borderColor = const Color(0xFFD0D0D0);
+      // White keys: medium grey
+      keyColor = const Color(0xFF808080);
+      textColor = context.colors.textPrimary;
+      borderColor = const Color(0xFF6A6A6A);
     }
 
     return Container(

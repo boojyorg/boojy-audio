@@ -101,7 +101,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
     final isActive = widget.loopEnabled;
     final leftBg = isActive
         ? colors.accent.withValues(alpha: BT.opacityLight)
-        : Colors.transparent;
+        : colors.surface;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 

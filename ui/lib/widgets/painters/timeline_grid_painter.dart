@@ -75,9 +75,9 @@ class TimelineGridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Draw loop region dimming overlay (20% darker outside loop)
+    // Draw loop region dimming overlay (30% darker outside loop)
     if (loopEnabled) {
-      final dimPaint = Paint()..color = const Color(0x33000000);
+      final dimPaint = Paint()..color = const Color(0x4D000000);
 
       final loopStartX = loopStart * pixelsPerBeat;
       final loopEndX = loopEnd * pixelsPerBeat;

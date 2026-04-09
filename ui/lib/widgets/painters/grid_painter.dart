@@ -133,10 +133,10 @@ class GridPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // STEP 3: Draw loop region dimming overlay (20% darker outside loop)
+    // STEP 3: Draw loop region dimming overlay (30% darker outside loop)
     if (loopEnabled) {
       final dimPaint = Paint()
-        ..color = const Color(0x33000000); // 20% black overlay
+        ..color = const Color(0x4D000000); // 30% black overlay
 
       final loopStartX = loopStart * pixelsPerBeat;
       final loopEndX = loopEnd * pixelsPerBeat;
