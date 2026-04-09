@@ -89,6 +89,7 @@ class _DAWScreenState extends State<DAWScreen>
   // Drag state for disabling panel animations during resize
   bool _isDraggingLibrary = false;
   bool _isDraggingMixer = false;
+  bool _isDraggingEditor = false;
 
   // Synchronized divider hover state (shared between transport bar and content)
   final _leftDividerActive = ValueNotifier<bool>(false);
@@ -3974,6 +3975,10 @@ class _DAWScreenState extends State<DAWScreen>
                             ResizableDivider(
                               orientation: DividerOrientation.horizontal,
                               isCollapsed: false,
+                              onDragStart: () =>
+                                  setState(() => _isDraggingEditor = true),
+                              onDragEnd: () =>
+                                  setState(() => _isDraggingEditor = false),
                               onDrag: (delta) {
                                 final windowHeight = MediaQuery.of(
                                   context,
@@ -4011,10 +4016,16 @@ class _DAWScreenState extends State<DAWScreen>
                           ],
 
                           // Editor panel content (full when visible, collapsed bar when hidden)
-                          SizedBox(
+                          AnimatedContainer(
+                            duration: _isDraggingEditor
+                                ? Duration.zero
+                                : AnimationConstants.panelDuration,
+                            curve: Curves.easeInOut,
                             height: uiLayout.isEditorPanelVisible
                                 ? uiLayout.editorPanelHeight
                                 : 40,
+                            clipBehavior: Clip.hardEdge,
+                            decoration: const BoxDecoration(),
                             child: EditorPanel(
                               audioEngine: audioEngine,
                               virtualPianoEnabled:
