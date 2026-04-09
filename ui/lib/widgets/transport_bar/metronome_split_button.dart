@@ -116,7 +116,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
     final colors = context.colors;
     final leftBg = widget.isActive
         ? colors.accent.withValues(alpha: BT.opacityLight)
-        : Colors.transparent;
+        : colors.surface;
     final iconColor = widget.isActive ? colors.accent : colors.textSecondary;
 
     final tooltip = widget.isActive

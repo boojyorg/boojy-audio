@@ -106,10 +106,10 @@ class UnifiedNavBarPainter extends CustomPainter {
       borderColor = const Color(0x88CC3333);
       hoverColor = const Color(0xAAFF6666);
     } else if (loopEnabled) {
-      // Mode 2: Loop only — orange
-      fillColor = const Color(0xFFB36800);
-      borderColor = const Color(0xFFFF9800);
-      hoverColor = const Color(0xFFFFB74D);
+      // Mode 2: Loop only — muted amber
+      fillColor = const Color(0xFF5A3D10);
+      borderColor = const Color(0xFFC88A30);
+      hoverColor = const Color(0xFFD4A050);
     } else {
       // Mode 1: All off — grey bar with darker grey edge
       fillColor = const Color(0xFF292B36); // BG.elevated
@@ -125,7 +125,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     final borderPaint = Paint()
       ..color = borderColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 1.0;
     canvas.drawRect(loopRect, borderPaint);
 
     // Highlight edges on hover (if within 10px of an edge)

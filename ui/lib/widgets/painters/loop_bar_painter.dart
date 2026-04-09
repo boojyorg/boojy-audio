@@ -71,9 +71,9 @@ class LoopBarPainter extends CustomPainter {
       fillColor = const Color(0x66AA2222);
       borderColor = const Color(0x88CC3333);
     } else {
-      // Mode 2: Loop only (no punch) — orange
-      fillColor = const Color(0xFFB36800);
-      borderColor = const Color(0xFFFF9800);
+      // Mode 2: Loop only (no punch) — muted amber
+      fillColor = const Color(0xFF5A3D10);
+      borderColor = const Color(0xFFC88A30);
     }
 
     // Fill bar
@@ -84,7 +84,7 @@ class LoopBarPainter extends CustomPainter {
     final borderPaint = Paint()
       ..color = borderColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 1.0;
     canvas.drawRect(loopRect, borderPaint);
   }
 
