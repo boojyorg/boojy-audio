@@ -134,7 +134,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
     final isActive = widget.value != SnapValue.off;
     final leftBg = isActive
         ? colors.accent.withValues(alpha: BT.opacityLight)
-        : Colors.transparent;
+        : colors.surface;
     final iconColor = isActive ? colors.accent : colors.textSecondary;
     final textColor = isActive ? colors.textPrimary : colors.textSecondary;
 

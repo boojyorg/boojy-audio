@@ -16,7 +16,6 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../utils/logger.dart';
-import '../utils/text_utils.dart';
 
 /// Library panel widget - two-column layout with categories on left, contents on right
 class LibraryPanel extends StatefulWidget {
@@ -1685,7 +1684,7 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
         onSecondaryTapUp: widget.onSecondaryTapUp,
         child: Container(
           margin: const EdgeInsets.only(left: 5, right: 3),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(6),
@@ -1695,15 +1694,15 @@ class _CategoryItemWidgetState extends State<_CategoryItemWidget> {
             children: [
               Icon(
                 widget.icon,
-                size: 16,
+                size: 14,
                 color: isActive ? colors.accent : colors.textMuted,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   widget.label,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: isActive || _isHovered
                         ? colors.textPrimary
                         : colors.textSecondary,
@@ -1766,7 +1765,7 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
         onTap: widget.onTap,
         child: Container(
           margin: const EdgeInsets.only(left: 5, right: 3),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: _isHovered
                 ? colors.accent.withValues(alpha: 0.12)
@@ -1777,17 +1776,17 @@ class _ExpandableHeaderWidgetState extends State<_ExpandableHeaderWidget> {
             children: [
               Icon(
                 widget.isExpanded ? BI.expandMore : BI.caretRight,
-                size: 14,
+                size: 12,
                 color: colors.textMuted,
               ),
               const SizedBox(width: 4),
-              Icon(widget.icon, size: 14, color: colors.textSecondary),
+              Icon(widget.icon, size: 12, color: colors.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   widget.title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: _isHovered
                         ? colors.textPrimary
                         : colors.textSecondary,
@@ -1897,8 +1896,8 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
         }
       },
       child: Container(
-        margin: EdgeInsets.only(left: 5.0 + (widget.indent * 16.0), right: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        margin: EdgeInsets.only(left: 5.0 + (widget.indent * 14.0), right: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(6),
@@ -1907,35 +1906,26 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
         child: Row(
           children: [
             if (widget.isPreviewing) ...[
-              Icon(BI.speakerHigh, size: 14, color: iconColor),
-              const SizedBox(width: 6),
+              Icon(BI.speakerHigh, size: 12, color: iconColor),
+              const SizedBox(width: 5),
             ] else if (widget.typeIcon != null) ...[
-              Icon(widget.typeIcon, size: 14, color: iconColor),
-              const SizedBox(width: 6),
+              Icon(widget.typeIcon, size: 12, color: iconColor),
+              const SizedBox(width: 5),
             ],
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textStyle = TextStyle(
-                    color: isActive || widget.isPreviewing
-                        ? colors.textPrimary
-                        : (_isHovered
-                              ? colors.textPrimary
-                              : colors.textSecondary),
-                    fontSize: 14,
-                    fontWeight: isActive ? BT.weightSemiBold : BT.weightMedium,
-                  );
-                  return Text(
-                    TextUtils.truncateMiddleToFit(
-                      filename: widget.name,
-                      maxWidth: constraints.maxWidth,
-                      style: textStyle,
-                    ),
-                    style: textStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                  );
-                },
+              child: Text(
+                widget.name,
+                style: TextStyle(
+                  color: isActive || widget.isPreviewing
+                      ? colors.textPrimary
+                      : (_isHovered
+                            ? colors.textPrimary
+                            : colors.textSecondary),
+                  fontSize: 12,
+                  fontWeight: isActive ? BT.weightSemiBold : BT.weightMedium,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (widget.isFavorite) Icon(BI.star, size: 12, color: Colors.amber),
