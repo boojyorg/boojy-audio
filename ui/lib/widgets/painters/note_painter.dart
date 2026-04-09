@@ -22,6 +22,9 @@ class NotePainter extends CustomPainter {
   /// Used for calculating Y coordinates in fold view
   final List<int>? foldedPitches;
 
+  /// Base color for notes — defaults to cyan, but can be set to track color.
+  final Color noteColor;
+
   NotePainter({
     required this.notes,
     this.previewNote,
@@ -33,6 +36,7 @@ class NotePainter extends CustomPainter {
     this.ghostNotes = const [],
     this.showGhostNotes = false,
     this.foldedPitches,
+    this.noteColor = const Color(0xFF00BCD4),
   });
 
   /// Calculate Y coordinate for a MIDI note (fold-aware)
@@ -70,15 +74,13 @@ class NotePainter extends CustomPainter {
 
       // Fill
       final fillPaint = Paint()
-        ..color = const Color(0xFF00BCD4)
-            .withValues(alpha: 0.2) // Cyan fill
+        ..color = noteColor.withValues(alpha: 0.2)
         ..style = PaintingStyle.fill;
       canvas.drawRect(rect, fillPaint);
 
       // Border
       final borderPaint = Paint()
-        ..color =
-            const Color(0xFF00BCD4) // Cyan border
+        ..color = noteColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawRect(rect, borderPaint);
@@ -124,9 +126,8 @@ class NotePainter extends CustomPainter {
     final height = pixelsPerNote - 2; // Small gap between notes
 
     // Calculate velocity-based brightness (not transparency)
-    // vel 100 = standard cyan, < 100 = darker, > 100 = brighter
-    const baseColor = Color(0xFF00BCD4);
-    final baseHsl = HSLColor.fromColor(baseColor);
+    // vel 100 = standard color, < 100 = darker, > 100 = brighter
+    final baseHsl = HSLColor.fromColor(noteColor);
     final baseLightness = baseHsl.lightness; // ~0.42
 
     double lightness;
@@ -139,7 +140,7 @@ class NotePainter extends CustomPainter {
       lightness = baseLightness + extra * (0.54 - baseLightness);
     }
 
-    final noteColor = baseHsl.withLightness(lightness).toColor();
+    final velocityColor = baseHsl.withLightness(lightness).toColor();
 
     // Note rect - same size for all notes (rounded corners)
     final noteRect = RRect.fromRectAndRadius(
@@ -150,8 +151,8 @@ class NotePainter extends CustomPainter {
     // Note fill - velocity-based brightness (no transparency)
     final fillPaint = Paint()
       ..color = isPreview
-          ? baseColor.withValues(alpha: 0.5) // Preview: semi-transparent
-          : noteColor; // Regular: velocity brightness
+          ? noteColor.withValues(alpha: 0.5) // Preview: semi-transparent
+          : velocityColor; // Regular: velocity brightness
 
     canvas.drawRRect(noteRect, fillPaint);
 

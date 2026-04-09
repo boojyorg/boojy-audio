@@ -4105,6 +4105,13 @@ class _DAWScreenState extends State<DAWScreen>
                               projectTempo: projectMetadata.bpm,
                               onProjectTempoChanged: _onTempoChanged,
                               isRecording: isRecording,
+                              trackColor: selectedTrackId != null
+                                  ? getTrackColor(
+                                      selectedTrackId!,
+                                      _getSelectedTrackName() ?? '',
+                                      _getSelectedTrackType() ?? '',
+                                    )
+                                  : null,
                               onCreateSamplerFromClip: (clipPath) {
                                 // Extract filename for track name
                                 final name = clipPath

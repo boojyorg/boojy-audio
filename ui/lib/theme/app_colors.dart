@@ -221,7 +221,7 @@ class BoojyColors {
 
   // --- DARK THEME (Boojy Design System) ---
   static const Map<String, Color> _darkBackgrounds = {
-    'editor': Color(0xFF040412), // BG.editor — deep content area
+    'editor': Color(0xFF0E0F14), // BG.editor — warm charcoal content area
     'darkest': Color(0xFF13151C), // BG.darkest — text inputs
     'dark': Color(0xFF2C2C32), // BG.dark — chrome (sidebar, top bar)
     'standard': Color(0xFF272A38), // BG.standard — forms, secondary surfaces
@@ -244,7 +244,7 @@ class BoojyColors {
 
   // --- HIGH CONTRAST DARK THEME (blue-tinted) ---
   static const Map<String, Color> _highContrastDarkBackgrounds = {
-    'editor': Color(0xFF020210),
+    'editor': Color(0xFF0A0B10),
     'darkest': Color(0xFF0A0C14),
     'dark': Color(0xFF1E1E26),
     'standard': Color(0xFF1A1C28),

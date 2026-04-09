@@ -68,6 +68,9 @@ class PianoRoll extends StatefulWidget {
   /// Whether recording is active (piano roll becomes read-only)
   final bool isRecording;
 
+  /// Track color for MIDI note rendering
+  final Color? trackColor;
+
   const PianoRoll({
     super.key,
     this.audioEngine,
@@ -83,6 +86,7 @@ class PianoRoll extends StatefulWidget {
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.isRecording = false,
+    this.trackColor,
   });
 
   @override
@@ -466,7 +470,8 @@ class _PianoRollState extends State<PianoRoll>
                     // CC automation lane
                     if (ccLaneExpanded) _buildCCLane(totalBeats, canvasWidth),
                     // Clip automation lane
-                    if (clipAutomationLaneExpanded)
+                    if (UIConstants.enableAutomation &&
+                        clipAutomationLaneExpanded)
                       _buildClipAutomationLane(totalBeats, canvasWidth),
                   ],
                 );
@@ -584,10 +589,13 @@ class _PianoRollState extends State<PianoRoll>
       // Lane visibility toggles (Randomize/CC type are in lane headers)
       velocityLaneVisible: velocityLaneExpanded,
       onVelocityLaneToggle: toggleVelocityLane,
-      clipAutomationLaneVisible: clipAutomationLaneExpanded,
-      onClipAutomationLaneToggle: () => setState(
-        () => clipAutomationLaneExpanded = !clipAutomationLaneExpanded,
-      ),
+      clipAutomationLaneVisible:
+          UIConstants.enableAutomation && clipAutomationLaneExpanded,
+      onClipAutomationLaneToggle: UIConstants.enableAutomation
+          ? () => setState(
+              () => clipAutomationLaneExpanded = !clipAutomationLaneExpanded,
+            )
+          : null,
       // Virtual Piano toggle
       virtualPianoVisible: widget.virtualPianoVisible,
       onVirtualPianoToggle: widget.onVirtualPianoToggle,
@@ -841,7 +849,7 @@ class _PianoRollState extends State<PianoRoll>
                                     loopEnd: loopStartBeats + getLoopLength(),
                                     beatsPerBar: beatsPerBar,
                                     tripletEnabled: snapTripletEnabled,
-                                    blackKeyBackground: context.colors.standard,
+                                    blackKeyBackground: const Color(0xFF1E2030),
                                     whiteKeyBackground: context.colors.elevated,
                                     separatorLine: context.colors.elevated,
                                     subdivisionGridLine: context.colors.surface,
@@ -874,6 +882,10 @@ class _PianoRollState extends State<PianoRoll>
                                     foldedPitches: foldViewEnabled
                                         ? foldedPitches
                                         : null,
+                                    noteColor:
+                                        widget.trackColor ??
+                                        currentClip?.color ??
+                                        context.colors.accent,
                                   ),
                                 ),
                                 _buildInsertMarker(canvasHeight),
@@ -1182,21 +1194,40 @@ class _PianoRollState extends State<PianoRoll>
     final isBlackKey = _isBlackKey(midiNote);
     final noteName = _getNoteNameForKey(midiNote);
     final isC = midiNote % 12 == 0;
-    final isHighlighted = widget.highlightedNote == midiNote;
+    // Highlight when virtual piano plays or when audition/drag is active
+    final isHighlighted =
+        widget.highlightedNote == midiNote || currentlyHeldNote == midiNote;
+
+    // Key colors: white keys are white (C notes slightly grey), black keys dark
+    Color keyColor;
+    Color textColor;
+    Color borderColor;
+
+    if (isHighlighted) {
+      keyColor = context.colors.accent;
+      textColor = Colors.white;
+      borderColor = context.colors.accent;
+    } else if (isBlackKey) {
+      keyColor = context.colors.pianoBlackKey;
+      textColor = context.colors.textMuted;
+      borderColor = const Color(0xFF1A1A1A);
+    } else if (isC) {
+      // C notes: light grey to visually separate octaves (FL Studio style)
+      keyColor = const Color(0xFFD8D8D8);
+      textColor = const Color(0xFF2A2A2A);
+      borderColor = const Color(0xFFC0C0C0);
+    } else {
+      keyColor = context.colors.pianoWhiteKey;
+      textColor = const Color(0xFF3A3D4A);
+      borderColor = const Color(0xFFD0D0D0);
+    }
 
     return Container(
       height: pixelsPerNote,
       decoration: BoxDecoration(
-        // Highlighted when virtual piano plays this note
-        color: isHighlighted
-            ? context.colors.accent
-            : (isBlackKey ? context.colors.standard : context.colors.elevated),
+        color: keyColor,
         border: Border(
-          bottom: BorderSide(
-            color: context.colors.surface, // Subtle border
-            width: 0.5,
-          ),
-          // Add left border highlight for visual emphasis
+          bottom: BorderSide(color: borderColor, width: 0.5),
           left: isHighlighted
               ? BorderSide(color: context.colors.accent, width: 3)
               : BorderSide.none,
@@ -1209,12 +1240,8 @@ class _PianoRollState extends State<PianoRoll>
           child: Text(
             noteName,
             style: TextStyle(
-              color: isHighlighted
-                  ? context.colors.textPrimary
-                  : (isBlackKey
-                        ? context.colors.textMuted
-                        : context.colors.textPrimary),
-              fontSize: isC ? 9 : 8, // C notes slightly larger
+              color: textColor,
+              fontSize: isC ? 9 : 8,
               fontWeight: isC || isHighlighted
                   ? BT.weightSemiBold
                   : BT.weightRegular,

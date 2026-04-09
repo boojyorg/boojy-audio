@@ -6,6 +6,14 @@ class UIConstants {
   UIConstants._(); // prevent instantiation
 
   // ============================================
+  // FEATURE FLAGS
+  // ============================================
+
+  /// Show automation lanes in timeline, mixer, and piano roll.
+  /// Set to false to hide automation UI while preserving all data/engine code.
+  static const bool enableAutomation = false;
+
+  // ============================================
   // TIMELINE CONSTANTS
   // ============================================
 

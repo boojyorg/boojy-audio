@@ -394,8 +394,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 child: Row(
                   children: [
                     // Automation SplitButton (Icon+Auto | dropdown)
-                    _buildAutomationButton(context, rowHeight),
-                    const SizedBox(width: 4),
+                    if (UIConstants.enableAutomation) ...[
+                      _buildAutomationButton(context, rowHeight),
+                      const SizedBox(width: 4),
+                    ],
                     // dB value display (fixed size and width)
                     SizedBox(
                       width: dbContainerWidth,
@@ -442,7 +444,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             },
           ),
           // Row 3-4: Automation Controls (only when visible)
-          if (widget.showAutomation) _buildAutomationControlsSection(context),
+          if (UIConstants.enableAutomation && widget.showAutomation)
+            _buildAutomationControlsSection(context),
         ],
       ),
     );
@@ -502,7 +505,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           const SizedBox(width: BT.xs),
 
           // Automation button (first to drop)
-          if (showAutomation) ...[
+          if (UIConstants.enableAutomation && showAutomation) ...[
             GestureDetector(
               onTap: widget.onAutomationToggle,
               child: Icon(
@@ -1911,32 +1914,35 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Row 1: Icon + "Master" text + Pan knob
-                  Row(
-                    children: [
-                      // Icon (headphones)
-                      const Text('🎧', style: TextStyle(fontSize: 14)),
-                      const SizedBox(width: 6),
-                      // "Master" text
-                      Expanded(
-                        child: Text(
-                          'Master',
-                          style: TextStyle(
-                            color: masterColor,
-                            fontSize: fontSize,
-                            fontWeight: BT.weightSemiBold,
+                  SizedBox(
+                    height: rowHeight,
+                    child: Row(
+                      children: [
+                        // Icon (headphones)
+                        const Text('🎧', style: TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        // "Master" text
+                        Expanded(
+                          child: Text(
+                            'Master',
+                            style: TextStyle(
+                              color: masterColor,
+                              fontSize: fontSize,
+                              fontWeight: BT.weightSemiBold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      // Pan knob (aligned right)
-                      PanKnob(
-                        pan: widget.pan,
-                        onChanged: widget.onPanChanged,
-                        size: panSize,
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        // Pan knob (aligned right)
+                        PanKnob(
+                          pan: widget.pan,
+                          onChanged: widget.onPanChanged,
+                          size: panSize,
+                        ),
+                      ],
+                    ),
                   ),
                   // Row 2: dB + Volume Slider (same as regular tracks)
                   SizedBox(
