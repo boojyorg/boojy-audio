@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import 'star_field.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
@@ -557,7 +556,8 @@ class TimelineViewState extends State<TimelineView>
             widget.trackHeightState.clipHeights[regularTracks[i].id] ??
             UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
-        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+        if (UIConstants.enableAutomation &&
+            widget.automationVisibleTrackId == regularTracks[i].id) {
           trackTop +=
               widget.trackHeightState.automationHeights[regularTracks[i].id] ??
               UIConstants.defaultAutomationHeight;
@@ -600,7 +600,8 @@ class TimelineViewState extends State<TimelineView>
             widget.trackHeightState.clipHeights[regularTracks[i].id] ??
             UIConstants.defaultClipHeight;
         // Include automation height if visible for this track
-        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+        if (UIConstants.enableAutomation &&
+            widget.automationVisibleTrackId == regularTracks[i].id) {
           trackTop +=
               widget.trackHeightState.automationHeights[regularTracks[i].id] ??
               UIConstants.defaultAutomationHeight;
@@ -1069,7 +1070,8 @@ class TimelineViewState extends State<TimelineView>
           widget.trackHeightState.clipHeights[track.id] ??
           UIConstants.defaultClipHeight;
       // Add automation lane height if visible for this track
-      if (widget.automationVisibleTrackId == track.id) {
+      if (UIConstants.enableAutomation &&
+          widget.automationVisibleTrackId == track.id) {
         totalTracksHeight +=
             widget.trackHeightState.automationHeights[track.id] ??
             UIConstants.defaultAutomationHeight;
@@ -1089,8 +1091,6 @@ class TimelineViewState extends State<TimelineView>
           ),
           child: Stack(
             children: [
-              // Star field background
-              const Positioned.fill(child: StarField()),
               // Main timeline content
               Column(
                 children: [
@@ -1371,7 +1371,9 @@ class TimelineViewState extends State<TimelineView>
               : 0;
 
           // Check if automation is visible for this track
-          final showAutomation = widget.automationVisibleTrackId == track.id;
+          final showAutomation =
+              UIConstants.enableAutomation &&
+              widget.automationVisibleTrackId == track.id;
 
           return RepaintBoundary(
             child: _buildTrack(

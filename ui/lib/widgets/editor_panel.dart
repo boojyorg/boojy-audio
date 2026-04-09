@@ -73,6 +73,9 @@ class EditorPanel extends StatefulWidget {
   // Whether recording is active (piano roll becomes read-only)
   final bool isRecording;
 
+  // Track color for MIDI note rendering in Piano Roll
+  final Color? trackColor;
+
   // Create sampler from audio clip
   final Function(String clipPath)? onCreateSamplerFromClip;
 
@@ -100,6 +103,7 @@ class EditorPanel extends StatefulWidget {
     this.projectTempo = 120.0,
     this.onProjectTempoChanged,
     this.isRecording = false,
+    this.trackColor,
     this.onCreateSamplerFromClip,
   });
 
@@ -571,15 +575,22 @@ class _EditorPanelState extends State<EditorPanel>
           onTap: isCollapsed
               ? widget.callbacks.onExpandPanel
               : widget.callbacks.onClosePanel,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             width: 28,
             height: 28,
             alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.colors.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: context.colors.divider.withValues(alpha: 0.5),
+              ),
+            ),
             child: Icon(
               isCollapsed ? BI.caretUp : BI.caretDown,
               size: 20,
-              color: context.colors.textMuted,
+              color: context.colors.textSecondary,
             ),
           ),
         ),
@@ -970,8 +981,15 @@ class _EditorPanelState extends State<EditorPanel>
             duration: AnimationConstants.hoverDuration,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? context.colors.accent : Colors.transparent,
+              color: isSelected
+                  ? context.colors.accent
+                  : context.colors.surface.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(6),
+              border: isSelected
+                  ? null
+                  : Border.all(
+                      color: context.colors.divider.withValues(alpha: 0.5),
+                    ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1014,9 +1032,10 @@ class _EditorPanelState extends State<EditorPanel>
     // Determine background color:
     // - Full accent for sticky active tool
     // - Dimmer accent (50% opacity) for temporary hold modifier
-    // - Dark for inactive
+    // - Surface bg + border for inactive (stands out from toolbar)
     Color bgColor;
     Color iconColor;
+    Border? border;
     if (isActive) {
       bgColor = context.colors.accent;
       iconColor = context.colors.elevated;
@@ -1024,8 +1043,9 @@ class _EditorPanelState extends State<EditorPanel>
       bgColor = context.colors.accent.withValues(alpha: 0.5);
       iconColor = context.colors.elevated;
     } else {
-      bgColor = context.colors.dark;
+      bgColor = context.colors.surface;
       iconColor = context.colors.textPrimary;
+      border = Border.all(color: context.colors.divider);
     }
 
     return Tooltip(
@@ -1040,6 +1060,7 @@ class _EditorPanelState extends State<EditorPanel>
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(4),
+              border: border,
             ),
             child: Icon(icon, size: 16, color: iconColor),
           ),
@@ -1234,6 +1255,7 @@ class _EditorPanelState extends State<EditorPanel>
       beatsPerBar: widget.beatsPerBar,
       beatUnit: widget.beatUnit,
       isRecording: widget.isRecording,
+      trackColor: widget.trackColor,
       onClose: () {
         // Switch back to another tab or close bottom panel
         _tabController.index = 3; // Switch to Virtual Piano tab

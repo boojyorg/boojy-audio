@@ -3,7 +3,6 @@ import '../../models/scale_data.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
-import '../shared/knob_split_button.dart';
 import 'loop_time_display.dart';
 import 'time_signature_display.dart';
 
@@ -156,13 +155,10 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   bool _isHoveringSnapDropdown = false;
   bool _isHoveringQuantizeLabel = false;
   bool _isHoveringQuantizeDropdown = false;
-  bool _isHoveringScaleToggle = false;
-  bool _isHoveringScaleDropdown = false;
 
   // Keys and overlays for dropdown menus
   final GlobalKey _snapButtonKey = GlobalKey();
   final GlobalKey _quantizeButtonKey = GlobalKey();
-  final GlobalKey _scaleButtonKey = GlobalKey();
   OverlayEntry? _snapOverlay;
   OverlayEntry? _quantizeOverlay;
 
@@ -260,18 +256,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
                     // === GRID GROUP ===
                     _buildGridGroup(context),
-                    _buildSeparator(context),
-
-                    // === SCALE GROUP ===
-                    _buildScaleGroup(context),
-                    _buildSeparator(context),
-
-                    // === TRANSFORM GROUP ===
-                    _buildTransformGroup(context),
-                    _buildSeparator(context),
-
-                    // === LANES GROUP (visibility toggles only) ===
-                    _buildLanesGroup(context),
                   ],
                 ),
               ),
@@ -710,107 +694,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     Overlay.of(context).insert(_quantizeOverlay!);
   }
 
-  // ============ VISUAL AIDS GROUP (Scale + Fold + Ghost) ============
-  Widget _buildScaleGroup(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Scale toggle dropdown (combined toggle + dropdown)
-        _buildScaleToggleDropdown(context),
-        const SizedBox(width: 4),
-        // Lock to scale toggle
-        _buildToggleButton(
-          context,
-          icon: BI.lock,
-          label: 'Lock',
-          isActive: widget.lockEnabled,
-          onTap: widget.onLockToggle,
-        ),
-        const SizedBox(width: 4),
-        // Fold toggle
-        _buildToggleButton(
-          context,
-          icon: BI.compress,
-          label: 'Fold',
-          isActive: widget.foldEnabled,
-          onTap: widget.onFoldToggle,
-        ),
-        const SizedBox(width: 4),
-        // Ghost toggle
-        _buildToggleButton(
-          context,
-          icon: BI.layers,
-          label: 'Ghost',
-          isActive: widget.ghostNotesEnabled,
-          onTap: widget.onGhostNotesToggle,
-        ),
-      ],
-    );
-  }
-
-  // ============ TRANSFORM GROUP ============
-  Widget _buildTransformGroup(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Legato button
-        _buildActionButton(
-          context,
-          icon: BI.linearScale,
-          label: 'Legato',
-          onTap: widget.onLegato,
-        ),
-        const SizedBox(width: 4),
-        // Reverse button
-        _buildActionButton(
-          context,
-          icon: BI.swap,
-          label: 'Reverse',
-          onTap: widget.onReverse,
-        ),
-        const SizedBox(width: 4),
-        // Stretch knob split button
-        KnobSplitButton(
-          imagePath: 'assets/images/resize.png',
-          label: 'Stretch',
-          value: widget.stretchAmount,
-          min: 0.5,
-          max: 2.0,
-          valueFormatter: _stretchFormatter,
-          onChanged: widget.onStretchChanged,
-          onApply: widget.onStretchApply,
-          showIcon: _displayMode == _ButtonDisplayMode.wide,
-        ),
-      ],
-    );
-  }
-
-  // ============ LANES GROUP (velocity only) ============
-  Widget _buildLanesGroup(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Velocity lane visibility toggle
-        _buildToggleButton(
-          context,
-          icon: BI.eye,
-          label: 'Velocity',
-          isActive: widget.velocityLaneVisible,
-          onTap: widget.onVelocityLaneToggle,
-        ),
-        const SizedBox(width: 4),
-        // Clip automation lane visibility toggle
-        _buildToggleButton(
-          context,
-          icon: BI.chartLine,
-          label: 'Automation',
-          isActive: widget.clipAutomationLaneVisible,
-          onTap: widget.onClipAutomationLaneToggle,
-        ),
-      ],
-    );
-  }
-
   // ============ HELPER WIDGETS ============
 
   Widget _buildToggleButton(
@@ -866,257 +749,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
     return button;
   }
 
-  Widget _buildActionButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    VoidCallback? onTap,
-  }) {
-    final colors = context.colors;
-    final mode = _displayMode;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Show icon only in wide mode
-              if (mode == _ButtonDisplayMode.wide) ...[
-                Icon(icon, size: 13, color: colors.textPrimary),
-                const SizedBox(width: 4),
-              ],
-              // Always show label
-              Text(
-                label,
-                style: TextStyle(color: colors.textPrimary, fontSize: 10),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Combined Scale toggle + dropdown: [Icon] C Major [v]
-  /// Left side toggles highlight on/off, right side opens scale selection menu
-  Widget _buildScaleToggleDropdown(BuildContext context) {
-    final colors = context.colors;
-    final isActive = widget.highlightEnabled;
-    final bgColor = isActive ? colors.accent : colors.dark;
-    final textColor = isActive ? colors.elevated : colors.textPrimary;
-    final displayLabel = '${widget.scaleRoot} ${widget.scaleType.displayName}';
-
-    return DecoratedBox(
-      key: _scaleButtonKey,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Left side: Toggle icon + label (clickable to toggle highlight)
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringScaleToggle) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringScaleToggle = true);
-                  }
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringScaleToggle) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringScaleToggle = false);
-                  }
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: widget.onHighlightToggle,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringScaleToggle
-                      ? colors.textPrimary.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2),
-                    bottomLeft: Radius.circular(2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Show icon only in wide mode
-                    if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Icon(
-                        BI.circle, // Half-circle icon for scale highlight
-                        size: 13,
-                        color: textColor,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      displayLabel,
-                      style: TextStyle(color: textColor, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Divider line
-          Container(
-            width: 1,
-            height: 15,
-            color: colors.textPrimary.withValues(alpha: 0.2),
-          ),
-
-          // Right side: Dropdown arrow (opens scale menu)
-          MouseRegion(
-            onEnter: (_) {
-              if (!_isHoveringScaleDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringScaleDropdown = true);
-                  }
-                });
-              }
-            },
-            onExit: (_) {
-              if (_isHoveringScaleDropdown) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() => _isHoveringScaleDropdown = false);
-                  }
-                });
-              }
-            },
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => _showScaleMenuFromButton(context),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _isHoveringScaleDropdown
-                      ? colors.textPrimary.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(2),
-                    bottomRight: Radius.circular(2),
-                  ),
-                ),
-                child: Icon(BI.caretDown, size: 15, color: textColor),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Shows scale menu positioned relative to the scale button
-  void _showScaleMenuFromButton(BuildContext context) {
-    final RenderBox? button =
-        _scaleButtonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (button == null) return;
-
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    _showScaleMenuAt(context, buttonPosition, button.size);
-  }
-
-  /// Shows scale menu at the specified position
-  void _showScaleMenuAt(
-    BuildContext context,
-    Offset position,
-    Size buttonSize,
-  ) {
-    // Build menu items: first root notes, then scale types
-    final items = <PopupMenuEntry<dynamic>>[];
-
-    // Root note selection
-    for (final root in ScaleRoot.noteNames) {
-      items.add(
-        PopupMenuItem<String>(
-          value: root,
-          height: 28,
-          child: Text(
-            root,
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: BT.fontLabel,
-              fontWeight: root == widget.scaleRoot
-                  ? BT.weightSemiBold
-                  : BT.weightRegular,
-            ),
-          ),
-        ),
-      );
-    }
-
-    items.add(const PopupMenuDivider());
-
-    // Scale type selection
-    for (final type in ScaleType.values) {
-      items.add(
-        PopupMenuItem<ScaleType>(
-          value: type,
-          height: 28,
-          child: Text(
-            type.displayName,
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: BT.fontLabel,
-              fontWeight: type == widget.scaleType
-                  ? BT.weightSemiBold
-                  : BT.weightRegular,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    showMenu<dynamic>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy + buttonSize.height,
-        overlay.size.width - position.dx - buttonSize.width,
-        0,
-      ),
-      items: items,
-      elevation: 8,
-    ).then((value) {
-      if (value is String) {
-        widget.onRootChanged?.call(value);
-      } else if (value is ScaleType) {
-        widget.onTypeChanged?.call(value);
-      }
-    });
-  }
-
   // ============ FORMATTERS ============
 
   String _getGridDivisionLabel(double division, {bool triplet = false}) {
@@ -1134,15 +766,6 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   String _getQuantizeDivisionLabel(int division, {bool triplet = false}) {
     final suffix = triplet ? 'T' : '';
     return '1/$division$suffix';
-  }
-
-  static String _stretchFormatter(double v) {
-    if (v < 1.0) {
-      final divisor = 1 / v;
-      return '÷${divisor.toStringAsFixed(divisor >= 1.5 ? 0 : 1)}';
-    }
-    if (v == 1.0) return '×1';
-    return '×${v.toStringAsFixed(v >= 1.5 ? 0 : 1)}';
   }
 }
 

@@ -4,6 +4,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **Arrangement background**: Warm charcoal background (#0E0F14) replaces deep blue-black, more professional studio aesthetic
+- **Remove star field**: Animated star background removed from arrangement view
+- **Piano roll controls simplified**: Controls bar trimmed to CLIP + GRID groups only; Scale, Transform, Lanes accessible via sidebar
+- **Piano keyboard redesign**: Black keys visually shorter (~80% width) like a real keyboard; every key labeled with note name, C notes bolder as octave markers
+- **MIDI notes use track color**: Notes in piano roll now inherit their track's assigned color instead of hardcoded cyan
+- **Piano roll row contrast**: Black key rows darker (#1E2030) for clearer visual distinction from white key rows
+- **Tool buttons stand out**: Draw/Select/Slice/etc buttons now have surface background + border when inactive (was flat dark, blended with toolbar)
+- **Tab buttons visible when unselected**: [Synth] [MIDI] [Effects] tabs now show subtle surface background + border when not selected (was invisible/transparent)
+- **Collapse chevron styled**: Expand/collapse chevron matches tab button styling
+- **Automation deferred**: Automation UI hidden behind feature flag (data preserved in saved projects); will return in a future version
+
 ## v0.2.1 — 2026-04-07
 
 ### Improvements
