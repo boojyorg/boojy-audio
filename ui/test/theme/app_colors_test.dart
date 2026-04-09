@@ -41,7 +41,7 @@ void main() {
     test('dark theme has expected specific color values', () {
       const colors = BoojyColors(BoojyTheme.dark);
 
-      expect(colors.editor, const Color(0xFF040412));
+      expect(colors.editor, const Color(0xFF0E0F14));
       expect(colors.dark, const Color(0xFF2C2C32));
       expect(colors.darkest, const Color(0xFF13151C));
       expect(colors.textPrimary, const Color(0xFFE8EAF0));
