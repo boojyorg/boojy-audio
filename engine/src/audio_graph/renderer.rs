@@ -1,8 +1,8 @@
 /// Real-time audio render callback — runs on the audio thread
-use super::{AudioGraph, TransportState, interpolate_automation_gain};
+use super::{interpolate_automation_gain, AudioGraph, TransportState};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId};
 use crate::effects::{Effect, EffectManager};
+use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackType};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 
@@ -21,6 +21,7 @@ struct TrackSnapshot {
     muted: bool,
     soloed: bool,
     fx_chain: Vec<u64>,
+    sends: Vec<(u64, f32)>,
     volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
     armed: bool,
     input_monitoring: bool,
@@ -36,7 +37,9 @@ struct TrackSnapshot {
 /// Uses try_lock to avoid blocking the audio thread.
 #[cfg(not(target_arch = "wasm32"))]
 #[inline]
-fn read_input_samples(input_manager: &parking_lot::Mutex<crate::audio_input::AudioInputManager>) -> (f32, f32) {
+fn read_input_samples(
+    input_manager: &parking_lot::Mutex<crate::audio_input::AudioInputManager>,
+) -> (f32, f32) {
     if let Some(input_mgr) = input_manager.try_lock() {
         let channels = input_mgr.get_input_channels();
         if channels == 1 {
@@ -173,44 +176,46 @@ impl AudioGraph {
     /// Create the audio output stream - native only
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn create_audio_stream(&self) -> anyhow::Result<cpal::Stream> {
-        use cpal::SupportedBufferSize;
         use cpal::traits::HostTrait;
+        use cpal::SupportedBufferSize;
 
         // Helper to find device by name from a host
         fn find_device_in_host<H: HostTrait>(host: &H, name: &str) -> Option<H::Device> {
-            host.output_devices().ok()?.find(|d| {
-                d.name().ok().as_ref().is_some_and(|n| n == name)
-            })
+            host.output_devices()
+                .ok()?
+                .find(|d| d.name().ok().as_ref().is_some_and(|n| n == name))
         }
 
         // Check if a specific device is selected
-        let selected_name = self.selected_output_device.lock()
-            .clone();
+        let selected_name = self.selected_output_device.lock().clone();
 
         // Determine if we should use ASIO host and get the device
         #[cfg(all(windows, feature = "asio"))]
         let device = if let Some(ref name) = selected_name {
             if name.starts_with("[ASIO] ") {
                 let actual_name = name.strip_prefix("[ASIO] ").unwrap_or(name);
-                eprintln!("🔊 [AudioGraph] Attempting to use ASIO device: {}", actual_name);
+                eprintln!(
+                    "🔊 [AudioGraph] Attempting to use ASIO device: {}",
+                    actual_name
+                );
 
                 match cpal::host_from_id(cpal::HostId::Asio) {
-                    Ok(asio_host) => {
-                        match find_device_in_host(&asio_host, actual_name) {
-                            Some(d) => {
-                                eprintln!("🔊 [AudioGraph] Using ASIO device: {}", actual_name);
-                                d
-                            }
-                            None => {
-                                eprintln!("⚠️ [AudioGraph] ASIO device '{}' not found, falling back to default", actual_name);
-                                cpal::default_host().default_output_device()
-                                    .ok_or_else(|| anyhow::anyhow!("No output device available"))?
-                            }
+                    Ok(asio_host) => match find_device_in_host(&asio_host, actual_name) {
+                        Some(d) => {
+                            eprintln!("🔊 [AudioGraph] Using ASIO device: {}", actual_name);
+                            d
                         }
-                    }
+                        None => {
+                            eprintln!("⚠️ [AudioGraph] ASIO device '{}' not found, falling back to default", actual_name);
+                            cpal::default_host()
+                                .default_output_device()
+                                .ok_or_else(|| anyhow::anyhow!("No output device available"))?
+                        }
+                    },
                     Err(e) => {
                         eprintln!("⚠️ [AudioGraph] Failed to initialize ASIO host: {}, falling back to default", e);
-                        cpal::default_host().default_output_device()
+                        cpal::default_host()
+                            .default_output_device()
                             .ok_or_else(|| anyhow::anyhow!("No output device available"))?
                     }
                 }
@@ -223,14 +228,18 @@ impl AudioGraph {
                         d
                     }
                     None => {
-                        eprintln!("⚠️ [AudioGraph] Selected device '{}' not found, using default", name);
+                        eprintln!(
+                            "⚠️ [AudioGraph] Selected device '{}' not found, using default",
+                            name
+                        );
                         host.default_output_device()
                             .ok_or_else(|| anyhow::anyhow!("No output device available"))?
                     }
                 }
             }
         } else {
-            cpal::default_host().default_output_device()
+            cpal::default_host()
+                .default_output_device()
                 .ok_or_else(|| anyhow::anyhow!("No output device available"))?
         };
 
@@ -261,8 +270,7 @@ impl AudioGraph {
         eprintln!("🔊 [AudioGraph] Device config: {supported_config:?}");
 
         // Get preferred buffer size
-        let preferred_samples = self.preferred_buffer_size.lock()
-            .samples();
+        let preferred_samples = self.preferred_buffer_size.lock().samples();
 
         // Check if device supports our preferred buffer size
         let buffer_size = match supported_config.buffer_size() {
@@ -278,7 +286,9 @@ impl AudioGraph {
                 }
             }
             SupportedBufferSize::Unknown => {
-                eprintln!("🔊 [AudioGraph] Buffer size: device doesn't report range, using default");
+                eprintln!(
+                    "🔊 [AudioGraph] Buffer size: device doesn't report range, using default"
+                );
                 None
             }
         };
@@ -312,6 +322,7 @@ impl AudioGraph {
         // Pre-allocate reusable buffers for the audio callback to avoid
         // per-callback allocations on the audio thread
         let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
+        let mut return_snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(4);
         let mut peak_buf: HashMap<TrackId, (f32, f32)> = HashMap::with_capacity(16);
 
         let stream = device.build_output_stream(
@@ -358,7 +369,7 @@ impl AudioGraph {
                                 for track_arc in tm.get_all_tracks() {
                                     { let mut track = track_arc.lock();
                                         // Skip master track in per-track processing
-                                        if track.track_type == crate::track::TrackType::Master {
+                                        if track.track_type == TrackType::Master {
                                             continue;
                                         }
 
@@ -375,7 +386,7 @@ impl AudioGraph {
                                         // Input monitoring: mix live input for armed audio tracks
                                         {
                                             let should_monitor = track.armed && track.input_monitoring
-                                                && track.track_type == crate::track::TrackType::Audio;
+                                                && track.track_type == TrackType::Audio;
                                             update_monitoring_fade(&mut track.monitoring_fade_gain, should_monitor);
 
                                             if track.monitoring_fade_gain > 0.0 {
@@ -478,9 +489,10 @@ impl AudioGraph {
 
                 // Reuse pre-allocated buffers (clear without deallocating)
                 snapshot_buf.clear();
+                return_snapshot_buf.clear();
                 peak_buf.clear();
 
-                let (has_solo, master_snapshot) = { let tm = track_manager.lock();
+                let (has_solo, master_snapshot, return_index) = { let tm = track_manager.lock();
                     let has_solo_flag = tm.has_solo();
                     let all_tracks = tm.get_all_tracks();
                     let mut master_snap = None;
@@ -497,23 +509,34 @@ impl AudioGraph {
                                 muted: track.mute,
                                 soloed: track.solo,
                                 fx_chain: track.fx_chain.clone(),
+                                sends: track
+                                    .sends
+                                    .iter()
+                                    .map(|send| (send.target_track_id, send.amount))
+                                    .collect(),
                                 volume_automation: track.volume_automation.clone(),
                                 armed: track.armed,
                                 input_monitoring: track.input_monitoring,
                                 input_channel: track.input_channel,
-                                is_audio_track: track.track_type == crate::track::TrackType::Audio,
+                                is_audio_track: track.track_type == TrackType::Audio,
                                 monitoring_fade_gain: track.monitoring_fade_gain,
                             };
 
-                            if track.track_type == crate::track::TrackType::Master {
-                                master_snap = Some(snap);
-                            } else {
-                                snapshot_buf.push(snap);
+                            match track.track_type {
+                                TrackType::Master => master_snap = Some(snap),
+                                TrackType::Return => return_snapshot_buf.push(snap),
+                                _ => snapshot_buf.push(snap),
                             }
                         }
                     }
 
-                    (has_solo_flag, master_snap)
+                    let return_index: HashMap<u64, usize> = return_snapshot_buf
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, snap)| (snap.id, idx))
+                        .collect();
+
+                    (has_solo_flag, master_snap, return_index)
                 }; // All locks released here!
                 let mut master_peak_left = 0.0f32;
                 let mut master_peak_right = 0.0f32;
@@ -551,19 +574,14 @@ impl AudioGraph {
 
                     let mut mix_left = 0.0;
                     let mut mix_right = 0.0;
+                    let mut return_accum = vec![(0.0f32, 0.0f32); return_snapshot_buf.len()];
 
                     // Read input samples (needed for both recording and input monitoring)
                     let (input_left, input_right) = read_input_samples(&input_manager);
 
                     // Mix all tracks using snapshots (no locking!)
                     for track_snap in &mut snapshot_buf {
-                        // Handle mute/solo logic
-                        if track_snap.muted {
-                            continue; // Muted tracks produce no sound
-                        }
-                        if has_solo && !track_snap.soloed {
-                            continue; // If any track is soloed, skip non-soloed tracks
-                        }
+                        let audible = !track_snap.muted && (!has_solo || track_snap.soloed);
 
                         let mut track_left = 0.0;
                         let mut track_right = 0.0;
@@ -709,11 +727,57 @@ impl AudioGraph {
                         fx_right *= track_snap.pan_right;
 
                         // Update track peak levels for metering
-                        let entry = peak_buf.entry(track_snap.id).or_insert((0.0, 0.0));
+                        if audible {
+                            let entry = peak_buf.entry(track_snap.id).or_insert((0.0, 0.0));
+                            entry.0 = entry.0.max(fx_left.abs());
+                            entry.1 = entry.1.max(fx_right.abs());
+                        }
+
+                        // Post-fader sends (muted/non-solo tracks do not feed returns)
+                        if audible {
+                            for (return_id, amount) in &track_snap.sends {
+                                if let Some(&idx) = return_index.get(return_id) {
+                                    return_accum[idx].0 += fx_left * amount;
+                                    return_accum[idx].1 += fx_right * amount;
+                                }
+                            }
+
+                            mix_left += fx_left;
+                            mix_right += fx_right;
+                        }
+                    }
+
+                    // Process return tracks: FX chain, fader/pan, then sum to master bus
+                    for (idx, return_snap) in return_snapshot_buf.iter().enumerate() {
+                        let return_audible =
+                            !return_snap.muted && (!has_solo || return_snap.soloed);
+                        if !return_audible {
+                            continue;
+                        }
+
+                        let (ret_left, ret_right) = return_accum[idx];
+                        let (mut fx_left, mut fx_right) = process_effect_chain(
+                            &return_snap.fx_chain,
+                            &mut effect_guard,
+                            ret_left,
+                            ret_right,
+                            false,
+                        );
+
+                        let frame_volume_gain = if return_snap.volume_automation.is_empty() {
+                            return_snap.volume_gain
+                        } else {
+                            interpolate_automation_gain(&return_snap.volume_automation, playhead_seconds)
+                        };
+                        fx_left *= frame_volume_gain;
+                        fx_right *= frame_volume_gain;
+                        fx_left *= return_snap.pan_left;
+                        fx_right *= return_snap.pan_right;
+
+                        let entry = peak_buf.entry(return_snap.id).or_insert((0.0, 0.0));
                         entry.0 = entry.0.max(fx_left.abs());
                         entry.1 = entry.1.max(fx_right.abs());
 
-                        // Accumulate to mix bus
                         mix_left += fx_left;
                         mix_right += fx_right;
                     }

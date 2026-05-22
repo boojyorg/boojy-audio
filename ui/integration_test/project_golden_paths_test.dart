@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:boojy_audio/audio_engine.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
+import 'package:boojy_audio/models/track_send_data.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/services/project_manager.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
@@ -184,5 +185,42 @@ void main() {
         ); // WAV header + samples
       },
     );
+
+    test('shared send → save → reload preserves return and send', () async {
+      if (!isNativeEngineAvailable) return;
+
+      final trackId = engine.createTrack('audio', 'Send Test');
+      expect(trackId, greaterThan(0));
+
+      final addResult = engine.addSharedSend(trackId, 'reverb');
+      expect(addResult.startsWith('Error'), isFalse, reason: addResult);
+
+      final sendsBefore = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackId),
+      );
+      expect(sendsBefore, isNotEmpty);
+
+      final returnsBefore = ReturnTrackData.parseAllReturnsCsv(
+        engine.getAllReturns(),
+      );
+      expect(returnsBefore, isNotEmpty);
+
+      await projectManager.saveProjectToPath(projectDir.path, null);
+
+      final reload = await projectManager.loadProject(projectDir.path);
+      expect(reload.result.success, isTrue, reason: reload.result.message);
+
+      final sendsAfter = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackId),
+      );
+      expect(sendsAfter, hasLength(sendsBefore.length));
+      expect(sendsAfter.first.returnId, sendsBefore.first.returnId);
+
+      final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
+        engine.getAllReturns(),
+      );
+      expect(returnsAfter, isNotEmpty);
+      expect(returnsAfter.first.effectType, 'reverb');
+    });
   });
 }

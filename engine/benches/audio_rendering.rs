@@ -6,11 +6,9 @@
 /// The audio callback budget at 48 kHz / 256 samples is ~5.33 ms.
 /// These benchmarks measure individual components so you can see
 /// how much of that budget each piece consumes.
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use engine::audio_file::TARGET_SAMPLE_RATE;
-use engine::effects::{
-    Chorus, Compressor, Delay, Effect, Limiter, ParametricEQ, Reverb,
-};
+use engine::effects::{Chorus, Compressor, Delay, Effect, Limiter, ParametricEQ, Reverb};
 use engine::synth::{Synth, TrackSynthManager};
 
 const BUFFER_SIZE: usize = 256;
@@ -200,10 +198,7 @@ fn bench_full_signal_path(c: &mut Criterion) {
                 for i in 0..n {
                     mgr.create_synth(i as u64);
                     mgr.note_on(i as u64, 60 + (i % 12) as u8, 100);
-                    track_fx.push((
-                        Box::new(ParametricEQ::new()),
-                        Box::new(Compressor::new()),
-                    ));
+                    track_fx.push((Box::new(ParametricEQ::new()), Box::new(Compressor::new())));
                 }
 
                 let mut master_limiter = Limiter::new();

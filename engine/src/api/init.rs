@@ -4,10 +4,10 @@
 
 use crate::audio_graph::AudioGraph;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::sync::Arc;
-use parking_lot::Mutex;
 
 use super::helpers::{AUDIO_CLIPS, AUDIO_GRAPH};
 

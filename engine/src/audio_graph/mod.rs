@@ -1,3 +1,6 @@
+mod device;
+mod offline;
+mod project;
 /// Audio graph and playback engine
 ///
 /// Split into focused modules:
@@ -6,28 +9,27 @@
 /// - `project` — Project serialization (save/load)
 /// - `device` — Audio device selection, buffer size, latency
 mod renderer;
-mod offline;
-mod project;
-mod device;
 
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::effects::{EffectManager, Limiter}; // Import from effects module
 use crate::midi::MidiClip;
 use crate::synth::TrackSynthManager;
-use crate::track::{AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager};  // Import from track module
-use crate::effects::{EffectManager, Limiter};  // Import from effects module
-use std::sync::Arc;
+use crate::track::{
+    AutomationPoint, ClipId, TimelineClip, TimelineMidiClip, TrackId, TrackManager,
+}; // Import from track module
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::sync::Arc;
 
 // Native-only imports
 #[cfg(not(target_arch = "wasm32"))]
 use crate::audio_input::AudioInputManager;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::recorder::Recorder;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::midi_input::MidiInputManager;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::midi_recorder::MidiRecorder;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::recorder::Recorder;
 #[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::StreamTrait;
 
@@ -90,7 +92,10 @@ impl BufferSizePreset {
 
 /// Interpolate volume gain from automation curve at a specific time
 /// Uses binary search and linear interpolation for efficient per-frame lookup
-pub(crate) fn interpolate_automation_gain(automation: &[AutomationPoint], time_seconds: f64) -> f32 {
+pub(crate) fn interpolate_automation_gain(
+    automation: &[AutomationPoint],
+    time_seconds: f64,
+) -> f32 {
     if automation.is_empty() {
         return 1.0; // Unity gain fallback
     }
@@ -98,14 +103,22 @@ pub(crate) fn interpolate_automation_gain(automation: &[AutomationPoint], time_s
     // Before first point - use first point's value
     if time_seconds <= automation[0].time_seconds {
         let db = automation[0].value_db;
-        return if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) };
+        return if db <= -96.0 {
+            0.0
+        } else {
+            10_f32.powf(db / 20.0)
+        };
     }
 
     // After last point - use last point's value
     let last_idx = automation.len() - 1;
     if time_seconds >= automation[last_idx].time_seconds {
         let db = automation[last_idx].value_db;
-        return if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) };
+        return if db <= -96.0 {
+            0.0
+        } else {
+            10_f32.powf(db / 20.0)
+        };
     }
 
     // Binary search for surrounding points
@@ -127,7 +140,11 @@ pub(crate) fn interpolate_automation_gain(automation: &[AutomationPoint], time_s
     let t = (time_seconds - p1.time_seconds) / (p2.time_seconds - p1.time_seconds);
     let db = p1.value_db + (p2.value_db - p1.value_db) * t as f32;
 
-    if db <= -96.0 { 0.0 } else { 10_f32.powf(db / 20.0) }
+    if db <= -96.0 {
+        0.0
+    } else {
+        10_f32.powf(db / 20.0)
+    }
 }
 
 /// The main audio graph that manages playback
@@ -236,7 +253,9 @@ impl AudioGraph {
             track_manager: Arc::new(Mutex::new(track_manager)),
             effect_manager: Arc::new(Mutex::new(effect_manager)),
             master_limiter: Arc::new(Mutex::new(master_limiter)),
-            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
+            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(
+                TARGET_SAMPLE_RATE as f32,
+            ))),
             preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
             actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
             hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
@@ -284,7 +303,9 @@ impl AudioGraph {
             track_manager: Arc::new(Mutex::new(track_manager)),
             effect_manager: Arc::new(Mutex::new(effect_manager)),
             master_limiter: Arc::new(Mutex::new(master_limiter)),
-            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(TARGET_SAMPLE_RATE as f32))),
+            track_synth_manager: Arc::new(Mutex::new(TrackSynthManager::new(
+                TARGET_SAMPLE_RATE as f32,
+            ))),
             preferred_buffer_size: Arc::new(Mutex::new(BufferSizePreset::Balanced)),
             actual_buffer_size: Arc::new(std::sync::atomic::AtomicU32::new(0)),
             hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
@@ -349,7 +370,12 @@ impl AudioGraph {
     }
 
     /// Add an audio clip to a specific track (M5.5)
-    pub fn add_clip_to_track(&self, track_id: TrackId, clip: Arc<AudioClip>, start_time: f64) -> Option<ClipId> {
+    pub fn add_clip_to_track(
+        &self,
+        track_id: TrackId,
+        clip: Arc<AudioClip>,
+        start_time: f64,
+    ) -> Option<ClipId> {
         self.add_clip_to_track_with_params(track_id, clip, start_time, 0.0, None)
     }
 
@@ -435,12 +461,18 @@ impl AudioGraph {
 
     /// Add a MIDI clip to a specific track (M5.5)
     /// Uses the provided `clip_id` to ensure consistency with global storage
-    pub fn add_midi_clip_to_track(&self, track_id: TrackId, clip: Arc<MidiClip>, start_time: f64, clip_id: ClipId) -> Option<ClipId> {
+    pub fn add_midi_clip_to_track(
+        &self,
+        track_id: TrackId,
+        clip: Arc<MidiClip>,
+        start_time: f64,
+        clip_id: ClipId,
+    ) -> Option<ClipId> {
         let track_manager = self.track_manager.lock();
         if let Some(track_arc) = track_manager.get_track(track_id) {
             let mut track = track_arc.lock();
             track.midi_clips.push(TimelineMidiClip {
-                id: clip_id,  // Use the same ID as in global storage
+                id: clip_id, // Use the same ID as in global storage
                 clip,
                 start_time,
                 track_id: Some(track_id),
@@ -459,7 +491,8 @@ impl AudioGraph {
         // Get the updated clip from global storage
         let updated_clip = {
             let midi_clips = self.midi_clips.lock();
-            midi_clips.iter()
+            midi_clips
+                .iter()
                 .find(|c| c.id == clip_id)
                 .map(|c| (c.clip.clone(), c.track_id, c.clip.events.len()))
         };
@@ -536,7 +569,8 @@ impl AudioGraph {
     /// Set the position when Play was pressed (in seconds)
     pub fn set_play_start_position(&self, position_seconds: f64) {
         let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
-        self.play_start_position_samples.store(samples, Ordering::SeqCst);
+        self.play_start_position_samples
+            .store(samples, Ordering::SeqCst);
     }
 
     /// Get the position when recording started (after count-in, in seconds)
@@ -548,7 +582,8 @@ impl AudioGraph {
     /// Set the position when recording started (after count-in, in seconds)
     pub fn set_record_start_position(&self, position_seconds: f64) {
         let samples = (position_seconds * f64::from(TARGET_SAMPLE_RATE)) as u64;
-        self.record_start_position_samples.store(samples, Ordering::SeqCst);
+        self.record_start_position_samples
+            .store(samples, Ordering::SeqCst);
     }
 
     /// Seek to a specific position in seconds
@@ -556,7 +591,8 @@ impl AudioGraph {
         // Silence all synthesizers to prevent stuck notes/drone when loop wraps
         // This ensures notes that were playing at the old position don't continue
         // droning after we jump to a new position
-        { let mut synth_manager = self.track_synth_manager.lock();
+        {
+            let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
         }
 
@@ -583,11 +619,16 @@ impl AudioGraph {
 
         // Save current playhead position as play start position
         let current_pos = self.playhead_samples.load(Ordering::SeqCst);
-        self.play_start_position_samples.store(current_pos, Ordering::SeqCst);
-        eprintln!("▶️  [AudioGraph] play() - saving play_start_position: {} samples ({:.3}s)",
-            current_pos, current_pos as f64 / f64::from(TARGET_SAMPLE_RATE));
+        self.play_start_position_samples
+            .store(current_pos, Ordering::SeqCst);
+        eprintln!(
+            "▶️  [AudioGraph] play() - saving play_start_position: {} samples ({:.3}s)",
+            current_pos,
+            current_pos as f64 / f64::from(TARGET_SAMPLE_RATE)
+        );
 
-        self.state.store(TransportState::Playing as u8, Ordering::SeqCst);
+        self.state
+            .store(TransportState::Playing as u8, Ordering::SeqCst);
 
         // Stream is always running (for MIDI preview) - no need to start/stop it
         // The callback checks transport state to decide what to process
@@ -598,25 +639,32 @@ impl AudioGraph {
     /// Pause playback (keeps position) - lock-free state change
     pub fn pause(&mut self) -> anyhow::Result<()> {
         eprintln!("⏸️  [AudioGraph] pause() called");
-        self.state.store(TransportState::Paused as u8, Ordering::SeqCst);
+        self.state
+            .store(TransportState::Paused as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
 
         // Silence all synthesizers to prevent stuck notes/drone
-        { let mut synth_manager = self.track_synth_manager.lock();
+        {
+            let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
             eprintln!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
-        { let track_mgr = self.track_manager.lock();
-            { let effect_mgr = self.effect_manager.lock();
+        {
+            let track_mgr = self.track_manager.lock();
+            {
+                let effect_mgr = self.effect_manager.lock();
                 for track_arc in track_mgr.get_all_tracks() {
-                    { let track = track_arc.lock();
+                    {
+                        let track = track_arc.lock();
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                { let mut effect = effect_arc.lock();
+                                {
+                                    let mut effect = effect_arc.lock();
                                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
+                                    {
                                         // Send note-off for all 128 MIDI notes
                                         for note in 0..128i32 {
                                             let _ = vst3.process_midi_event(1, 0, note, 0, 0);
@@ -639,25 +687,32 @@ impl AudioGraph {
     pub fn stop(&mut self) -> anyhow::Result<()> {
         eprintln!("⏹️  [AudioGraph] stop() called - silencing notes and stopping metronome");
 
-        self.state.store(TransportState::Stopped as u8, Ordering::SeqCst);
+        self.state
+            .store(TransportState::Stopped as u8, Ordering::SeqCst);
         // Stream keeps running for MIDI preview
 
         // Silence all synthesizers to prevent stuck notes/drone
-        { let mut synth_manager = self.track_synth_manager.lock();
+        {
+            let mut synth_manager = self.track_synth_manager.lock();
             synth_manager.all_notes_off_all_tracks();
             eprintln!("   All synth notes silenced");
         }
 
         // Silence all VST3 instruments to prevent stuck notes/drone
-        { let track_mgr = self.track_manager.lock();
-            { let effect_mgr = self.effect_manager.lock();
+        {
+            let track_mgr = self.track_manager.lock();
+            {
+                let effect_mgr = self.effect_manager.lock();
                 for track_arc in track_mgr.get_all_tracks() {
-                    { let track = track_arc.lock();
+                    {
+                        let track = track_arc.lock();
                         for effect_id in &track.fx_chain {
                             if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                { let mut effect = effect_arc.lock();
+                                {
+                                    let mut effect = effect_arc.lock();
                                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
+                                    if let crate::effects::EffectType::VST3(ref mut vst3) = *effect
+                                    {
                                         // Send note-off for all 128 MIDI notes
                                         for note in 0..128i32 {
                                             let _ = vst3.process_midi_event(1, 0, note, 0, 0);

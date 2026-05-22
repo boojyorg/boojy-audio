@@ -3,10 +3,10 @@
 //! This module provides audio output capabilities using the Web Audio API
 //! when running in a browser environment via WebAssembly.
 
-use wasm_bindgen::prelude::*;
-use web_sys::{AudioContext, AudioContextOptions, AudioContextState, GainNode, AudioParam};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use wasm_bindgen::prelude::*;
+use web_sys::{AudioContext, AudioContextOptions, AudioContextState, AudioParam, GainNode};
 
 /// Web Audio backend for browser-based audio output
 pub struct WebAudioBackend {
@@ -45,10 +45,9 @@ impl WebAudioBackend {
         self.context = Some(context);
         self.gain_node = Some(gain_node);
 
-        web_sys::console::log_1(&format!(
-            "Web Audio initialized: sample_rate={}",
-            self.sample_rate
-        ).into());
+        web_sys::console::log_1(
+            &format!("Web Audio initialized: sample_rate={}", self.sample_rate).into(),
+        );
 
         Ok(())
     }

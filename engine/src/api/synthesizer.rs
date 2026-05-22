@@ -2,10 +2,10 @@
 //!
 //! Functions for managing synthesizers and samplers on MIDI/Sampler tracks.
 
-use std::sync::Arc;
 use super::helpers::get_audio_graph;
 use crate::audio_file::load_audio_file;
 use crate::effects::EffectType;
+use std::sync::Arc;
 
 // ============================================================================
 // PER-TRACK SYNTHESIZER API
@@ -19,9 +19,7 @@ pub fn set_track_instrument(track_id: u64, _instrument_type: String) -> Result<i
     let mut synth_manager = graph.track_synth_manager.lock();
 
     let instrument_id = synth_manager.create_synth(track_id);
-    println!(
-        "✅ Created instrument {instrument_id} for track {track_id}"
-    );
+    println!("✅ Created instrument {instrument_id} for track {track_id}");
     Ok(instrument_id as i64)
 }
 
@@ -36,9 +34,7 @@ pub fn set_synth_parameter(
     let mut synth_manager = graph.track_synth_manager.lock();
 
     synth_manager.set_parameter(track_id, &param_name, &value);
-    Ok(format!(
-        "Set {param_name} = {value} for track {track_id}"
-    ))
+    Ok(format!("Set {param_name} = {value} for track {track_id}"))
 }
 
 /// Get synthesizer parameters for a track
@@ -73,7 +69,8 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
     let timestamp_samples = graph.get_playhead_samples();
 
     // Record to MIDI recorder if recording is active
-    { let mut recorder = graph.midi_recorder.lock();
+    {
+        let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             use crate::midi::{MidiEvent, MidiEventType};
             let event = MidiEvent {
@@ -105,11 +102,14 @@ pub fn send_track_midi_note_on(track_id: u64, note: u8, velocity: u8) -> Result<
         let effect_manager = graph.effect_manager.lock();
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-                { let mut effect = effect_arc.lock();
+                {
+                    let mut effect = effect_arc.lock();
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 0 = note on
-                        if let Err(e) = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0) {
+                        if let Err(e) =
+                            vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0)
+                        {
                             eprintln!("⚠️ Failed to send MIDI to VST3 {effect_id}: {e}");
                         }
                     }
@@ -131,7 +131,8 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
     let timestamp_samples = graph.get_playhead_samples();
 
     // Record to MIDI recorder if recording is active
-    { let mut recorder = graph.midi_recorder.lock();
+    {
+        let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             use crate::midi::{MidiEvent, MidiEventType};
             let event = MidiEvent {
@@ -162,11 +163,14 @@ pub fn send_track_midi_note_off(track_id: u64, note: u8, velocity: u8) -> Result
         let effect_manager = graph.effect_manager.lock();
         for effect_id in fx_chain {
             if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-                { let mut effect = effect_arc.lock();
+                {
+                    let mut effect = effect_arc.lock();
                     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                     if let EffectType::VST3(ref mut vst3) = *effect {
                         // event_type 1 = note off
-                        if let Err(e) = vst3.process_midi_event(1, 0, i32::from(note), i32::from(velocity), 0) {
+                        if let Err(e) =
+                            vst3.process_midi_event(1, 0, i32::from(note), i32::from(velocity), 0)
+                        {
                             eprintln!("⚠️ Failed to send MIDI to VST3 {effect_id}: {e}");
                         }
                     }
@@ -198,8 +202,8 @@ pub fn create_sampler_for_track(track_id: u64) -> Result<i64, String> {
 /// `root_note`: MIDI note that plays sample at original pitch (default 60 = C4)
 pub fn load_sample_for_track(track_id: u64, path: String, root_note: u8) -> Result<String, String> {
     // Load the audio file
-    let audio_clip = load_audio_file(&path)
-        .map_err(|e| format!("Failed to load sample '{path}': {e}"))?;
+    let audio_clip =
+        load_audio_file(&path).map_err(|e| format!("Failed to load sample '{path}': {e}"))?;
 
     let duration = audio_clip.duration_seconds;
     let clip_arc = Arc::new(audio_clip);
@@ -254,7 +258,8 @@ pub fn get_sampler_info(track_id: u64) -> Result<crate::synth::SamplerInfo, Stri
     let graph = graph_mutex.lock();
     let synth_manager = graph.track_synth_manager.lock();
 
-    synth_manager.get_sampler_info(track_id)
+    synth_manager
+        .get_sampler_info(track_id)
         .ok_or_else(|| format!("Track {track_id} is not a sampler track"))
 }
 
@@ -264,6 +269,7 @@ pub fn get_sampler_waveform_peaks(track_id: u64, resolution: usize) -> Result<Ve
     let graph = graph_mutex.lock();
     let synth_manager = graph.track_synth_manager.lock();
 
-    synth_manager.get_sampler_waveform_peaks(track_id, resolution)
+    synth_manager
+        .get_sampler_waveform_peaks(track_id, resolution)
         .ok_or_else(|| format!("Track {track_id} has no sampler or no sample loaded"))
 }

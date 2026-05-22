@@ -1,6 +1,6 @@
-use std::os::raw::c_char;
+use super::{ffi_catch, safe_cstring};
 use crate::api;
-use super::{safe_cstring, ffi_catch};
+use std::os::raw::c_char;
 
 // ============================================================================
 // M2: Recording & Input FFI
@@ -9,11 +9,9 @@ use super::{safe_cstring, ffi_catch};
 /// Start recording audio
 #[no_mangle]
 pub extern "C" fn start_recording_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::start_recording() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::start_recording() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
@@ -23,7 +21,7 @@ pub extern "C" fn stop_recording_ffi() -> i64 {
     ffi_catch(-1, || {
         match api::stop_recording() {
             Ok(Some(clip_id)) => clip_id as i64,
-            Ok(None) => -1,  // No recording to stop
+            Ok(None) => -1, // No recording to stop
             Err(e) => {
                 eprintln!("[FFI] Stop recording failed: {e}");
                 -1
@@ -38,7 +36,7 @@ pub extern "C" fn get_recording_state_ffi() -> i32 {
     ffi_catch(-1, || {
         api::get_recording_state().unwrap_or_else(|e| {
             eprintln!("[FFI] Get recording state failed: {e}");
-            0  // Return Idle state on error
+            0 // Return Idle state on error
         })
     })
 }
@@ -81,25 +79,19 @@ pub extern "C" fn set_count_in_bars_ffi(bars: u32) -> *mut c_char {
 /// Get count-in duration in bars
 #[no_mangle]
 pub extern "C" fn get_count_in_bars_ffi() -> u32 {
-    ffi_catch(2, || {
-        api::get_count_in_bars().unwrap_or(2)
-    })
+    ffi_catch(2, || api::get_count_in_bars().unwrap_or(2))
 }
 
 /// Get current count-in beat number (1-indexed, 0 when not counting in)
 #[no_mangle]
 pub extern "C" fn get_count_in_beat_ffi() -> u32 {
-    ffi_catch(0, || {
-        api::get_count_in_beat().unwrap_or(0)
-    })
+    ffi_catch(0, || api::get_count_in_beat().unwrap_or(0))
 }
 
 /// Get count-in progress (0.0-1.0)
 #[no_mangle]
 pub extern "C" fn get_count_in_progress_ffi() -> f32 {
-    ffi_catch(0.0, || {
-        api::get_count_in_progress().unwrap_or(0.0)
-    })
+    ffi_catch(0.0, || api::get_count_in_progress().unwrap_or(0.0))
 }
 
 // -- Punch In/Out --
@@ -150,21 +142,15 @@ pub extern "C" fn set_punch_region_ffi(in_seconds: f64, out_seconds: f64) -> *mu
 
 #[no_mangle]
 pub extern "C" fn get_punch_in_seconds_ffi() -> f64 {
-    ffi_catch(0.0, || {
-        api::get_punch_in_seconds().unwrap_or(0.0)
-    })
+    ffi_catch(0.0, || api::get_punch_in_seconds().unwrap_or(0.0))
 }
 
 #[no_mangle]
 pub extern "C" fn get_punch_out_seconds_ffi() -> f64 {
-    ffi_catch(0.0, || {
-        api::get_punch_out_seconds().unwrap_or(0.0)
-    })
+    ffi_catch(0.0, || api::get_punch_out_seconds().unwrap_or(0.0))
 }
 
 #[no_mangle]
 pub extern "C" fn is_punch_complete_ffi() -> i32 {
-    ffi_catch(-1, || {
-        i32::from(api::is_punch_complete().unwrap_or(false))
-    })
+    ffi_catch(-1, || i32::from(api::is_punch_complete().unwrap_or(false)))
 }

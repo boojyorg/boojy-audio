@@ -1,3 +1,6 @@
+use crate::audio_file::AudioClip;
+use crate::effects::EffectId;
+use crate::midi::MidiClip;
 /// Track system for M4: Mixing & Effects
 ///
 /// This module implements the multi-track architecture including:
@@ -6,9 +9,6 @@
 /// - Send routing (track → return track)
 /// - FX chain (ordered list of effects per track)
 use std::sync::Arc;
-use crate::audio_file::AudioClip;
-use crate::midi::MidiClip;
-use crate::effects::EffectId;
 
 /// Unique identifier for tracks
 pub type TrackId = u64;
@@ -71,7 +71,8 @@ impl TimelineClip {
     /// Get pitch shift ratio for playback
     /// Combines semitones and cents: ratio = 2^((semitones + cents/100) / 12)
     pub fn get_pitch_ratio(&self) -> f32 {
-        let total_semitones = self.transpose_semitones as f32 + (self.transpose_cents as f32 / 100.0);
+        let total_semitones =
+            self.transpose_semitones as f32 + (self.transpose_cents as f32 / 100.0);
         2_f32.powf(total_semitones / 12.0)
     }
 
@@ -86,7 +87,10 @@ impl TimelineClip {
             if self.stretched_cache.is_none()
                 || (self.cached_stretch_factor - self.stretch_factor).abs() > 0.001
             {
-                self.stretched_cache = Some(stretch_audio_preserve_pitch(&self.clip, self.stretch_factor));
+                self.stretched_cache = Some(stretch_audio_preserve_pitch(
+                    &self.clip,
+                    self.stretch_factor,
+                ));
                 self.cached_stretch_factor = self.stretch_factor;
             }
         } else {
@@ -129,7 +133,11 @@ impl TimelineClip {
     /// Generic automation interpolation with edge hold behavior.
     /// Returns `default_value` if automation is empty.
     /// Public so `TimelineMidiClip` can reuse it.
-    pub fn interpolate_clip_automation(points: &[ClipAutomationPoint], beat: f64, default_value: f32) -> f32 {
+    pub fn interpolate_clip_automation(
+        points: &[ClipAutomationPoint],
+        beat: f64,
+        default_value: f32,
+    ) -> f32 {
         if points.is_empty() {
             return default_value;
         }
@@ -190,7 +198,9 @@ impl TimelineClip {
             .filter_map(|pair| {
                 let parts: Vec<&str> = pair.split(',').collect();
                 if parts.len() == 2 {
-                    if let (Ok(beat), Ok(value)) = (parts[0].parse::<f64>(), parts[1].parse::<f32>()) {
+                    if let (Ok(beat), Ok(value)) =
+                        (parts[0].parse::<f64>(), parts[1].parse::<f32>())
+                    {
                         return Some(ClipAutomationPoint::new(beat, value.clamp(0.0, 1.0)));
                     }
                 }
@@ -200,7 +210,9 @@ impl TimelineClip {
 
         // Sort by time
         points.sort_by(|a, b| {
-            a.time_beats.partial_cmp(&b.time_beats).unwrap_or(std::cmp::Ordering::Equal)
+            a.time_beats
+                .partial_cmp(&b.time_beats)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         points
@@ -299,7 +311,10 @@ pub struct AutomationPoint {
 impl AutomationPoint {
     /// Create a new automation point
     pub fn new(time_seconds: f64, value_db: f32) -> Self {
-        Self { time_seconds, value_db }
+        Self {
+            time_seconds,
+            value_db,
+        }
     }
 }
 
@@ -379,6 +394,10 @@ pub struct Track {
     /// Volume automation curve (sorted by `time_seconds`)
     /// When not empty, overrides static `volume_db` during playback
     pub volume_automation: Vec<AutomationPoint>,
+
+    // --- Timeline visibility ---
+    /// Whether this track appears as a row in the arrangement timeline
+    pub timeline_visible: bool,
 }
 
 impl Track {
@@ -394,6 +413,8 @@ impl Track {
             None
         };
 
+        let timeline_visible = !matches!(track_type, TrackType::Master | TrackType::Return);
+
         Self {
             id,
             track_type,
@@ -401,7 +422,7 @@ impl Track {
             audio_clips: Vec::new(),
             midi_clips: Vec::new(),
             volume_db: 0.0, // Unity gain
-            pan: 0.0,        // Center
+            pan: 0.0,       // Center
             mute: false,
             solo: false,
             sends: Vec::new(),
@@ -415,6 +436,7 @@ impl Track {
             peak_left: 0.0,
             peak_right: 0.0,
             volume_automation: Vec::new(),
+            timeline_visible,
         }
     }
 
@@ -547,7 +569,9 @@ impl Track {
 
         // Sort by time (should already be sorted, but ensure it)
         self.volume_automation.sort_by(|a, b| {
-            a.time_seconds.partial_cmp(&b.time_seconds).unwrap_or(std::cmp::Ordering::Equal)
+            a.time_seconds
+                .partial_cmp(&b.time_seconds)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
     }
 
@@ -576,9 +600,11 @@ impl Default for TrackManager {
 impl TrackManager {
     /// Create a new track manager with a master track
     pub fn new() -> Self {
-        let master_track = Arc::new(parking_lot::Mutex::new(
-            Track::new(0, TrackType::Master, "Master".to_string())
-        ));
+        let master_track = Arc::new(parking_lot::Mutex::new(Track::new(
+            0,
+            TrackType::Master,
+            "Master".to_string(),
+        )));
 
         Self {
             tracks: vec![master_track],
@@ -594,9 +620,7 @@ impl TrackManager {
 
         // New tracks are armed by default (Ableton-style)
         // Multiple tracks can be armed simultaneously
-        let track = Arc::new(parking_lot::Mutex::new(
-            Track::new(id, track_type, name)
-        ));
+        let track = Arc::new(parking_lot::Mutex::new(Track::new(id, track_type, name)));
 
         self.tracks.push(track);
 
@@ -605,9 +629,7 @@ impl TrackManager {
 
     /// Get a track by ID
     pub fn get_track(&self, id: TrackId) -> Option<Arc<parking_lot::Mutex<Track>>> {
-        self.tracks.iter()
-            .find(|t| t.lock().id == id)
-            .cloned()
+        self.tracks.iter().find(|t| t.lock().id == id).cloned()
     }
 
     /// Get master track
@@ -636,8 +658,7 @@ impl TrackManager {
 
     /// Check if any tracks are soloed
     pub fn has_solo(&self) -> bool {
-        self.tracks.iter()
-            .any(|t| t.lock().solo)
+        self.tracks.iter().any(|t| t.lock().solo)
     }
 }
 

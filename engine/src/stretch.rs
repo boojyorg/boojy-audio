@@ -1,3 +1,4 @@
+use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 /// Pitch-preserved time-stretching using signalsmith-stretch
 ///
 /// This module provides functionality to time-stretch audio while preserving pitch,
@@ -5,7 +6,6 @@
 /// shifting is used instead (handled in `audio_graph.rs`).
 use signalsmith_stretch::Stretch;
 use std::sync::Arc;
-use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 
 /// Apply pitch-preserved time-stretching to an audio clip.
 ///
@@ -22,10 +22,7 @@ use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
 /// - `stretch_factor` = `project_bpm` / `clip_original_bpm`
 /// - `stretch_factor` of 1.2 means project is 20% faster, so clip needs to be 20% shorter
 /// - `stretch_factor` of 0.8 means project is 20% slower, so clip needs to be 20% longer
-pub fn stretch_audio_preserve_pitch(
-    clip: &AudioClip,
-    stretch_factor: f32,
-) -> Arc<AudioClip> {
+pub fn stretch_audio_preserve_pitch(clip: &AudioClip, stretch_factor: f32) -> Arc<AudioClip> {
     // If stretch factor is effectively 1.0, return a clone wrapped in Arc
     if (stretch_factor - 1.0).abs() < 0.001 {
         return Arc::new(clip.clone());

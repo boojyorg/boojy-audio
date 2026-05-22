@@ -6,21 +6,21 @@
 //! 3. Detecting the tone's arrival via peak detection
 //! 4. Calculating latency from sample offset
 
-use std::sync::atomic::{AtomicU8, AtomicU64, AtomicU32, Ordering};
 use parking_lot::Mutex;
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 
 /// Test states
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum LatencyTestState {
     Idle = 0,
-    WaitingForSilence = 1,  // Wait for input to be quiet before starting
-    Playing = 2,             // Generating test tone
-    Listening = 3,           // Waiting to detect tone in input
-    Analyzing = 4,           // Processing captured data
-    Done = 5,                // Result available
-    Error = 6,               // Test failed
+    WaitingForSilence = 1, // Wait for input to be quiet before starting
+    Playing = 2,           // Generating test tone
+    Listening = 3,         // Waiting to detect tone in input
+    Analyzing = 4,         // Processing captured data
+    Done = 5,              // Result available
+    Error = 6,             // Test failed
 }
 
 impl From<u8> for LatencyTestState {
@@ -56,11 +56,11 @@ pub struct LatencyTestConfig {
 impl Default for LatencyTestConfig {
     fn default() -> Self {
         Self {
-            tone_frequency: 1000.0,        // 1kHz test tone
-            tone_duration_samples: 4800,   // 100ms at 48kHz
-            silence_wait_samples: 4800,    // 100ms wait for silence
-            max_listen_samples: 48000,     // 1 second max listen time
-            detection_threshold: 0.1,      // 10% of max amplitude
+            tone_frequency: 1000.0,      // 1kHz test tone
+            tone_duration_samples: 4800, // 100ms at 48kHz
+            silence_wait_samples: 4800,  // 100ms wait for silence
+            max_listen_samples: 48000,   // 1 second max listen time
+            detection_threshold: 0.1,    // 10% of max amplitude
             sample_rate: 48000,
         }
     }
@@ -128,7 +128,10 @@ impl LatencyTest {
     pub fn start(&self) -> Result<(), String> {
         let current_state = LatencyTestState::from(self.state.load(Ordering::SeqCst));
 
-        if current_state != LatencyTestState::Idle && current_state != LatencyTestState::Done && current_state != LatencyTestState::Error {
+        if current_state != LatencyTestState::Idle
+            && current_state != LatencyTestState::Done
+            && current_state != LatencyTestState::Error
+        {
             return Err("Test already in progress".to_string());
         }
 
@@ -137,19 +140,23 @@ impl LatencyTest {
         self.detected_sample.store(0, Ordering::SeqCst);
         self.phase_counter.store(0, Ordering::SeqCst);
 
-        { let mut result = self.result_ms.lock();
+        {
+            let mut result = self.result_ms.lock();
             *result = None;
         }
-        { let mut error = self.error_message.lock();
+        {
+            let mut error = self.error_message.lock();
             *error = None;
         }
-        { let mut buffer = self.input_buffer.lock();
+        {
+            let mut buffer = self.input_buffer.lock();
             buffer.fill(0.0);
         }
         self.input_write_pos.store(0, Ordering::SeqCst);
 
         // Start with waiting for silence
-        self.state.store(LatencyTestState::WaitingForSilence as u8, Ordering::SeqCst);
+        self.state
+            .store(LatencyTestState::WaitingForSilence as u8, Ordering::SeqCst);
 
         eprintln!("🎚️ [LatencyTest] Started - waiting for silence...");
         Ok(())
@@ -157,7 +164,8 @@ impl LatencyTest {
 
     /// Stop/cancel the test
     pub fn stop(&self) {
-        self.state.store(LatencyTestState::Idle as u8, Ordering::SeqCst);
+        self.state
+            .store(LatencyTestState::Idle as u8, Ordering::SeqCst);
         eprintln!("🎚️ [LatencyTest] Stopped");
     }
 
@@ -196,7 +204,8 @@ impl LatencyTest {
 
         if samples_since_start >= self.config.tone_duration_samples {
             // Tone finished, switch to listening
-            self.state.store(LatencyTestState::Listening as u8, Ordering::SeqCst);
+            self.state
+                .store(LatencyTestState::Listening as u8, Ordering::SeqCst);
             self.phase_counter.store(0, Ordering::SeqCst);
             eprintln!("🎚️ [LatencyTest] Tone complete, now listening...");
             return 0.0;
@@ -213,7 +222,8 @@ impl LatencyTest {
             let fade = samples_since_start as f32 / fade_samples as f32;
             sample *= fade;
         } else if samples_since_start > self.config.tone_duration_samples - fade_samples {
-            let fade = (self.config.tone_duration_samples - samples_since_start) as f32 / fade_samples as f32;
+            let fade = (self.config.tone_duration_samples - samples_since_start) as f32
+                / fade_samples as f32;
             sample *= fade;
         }
 
@@ -235,15 +245,18 @@ impl LatencyTest {
                     self.phase_counter.store(0, Ordering::SeqCst);
                 } else if counter >= self.config.silence_wait_samples {
                     // Silence detected, start playing
-                    self.tone_start_sample.store(current_sample, Ordering::SeqCst);
-                    self.state.store(LatencyTestState::Playing as u8, Ordering::SeqCst);
+                    self.tone_start_sample
+                        .store(current_sample, Ordering::SeqCst);
+                    self.state
+                        .store(LatencyTestState::Playing as u8, Ordering::SeqCst);
                     eprintln!("🎚️ [LatencyTest] Silence detected, playing tone at sample {current_sample}");
                 }
             }
 
             LatencyTestState::Playing | LatencyTestState::Listening => {
                 // Store input for analysis
-                { let mut buffer = self.input_buffer.lock();
+                {
+                    let mut buffer = self.input_buffer.lock();
                     let pos = self.input_write_pos.fetch_add(1, Ordering::SeqCst) as usize;
                     if pos < buffer.len() {
                         buffer[pos] = input_sample;
@@ -257,16 +270,22 @@ impl LatencyTest {
                     // Simple peak detection
                     if input_sample.abs() > self.config.detection_threshold {
                         self.detected_sample.store(current_sample, Ordering::SeqCst);
-                        self.state.store(LatencyTestState::Analyzing as u8, Ordering::SeqCst);
+                        self.state
+                            .store(LatencyTestState::Analyzing as u8, Ordering::SeqCst);
                         eprintln!("🎚️ [LatencyTest] Tone detected at sample {current_sample}");
 
                         // Calculate result
                         self.calculate_result();
                     } else if counter >= self.config.max_listen_samples {
                         // Timeout - no tone detected
-                        self.state.store(LatencyTestState::Error as u8, Ordering::SeqCst);
-                        { let mut error = self.error_message.lock();
-                            *error = Some("Timeout: No audio detected. Check loopback connection.".to_string());
+                        self.state
+                            .store(LatencyTestState::Error as u8, Ordering::SeqCst);
+                        {
+                            let mut error = self.error_message.lock();
+                            *error = Some(
+                                "Timeout: No audio detected. Check loopback connection."
+                                    .to_string(),
+                            );
                         }
                         eprintln!("🎚️ [LatencyTest] Timeout - no tone detected");
                     }
@@ -286,15 +305,19 @@ impl LatencyTest {
             let latency_samples = detected - tone_start;
             let latency_ms = (latency_samples as f32 / self.config.sample_rate as f32) * 1000.0;
 
-            { let mut result = self.result_ms.lock();
+            {
+                let mut result = self.result_ms.lock();
                 *result = Some(latency_ms);
             }
 
-            self.state.store(LatencyTestState::Done as u8, Ordering::SeqCst);
+            self.state
+                .store(LatencyTestState::Done as u8, Ordering::SeqCst);
             eprintln!("🎚️ [LatencyTest] Result: {latency_ms:.1}ms ({latency_samples} samples)");
         } else {
-            self.state.store(LatencyTestState::Error as u8, Ordering::SeqCst);
-            { let mut error = self.error_message.lock();
+            self.state
+                .store(LatencyTestState::Error as u8, Ordering::SeqCst);
+            {
+                let mut error = self.error_message.lock();
                 *error = Some("Invalid sample timing".to_string());
             }
         }

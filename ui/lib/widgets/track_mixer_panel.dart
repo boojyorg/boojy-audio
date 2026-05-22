@@ -7,9 +7,11 @@ import '../utils/track_colors.dart';
 import '../models/instrument_data.dart';
 import '../models/track_automation_data.dart';
 import '../models/track_data.dart';
+import '../models/track_send_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
 import '../services/commands/mixer_commands.dart';
+import '../services/commands/send_commands.dart';
 import 'platform_drop_target.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
@@ -75,6 +77,8 @@ class TrackMixerPanel extends StatefulWidget {
 
 class TrackMixerPanelState extends State<TrackMixerPanel> {
   List<TrackData> _tracks = [];
+  List<ReturnTrackData> _returns = [];
+  Map<int, List<TrackSendData>> _trackSends = {};
   Timer? _refreshTimer;
 
   /// Public getter for tracks (used by parent to access track state)
@@ -106,6 +110,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   /// Values captured at fader/pan drag start (for undo on drag end).
   final Map<int, double> _volumeDragStartDb = {};
   final Map<int, double> _panDragStart = {};
+  final Map<String, double> _sendDragStartDb = {};
 
   TrackData? _findTrack(int trackId) {
     for (final track in _tracks) {
@@ -302,6 +307,130 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     }
   }
 
+  String _sendKey(int sourceTrackId, int returnTrackId) =>
+      '$sourceTrackId:$returnTrackId';
+
+  /// Refresh mixer/timeline after send or return mutation.
+  /// Deferred to avoid setState/notifyListeners during dialog teardown.
+  void _deferSendMutationRefresh() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadTracksAsync();
+    });
+  }
+
+  void _refreshSendData() {
+    if (widget.audioEngine == null) return;
+
+    final previousReturnEffectTypes = {
+      for (final ret in _returns) ret.id: ret.effectType,
+    };
+    final returns = _tracks
+        .where((track) => track.type.toLowerCase() == 'return')
+        .map(
+          (track) => ReturnTrackData(
+            id: track.id,
+            name: track.name,
+            effectType:
+                previousReturnEffectTypes[track.id] ??
+                _guessReturnEffectType(track.name),
+          ),
+        )
+        .toList(growable: false);
+    final returnEffectTypes = {
+      for (final ret in returns) ret.id: ret.effectType,
+    };
+
+    final sendsMap = <int, List<TrackSendData>>{};
+    final sendCounts = <int, int>{};
+    for (final track in _tracks) {
+      if (track.type.toLowerCase() == 'master' ||
+          track.type.toLowerCase() == 'return') {
+        continue;
+      }
+      final csv = widget.audioEngine!.getTrackSends(track.id);
+      final sends = TrackSendData.parseTrackSendsCsv(
+        csv,
+        returnEffectTypes: returnEffectTypes,
+      );
+      sendsMap[track.id] = sends;
+      sendCounts[track.id] = sends.length;
+    }
+
+    if (!mounted) return;
+
+    for (final entry in sendCounts.entries) {
+      widget.trackHeightState.onSendCountChanged?.call(entry.key, entry.value);
+    }
+
+    setState(() {
+      _returns = returns;
+      _trackSends = sendsMap;
+    });
+  }
+
+  String _guessReturnEffectType(String name) {
+    final normalized = name.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '');
+    if (normalized.contains('reverb')) return 'reverb';
+    if (normalized.contains('delay')) return 'delay';
+    if (normalized.contains('compressor')) return 'compressor';
+    if (normalized.contains('chorus')) return 'chorus';
+    if (normalized.contains('limiter')) return 'limiter';
+    if (normalized.contains('eq')) return 'eq';
+    return normalized.isEmpty ? 'unknown' : normalized;
+  }
+
+  Future<void> _handleAddSendToReturn(
+    TrackData sourceTrack,
+    ReturnTrackData returnTrack,
+  ) async {
+    if (widget.audioEngine == null) return;
+
+    final existing = _trackSends[sourceTrack.id]?.any(
+      (s) => s.returnId == returnTrack.id,
+    );
+    if (existing == true) return;
+
+    await UndoRedoManager().execute(
+      AddSendCommand(
+        sourceTrackId: sourceTrack.id,
+        sourceTrackName: sourceTrack.name,
+        returnTrackId: returnTrack.id,
+        returnLabel: returnTrack.name,
+        onChanged: _deferSendMutationRefresh,
+      ),
+    );
+  }
+
+  Future<void> _handleRemoveSend(
+    TrackData sourceTrack,
+    int returnTrackId,
+    String returnLabel,
+    double previousAmountDb,
+  ) async {
+    await UndoRedoManager().execute(
+      RemoveSendCommand(
+        sourceTrackId: sourceTrack.id,
+        sourceTrackName: sourceTrack.name,
+        returnTrackId: returnTrackId,
+        returnLabel: returnLabel,
+        previousAmountDb: previousAmountDb,
+        onChanged: _deferSendMutationRefresh,
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteReturn(ReturnTrackData returnTrack) async {
+    await UndoRedoManager().execute(
+      RemoveReturnCommand(
+        returnTrackId: returnTrack.id,
+        returnLabel: returnTrack.name,
+        effectType: returnTrack.effectType,
+        onChanged: _deferSendMutationRefresh,
+      ),
+    );
+  }
+
   /// Public method to trigger immediate track refresh
   void refreshTracks() {
     _loadTracksAsync();
@@ -349,35 +478,36 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             .where((t) => t.type == 'Master')
             .toList();
         final regularTrackIds = tracksMap.keys
-            .where((id) => tracksMap[id]!.type != 'Master')
+            .where((id) => _isRegularTrack(tracksMap[id]!))
             .toList();
 
-        // Sync track IDs to TrackController (it will preserve existing order)
+        // Sync track IDs to TrackController (excludes returns and master)
         widget.trackCallbacks.onOrderSync?.call(regularTrackIds);
 
         setState(() {
-          // Build ordered track list using widget.config.trackOrder
           final orderedTracks = <TrackData>[];
 
-          // First add tracks in the order from TrackController
           for (final id in widget.config.trackOrder) {
-            if (tracksMap.containsKey(id) && tracksMap[id]!.type != 'Master') {
+            if (tracksMap.containsKey(id) && _isRegularTrack(tracksMap[id]!)) {
               orderedTracks.add(tracksMap[id]!);
             }
           }
 
-          // Add any tracks not in the order list (new tracks)
           for (final id in regularTrackIds) {
             if (!widget.config.trackOrder.contains(id)) {
               orderedTracks.add(tracksMap[id]!);
             }
           }
 
-          // Add master track at the end (it's handled separately in UI)
+          // Returns before master in internal list (UI splits them)
+          orderedTracks.addAll(
+            tracksMap.values.where((t) => t.type.toLowerCase() == 'return'),
+          );
           orderedTracks.addAll(masterTrack);
 
           _tracks = orderedTracks;
         });
+        _refreshSendData();
       }
     } catch (e) {
       Log.e('TrackMixerPanel: Error loading tracks: $e');
@@ -621,9 +751,17 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
     );
   }
 
+  bool _isRegularTrack(TrackData track) {
+    final type = track.type.toLowerCase();
+    return type != 'master' && type != 'return';
+  }
+
   Widget _buildTrackStrips() {
-    // Separate regular tracks from master track
-    final regularTracks = _tracks.where((t) => t.type != 'Master').toList();
+    // Separate regular tracks, returns, and master
+    final regularTracks = _tracks.where(_isRegularTrack).toList();
+    final returnTracks = _tracks
+        .where((t) => t.type.toLowerCase() == 'return')
+        .toList();
     final masterTrack = _tracks.firstWhere(
       (t) => t.type == 'Master',
       orElse: () => TrackData(
@@ -689,6 +827,19 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           ),
         ),
 
+        // Return tracks pinned before master (not scrollable, not draggable)
+        if (returnTracks.isNotEmpty)
+          ...returnTracks.map(
+            (track) => ValueListenableBuilder<Map<int, (double, double)>>(
+              valueListenable: _displayLevelsNotifier,
+              builder: (context, levels, _) => _buildReturnTrackStrip(
+                track,
+                levels[track.id]?.$1 ?? 0.0,
+                levels[track.id]?.$2 ?? 0.0,
+              ),
+            ),
+          ),
+
         // Master track pinned at bottom (outside scroll area)
         if (masterTrack.id != -1)
           ValueListenableBuilder<Map<int, (double, double)>>(
@@ -727,6 +878,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                 masterTrack.name,
                 masterTrack.pan,
               ),
+              onFxButtonPressed:
+                  widget.instrumentCallbacks.onFxButtonPressed != null
+                  ? () => widget.instrumentCallbacks.onFxButtonPressed!(
+                      masterTrack.id,
+                    )
+                  : null,
             ),
           ),
       ],
@@ -912,6 +1069,99 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   /// Build the TrackMixerStrip widget.
+  Widget _buildReturnTrackStrip(
+    TrackData track,
+    double peakLeft,
+    double peakRight,
+  ) {
+    final returnMeta = _returns.where((r) => r.id == track.id).firstOrNull;
+    final trackColor =
+        widget.getTrackColor?.call(track.id, track.name, track.type) ??
+        TrackColors.getTrackColor(track.id);
+
+    return TrackMixerStrip(
+      trackId: track.id,
+      displayIndex: 0,
+      trackName: track.name,
+      trackType: track.type,
+      volumeDb: track.volumeDb,
+      pan: track.pan,
+      isMuted: track.mute,
+      isSoloed: track.solo,
+      peakLevelLeft: peakLeft,
+      peakLevelRight: peakRight,
+      trackColor: trackColor,
+      isReturnTrack: true,
+      clipHeight: widget.trackHeightState.clipHeights[track.id] ?? 100.0,
+      stripWidth: widget.config.panelWidth,
+      onVolumeChanged: (volumeDb) {
+        setState(() => track.volumeDb = volumeDb);
+        widget.audioEngine?.setTrackVolume(track.id, volumeDb);
+      },
+      onVolumeDragStart: () => _beginVolumeDrag(track.id, track.volumeDb),
+      onVolumeDragEnd: () =>
+          _commitVolumeChange(track.id, track.name, track.volumeDb),
+      onPanChanged: (pan) {
+        setState(() => track.pan = pan);
+        widget.audioEngine?.setTrackPan(track.id, pan);
+      },
+      onPanDragStart: () => _beginPanDrag(track.id, track.pan),
+      onPanDragEnd: () => _commitPanChange(track.id, track.name, track.pan),
+      onMuteToggle: () async {
+        final oldMute = track.mute;
+        setState(() => track.mute = !track.mute);
+        await UndoRedoManager().execute(
+          SetMuteCommand(
+            trackId: track.id,
+            trackName: track.name,
+            newMute: track.mute,
+            oldMute: oldMute,
+            onMuteChanged: (id, {required bool muted}) {
+              if (!mounted) return;
+              final t = _findTrack(id);
+              if (t != null) setState(() => t.mute = muted);
+            },
+          ),
+        );
+      },
+      onSoloToggle: () async {
+        final oldSolo = track.solo;
+        setState(() => track.solo = !track.solo);
+        await UndoRedoManager().execute(
+          SetSoloCommand(
+            trackId: track.id,
+            trackName: track.name,
+            newSolo: track.solo,
+            oldSolo: oldSolo,
+            onSoloChanged: (id, {required bool soloed}) {
+              if (!mounted) return;
+              final t = _findTrack(id);
+              if (t != null) setState(() => t.solo = soloed);
+            },
+          ),
+        );
+      },
+      onNameChanged: (newName) async {
+        final oldName = track.name;
+        if (oldName == newName) return;
+        await UndoRedoManager().execute(
+          RenameTrackCommand(
+            trackId: track.id,
+            oldName: oldName,
+            newName: newName,
+            onTrackRenamed: (trackId, name) {
+              if (mounted) setState(() => track.name = name);
+            },
+          ),
+        );
+      },
+      onDeleteReturn: returnMeta != null
+          ? () => _handleDeleteReturn(returnMeta)
+          : null,
+    );
+  }
+
+  /// Build the TrackMixerStrip widget.
   /// Meter levels are delivered via ValueListenableBuilder so only the meters
   /// rebuild on the 50ms poll — the rest of the strip (name, fader, buttons)
   /// stays untouched.
@@ -976,6 +1226,75 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   .instrumentCallbacks
                   .onEditPluginsPressed
                   ?.call(track.id),
+              sends: _trackSends[track.id] ?? const [],
+              existingReturns: _returns,
+              onSendAmountChanged: (returnTrackId, amountDb) {
+                widget.audioEngine?.setSendAmount(
+                  track.id,
+                  returnTrackId,
+                  amountDb,
+                );
+                final sends = _trackSends[track.id];
+                if (sends == null) return;
+                final idx = sends.indexWhere(
+                  (s) => s.returnId == returnTrackId,
+                );
+                if (idx < 0) return;
+                setState(() {
+                  final updated = [...sends];
+                  updated[idx] = TrackSendData(
+                    returnId: returnTrackId,
+                    label: sends[idx].label,
+                    effectType: sends[idx].effectType,
+                    amountLinear: TrackSendData.dbToLinear(amountDb),
+                  );
+                  _trackSends[track.id] = updated;
+                });
+              },
+              onSendAmountDragStart: (returnTrackId) {
+                final send = _trackSends[track.id]
+                    ?.where((s) => s.returnId == returnTrackId)
+                    .firstOrNull;
+                if (send != null) {
+                  _sendDragStartDb[_sendKey(track.id, returnTrackId)] =
+                      TrackSendData.linearToDb(send.amountLinear);
+                }
+              },
+              onSendAmountDragEnd: (returnTrackId) async {
+                final key = _sendKey(track.id, returnTrackId);
+                final oldDb = _sendDragStartDb.remove(key);
+                if (oldDb == null) return;
+                final send = _trackSends[track.id]
+                    ?.where((s) => s.returnId == returnTrackId)
+                    .firstOrNull;
+                if (send == null) return;
+                final newDb = TrackSendData.linearToDb(send.amountLinear);
+                if ((newDb - oldDb).abs() < 0.01) return;
+                await UndoRedoManager().execute(
+                  SetSendAmountCommand(
+                    sourceTrackId: track.id,
+                    sourceTrackName: track.name,
+                    returnTrackId: returnTrackId,
+                    returnLabel: send.label,
+                    newAmountDb: newDb,
+                    oldAmountDb: oldDb,
+                  ),
+                );
+              },
+              onRemoveSend: (returnTrackId) {
+                final send = _trackSends[track.id]
+                    ?.where((s) => s.returnId == returnTrackId)
+                    .firstOrNull;
+                if (send == null) return;
+                _handleRemoveSend(
+                  track,
+                  returnTrackId,
+                  send.label,
+                  TrackSendData.linearToDb(send.amountLinear),
+                );
+              },
+              onSendToReturn: (returnTrack) =>
+                  _handleAddSendToReturn(track, returnTrack),
               clipHeight:
                   widget.trackHeightState.clipHeights[track.id] ?? 100.0,
               automationHeight:

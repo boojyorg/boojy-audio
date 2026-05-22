@@ -3,8 +3,8 @@
 //! Supports `ID3v2` tags for MP3 files.
 
 use super::options::ExportMetadata;
-use id3::{Tag, TagLike, Version};
 use id3::frame::{Picture, PictureType};
+use id3::{Tag, TagLike, Version};
 use std::path::Path;
 
 /// Write `ID3v2` tags to an MP3 file
@@ -122,8 +122,7 @@ pub fn write_id3_tags(mp3_path: &Path, metadata: &ExportMetadata) -> Result<(), 
 /// `ExportMetadata` with read values
 #[allow(clippy::field_reassign_with_default)]
 pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
-    let tag = Tag::read_from_path(mp3_path)
-        .map_err(|e| format!("Failed to read ID3 tags: {e}"))?;
+    let tag = Tag::read_from_path(mp3_path).map_err(|e| format!("Failed to read ID3 tags: {e}"))?;
 
     let mut metadata = ExportMetadata::default();
 
@@ -161,7 +160,6 @@ pub fn read_id3_tags(mp3_path: &Path) -> Result<ExportMetadata, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_empty_metadata() {

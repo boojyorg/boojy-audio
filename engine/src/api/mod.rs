@@ -25,6 +25,7 @@ pub mod midi_input;
 pub mod preview;
 pub mod project;
 pub mod recording;
+pub mod sends;
 pub mod synthesizer;
 pub mod timing;
 pub mod tracks;
@@ -57,26 +58,40 @@ pub use midi_input::{
     refresh_midi_devices, select_midi_input_device, set_synth_oscillator_type, set_synth_volume,
     start_midi_input, start_midi_recording, stop_midi_input, stop_midi_recording,
 };
+pub use preview::{
+    preview_check_full_clip, preview_get_duration, preview_get_position, preview_get_waveform,
+    preview_is_loaded, preview_is_looping, preview_is_playing, preview_load_audio,
+    preview_load_audio_async, preview_play, preview_process_sample, preview_seek,
+    preview_set_looping, preview_stop,
+};
 pub use project::{
     export_audio, export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,
     get_tracks_for_stems, is_ffmpeg_available, load_project, save_project, write_mp3_metadata,
 };
 pub use recording::{
     get_audio_input_devices, get_audio_output_devices, get_count_in_bars, get_count_in_beat,
-    get_count_in_progress, get_input_channel_count, get_input_channel_level,
-    get_punch_in_seconds, get_punch_out_seconds, get_recorded_duration, get_recording_state,
-    get_recording_waveform, get_sample_rate, get_selected_audio_output_device,
-    is_punch_complete, is_punch_in_enabled, is_punch_out_enabled, set_audio_input_device,
-    set_audio_output_device, set_count_in_bars, set_punch_in_enabled, set_punch_out_enabled,
-    set_punch_region, start_audio_input, start_recording, stop_audio_input, stop_recording,
+    get_count_in_progress, get_input_channel_count, get_input_channel_level, get_punch_in_seconds,
+    get_punch_out_seconds, get_recorded_duration, get_recording_state, get_recording_waveform,
+    get_sample_rate, get_selected_audio_output_device, is_punch_complete, is_punch_in_enabled,
+    is_punch_out_enabled, set_audio_input_device, set_audio_output_device, set_count_in_bars,
+    set_punch_in_enabled, set_punch_out_enabled, set_punch_region, start_audio_input,
+    start_recording, stop_audio_input, stop_recording,
+};
+pub use sends::{
+    add_send, add_shared_send, count_sends_to_return, create_return_with_effect, db_to_linear,
+    find_return_by_effect_type, get_all_returns, get_master_timeline_visible, get_track_sends,
+    linear_to_db, remove_return, remove_send, set_master_timeline_visible, set_send_amount,
+    sync_master_timeline_visibility, DEFAULT_SEND_DB,
 };
 pub use synthesizer::{
-    create_sampler_for_track, get_sampler_info, get_sampler_waveform_peaks,
-    get_synth_parameters, is_sampler_track, load_sample_for_track,
-    send_track_midi_note_off, send_track_midi_note_on, set_sampler_parameter, set_synth_bypass,
-    set_synth_parameter, set_track_instrument,
+    create_sampler_for_track, get_sampler_info, get_sampler_waveform_peaks, get_synth_parameters,
+    is_sampler_track, load_sample_for_track, send_track_midi_note_off, send_track_midi_note_on,
+    set_sampler_parameter, set_synth_bypass, set_synth_parameter, set_track_instrument,
 };
-pub use timing::{get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo, set_time_signature};
+pub use timing::{
+    get_tempo, get_time_signature, is_metronome_enabled, set_metronome_enabled, set_tempo,
+    set_time_signature,
+};
 pub use tracks::{
     create_track, get_all_track_ids, get_track_count, get_track_info, get_track_input,
     get_track_peak_levels, move_clip_to_track, set_track_armed, set_track_input,
@@ -84,15 +99,9 @@ pub use tracks::{
     set_track_volume, set_track_volume_automation,
 };
 pub use transport::{
-    get_playhead_position, get_play_start_position, get_record_start_position, get_transport_state,
+    get_play_start_position, get_playhead_position, get_record_start_position, get_transport_state,
     set_play_start_position, set_record_start_position, transport_pause, transport_play,
     transport_seek, transport_stop,
-};
-pub use preview::{
-    preview_get_duration, preview_get_position, preview_get_waveform, preview_is_looping,
-    preview_check_full_clip, preview_is_loaded, preview_is_playing, preview_load_audio,
-    preview_load_audio_async,
-    preview_play, preview_process_sample, preview_seek, preview_set_looping, preview_stop,
 };
 
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
@@ -100,8 +109,8 @@ pub use vst3::{
     add_vst3_effect_to_track, get_vst3_parameter_count, get_vst3_parameter_info,
     get_vst3_parameter_value, get_vst3_presets, get_vst3_state, scan_vst3_plugins,
     scan_vst3_plugins_standard, set_vst3_editor_max_size, set_vst3_parameter_value,
-    set_vst3_program, set_vst3_state, vst3_attach_editor, vst3_close_editor,
-    vst3_get_editor_size, vst3_has_editor, vst3_open_editor, vst3_send_midi_note,
+    set_vst3_program, set_vst3_state, vst3_attach_editor, vst3_close_editor, vst3_get_editor_size,
+    vst3_has_editor, vst3_open_editor, vst3_send_midi_note,
 };
 
 // ============================================================================

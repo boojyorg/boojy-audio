@@ -49,7 +49,8 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
     .map_err(|e| format!("Failed to create resampler: {e}"))?;
 
     // Calculate output size
-    let output_frames = ((num_frames as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
+    let output_frames =
+        ((num_frames as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
     let mut output_left = Vec::with_capacity(output_frames);
     let mut output_right = Vec::with_capacity(output_frames);
 
@@ -90,7 +91,8 @@ pub fn resample_stereo(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<
             .map_err(|e| format!("Resampling error: {e}"))?;
 
         // Only take the samples we need (proportional to remaining input)
-        let output_needed = ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
+        let output_needed =
+            ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
         let take_count = output_needed.min(output_chunk[0].len());
 
         output_left.extend_from_slice(&output_chunk[0][..take_count]);
@@ -144,7 +146,8 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
     .map_err(|e| format!("Failed to create resampler: {e}"))?;
 
     // Calculate output size
-    let output_frames = ((samples.len() as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
+    let output_frames =
+        ((samples.len() as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
     let mut output = Vec::with_capacity(output_frames);
 
     // Process in chunks
@@ -176,7 +179,8 @@ pub fn resample_mono(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Ve
             .map_err(|e| format!("Resampling error: {e}"))?;
 
         // Only take the samples we need
-        let output_needed = ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
+        let output_needed =
+            ((remaining as f64 * f64::from(to_rate)) / f64::from(from_rate)).ceil() as usize;
         let take_count = output_needed.min(output_chunk[0].len());
 
         output.extend(output_chunk[0][..take_count].iter().map(|&s| s as f32));

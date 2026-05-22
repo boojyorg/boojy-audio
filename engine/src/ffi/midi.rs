@@ -1,6 +1,6 @@
-use std::os::raw::c_char;
+use super::{ffi_catch, safe_cstring};
 use crate::api;
-use super::{safe_cstring, ffi_catch};
+use std::os::raw::c_char;
 
 // ============================================================================
 // M3: MIDI FFI
@@ -9,34 +9,31 @@ use super::{safe_cstring, ffi_catch};
 /// Start MIDI input
 #[no_mangle]
 pub extern "C" fn start_midi_input_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::start_midi_input() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::start_midi_input() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
 /// Stop MIDI input
 #[no_mangle]
 pub extern "C" fn stop_midi_input_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::stop_midi_input() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::stop_midi_input() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
 /// Set synthesizer oscillator type (0=Sine, 1=Saw, 2=Square)
 #[no_mangle]
 pub extern "C" fn set_synth_oscillator_type_ffi(osc_type: i32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::set_synth_oscillator_type(osc_type) {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::set_synth_oscillator_type(osc_type) {
             Ok(msg) => safe_cstring(msg).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Set synthesizer volume (0.0 to 1.0)
@@ -79,43 +76,38 @@ pub extern "C" fn send_midi_note_off_ffi(note: u8, velocity: u8) -> *mut c_char 
 /// Start MIDI recording
 #[no_mangle]
 pub extern "C" fn start_midi_recording_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::start_midi_recording() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::start_midi_recording() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
 /// Stop MIDI recording and return the clip ID (-1 if no events recorded)
 #[no_mangle]
 pub extern "C" fn stop_midi_recording_ffi() -> i64 {
-    ffi_catch(-1, || {
-        match api::stop_midi_recording() {
-            Ok(Some(clip_id)) => clip_id as i64,
-            Ok(None) | Err(_) => -1,
-        }
+    ffi_catch(-1, || match api::stop_midi_recording() {
+        Ok(Some(clip_id)) => clip_id as i64,
+        Ok(None) | Err(_) => -1,
     })
 }
 
 /// Get MIDI recording state (0 = Idle, 1 = Recording)
 #[no_mangle]
 pub extern "C" fn get_midi_recording_state_ffi() -> i32 {
-    ffi_catch(-1, || {
-        api::get_midi_recording_state().unwrap_or(-1)
-    })
+    ffi_catch(-1, || api::get_midi_recording_state().unwrap_or(-1))
 }
 
 /// Get live MIDI recording events for real-time UI preview
 /// Returns CSV: "`note,velocity,type,timestamp_samples`;..." or empty string
 #[no_mangle]
 pub extern "C" fn get_midi_recorder_live_events_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_midi_recorder_live_events() {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::get_midi_recorder_live_events() {
             Ok(events) => safe_cstring(events).into_raw(),
             Err(_) => safe_cstring(String::new()).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 // ============================================================================
@@ -131,7 +123,9 @@ pub extern "C" fn get_midi_input_devices_ffi() -> *mut c_char {
             Ok(devices) => {
                 let formatted: Vec<String> = devices
                     .into_iter()
-                    .map(|(id, name, is_default)| format!("{}|{}|{}", id, name, if is_default { "1" } else { "0" }))
+                    .map(|(id, name, is_default)| {
+                        format!("{}|{}|{}", id, name, if is_default { "1" } else { "0" })
+                    })
                     .collect();
                 safe_cstring(formatted.join("\n")).into_raw()
             }
@@ -143,22 +137,21 @@ pub extern "C" fn get_midi_input_devices_ffi() -> *mut c_char {
 /// Select a MIDI input device by index
 #[no_mangle]
 pub extern "C" fn select_midi_input_device_ffi(device_index: i32) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::select_midi_input_device(device_index) {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::select_midi_input_device(device_index) {
             Ok(msg) => safe_cstring(msg).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Refresh MIDI devices (rescan)
 #[no_mangle]
 pub extern "C" fn refresh_midi_devices_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::refresh_midi_devices() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::refresh_midi_devices() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
@@ -169,11 +162,9 @@ pub extern "C" fn refresh_midi_devices_ffi() -> *mut c_char {
 /// Create a new empty MIDI clip
 #[no_mangle]
 pub extern "C" fn create_midi_clip_ffi() -> i64 {
-    ffi_catch(-1, || {
-        match api::create_midi_clip() {
-            Ok(clip_id) => clip_id as i64,
-            Err(_) => -1,
-        }
+    ffi_catch(-1, || match api::create_midi_clip() {
+        Ok(clip_id) => clip_id as i64,
+        Err(_) => -1,
     })
 }
 
@@ -195,11 +186,9 @@ pub extern "C" fn add_midi_clip_to_track_ffi(
 /// Remove a MIDI clip from a track and global storage
 #[no_mangle]
 pub extern "C" fn remove_midi_clip_ffi(track_id: u64, clip_id: u64) -> i64 {
-    ffi_catch(-1, || {
-        match api::remove_midi_clip(track_id, clip_id) {
-            Ok(removed) => i64::from(!removed),
-            Err(_) => -1,
-        }
+    ffi_catch(-1, || match api::remove_midi_clip(track_id, clip_id) {
+        Ok(removed) => i64::from(!removed),
+        Err(_) => -1,
     })
 }
 
@@ -245,9 +234,7 @@ pub extern "C" fn quantize_midi_clip_ffi(clip_id: u64, grid_division: u32) -> *m
 /// Get MIDI clip count
 #[no_mangle]
 pub extern "C" fn get_midi_clip_count_ffi() -> usize {
-    ffi_catch(0, || {
-        api::get_midi_clip_count().unwrap_or(0)
-    })
+    ffi_catch(0, || api::get_midi_clip_count().unwrap_or(0))
 }
 
 /// Get MIDI clip info as CSV: "`clip_id,track_id,start_time,duration,note_count`"
@@ -271,12 +258,13 @@ pub extern "C" fn get_midi_clip_info_ffi(clip_id: u64) -> *mut c_char {
 /// Each clip info is separated by semicolon
 #[no_mangle]
 pub extern "C" fn get_all_midi_clips_info_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_all_midi_clips_info() {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::get_all_midi_clips_info() {
             Ok(info) => safe_cstring(info).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Get MIDI notes from a clip

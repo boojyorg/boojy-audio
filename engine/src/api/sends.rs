@@ -96,29 +96,6 @@ fn default_return_name(effect_type: &str) -> String {
     }
 }
 
-fn return_has_effect_type(
-    track_manager: &crate::track::TrackManager,
-    effect_manager: &crate::effects::EffectManager,
-    return_id: TrackId,
-    effect_type: &str,
-) -> bool {
-    let Some(track_arc) = track_manager.get_track(return_id) else {
-        return false;
-    };
-    let track = track_arc.lock();
-    if track.track_type != TrackType::Return {
-        return false;
-    }
-    track.fx_chain.iter().any(|effect_id| {
-        effect_manager
-            .get_effect(*effect_id)
-            .is_some_and(|effect_arc| {
-                let effect = effect_arc.lock();
-                effect_type_name(&effect).is_some_and(|name| name == effect_type.to_lowercase())
-            })
-    })
-}
-
 fn primary_effect_type_for_return(
     effect_manager: &crate::effects::EffectManager,
     fx_chain: &[u64],
@@ -141,13 +118,27 @@ pub fn find_return_by_effect_type(effect_type: &str) -> Result<Option<TrackId>, 
     let effect_manager = graph.effect_manager.lock();
     let normalized = effect_type.to_lowercase();
 
-    for track_arc in track_manager.get_all_tracks() {
-        let track = track_arc.lock();
-        if track.track_type != TrackType::Return {
+    // Snapshot the (id, type, fx_chain) of every track in a short scope so we
+    // can inspect each candidate Return without holding any Track lock. Looking
+    // up the effect via primary_effect_type_for_return only touches the effect
+    // manager, never re-enters TrackManager, so it stays deadlock-free.
+    let snapshots: Vec<(TrackId, TrackType, Vec<u64>)> = track_manager
+        .get_all_tracks()
+        .iter()
+        .map(|track_arc| {
+            let track = track_arc.lock();
+            (track.id, track.track_type, track.fx_chain.clone())
+        })
+        .collect();
+
+    for (id, track_type, fx_chain) in snapshots {
+        if track_type != TrackType::Return {
             continue;
         }
-        if return_has_effect_type(&track_manager, &effect_manager, track.id, &normalized) {
-            return Ok(Some(track.id));
+        if primary_effect_type_for_return(&effect_manager, &fx_chain)
+            .is_some_and(|name| name == normalized)
+        {
+            return Ok(Some(id));
         }
     }
 

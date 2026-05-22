@@ -405,4 +405,88 @@ class MockAudioEngine implements AudioEngineInterface {
     _record('isPunchComplete');
     return false;
   }
+
+  @override
+  List<int> getAllTrackIds() {
+    _record('getAllTrackIds');
+    return [];
+  }
+
+  @override
+  int findReturnByEffectType(String effectType) {
+    _record('findReturnByEffectType');
+    return 0;
+  }
+
+  @override
+  int createReturnWithEffect(String effectType, {String? name}) {
+    _record('createReturnWithEffect');
+    return 1;
+  }
+
+  @override
+  String addSharedSend(int sourceTrackId, String effectType) {
+    _record('addSharedSend');
+    return '1,-20.00';
+  }
+
+  @override
+  String addSend(int sourceTrackId, int returnTrackId, double amountDb) {
+    _record('addSend');
+    return 'OK';
+  }
+
+  @override
+  String setSendAmount(int sourceTrackId, int returnTrackId, double amountDb) {
+    _record('setSendAmount');
+    return 'OK';
+  }
+
+  @override
+  String removeSend(int sourceTrackId, int returnTrackId) {
+    _record('removeSend');
+    return 'OK';
+  }
+
+  @override
+  String removeReturn(int returnTrackId) {
+    _record('removeReturn');
+    return 'OK';
+  }
+
+  @override
+  String getTrackSends(int trackId) {
+    _record('getTrackSends');
+    return '';
+  }
+
+  @override
+  String getAllReturns() {
+    _record('getAllReturns');
+    return '';
+  }
+
+  @override
+  int countSendsToReturn(int returnTrackId) {
+    _record('countSendsToReturn');
+    return 0;
+  }
+
+  @override
+  bool getMasterTimelineVisible() {
+    _record('getMasterTimelineVisible');
+    return false;
+  }
+
+  @override
+  String setMasterTimelineVisible({required bool visible}) {
+    _record('setMasterTimelineVisible');
+    return 'OK';
+  }
+
+  @override
+  bool syncMasterTimelineVisibility() {
+    _record('syncMasterTimelineVisibility');
+    return false;
+  }
 }

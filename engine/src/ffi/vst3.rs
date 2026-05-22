@@ -1,9 +1,9 @@
+use super::{ffi_catch, safe_cstring};
+use crate::api;
+use base64::Engine;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
-use base64::Engine;
-use crate::api;
-use super::{safe_cstring, ffi_catch};
 
 // ============================================================================
 // M7: VST3 Plugin Hosting FFI
@@ -32,31 +32,31 @@ pub extern "C" fn scan_vst3_plugins_standard_ffi() -> *mut c_char {
 /// Add a VST3 effect to a track
 /// Returns the effect ID, or -1 on failure
 #[no_mangle]
-pub extern "C" fn add_vst3_effect_to_track_ffi(
-    track_id: u64,
-    plugin_path: *const c_char,
-) -> i64 {
-    ffi_catch(-1, AssertUnwindSafe(|| {
-        let plugin_path_str = unsafe {
-            match CStr::from_ptr(plugin_path).to_str() {
-                Ok(s) => s.to_string(),
-                Err(_) => return -1,
-            }
-        };
+pub extern "C" fn add_vst3_effect_to_track_ffi(track_id: u64, plugin_path: *const c_char) -> i64 {
+    ffi_catch(
+        -1,
+        AssertUnwindSafe(|| {
+            let plugin_path_str = unsafe {
+                match CStr::from_ptr(plugin_path).to_str() {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return -1,
+                }
+            };
 
-        println!("[FFI] Adding VST3 plugin to track {track_id}: {plugin_path_str}");
+            println!("[FFI] Adding VST3 plugin to track {track_id}: {plugin_path_str}");
 
-        match api::add_vst3_effect_to_track(track_id, &plugin_path_str) {
-            Ok(effect_id) => {
-                println!("[FFI] VST3 plugin added with effect ID: {effect_id}");
-                effect_id as i64
+            match api::add_vst3_effect_to_track(track_id, &plugin_path_str) {
+                Ok(effect_id) => {
+                    println!("[FFI] VST3 plugin added with effect ID: {effect_id}");
+                    effect_id as i64
+                }
+                Err(e) => {
+                    eprintln!("[FFI] Failed to add VST3 plugin: {e}");
+                    -1
+                }
             }
-            Err(e) => {
-                eprintln!("[FFI] Failed to add VST3 plugin: {e}");
-                -1
-            }
-        }
-    }))
+        }),
+    )
 }
 
 /// Get the number of parameters for a VST3 effect
@@ -76,27 +76,22 @@ pub extern "C" fn get_vst3_parameter_count_ffi(effect_id: i64) -> i32 {
 /// Get information about a VST3 parameter
 /// Returns a CSV string: "name,min,max,default"
 #[no_mangle]
-pub extern "C" fn get_vst3_parameter_info_ffi(
-    effect_id: i64,
-    param_index: i32,
-) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::get_vst3_parameter_info(effect_id as u64, param_index as u32) {
-            Ok(info) => safe_cstring(info).into_raw(),
-            Err(e) => {
-                eprintln!("[FFI] Failed to get VST3 parameter info: {e}");
-                safe_cstring(String::new()).into_raw()
-            }
+pub extern "C" fn get_vst3_parameter_info_ffi(effect_id: i64, param_index: i32) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || match api::get_vst3_parameter_info(
+        effect_id as u64,
+        param_index as u32,
+    ) {
+        Ok(info) => safe_cstring(info).into_raw(),
+        Err(e) => {
+            eprintln!("[FFI] Failed to get VST3 parameter info: {e}");
+            safe_cstring(String::new()).into_raw()
         }
     })
 }
 
 /// Get the current value of a VST3 parameter (0.0-1.0)
 #[no_mangle]
-pub extern "C" fn get_vst3_parameter_value_ffi(
-    effect_id: i64,
-    param_index: i32,
-) -> f64 {
+pub extern "C" fn get_vst3_parameter_value_ffi(effect_id: i64, param_index: i32) -> f64 {
     ffi_catch(0.0, || {
         match api::get_vst3_parameter_value(effect_id as u64, param_index as u32) {
             Ok(value) => value,
@@ -135,13 +130,11 @@ pub extern "C" fn set_vst3_parameter_value_ffi(
 /// Returns true if the plugin has an editor
 #[no_mangle]
 pub extern "C" fn vst3_has_editor_ffi(effect_id: i64) -> bool {
-    ffi_catch(false, || {
-        match api::vst3_has_editor(effect_id as u64) {
-            Ok(has_editor) => has_editor,
-            Err(e) => {
-                eprintln!("[FFI] Failed to check VST3 editor: {e}");
-                false
-            }
+    ffi_catch(false, || match api::vst3_has_editor(effect_id as u64) {
+        Ok(has_editor) => has_editor,
+        Err(e) => {
+            eprintln!("[FFI] Failed to check VST3 editor: {e}");
+            false
         }
     })
 }
@@ -206,30 +199,33 @@ pub extern "C" fn vst3_attach_editor_ffi(
     effect_id: i64,
     parent_ptr: *mut std::os::raw::c_void,
 ) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), AssertUnwindSafe(|| {
-        use std::io::Write;
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            use std::io::Write;
 
-        println!("[FFI] Attaching VST3 editor for effect {effect_id} to parent {parent_ptr:?}");
-        let _ = std::io::stdout().flush();
+            println!("[FFI] Attaching VST3 editor for effect {effect_id} to parent {parent_ptr:?}");
+            let _ = std::io::stdout().flush();
 
-        println!("[FFI] About to call api::vst3_attach_editor...");
-        let _ = std::io::stdout().flush();
+            println!("[FFI] About to call api::vst3_attach_editor...");
+            let _ = std::io::stdout().flush();
 
-        match api::vst3_attach_editor(effect_id as u64, parent_ptr) {
-            Ok(msg) => {
-                if msg.is_empty() {
-                    println!("[FFI] VST3 editor attached successfully");
-                    safe_cstring(String::new()).into_raw()
-                } else {
-                    safe_cstring(msg).into_raw()
+            match api::vst3_attach_editor(effect_id as u64, parent_ptr) {
+                Ok(msg) => {
+                    if msg.is_empty() {
+                        println!("[FFI] VST3 editor attached successfully");
+                        safe_cstring(String::new()).into_raw()
+                    } else {
+                        safe_cstring(msg).into_raw()
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[FFI] Failed to attach VST3 editor: {e}");
+                    safe_cstring(format!("Error: {e}")).into_raw()
                 }
             }
-            Err(e) => {
-                eprintln!("[FFI] Failed to attach VST3 editor: {e}");
-                safe_cstring(format!("Error: {e}")).into_raw()
-            }
-        }
-    }))
+        }),
+    )
 }
 
 // ============================================================================
@@ -240,15 +236,16 @@ pub extern "C" fn vst3_attach_editor_ffi(
 /// Returns base64-encoded state data, or "Error: ..." on failure
 #[no_mangle]
 pub extern "C" fn get_vst3_state_ffi(effect_id: i64) -> *mut c_char {
-    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
-        match api::get_vst3_state(effect_id as u64) {
+    ffi_catch(
+        safe_cstring("Error: panic".to_string()).into_raw(),
+        || match api::get_vst3_state(effect_id as u64) {
             Ok(data) => {
                 let encoded = base64::engine::general_purpose::STANDARD.encode(&data);
                 safe_cstring(encoded).into_raw()
             }
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Set a VST3 plugin's state from a base64-encoded string
@@ -276,30 +273,40 @@ pub extern "C" fn set_vst3_state_ffi(effect_id: i64, state_b64: *const c_char) -
 /// Returns JSON array or "Error: ..." on failure
 #[no_mangle]
 pub extern "C" fn get_vst3_presets_ffi(effect_id: i64) -> *mut c_char {
-    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
-        match api::get_vst3_presets(effect_id as u64) {
+    ffi_catch(
+        safe_cstring("Error: panic".to_string()).into_raw(),
+        || match api::get_vst3_presets(effect_id as u64) {
             Ok(json) => safe_cstring(json).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Set the active program (preset) for a VST3 plugin
 /// Returns empty string on success, "Error: ..." on failure
 #[no_mangle]
-pub extern "C" fn set_vst3_program_ffi(effect_id: i64, list_id: i32, program_index: i32) -> *mut c_char {
-    ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
-        match api::set_vst3_program(effect_id as u64, list_id, program_index) {
+pub extern "C" fn set_vst3_program_ffi(
+    effect_id: i64,
+    list_id: i32,
+    program_index: i32,
+) -> *mut c_char {
+    ffi_catch(
+        safe_cstring("Error: panic".to_string()).into_raw(),
+        || match api::set_vst3_program(effect_id as u64, list_id, program_index) {
             Ok(()) => safe_cstring(String::new()).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Set max editor size constraint for embedded scale-to-fit
 /// Pass 0,0 to unconstrain (floating window mode)
 #[no_mangle]
-pub extern "C" fn set_vst3_editor_max_size_ffi(effect_id: i64, max_w: i32, max_h: i32) -> *mut c_char {
+pub extern "C" fn set_vst3_editor_max_size_ffi(
+    effect_id: i64,
+    max_w: i32,
+    max_h: i32,
+) -> *mut c_char {
     ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
         match api::set_vst3_editor_max_size(effect_id as u64, max_w, max_h) {
             Ok(()) => safe_cstring(String::new()).into_raw(),

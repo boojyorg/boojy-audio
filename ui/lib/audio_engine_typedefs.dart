@@ -766,3 +766,52 @@ typedef _GetPunchOutSecondsFfi = double Function();
 
 typedef _IsPunchCompleteFfiNative = ffi.Int32 Function();
 typedef _IsPunchCompleteFfi = int Function();
+
+// Send/Return types
+typedef _FindReturnByEffectTypeFfiNative =
+    ffi.Int64 Function(ffi.Pointer<ffi.Char>);
+typedef _FindReturnByEffectTypeFfi = int Function(ffi.Pointer<ffi.Char>);
+
+typedef _CreateReturnWithEffectFfiNative =
+    ffi.Int64 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+typedef _CreateReturnWithEffectFfi =
+    int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>);
+
+typedef _AddSharedSendFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Pointer<ffi.Char>);
+typedef _AddSharedSendFfi =
+    ffi.Pointer<Utf8> Function(int, ffi.Pointer<ffi.Char>);
+
+typedef _AddSendFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Float);
+typedef _AddSendFfi = ffi.Pointer<Utf8> Function(int, int, double);
+
+typedef _SetSendAmountFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64, ffi.Float);
+typedef _SetSendAmountFfi = ffi.Pointer<Utf8> Function(int, int, double);
+
+typedef _RemoveSendFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64);
+typedef _RemoveSendFfi = ffi.Pointer<Utf8> Function(int, int);
+
+typedef _RemoveReturnFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _RemoveReturnFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetTrackSendsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetTrackSendsFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetAllReturnsFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAllReturnsFfi = ffi.Pointer<Utf8> Function();
+
+typedef _CountSendsToReturnFfiNative = ffi.Int64 Function(ffi.Uint64);
+typedef _CountSendsToReturnFfi = int Function(int);
+
+typedef _GetMasterTimelineVisibleFfiNative = ffi.Int32 Function();
+typedef _GetMasterTimelineVisibleFfi = int Function();
+
+typedef _SetMasterTimelineVisibleFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Int32);
+typedef _SetMasterTimelineVisibleFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _SyncMasterTimelineVisibilityFfiNative = ffi.Int32 Function();
+typedef _SyncMasterTimelineVisibilityFfi = int Function();

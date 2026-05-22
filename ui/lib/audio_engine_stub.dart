@@ -179,6 +179,7 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   int getTrackCount() => throw UnsupportedError('stub');
+  @override
   List<int> getAllTrackIds() => throw UnsupportedError('stub');
   String getTrackPeakLevels(int trackId) => throw UnsupportedError('stub');
   String getEffectPeakLevels(int effectId) => throw UnsupportedError('stub');
@@ -526,4 +527,54 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   bool isPunchComplete() => throw UnsupportedError('stub');
+
+  // ========================================================================
+  // Send/Return
+  // ========================================================================
+
+  @override
+  int findReturnByEffectType(String effectType) =>
+      throw UnsupportedError('stub');
+
+  @override
+  int createReturnWithEffect(String effectType, {String? name}) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String addSharedSend(int sourceTrackId, String effectType) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String addSend(int sourceTrackId, int returnTrackId, double amountDb) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String setSendAmount(int sourceTrackId, int returnTrackId, double amountDb) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String removeSend(int sourceTrackId, int returnTrackId) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String removeReturn(int returnTrackId) => throw UnsupportedError('stub');
+
+  @override
+  String getTrackSends(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  String getAllReturns() => throw UnsupportedError('stub');
+
+  @override
+  int countSendsToReturn(int returnTrackId) => throw UnsupportedError('stub');
+
+  @override
+  bool getMasterTimelineVisible() => throw UnsupportedError('stub');
+
+  @override
+  String setMasterTimelineVisible({required bool visible}) =>
+      throw UnsupportedError('stub');
+
+  @override
+  bool syncMasterTimelineVisibility() => throw UnsupportedError('stub');
 }

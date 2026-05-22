@@ -13,12 +13,18 @@ part 'audio_engine_base.dart';
 part 'audio_engine_transport.dart';
 part 'audio_engine_recording.dart';
 part 'audio_engine_tracks.dart';
+part 'audio_engine_sends.dart';
 part 'audio_engine_plugins.dart';
 part 'audio_engine_typedefs.dart';
 
 /// FFI bindings for the Rust audio engine
 class AudioEngine extends _AudioEngineBase
-    with _TransportMixin, _RecordingMixin, _TracksMixin, _PluginsMixin
+    with
+        _TransportMixin,
+        _RecordingMixin,
+        _TracksMixin,
+        _SendsMixin,
+        _PluginsMixin
     implements AudioEngineInterface {
   AudioEngine() : super();
 

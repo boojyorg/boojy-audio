@@ -30,8 +30,14 @@ mixin TimelineTrackListMixin
       );
     }
 
-    // Separate regular tracks from master (Master is rendered outside scroll area)
-    final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+    // Separate regular tracks from master (returns are mixer-only)
+    final regularTracks = tracks
+        .where(
+          (t) =>
+              t.type.toLowerCase() != 'master' &&
+              t.type.toLowerCase() != 'return',
+        )
+        .toList();
 
     // Count audio and MIDI tracks for numbering
     int audioCount = 0;

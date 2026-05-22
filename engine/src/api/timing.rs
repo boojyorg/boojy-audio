@@ -52,7 +52,10 @@ pub fn set_metronome_enabled(enabled: bool) -> Result<String, String> {
     let graph = graph_mutex.lock();
 
     graph.recorder.set_metronome_enabled(enabled);
-    Ok(format!("Metronome {}", if enabled { "enabled" } else { "disabled" }))
+    Ok(format!(
+        "Metronome {}",
+        if enabled { "enabled" } else { "disabled" }
+    ))
 }
 
 /// Check if metronome is enabled

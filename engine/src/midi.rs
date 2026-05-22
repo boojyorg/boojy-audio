@@ -10,9 +10,18 @@ pub type MidiVelocity = u8;
 /// MIDI event types
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MidiEventType {
-    NoteOn { note: MidiNote, velocity: MidiVelocity },
-    NoteOff { note: MidiNote, velocity: MidiVelocity },
-    ControlChange { controller: u8, value: u8 },
+    NoteOn {
+        note: MidiNote,
+        velocity: MidiVelocity,
+    },
+    NoteOff {
+        note: MidiNote,
+        velocity: MidiVelocity,
+    },
+    ControlChange {
+        controller: u8,
+        value: u8,
+    },
 }
 
 /// MIDI event with sample-accurate timestamp
@@ -34,18 +43,12 @@ impl MidiEvent {
 
     /// Create a note-on event
     pub fn note_on(note: MidiNote, velocity: MidiVelocity, timestamp_samples: u64) -> Self {
-        Self::new(
-            MidiEventType::NoteOn { note, velocity },
-            timestamp_samples,
-        )
+        Self::new(MidiEventType::NoteOn { note, velocity }, timestamp_samples)
     }
 
     /// Create a note-off event
     pub fn note_off(note: MidiNote, velocity: MidiVelocity, timestamp_samples: u64) -> Self {
-        Self::new(
-            MidiEventType::NoteOff { note, velocity },
-            timestamp_samples,
-        )
+        Self::new(MidiEventType::NoteOff { note, velocity }, timestamp_samples)
     }
 
     /// Create a control change event
@@ -59,8 +62,7 @@ impl MidiEvent {
 
 impl PartialEq for MidiEvent {
     fn eq(&self, other: &Self) -> bool {
-        self.timestamp_samples == other.timestamp_samples
-            && self.event_type == other.event_type
+        self.timestamp_samples == other.timestamp_samples && self.event_type == other.event_type
     }
 }
 
@@ -81,7 +83,9 @@ impl Ord for MidiEvent {
                 // This prevents drone sounds when loops repeat (the old note ends before new one starts)
                 match (&self.event_type, &other.event_type) {
                     (MidiEventType::NoteOff { .. }, MidiEventType::NoteOn { .. }) => Ordering::Less,
-                    (MidiEventType::NoteOn { .. }, MidiEventType::NoteOff { .. }) => Ordering::Greater,
+                    (MidiEventType::NoteOn { .. }, MidiEventType::NoteOff { .. }) => {
+                        Ordering::Greater
+                    }
                     _ => Ordering::Equal,
                 }
             }
@@ -133,9 +137,7 @@ impl MidiClip {
         events.sort();
 
         // Calculate duration snapped to bar boundary
-        let last_event_samples = events
-            .last()
-            .map_or(0, |e| e.timestamp_samples);
+        let last_event_samples = events.last().map_or(0, |e| e.timestamp_samples);
         let duration_samples = Self::snap_to_bar(last_event_samples, sample_rate);
 
         Self {
@@ -236,13 +238,19 @@ impl Note {
         match (note_on_event.event_type, note_off_event.event_type) {
             (
                 MidiEventType::NoteOn { note, velocity },
-                MidiEventType::NoteOff { note: note_off_pitch, .. },
-            ) if note == note_off_pitch && note_off_event.timestamp_samples >= note_on_event.timestamp_samples => {
+                MidiEventType::NoteOff {
+                    note: note_off_pitch,
+                    ..
+                },
+            ) if note == note_off_pitch
+                && note_off_event.timestamp_samples >= note_on_event.timestamp_samples =>
+            {
                 Some(Self {
                     pitch: note,
                     velocity,
                     start_samples: note_on_event.timestamp_samples,
-                    duration_samples: note_off_event.timestamp_samples - note_on_event.timestamp_samples,
+                    duration_samples: note_off_event.timestamp_samples
+                        - note_on_event.timestamp_samples,
                 })
             }
             _ => None,

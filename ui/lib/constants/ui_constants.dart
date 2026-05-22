@@ -113,6 +113,9 @@ class UIConstants {
   /// Font size for the dB value readout (pixels).
   static const double dbFontSize = 10.0;
 
+  /// Height of each send row under a mixer strip (pixels).
+  static const double sendRowHeight = 22.0;
+
   // ============================================
   // MIDI CONSTANTS
   // ============================================

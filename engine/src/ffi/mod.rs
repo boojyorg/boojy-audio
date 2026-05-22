@@ -1,22 +1,23 @@
+use crate::api;
 /// Simple C-compatible FFI layer for M0
 /// This will be replaced with `flutter_rust_bridge` in M1
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
-use crate::api;
 
-mod transport;
-mod latency;
 mod clips;
-mod recording;
-mod midi;
-mod tracks;
-mod effects;
-mod project;
-mod export;
-mod synth;
-mod preview;
 mod devices;
+mod effects;
+mod export;
+mod latency;
+mod midi;
+mod preview;
+mod project;
+mod recording;
+mod sends;
+mod synth;
+mod tracks;
+mod transport;
 
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 mod vst3;
@@ -31,7 +32,9 @@ pub(crate) fn safe_cstring(s: String) -> CString {
 /// Catch panics at the FFI boundary to prevent undefined behavior.
 /// Returns the closure result on success, or `default` if a panic occurred.
 pub(crate) fn ffi_catch<T>(default: T, f: impl FnOnce() -> T + std::panic::UnwindSafe) -> T {
-    if let Ok(val) = std::panic::catch_unwind(f) { val } else {
+    if let Ok(val) = std::panic::catch_unwind(f) {
+        val
+    } else {
         eprintln!("[FFI] Caught panic at FFI boundary");
         default
     }
@@ -81,7 +84,10 @@ impl FfiErrorCode {
 /// Return a structured JSON success: `{"ok": "<data>"}`
 #[allow(dead_code)] // Incrementally adopted
 pub(crate) fn ffi_ok(data: &str) -> *mut c_char {
-    let json = format!(r#"{{"ok":{}}}"#, serde_json::Value::String(data.to_string()));
+    let json = format!(
+        r#"{{"ok":{}}}"#,
+        serde_json::Value::String(data.to_string())
+    );
     safe_cstring(json).into_raw()
 }
 
@@ -127,7 +133,10 @@ pub extern "C" fn init_audio_engine_ffi() -> *mut c_char {
     static PANIC_HOOK: Once = Once::new();
     PANIC_HOOK.call_once(|| {
         std::panic::set_hook(Box::new(|info| {
-            let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())).unwrap_or_default();
+            let location = info
+                .location()
+                .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                .unwrap_or_default();
             let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
                 s.to_string()
             } else if let Some(s) = info.payload().downcast_ref::<String>() {
@@ -137,37 +146,39 @@ pub extern "C" fn init_audio_engine_ffi() -> *mut c_char {
             };
             eprintln!("💥 [RUST PANIC] {payload}");
             eprintln!("💥 [RUST PANIC] at {location}");
-            eprintln!("💥 [RUST PANIC] backtrace:\n{}", std::backtrace::Backtrace::force_capture());
+            eprintln!(
+                "💥 [RUST PANIC] backtrace:\n{}",
+                std::backtrace::Backtrace::force_capture()
+            );
         }));
     });
 
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::init_audio_engine() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::init_audio_engine() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
 /// Free a string allocated by Rust
 #[no_mangle]
 pub extern "C" fn free_rust_string(ptr: *mut c_char) {
-    ffi_catch((), AssertUnwindSafe(|| {
-        if !ptr.is_null() {
-            unsafe {
-                let _ = CString::from_raw(ptr);
+    ffi_catch(
+        (),
+        AssertUnwindSafe(|| {
+            if !ptr.is_null() {
+                unsafe {
+                    let _ = CString::from_raw(ptr);
+                }
             }
-        }
-    }));
+        }),
+    );
 }
 
 /// Initialize the audio graph
 #[no_mangle]
 pub extern "C" fn init_audio_graph_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::init_audio_graph() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::init_audio_graph() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }

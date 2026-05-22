@@ -10,22 +10,22 @@
 //! - Metadata embedding (ID3 tags)
 //! - Progress tracking (polling-based)
 
-mod options;
-mod wav;
-mod mp3;
 mod dither;
-mod resample;
-mod normalize;
-mod stems;
 mod metadata;
+mod mp3;
+mod normalize;
+mod options;
 mod progress;
+mod resample;
+mod stems;
+mod wav;
 
-pub use options::*;
-pub use wav::*;
-pub use mp3::*;
 pub use dither::*;
-pub use resample::*;
-pub use normalize::*;
-pub use stems::*;
 pub use metadata::*;
+pub use mp3::*;
+pub use normalize::*;
+pub use options::*;
 pub use progress::*;
+pub use resample::*;
+pub use stems::*;
+pub use wav::*;

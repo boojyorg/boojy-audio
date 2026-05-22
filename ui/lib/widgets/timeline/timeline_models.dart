@@ -98,6 +98,7 @@ class TrackHeightState {
   final double masterTrackHeight;
   final Function(int trackId, double height)? onClipHeightChanged;
   final Function(int trackId, double height)? onAutomationHeightChanged;
+  final Function(int trackId, int sendCount)? onSendCountChanged;
 
   const TrackHeightState({
     this.clipHeights = const {},
@@ -105,5 +106,6 @@ class TrackHeightState {
     this.masterTrackHeight = UIConstants.defaultMasterTrackHeight,
     this.onClipHeightChanged,
     this.onAutomationHeightChanged,
+    this.onSendCountChanged,
   });
 }

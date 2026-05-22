@@ -36,7 +36,7 @@ impl DitherRng {
         // Sum of two uniform distributions creates triangular distribution
         let r1 = self.next_f32();
         let r2 = self.next_f32();
-        r1 - r2  // Range: -1.0 to 1.0, peak at 0
+        r1 - r2 // Range: -1.0 to 1.0, peak at 0
     }
 }
 
@@ -124,7 +124,9 @@ pub fn convert_to_24bit(samples: &[f32], apply_dither: bool) -> Vec<i32> {
                 dither_to_24bit(sample, rng.next_tpdf())
             } else {
                 // Simple quantization without dither
-                (sample * 8_388_607.0).round().clamp(-8_388_608.0, 8_388_607.0) as i32
+                (sample * 8_388_607.0)
+                    .round()
+                    .clamp(-8_388_608.0, 8_388_607.0) as i32
             }
         })
         .collect()

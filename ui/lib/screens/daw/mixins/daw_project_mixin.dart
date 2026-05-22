@@ -217,6 +217,7 @@ mixin DAWProjectMixin
       );
       statusMessage = 'Project loaded: ${projectManager!.currentName}';
       isLoading = false;
+      masterTimelineVisible = audioEngine?.getMasterTimelineVisible() ?? false;
     });
 
     if (!mounted) return;

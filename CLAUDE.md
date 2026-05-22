@@ -72,6 +72,7 @@ When adding a new function that bridges Rust and Dart:
 - **Engine interface** uses mixins: `AudioEngine extends _AudioEngineBase with _TransportMixin, _RecordingMixin, ...`
 - **Platform-specific code** uses conditional imports (native/web/stub pattern)
 - **Recording flow**: engine `stop_recording()` returns `RecordingResult`, handled by `daw_recording_mixin.dart`
+- **Track locks are non-reentrant**: engine uses `parking_lot::Mutex` which does **not** support recursive locking. `TrackManager::get_track`, `get_master_track`, and `remove_track` all walk the track list and call `.lock()` on each track to compare ids — so calling any of them while holding another `Track` lock **deadlocks the API thread silently** (no panic, no log, the UI just freezes). Snapshot what you need (`id`, `fx_chain`, `sends.iter().map(...)`) into local variables and drop the `MutexGuard` before calling back into `TrackManager`. See `find_return_by_effect_type` and `get_track_sends` in `engine/src/api/sends.rs` for the snapshot pattern.
 
 ## UI Change Guidelines
 
@@ -81,6 +82,22 @@ When modifying UI widgets:
 - **Test at different window sizes**: The DAW layout is responsive — verify changes at small and large sizes
 - **Painters are sensitive**: Changes to `CustomPainter` classes affect rendering across the timeline
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** for logging (from `utils/logger.dart`), not `print()`
+
+## Milestone Workflow
+
+Plan **one milestone at a time** — only one active [docs/plans/vX.Y-plan.md](docs/plans/). After each release: **dogfood** on a real project, then pick the next theme from friction (ROADMAP + FEATURE_TRACKER are backlog, not a pre-scheduled ladder).
+
+### Design decisions (UI/UX)
+
+Before locking implementation:
+
+1. **Brainstorm with Tyr** — tradeoffs first (UX, then implementation). Ask; don’t dictate.
+2. **ASCII mockups — 3–4 variants** when layout is ambiguous; Tyr picks before code.
+3. **Defer on taste, push back on architecture** — one clear preference, then collaborate.
+
+### v0.3.0 active plan
+
+[docs/plans/v0.3.0-plan.md](docs/plans/v0.3.0-plan.md) — send/return via ⚡ FX picker, hidden master row.
 
 ## Changelog Workflow
 

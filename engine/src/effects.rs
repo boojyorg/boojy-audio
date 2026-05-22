@@ -56,20 +56,30 @@ pub enum BiquadType {
 #[derive(Clone)]
 struct BiquadFilter {
     // Coefficients
-    b0: f32, b1: f32, b2: f32,
-    a1: f32, a2: f32,
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
     // State (Direct Form I)
-    x1: f32, x2: f32, // Input history
-    y1: f32, y2: f32, // Output history
+    x1: f32,
+    x2: f32, // Input history
+    y1: f32,
+    y2: f32, // Output history
 }
 
 impl BiquadFilter {
     fn new() -> Self {
         Self {
-            b0: 1.0, b1: 0.0, b2: 0.0,
-            a1: 0.0, a2: 0.0,
-            x1: 0.0, x2: 0.0,
-            y1: 0.0, y2: 0.0,
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1: 0.0,
+            a2: 0.0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -138,7 +148,8 @@ impl BiquadFilter {
     fn process(&mut self, input: f32) -> f32 {
         // Direct Form I
         let output = self.b0 * input + self.b1 * self.x1 + self.b2 * self.x2
-                   - self.a1 * self.y1 - self.a2 * self.y2;
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
 
         // Shift history
         self.x2 = self.x1;
@@ -187,7 +198,7 @@ pub struct ParametricEQ {
     pub mid2_q: f32,
     pub high_freq: f32,
     pub high_gain_db: f32,
-    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
+    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
 }
 
 impl Default for ParametricEQ {
@@ -225,16 +236,48 @@ impl ParametricEQ {
 
     /// Update filter coefficients when parameters change
     pub fn update_coefficients(&mut self) {
-        self.low_shelf.design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
-        self.mid1.design(BiquadType::Parametric, self.mid1_freq, self.mid1_gain_db, self.mid1_q);
-        self.mid2.design(BiquadType::Parametric, self.mid2_freq, self.mid2_gain_db, self.mid2_q);
-        self.high_shelf.design(BiquadType::HighShelf, self.high_freq, self.high_gain_db, 0.707);
+        self.low_shelf
+            .design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
+        self.mid1.design(
+            BiquadType::Parametric,
+            self.mid1_freq,
+            self.mid1_gain_db,
+            self.mid1_q,
+        );
+        self.mid2.design(
+            BiquadType::Parametric,
+            self.mid2_freq,
+            self.mid2_gain_db,
+            self.mid2_q,
+        );
+        self.high_shelf.design(
+            BiquadType::HighShelf,
+            self.high_freq,
+            self.high_gain_db,
+            0.707,
+        );
 
         // Copy to right channel
-        self.low_shelf_r.design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
-        self.mid1_r.design(BiquadType::Parametric, self.mid1_freq, self.mid1_gain_db, self.mid1_q);
-        self.mid2_r.design(BiquadType::Parametric, self.mid2_freq, self.mid2_gain_db, self.mid2_q);
-        self.high_shelf_r.design(BiquadType::HighShelf, self.high_freq, self.high_gain_db, 0.707);
+        self.low_shelf_r
+            .design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
+        self.mid1_r.design(
+            BiquadType::Parametric,
+            self.mid1_freq,
+            self.mid1_gain_db,
+            self.mid1_q,
+        );
+        self.mid2_r.design(
+            BiquadType::Parametric,
+            self.mid2_freq,
+            self.mid2_gain_db,
+            self.mid2_q,
+        );
+        self.high_shelf_r.design(
+            BiquadType::HighShelf,
+            self.high_freq,
+            self.high_gain_db,
+            0.707,
+        );
     }
 }
 
@@ -287,14 +330,14 @@ impl Effect for ParametricEQ {
 pub struct Compressor {
     // Parameters
     pub threshold_db: f32,
-    pub ratio: f32,          // 1.0 = no compression, 10.0 = heavy compression
+    pub ratio: f32, // 1.0 = no compression, 10.0 = heavy compression
     pub attack_ms: f32,
     pub release_ms: f32,
     pub makeup_gain_db: f32,
-    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
+    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
 
     // State
-    envelope: f32,           // Current gain reduction envelope
+    envelope: f32, // Current gain reduction envelope
     attack_coeff: f32,
     release_coeff: f32,
 }
@@ -314,7 +357,7 @@ impl Compressor {
             release_ms: 100.0,
             makeup_gain_db: 0.0,
             wet_dry_mix: 1.0,
-            envelope: 1.0,       // Start at no gain reduction
+            envelope: 1.0, // Start at no gain reduction
             attack_coeff: 0.0,
             release_coeff: 0.0,
         };
@@ -358,10 +401,12 @@ impl Effect for Compressor {
         // Smooth gain reduction with attack/release
         if target_gain < self.envelope {
             // Attack (gain reduction increasing)
-            self.envelope = self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_gain;
+            self.envelope =
+                self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * target_gain;
         } else {
             // Release (gain reduction decreasing)
-            self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_gain;
+            self.envelope =
+                self.release_coeff * self.envelope + (1.0 - self.release_coeff) * target_gain;
         }
 
         // Apply gain reduction + makeup gain
@@ -397,8 +442,8 @@ impl Effect for Compressor {
 pub struct Delay {
     // Parameters
     pub delay_time_ms: f32,
-    pub feedback: f32,       // 0.0 to 0.99
-    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
+    pub feedback: f32,    // 0.0 to 0.99
+    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
 
     // Buffers
     buffer_left: Vec<f32>,
@@ -477,9 +522,9 @@ impl Effect for Delay {
 #[derive(Clone)]
 pub struct Reverb {
     // Parameters
-    pub room_size: f32,      // 0.0 to 1.0
-    pub damping: f32,        // 0.0 to 1.0
-    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
+    pub room_size: f32,   // 0.0 to 1.0
+    pub damping: f32,     // 0.0 to 1.0
+    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
 
     // Comb filters (8 per channel for stereo)
     comb_buffers_l: Vec<Vec<f32>>,
@@ -567,11 +612,7 @@ impl Reverb {
         output
     }
 
-    fn process_allpass(
-        input: f32,
-        buffer: &mut [f32],
-        pos: &mut usize,
-    ) -> f32 {
+    fn process_allpass(input: f32, buffer: &mut [f32], pos: &mut usize) -> f32 {
         let delayed = buffer[*pos];
         buffer[*pos] = input + delayed * 0.5;
         *pos = (*pos + 1) % buffer.len();
@@ -665,7 +706,7 @@ impl Effect for Reverb {
 pub struct Limiter {
     pub threshold_db: f32,
     pub release_ms: f32,
-    pub wet_dry_mix: f32,    // 0.0 = dry, 1.0 = wet
+    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
 
     envelope_left: f32,
     envelope_right: f32,
@@ -762,8 +803,8 @@ impl Effect for Limiter {
 /// Chorus effect (modulated delay)
 #[derive(Clone)]
 pub struct Chorus {
-    pub rate_hz: f32,        // LFO rate
-    pub depth: f32,          // Modulation depth (0.0 to 1.0)
+    pub rate_hz: f32, // LFO rate
+    pub depth: f32,   // Modulation depth (0.0 to 1.0)
     pub wet_dry_mix: f32,
 
     // Delay buffers
@@ -812,8 +853,8 @@ impl Effect for Chorus {
         let base_delay_ms = 15.0;
         let delay_variation_ms = 10.0 * self.depth;
         let delay_ms = base_delay_ms + lfo * delay_variation_ms;
-        let delay_samples = ((delay_ms * 0.001 * TARGET_SAMPLE_RATE as f32) as usize)
-            .min(buffer_size - 1);
+        let delay_samples =
+            ((delay_ms * 0.001 * TARGET_SAMPLE_RATE as f32) as usize).min(buffer_size - 1);
 
         // Read from buffer
         let read_pos = (self.write_pos + buffer_size - delay_samples) % buffer_size;
@@ -858,7 +899,7 @@ pub enum EffectType {
     Limiter(Limiter),
     Chorus(Chorus),
     #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-    VST3(crate::vst3_host::VST3Effect),  // M7: VST3 plugin support (desktop only)
+    VST3(crate::vst3_host::VST3Effect), // M7: VST3 plugin support (desktop only)
 }
 
 impl EffectType {
@@ -906,9 +947,9 @@ impl EffectType {
 // EFFECT MANAGER
 // ========================================================================
 
-use std::sync::Arc;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Effect manager: holds all effect instances
 pub struct EffectManager {
@@ -941,7 +982,11 @@ impl EffectManager {
         let id = self.next_id;
         self.next_id += 1;
 
-        eprintln!("🎛️ [EffectManager] Created {} effect (ID: {})", effect.name(), id);
+        eprintln!(
+            "🎛️ [EffectManager] Created {} effect (ID: {})",
+            effect.name(),
+            id
+        );
 
         self.effects.insert(id, Arc::new(Mutex::new(effect)));
         self.bypass_states.insert(id, false); // Effects start not bypassed
@@ -1000,8 +1045,16 @@ impl EffectManager {
         let (left, right) = self.peak_levels.get(&id).copied().unwrap_or((0.0, 0.0));
         // Reset after reading so next poll gets fresh max
         self.peak_levels.insert(id, (0.0, 0.0));
-        let left_db = if left > 0.0 { 20.0 * left.log10() } else { -96.0 };
-        let right_db = if right > 0.0 { 20.0 * right.log10() } else { -96.0 };
+        let left_db = if left > 0.0 {
+            20.0 * left.log10()
+        } else {
+            -96.0
+        };
+        let right_db = if right > 0.0 {
+            20.0 * right.log10()
+        } else {
+            -96.0
+        };
         (left_db, right_db)
     }
 
@@ -1024,9 +1077,14 @@ impl EffectManager {
             let new_id = self.next_id;
             self.next_id += 1;
 
-            self.effects.insert(new_id, Arc::new(Mutex::new(cloned_effect)));
-            eprintln!("🎛️ [EffectManager] Duplicated effect {} → {} ({})",
-                      source_effect_id, new_id, self.effects.get(&new_id).unwrap().lock().name());
+            self.effects
+                .insert(new_id, Arc::new(Mutex::new(cloned_effect)));
+            eprintln!(
+                "🎛️ [EffectManager] Duplicated effect {} → {} ({})",
+                source_effect_id,
+                new_id,
+                self.effects.get(&new_id).unwrap().lock().name()
+            );
 
             Some(new_id)
         } else {

@@ -15,9 +15,9 @@
 //!
 //! This module exists as a foundation for future web support.
 
-use wasm_bindgen::prelude::*;
-use crate::web_audio::{console_log, console_error};
+use crate::web_audio::{console_error, console_log};
 use std::cell::RefCell;
+use wasm_bindgen::prelude::*;
 
 // Thread-local storage for web audio backend (WASM is single-threaded)
 thread_local! {
@@ -58,7 +58,10 @@ pub fn init_audio_graph() -> Result<String, JsValue> {
         *gain.borrow_mut() = Some(gain_node);
     });
 
-    let msg = format!("Audio engine initialized (Web Audio API, {}Hz)", sample_rate);
+    let msg = format!(
+        "Audio engine initialized (Web Audio API, {}Hz)",
+        sample_rate
+    );
     console_log(&msg);
     Ok(msg)
 }
@@ -131,9 +134,7 @@ pub fn get_playhead_position() -> f64 {
 /// Get transport state (0=Stopped, 1=Playing, 2=Paused)
 #[wasm_bindgen]
 pub fn get_transport_state() -> i32 {
-    IS_PLAYING.with(|p| {
-        if *p.borrow() { 1 } else { 0 }
-    })
+    IS_PLAYING.with(|p| if *p.borrow() { 1 } else { 0 })
 }
 
 // ============================================================================
@@ -144,7 +145,11 @@ pub fn get_transport_state() -> i32 {
 /// Returns clip ID or -1 on error
 #[wasm_bindgen]
 pub fn load_audio_data(data: &[u8], name: &str) -> i64 {
-    console_log(&format!("Loading audio data: {} ({} bytes)", name, data.len()));
+    console_log(&format!(
+        "Loading audio data: {} ({} bytes)",
+        name,
+        data.len()
+    ));
 
     // TODO: Decode audio using symphonia and add to AudioGraph
     // For now, return a placeholder ID
@@ -158,7 +163,10 @@ pub fn load_audio_data(data: &[u8], name: &str) -> i64 {
 pub fn load_audio_data_to_track(data: &[u8], name: &str, track_id: u64, start_time: f64) -> i64 {
     console_log(&format!(
         "Loading audio to track {}: {} ({} bytes) at {}s",
-        track_id, name, data.len(), start_time
+        track_id,
+        name,
+        data.len(),
+        start_time
     ));
 
     // TODO: Decode and add to specific track
@@ -225,7 +233,10 @@ pub fn set_track_solo(track_id: u64, solo: bool) -> Result<(), JsValue> {
 /// Send MIDI note on event
 #[wasm_bindgen]
 pub fn send_midi_note_on(track_id: u64, note: u32, velocity: u32) {
-    console_log(&format!("MIDI note on: track={}, note={}, vel={}", track_id, note, velocity));
+    console_log(&format!(
+        "MIDI note on: track={}, note={}, vel={}",
+        track_id, note, velocity
+    ));
     // TODO: Route to synth
 }
 

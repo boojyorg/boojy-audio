@@ -91,9 +91,9 @@ impl PlatformTarget {
     pub fn target_lufs(&self) -> Option<f64> {
         match self {
             PlatformTarget::None => None,
-            PlatformTarget::Spotify
-            | PlatformTarget::YouTube
-            | PlatformTarget::SoundCloud => Some(-14.0),
+            PlatformTarget::Spotify | PlatformTarget::YouTube | PlatformTarget::SoundCloud => {
+                Some(-14.0)
+            }
             PlatformTarget::AppleMusic => Some(-16.0),
             PlatformTarget::Custom(lufs) => Some(*lufs),
         }
@@ -307,7 +307,13 @@ pub struct ExportResult {
 
 impl ExportResult {
     /// Create a new export result
-    pub fn new(path: String, file_size: u64, duration: f64, sample_rate: u32, format_description: String) -> Self {
+    pub fn new(
+        path: String,
+        file_size: u64,
+        duration: f64,
+        sample_rate: u32,
+        format_description: String,
+    ) -> Self {
         Self {
             path,
             file_size,

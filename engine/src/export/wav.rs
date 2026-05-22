@@ -3,9 +3,9 @@
 //! Supports 16-bit, 24-bit, and 32-bit float WAV formats.
 
 use super::dither::{convert_to_16bit, convert_to_24bit};
-use super::options::{ExportOptions, ExportResult, WavBitDepth};
 use super::normalize::normalize_peak;
-use super::resample::{resample_stereo, stereo_to_mono, mono_to_stereo};
+use super::options::{ExportOptions, ExportResult, WavBitDepth};
+use super::resample::{mono_to_stereo, resample_stereo, stereo_to_mono};
 use std::path::Path;
 
 /// Internal sample rate used by the audio engine
@@ -26,13 +26,16 @@ pub fn export_wav(
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
     eprintln!(
-        "🎵 [WAV Export] Starting export to {}", output_path.display()
+        "🎵 [WAV Export] Starting export to {}",
+        output_path.display()
     );
 
     // Get bit depth from options
     let bit_depth = match &options.format {
         super::options::ExportFormat::Wav { bit_depth } => *bit_depth,
-        super::options::ExportFormat::Mp3 { .. } => return Err("export_wav called with non-WAV format".to_string()),
+        super::options::ExportFormat::Mp3 { .. } => {
+            return Err("export_wav called with non-WAV format".to_string())
+        }
     };
 
     // Make a mutable copy of samples for processing
@@ -81,9 +84,7 @@ pub fn export_wav(
     };
 
     // Get file size
-    let file_size = std::fs::metadata(output_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
     eprintln!(
         "✅ [WAV Export] Complete: {:.2}s, {:.2} MB, {}",
@@ -168,11 +169,7 @@ fn write_wav_24bit(
 }
 
 /// Write 32-bit float WAV file
-fn write_wav_float32(
-    samples: &[f32],
-    output_path: &Path,
-    sample_rate: u32,
-) -> Result<(), String> {
+fn write_wav_float32(samples: &[f32], output_path: &Path, sample_rate: u32) -> Result<(), String> {
     let spec = hound::WavSpec {
         channels: 2,
         sample_rate,
@@ -253,8 +250,7 @@ mod tests {
         let samples = create_test_samples();
         let temp_path = env::temp_dir().join("test_export_float32.wav");
 
-        let options = ExportOptions::wav(WavBitDepth::Float32)
-            .with_normalize(true);
+        let options = ExportOptions::wav(WavBitDepth::Float32).with_normalize(true);
 
         let result = export_wav(&samples, &temp_path, &options);
         assert!(result.is_ok());

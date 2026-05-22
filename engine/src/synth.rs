@@ -1,11 +1,11 @@
+use crate::audio_file::AudioClip;
+use crate::project::SynthData;
+use crate::sampler::{Sampler, SamplerData};
 /// Minimal per-track synthesizer
 /// Clean rewrite: 1 oscillator, ADSR envelope, simple filter, 8-voice polyphony
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::sync::Arc;
-use crate::audio_file::AudioClip;
-use crate::project::SynthData;
-use crate::sampler::{Sampler, SamplerData};
 
 const MAX_VOICES: usize = 8;
 
@@ -37,7 +37,13 @@ fn generate_waveform(osc_type: OscillatorType, phase: f32) -> f32 {
     match osc_type {
         OscillatorType::Sine => (phase * 2.0 * PI).sin(),
         OscillatorType::Saw => 2.0 * phase - 1.0,
-        OscillatorType::Square => if phase < 0.5 { 1.0 } else { -1.0 },
+        OscillatorType::Square => {
+            if phase < 0.5 {
+                1.0
+            } else {
+                -1.0
+            }
+        }
         OscillatorType::Triangle => 4.0 * (phase - 0.5).abs() - 1.0,
     }
 }
@@ -66,10 +72,10 @@ pub struct EnvelopeParams {
 impl Default for EnvelopeParams {
     fn default() -> Self {
         Self {
-            attack: 0.01,  // 10ms
-            decay: 0.1,    // 100ms
-            sustain: 0.7,  // 70%
-            release: 0.3,  // 300ms
+            attack: 0.01, // 10ms
+            decay: 0.1,   // 100ms
+            sustain: 0.7, // 70%
+            release: 0.3, // 300ms
         }
     }
 }
@@ -137,7 +143,12 @@ impl Voice {
         }
     }
 
-    fn process(&mut self, osc_type: OscillatorType, env_params: &EnvelopeParams, sample_rate: f32) -> f32 {
+    fn process(
+        &mut self,
+        osc_type: OscillatorType,
+        env_params: &EnvelopeParams,
+        sample_rate: f32,
+    ) -> f32 {
         if !self.is_active {
             return 0.0;
         }
@@ -509,7 +520,8 @@ impl TrackSynthManager {
     /// Create a synthesizer for a track
     pub fn create_synth(&mut self, track_id: u64) -> u64 {
         let synth = Synth::new(self.sample_rate);
-        self.instruments.insert(track_id, TrackInstrument::Synth(synth));
+        self.instruments
+            .insert(track_id, TrackInstrument::Synth(synth));
         println!("✅ Created synth for track {track_id}");
         track_id
     }
@@ -517,7 +529,8 @@ impl TrackSynthManager {
     /// Create a sampler for a track
     pub fn create_sampler(&mut self, track_id: u64) -> u64 {
         let sampler = Sampler::new(self.sample_rate);
-        self.instruments.insert(track_id, TrackInstrument::Sampler(sampler));
+        self.instruments
+            .insert(track_id, TrackInstrument::Sampler(sampler));
         println!("✅ Created sampler for track {track_id}");
         track_id
     }
@@ -537,7 +550,11 @@ impl TrackSynthManager {
         if let Some(inst) = self.instruments.get_mut(&track_id) {
             inst.set_parameter(key, value);
         } else {
-            println!("⚠️ No instrument for track {} (available: {:?})", track_id, self.instruments.keys().collect::<Vec<_>>());
+            println!(
+                "⚠️ No instrument for track {} (available: {:?})",
+                track_id,
+                self.instruments.keys().collect::<Vec<_>>()
+            );
         }
     }
 
@@ -545,7 +562,11 @@ impl TrackSynthManager {
         if let Some(inst) = self.instruments.get_mut(&track_id) {
             inst.note_on(note, velocity);
         } else {
-            eprintln!("⚠️ note_on: No instrument for track {}. Available tracks: {:?}", track_id, self.instruments.keys().collect::<Vec<_>>());
+            eprintln!(
+                "⚠️ note_on: No instrument for track {}. Available tracks: {:?}",
+                track_id,
+                self.instruments.keys().collect::<Vec<_>>()
+            );
         }
     }
 
@@ -595,12 +616,16 @@ impl TrackSynthManager {
 
     /// Check if track has a sampler specifically
     pub fn has_sampler(&self, track_id: u64) -> bool {
-        self.instruments.get(&track_id).is_some_and(TrackInstrument::is_sampler)
+        self.instruments
+            .get(&track_id)
+            .is_some_and(TrackInstrument::is_sampler)
     }
 
     /// Check if track has a synthesizer specifically
     pub fn is_synth(&self, track_id: u64) -> bool {
-        self.instruments.get(&track_id).is_some_and(TrackInstrument::is_synth)
+        self.instruments
+            .get(&track_id)
+            .is_some_and(TrackInstrument::is_synth)
     }
 
     pub fn all_notes_off(&mut self, track_id: u64) {
@@ -623,10 +648,14 @@ impl TrackSynthManager {
     /// Process all instruments and return combined output (for stopped state with virtual piano)
     pub fn process_all_synths(&mut self) -> f32 {
         // Debug: log count once
-        static LOGGED_COUNT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        static LOGGED_COUNT: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
         if !LOGGED_COUNT.swap(true, std::sync::atomic::Ordering::Relaxed) {
-            eprintln!("🔊 process_all_synths: {} instruments available, tracks: {:?}",
-                self.instruments.len(), self.instruments.keys().collect::<Vec<_>>());
+            eprintln!(
+                "🔊 process_all_synths: {} instruments available, tracks: {:?}",
+                self.instruments.len(),
+                self.instruments.keys().collect::<Vec<_>>()
+            );
         }
 
         let mut output = 0.0;
@@ -634,9 +663,12 @@ impl TrackSynthManager {
             let sample = inst.process_sample();
             if sample.abs() > 0.001 {
                 // Debug: only log once per note
-                static LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                static LOGGED: std::sync::atomic::AtomicBool =
+                    std::sync::atomic::AtomicBool::new(false);
                 if !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-                    eprintln!("🔊 process_all_synths: track {track_id} producing sample {sample:.4}");
+                    eprintln!(
+                        "🔊 process_all_synths: track {track_id} producing sample {sample:.4}"
+                    );
                 }
             }
             output += sample;
@@ -654,7 +686,8 @@ impl TrackSynthManager {
             new_synth.osc_type = source.osc_type;
             new_synth.filter_cutoff = source.filter_cutoff;
             new_synth.envelope = source.envelope;
-            self.instruments.insert(dest_id, TrackInstrument::Synth(new_synth));
+            self.instruments
+                .insert(dest_id, TrackInstrument::Synth(new_synth));
             println!("✅ Copied synth from track {source_id} to {dest_id}");
             true
         } else {
@@ -689,7 +722,10 @@ impl TrackSynthManager {
             synth.set_parameter("decay", &data.decay.to_string());
             synth.set_parameter("sustain", &data.sustain.to_string());
             synth.set_parameter("release", &data.release.to_string());
-            println!("✅ Restored synth parameters for track {}: osc={}", track_id, data.osc_type);
+            println!(
+                "✅ Restored synth parameters for track {}: osc={}",
+                track_id, data.osc_type
+            );
         }
     }
 
@@ -731,7 +767,11 @@ impl TrackSynthManager {
     pub fn get_sampler_waveform_peaks(&self, track_id: u64, resolution: usize) -> Option<Vec<f32>> {
         if let Some(TrackInstrument::Sampler(sampler)) = self.instruments.get(&track_id) {
             let peaks = sampler.get_waveform_peaks(resolution);
-            if peaks.is_empty() { None } else { Some(peaks) }
+            if peaks.is_empty() {
+                None
+            } else {
+                Some(peaks)
+            }
         } else {
             None
         }
