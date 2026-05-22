@@ -60,8 +60,16 @@ pub fn set_track_volume(track_id: TrackId, volume_db: f32) -> Result<String, Str
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock();
         track.volume_db = volume_db.clamp(-96.0, 6.0);
-        eprintln!("🎚️ Track {} volume now = {:.2} dB, gain = {:.4}", track_id, track.volume_db, track.get_gain());
-        Ok(format!("Track {} volume set to {:.2} dB", track_id, track.volume_db))
+        eprintln!(
+            "🎚️ Track {} volume now = {:.2} dB, gain = {:.4}",
+            track_id,
+            track.volume_db,
+            track.get_gain()
+        );
+        Ok(format!(
+            "Track {} volume set to {:.2} dB",
+            track_id, track.volume_db
+        ))
     } else {
         Err(format!("Track {track_id} not found"))
     }
@@ -157,7 +165,11 @@ pub fn set_track_name(track_id: TrackId, name: String) -> Result<String, String>
 ///
 /// When automation is set, it overrides the static `volume_db` during playback
 pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<String, String> {
-    eprintln!("🎚️ set_track_volume_automation: track={}, csv_len={}", track_id, csv.len());
+    eprintln!(
+        "🎚️ set_track_volume_automation: track={}, csv_len={}",
+        track_id,
+        csv.len()
+    );
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
     let track_manager = graph.track_manager.lock();
@@ -167,7 +179,9 @@ pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<Strin
         track.set_volume_automation_csv(csv);
         let point_count = track.volume_automation.len();
         eprintln!("🎚️ Track {track_id} automation set: {point_count} points");
-        Ok(format!("Track {track_id} volume automation set ({point_count} points)"))
+        Ok(format!(
+            "Track {track_id} volume automation set ({point_count} points)"
+        ))
     } else {
         Err(format!("Track {track_id} not found"))
     }
@@ -183,7 +197,11 @@ pub fn set_track_volume_automation(track_id: TrackId, csv: &str) -> Result<Strin
 /// * `track_id` - Track ID
 /// * `device_index` - Input device index (-1 = no input)
 /// * `channel` - Channel index within the device (0-based, mono)
-pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Result<String, String> {
+pub fn set_track_input(
+    track_id: TrackId,
+    device_index: i32,
+    channel: u32,
+) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
     let track_manager = graph.track_manager.lock();
@@ -197,7 +215,9 @@ pub fn set_track_input(track_id: TrackId, device_index: i32, channel: u32) -> Re
         } else {
             track.input_device_index = Some(device_index as usize);
             track.input_channel = channel;
-            Ok(format!("Track {track_id} input set to device {device_index} channel {channel}"))
+            Ok(format!(
+                "Track {track_id} input set to device {device_index} channel {channel}"
+            ))
         }
     } else {
         Err(format!("Track {track_id} not found"))
@@ -257,9 +277,10 @@ pub fn get_all_track_ids() -> Result<String, String> {
     let track_manager = graph.track_manager.lock();
 
     let all_tracks = track_manager.get_all_tracks();
-    let ids: Vec<String> = all_tracks.iter().map(|track_arc| {
-        track_arc.lock().id.to_string()
-    }).collect();
+    let ids: Vec<String> = all_tracks
+        .iter()
+        .map(|track_arc| track_arc.lock().id.to_string())
+        .collect();
 
     Ok(ids.join(","))
 }
@@ -330,7 +351,9 @@ pub fn move_clip_to_track(track_id: TrackId, clip_id: ClipId) -> Result<String, 
 
     // Find the clip in the global timeline
     let mut clips = graph.get_clips().lock();
-    let clip_idx = clips.iter().position(|c| c.id == clip_id)
+    let clip_idx = clips
+        .iter()
+        .position(|c| c.id == clip_id)
         .ok_or(format!("Clip {clip_id} not found in global timeline"))?;
 
     // Remove from global timeline

@@ -1,10 +1,13 @@
+use anyhow::Result;
 /// Audio input and recording functionality
 use cpal::traits::{DeviceTrait, HostTrait};
-use ringbuf::{traits::{Observer, Consumer, Producer}, HeapRb};
-use std::sync::Arc;
 use parking_lot::Mutex;
+use ringbuf::{
+    traits::{Consumer, Observer, Producer},
+    HeapRb,
+};
 use std::sync::atomic::{AtomicU32, Ordering};
-use anyhow::Result;
+use std::sync::Arc;
 
 use crate::audio_file::TARGET_SAMPLE_RATE;
 
@@ -63,7 +66,9 @@ impl AudioInputManager {
 
         // Enumerate all input devices
         for (idx, device) in host.input_devices()?.enumerate() {
-            let name = device.name().unwrap_or_else(|_| format!("Input Device {idx}"));
+            let name = device
+                .name()
+                .unwrap_or_else(|_| format!("Input Device {idx}"));
             let is_default = name == default_name;
 
             devices.push(AudioInputDevice {
@@ -118,7 +123,8 @@ impl AudioInputManager {
     pub fn start_capture(&mut self, buffer_size_seconds: f64) -> Result<()> {
         use cpal::traits::StreamTrait;
 
-        let device_index = self.selected_device_index
+        let device_index = self
+            .selected_device_index
             .ok_or_else(|| anyhow::anyhow!("No input device selected"))?;
 
         let host = cpal::default_host();
@@ -137,7 +143,10 @@ impl AudioInputManager {
 
         // Store the number of input channels
         self.input_channels = config.channels();
-        eprintln!("🎙️  [AudioInput] Input channels: {} (1=mono, 2=stereo)", self.input_channels);
+        eprintln!(
+            "🎙️  [AudioInput] Input channels: {} (1=mono, 2=stereo)",
+            self.input_channels
+        );
 
         // Create ring buffer (stereo, size based on buffer_size_seconds)
         let buffer_samples = (buffer_size_seconds * f64::from(TARGET_SAMPLE_RATE) * 2.0) as usize;
@@ -162,7 +171,9 @@ impl AudioInputManager {
                     // Mono: all samples are the same channel
                     for &sample in data {
                         let abs = sample.abs();
-                        if abs > max_left { max_left = abs; }
+                        if abs > max_left {
+                            max_left = abs;
+                        }
                     }
                     max_right = max_left;
                 } else {
@@ -170,8 +181,12 @@ impl AudioInputManager {
                     for (i, &sample) in data.iter().enumerate() {
                         let abs = sample.abs();
                         if i % 2 == 0 {
-                            if abs > max_left { max_left = abs; }
-                        } else if abs > max_right { max_right = abs; }
+                            if abs > max_left {
+                                max_left = abs;
+                            }
+                        } else if abs > max_right {
+                            max_right = abs;
+                        }
                     }
                 }
 
@@ -180,7 +195,8 @@ impl AudioInputManager {
                 peak_right.store(max_right.to_bits(), Ordering::Relaxed);
 
                 // Write input samples to ring buffer
-                { let mut buffer = ring_buffer_clone.lock();
+                {
+                    let mut buffer = ring_buffer_clone.lock();
                     for &sample in data {
                         // If buffer is full, drop oldest samples
                         if buffer.is_full() {
@@ -224,7 +240,8 @@ impl AudioInputManager {
     /// Returns samples in interleaved stereo format
     pub fn read_samples(&self, num_samples: usize) -> Option<Vec<f32>> {
         if let Some(buffer_arc) = &self.input_buffer {
-            { let mut buffer = buffer_arc.lock();
+            {
+                let mut buffer = buffer_arc.lock();
                 let mut samples = Vec::with_capacity(num_samples);
                 for _ in 0..num_samples {
                     if let Some(sample) = buffer.try_pop() {
@@ -242,7 +259,8 @@ impl AudioInputManager {
     /// Get the number of samples currently in the buffer
     pub fn get_buffer_fill(&self) -> usize {
         if let Some(buffer_arc) = &self.input_buffer {
-            { let buffer = buffer_arc.lock();
+            {
+                let buffer = buffer_arc.lock();
                 return buffer.occupied_len();
             }
         }
@@ -252,7 +270,8 @@ impl AudioInputManager {
     /// Clear the input buffer
     pub fn clear_buffer(&self) {
         if let Some(buffer_arc) = &self.input_buffer {
-            { let mut buffer = buffer_arc.lock();
+            {
+                let mut buffer = buffer_arc.lock();
                 buffer.clear();
             }
         }
@@ -300,7 +319,7 @@ mod tests {
     fn test_device_enumeration() {
         let mut manager = AudioInputManager::new().unwrap();
         let result = manager.enumerate_devices();
-        
+
         // This might fail in CI without audio devices, so just check it doesn't panic
         match result {
             Ok(devices) => {
@@ -315,4 +334,3 @@ mod tests {
         }
     }
 }
-

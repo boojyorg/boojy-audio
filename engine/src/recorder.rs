@@ -1,9 +1,9 @@
 /// Recording engine with metronome and count-in support
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use std::f32::consts::PI;
-use std::sync::Arc;
 use parking_lot::Mutex;
+use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
 
 /// Recording state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,7 +64,7 @@ impl Recorder {
             recorded_samples: Arc::new(Mutex::new(Vec::new())),
             sample_counter: Arc::new(AtomicU64::new(0)),
             count_in_bars: Arc::new(Mutex::new(1)), // Default: 1 bar
-            tempo: Arc::new(Mutex::new(120.0)), // Default: 120 BPM
+            tempo: Arc::new(Mutex::new(120.0)),     // Default: 120 BPM
             metronome_enabled: Arc::new(AtomicBool::new(true)),
             time_signature: Arc::new(Mutex::new(4)), // Default: 4/4
             seek_cooldown: Arc::new(AtomicU64::new(0)),
@@ -124,7 +124,9 @@ impl Recorder {
 
         if count_in > 0 {
             *state = RecordingState::CountingIn;
-            eprintln!("🎙️  [Recorder] Starting with count-in: {count_in} bars (punch_in={punch_in})");
+            eprintln!(
+                "🎙️  [Recorder] Starting with count-in: {count_in} bars (punch_in={punch_in})"
+            );
         } else if punch_in {
             // No count-in but punch-in enabled: wait for punch point
             *state = RecordingState::WaitingForPunchIn;
@@ -178,7 +180,8 @@ impl Recorder {
             channels: 2,
             sample_rate: TARGET_SAMPLE_RATE,
             duration_seconds,
-            file_path: format!("recorded_{}.wav",
+            file_path: format!(
+                "recorded_{}.wav",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
@@ -431,7 +434,8 @@ impl RecorderCallbackRefs {
             let position_in_beat = position_in_bar % samples_per_beat;
 
             // Generate click (short sine burst)
-            if position_in_beat < 4000 { // ~80ms click at 48kHz (increased from 40ms for better audibility)
+            if position_in_beat < 4000 {
+                // ~80ms click at 48kHz (increased from 40ms for better audibility)
                 let t = position_in_beat as f32 / TARGET_SAMPLE_RATE as f32;
                 let freq = if beat_in_bar == 0 { 1200.0 } else { 800.0 }; // Higher pitch on downbeat
                 let envelope = (1.0 - (position_in_beat as f32 / 4000.0)).powi(2);
@@ -453,7 +457,8 @@ impl RecorderCallbackRefs {
                 let beat_in_bar = ((sample_idx % samples_per_bar) / samples_per_beat) as u32 + 1; // 1-indexed
                 let progress = (sample_idx as f64 / count_in_samples.max(1) as f64).min(1.0);
                 self.count_in_beat.store(beat_in_bar, Ordering::Relaxed);
-                self.count_in_progress.store((progress * 10000.0) as u32, Ordering::Relaxed);
+                self.count_in_progress
+                    .store((progress * 10000.0) as u32, Ordering::Relaxed);
 
                 if sample_idx >= count_in_samples {
                     self.count_in_beat.store(0, Ordering::Relaxed);
@@ -492,7 +497,8 @@ impl RecorderCallbackRefs {
                 if playhead_seconds >= punch_in_s {
                     eprintln!("🎯 [Recorder] Punch-in! Playhead {playhead_seconds:.3}s reached punch point {punch_in_s:.3}s");
                     // Clear buffer and start recording
-                    { let mut samples = self.recorded_samples.lock();
+                    {
+                        let mut samples = self.recorded_samples.lock();
                         samples.clear();
                     }
                     self.sample_counter.store(0, Ordering::SeqCst);
@@ -517,14 +523,18 @@ impl RecorderCallbackRefs {
                 }
 
                 // Record input samples
-                { let mut samples = self.recorded_samples.lock();
+                {
+                    let mut samples = self.recorded_samples.lock();
                     samples.push(input_left);
                     samples.push(input_right);
 
                     // Log every second of recording
                     if samples.len().is_multiple_of(96000) {
-                        eprintln!("🎙️  [Recorder] Recording... {} samples ({:.1}s)",
-                            samples.len(), samples.len() as f32 / (TARGET_SAMPLE_RATE as f32 * 2.0));
+                        eprintln!(
+                            "🎙️  [Recorder] Recording... {} samples ({:.1}s)",
+                            samples.len(),
+                            samples.len() as f32 / (TARGET_SAMPLE_RATE as f32 * 2.0)
+                        );
                     }
                 }
             }
@@ -634,7 +644,10 @@ mod tests {
         assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
 
         let result = recorder.stop_recording().unwrap();
-        assert!(result.is_none(), "No audio should be captured when stopped during punch wait");
+        assert!(
+            result.is_none(),
+            "No audio should be captured when stopped during punch wait"
+        );
     }
 
     #[test]
@@ -716,8 +729,10 @@ mod tests {
         // stop_recording should return the audio clip even though state is Idle
         // because punch_complete was true (auto-punch-out fired)
         let clip = recorder.stop_recording().unwrap();
-        assert!(clip.is_some(), "Should return recorded audio after auto-punch-out");
+        assert!(
+            clip.is_some(),
+            "Should return recorded audio after auto-punch-out"
+        );
         assert!(!clip.unwrap().samples.is_empty());
     }
 }
-

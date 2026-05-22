@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/ui_constants.dart';
 import '../models/instrument_data.dart';
 import '../utils/track_colors.dart';
 
@@ -10,6 +11,7 @@ class TrackController extends ChangeNotifier {
 
   // Clip area height state (synced between mixer and timeline)
   final Map<int, double> _clipHeights = {};
+  final Map<int, int> _trackSendCounts = {};
   double _masterTrackHeight = 50.0;
 
   // Automation lane height state (per-track, when automation is visible)
@@ -39,6 +41,8 @@ class TrackController extends ChangeNotifier {
 
   // Track display order (list of track IDs, excluding Master)
   List<int> _trackOrder = [];
+
+  bool _notifyScheduled = false;
 
   // Getters
   int? get selectedTrackId => _selectedTrackId;
@@ -78,6 +82,34 @@ class TrackController extends ChangeNotifier {
   void setClipHeight(int trackId, double height) {
     _clipHeights[trackId] = height.clamp(minClipHeight, maxClipHeight);
     notifyListeners();
+  }
+
+  /// Adjust clip height when send row count changes (timeline/mixer sync).
+  /// Updates heights immediately; listener notification is deferred so mixer
+  /// refresh does not trigger parent setState during its own build.
+  void syncSendCount(int trackId, int sendCount) {
+    final previous = _trackSendCounts[trackId] ?? 0;
+    if (previous == sendCount) return;
+    final delta = (sendCount - previous) * UIConstants.sendRowHeight;
+    _trackSendCounts[trackId] = sendCount;
+    _clipHeights[trackId] = (getClipHeight(trackId) + delta).clamp(
+      minClipHeight,
+      maxClipHeight,
+    );
+    _deferNotifyListeners();
+  }
+
+  void _deferNotifyListeners() {
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      notifyListeners();
+    });
+  }
+
+  void removeSendCount(int trackId) {
+    _trackSendCounts.remove(trackId);
   }
 
   /// Get automation lane height, returning default if not set
@@ -302,6 +334,7 @@ class TrackController extends ChangeNotifier {
     _selectedTrackId = null;
     _selectedTrackIds.clear();
     _clipHeights.clear();
+    _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();
@@ -316,6 +349,7 @@ class TrackController extends ChangeNotifier {
     // Clear all state before disposing
     _selectedTrackIds.clear();
     _clipHeights.clear();
+    _trackSendCounts.clear();
     _automationHeights.clear();
     _trackColorOverrides.clear();
     _trackInstruments.clear();

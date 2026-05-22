@@ -1,8 +1,8 @@
 /// Offline rendering for export and bounce
-use super::{AudioGraph, interpolate_automation_gain};
+use super::{interpolate_automation_gain, AudioGraph};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip};
 use crate::effects::Effect;
+use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackType};
 
 impl AudioGraph {
     // --- Offline Rendering (Export) ---
@@ -21,6 +21,7 @@ impl AudioGraph {
             muted: bool,
             soloed: bool,
             fx_chain: Vec<u64>,
+            sends: Vec<(u64, f32)>,
             volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
         }
 
@@ -36,15 +37,17 @@ impl AudioGraph {
         let tempo_ratio = current_tempo / 120.0;
         eprintln!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
 
-        let (track_snapshots, has_solo, master_snapshot) = {
+        let (track_snapshots, return_snapshots, has_solo, master_snapshot, return_index) = {
             let tm = self.track_manager.lock();
             let has_solo_flag = tm.has_solo();
             let all_tracks = tm.get_all_tracks();
             let mut snapshots = Vec::new();
+            let mut return_snaps = Vec::new();
             let mut master_snap = None;
 
             for track_arc in all_tracks {
-                { let track = track_arc.lock();
+                {
+                    let track = track_arc.lock();
                     let snap = TrackSnapshot {
                         id: track.id,
                         audio_clips: track.audio_clips.clone(),
@@ -55,21 +58,42 @@ impl AudioGraph {
                         muted: track.mute,
                         soloed: track.solo,
                         fx_chain: track.fx_chain.clone(),
+                        sends: track
+                            .sends
+                            .iter()
+                            .map(|send| (send.target_track_id, send.amount))
+                            .collect(),
                         volume_automation: track.volume_automation.clone(),
                     };
 
-                    if track.track_type == crate::track::TrackType::Master {
-                        master_snap = Some(snap);
-                    } else {
-                        snapshots.push(snap);
+                    match track.track_type {
+                        TrackType::Master => master_snap = Some(snap),
+                        TrackType::Return => return_snaps.push(snap),
+                        _ => snapshots.push(snap),
                     }
                 }
             }
 
-            (snapshots, has_solo_flag, master_snap)
+            let return_index: std::collections::HashMap<u64, usize> = return_snaps
+                .iter()
+                .enumerate()
+                .map(|(idx, snap)| (snap.id, idx))
+                .collect();
+
+            (
+                snapshots,
+                return_snaps,
+                has_solo_flag,
+                master_snap,
+                return_index,
+            )
         };
 
-        eprintln!("🎵 [AudioGraph] Rendering {} tracks", track_snapshots.len());
+        eprintln!(
+            "🎵 [AudioGraph] Rendering {} tracks (+ {} returns)",
+            track_snapshots.len(),
+            return_snapshots.len()
+        );
 
         // Process each frame
         for frame_idx in 0..total_frames {
@@ -79,23 +103,19 @@ impl AudioGraph {
 
             let mut mix_left = 0.0f32;
             let mut mix_right = 0.0f32;
+            let mut return_accum = vec![(0.0f32, 0.0f32); return_snapshots.len()];
 
             // Mix all tracks
             for track_snap in &track_snapshots {
-                // Handle mute/solo logic
-                if track_snap.muted {
-                    continue;
-                }
-                if has_solo && !track_snap.soloed {
-                    continue;
-                }
+                let audible = !track_snap.muted && (!has_solo || track_snap.soloed);
 
                 let mut track_left = 0.0f32;
                 let mut track_right = 0.0f32;
 
                 // Mix all audio clips on this track
                 for timeline_clip in &track_snap.audio_clips {
-                    let clip_duration = timeline_clip.duration
+                    let clip_duration = timeline_clip
+                        .duration
                         .unwrap_or(timeline_clip.clip.duration_seconds);
                     // When warp is enabled, the clip's timeline duration changes:
                     // stretch > 1 = faster playback = clip ends sooner
@@ -107,36 +127,51 @@ impl AudioGraph {
                     };
                     let clip_end = timeline_clip.start_time + effective_duration;
 
-                    if playhead_seconds >= timeline_clip.start_time
-                        && playhead_seconds < clip_end
-                    {
-                        let time_in_clip = playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
+                    if playhead_seconds >= timeline_clip.start_time && playhead_seconds < clip_end {
+                        let time_in_clip =
+                            playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
                         let clip_gain = timeline_clip.get_gain();
                         let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
                         // Determine which audio source to use and calculate frame index
-                        let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
-                            if timeline_clip.warp_mode == 0 {
-                                // Warp mode: use pre-stretched cached audio (pitch preserved)
-                                // Apply pitch ratio for transpose
-                                if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                    let frame = (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize;
-                                    (frame, stretched.as_ref())
+                        let (frame_in_clip, source_clip): (usize, &AudioClip) =
+                            if timeline_clip.warp_enabled {
+                                if timeline_clip.warp_mode == 0 {
+                                    // Warp mode: use pre-stretched cached audio (pitch preserved)
+                                    // Apply pitch ratio for transpose
+                                    if let Some(ref stretched) = timeline_clip.stretched_cache {
+                                        let frame =
+                                            (time_in_clip * pitch_ratio * f64::from(sample_rate))
+                                                as usize;
+                                        (frame, stretched.as_ref())
+                                    } else {
+                                        // Fallback to Re-Pitch if cache not ready
+                                        let stretched_time = time_in_clip
+                                            * f64::from(timeline_clip.stretch_factor)
+                                            * pitch_ratio;
+                                        (
+                                            (stretched_time * f64::from(sample_rate)) as usize,
+                                            &*timeline_clip.clip,
+                                        )
+                                    }
                                 } else {
-                                    // Fallback to Re-Pitch if cache not ready
-                                    let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                                    ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
+                                    // Re-Pitch mode: sample-rate shift (pitch follows speed)
+                                    // Also apply any additional transpose
+                                    let stretched_time = time_in_clip
+                                        * f64::from(timeline_clip.stretch_factor)
+                                        * pitch_ratio;
+                                    (
+                                        (stretched_time * f64::from(sample_rate)) as usize,
+                                        &*timeline_clip.clip,
+                                    )
                                 }
                             } else {
-                                // Re-Pitch mode: sample-rate shift (pitch follows speed)
-                                // Also apply any additional transpose
-                                let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                                ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
-                            }
-                        } else {
-                            // No warp - apply pitch ratio for transpose
-                            ((time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
-                        };
+                                // No warp - apply pitch ratio for transpose
+                                (
+                                    (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize,
+                                    &*timeline_clip.clip,
+                                )
+                            };
 
                         if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
                             track_left += l * clip_gain;
@@ -157,12 +192,16 @@ impl AudioGraph {
                 // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
                 let has_vst3 = !track_snap.fx_chain.is_empty();
                 for timeline_midi_clip in &track_snap.midi_clips {
-                    let clip_start_samples = (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
-                    let clip_end_samples = clip_start_samples + timeline_midi_clip.clip.duration_samples;
+                    let clip_start_samples =
+                        (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
+                    let clip_end_samples =
+                        clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
                     // Check if clip is active at this frame
                     // Use <= for end boundary to ensure note-offs at exact clip end are triggered
-                    if frame_idx as u64 >= clip_start_samples && (frame_idx as u64) <= clip_end_samples {
+                    if frame_idx as u64 >= clip_start_samples
+                        && (frame_idx as u64) <= clip_end_samples
+                    {
                         let frame_in_clip = frame_idx as u64 - clip_start_samples;
 
                         // Check for MIDI events at this exact frame
@@ -172,16 +211,26 @@ impl AudioGraph {
                                     crate::midi::MidiEventType::NoteOn { note, velocity } => {
                                         // Send to built-in synth ONLY if no VST3 plugins
                                         if !has_vst3 {
-                                            { let mut synth_manager = self.track_synth_manager.lock();
-                                                synth_manager.note_on(track_snap.id, note, velocity);
+                                            {
+                                                let mut synth_manager =
+                                                    self.track_synth_manager.lock();
+                                                synth_manager.note_on(
+                                                    track_snap.id,
+                                                    note,
+                                                    velocity,
+                                                );
                                             }
                                         }
                                         // Send to VST3 instruments in FX chain
                                         if has_vst3 {
-                                            { let effect_mgr = self.effect_manager.lock();
+                                            {
+                                                let effect_mgr = self.effect_manager.lock();
                                                 for effect_id in &track_snap.fx_chain {
-                                                    if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                        { let mut effect = effect_arc.lock();
+                                                    if let Some(effect_arc) =
+                                                        effect_mgr.get_effect(*effect_id)
+                                                    {
+                                                        {
+                                                            let mut effect = effect_arc.lock();
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                 let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
@@ -194,15 +243,21 @@ impl AudioGraph {
                                     }
                                     crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
                                         if !has_vst3 {
-                                            { let mut synth_manager = self.track_synth_manager.lock();
+                                            {
+                                                let mut synth_manager =
+                                                    self.track_synth_manager.lock();
                                                 synth_manager.note_off(track_snap.id, note);
                                             }
                                         }
                                         if has_vst3 {
-                                            { let effect_mgr = self.effect_manager.lock();
+                                            {
+                                                let effect_mgr = self.effect_manager.lock();
                                                 for effect_id in &track_snap.fx_chain {
-                                                    if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                        { let mut effect = effect_arc.lock();
+                                                    if let Some(effect_arc) =
+                                                        effect_mgr.get_effect(*effect_id)
+                                                    {
+                                                        {
+                                                            let mut effect = effect_arc.lock();
                                                             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
                                                             if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
                                                                 let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
@@ -221,33 +276,24 @@ impl AudioGraph {
                 }
 
                 // Add synthesizer output
-                { let mut synth_manager = self.track_synth_manager.lock();
-                    let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_snap.id);
+                {
+                    let mut synth_manager = self.track_synth_manager.lock();
+                    let (synth_left, synth_right) =
+                        synth_manager.process_sample_stereo(track_snap.id);
                     track_left += synth_left;
                     track_right += synth_right;
                 }
 
-                // Apply track volume (use automation if available)
-                let frame_volume_gain = if track_snap.volume_automation.is_empty() {
-                    track_snap.volume_gain
-                } else {
-                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
-                };
-                track_left *= frame_volume_gain;
-                track_right *= frame_volume_gain;
-
-                // Apply track pan
-                track_left *= track_snap.pan_left;
-                track_right *= track_snap.pan_right;
-
-                // Process FX chain on this track
+                // Process FX chain BEFORE volume/pan (fader controls post-FX level)
                 let mut fx_left = track_left;
                 let mut fx_right = track_right;
 
-                { let effect_mgr = self.effect_manager.lock();
+                {
+                    let effect_mgr = self.effect_manager.lock();
                     for effect_id in &track_snap.fx_chain {
                         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                            { let mut effect = effect_arc.lock();
+                            {
+                                let mut effect = effect_arc.lock();
                                 let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
                                 fx_left = out_l;
                                 fx_right = out_r;
@@ -256,7 +302,67 @@ impl AudioGraph {
                     }
                 }
 
-                // Accumulate to mix bus
+                // Apply track volume (use automation if available)
+                let frame_volume_gain = if track_snap.volume_automation.is_empty() {
+                    track_snap.volume_gain
+                } else {
+                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+                };
+                fx_left *= frame_volume_gain;
+                fx_right *= frame_volume_gain;
+
+                // Apply track pan
+                fx_left *= track_snap.pan_left;
+                fx_right *= track_snap.pan_right;
+
+                if audible {
+                    for (return_id, amount) in &track_snap.sends {
+                        if let Some(&idx) = return_index.get(return_id) {
+                            return_accum[idx].0 += fx_left * amount;
+                            return_accum[idx].1 += fx_right * amount;
+                        }
+                    }
+
+                    mix_left += fx_left;
+                    mix_right += fx_right;
+                }
+            }
+
+            // Process return tracks and sum to master bus
+            for (idx, return_snap) in return_snapshots.iter().enumerate() {
+                let return_audible = !return_snap.muted && (!has_solo || return_snap.soloed);
+                if !return_audible {
+                    continue;
+                }
+
+                let (ret_left, ret_right) = return_accum[idx];
+                let mut fx_left = ret_left;
+                let mut fx_right = ret_right;
+
+                {
+                    let effect_mgr = self.effect_manager.lock();
+                    for effect_id in &return_snap.fx_chain {
+                        if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+                            {
+                                let mut effect = effect_arc.lock();
+                                let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
+                                fx_left = out_l;
+                                fx_right = out_r;
+                            }
+                        }
+                    }
+                }
+
+                let frame_volume_gain = if return_snap.volume_automation.is_empty() {
+                    return_snap.volume_gain
+                } else {
+                    interpolate_automation_gain(&return_snap.volume_automation, playhead_seconds)
+                };
+                fx_left *= frame_volume_gain;
+                fx_right *= frame_volume_gain;
+                fx_left *= return_snap.pan_left;
+                fx_right *= return_snap.pan_right;
+
                 mix_left += fx_left;
                 mix_right += fx_right;
             }
@@ -271,17 +377,22 @@ impl AudioGraph {
                 master_right *= master_snap.volume_gain;
 
                 // Apply master pan
-                let temp_l = master_left * master_snap.pan_left + master_right * master_snap.pan_left;
-                let temp_r = master_left * master_snap.pan_right + master_right * master_snap.pan_right;
+                let temp_l =
+                    master_left * master_snap.pan_left + master_right * master_snap.pan_left;
+                let temp_r =
+                    master_left * master_snap.pan_right + master_right * master_snap.pan_right;
                 master_left = temp_l;
                 master_right = temp_r;
 
                 // Process master FX chain
-                { let effect_mgr = self.effect_manager.lock();
+                {
+                    let effect_mgr = self.effect_manager.lock();
                     for effect_id in &master_snap.fx_chain {
                         if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                            { let mut effect = effect_arc.lock();
-                                let (out_l, out_r) = effect.process_frame(master_left, master_right);
+                            {
+                                let mut effect = effect_arc.lock();
+                                let (out_l, out_r) =
+                                    effect.process_frame(master_left, master_right);
                                 master_left = out_l;
                                 master_right = out_r;
                             }
@@ -291,7 +402,8 @@ impl AudioGraph {
             }
 
             // Apply master limiter
-            let (limited_left, limited_right) = { let mut limiter = self.master_limiter.lock();
+            let (limited_left, limited_right) = {
+                let mut limiter = self.master_limiter.lock();
                 limiter.process_frame(master_left, master_right)
             };
 
@@ -306,7 +418,10 @@ impl AudioGraph {
             }
         }
 
-        eprintln!("✅ [AudioGraph] Offline render complete: {} samples", output.len());
+        eprintln!(
+            "✅ [AudioGraph] Offline render complete: {} samples",
+            output.len()
+        );
         output
     }
 
@@ -342,7 +457,8 @@ impl AudioGraph {
             let mut snapshot = None;
 
             for track_arc in tm.get_all_tracks() {
-                { let track = track_arc.lock();
+                {
+                    let track = track_arc.lock();
                     if track.id == track_id {
                         snapshot = Some(TrackSnapshot {
                             audio_clips: track.audio_clips.clone(),
@@ -397,27 +513,43 @@ impl AudioGraph {
                     let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
                     // Determine which audio source to use and calculate frame index
-                    let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip.warp_enabled {
+                    let (frame_in_clip, source_clip): (usize, &AudioClip) = if timeline_clip
+                        .warp_enabled
+                    {
                         if timeline_clip.warp_mode == 0 {
                             // Warp mode: use pre-stretched cached audio (pitch preserved)
                             // Apply pitch ratio for transpose
                             if let Some(ref stretched) = timeline_clip.stretched_cache {
-                                let frame = (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize;
+                                let frame =
+                                    (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize;
                                 (frame, stretched.as_ref())
                             } else {
                                 // Fallback to Re-Pitch if cache not ready
-                                let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                                ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
+                                let stretched_time = time_in_clip
+                                    * f64::from(timeline_clip.stretch_factor)
+                                    * pitch_ratio;
+                                (
+                                    (stretched_time * f64::from(sample_rate)) as usize,
+                                    &*timeline_clip.clip,
+                                )
                             }
                         } else {
                             // Re-Pitch mode: sample-rate shift (pitch follows speed)
                             // Also apply any additional transpose
-                            let stretched_time = time_in_clip * f64::from(timeline_clip.stretch_factor) * pitch_ratio;
-                            ((stretched_time * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
+                            let stretched_time = time_in_clip
+                                * f64::from(timeline_clip.stretch_factor)
+                                * pitch_ratio;
+                            (
+                                (stretched_time * f64::from(sample_rate)) as usize,
+                                &*timeline_clip.clip,
+                            )
                         }
                     } else {
                         // No warp - apply pitch ratio for transpose
-                        ((time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize, &*timeline_clip.clip)
+                        (
+                            (time_in_clip * pitch_ratio * f64::from(sample_rate)) as usize,
+                            &*timeline_clip.clip,
+                        )
                     };
 
                     if let Some(l) = source_clip.get_sample(frame_in_clip, 0) {
@@ -439,7 +571,8 @@ impl AudioGraph {
             // Process MIDI clips - route to EITHER built-in synth OR VST3 (not both)
             let has_vst3 = !track_snap.fx_chain.is_empty();
             for timeline_midi_clip in &track_snap.midi_clips {
-                let clip_start_samples = (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
+                let clip_start_samples =
+                    (timeline_midi_clip.start_time * f64::from(sample_rate)) as u64;
                 let clip_end_samples =
                     clip_start_samples + timeline_midi_clip.clip.duration_samples;
 
@@ -453,19 +586,36 @@ impl AudioGraph {
                                 crate::midi::MidiEventType::NoteOn { note, velocity } => {
                                     // Send to built-in synth ONLY if no VST3 plugins
                                     if !has_vst3 {
-                                        { let mut synth_manager = self.track_synth_manager.lock();
+                                        {
+                                            let mut synth_manager = self.track_synth_manager.lock();
                                             synth_manager.note_on(track_id, note, velocity);
                                         }
                                     }
                                     // Send to VST3 instruments in FX chain
                                     if has_vst3 {
-                                        { let effect_mgr = self.effect_manager.lock();
+                                        {
+                                            let effect_mgr = self.effect_manager.lock();
                                             for effect_id in &track_snap.fx_chain {
-                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    { let mut effect = effect_arc.lock();
-                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                            let _ = vst3.process_midi_event(0, 0, i32::from(note), i32::from(velocity), 0);
+                                                if let Some(effect_arc) =
+                                                    effect_mgr.get_effect(*effect_id)
+                                                {
+                                                    {
+                                                        let mut effect = effect_arc.lock();
+                                                        #[cfg(all(
+                                                            feature = "vst3",
+                                                            not(target_os = "ios")
+                                                        ))]
+                                                        if let crate::effects::EffectType::VST3(
+                                                            ref mut vst3,
+                                                        ) = *effect
+                                                        {
+                                                            let _ = vst3.process_midi_event(
+                                                                0,
+                                                                0,
+                                                                i32::from(note),
+                                                                i32::from(velocity),
+                                                                0,
+                                                            );
                                                         }
                                                     }
                                                 }
@@ -475,18 +625,35 @@ impl AudioGraph {
                                 }
                                 crate::midi::MidiEventType::NoteOff { note, velocity: _ } => {
                                     if !has_vst3 {
-                                        { let mut synth_manager = self.track_synth_manager.lock();
+                                        {
+                                            let mut synth_manager = self.track_synth_manager.lock();
                                             synth_manager.note_off(track_id, note);
                                         }
                                     }
                                     if has_vst3 {
-                                        { let effect_mgr = self.effect_manager.lock();
+                                        {
+                                            let effect_mgr = self.effect_manager.lock();
                                             for effect_id in &track_snap.fx_chain {
-                                                if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                                                    { let mut effect = effect_arc.lock();
-                                                        #[cfg(all(feature = "vst3", not(target_os = "ios")))]
-                                                        if let crate::effects::EffectType::VST3(ref mut vst3) = *effect {
-                                                            let _ = vst3.process_midi_event(1, 0, i32::from(note), 0, 0);
+                                                if let Some(effect_arc) =
+                                                    effect_mgr.get_effect(*effect_id)
+                                                {
+                                                    {
+                                                        let mut effect = effect_arc.lock();
+                                                        #[cfg(all(
+                                                            feature = "vst3",
+                                                            not(target_os = "ios")
+                                                        ))]
+                                                        if let crate::effects::EffectType::VST3(
+                                                            ref mut vst3,
+                                                        ) = *effect
+                                                        {
+                                                            let _ = vst3.process_midi_event(
+                                                                1,
+                                                                0,
+                                                                i32::from(note),
+                                                                0,
+                                                                0,
+                                                            );
                                                         }
                                                     }
                                                 }
@@ -502,7 +669,8 @@ impl AudioGraph {
             }
 
             // Add synthesizer output
-            { let mut synth_manager = self.track_synth_manager.lock();
+            {
+                let mut synth_manager = self.track_synth_manager.lock();
                 let (synth_left, synth_right) = synth_manager.process_sample_stereo(track_id);
                 track_left += synth_left;
                 track_right += synth_right;
@@ -525,10 +693,12 @@ impl AudioGraph {
             let mut fx_left = track_left;
             let mut fx_right = track_right;
 
-            { let effect_mgr = self.effect_manager.lock();
+            {
+                let effect_mgr = self.effect_manager.lock();
                 for effect_id in &track_snap.fx_chain {
                     if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
-                        { let mut effect = effect_arc.lock();
+                        {
+                            let mut effect = effect_arc.lock();
                             let (out_l, out_r) = effect.process_frame(fx_left, fx_right);
                             fx_left = out_l;
                             fx_right = out_r;
@@ -560,21 +730,22 @@ impl AudioGraph {
     pub fn get_tracks_for_stem_export(&self) -> Vec<(u64, String, String)> {
         let mut tracks = Vec::new();
 
-        { let tm = self.track_manager.lock();
+        {
+            let tm = self.track_manager.lock();
             for track_arc in tm.get_all_tracks() {
-                { let track = track_arc.lock();
+                {
+                    let track = track_arc.lock();
                     // Skip master track
-                    if track.track_type == crate::track::TrackType::Master {
+                    if track.track_type == TrackType::Master {
                         continue;
                     }
 
                     let type_str = match track.track_type {
-                        crate::track::TrackType::Audio => "audio",
-                        crate::track::TrackType::Midi
-                        | crate::track::TrackType::Sampler => "midi",
-                        crate::track::TrackType::Return => "return",
-                        crate::track::TrackType::Group => "group",
-                        crate::track::TrackType::Master => "master",
+                        TrackType::Audio => "audio",
+                        TrackType::Midi | TrackType::Sampler => "midi",
+                        TrackType::Return => "return",
+                        TrackType::Group => "group",
+                        TrackType::Master => "master",
                     };
 
                     tracks.push((track.id, track.name.clone(), type_str.to_string()));
@@ -590,12 +761,15 @@ impl AudioGraph {
         let mut max_end_time = 0.0f64;
 
         // Check all tracks for clips
-        { let tm = self.track_manager.lock();
+        {
+            let tm = self.track_manager.lock();
             for track_arc in tm.get_all_tracks() {
-                { let track = track_arc.lock();
+                {
+                    let track = track_arc.lock();
                     // Audio clips
                     for clip in &track.audio_clips {
-                        let clip_end = clip.start_time + clip.duration.unwrap_or(clip.clip.duration_seconds);
+                        let clip_end =
+                            clip.start_time + clip.duration.unwrap_or(clip.clip.duration_seconds);
                         if clip_end > max_end_time {
                             max_end_time = clip_end;
                         }

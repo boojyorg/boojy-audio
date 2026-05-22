@@ -34,7 +34,10 @@ pub fn export_mp3(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎵 [MP3 Export] Starting export to {}", output_path.display());
+    eprintln!(
+        "🎵 [MP3 Export] Starting export to {}",
+        output_path.display()
+    );
 
     // Check ffmpeg availability
     if !is_ffmpeg_available() {
@@ -49,7 +52,9 @@ pub fn export_mp3(
     // Get bitrate from options
     let bitrate = match &options.format {
         super::options::ExportFormat::Mp3 { bitrate } => *bitrate,
-        super::options::ExportFormat::Wav { .. } => return Err("export_mp3 called with non-MP3 format".to_string()),
+        super::options::ExportFormat::Wav { .. } => {
+            return Err("export_mp3 called with non-MP3 format".to_string())
+        }
     };
 
     // Make a mutable copy of samples for processing
@@ -85,9 +90,7 @@ pub fn export_mp3(
     encode_mp3_ffmpeg(&processed, output_path, options.sample_rate, bitrate)?;
 
     // Get file size
-    let file_size = std::fs::metadata(output_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let file_size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
     let format_description = format!("MP3 {} kbps", bitrate.kbps());
 

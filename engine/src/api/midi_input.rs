@@ -36,11 +36,14 @@ pub fn refresh_midi_devices() -> Result<String, String> {
     let graph = graph_mutex.lock();
     let mut midi_manager = graph.midi_input_manager.lock();
 
-    midi_manager.refresh_devices()
+    midi_manager
+        .refresh_devices()
         .map_err(|e| format!("Failed to refresh MIDI devices: {e}"))?;
 
     let device_count = midi_manager.get_devices().len();
-    Ok(format!("MIDI devices refreshed: {device_count} device(s) found"))
+    Ok(format!(
+        "MIDI devices refreshed: {device_count} device(s) found"
+    ))
 }
 
 /// Select a MIDI input device by index
@@ -61,11 +64,14 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
         ));
     }
 
-    midi_manager.select_device(device_index as usize)
+    midi_manager
+        .select_device(device_index as usize)
         .map_err(|e| e.to_string())?;
 
-    let device_name = midi_manager.get_devices()
-        .get(device_index as usize).map_or_else(|| "Unknown".to_string(), |d| d.name.clone());
+    let device_name = midi_manager
+        .get_devices()
+        .get(device_index as usize)
+        .map_or_else(|| "Unknown".to_string(), |d| d.name.clone());
 
     Ok(format!("Selected MIDI input device: {device_name}"))
 }
@@ -100,8 +106,8 @@ pub fn start_midi_input() -> Result<String, String> {
         // LATENCY COMPENSATION: Subtract output latency from playhead so that MIDI events
         // are timestamped to when they'll actually be HEARD, not when they're received.
         // This fixes metronome sync issues where users play early to compensate for latency.
-        use std::sync::atomic::Ordering;
         use crate::audio_file::TARGET_SAMPLE_RATE;
+        use std::sync::atomic::Ordering;
 
         let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
@@ -117,7 +123,8 @@ pub fn start_midi_input() -> Result<String, String> {
         } else {
             // Live monitoring: compensate for output latency
             let output_latency_ms = *hardware_output_latency_ms.lock();
-            let output_latency_samples = (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
+            let output_latency_samples =
+                (output_latency_ms / 1000.0 * TARGET_SAMPLE_RATE as f32) as u64;
             current_playhead.saturating_add(output_latency_samples)
         };
 
@@ -126,7 +133,8 @@ pub fn start_midi_input() -> Result<String, String> {
 
         // 1. Record to MIDI recorder if recording
         if is_recording {
-            { let mut recorder = midi_recorder.lock();
+            {
+                let mut recorder = midi_recorder.lock();
                 recorder.record_event(engine_event);
             }
         }
@@ -134,16 +142,19 @@ pub fn start_midi_input() -> Result<String, String> {
         // 2. Route to all armed MIDI track synthesizers and VST3 instruments
         // Collect armed tracks with their FX chains (MIDI and Sampler tracks can receive MIDI)
         let armed_tracks_with_fx: Vec<(TrackId, Vec<u64>)> = {
-            { let tm = track_manager.lock();
+            {
+                let tm = track_manager.lock();
                 tm.get_all_tracks()
                     .iter()
                     .filter_map(|track_arc| {
-                        { let track = track_arc.lock();
-                            if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
-                                Some((track.id, track.fx_chain.clone()))
-                            } else {
-                                None
-                            }
+                        let track = track_arc.lock();
+                        if (track.track_type == TrackType::Midi
+                            || track.track_type == TrackType::Sampler)
+                            && track.armed
+                        {
+                            Some((track.id, track.fx_chain.clone()))
+                        } else {
+                            None
                         }
                     })
                     .collect()
@@ -153,7 +164,8 @@ pub fn start_midi_input() -> Result<String, String> {
         // Route to each armed track's synthesizer OR VST3 instruments (not both)
         for (track_id, fx_chain) in armed_tracks_with_fx {
             // Route to built-in synth (no-op if no instrument for this track)
-            { let mut sm = synth_manager.lock();
+            {
+                let mut sm = synth_manager.lock();
                 match &engine_event.event_type {
                     MidiEventType::NoteOn { note, velocity } => {
                         sm.note_on(track_id, *note, *velocity);
@@ -170,20 +182,40 @@ pub fn start_midi_input() -> Result<String, String> {
             // Also route to VST3 instruments in the track's FX chain
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             {
-                { let em = effect_manager.lock();
+                {
+                    let em = effect_manager.lock();
                     for effect_id in fx_chain {
                         if let Some(effect_arc) = em.get_effect(effect_id) {
-                            { let mut effect = effect_arc.lock();
+                            {
+                                let mut effect = effect_arc.lock();
                                 if let EffectType::VST3(ref mut vst3) = *effect {
                                     match &engine_event.event_type {
                                         MidiEventType::NoteOn { note, velocity } => {
-                                            let _ = vst3.process_midi_event(0, 0, i32::from(*note), i32::from(*velocity), 0);
+                                            let _ = vst3.process_midi_event(
+                                                0,
+                                                0,
+                                                i32::from(*note),
+                                                i32::from(*velocity),
+                                                0,
+                                            );
                                         }
                                         MidiEventType::NoteOff { note, velocity } => {
-                                            let _ = vst3.process_midi_event(1, 0, i32::from(*note), i32::from(*velocity), 0);
+                                            let _ = vst3.process_midi_event(
+                                                1,
+                                                0,
+                                                i32::from(*note),
+                                                i32::from(*velocity),
+                                                0,
+                                            );
                                         }
                                         MidiEventType::ControlChange { controller, value } => {
-                                            let _ = vst3.process_midi_event(2, 0, i32::from(*controller), i32::from(*value), 0);
+                                            let _ = vst3.process_midi_event(
+                                                2,
+                                                0,
+                                                i32::from(*controller),
+                                                i32::from(*value),
+                                                0,
+                                            );
                                         }
                                     }
                                 }
@@ -238,7 +270,8 @@ pub fn start_midi_recording() -> Result<String, String> {
     } else {
         0.0
     };
-    let count_in_samples = (count_in_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
+    let count_in_samples =
+        (count_in_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
 
     // Calculate where the transport actually starts for count-in.
     // This matches the seek in recording.rs: (playhead_seconds - count_in_seconds).max(0.0)
@@ -247,14 +280,19 @@ pub fn start_midi_recording() -> Result<String, String> {
     // plays in-place. At Bar 4+, seekback is non-zero and the transport arrives at the
     // original position after count-in — adding count_in would double-count the offset.
     let seekback_seconds = (recording_start_seconds - count_in_seconds).max(0.0);
-    let seekback_samples = (seekback_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
+    let seekback_samples =
+        (seekback_seconds * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
     let recording_start = seekback_samples + count_in_samples;
 
     eprintln!("🎹 [API] MIDI recording started:");
     eprintln!("  recording_start_seconds: {recording_start_seconds:.3}s");
     eprintln!("  count_in_bars: {count_in_bars} ({count_in_seconds:.3}s)");
     eprintln!("  seekback_seconds: {seekback_seconds:.3}s");
-    eprintln!("  final recording_start: {} samples ({:.3}s)", recording_start, recording_start as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE));
+    eprintln!(
+        "  final recording_start: {} samples ({:.3}s)",
+        recording_start,
+        recording_start as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE)
+    );
 
     let mut midi_recorder = graph.midi_recorder.lock();
     midi_recorder.set_recording_start(recording_start);
@@ -281,15 +319,18 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
         // Find all armed MIDI/Sampler tracks
         let armed_midi_track_ids: Vec<TrackId> = {
             let track_manager = graph.track_manager.lock();
-            track_manager.get_all_tracks()
+            track_manager
+                .get_all_tracks()
                 .iter()
                 .filter_map(|track_arc| {
-                    { let track = track_arc.lock();
-                        if (track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler) && track.armed {
-                            Some(track.id)
-                        } else {
-                            None
-                        }
+                    let track = track_arc.lock();
+                    if (track.track_type == TrackType::Midi
+                        || track.track_type == TrackType::Sampler)
+                        && track.armed
+                    {
+                        Some(track.id)
+                    } else {
+                        None
                     }
                 })
                 .collect()
@@ -300,13 +341,18 @@ pub fn stop_midi_recording() -> Result<Option<u64>, String> {
         let clip_id = graph.add_midi_clip(clip_arc.clone(), playhead_seconds);
 
         if armed_midi_track_ids.is_empty() {
-            eprintln!("✅ [API] MIDI clip recorded with ID: {clip_id} (no armed tracks, added globally)");
+            eprintln!(
+                "✅ [API] MIDI clip recorded with ID: {clip_id} (no armed tracks, added globally)"
+            );
             return Ok(Some(clip_id));
         }
 
         // Add clip to each armed MIDI track using the same clip_id
         for track_id in armed_midi_track_ids {
-            if graph.add_midi_clip_to_track(track_id, clip_arc.clone(), playhead_seconds, clip_id).is_some() {
+            if graph
+                .add_midi_clip_to_track(track_id, clip_arc.clone(), playhead_seconds, clip_id)
+                .is_some()
+            {
                 eprintln!("✅ [API] MIDI clip {clip_id} added to armed track {track_id}");
             }
         }
@@ -364,15 +410,27 @@ pub fn get_midi_recorder_live_events() -> Result<String, String> {
         match &event.event_type {
             MidiEventType::NoteOn { note, velocity } => {
                 use std::fmt::Write;
-                let _ = write!(result, "{},{},1,{}", note, velocity, event.timestamp_samples);
+                let _ = write!(
+                    result,
+                    "{},{},1,{}",
+                    note, velocity, event.timestamp_samples
+                );
             }
             MidiEventType::NoteOff { note, velocity } => {
                 use std::fmt::Write;
-                let _ = write!(result, "{},{},0,{}", note, velocity, event.timestamp_samples);
+                let _ = write!(
+                    result,
+                    "{},{},0,{}",
+                    note, velocity, event.timestamp_samples
+                );
             }
             MidiEventType::ControlChange { controller, value } => {
                 use std::fmt::Write;
-                let _ = write!(result, "{},{},2,{}", controller, value, event.timestamp_samples);
+                let _ = write!(
+                    result,
+                    "{},{},2,{}",
+                    controller, value, event.timestamp_samples
+                );
             }
         }
     }

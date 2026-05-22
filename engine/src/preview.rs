@@ -6,7 +6,10 @@
 /// - Looping for short files (< 3 seconds)
 /// - Fade in/out to prevent clicks
 /// - Waveform peak extraction for UI
-use crate::audio_file::{load_wav_for_preview, start_streaming_decode, AudioClip, RawPreviewClip, StreamingPreviewClip, TARGET_SAMPLE_RATE};
+use crate::audio_file::{
+    load_wav_for_preview, start_streaming_decode, AudioClip, RawPreviewClip, StreamingPreviewClip,
+    TARGET_SAMPLE_RATE,
+};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -157,14 +160,20 @@ impl PreviewPlayer {
 
             // Try fast raw WAV path first
             let path = std::path::Path::new(&path_owned);
-            let is_wav = path.extension()
+            let is_wav = path
+                .extension()
                 .and_then(|e| e.to_str())
                 .is_some_and(|e| e.eq_ignore_ascii_case("wav") || e.eq_ignore_ascii_case("wave"));
 
             if is_wav {
                 match load_wav_for_preview(&path_owned) {
                     Ok(raw_clip) => {
-                        eprintln!("[PREVIEW] raw WAV read: {:?} ({} frames, {}Hz)", t0.elapsed(), raw_clip.frame_count, raw_clip.sample_rate);
+                        eprintln!(
+                            "[PREVIEW] raw WAV read: {:?} ({} frames, {}Hz)",
+                            t0.elapsed(),
+                            raw_clip.frame_count,
+                            raw_clip.sample_rate
+                        );
                         // Peaks deferred — playback starts immediately
                         *pending.lock() = Some(AsyncLoadResult {
                             clip: PreviewClipData::Raw(raw_clip),
@@ -189,12 +198,17 @@ impl PreviewPlayer {
 
                     // Spin-wait for initial data (typically < 100ms for MP3)
                     while decoded.load(Ordering::Acquire) < min_frames
-                        && !fully_done.load(Ordering::Acquire) {
+                        && !fully_done.load(Ordering::Acquire)
+                    {
                         std::thread::sleep(std::time::Duration::from_millis(5));
                     }
 
-                    eprintln!("[PREVIEW] streaming ready: {:?} ({} frames decoded so far, {}Hz)",
-                        t0.elapsed(), decoded.load(Ordering::Relaxed), streaming_clip.sample_rate);
+                    eprintln!(
+                        "[PREVIEW] streaming ready: {:?} ({} frames decoded so far, {}Hz)",
+                        t0.elapsed(),
+                        decoded.load(Ordering::Relaxed),
+                        streaming_clip.sample_rate
+                    );
 
                     *pending.lock() = Some(AsyncLoadResult {
                         clip: PreviewClipData::Streaming(streaming_clip),
@@ -259,7 +273,10 @@ impl PreviewPlayer {
 
     /// Seek to a position in seconds
     pub fn seek(&mut self, position_seconds: f64) {
-        let clip_rate = self.clip.as_ref().map_or(TARGET_SAMPLE_RATE, |c| c.sample_rate());
+        let clip_rate = self
+            .clip
+            .as_ref()
+            .map_or(TARGET_SAMPLE_RATE, |c| c.sample_rate());
         let sample_pos = (position_seconds * f64::from(clip_rate)) as u64;
         let clamped = sample_pos.min(self.total_samples);
         self.position_samples.store(clamped, Ordering::SeqCst);
@@ -268,16 +285,17 @@ impl PreviewPlayer {
 
     /// Get current playback position in seconds
     pub fn get_position(&self) -> f64 {
-        let clip_rate = self.clip.as_ref().map_or(TARGET_SAMPLE_RATE, |c| c.sample_rate());
+        let clip_rate = self
+            .clip
+            .as_ref()
+            .map_or(TARGET_SAMPLE_RATE, |c| c.sample_rate());
         let samples = self.position_samples.load(Ordering::SeqCst);
         samples as f64 / f64::from(clip_rate)
     }
 
     /// Get total duration in seconds
     pub fn get_duration(&self) -> f64 {
-        self.clip
-            .as_ref()
-            .map_or(0.0, |c| c.duration_seconds())
+        self.clip.as_ref().map_or(0.0, |c| c.duration_seconds())
     }
 
     /// Check if currently playing
@@ -312,7 +330,11 @@ impl PreviewPlayer {
                         let mut max_amp = 0.0f32;
                         for frame in start..end {
                             let l = clip.get_sample(frame, 0).abs();
-                            let r = if ch > 1 { clip.get_sample(frame, 1).abs() } else { l };
+                            let r = if ch > 1 {
+                                clip.get_sample(frame, 1).abs()
+                            } else {
+                                l
+                            };
                             max_amp = max_amp.max(l).max(r);
                         }
                         peaks.push(max_amp);
@@ -352,7 +374,8 @@ impl PreviewPlayer {
         // Handle end of decoded data
         if position as usize >= frame_count {
             // Check if clip is still streaming (more data coming)
-            let still_streaming = matches!(clip.as_ref(), PreviewClipData::Streaming(s) if !s.is_fully_decoded());
+            let still_streaming =
+                matches!(clip.as_ref(), PreviewClipData::Streaming(s) if !s.is_fully_decoded());
             if still_streaming {
                 // Output silence while waiting for more decoded data
                 return (0.0, 0.0);
@@ -403,7 +426,8 @@ impl PreviewPlayer {
         }
 
         // Check if fade out completed
-        if self.fade_samples_remaining < 0 && self.fade_samples_remaining >= -(FADE_SAMPLES as i32) {
+        if self.fade_samples_remaining < 0 && self.fade_samples_remaining >= -(FADE_SAMPLES as i32)
+        {
             self.fade_samples_remaining += 1;
             if self.fade_samples_remaining == 0 {
                 // Fade out complete, stop playback
@@ -415,7 +439,10 @@ impl PreviewPlayer {
         }
 
         // Clamp to prevent clipping from interpolation
-        ((left * fade_gain).clamp(-1.0, 1.0), (right * fade_gain).clamp(-1.0, 1.0))
+        (
+            (left * fade_gain).clamp(-1.0, 1.0),
+            (right * fade_gain).clamp(-1.0, 1.0),
+        )
     }
 
     /// Calculate fade gain (0.0 to 1.0)

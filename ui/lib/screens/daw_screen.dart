@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 // Conditional import for platform-specific code
+// ignore: unnecessary_import
 import 'daw_screen_io.dart'
     if (dart.library.js_interop) 'daw_screen_io_web.dart';
 import '../audio_engine.dart';
@@ -34,9 +35,13 @@ import '../models/instrument_data.dart';
 import '../models/vst3_plugin_data.dart';
 import '../models/clip_data.dart';
 import '../models/library_item.dart';
+import '../models/track_data.dart';
 import '../services/commands/command.dart';
 import '../services/commands/track_commands.dart';
+import '../services/commands/effect_commands.dart';
+import '../services/commands/send_commands.dart';
 import '../services/commands/project_commands.dart';
+import '../widgets/fx_picker_dialog.dart';
 import '../services/commands/clip_commands.dart';
 import '../utils/clip_overlap_handler.dart';
 import '../services/library_preview_service.dart';
@@ -186,7 +191,7 @@ class _DAWScreenState extends State<DAWScreen>
 
   /// Track order, heights, or metadata changed.
   void _onTrackStateChanged() {
-    if (mounted) setState(() {});
+    _deferSetState(() {});
   }
 
   /// MIDI clip selection or editing state changed.
@@ -200,11 +205,16 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   void _onUndoRedoChanged() {
-    if (mounted) {
-      setState(() {
-        // Trigger rebuild to update Edit menu state
-      });
-    }
+    _deferSetState(() {
+      // Trigger rebuild to update Edit menu state
+    });
+  }
+
+  /// Post-frame setState — avoids parent rebuild during child panel refresh.
+  void _deferSetState(VoidCallback fn) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(fn);
+    });
   }
 
   void _onVst3ManagerChanged() {
@@ -334,6 +344,7 @@ class _DAWScreenState extends State<DAWScreen>
       if (mounted) {
         setState(() {
           isAudioGraphInitialized = true;
+          masterTimelineVisible = audioEngine!.getMasterTimelineVisible();
         });
         playbackController.setStatusMessage(
           'Ready to record or load audio files',
@@ -1636,6 +1647,13 @@ class _DAWScreenState extends State<DAWScreen>
     );
   }
 
+  void _toggleMasterTimelineRow() {
+    if (audioEngine == null) return;
+    final next = !masterTimelineVisible;
+    audioEngine!.setMasterTimelineVisible(visible: next);
+    setState(() => masterTimelineVisible = next);
+  }
+
   void _onInstrumentParameterChanged(InstrumentData instrumentData) {
     trackController.setTrackInstrument(instrumentData.trackId, instrumentData);
   }
@@ -1667,14 +1685,66 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   void _showVst3PluginBrowser(int trackId) {
-    // Open the library sidebar and select the Plugins category
-    setState(() {
-      if (uiLayout.isLibraryPanelCollapsed) {
-        uiLayout.isLibraryPanelCollapsed = false;
-      }
+    _showFxPicker(trackId);
+  }
+
+  /// Refresh mixer/timeline after send/return changes.
+  /// Post-frame avoids setState during FX picker dialog teardown.
+  void _deferSendMutationRefresh() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      mixerKey.currentState?.refreshTracks();
+      timelineKey.currentState?.refreshTracks();
     });
-    // The library panel's Plugins category handles browsing and loading
-    // VST3 plugins can be loaded via double-click or drag-and-drop from the sidebar
+  }
+
+  Future<void> _showFxPicker(int trackId) async {
+    if (audioEngine == null) return;
+
+    final trackInfo = audioEngine!.getTrackInfo(trackId);
+    final track = TrackData.fromCSV(trackInfo);
+    if (track == null) return;
+
+    final isMaster = track.type.toLowerCase() == 'master';
+    final result = await showFxPickerDialog(
+      context: context,
+      trackName: track.name,
+      insertOnly: isMaster,
+    );
+    if (result == null || !mounted) return;
+
+    if (result.mode == FxPickerMode.shared) {
+      final cmd = AddSharedSendCommand(
+        sourceTrackId: trackId,
+        sourceTrackName: track.name,
+        effectType: result.effectType,
+        effectLabel: result.effectName,
+      );
+      await undoRedoManager.execute(cmd);
+      if (!mounted) return;
+      if (cmd.returnTrackId != null) {
+        _deferSendMutationRefresh();
+      }
+      _deferSetState(() {
+        statusMessage = cmd.returnTrackId != null
+            ? 'Added ${result.effectName} send to ${track.name}'
+            : 'Failed to add ${result.effectName} send';
+      });
+      return;
+    }
+
+    await undoRedoManager.execute(
+      AddEffectCommand(
+        trackId: trackId,
+        trackName: track.name,
+        effectType: result.effectType,
+        effectName: result.effectName,
+        isVst3: false,
+      ),
+    );
+    setState(() {
+      statusMessage = 'Added ${result.effectName} to ${track.name}';
+    });
   }
 
   void _onVst3PluginDropped(int trackId, Vst3Plugin plugin) {
@@ -3385,6 +3455,7 @@ class _DAWScreenState extends State<DAWScreen>
             masterTrackHeight: masterTrackHeight,
             onClipHeightChanged: setClipHeight,
             onAutomationHeightChanged: setAutomationHeight,
+            onSendCountChanged: trackController.syncSendCount,
           ),
           trackOrder: trackController.trackOrder,
           getTrackColor: getTrackColor,
@@ -3424,6 +3495,7 @@ class _DAWScreenState extends State<DAWScreen>
           },
           // Recording state (for auto-scroll)
           isRecording: isRecording,
+          masterTimelineVisible: masterTimelineVisible,
           // Automation state
           automationVisibleTrackId: automationController.visibleTrackId,
           automationScrollController:
@@ -3554,6 +3626,7 @@ class _DAWScreenState extends State<DAWScreen>
                   masterTrackHeight: masterTrackHeight,
                   onClipHeightChanged: setClipHeight,
                   onAutomationHeightChanged: setAutomationHeight,
+                  onSendCountChanged: trackController.syncSendCount,
                 ),
                 onMasterTrackHeightChanged: setMasterTrackHeight,
                 automationCallbacks: AutomationCallbacks(
@@ -3743,10 +3816,12 @@ class _DAWScreenState extends State<DAWScreen>
               timelineKey.currentState?.selectedMidiClipIds.length ?? 0,
           // View menu state and callbacks
           uiLayout: uiLayout,
+          masterTimelineVisible: masterTimelineVisible,
           onToggleLibrary: _toggleLibraryPanel,
           onToggleMixer: _toggleMixer,
           onToggleEditor: _toggleEditor,
           onTogglePiano: _toggleVirtualPiano,
+          onToggleMasterRow: _toggleMasterTimelineRow,
           onResetPanelLayout: _resetPanelLayout,
           onAppSettings: _appSettings,
           // Undo/redo callbacks

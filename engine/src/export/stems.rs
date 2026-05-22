@@ -2,8 +2,8 @@
 //!
 //! Exports each track as a separate audio file.
 
-use super::options::{ExportOptions, ExportResult};
 use super::mp3::export_mp3;
+use super::options::{ExportOptions, ExportResult};
 use super::wav::export_wav;
 use std::path::{Path, PathBuf};
 
@@ -114,7 +114,10 @@ pub fn export_stem(
     output_path: &Path,
     options: &ExportOptions,
 ) -> Result<ExportResult, String> {
-    eprintln!("🎚️ [Stem Export] Exporting stem to {}", output_path.display());
+    eprintln!(
+        "🎚️ [Stem Export] Exporting stem to {}",
+        output_path.display()
+    );
 
     match &options.format {
         super::options::ExportFormat::Wav { .. } => export_wav(samples, output_path, options),
@@ -168,7 +171,10 @@ pub fn export_stems(
             }
             Err(e) => {
                 eprintln!("   ❌ {} - {}", track_info.name, e);
-                return Err(format!("Failed to export stem '{}': {}", track_info.name, e));
+                return Err(format!(
+                    "Failed to export stem '{}': {}",
+                    track_info.name, e
+                ));
             }
         }
     }

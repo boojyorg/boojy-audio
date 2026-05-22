@@ -1,9 +1,9 @@
+use crate::audio_file::AudioClip;
 /// Sampler instrument - plays audio samples triggered by MIDI notes
 /// Similar to Synth but uses sample playback instead of oscillators
 /// Supports pitch shifting based on root note and Attack/Release envelope
 /// Supports loop mode (sustain-loop) and one-shot mode (default)
 use std::sync::Arc;
-use crate::audio_file::AudioClip;
 
 const MAX_VOICES: usize = 8;
 
@@ -28,8 +28,8 @@ pub struct SamplerEnvelope {
 impl Default for SamplerEnvelope {
     fn default() -> Self {
         Self {
-            attack_ms: 1.0,    // 1ms default (prevents clicks)
-            release_ms: 50.0,  // 50ms default
+            attack_ms: 1.0,   // 1ms default (prevents clicks)
+            release_ms: 50.0, // 50ms default
         }
     }
 }
@@ -109,7 +109,9 @@ impl SamplerVoice {
                 if loop_enabled && self.env_state != EnvelopeState::Release {
                     self.playback_position = loop_end.min(frame_count as f64 - 1.0);
                 } else {
-                    if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
+                    if self.env_state == EnvelopeState::Release
+                        || self.env_state == EnvelopeState::Idle
+                    {
                         self.is_active = false;
                         return (0.0, 0.0);
                     }
@@ -119,7 +121,9 @@ impl SamplerVoice {
                 }
             }
             // Check loop start boundary (reversed loops from end to start)
-            if loop_enabled && self.env_state != EnvelopeState::Release && loop_start >= 0.0
+            if loop_enabled
+                && self.env_state != EnvelopeState::Release
+                && loop_start >= 0.0
                 && self.playback_position < loop_start
             {
                 self.playback_position = loop_end.min(frame_count as f64 - 1.0);
@@ -129,7 +133,9 @@ impl SamplerVoice {
                 if loop_enabled && self.env_state != EnvelopeState::Release {
                     self.playback_position = loop_start;
                 } else {
-                    if self.env_state == EnvelopeState::Release || self.env_state == EnvelopeState::Idle {
+                    if self.env_state == EnvelopeState::Release
+                        || self.env_state == EnvelopeState::Idle
+                    {
                         self.is_active = false;
                         return (0.0, 0.0);
                     }
@@ -139,7 +145,9 @@ impl SamplerVoice {
                 }
             }
             // Check loop end boundary (when looping)
-            if loop_enabled && self.env_state != EnvelopeState::Release && loop_end > 0.0
+            if loop_enabled
+                && self.env_state != EnvelopeState::Release
+                && loop_end > 0.0
                 && self.playback_position >= loop_end
             {
                 self.playback_position = loop_start;
@@ -182,7 +190,10 @@ impl SamplerVoice {
             return (0.0, 0.0);
         }
 
-        (left * env_out * self.velocity, right * env_out * self.velocity)
+        (
+            left * env_out * self.velocity,
+            right * env_out * self.velocity,
+        )
     }
 
     fn process_envelope(&mut self, params: &SamplerEnvelope, sample_rate: f32) -> f32 {
@@ -238,11 +249,11 @@ impl SamplerVoice {
 pub struct Sampler {
     voices: Vec<SamplerVoice>,
     sample: Option<Arc<AudioClip>>,
-    pub root_note: u8,           // MIDI note that plays sample at original pitch (default 60 = C4)
+    pub root_note: u8, // MIDI note that plays sample at original pitch (default 60 = C4)
     pub envelope: SamplerEnvelope,
-    pub loop_enabled: bool,      // false = one-shot (default), true = sustain-loop
-    pub loop_start: f64,         // Loop start in frames (default 0.0)
-    pub loop_end: f64,           // Loop end in frames (default = sample length)
+    pub loop_enabled: bool, // false = one-shot (default), true = sustain-loop
+    pub loop_start: f64,    // Loop start in frames (default 0.0)
+    pub loop_end: f64,      // Loop end in frames (default = sample length)
     sample_rate: f32,
     // Audio manipulation parameters (matching Audio Editor)
     pub volume_db: f32,           // -70.0 to +24.0 dB (default 0.0)
@@ -281,10 +292,9 @@ impl Sampler {
 
     /// Load a sample from an `AudioClip`
     pub fn load_sample(&mut self, clip: Arc<AudioClip>) {
-        println!("🎹 Sampler: Loaded sample '{}' ({:.2}s, {} channels)",
-            clip.file_path,
-            clip.duration_seconds,
-            clip.channels
+        println!(
+            "🎹 Sampler: Loaded sample '{}' ({:.2}s, {} channels)",
+            clip.file_path, clip.duration_seconds, clip.channels
         );
         // Set loop_end to sample length by default
         self.loop_end = clip.frame_count() as f64;
@@ -315,19 +325,31 @@ impl Sampler {
 
     /// Get the sample rate of the loaded sample
     pub fn sample_sample_rate(&self) -> f32 {
-        self.sample.as_ref().map_or(self.sample_rate, |s| s.sample_rate as f32)
+        self.sample
+            .as_ref()
+            .map_or(self.sample_rate, |s| s.sample_rate as f32)
     }
 
     /// Convert seconds to frames using loaded sample's sample rate
     fn seconds_to_frames(&self, seconds: f64) -> f64 {
-        let sr = self.sample.as_ref().map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
+        let sr = self
+            .sample
+            .as_ref()
+            .map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
         seconds * sr
     }
 
     /// Convert frames to seconds using loaded sample's sample rate
     pub fn frames_to_seconds(&self, frames: f64) -> f64 {
-        let sr = self.sample.as_ref().map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
-        if sr > 0.0 { frames / sr } else { 0.0 }
+        let sr = self
+            .sample
+            .as_ref()
+            .map_or(f64::from(self.sample_rate), |s| f64::from(s.sample_rate));
+        if sr > 0.0 {
+            frames / sr
+        } else {
+            0.0
+        }
     }
 
     /// Calculate the playback rate for a given root note and played note.
@@ -351,7 +373,9 @@ impl Sampler {
 
         // Determine start position (reversed starts from end)
         let start_pos = if self.reversed {
-            self.sample.as_ref().map_or(0.0, |s| s.frame_count() as f64 - 1.0)
+            self.sample
+                .as_ref()
+                .map_or(0.0, |s| s.frame_count() as f64 - 1.0)
         } else {
             0.0
         };
@@ -432,7 +456,11 @@ impl Sampler {
             "root_note" => {
                 if let Ok(v) = value.parse::<u8>() {
                     self.root_note = v.clamp(0, 127);
-                    println!("  → root_note = {} ({})", self.root_note, note_name(self.root_note));
+                    println!(
+                        "  → root_note = {} ({})",
+                        self.root_note,
+                        note_name(self.root_note)
+                    );
                 }
             }
             "attack" | "attack_ms" => {
@@ -457,7 +485,10 @@ impl Sampler {
                     let max_seconds = self.sample_duration_seconds();
                     let clamped = v.clamp(0.0, max_seconds);
                     self.loop_start = self.seconds_to_frames(clamped);
-                    println!("  → loop_start = {:.3}s ({:.0} frames)", clamped, self.loop_start);
+                    println!(
+                        "  → loop_start = {:.3}s ({:.0} frames)",
+                        clamped, self.loop_start
+                    );
                 }
             }
             "loop_end_seconds" => {
@@ -465,7 +496,10 @@ impl Sampler {
                     let max_seconds = self.sample_duration_seconds();
                     let clamped = v.clamp(0.0, max_seconds);
                     self.loop_end = self.seconds_to_frames(clamped);
-                    println!("  → loop_end = {:.3}s ({:.0} frames)", clamped, self.loop_end);
+                    println!(
+                        "  → loop_end = {:.3}s ({:.0} frames)",
+                        clamped, self.loop_end
+                    );
                 }
             }
             "volume_db" => {
@@ -544,7 +578,9 @@ impl Sampler {
     /// Get waveform peaks from the loaded sample as min/max pairs.
     /// Returns [min0, max0, min1, max1, ...] matching Audio Editor format.
     pub fn get_waveform_peaks(&self, resolution: usize) -> Vec<f32> {
-        let Some(ref sample) = self.sample else { return vec![]; };
+        let Some(ref sample) = self.sample else {
+            return vec![];
+        };
         let frames = sample.frame_count();
         if frames == 0 || resolution == 0 {
             return vec![];
@@ -571,7 +607,11 @@ impl Sampler {
                 } else {
                     left
                 };
-                let sample_val = if left.abs() >= right.abs() { left } else { right };
+                let sample_val = if left.abs() >= right.abs() {
+                    left
+                } else {
+                    right
+                };
                 min = min.min(sample_val);
                 max = max.max(sample_val);
             }
@@ -586,7 +626,9 @@ impl Sampler {
 
 /// Convert MIDI note number to note name (e.g., 60 -> "C4")
 fn note_name(note: u8) -> String {
-    const NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const NAMES: [&str; 12] = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
     let octave = (i32::from(note) / 12) - 1;
     let name = NAMES[(note % 12) as usize];
     format!("{name}{octave}")
@@ -764,8 +806,8 @@ mod tests {
     fn test_one_shot_ignores_note_off() {
         let mut sampler = Sampler::new(48000.0);
         sampler.loop_enabled = false; // One-shot (default)
-        // note_off should be ignored in one-shot mode
-        // (can't fully test without a sample, but verify no crash)
+                                      // note_off should be ignored in one-shot mode
+                                      // (can't fully test without a sample, but verify no crash)
         sampler.note_off(60);
     }
 
@@ -793,12 +835,15 @@ mod tests {
 
     #[test]
     fn test_serialization_defaults() {
-        let data: SamplerData = serde_json::from_str(r#"{
+        let data: SamplerData = serde_json::from_str(
+            r#"{
             "sample_path": "test.wav",
             "root_note": 60,
             "attack_ms": 10.0,
             "release_ms": 100.0
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         // New fields should have serde defaults
         assert!(!data.loop_enabled);
         assert!(data.loop_start_seconds.abs() < f64::EPSILON);

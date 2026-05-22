@@ -55,7 +55,11 @@ pub fn load_audio_file<P: AsRef<Path>>(path: P) -> Result<AudioClip> {
             let t0 = std::time::Instant::now();
             match load_wav_fast(path_ref) {
                 Ok(clip) => {
-                    eprintln!("[PREVIEW] fast WAV loaded in {:?} ({} frames)", t0.elapsed(), clip.frame_count());
+                    eprintln!(
+                        "[PREVIEW] fast WAV loaded in {:?} ({} frames)",
+                        t0.elapsed(),
+                        clip.frame_count()
+                    );
                     return Ok(clip);
                 }
                 Err(e) => {
@@ -97,14 +101,27 @@ impl RawPreviewClip {
                 f32::from(s) / 32768.0
             }
             (1, 24) => {
-                let s = i32::from_le_bytes([0, self.raw_data[offset], self.raw_data[offset + 1], self.raw_data[offset + 2]]) >> 8;
+                let s = i32::from_le_bytes([
+                    0,
+                    self.raw_data[offset],
+                    self.raw_data[offset + 1],
+                    self.raw_data[offset + 2],
+                ]) >> 8;
                 s as f32 / 8_388_608.0
             }
-            (3, 32) => {
-                f32::from_le_bytes([self.raw_data[offset], self.raw_data[offset + 1], self.raw_data[offset + 2], self.raw_data[offset + 3]])
-            }
+            (3, 32) => f32::from_le_bytes([
+                self.raw_data[offset],
+                self.raw_data[offset + 1],
+                self.raw_data[offset + 2],
+                self.raw_data[offset + 3],
+            ]),
             (1, 32) => {
-                let s = i32::from_le_bytes([self.raw_data[offset], self.raw_data[offset + 1], self.raw_data[offset + 2], self.raw_data[offset + 3]]);
+                let s = i32::from_le_bytes([
+                    self.raw_data[offset],
+                    self.raw_data[offset + 1],
+                    self.raw_data[offset + 2],
+                    self.raw_data[offset + 3],
+                ]);
                 s as f32 / 2_147_483_648.0
             }
             _ => 0.0,
@@ -116,8 +133,7 @@ impl RawPreviewClip {
 /// Returns nearly instantly for any size WAV.
 pub fn load_wav_for_preview<P: AsRef<Path>>(path: P) -> Result<RawPreviewClip> {
     let path_ref = path.as_ref();
-    let mut file = std::fs::File::open(path_ref)
-        .context("Failed to open WAV file")?;
+    let mut file = std::fs::File::open(path_ref).context("Failed to open WAV file")?;
 
     // Read RIFF header
     let mut riff_header = [0u8; 12];
@@ -135,9 +151,16 @@ pub fn load_wav_for_preview<P: AsRef<Path>>(path: P) -> Result<RawPreviewClip> {
 
     loop {
         let mut chunk_header = [0u8; 8];
-        if file.read_exact(&mut chunk_header).is_err() { break; }
+        if file.read_exact(&mut chunk_header).is_err() {
+            break;
+        }
         let chunk_id = &chunk_header[0..4];
-        let chunk_size = u32::from_le_bytes([chunk_header[4], chunk_header[5], chunk_header[6], chunk_header[7]]);
+        let chunk_size = u32::from_le_bytes([
+            chunk_header[4],
+            chunk_header[5],
+            chunk_header[6],
+            chunk_header[7],
+        ]);
 
         if chunk_id == b"fmt " {
             let mut fmt_data = vec![0u8; chunk_size as usize];
@@ -156,10 +179,16 @@ pub fn load_wav_for_preview<P: AsRef<Path>>(path: P) -> Result<RawPreviewClip> {
         }
     }
 
-    if data_offset == 0 || data_size == 0 { anyhow::bail!("WAV missing data chunk"); }
-    if audio_format != 1 && audio_format != 3 { anyhow::bail!("Unsupported format: {audio_format}"); }
+    if data_offset == 0 || data_size == 0 {
+        anyhow::bail!("WAV missing data chunk");
+    }
+    if audio_format != 1 && audio_format != 3 {
+        anyhow::bail!("Unsupported format: {audio_format}");
+    }
     let ch = channels as usize;
-    if ch == 0 || ch > 2 { anyhow::bail!("Unsupported channels: {ch}"); }
+    if ch == 0 || ch > 2 {
+        anyhow::bail!("Unsupported channels: {ch}");
+    }
     if !matches!((audio_format, bits_per_sample), (1, 16 | 24 | 32) | (3, 32)) {
         anyhow::bail!("Unsupported bit depth: {bits_per_sample}");
     }
@@ -189,8 +218,7 @@ pub fn load_wav_for_preview<P: AsRef<Path>>(path: P) -> Result<RawPreviewClip> {
 /// Fast WAV loader — reads raw PCM directly from the RIFF structure.
 /// Supports 16-bit, 24-bit, and 32-bit float PCM.
 fn load_wav_fast(path: &Path) -> Result<AudioClip> {
-    let mut file = std::fs::File::open(path)
-        .context("Failed to open WAV file")?;
+    let mut file = std::fs::File::open(path).context("Failed to open WAV file")?;
 
     // Read RIFF header (12 bytes)
     let mut riff_header = [0u8; 12];
@@ -215,7 +243,12 @@ fn load_wav_fast(path: &Path) -> Result<AudioClip> {
         }
 
         let chunk_id = &chunk_header[0..4];
-        let chunk_size = u32::from_le_bytes([chunk_header[4], chunk_header[5], chunk_header[6], chunk_header[7]]);
+        let chunk_size = u32::from_le_bytes([
+            chunk_header[4],
+            chunk_header[5],
+            chunk_header[6],
+            chunk_header[7],
+        ]);
 
         if chunk_id == b"fmt " {
             let mut fmt_data = vec![0u8; chunk_size as usize];
@@ -325,16 +358,26 @@ pub struct StreamingPreviewClip {
 impl StreamingPreviewClip {
     #[inline]
     pub fn get_sample(&self, frame: usize, channel: usize) -> f32 {
-        if frame >= self.decoded_frames.load(std::sync::atomic::Ordering::Relaxed) || channel >= self.channels {
+        if frame
+            >= self
+                .decoded_frames
+                .load(std::sync::atomic::Ordering::Relaxed)
+            || channel >= self.channels
+        {
             return 0.0;
         }
         let guard = self.samples.read();
         let idx = frame * self.channels + channel;
-        if idx < guard.len() { guard[idx] } else { 0.0 }
+        if idx < guard.len() {
+            guard[idx]
+        } else {
+            0.0
+        }
     }
 
     pub fn frame_count(&self) -> usize {
-        self.decoded_frames.load(std::sync::atomic::Ordering::Relaxed)
+        self.decoded_frames
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn duration_seconds(&self) -> f64 {
@@ -342,7 +385,8 @@ impl StreamingPreviewClip {
     }
 
     pub fn is_fully_decoded(&self) -> bool {
-        self.fully_decoded.load(std::sync::atomic::Ordering::Relaxed)
+        self.fully_decoded
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -351,8 +395,8 @@ impl StreamingPreviewClip {
 /// The caller should wait until `decoded_frames > 0` before starting playback.
 pub fn start_streaming_decode<P: AsRef<Path>>(path: P) -> Result<StreamingPreviewClip> {
     let path_ref = path.as_ref();
-    let file = std::fs::File::open(path_ref)
-        .context(format!("Failed to open: {}", path_ref.display()))?;
+    let file =
+        std::fs::File::open(path_ref).context(format!("Failed to open: {}", path_ref.display()))?;
 
     let mss = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
 
@@ -362,7 +406,12 @@ pub fn start_streaming_decode<P: AsRef<Path>>(path: P) -> Result<StreamingPrevie
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .context("Failed to probe audio file format")?;
 
     let mut format = probed.format;
@@ -388,7 +437,9 @@ pub fn start_streaming_decode<P: AsRef<Path>>(path: P) -> Result<StreamingPrevie
         .context("Channel count not specified")?
         .count();
 
-    let samples = Arc::new(parking_lot::RwLock::new(Vec::with_capacity(source_sample_rate as usize * channels * 10)));
+    let samples = Arc::new(parking_lot::RwLock::new(Vec::with_capacity(
+        source_sample_rate as usize * channels * 10,
+    )));
     let decoded_frames = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let fully_decoded = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -406,11 +457,16 @@ pub fn start_streaming_decode<P: AsRef<Path>>(path: P) -> Result<StreamingPrevie
         loop {
             let packet = match format.next_packet() {
                 Ok(packet) => packet,
-                Err(Error::ResetRequired) => { decoder.reset(); continue; }
+                Err(Error::ResetRequired) => {
+                    decoder.reset();
+                    continue;
+                }
                 Err(_) => break,
             };
 
-            if packet.track_id() != track_id { continue; }
+            if packet.track_id() != track_id {
+                continue;
+            }
 
             match decoder.decode(&packet) {
                 Ok(audio_buf) => {
@@ -447,7 +503,12 @@ pub fn load_audio_file_partial<P: AsRef<Path>>(path: P, max_seconds: f64) -> Res
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .context("Failed to probe audio file format")?;
 
     let mut format = probed.format;
@@ -485,11 +546,16 @@ pub fn load_audio_file_partial<P: AsRef<Path>>(path: P, max_seconds: f64) -> Res
         let packet = match format.next_packet() {
             Ok(packet) => packet,
             Err(Error::IoError(_)) => break,
-            Err(Error::ResetRequired) => { decoder.reset(); continue; }
+            Err(Error::ResetRequired) => {
+                decoder.reset();
+                continue;
+            }
             Err(err) => return Err(anyhow::anyhow!("Error reading packet: {err}")),
         };
 
-        if packet.track_id() != track_id { continue; }
+        if packet.track_id() != track_id {
+            continue;
+        }
 
         match decoder.decode(&packet) {
             Ok(audio_buf) => {
@@ -534,7 +600,12 @@ fn load_audio_file_symphonia(path_ref: &Path) -> Result<AudioClip> {
 
     // Probe the media source
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .context("Failed to probe audio file format")?;
 
     let mut format = probed.format;
@@ -555,7 +626,7 @@ fn load_audio_file_symphonia(path_ref: &Path) -> Result<AudioClip> {
     let source_sample_rate = codec_params
         .sample_rate
         .context("Sample rate not specified in audio file")?;
-    
+
     let channels = codec_params
         .channels
         .context("Channel count not specified in audio file")?
@@ -563,7 +634,7 @@ fn load_audio_file_symphonia(path_ref: &Path) -> Result<AudioClip> {
 
     // Decode all packets into a flat buffer
     let mut decoded_samples: Vec<f32> = Vec::new();
-    
+
     loop {
         let packet = match format.next_packet() {
             Ok(packet) => packet,
@@ -622,61 +693,147 @@ fn convert_audio_buffer_to_f32(audio_buf: &AudioBufferRef<'_>, channels: usize) 
     match audio_buf {
         AudioBufferRef::F32(buf) => {
             let left = buf.chan(0);
-            let right = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
+            let right = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
             interleave_channels(left, right, buf.frames())
         }
         AudioBufferRef::F64(buf) => {
             let left: Vec<f32> = buf.chan(0).iter().map(|&s| s as f32).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
             let right: Vec<f32> = right_src.iter().map(|&s| s as f32).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U8(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (f32::from(s) - 128.0) / 128.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| (f32::from(s) - 128.0) / 128.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| (f32::from(s) - 128.0) / 128.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| (f32::from(s) - 128.0) / 128.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U16(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (f32::from(s) - 32768.0) / 32768.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| (f32::from(s) - 32768.0) / 32768.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| (f32::from(s) - 32768.0) / 32768.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| (f32::from(s) - 32768.0) / 32768.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U24(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| s.inner() as f32 / 8_388_608.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| s.inner() as f32 / 8_388_608.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| s.inner() as f32 / 8_388_608.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| s.inner() as f32 / 8_388_608.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::U32(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| (s as f32 - 2_147_483_648.0) / 2_147_483_648.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| (s as f32 - 2_147_483_648.0) / 2_147_483_648.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| (s as f32 - 2_147_483_648.0) / 2_147_483_648.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| (s as f32 - 2_147_483_648.0) / 2_147_483_648.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S8(buf) => {
             let left: Vec<f32> = buf.chan(0).iter().map(|&s| f32::from(s) / 128.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
             let right: Vec<f32> = right_src.iter().map(|&s| f32::from(s) / 128.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S16(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| f32::from(s) / 32768.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| f32::from(s) / 32768.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
             let right: Vec<f32> = right_src.iter().map(|&s| f32::from(s) / 32768.0).collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S24(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| s.inner() as f32 / 8_388_608.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| s.inner() as f32 / 8_388_608.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| s.inner() as f32 / 8_388_608.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| s.inner() as f32 / 8_388_608.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
         AudioBufferRef::S32(buf) => {
-            let left: Vec<f32> = buf.chan(0).iter().map(|&s| s as f32 / 2_147_483_648.0).collect();
-            let right_src = if channels > 1 { buf.chan(1) } else { buf.chan(0) };
-            let right: Vec<f32> = right_src.iter().map(|&s| s as f32 / 2_147_483_648.0).collect();
+            let left: Vec<f32> = buf
+                .chan(0)
+                .iter()
+                .map(|&s| s as f32 / 2_147_483_648.0)
+                .collect();
+            let right_src = if channels > 1 {
+                buf.chan(1)
+            } else {
+                buf.chan(0)
+            };
+            let right: Vec<f32> = right_src
+                .iter()
+                .map(|&s| s as f32 / 2_147_483_648.0)
+                .collect();
             interleave_channels(&left, &right, buf.frames())
         }
     }
@@ -813,4 +970,3 @@ mod tests {
         assert_eq!(result, input);
     }
 }
-

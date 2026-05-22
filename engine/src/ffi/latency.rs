@@ -1,7 +1,7 @@
+use super::{ffi_catch, safe_cstring};
+use crate::api;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
-use crate::api;
-use super::{safe_cstring, ffi_catch};
 
 // ============================================================================
 // Latency Control FFI
@@ -30,9 +30,7 @@ pub extern "C" fn get_buffer_size_preset_ffi() -> i32 {
 /// Get actual buffer size in samples
 #[no_mangle]
 pub extern "C" fn get_actual_buffer_size_ffi() -> u32 {
-    ffi_catch(0, || {
-        api::get_actual_buffer_size().unwrap_or(256)
-    })
+    ffi_catch(0, || api::get_actual_buffer_size().unwrap_or(256))
 }
 
 /// Get audio latency info
@@ -45,16 +43,28 @@ pub extern "C" fn get_latency_info_ffi(
     out_output_latency_ms: *mut f32,
     out_roundtrip_ms: *mut f32,
 ) {
-    ffi_catch((), AssertUnwindSafe(|| {
-        if let Some((buffer_size, input_ms, output_ms, roundtrip_ms)) = api::get_latency_info() {
-            unsafe {
-                if !out_buffer_size.is_null() { *out_buffer_size = buffer_size; }
-                if !out_input_latency_ms.is_null() { *out_input_latency_ms = input_ms; }
-                if !out_output_latency_ms.is_null() { *out_output_latency_ms = output_ms; }
-                if !out_roundtrip_ms.is_null() { *out_roundtrip_ms = roundtrip_ms; }
+    ffi_catch(
+        (),
+        AssertUnwindSafe(|| {
+            if let Some((buffer_size, input_ms, output_ms, roundtrip_ms)) = api::get_latency_info()
+            {
+                unsafe {
+                    if !out_buffer_size.is_null() {
+                        *out_buffer_size = buffer_size;
+                    }
+                    if !out_input_latency_ms.is_null() {
+                        *out_input_latency_ms = input_ms;
+                    }
+                    if !out_output_latency_ms.is_null() {
+                        *out_output_latency_ms = output_ms;
+                    }
+                    if !out_roundtrip_ms.is_null() {
+                        *out_roundtrip_ms = roundtrip_ms;
+                    }
+                }
             }
-        }
-    }));
+        }),
+    );
 }
 
 // ============================================================================
@@ -64,22 +74,18 @@ pub extern "C" fn get_latency_info_ffi(
 /// Start latency test to measure real round-trip audio latency
 #[no_mangle]
 pub extern "C" fn start_latency_test_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::start_latency_test() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::start_latency_test() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
 /// Stop/cancel latency test
 #[no_mangle]
 pub extern "C" fn stop_latency_test_ffi() -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::stop_latency_test() {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
+    ffi_catch(std::ptr::null_mut(), || match api::stop_latency_test() {
+        Ok(msg) => safe_cstring(msg).into_raw(),
+        Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
     })
 }
 
@@ -87,26 +93,28 @@ pub extern "C" fn stop_latency_test_ffi() -> *mut c_char {
 /// Returns packed i64: (state << 32) | (`result_ms` as bits)
 /// State: 0=Idle, 1=WaitingForSilence, 2=Playing, 3=Listening, 4=Analyzing, 5=Done, 6=Error
 #[no_mangle]
-pub extern "C" fn get_latency_test_status_ffi(
-    out_state: *mut i32,
-    out_result_ms: *mut f32,
-) {
-    ffi_catch((), AssertUnwindSafe(|| {
-        match api::get_latency_test_status() {
-            Ok((state, result_ms)) => {
-                unsafe {
-                    if !out_state.is_null() { *out_state = state; }
-                    if !out_result_ms.is_null() { *out_result_ms = result_ms; }
+pub extern "C" fn get_latency_test_status_ffi(out_state: *mut i32, out_result_ms: *mut f32) {
+    ffi_catch(
+        (),
+        AssertUnwindSafe(|| match api::get_latency_test_status() {
+            Ok((state, result_ms)) => unsafe {
+                if !out_state.is_null() {
+                    *out_state = state;
                 }
-            }
-            Err(_) => {
-                unsafe {
-                    if !out_state.is_null() { *out_state = 0; }
-                    if !out_result_ms.is_null() { *out_result_ms = -1.0; }
+                if !out_result_ms.is_null() {
+                    *out_result_ms = result_ms;
                 }
-            }
-        }
-    }));
+            },
+            Err(_) => unsafe {
+                if !out_state.is_null() {
+                    *out_state = 0;
+                }
+                if !out_result_ms.is_null() {
+                    *out_result_ms = -1.0;
+                }
+            },
+        }),
+    );
 }
 
 /// Get latency test error message (if state is Error)

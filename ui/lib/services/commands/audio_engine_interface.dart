@@ -53,6 +53,8 @@ abstract class AudioEngineInterface {
   void setTrackSolo(int trackId, {required bool solo});
   void setTrackArmed(int trackId, {required bool armed});
 
+  List<int> getAllTrackIds();
+
   // Effect operations
   int addEffectToTrack(int trackId, String effectType);
   int addVst3EffectToTrack(int trackId, String effectPath);
@@ -111,4 +113,19 @@ abstract class AudioEngineInterface {
   double getPunchInSeconds();
   double getPunchOutSeconds();
   bool isPunchComplete();
+
+  // Send/return operations
+  int findReturnByEffectType(String effectType);
+  int createReturnWithEffect(String effectType, {String? name});
+  String addSharedSend(int sourceTrackId, String effectType);
+  String addSend(int sourceTrackId, int returnTrackId, double amountDb);
+  String setSendAmount(int sourceTrackId, int returnTrackId, double amountDb);
+  String removeSend(int sourceTrackId, int returnTrackId);
+  String removeReturn(int returnTrackId);
+  String getTrackSends(int trackId);
+  String getAllReturns();
+  int countSendsToReturn(int returnTrackId);
+  bool getMasterTimelineVisible();
+  String setMasterTimelineVisible({required bool visible});
+  bool syncMasterTimelineVisibility();
 }

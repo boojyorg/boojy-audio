@@ -1,8 +1,8 @@
 /// MIDI recording engine
 use crate::midi::{MidiClip, MidiEvent, MidiEventType};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 const SAMPLE_RATE: u32 = 48000;
 
@@ -67,7 +67,10 @@ impl MidiRecorder {
         self.held_notes_flushed = false;
         self.state = MidiRecordingState::Recording;
 
-        eprintln!("🎹 [MIDI_REC] Recording started at sample {}", self.start_timestamp);
+        eprintln!(
+            "🎹 [MIDI_REC] Recording started at sample {}",
+            self.start_timestamp
+        );
         Ok("Recording started".to_string())
     }
 
@@ -84,7 +87,10 @@ impl MidiRecorder {
             return Ok(None);
         }
 
-        eprintln!("🎹 [MIDI_REC] Recording stopped. {} events captured", self.events.len());
+        eprintln!(
+            "🎹 [MIDI_REC] Recording stopped. {} events captured",
+            self.events.len()
+        );
 
         // Create MIDI clip from recorded events
         let mut clip = MidiClip::with_events(self.events.clone(), SAMPLE_RATE);
@@ -92,7 +98,10 @@ impl MidiRecorder {
         // Apply quantization if enabled
         if self.quantize_grid_samples > 0 {
             clip.quantize(self.quantize_grid_samples);
-            eprintln!("🎹 [MIDI_REC] Applied quantization: {} samples", self.quantize_grid_samples);
+            eprintln!(
+                "🎹 [MIDI_REC] Applied quantization: {} samples",
+                self.quantize_grid_samples
+            );
         }
 
         Ok(Some(clip))
@@ -223,7 +232,6 @@ impl MidiRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_midi_recorder_start_stop() {

@@ -28,8 +28,7 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
 
     // Track copies hold authoritative arrangement start times after drag/move.
     let track_manager = graph.track_manager.lock();
-    let mut on_track: std::collections::HashMap<u64, (i64, f64)> =
-        std::collections::HashMap::new();
+    let mut on_track: std::collections::HashMap<u64, (i64, f64)> = std::collections::HashMap::new();
     for track in track_manager.get_all_tracks() {
         let track_lock = track.lock();
         for timeline_clip in &track_lock.midi_clips {
@@ -43,15 +42,18 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
 
     let midi_clips = graph.get_midi_clips().lock();
     for timeline_clip in midi_clips.iter() {
-        let (track_id_str, start_time) = if let Some((track_id, track_start)) =
-            on_track.get(&timeline_clip.id)
-        {
-            (*track_id, *track_start)
-        } else {
-            let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
-            let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
-            (track_id_str, timeline_clip.start_time)
-        };
+        let (track_id_str, start_time) =
+            if let Some((track_id, track_start)) = on_track.get(&timeline_clip.id) {
+                (*track_id, *track_start)
+            } else {
+                let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
+                let track_id_str = if track_id == u64::MAX as i64 {
+                    -1
+                } else {
+                    track_id
+                };
+                (track_id_str, timeline_clip.start_time)
+            };
         let duration = timeline_clip.clip.duration_seconds();
         let note_count = timeline_clip.clip.events.len() / 2;
         clips_info.push(format!(
@@ -66,9 +68,10 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
     for track in track_manager.get_all_tracks() {
         let track_lock = track.lock();
         for timeline_clip in &track_lock.midi_clips {
-            if clips_info.iter().any(|info| {
-                info.split(',').next().unwrap_or("") == timeline_clip.id.to_string()
-            }) {
+            if clips_info
+                .iter()
+                .any(|info| info.split(',').next().unwrap_or("") == timeline_clip.id.to_string())
+            {
                 continue;
             }
             let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
@@ -112,7 +115,11 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     let midi_clips = graph.get_midi_clips().lock();
     if let Some(timeline_clip) = midi_clips.iter().find(|c| c.id == clip_id) {
         let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
-        let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
+        let track_id_str = if track_id == u64::MAX as i64 {
+            -1
+        } else {
+            track_id
+        };
         let duration = timeline_clip.clip.duration_seconds();
         let note_count = timeline_clip.clip.events.len() / 2;
         return Ok(format!(
@@ -143,7 +150,8 @@ pub fn get_midi_clip_notes(clip_id: u64) -> Result<String, String> {
     // Also check track-specific MIDI clips
     let track_manager = graph.track_manager.lock();
     for track in track_manager.get_all_tracks() {
-        { let track_lock = track.lock();
+        {
+            let track_lock = track.lock();
             for timeline_clip in &track_lock.midi_clips {
                 if timeline_clip.id == clip_id {
                     let notes = extract_notes_from_clip(&timeline_clip.clip, sample_rate);
@@ -205,7 +213,8 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
     };
 
     // Record to MIDI recorder if recording is active
-    { let mut recorder = graph.midi_recorder.lock();
+    {
+        let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             recorder.record_event(event);
         }
@@ -220,7 +229,8 @@ pub fn send_midi_note_on(note: u8, velocity: u8) -> Result<String, String> {
     let mut first_midi_track_id: Option<TrackId> = None;
 
     for track_arc in tracks {
-        { let track = track_arc.lock();
+        {
+            let track = track_arc.lock();
             // Both MIDI and Sampler tracks can receive MIDI notes
             if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
@@ -262,7 +272,8 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
     };
 
     // Record to MIDI recorder if recording is active
-    { let mut recorder = graph.midi_recorder.lock();
+    {
+        let mut recorder = graph.midi_recorder.lock();
         if recorder.is_recording() {
             recorder.record_event(event);
         }
@@ -277,7 +288,8 @@ pub fn send_midi_note_off(note: u8, velocity: u8) -> Result<String, String> {
     let mut first_midi_track_id: Option<TrackId> = None;
 
     for track_arc in tracks {
-        { let track = track_arc.lock();
+        {
+            let track = track_arc.lock();
             // Both MIDI and Sampler tracks can receive MIDI notes
             if track.track_type == TrackType::Midi || track.track_type == TrackType::Sampler {
                 if first_midi_track_id.is_none() {
@@ -372,7 +384,9 @@ pub fn add_midi_note_to_clip(
     // Sync the updated clip to the track (needed because Arc::make_mut may have created a new copy)
     graph.sync_midi_clip_to_track(clip_id);
 
-    Ok(format!("Added note {note} at {start_time:.3}s, duration {duration:.3}s"))
+    Ok(format!(
+        "Added note {note} at {start_time:.3}s, duration {duration:.3}s"
+    ))
 }
 
 /// Get all MIDI events from a clip
@@ -402,7 +416,8 @@ pub fn get_midi_clip_events(clip_id: u64) -> Result<Vec<(i32, u8, u8, f64)>, Str
                 MidiEventType::NoteOff { note, velocity } => (1, note, velocity),
                 MidiEventType::ControlChange { controller, value } => (2, controller, value),
             };
-            let timestamp_seconds = event.timestamp_samples as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
+            let timestamp_seconds =
+                event.timestamp_samples as f64 / f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
             (event_type, note, velocity, timestamp_seconds)
         })
         .collect();
@@ -426,7 +441,8 @@ pub fn remove_midi_event(clip_id: u64, event_index: usize) -> Result<String, Str
     let clip_data: &mut crate::midi::MidiClip = Arc::make_mut(&mut timeline_clip.clip);
 
     // Remove the event
-    clip_data.remove_event(event_index)
+    clip_data
+        .remove_event(event_index)
         .ok_or("Event index out of bounds")?;
 
     Ok(format!("Removed event at index {event_index}"))
@@ -477,7 +493,8 @@ pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, St
     // Calculate grid size in samples based on tempo (assume 120 BPM for now)
     let tempo = 120.0;
     let seconds_per_beat = 60.0 / tempo;
-    let samples_per_beat = (seconds_per_beat * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
+    let samples_per_beat =
+        (seconds_per_beat * f64::from(crate::audio_file::TARGET_SAMPLE_RATE)) as u64;
     let grid_samples = samples_per_beat / u64::from(grid_division);
 
     // Get mutable reference to the clip data
@@ -499,7 +516,11 @@ pub fn quantize_midi_clip(clip_id: u64, grid_division: u32) -> Result<String, St
 /// * `track_id` - The track to add the clip to
 /// * `clip_id` - The MIDI clip ID (must exist)
 /// * `start_time_seconds` - Start time on the timeline in seconds
-pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_seconds: f64) -> Result<(), String> {
+pub fn add_midi_clip_to_track_api(
+    track_id: u64,
+    clip_id: u64,
+    start_time_seconds: f64,
+) -> Result<(), String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
@@ -519,7 +540,8 @@ pub fn add_midi_clip_to_track_api(track_id: u64, clip_id: u64, start_time_second
     };
 
     // Add the clip to the track's timeline (use the same clip_id for consistency)
-    graph.add_midi_clip_to_track(track_id, clip_arc, start_time_seconds, clip_id)
+    graph
+        .add_midi_clip_to_track(track_id, clip_arc, start_time_seconds, clip_id)
         .ok_or(format!("Failed to add MIDI clip to track {track_id}"))?;
 
     Ok(())

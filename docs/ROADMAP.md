@@ -1,15 +1,18 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.2.4
-**Working On:** v0.3.0 — Send/return routing (minimal)
+**Current Version:** v0.2.4 (developing v0.3.0)
+**Working On:** v0.3.0 — Send/return via ⚡ FX picker + hidden master row
 **Goal:** v1.0 public release
 
 ---
 
 ## What's Next (v0.3.0)
 
-- Minimal send/return routing — return track + send knobs on channels (engine sends exist; UI wiring is the work)
-- Tier 1 mixing prep per [FEATURE_TRACKER.md](FEATURE_TRACKER.md)
+Spec: [plans/v0.3.0-plan.md](plans/v0.3.0-plan.md)
+
+- **Send/return:** ⚡ FX button on strips → insert or shared send; return section in mixer; engine DSP (realtime + export)
+- **Master row:** Hidden in arrangement by default; show when master automation exists or View → Show Master Row
+- Data model + project save/load exist; **renderer DSP and UI are the work**
 
 ---
 
@@ -76,7 +79,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 - `timeline_view.dart` phase 1 split **done** (~1,200 lines); `daw_screen.dart` still ~4,200
 - Persistence **centralized** via `ProjectPersistence` (engine `project.json` + UI `ui_layout.json` split remains by design)
 - CI: macOS full pipeline (analyze, unit + integration tests, clippy) + Windows analyze/test/clippy (no VST3)
-- Next review: pre-v0.3.0 scoped audit on send/return surfaces (mixer, engine, persistence), not a full codebase review
+- Pre-v0.3.0 scoped audit **done** — see [v0.3.0-plan.md](plans/v0.3.0-plan.md#pre-v0-3-scoped-audit-2026-05-22)
 
 ---
 

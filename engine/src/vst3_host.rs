@@ -24,19 +24,11 @@ pub struct VST3PluginInfo {
 
 impl VST3PluginInfo {
     pub fn name_str(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(self.name.as_ptr())
-                .to_str()
-                .unwrap_or("")
-        }
+        unsafe { CStr::from_ptr(self.name.as_ptr()).to_str().unwrap_or("") }
     }
 
     pub fn vendor_str(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(self.vendor.as_ptr())
-                .to_str()
-                .unwrap_or("")
-        }
+        unsafe { CStr::from_ptr(self.vendor.as_ptr()).to_str().unwrap_or("") }
     }
 
     pub fn file_path_str(&self) -> &str {
@@ -48,11 +40,7 @@ impl VST3PluginInfo {
     }
 
     pub fn version_str(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(self.version.as_ptr())
-                .to_str()
-                .unwrap_or("")
-        }
+        unsafe { CStr::from_ptr(self.version.as_ptr()).to_str().unwrap_or("") }
     }
 }
 
@@ -72,19 +60,11 @@ pub struct VST3ParameterInfo {
 
 impl VST3ParameterInfo {
     pub fn title_str(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(self.title.as_ptr())
-                .to_str()
-                .unwrap_or("")
-        }
+        unsafe { CStr::from_ptr(self.title.as_ptr()).to_str().unwrap_or("") }
     }
 
     pub fn units_str(&self) -> &str {
-        unsafe {
-            CStr::from_ptr(self.units.as_ptr())
-                .to_str()
-                .unwrap_or("")
-        }
+        unsafe { CStr::from_ptr(self.units.as_ptr()).to_str().unwrap_or("") }
     }
 }
 
@@ -110,10 +90,7 @@ extern "C" {
     pub fn vst3_load_plugin(file_path: *const c_char) -> *mut VST3PluginHandle;
     pub fn vst3_unload_plugin(handle: *mut VST3PluginHandle);
 
-    pub fn vst3_get_plugin_info(
-        handle: *mut VST3PluginHandle,
-        info: *mut VST3PluginInfo,
-    ) -> bool;
+    pub fn vst3_get_plugin_info(handle: *mut VST3PluginHandle, info: *mut VST3PluginInfo) -> bool;
 
     pub fn vst3_initialize_plugin(
         handle: *mut VST3PluginHandle,
@@ -150,10 +127,7 @@ extern "C" {
         info: *mut VST3ParameterInfo,
     ) -> bool;
 
-    pub fn vst3_get_parameter_value(
-        handle: *mut VST3PluginHandle,
-        param_id: u32,
-    ) -> c_double;
+    pub fn vst3_get_parameter_value(handle: *mut VST3PluginHandle, param_id: u32) -> c_double;
 
     pub fn vst3_set_parameter_value(
         handle: *mut VST3PluginHandle,
@@ -169,11 +143,7 @@ extern "C" {
         max_size: c_int,
     ) -> c_int;
 
-    pub fn vst3_set_state(
-        handle: *mut VST3PluginHandle,
-        data: *const c_void,
-        size: c_int,
-    ) -> bool;
+    pub fn vst3_set_state(handle: *mut VST3PluginHandle, data: *const c_void, size: c_int) -> bool;
 
     // M7 Phase 1: Native Editor Support
     pub fn vst3_has_editor(handle: *mut VST3PluginHandle) -> bool;
@@ -209,11 +179,7 @@ extern "C" {
         program_index: c_int,
     ) -> bool;
 
-    pub fn vst3_set_editor_max_size(
-        handle: *mut VST3PluginHandle,
-        max_w: c_int,
-        max_h: c_int,
-    );
+    pub fn vst3_set_editor_max_size(handle: *mut VST3PluginHandle, max_w: c_int, max_h: c_int);
 
     pub fn vst3_get_last_error() -> *const c_char;
 }
@@ -308,9 +274,7 @@ impl VST3Host {
             if err_ptr.is_null() {
                 "Unknown error".to_string()
             } else {
-                CStr::from_ptr(err_ptr)
-                    .to_string_lossy()
-                    .into_owned()
+                CStr::from_ptr(err_ptr).to_string_lossy().into_owned()
             }
         }
     }
@@ -341,8 +305,13 @@ pub fn scan_standard_locations() -> Result<Vec<VST3PluginInfo>, String> {
                 .to_string_lossy()
                 .into_owned()
         };
-        eprintln!("🔍 VST3 Plugin: {} | Category: '{}' | is_instrument: {} | is_effect: {}",
-                  info.name_str(), category_str, info.is_instrument, info.is_effect);
+        eprintln!(
+            "🔍 VST3 Plugin: {} | Category: '{}' | is_instrument: {} | is_effect: {}",
+            info.name_str(),
+            category_str,
+            info.is_instrument,
+            info.is_effect
+        );
         plugins.push(info.clone());
     })?;
 
@@ -496,11 +465,8 @@ impl VST3Plugin {
             }
 
             let mut buffer = vec![0u8; size as usize];
-            let actual_size = vst3_get_state(
-                self.handle,
-                buffer.as_mut_ptr().cast::<c_void>(),
-                size,
-            );
+            let actual_size =
+                vst3_get_state(self.handle, buffer.as_mut_ptr().cast::<c_void>(), size);
 
             if actual_size > 0 {
                 buffer.truncate(actual_size as usize);
@@ -628,7 +594,10 @@ impl VST3Plugin {
         // Get thread ID for debugging
         let thread_id = std::thread::current().id();
         eprintln!("🔧 [VST3Plugin] attach_editor on thread {thread_id:?}");
-        eprintln!("🔧 [VST3Plugin] handle={:?}, handle_addr={:p}", self.handle, &self.handle);
+        eprintln!(
+            "🔧 [VST3Plugin] handle={:?}, handle_addr={:p}",
+            self.handle, &self.handle
+        );
         eprintln!("🔧 [VST3Plugin] parent={parent:?}");
         let _ = std::io::stderr().flush();
 
@@ -651,7 +620,10 @@ impl VST3Plugin {
 
         unsafe {
             eprintln!("🔧 [VST3Plugin] Inside unsafe block, about to call vst3_attach_editor");
-            eprintln!("🔧 [VST3Plugin] self.handle as usize = 0x{:x}", self.handle as usize);
+            eprintln!(
+                "🔧 [VST3Plugin] self.handle as usize = 0x{:x}",
+                self.handle as usize
+            );
             eprintln!("🔧 [VST3Plugin] parent as usize = 0x{:x}", parent as usize);
             let _ = std::io::stderr().flush();
 
@@ -687,8 +659,8 @@ unsafe impl Sync for VST3Plugin {}
 // EFFECT SYSTEM INTEGRATION
 // ========================================================================
 
-use std::sync::Arc;
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// VST3 effect wrapper for the effect system
 ///
@@ -699,11 +671,11 @@ use parking_lot::Mutex;
 pub struct VST3Effect {
     plugin: Arc<Mutex<VST3Plugin>>,
     name: String,
-    plugin_path: String,  // Path to the .vst3 bundle (for project save/load)
+    plugin_path: String, // Path to the .vst3 bundle (for project save/load)
     sample_rate: f64,
     block_size: i32,
     initialized: bool,
-    pub is_instrument: bool,  // True if this is a VST3 instrument (generates audio from MIDI)
+    pub is_instrument: bool, // True if this is a VST3 instrument (generates audio from MIDI)
 }
 
 impl VST3Effect {
@@ -903,12 +875,7 @@ impl crate::effects::Effect for VST3Effect {
         let mut out_left = vec![0.0f32; len];
         let mut out_right = vec![0.0f32; len];
 
-        match plugin.process_audio(
-            &left[..len],
-            &right[..len],
-            &mut out_left,
-            &mut out_right,
-        ) {
+        match plugin.process_audio(&left[..len], &right[..len], &mut out_left, &mut out_right) {
             Ok(()) => {
                 left[..len].copy_from_slice(&out_left);
                 right[..len].copy_from_slice(&out_right);
@@ -952,7 +919,8 @@ mod tests {
         VST3Host::scan_standard_locations(|info| {
             println!("Found plugin: {} by {}", info.name_str(), info.vendor_str());
             count += 1;
-        }).ok();
+        })
+        .ok();
 
         println!("Found {count} plugins");
         VST3Host::shutdown();
@@ -967,10 +935,22 @@ mod tests {
                 for (i, info) in plugins.iter().enumerate() {
                     println!("{}. {} by {}", i + 1, info.name_str(), info.vendor_str());
                     println!("   Path: {}", info.file_path_str());
-                    println!("   Type: {}", if info.is_instrument { "Instrument" } else if info.is_effect { "Effect" } else { "Unknown" });
+                    println!(
+                        "   Type: {}",
+                        if info.is_instrument {
+                            "Instrument"
+                        } else if info.is_effect {
+                            "Effect"
+                        } else {
+                            "Unknown"
+                        }
+                    );
                 }
                 println!("Total: {} plugins\n", plugins.len());
-                println!("Found {} plugins (0 is OK if none installed)", plugins.len());
+                println!(
+                    "Found {} plugins (0 is OK if none installed)",
+                    plugins.len()
+                );
             }
             Err(e) => {
                 println!("Scan failed: {e}");
@@ -995,7 +975,9 @@ mod tests {
                 println!("Version: {}", info.version_str());
 
                 // Initialize at 48kHz with 512 sample buffer
-                plugin.initialize(48000.0, 512).expect("Failed to initialize");
+                plugin
+                    .initialize(48000.0, 512)
+                    .expect("Failed to initialize");
                 plugin.activate().expect("Failed to activate");
 
                 // Get parameter count
@@ -1069,25 +1051,33 @@ mod tests {
         if let Ok(plugin) = VST3Plugin::load(plugin_path) {
             println!("\n=== Testing VST3 Audio Processing ===");
 
-            plugin.initialize(48000.0, 512).expect("Failed to initialize");
+            plugin
+                .initialize(48000.0, 512)
+                .expect("Failed to initialize");
             plugin.activate().expect("Failed to activate");
 
             // Process a buffer of audio
             let samples = 512;
-            let input_left: Vec<f32> = (0..samples).map(|i| {
-                (i as f32 * 440.0 * 2.0 * std::f32::consts::PI / 48000.0).sin() * 0.3
-            }).collect();
+            let input_left: Vec<f32> = (0..samples)
+                .map(|i| (i as f32 * 440.0 * 2.0 * std::f32::consts::PI / 48000.0).sin() * 0.3)
+                .collect();
             let input_right = input_left.clone();
 
             let mut output_left = vec![0.0f32; samples];
             let mut output_right = vec![0.0f32; samples];
 
-            match plugin.process_audio(&input_left, &input_right, &mut output_left, &mut output_right) {
+            match plugin.process_audio(
+                &input_left,
+                &input_right,
+                &mut output_left,
+                &mut output_right,
+            ) {
                 Ok(()) => {
                     println!("Successfully processed {samples} samples");
 
                     // Check that output is not all zeros
-                    let max_output = output_left.iter()
+                    let max_output = output_left
+                        .iter()
                         .chain(output_right.iter())
                         .map(|x| x.abs())
                         .fold(0.0f32, f32::max);

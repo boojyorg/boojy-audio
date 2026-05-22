@@ -1,8 +1,8 @@
+use super::{ffi_catch, safe_cstring};
+use crate::api;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
-use crate::api;
-use super::{safe_cstring, ffi_catch};
 
 // ============================================================================
 // M4: Effect Management FFI
@@ -11,37 +11,38 @@ use super::{safe_cstring, ffi_catch};
 /// Add an effect to a track's FX chain
 /// Returns effect ID on success, or -1 on error
 #[no_mangle]
-pub extern "C" fn add_effect_to_track_ffi(
-    track_id: u64,
-    effect_type: *const c_char,
-) -> i64 {
-    ffi_catch(-1, AssertUnwindSafe(|| {
-        let effect_type_str = unsafe {
-            match CStr::from_ptr(effect_type).to_str() {
-                Ok(s) => s,
-                Err(_) => return -1,
-            }
-        };
+pub extern "C" fn add_effect_to_track_ffi(track_id: u64, effect_type: *const c_char) -> i64 {
+    ffi_catch(
+        -1,
+        AssertUnwindSafe(|| {
+            let effect_type_str = unsafe {
+                match CStr::from_ptr(effect_type).to_str() {
+                    Ok(s) => s,
+                    Err(_) => return -1,
+                }
+            };
 
-        match api::add_effect_to_track(track_id, effect_type_str) {
-            Ok(effect_id) => effect_id as i64,
-            Err(e) => {
-                eprintln!("[FFI] add_effect_to_track error: {e}");
-                -1
+            match api::add_effect_to_track(track_id, effect_type_str) {
+                Ok(effect_id) => effect_id as i64,
+                Err(e) => {
+                    eprintln!("[FFI] add_effect_to_track error: {e}");
+                    -1
+                }
             }
-        }
-    }))
+        }),
+    )
 }
 
 /// Remove an effect from a track
 #[no_mangle]
 pub extern "C" fn remove_effect_from_track_ffi(track_id: u64, effect_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), || {
-        match api::remove_effect_from_track(track_id, effect_id) {
+    ffi_catch(
+        std::ptr::null_mut(),
+        || match api::remove_effect_from_track(track_id, effect_id) {
             Ok(msg) => safe_cstring(msg).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    })
+        },
+    )
 }
 
 /// Get all effects on a track (CSV format)
@@ -73,19 +74,24 @@ pub extern "C" fn set_effect_parameter_ffi(
     param_name: *const c_char,
     value: f32,
 ) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), AssertUnwindSafe(|| {
-        let param_name_str = unsafe {
-            match CStr::from_ptr(param_name).to_str() {
-                Ok(s) => s,
-                Err(_) => return safe_cstring("Error: Invalid parameter name".to_string()).into_raw(),
-            }
-        };
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            let param_name_str = unsafe {
+                match CStr::from_ptr(param_name).to_str() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
+                    }
+                }
+            };
 
-        match api::set_effect_parameter(effect_id, param_name_str, value) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    }))
+            match api::set_effect_parameter(effect_id, param_name_str, value) {
+                Ok(msg) => safe_cstring(msg).into_raw(),
+                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+            }
+        }),
+    )
 }
 
 /// Set effect bypass state
@@ -107,13 +113,11 @@ pub extern "C" fn set_effect_bypass_ffi(effect_id: u64, bypassed: i32) -> i32 {
 /// Returns 1 if bypassed, 0 if not bypassed, -1 on error
 #[no_mangle]
 pub extern "C" fn get_effect_bypass_ffi(effect_id: u64) -> i32 {
-    ffi_catch(-1, || {
-        match api::get_effect_bypass(effect_id) {
-            Ok(bypassed) => i32::from(bypassed),
-            Err(e) => {
-                eprintln!("[FFI] get_effect_bypass error: {e}");
-                -1
-            }
+    ffi_catch(-1, || match api::get_effect_bypass(effect_id) {
+        Ok(bypassed) => i32::from(bypassed),
+        Err(e) => {
+            eprintln!("[FFI] get_effect_bypass error: {e}");
+            -1
         }
     })
 }
@@ -121,30 +125,40 @@ pub extern "C" fn get_effect_bypass_ffi(effect_id: u64) -> i32 {
 /// Reorder effects in a track's FX chain
 /// `effect_ids_csv`: comma-separated list of effect IDs in the desired order
 #[no_mangle]
-pub extern "C" fn reorder_track_effects_ffi(track_id: u64, effect_ids_csv: *const c_char) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), AssertUnwindSafe(|| {
-        let ids_str = unsafe {
-            match CStr::from_ptr(effect_ids_csv).to_str() {
-                Ok(s) => s,
-                Err(_) => return safe_cstring("Error: Invalid effect IDs string".to_string()).into_raw(),
-            }
-        };
+pub extern "C" fn reorder_track_effects_ffi(
+    track_id: u64,
+    effect_ids_csv: *const c_char,
+) -> *mut c_char {
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            let ids_str = unsafe {
+                match CStr::from_ptr(effect_ids_csv).to_str() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return safe_cstring("Error: Invalid effect IDs string".to_string())
+                            .into_raw()
+                    }
+                }
+            };
 
-        match api::reorder_track_effects(track_id, ids_str) {
-            Ok(msg) => safe_cstring(msg).into_raw(),
-            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    }))
+            match api::reorder_track_effects(track_id, ids_str) {
+                Ok(msg) => safe_cstring(msg).into_raw(),
+                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+            }
+        }),
+    )
 }
 
 /// Get effect output peak levels
 /// Returns: "peak_left_db,peak_right_db"
 #[no_mangle]
 pub extern "C" fn get_effect_peak_levels_ffi(effect_id: u64) -> *mut c_char {
-    ffi_catch(std::ptr::null_mut(), AssertUnwindSafe(|| {
-        match api::get_effect_peak_levels(effect_id) {
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| match api::get_effect_peak_levels(effect_id) {
             Ok(levels) => safe_cstring(levels).into_raw(),
             Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
-        }
-    }))
+        }),
+    )
 }

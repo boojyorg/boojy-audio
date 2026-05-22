@@ -126,6 +126,9 @@ class TimelineView extends StatefulWidget {
   // Recording state (for auto-scroll and visual indicators)
   final bool isRecording;
 
+  /// When false, the master timeline row is hidden (v0.3).
+  final bool masterTimelineVisible;
+
   // Automation state
   final int? automationVisibleTrackId;
   final ScrollController?
@@ -167,6 +170,7 @@ class TimelineView extends StatefulWidget {
     this.onAddMidiTrack,
     this.onAddAudioTrack,
     this.isRecording = false,
+    this.masterTimelineVisible = false,
   });
 
   @override
@@ -308,7 +312,11 @@ class TimelineViewState extends State<TimelineView>
     // Separate master track
     final masterTrack = tracks.where((t) => t.type == 'Master').toList();
     final regularTrackIds = tracksMap.keys
-        .where((id) => tracksMap[id]!.type != 'Master')
+        .where(
+          (id) =>
+              tracksMap[id]!.type.toLowerCase() != 'master' &&
+              tracksMap[id]!.type.toLowerCase() != 'return',
+        )
         .toSet();
 
     // Build ordered list
@@ -518,7 +526,11 @@ class TimelineViewState extends State<TimelineView>
             .where((t) => t.type == 'Master')
             .toList();
         final regularTrackIds = tracksMap.keys
-            .where((id) => tracksMap[id]!.type != 'Master')
+            .where(
+              (id) =>
+                  tracksMap[id]!.type.toLowerCase() != 'master' &&
+                  tracksMap[id]!.type.toLowerCase() != 'return',
+            )
             .toSet();
 
         // Build ordered list respecting widget.trackOrder
@@ -722,7 +734,13 @@ class TimelineViewState extends State<TimelineView>
     final duration = totalBeats / beatsPerSecond;
 
     // Calculate total tracks height for scrollable area (excludes Master - it's pinned at bottom)
-    final regularTracks = tracks.where((t) => t.type != 'Master').toList();
+    final regularTracks = tracks
+        .where(
+          (t) =>
+              t.type.toLowerCase() != 'master' &&
+              t.type.toLowerCase() != 'return',
+        )
+        .toList();
     final masterTrack = tracks.firstWhere(
       (t) => t.type == 'Master',
       orElse: () => TimelineTrackData(id: -1, name: 'Master', type: 'Master'),
@@ -927,7 +945,8 @@ class TimelineViewState extends State<TimelineView>
                                         ),
 
                                         // Master track pinned at bottom (outside scroll area)
-                                        if (masterTrack.id != -1)
+                                        if (masterTrack.id != -1 &&
+                                            widget.masterTimelineVisible)
                                           _buildMasterTrack(
                                             totalWidth,
                                             masterTrack,

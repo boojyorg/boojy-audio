@@ -2,8 +2,8 @@
 //!
 //! Functions for playback control: play, pause, stop, seek, and state queries.
 
-use crate::audio_graph::TransportState;
 use super::helpers::{get_audio_graph, with_graph, AUDIO_GRAPH};
+use crate::audio_graph::TransportState;
 
 // ============================================================================
 // TRANSPORT CONTROL
@@ -20,7 +20,8 @@ pub fn transport_play() -> Result<String, String> {
         eprintln!("⚠️ [API] transport_play: lock busy, spawning thread");
         std::thread::spawn(|| {
             if let Some(m) = AUDIO_GRAPH.get() {
-                { let mut g = m.lock();
+                {
+                    let mut g = m.lock();
                     let _ = g.play();
                     eprintln!("✅ [API] transport_play: completed in background thread");
                 }
@@ -41,7 +42,8 @@ pub fn transport_pause() -> Result<String, String> {
         eprintln!("⚠️ [API] transport_pause: lock busy, spawning thread");
         std::thread::spawn(|| {
             if let Some(m) = AUDIO_GRAPH.get() {
-                { let mut g = m.lock();
+                {
+                    let mut g = m.lock();
                     let _ = g.pause();
                 }
             }
@@ -61,7 +63,8 @@ pub fn transport_stop() -> Result<String, String> {
         eprintln!("⚠️ [API] transport_stop: lock busy, spawning thread");
         std::thread::spawn(|| {
             if let Some(m) = AUDIO_GRAPH.get() {
-                { let mut g = m.lock();
+                {
+                    let mut g = m.lock();
                     let _ = g.stop();
                 }
             }
@@ -117,6 +120,8 @@ pub fn get_record_start_position() -> Result<f64, String> {
 pub fn set_record_start_position(position_seconds: f64) -> Result<String, String> {
     with_graph(|graph| {
         graph.set_record_start_position(position_seconds);
-        Ok(format!("Record start position set to {position_seconds:.2}s"))
+        Ok(format!(
+            "Record start position set to {position_seconds:.2}s"
+        ))
     })
 }

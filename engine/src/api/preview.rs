@@ -3,8 +3,8 @@
 //! Provides preview playback independent of the main timeline transport.
 
 use crate::preview::PreviewPlayer;
-use std::sync::{Arc, OnceLock};
 use parking_lot::Mutex;
+use std::sync::{Arc, OnceLock};
 
 /// Global preview player instance
 static PREVIEW_PLAYER: OnceLock<Arc<Mutex<PreviewPlayer>>> = OnceLock::new();

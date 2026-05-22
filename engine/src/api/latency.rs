@@ -2,8 +2,8 @@
 //!
 //! Functions for audio latency configuration and waveform visualization.
 
-use crate::audio_graph::BufferSizePreset;
 use super::helpers::{get_audio_clips, get_audio_graph, with_graph, with_graph_mut};
+use crate::audio_graph::BufferSizePreset;
 
 // ============================================================================
 // BUFFER SIZE CONTROL

@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 /// Project serialization for M5: Save & Export
 ///
 /// This module handles saving and loading Boojy Audio projects in `.audio` format.
@@ -9,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Result};
 
 // ========================================================================
 // PROJECT DATA STRUCTURES
@@ -45,9 +45,15 @@ pub struct ProjectData {
     pub buffer_size_preset: u32,
 }
 
-fn default_true() -> bool { true }
-fn default_count_in() -> u32 { 2 }
-fn default_buffer_size() -> u32 { 2 } // Balanced
+fn default_true() -> bool {
+    true
+}
+fn default_count_in() -> u32 {
+    2
+}
+fn default_buffer_size() -> u32 {
+    2
+} // Balanced
 
 impl ProjectData {
     /// Create a new empty project
@@ -109,6 +115,9 @@ pub struct TrackData {
     /// VST3 plugins on this track
     #[serde(default)]
     pub vst3_plugins: Vec<Vst3PluginData>,
+    /// Whether this track appears as a row in the arrangement timeline
+    #[serde(default = "default_true")]
+    pub timeline_visible: bool,
 }
 
 /// Clip data (audio or MIDI)
@@ -234,25 +243,21 @@ pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<(
     eprintln!("💾 [Project] Saving project to: {}", project_path.display());
 
     // Create project folder structure
-    fs::create_dir_all(project_path)
-        .context("Failed to create project directory")?;
+    fs::create_dir_all(project_path).context("Failed to create project directory")?;
 
     let audio_dir = project_path.join("audio");
-    fs::create_dir_all(&audio_dir)
-        .context("Failed to create audio directory")?;
+    fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
 
     let cache_dir = project_path.join("cache");
-    fs::create_dir_all(&cache_dir)
-        .context("Failed to create cache directory")?;
+    fs::create_dir_all(&cache_dir).context("Failed to create cache directory")?;
 
     // Serialize project data to JSON
-    let json = serde_json::to_string_pretty(project_data)
-        .context("Failed to serialize project data")?;
+    let json =
+        serde_json::to_string_pretty(project_data).context("Failed to serialize project data")?;
 
     // Write project.json
     let json_path = project_path.join("project.json");
-    fs::write(&json_path, json)
-        .context("Failed to write project.json")?;
+    fs::write(&json_path, json).context("Failed to write project.json")?;
 
     eprintln!("✅ [Project] Saved successfully");
     Ok(())
@@ -260,16 +265,18 @@ pub fn save_project(project_data: &ProjectData, project_path: &Path) -> Result<(
 
 /// Load project from `.audio` folder
 pub fn load_project(project_path: &Path) -> Result<ProjectData> {
-    eprintln!("📂 [Project] Loading project from: {}", project_path.display());
+    eprintln!(
+        "📂 [Project] Loading project from: {}",
+        project_path.display()
+    );
 
     // Read project.json
     let json_path = project_path.join("project.json");
-    let json = fs::read_to_string(&json_path)
-        .context("Failed to read project.json")?;
+    let json = fs::read_to_string(&json_path).context("Failed to read project.json")?;
 
     // Deserialize project data
-    let project_data: ProjectData = serde_json::from_str(&json)
-        .context("Failed to parse project.json")?;
+    let project_data: ProjectData =
+        serde_json::from_str(&json).context("Failed to parse project.json")?;
 
     eprintln!("✅ [Project] Loaded project: {}", project_data.name);
     eprintln!("   - {} tracks", project_data.tracks.len());
@@ -285,8 +292,7 @@ pub fn copy_audio_file_to_project(
     file_id: u64,
 ) -> Result<String> {
     let audio_dir = project_path.join("audio");
-    fs::create_dir_all(&audio_dir)
-        .context("Failed to create audio directory")?;
+    fs::create_dir_all(&audio_dir).context("Failed to create audio directory")?;
 
     // Generate filename: 001-filename.wav
     let original_name = source_path
@@ -298,8 +304,7 @@ pub fn copy_audio_file_to_project(
     let dest_path = audio_dir.join(&dest_filename);
 
     // Copy file
-    fs::copy(source_path, &dest_path)
-        .context("Failed to copy audio file")?;
+    fs::copy(source_path, &dest_path).context("Failed to copy audio file")?;
 
     // Return relative path
     let relative_path = format!("audio/{dest_filename}");

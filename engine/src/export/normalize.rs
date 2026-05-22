@@ -90,8 +90,10 @@ pub fn calculate_lufs(samples: &[f32], sample_rate: u32) -> f64 {
     let right_filtered = apply_k_weighting(&right, sample_rate);
 
     // Calculate mean square for each channel
-    let left_ms: f64 = left_filtered.iter().map(|&s| s * s).sum::<f64>() / left_filtered.len() as f64;
-    let right_ms: f64 = right_filtered.iter().map(|&s| s * s).sum::<f64>() / right_filtered.len() as f64;
+    let left_ms: f64 =
+        left_filtered.iter().map(|&s| s * s).sum::<f64>() / left_filtered.len() as f64;
+    let right_ms: f64 =
+        right_filtered.iter().map(|&s| s * s).sum::<f64>() / right_filtered.len() as f64;
 
     // Combine channels (no weighting for L/R, 1.0 each per BS.1770)
     let combined_ms = left_ms + right_ms;
@@ -170,9 +172,7 @@ pub fn normalize_lufs(samples: &mut [f32], sample_rate: u32, target_lufs: f64) -
     let peak_after: f32 = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
 
     if peak_after > 1.0 {
-        eprintln!(
-            "⚠️ [LUFS] Clipping detected (peak {peak_after:.2}), applying limiter"
-        );
+        eprintln!("⚠️ [LUFS] Clipping detected (peak {peak_after:.2}), applying limiter");
 
         // Simple soft-clipping limiter
         for sample in samples.iter_mut() {

@@ -2,8 +2,8 @@
 /// Uses midir on desktop platforms, stub on iOS (midir not supported)
 use crate::midi::MidiEvent;
 use anyhow::{anyhow, Result};
-use std::sync::Arc;
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// MIDI device information
 #[derive(Debug, Clone)]
@@ -203,22 +203,25 @@ impl MidiInputManager {
         let callback = self.event_callback.clone();
 
         // Create MIDI input connection
-        let connection = midi_input.connect(
-            port,
-            "boojy-audio-input",
-            move |timestamp, message, ()| {
-                // Parse MIDI message
-                if let Some(event) = parse_midi_message(message, timestamp) {
-                    // Call the event callback if set
-                    if let Some(ref cb) = callback {
-                        { let mut cb = cb.lock();
-                            cb(event);
+        let connection = midi_input
+            .connect(
+                port,
+                "boojy-audio-input",
+                move |timestamp, message, ()| {
+                    // Parse MIDI message
+                    if let Some(event) = parse_midi_message(message, timestamp) {
+                        // Call the event callback if set
+                        if let Some(ref cb) = callback {
+                            {
+                                let mut cb = cb.lock();
+                                cb(event);
+                            }
                         }
                     }
-                }
-            },
-            (),
-        ).map_err(|e| anyhow!("Failed to connect MIDI input: {e:?}"))?;
+                },
+                (),
+            )
+            .map_err(|e| anyhow!("Failed to connect MIDI input: {e:?}"))?;
 
         self.connection = Some(connection);
         eprintln!("✅ [MIDI] Capture started");
@@ -284,7 +287,7 @@ fn parse_midi_message(message: &[u8], timestamp: u64) -> Option<MidiEvent> {
         }
 
         // Ignore other message types for now (pitch bend, aftertouch, etc.)
-        _ => None
+        _ => None,
     }
 }
 

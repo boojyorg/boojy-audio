@@ -11,7 +11,7 @@ use crate::track::TrackId;
 
 /// Add an effect to a track's FX chain
 pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u64, String> {
-    use crate::effects::{EffectType, ParametricEQ, Compressor, Reverb, Delay, Chorus, Limiter};
+    use crate::effects::{Chorus, Compressor, Delay, EffectType, Limiter, ParametricEQ, Reverb};
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
@@ -36,9 +36,7 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
     if let Some(track_arc) = track_manager.get_track(track_id) {
         let mut track = track_arc.lock();
         track.fx_chain.push(effect_id);
-        eprintln!(
-            "🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}"
-        );
+        eprintln!("🎛️ [API] Added {effect_type_str} effect (ID: {effect_id}) to track {track_id}");
         Ok(effect_id)
     } else {
         Err(format!("Track {track_id} not found"))
@@ -59,9 +57,7 @@ pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<Str
             track.fx_chain.remove(pos);
             // Remove from effect manager
             effect_manager.remove_effect(effect_id);
-            eprintln!(
-                "🗑️ [API] Removed effect {effect_id} from track {track_id}"
-            );
+            eprintln!("🗑️ [API] Removed effect {effect_id} from track {track_id}");
             Ok(format!("Effect {effect_id} removed from track {track_id}"))
         } else {
             Err(format!(
@@ -99,7 +95,7 @@ pub fn get_effect_peak_levels(effect_id: u64) -> Result<String, String> {
 
 /// Get effect info (returns JSON-like string with type and parameters)
 pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
-    use crate::effects::{EffectType, Effect};
+    use crate::effects::{Effect, EffectType};
 
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
@@ -198,7 +194,9 @@ pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<Stri
         // Validate that all IDs in new_order are in the current fx_chain
         for id in &new_order {
             if !track.fx_chain.contains(id) {
-                return Err(format!("Effect {id} not found in track {track_id}'s FX chain"));
+                return Err(format!(
+                    "Effect {id} not found in track {track_id}'s FX chain"
+                ));
             }
         }
 
@@ -226,7 +224,11 @@ pub fn reorder_track_effects(track_id: u64, effect_ids_csv: &str) -> Result<Stri
 }
 
 /// Set an effect parameter
-pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Result<String, String> {
+pub fn set_effect_parameter(
+    effect_id: u64,
+    param_name: &str,
+    value: f32,
+) -> Result<String, String> {
     use crate::effects::EffectType;
 
     let graph_mutex = get_audio_graph()?;
@@ -372,9 +374,7 @@ pub fn set_effect_parameter(effect_id: u64, param_name: &str, value: f32) -> Res
                 }
             }
         }
-        Ok(format!(
-            "Set {param_name} = {value} on effect {effect_id}"
-        ))
+        Ok(format!("Set {param_name} = {value} on effect {effect_id}"))
     } else {
         Err(format!("Effect {effect_id} not found"))
     }

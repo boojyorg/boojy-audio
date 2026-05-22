@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_positional_boolean_parameters
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,7 @@ import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
 import 'input_selector_dropdown.dart';
+import '../models/track_send_data.dart';
 import '../utils/logger.dart';
 
 /// Unified track strip combining track info and mixer controls
@@ -95,6 +97,17 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(Instrument)? onInstrumentDropped; // Built-in instrument swap
   final Function(EffectItem)? onBuiltInEffectDropped; // Built-in effect drop
   final VoidCallback? onEditPluginsPressed; // New: Edit active plugins
+
+  // Send/return routing (v0.3)
+  final bool isReturnTrack;
+  final List<TrackSendData> sends;
+  final List<ReturnTrackData> existingReturns;
+  final Function(int returnTrackId, double amountDb)? onSendAmountChanged;
+  final Function(int returnTrackId)? onSendAmountDragStart;
+  final Function(int returnTrackId)? onSendAmountDragEnd;
+  final Function(int returnTrackId)? onRemoveSend;
+  final Function(ReturnTrackData returnTrack)? onSendToReturn;
+  final VoidCallback? onDeleteReturn;
 
   // Track height management (synced with timeline)
   final double clipHeight; // Clip area height
@@ -176,6 +189,15 @@ class TrackMixerStrip extends StatefulWidget {
     this.onInstrumentDropped,
     this.onBuiltInEffectDropped,
     this.onEditPluginsPressed,
+    this.isReturnTrack = false,
+    this.sends = const [],
+    this.existingReturns = const [],
+    this.onSendAmountChanged,
+    this.onSendAmountDragStart,
+    this.onSendAmountDragEnd,
+    this.onRemoveSend,
+    this.onSendToReturn,
+    this.onDeleteReturn,
     this.clipHeight = 100.0,
     this.automationHeight = 60.0,
     this.onClipHeightChanged,
@@ -198,6 +220,7 @@ class TrackMixerStrip extends StatefulWidget {
 
 class _TrackMixerStripState extends State<TrackMixerStrip> {
   bool _isEditing = false;
+  bool _fxHovered = false;
   late TextEditingController _nameController;
   late FocusNode _focusNode;
 
@@ -276,13 +299,24 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     }
   }
 
+  /// Clip area height excluding send rows (send padding lives in clipHeight).
+  double get _baseClipHeight {
+    final sendPadding = widget.sends.length * UIConstants.sendRowHeight;
+    return (widget.clipHeight - sendPadding).clamp(
+      UIConstants.trackMinHeight,
+      UIConstants.trackMaxHeight,
+    );
+  }
+
   /// Calculate scale factor based on track height (0.0 at 50px, 1.0 at 76px+)
   /// Only used by the 2-row layout (heights >= 50px).
   double get _scaleFactor {
     const minHeight = UIConstants.trackOneRowThreshold;
     const standardHeight = UIConstants.trackStandardHeight;
-    return ((widget.clipHeight - minHeight) / (standardHeight - minHeight))
-        .clamp(0.0, 1.0);
+    return ((_baseClipHeight - minHeight) / (standardHeight - minHeight)).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   /// Lerp helper for scaling values
@@ -303,16 +337,18 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   /// - Volume slider height (thinner when compact)
   Widget _buildStandardLayout(BuildContext context, bool isHovered) {
     // Route to 1-row layout when height is below threshold
-    if (widget.clipHeight < UIConstants.trackOneRowThreshold) {
+    if (_baseClipHeight < UIConstants.trackOneRowThreshold) {
       return _buildOneRowLayout(context);
     }
+
+    final baseHeight = _baseClipHeight;
 
     final scale = _scaleFactor;
 
     // Available height for content
     // Border: 4px left, 2px top/right/bottom - vertical offset is top + bottom = 4px
     const double borderOffset = 4.0;
-    final availableHeight = widget.clipHeight - borderOffset;
+    final availableHeight = baseHeight - borderOffset;
 
     // Calculate layout dimensions
     // Top padding: 0 at compact for row 1 at very top, 6 at standard
@@ -374,6 +410,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                 spacing: buttonSpacing,
                 fontSize: buttonFontSize,
               ),
+              if (widget.onFxButtonPressed != null) ...[
+                const SizedBox(width: 4),
+                _buildFxButton(buttonSize: buttonSize),
+              ],
               const SizedBox(width: 6),
               // Pan knob (scales with height)
               PanKnob(
@@ -458,8 +498,96 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           // Row 3-4: Automation Controls (only when visible)
           if (UIConstants.enableAutomation && widget.showAutomation)
             _buildAutomationControlsSection(context),
+          // Send rows (when sends exist)
+          if (widget.sends.isNotEmpty) _buildSendRows(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildFxButton({double buttonSize = 22}) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _fxHovered = true),
+      onExit: (_) => setState(() => _fxHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onFxButtonPressed,
+        child: SizedBox(
+          width: buttonSize,
+          height: buttonSize,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text('⚡', style: TextStyle(fontSize: buttonSize * 0.75)),
+              if (_fxHovered)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Text(
+                    '+',
+                    style: TextStyle(
+                      color: context.colors.accent,
+                      fontSize: buttonSize * 0.45,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSendRows(BuildContext context) {
+    final colors = context.colors;
+    return Column(
+      children: widget.sends.map((send) {
+        return SizedBox(
+          height: UIConstants.sendRowHeight,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 6, right: 6, top: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    send.label,
+                    style: TextStyle(color: colors.textSecondary, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _SendAmountKnob(
+                  amountLinear: send.amountLinear,
+                  size: 16,
+                  onChanged: (linear) {
+                    final db = TrackSendData.linearToDb(linear);
+                    widget.onSendAmountChanged?.call(send.returnId, db);
+                  },
+                  onDragStart: () =>
+                      widget.onSendAmountDragStart?.call(send.returnId),
+                  onDragEnd: () =>
+                      widget.onSendAmountDragEnd?.call(send.returnId),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  send.amountPercentLabel,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 9,
+                    fontFamily: BT.fontFamilyMono,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => widget.onRemoveSend?.call(send.returnId),
+                  child: Icon(BI.close, size: 12, color: colors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -894,15 +1022,35 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         ),
         const SizedBox(width: 6),
         // Number (sequential display index, not internal ID) - fixed size
-        Text(
-          '${widget.displayIndex}',
-          style: TextStyle(
-            color: textColor,
-            fontSize: fontSize,
-            fontWeight: BT.weightSemiBold,
+        if (!widget.isReturnTrack)
+          Text(
+            '${widget.displayIndex}',
+            style: TextStyle(
+              color: textColor,
+              fontSize: fontSize,
+              fontWeight: BT.weightSemiBold,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
+        if (!widget.isReturnTrack) const SizedBox(width: 8),
+        if (widget.isReturnTrack) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: context.colors.dark,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              'RETURN',
+              style: TextStyle(
+                color: context.colors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
         // Name (editable) - expanded to fill remaining space
         Expanded(
           child: _isEditing
@@ -951,8 +1099,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
     return widget.trackName;
   }
 
-  /// Whether to show the input selector (Audio and Sampler tracks only)
+  /// Whether to show the input selector (Audio tracks only, not returns)
   bool get _showInputSelector {
+    if (widget.isReturnTrack) return false;
     final type = widget.trackType.toLowerCase();
     return type == 'audio';
   }
@@ -1205,6 +1354,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       return;
     }
 
+    final isReturn = widget.isReturnTrack;
+
+
     Log.d(
       'TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}',
     );
@@ -1245,6 +1397,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       ),
       PopupMenuItem<String>(
         value: 'duplicate',
+        enabled: !isReturn,
         child: Row(
           children: [
             Icon(BI.copy, size: 16, color: colors.textPrimary),
@@ -1254,7 +1407,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         ),
       ),
       // Show "Convert to Sampler" only for Audio tracks
-      if (isAudioTrack && widget.onConvertToSampler != null)
+      if (!isReturn && isAudioTrack && widget.onConvertToSampler != null)
         PopupMenuItem<String>(
           value: 'convert_to_sampler',
           child: Row(
@@ -1268,6 +1421,20 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ],
           ),
         ),
+      if (!isReturn && widget.existingReturns.isNotEmpty) ...[
+        const PopupMenuDivider(),
+        ...widget.existingReturns.map((ret) {
+          final alreadySent = widget.sends.any((s) => s.returnId == ret.id);
+          return PopupMenuItem<String>(
+            value: 'send_${ret.id}',
+            enabled: !alreadySent,
+            child: Text(
+              'Send to ${ret.name}',
+              style: TextStyle(color: colors.textPrimary),
+            ),
+          );
+        }),
+      ],
       const PopupMenuDivider(),
       PopupMenuItem<String>(
         value: 'delete',
@@ -1275,11 +1442,15 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           children: [
             Icon(BI.delete, size: 16, color: colors.error),
             const SizedBox(width: 8),
-            Text('Delete', style: TextStyle(color: colors.error)),
+            Text(
+              isReturn ? 'Delete Return' : 'Delete',
+              style: TextStyle(color: colors.error),
+            ),
           ],
         ),
       ),
     ];
+
 
     showMenu(
       context: context,
@@ -1302,8 +1473,20 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       } else if (value == 'convert_to_sampler' &&
           widget.onConvertToSampler != null) {
         widget.onConvertToSampler!();
-      } else if (value == 'delete' && widget.onDeletePressed != null) {
-        widget.onDeletePressed!();
+      } else if (value != null && value.startsWith('send_')) {
+        final returnId = int.tryParse(value.substring(5));
+        if (returnId != null) {
+          final ret = widget.existingReturns
+              .where((r) => r.id == returnId)
+              .firstOrNull;
+          if (ret != null) widget.onSendToReturn?.call(ret);
+        }
+      } else if (value == 'delete') {
+        if (isReturn) {
+          widget.onDeleteReturn?.call();
+        } else {
+          widget.onDeletePressed?.call();
+        }
       }
     });
   }
@@ -1429,8 +1612,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }) {
     // Show arm button only for Audio and MIDI tracks (not master, return, group)
     final canArm =
-        widget.trackType.toLowerCase() == 'audio' ||
-        widget.trackType.toLowerCase() == 'midi';
+        !widget.isReturnTrack &&
+        (widget.trackType.toLowerCase() == 'audio' ||
+            widget.trackType.toLowerCase() == 'midi');
 
     return Row(
       children: [
@@ -1453,10 +1637,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           buttonSize,
           fontSize,
         ),
-        SizedBox(width: spacing),
-        // Record arm button - Red when active
-        // Supports Shift+click for multi-arm mode
-        _buildArmButton(canArm, buttonSize, fontSize),
+        if (!widget.isReturnTrack) ...[
+          SizedBox(width: spacing),
+          // Record arm button - Red when active
+          _buildArmButton(canArm, buttonSize, fontSize),
+        ],
       ],
     );
   }
@@ -1830,6 +2015,7 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final VoidCallback? onVolumeDragEnd;
   final VoidCallback? onPanDragStart;
   final VoidCallback? onPanDragEnd;
+  final VoidCallback? onFxButtonPressed;
 
   // Track height resizing (top edge for master)
   final double trackHeight;
@@ -1850,6 +2036,7 @@ class MasterTrackMixerStrip extends StatefulWidget {
     this.onVolumeDragEnd,
     this.onPanDragStart,
     this.onPanDragEnd,
+    this.onFxButtonPressed,
     this.trackHeight = kDefaultHeight,
     this.onHeightChanged,
     this.stripWidth = 380.0,
@@ -1959,6 +2146,16 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                           ),
                         ),
                         const SizedBox(width: 6),
+                        if (widget.onFxButtonPressed != null)
+                          GestureDetector(
+                            onTap: widget.onFxButtonPressed,
+                            child: const Text(
+                              '⚡',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        if (widget.onFxButtonPressed != null)
+                          const SizedBox(width: 4),
                         // Pan knob (aligned right)
                         PanKnob(
                           pan: widget.pan,
@@ -2060,4 +2257,86 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
       ),
     );
   }
+}
+
+/// Compact knob for send amount (0.0–1.0 linear).
+class _SendAmountKnob extends StatelessWidget {
+  final double amountLinear;
+  final double size;
+  final ValueChanged<double>? onChanged;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
+
+  const _SendAmountKnob({
+    required this.amountLinear,
+    required this.size,
+    this.onChanged,
+    this.onDragStart,
+    this.onDragEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: GestureDetector(
+        onVerticalDragStart: (_) => onDragStart?.call(),
+        onVerticalDragUpdate: (details) {
+          if (onChanged == null) return;
+          final delta = -details.delta.dy / 120.0;
+          onChanged!((amountLinear + delta).clamp(0.0, 1.0));
+        },
+        onVerticalDragEnd: (_) => onDragEnd?.call(),
+        onVerticalDragCancel: () => onDragEnd?.call(),
+        onDoubleTap: () {
+          onDragStart?.call();
+          onChanged?.call(0.0);
+          onDragEnd?.call();
+        },
+        child: CustomPaint(
+          size: Size(size, size),
+          painter: _SendKnobPainter(amount: amountLinear),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendKnobPainter extends CustomPainter {
+  final double amount;
+
+  _SendKnobPainter({required this.amount});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 1;
+    final trackPaint = Paint()
+      ..color = const Color(0xFF3A3D4A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (amount > 0.001) {
+      final activePaint = Paint()
+        ..color = const Color(0xFF6B9FFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      const startAngle = 135 * 3.14159265 / 180;
+      final sweep = 270 * 3.14159265 / 180 * amount;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        false,
+        activePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SendKnobPainter oldDelegate) =>
+      oldDelegate.amount != amount;
 }

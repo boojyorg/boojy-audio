@@ -201,6 +201,21 @@ class _AudioEngineBase {
   late final _PreviewIsLoopingFfi _previewIsLooping;
   late final _PreviewGetWaveformFfi _previewGetWaveform;
 
+  // Send/Return functions
+  late final _FindReturnByEffectTypeFfi _findReturnByEffectType;
+  late final _CreateReturnWithEffectFfi _createReturnWithEffect;
+  late final _AddSharedSendFfi _addSharedSend;
+  late final _AddSendFfi _addSend;
+  late final _SetSendAmountFfi _setSendAmount;
+  late final _RemoveSendFfi _removeSend;
+  late final _RemoveReturnFfi _removeReturn;
+  late final _GetTrackSendsFfi _getTrackSends;
+  late final _GetAllReturnsFfi _getAllReturns;
+  late final _CountSendsToReturnFfi _countSendsToReturn;
+  late final _GetMasterTimelineVisibleFfi _getMasterTimelineVisible;
+  late final _SetMasterTimelineVisibleFfi _setMasterTimelineVisible;
+  late final _SyncMasterTimelineVisibilityFfi _syncMasterTimelineVisibility;
+
   // Punch Recording functions
   late final _SetPunchInEnabledFfi _setPunchInEnabled;
   late final _IsPunchInEnabledFfi _isPunchInEnabled;
@@ -1261,6 +1276,81 @@ class _AudioEngineBase {
       _previewGetWaveform = _lib
           .lookup<ffi.NativeFunction<_PreviewGetWaveformFfiNative>>(
             'preview_get_waveform_ffi',
+          )
+          .asFunction();
+
+      // Bind Send/Return functions
+      _findReturnByEffectType = _lib
+          .lookup<ffi.NativeFunction<_FindReturnByEffectTypeFfiNative>>(
+            'find_return_by_effect_type_ffi',
+          )
+          .asFunction();
+
+      _createReturnWithEffect = _lib
+          .lookup<ffi.NativeFunction<_CreateReturnWithEffectFfiNative>>(
+            'create_return_with_effect_ffi',
+          )
+          .asFunction();
+
+      _addSharedSend = _lib
+          .lookup<ffi.NativeFunction<_AddSharedSendFfiNative>>(
+            'add_shared_send_ffi',
+          )
+          .asFunction();
+
+      _addSend = _lib
+          .lookup<ffi.NativeFunction<_AddSendFfiNative>>('add_send_ffi')
+          .asFunction();
+
+      _setSendAmount = _lib
+          .lookup<ffi.NativeFunction<_SetSendAmountFfiNative>>(
+            'set_send_amount_ffi',
+          )
+          .asFunction();
+
+      _removeSend = _lib
+          .lookup<ffi.NativeFunction<_RemoveSendFfiNative>>('remove_send_ffi')
+          .asFunction();
+
+      _removeReturn = _lib
+          .lookup<ffi.NativeFunction<_RemoveReturnFfiNative>>(
+            'remove_return_ffi',
+          )
+          .asFunction();
+
+      _getTrackSends = _lib
+          .lookup<ffi.NativeFunction<_GetTrackSendsFfiNative>>(
+            'get_track_sends_ffi',
+          )
+          .asFunction();
+
+      _getAllReturns = _lib
+          .lookup<ffi.NativeFunction<_GetAllReturnsFfiNative>>(
+            'get_all_returns_ffi',
+          )
+          .asFunction();
+
+      _countSendsToReturn = _lib
+          .lookup<ffi.NativeFunction<_CountSendsToReturnFfiNative>>(
+            'count_sends_to_return_ffi',
+          )
+          .asFunction();
+
+      _getMasterTimelineVisible = _lib
+          .lookup<ffi.NativeFunction<_GetMasterTimelineVisibleFfiNative>>(
+            'get_master_timeline_visible_ffi',
+          )
+          .asFunction();
+
+      _setMasterTimelineVisible = _lib
+          .lookup<ffi.NativeFunction<_SetMasterTimelineVisibleFfiNative>>(
+            'set_master_timeline_visible_ffi',
+          )
+          .asFunction();
+
+      _syncMasterTimelineVisibility = _lib
+          .lookup<ffi.NativeFunction<_SyncMasterTimelineVisibilityFfiNative>>(
+            'sync_master_timeline_visibility_ffi',
           )
           .asFunction();
 

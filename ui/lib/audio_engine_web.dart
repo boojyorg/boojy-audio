@@ -593,6 +593,7 @@ class AudioEngine implements AudioEngineInterface {
   void setTrackName(int trackId, String name) {}
 
   int getTrackCount() => 0;
+  @override
   List<int> getAllTrackIds() => [];
 
   @override
@@ -886,4 +887,52 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   bool isPunchComplete() => throw UnsupportedError('Web');
+
+  // ============================================================================
+  // Send/Return (stubs - not yet implemented on web)
+  // ============================================================================
+
+  @override
+  int findReturnByEffectType(String effectType) => 0;
+
+  @override
+  int createReturnWithEffect(String effectType, {String? name}) => -1;
+
+  @override
+  String addSharedSend(int sourceTrackId, String effectType) =>
+      'Not supported on web';
+
+  @override
+  String addSend(int sourceTrackId, int returnTrackId, double amountDb) =>
+      'Not supported on web';
+
+  @override
+  String setSendAmount(int sourceTrackId, int returnTrackId, double amountDb) =>
+      'Not supported on web';
+
+  @override
+  String removeSend(int sourceTrackId, int returnTrackId) =>
+      'Not supported on web';
+
+  @override
+  String removeReturn(int returnTrackId) => 'Not supported on web';
+
+  @override
+  String getTrackSends(int trackId) => '';
+
+  @override
+  String getAllReturns() => '';
+
+  @override
+  int countSendsToReturn(int returnTrackId) => 0;
+
+  @override
+  bool getMasterTimelineVisible() => false;
+
+  @override
+  String setMasterTimelineVisible({required bool visible}) =>
+      'Not supported on web';
+
+  @override
+  bool syncMasterTimelineVisibility() => false;
 }

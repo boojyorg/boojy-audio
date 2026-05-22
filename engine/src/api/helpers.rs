@@ -5,9 +5,9 @@
 use crate::audio_file::AudioClip;
 use crate::audio_graph::AudioGraph;
 use crate::track::ClipId;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
-use parking_lot::Mutex;
 
 // ============================================================================
 // GLOBAL STATE
@@ -26,13 +26,17 @@ pub static AUDIO_CLIPS: OnceLock<Mutex<HashMap<ClipId, Arc<AudioClip>>>> = OnceL
 /// Get a reference to the audio graph mutex, returning an error if not initialized
 #[inline]
 pub fn get_audio_graph() -> Result<&'static Mutex<AudioGraph>, String> {
-    AUDIO_GRAPH.get().ok_or_else(|| "Audio graph not initialized".to_string())
+    AUDIO_GRAPH
+        .get()
+        .ok_or_else(|| "Audio graph not initialized".to_string())
 }
 
 /// Get a reference to the audio clips mutex, returning an error if not initialized
 #[inline]
 pub fn get_audio_clips() -> Result<&'static Mutex<HashMap<ClipId, Arc<AudioClip>>>, String> {
-    AUDIO_CLIPS.get().ok_or_else(|| "Audio graph not initialized".to_string())
+    AUDIO_CLIPS
+        .get()
+        .ok_or_else(|| "Audio graph not initialized".to_string())
 }
 
 /// Execute a closure with a locked audio graph (immutable access)
@@ -63,7 +67,9 @@ where
 {
     let graph_mutex = get_audio_graph()?;
 
-    if let Some(mut graph) = graph_mutex.try_lock() { f(&mut graph) } else {
+    if let Some(mut graph) = graph_mutex.try_lock() {
+        f(&mut graph)
+    } else {
         // Lock is busy - spawn thread to retry (UI won't freeze)
         let action = action_name.to_string();
         eprintln!("⚠️ [API] {action}: lock busy, spawning thread");
