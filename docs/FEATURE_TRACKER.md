@@ -107,7 +107,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 
 ### Automation
 
-- [x] Basic automation lanes (volume/pan)
+- [x] Basic automation lanes (volume/pan) — backend complete; UI hidden behind feature flag in v0.2.2 (data preserved in projects)
 - [x] Draw automation points
 - [ ] Automation shapes (sine, square, ramp)
 - [ ] Per-parameter automation lanes
@@ -119,7 +119,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Pan controls (proper stereo imaging)
 - [x] Mute/Solo/Record buttons
 - [x] Track height resizing (from mixer)
-- [ ] Track colors (auto-assign from palette)
+- [x] Track colors (persist across save/load; manual assign from palette)
 - [ ] Track icons
 
 **Routing:**

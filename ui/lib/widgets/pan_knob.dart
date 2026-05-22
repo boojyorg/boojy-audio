@@ -10,9 +10,18 @@ import '../theme/tokens.dart';
 class PanKnob extends StatelessWidget {
   final double pan; // -1.0 to 1.0
   final Function(double)? onChanged;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
   final double size;
 
-  const PanKnob({super.key, required this.pan, this.onChanged, this.size = 40});
+  const PanKnob({
+    super.key,
+    required this.pan,
+    this.onChanged,
+    this.onDragStart,
+    this.onDragEnd,
+    this.size = 40,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +29,7 @@ class PanKnob extends StatelessWidget {
       width: size,
       height: size,
       child: GestureDetector(
+        onVerticalDragStart: (_) => onDragStart?.call(),
         onVerticalDragUpdate: (details) {
           if (onChanged == null) return;
           // Drag up = pan right, drag down = pan left
@@ -28,9 +38,13 @@ class PanKnob extends StatelessWidget {
           final newPan = (pan + delta).clamp(-1.0, 1.0);
           onChanged!(newPan);
         },
+        onVerticalDragEnd: (_) => onDragEnd?.call(),
+        onVerticalDragCancel: () => onDragEnd?.call(),
         onDoubleTap: () {
+          onDragStart?.call();
           // Reset to center on double-tap
           onChanged?.call(0.0);
+          onDragEnd?.call();
         },
         child: MouseRegion(
           cursor: SystemMouseCursors.click,

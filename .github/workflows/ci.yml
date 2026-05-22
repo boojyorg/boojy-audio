@@ -27,14 +27,67 @@ jobs:
       - name: Install dependencies
         run: cd ui && flutter pub get
 
+      - name: Build native engine (integration tests)
+        run: cd engine && cargo build
+
       - name: Check formatting
-        run: cd ui && dart format --set-exit-if-changed lib/ test/
+        run: cd ui && dart format --set-exit-if-changed lib/ test/ integration_test/
 
       - name: Analyze
         run: cd ui && flutter analyze --fatal-infos
 
-      - name: Run tests
+      - name: Run unit tests
         run: cd ui && flutter test
+
+      - name: Run integration tests
+        run: cd ui && flutter test integration_test/ -d macos
+
+  flutter-checks-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: cd ui && flutter pub get
+
+      - name: Analyze
+        run: cd ui && flutter analyze --fatal-infos
+
+      - name: Run unit tests
+        run: cd ui && flutter test
+
+  rust-checks-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: Clippy
+        run: cd engine && cargo clippy --all-targets
+
+      - name: Run tests
+        run: cd engine && cargo test
 
   rust-checks:
     runs-on: macos-latest

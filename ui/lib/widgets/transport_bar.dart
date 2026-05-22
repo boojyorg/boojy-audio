@@ -175,9 +175,6 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // MIDI capture state
-  final bool midiCaptureHasEvents;
-
   // Engine status (for status pill)
   final bool isEngineReady;
   final int? sampleRate;
@@ -227,7 +224,6 @@ class TransportBar extends StatefulWidget {
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
     this.isLoading = false,
-    this.midiCaptureHasEvents = false,
     this.isEngineReady = false,
     this.sampleRate,
     this.latencyMs,

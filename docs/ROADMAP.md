@@ -1,14 +1,27 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.2.1
-**Working On:** v0.2.2 — [plans/v0.2.2-plan.md](plans/v0.2.2-plan.md)
+**Current Version:** v0.2.4
+**Working On:** v0.3.0 — Send/return routing (minimal)
 **Goal:** v1.0 public release
 
 ---
 
-## What's Next
+## What's Next (v0.3.0)
 
-See the active plan doc: [plans/v0.2.2-plan.md](plans/v0.2.2-plan.md)
+- Minimal send/return routing — return track + send knobs on channels (engine sends exist; UI wiring is the work)
+- Tier 1 mixing prep per [FEATURE_TRACKER.md](FEATURE_TRACKER.md)
+
+---
+
+## Version Plan
+
+| Version | Theme | Status |
+|---------|-------|--------|
+| v0.2.2 | UI polish & piano roll | Complete |
+| v0.2.3 | Foundation & consolidation | Complete |
+| v0.2.4 | Finish the foundation | Complete |
+| v0.3.0 | Send/return routing (minimal) | Active |
+| v0.3.x | Ghost notes, clip polish | Planned |
 
 ---
 
@@ -24,30 +37,43 @@ Sustain pedal support, instrument on/off toggle, plugin-as-instrument redesign (
 
 ### v0.2.1 — Quality of Life
 
-Removed unused UI (MIDI capture, virtual piano button, new project toast). Fixed data persistence (track colors, loop region, duplicate save paths). Arrangement screenshot thumbnails. Visual polish (record button always-red, darker piano roll toolbar, mixer empty state). Fixed mixer overflow.
+Removed unused UI (MIDI capture button, virtual piano button, new project toast). Fixed data persistence (track colors, loop region, duplicate save paths). Arrangement screenshot thumbnails. Visual polish (record button always-red, darker piano roll toolbar, mixer empty state). Fixed mixer overflow.
+
+### v0.2.2 — UI Polish & Piano Roll
+
+Warm charcoal arrangement background, star field removed. Piano roll controls bar simplified (CLIP + GRID only; Scale/Transform/Lanes in sidebar). FL Studio-inspired keyboard (shorter black keys, labeled notes). MIDI notes use track color. Tool and tab buttons visible when inactive. Automation UI hidden behind feature flag (data preserved).
 
 ---
 
-## What's Next
-
-See the active plan doc: [plans/v0.2.1-plan.md](plans/v0.2.1-plan.md)
-
----
-
-## Road to v1.0
-
-Feature areas still needed before public release (not assigned to specific versions — each release plan decides what to tackle next):
-
-- **Clip editing** — Fades, crossfades, arrangement markers
-- **Routing** — Send/return effects, sidechain, track groups/folders
-- **Plugins** — AU support, preset management, parameter automation, delay compensation
-- **Stock instruments** — Synth, drums, improved sampler
-- **Tempo & time** — Tempo automation, time signature changes, tap tempo, swing
-- **UX polish** — Tooltips, tutorial, undo history panel, track colors
-- **Platform** — Windows, Linux
-- **Advanced** — MIDI Learn, freeze/bounce, LUFS metering
+## Road to v1.0 (Prioritized)
 
 For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
+
+**Tier 1 (v0.2.3–v0.3.0):**
+
+- Persistence reliability and integration tests
+- Send/return routing (minimal aux bus)
+- Ghost notes in piano roll
+
+**Tier 2 (pre-v1.0):**
+
+- Loop recording and comping / take lanes
+- Stock instruments (synth, drums, sampler)
+- Plugin delay compensation
+- Markers, crossfades, clip polish
+
+**Tier 3 (v1.0+ / platform):**
+
+- Windows hardening and Linux
+- AU support, tempo automation, LUFS metering
+- Undo history panel, customizable shortcuts
+
+---
+
+## Engineering Health
+
+- Latest review: [codebase_review_2026_05_22.md](archive/reviews/codebase_review_2026_05_22.md)
+- Known debt: mega-files (`timeline_view.dart` ~4900 lines, `daw_screen.dart` ~4200), split persistence (Rust `project.json` + Dart `ui_layout.json`), macOS-only CI
 
 ---
 
@@ -93,3 +119,5 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 ## Historical
 
 For the original milestone-based development history (M0-M10), see [archive/MILESTONES.md](archive/MILESTONES.md) and [archive/IMPLEMENTATION.md](archive/IMPLEMENTATION.md).
+
+For shipped release plans, see [archive/plans/](archive/plans/).

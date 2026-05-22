@@ -7,22 +7,26 @@ class SetVolumeCommand extends Command {
   final String trackName;
   final double newVolumeDb;
   final double oldVolumeDb;
+  final void Function(int trackId, double volumeDb)? onVolumeChanged;
 
   SetVolumeCommand({
     required this.trackId,
     required this.trackName,
     required this.newVolumeDb,
     required this.oldVolumeDb,
+    this.onVolumeChanged,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackVolume(trackId, newVolumeDb);
+    onVolumeChanged?.call(trackId, newVolumeDb);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackVolume(trackId, oldVolumeDb);
+    onVolumeChanged?.call(trackId, oldVolumeDb);
   }
 
   @override
@@ -36,22 +40,26 @@ class SetPanCommand extends Command {
   final String trackName;
   final double newPan;
   final double oldPan;
+  final void Function(int trackId, double pan)? onPanChanged;
 
   SetPanCommand({
     required this.trackId,
     required this.trackName,
     required this.newPan,
     required this.oldPan,
+    this.onPanChanged,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackPan(trackId, newPan);
+    onPanChanged?.call(trackId, newPan);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackPan(trackId, oldPan);
+    onPanChanged?.call(trackId, oldPan);
   }
 
   @override
@@ -72,22 +80,26 @@ class SetMuteCommand extends Command {
   final String trackName;
   final bool newMute;
   final bool oldMute;
+  final void Function(int trackId, {required bool muted})? onMuteChanged;
 
   SetMuteCommand({
     required this.trackId,
     required this.trackName,
     required this.newMute,
     required this.oldMute,
+    this.onMuteChanged,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackMute(trackId, mute: newMute);
+    onMuteChanged?.call(trackId, muted: newMute);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackMute(trackId, mute: oldMute);
+    onMuteChanged?.call(trackId, muted: oldMute);
   }
 
   @override
@@ -100,22 +112,26 @@ class SetSoloCommand extends Command {
   final String trackName;
   final bool newSolo;
   final bool oldSolo;
+  final void Function(int trackId, {required bool soloed})? onSoloChanged;
 
   SetSoloCommand({
     required this.trackId,
     required this.trackName,
     required this.newSolo,
     required this.oldSolo,
+    this.onSoloChanged,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     engine.setTrackSolo(trackId, solo: newSolo);
+    onSoloChanged?.call(trackId, soloed: newSolo);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     engine.setTrackSolo(trackId, solo: oldSolo);
+    onSoloChanged?.call(trackId, soloed: oldSolo);
   }
 
   @override

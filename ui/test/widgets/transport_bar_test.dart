@@ -124,7 +124,6 @@ void main() {
             onRecord: () {},
             onPauseRecording: () {},
             onStopRecording: () {},
-            onCaptureMidi: () {},
             onMetronomeToggle: () {},
             onPianoToggle: () {},
             onUndo: () {},

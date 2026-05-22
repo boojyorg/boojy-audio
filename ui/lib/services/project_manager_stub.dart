@@ -3,8 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../audio_engine.dart';
-import '../models/clip_data.dart';
-import '../models/project_view_state.dart';
+import 'project_persistence.dart';
 
 /// Result of a project operation
 class ProjectResult {
@@ -17,44 +16,6 @@ class ProjectResult {
     required this.message,
     this.path,
   });
-}
-
-/// UI layout data for saving/loading
-class UILayoutData {
-  final double libraryWidth;
-  final double mixerWidth;
-  final double bottomHeight;
-  final bool libraryCollapsed;
-  final bool mixerCollapsed;
-  final bool bottomCollapsed;
-  final ProjectViewState? viewState;
-  final List<ClipData>? audioClips;
-  final Map<String, dynamic>? automationData;
-  final Map<int, int>? trackColors;
-  final bool? loopEnabled;
-  final double? loopStartBeats;
-  final double? loopEndBeats;
-
-  const UILayoutData({
-    this.libraryWidth = 200.0,
-    this.mixerWidth = 380.0,
-    this.bottomHeight = 250.0,
-    this.libraryCollapsed = false,
-    this.mixerCollapsed = false,
-    this.bottomCollapsed = true,
-    this.viewState,
-    this.audioClips,
-    this.automationData,
-    this.trackColors,
-    this.loopEnabled,
-    this.loopStartBeats,
-    this.loopEndBeats,
-  });
-
-  Map<String, dynamic> toJson() => throw UnsupportedError('stub');
-
-  factory UILayoutData.fromJson(Map<String, dynamic> json) =>
-      throw UnsupportedError('stub');
 }
 
 /// Stub ProjectManager that throws on all methods

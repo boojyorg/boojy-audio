@@ -633,6 +633,7 @@ class AudioEngine implements AudioEngineInterface {
 
   String getTrackEffects(int trackId) => '[]';
   String getEffectInfo(int effectId) => '{}';
+  @override
   String setEffectParameter(int effectId, String paramName, double value) =>
       'OK';
 
