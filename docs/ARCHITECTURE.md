@@ -74,7 +74,7 @@ Boojy Audio/
 lib/widgets/
 ├── Compound Widgets (Major Components)
 │   ├── transport_bar.dart      # Playback controls, tempo
-│   ├── timeline_view.dart      # Arrangement editor
+│   ├── timeline_view.dart      # Arrangement editor (~1,200 lines; entry point)
 │   ├── piano_roll.dart         # MIDI editor
 │   ├── library_panel.dart      # Asset browser
 │   └── editor_panel.dart       # Bottom panel container
@@ -87,6 +87,8 @@ lib/widgets/
 │   │   └── *_mixin.dart      # Behavior mixins
 │   │
 │   └── timeline/             # Timeline components
+│       ├── timeline_gesture_layer.dart  # part of timeline_view — clip drag/trim/eraser
+│       ├── timeline_track_list.dart     # part of timeline_view — track rows, drop targets
 │       ├── operations/       # Clip operations
 │       └── utilities/        # Coordinate math
 │
@@ -104,6 +106,8 @@ lib/widgets/
 ├── dialogs/                  # Modal dialogs
 └── context_menus/            # Right-click menus
 ```
+
+**Timeline note:** `timeline_gesture_layer.dart` and `timeline_track_list.dart` are `part` files of `timeline_view.dart` — they share private methods within one library. Do not import them directly.
 
 ## Key Architectural Patterns
 
@@ -269,7 +273,7 @@ class AudioEngine {
 ### High Priority
 
 1. **Widget Size Reduction**
-   - `timeline_view.dart` (123KB) - Extract more operations into mixins
+   - `timeline_view.dart` phase 1 **done** (~1,200 lines main file + ~3,800 in `part` mixins) — phase 2: further splits, `daw_screen.dart` (~4,200 lines)
    - `transport_bar.dart` (48KB) - Split into smaller components
    - Target: No widget file > 50KB
 
@@ -279,8 +283,8 @@ class AudioEngine {
    - Add state persistence for UI preferences
 
 3. **Testing Coverage**
+   - Integration tests **started** — `ui/integration_test/` (4 golden paths: save/reload, MIDI notes, clip-move undo, WAV export)
    - Add widget tests for critical components
-   - Integration tests for audio engine operations
    - Golden tests for visual regression
 
 ### Medium Priority
@@ -296,7 +300,7 @@ class AudioEngine {
    - Optimize painter caching strategies
 
 6. **Code Organization**
-   - Complete timeline_view mixin extraction (like piano_roll)
+   - Timeline phase 2 extraction (remaining mixins; `daw_screen.dart` decomposition)
    - Consolidate duplicate dropdown implementations
    - Standardize error handling patterns
 
@@ -327,7 +331,9 @@ ThemeProvider
             │
             ├── TimelineView
             │       ├── TimelineViewStateMixin
-            │       ├── ClipOperations
+            │       ├── TimelineGestureLayerMixin (part file)
+            │       ├── TimelineTrackListMixin (part file)
+            │       ├── TimelineSelectionMixin
             │       └── AudioEngine (clips, playback)
             │
             ├── PianoRoll
