@@ -11,6 +11,8 @@ class CapsuleFader extends StatefulWidget {
   final double volumeDb; // -60 to +6
   final Function(double)? onVolumeChanged;
   final VoidCallback? onDoubleTap; // Reset to 0 dB
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
   final double? inputLevel; // 0.0 to 1.0, shown as faded overlay when armed
 
   const CapsuleFader({
@@ -20,6 +22,8 @@ class CapsuleFader extends StatefulWidget {
     required this.volumeDb,
     this.onVolumeChanged,
     this.onDoubleTap,
+    this.onDragStart,
+    this.onDragEnd,
     this.inputLevel,
   });
 
@@ -38,7 +42,10 @@ class _CapsuleFaderState extends State<CapsuleFader> {
       builder: (context, constraints) {
         return GestureDetector(
           onDoubleTap: widget.onDoubleTap,
-          onHorizontalDragStart: (_) => setState(() => _isDragging = true),
+          onHorizontalDragStart: (_) {
+            setState(() => _isDragging = true);
+            widget.onDragStart?.call();
+          },
           onHorizontalDragUpdate: (details) {
             if (widget.onVolumeChanged == null) return;
             final sliderValue =
@@ -49,10 +56,17 @@ class _CapsuleFaderState extends State<CapsuleFader> {
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             widget.onVolumeChanged!(newVolumeDb);
           },
-          onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
-          onHorizontalDragCancel: () => setState(() => _isDragging = false),
+          onHorizontalDragEnd: (_) {
+            setState(() => _isDragging = false);
+            widget.onDragEnd?.call();
+          },
+          onHorizontalDragCancel: () {
+            setState(() => _isDragging = false);
+            widget.onDragEnd?.call();
+          },
           onTapDown: (details) {
             if (widget.onVolumeChanged == null) return;
+            widget.onDragStart?.call();
             final sliderValue =
                 (details.localPosition.dx / constraints.maxWidth).clamp(
                   0.0,
@@ -60,6 +74,7 @@ class _CapsuleFaderState extends State<CapsuleFader> {
                 );
             final newVolumeDb = _sliderToVolumeDb(sliderValue);
             widget.onVolumeChanged!(newVolumeDb);
+            widget.onDragEnd?.call();
           },
           child: MouseRegion(
             cursor: SystemMouseCursors.click,

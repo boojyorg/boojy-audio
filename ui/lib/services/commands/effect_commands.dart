@@ -172,6 +172,9 @@ class SetEffectParameterCommand extends Command {
   final String paramName;
   final double newValue;
   final double oldValue;
+  final bool isBuiltIn;
+  final void Function(int effectId, String paramName, double value)?
+  onParameterChanged;
 
   SetEffectParameterCommand({
     required this.effectId,
@@ -180,16 +183,28 @@ class SetEffectParameterCommand extends Command {
     required this.paramName,
     required this.newValue,
     required this.oldValue,
+    this.isBuiltIn = false,
+    this.onParameterChanged,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    engine.setVst3ParameterValue(effectId, paramIndex, newValue);
+    if (isBuiltIn) {
+      engine.setEffectParameter(effectId, paramName, newValue);
+    } else {
+      engine.setVst3ParameterValue(effectId, paramIndex, newValue);
+    }
+    onParameterChanged?.call(effectId, paramName, newValue);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    engine.setVst3ParameterValue(effectId, paramIndex, oldValue);
+    if (isBuiltIn) {
+      engine.setEffectParameter(effectId, paramName, oldValue);
+    } else {
+      engine.setVst3ParameterValue(effectId, paramIndex, oldValue);
+    }
+    onParameterChanged?.call(effectId, paramName, oldValue);
   }
 
   @override

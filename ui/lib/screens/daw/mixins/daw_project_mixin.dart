@@ -8,6 +8,7 @@ import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
 import '../../../models/version_type.dart';
 import '../../../services/project_manager.dart';
+import '../../../services/project_persistence.dart';
 import '../../../services/version_manager.dart';
 import '../../../services/window_title_service.dart';
 import '../../../widgets/settings_dialog.dart';
@@ -929,9 +930,8 @@ mixin DAWProjectMixin
     }
 
     final timelineState = timelineKey.currentState;
-    final audioClips = timelineState?.clips.toList();
 
-    return UILayoutData(
+    return ProjectPersistence.collect(
       libraryWidth: uiLayout.libraryPanelWidth,
       mixerWidth: uiLayout.mixerPanelWidth,
       bottomHeight: uiLayout.editorPanelHeight,
@@ -939,9 +939,13 @@ mixin DAWProjectMixin
       mixerCollapsed: !uiLayout.isMixerVisible,
       bottomCollapsed:
           !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
+      loopEnabled: uiLayout.loopPlaybackEnabled,
+      loopStartBeats: uiLayout.loopStartBeats,
+      loopEndBeats: uiLayout.loopEndBeats,
       viewState: viewState,
-      audioClips: audioClips,
+      audioClips: timelineState?.clips.toList(),
       automationData: automationController.toJson(),
+      trackColorOverrides: trackController.trackColorOverrides,
     );
   }
 

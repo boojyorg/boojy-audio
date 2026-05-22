@@ -41,7 +41,6 @@ class TransportCallbacks {
   final VoidCallback? onRecord;
   final VoidCallback? onPauseRecording;
   final VoidCallback? onStopRecording;
-  final VoidCallback? onCaptureMidi;
   final VoidCallback? onUndo;
   final VoidCallback? onRedo;
   final VoidCallback? onMetronomeToggle;
@@ -58,7 +57,6 @@ class TransportCallbacks {
     this.onRecord,
     this.onPauseRecording,
     this.onStopRecording,
-    this.onCaptureMidi,
     this.onUndo,
     this.onRedo,
     this.onMetronomeToggle,

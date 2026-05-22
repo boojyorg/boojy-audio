@@ -15,9 +15,17 @@ class MainFlutterWindow: NSWindow {
     // Set minimum window size (960x600) for responsive panel layout
     self.minSize = NSSize(width: 960, height: 600)
 
-    // Dark title bar appearance
+    // Dark title bar appearance with centered title
     self.appearance = NSAppearance(named: .darkAqua)
     self.backgroundColor = NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+
+    // Add an empty toolbar so macOS centers the window title
+    let toolbar = NSToolbar(identifier: "MainToolbar")
+    toolbar.showsBaselineSeparator = false
+    self.toolbar = toolbar
+    if #available(macOS 11.0, *) {
+      self.toolbarStyle = .unifiedCompact
+    }
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 

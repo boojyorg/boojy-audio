@@ -42,9 +42,10 @@ cache/
 Thumbs.db
 
 # Docs
-docs/COMPETITIVE_ANALYSIS.md
+docs/private/
 
 engine/vst3_host/build/
+engine/vst3_host/build_win/
 engine/build_vst3/
 engine/vst3_host/build_vst3/
 engine/vst3_host/*.o

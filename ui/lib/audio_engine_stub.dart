@@ -223,6 +223,7 @@ class AudioEngine implements AudioEngineInterface {
 
   String getTrackEffects(int trackId) => throw UnsupportedError('stub');
   String getEffectInfo(int effectId) => throw UnsupportedError('stub');
+  @override
   String setEffectParameter(int effectId, String paramName, double value) =>
       throw UnsupportedError('stub');
 

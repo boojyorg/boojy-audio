@@ -26,37 +26,58 @@ pub fn get_all_midi_clips_info() -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
+    // Track copies hold authoritative arrangement start times after drag/move.
+    let track_manager = graph.track_manager.lock();
+    let mut on_track: std::collections::HashMap<u64, (i64, f64)> =
+        std::collections::HashMap::new();
+    for track in track_manager.get_all_tracks() {
+        let track_lock = track.lock();
+        for timeline_clip in &track_lock.midi_clips {
+            let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
+            on_track.insert(timeline_clip.id, (track_id, timeline_clip.start_time));
+        }
+    }
+    drop(track_manager);
+
     let mut clips_info = Vec::new();
 
-    // Get clips from global MIDI clips storage
     let midi_clips = graph.get_midi_clips().lock();
     for timeline_clip in midi_clips.iter() {
-        let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
-        let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
+        let (track_id_str, start_time) = if let Some((track_id, track_start)) =
+            on_track.get(&timeline_clip.id)
+        {
+            (*track_id, *track_start)
+        } else {
+            let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
+            let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
+            (track_id_str, timeline_clip.start_time)
+        };
         let duration = timeline_clip.clip.duration_seconds();
-        let note_count = timeline_clip.clip.events.len() / 2; // NoteOn/NoteOff pairs
-        clips_info.push(format!("{},{},{},{},{}",
-            timeline_clip.id, track_id_str, timeline_clip.start_time, duration, note_count));
+        let note_count = timeline_clip.clip.events.len() / 2;
+        clips_info.push(format!(
+            "{},{},{},{},{}",
+            timeline_clip.id, track_id_str, start_time, duration, note_count
+        ));
     }
     drop(midi_clips);
 
-    // Also get clips from tracks (they might have different IDs)
+    // Clips that exist only on a track (not in global storage)
     let track_manager = graph.track_manager.lock();
     for track in track_manager.get_all_tracks() {
-        { let track_lock = track.lock();
-            for timeline_clip in &track_lock.midi_clips {
-                // Check if we already have this clip
-                let already_added = clips_info.iter().any(|info| {
-                    info.split(',').next().unwrap_or("") == timeline_clip.id.to_string()
-                });
-                if !already_added {
-                    let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
-                    let duration = timeline_clip.clip.duration_seconds();
-                    let note_count = timeline_clip.clip.events.len() / 2;
-                    clips_info.push(format!("{},{},{},{},{}",
-                        timeline_clip.id, track_id, timeline_clip.start_time, duration, note_count));
-                }
+        let track_lock = track.lock();
+        for timeline_clip in &track_lock.midi_clips {
+            if clips_info.iter().any(|info| {
+                info.split(',').next().unwrap_or("") == timeline_clip.id.to_string()
+            }) {
+                continue;
             }
+            let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
+            let duration = timeline_clip.clip.duration_seconds();
+            let note_count = timeline_clip.clip.events.len() / 2;
+            clips_info.push(format!(
+                "{},{},{},{},{}",
+                timeline_clip.id, track_id, timeline_clip.start_time, duration, note_count
+            ));
         }
     }
 
@@ -70,32 +91,34 @@ pub fn get_midi_clip_info(clip_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
-    // First check global MIDI clips
+    // Prefer track placement — authoritative start_time after drag/move.
+    let track_manager = graph.track_manager.lock();
+    for track in track_manager.get_all_tracks() {
+        let track_lock = track.lock();
+        for timeline_clip in &track_lock.midi_clips {
+            if timeline_clip.id == clip_id {
+                let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
+                let duration = timeline_clip.clip.duration_seconds();
+                let note_count = timeline_clip.clip.events.len() / 2;
+                return Ok(format!(
+                    "{},{},{},{},{}",
+                    clip_id, track_id, timeline_clip.start_time, duration, note_count
+                ));
+            }
+        }
+    }
+    drop(track_manager);
+
     let midi_clips = graph.get_midi_clips().lock();
     if let Some(timeline_clip) = midi_clips.iter().find(|c| c.id == clip_id) {
         let track_id = timeline_clip.track_id.unwrap_or(u64::MAX) as i64;
         let track_id_str = if track_id == u64::MAX as i64 { -1 } else { track_id };
         let duration = timeline_clip.clip.duration_seconds();
-        let note_count = timeline_clip.clip.events.len() / 2; // NoteOn/NoteOff pairs
-        return Ok(format!("{},{},{},{},{}",
-            clip_id, track_id_str, timeline_clip.start_time, duration, note_count));
-    }
-    drop(midi_clips);
-
-    // Also check track-specific MIDI clips
-    let track_manager = graph.track_manager.lock();
-    for track in track_manager.get_all_tracks() {
-        { let track_lock = track.lock();
-            for timeline_clip in &track_lock.midi_clips {
-                if timeline_clip.id == clip_id {
-                    let track_id = timeline_clip.track_id.unwrap_or(track_lock.id) as i64;
-                    let duration = timeline_clip.clip.duration_seconds();
-                    let note_count = timeline_clip.clip.events.len() / 2;
-                    return Ok(format!("{},{},{},{},{}",
-                        clip_id, track_id, timeline_clip.start_time, duration, note_count));
-                }
-            }
-        }
+        let note_count = timeline_clip.clip.events.len() / 2;
+        return Ok(format!(
+            "{},{},{},{},{}",
+            clip_id, track_id_str, timeline_clip.start_time, duration, note_count
+        ));
     }
 
     Err(format!("MIDI clip {clip_id} not found"))

@@ -7,6 +7,8 @@ import '../theme/tokens.dart';
 import '../models/vst3_plugin_data.dart';
 import '../services/plugin_preferences_service.dart';
 import '../services/vst3_editor_service.dart';
+import '../services/undo_redo_manager.dart';
+import '../services/commands/effect_commands.dart';
 import 'vst3_editor_widget.dart';
 
 /// VST3 Plugin Parameter Panel - shows parameters for loaded plugins on a track
@@ -41,6 +43,7 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
 
   // Track which plugins we've already auto-opened to avoid repeated opens
   final Set<int> _autoOpenedPlugins = {};
+  final Map<String, double> _vst3ParamDragStartValues = {};
 
   @override
   void didUpdateWidget(covariant Vst3PluginParameterPanel oldWidget) {
@@ -410,6 +413,35 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
     );
   }
 
+  Future<void> _commitVst3Parameter(
+    Vst3PluginInstance plugin,
+    Vst3ParameterInfo param,
+    double newValue,
+  ) async {
+    final key = '${plugin.effectId}:${param.index}';
+    final oldValue = _vst3ParamDragStartValues.remove(key);
+    if (oldValue == null || (newValue - oldValue).abs() < 0.0001) return;
+
+    await UndoRedoManager().execute(
+      SetEffectParameterCommand(
+        effectId: plugin.effectId,
+        effectName: plugin.pluginName,
+        paramIndex: param.index,
+        paramName: param.name,
+        newValue: newValue,
+        oldValue: oldValue,
+        onParameterChanged: (effectId, paramName, value) {
+          widget.onParameterChanged?.call(effectId, param.index, value);
+          if (mounted) {
+            setState(() {
+              plugin.setParameterValue(param.index, value);
+            });
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildParameterControl(
     Vst3PluginInstance plugin,
     Vst3ParameterInfo param,
@@ -455,6 +487,10 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                 value: value.clamp(param.min, param.max),
                 min: param.min,
                 max: param.max,
+                onChangeStart: (_) {
+                  _vst3ParamDragStartValues['${plugin.effectId}:${param.index}'] =
+                      value;
+                },
                 onChanged: (newValue) {
                   setState(() {
                     plugin.setParameterValue(param.index, newValue);
@@ -465,6 +501,8 @@ class _Vst3PluginParameterPanelState extends State<Vst3PluginParameterPanel> {
                     newValue,
                   );
                 },
+                onChangeEnd: (newValue) =>
+                    _commitVst3Parameter(plugin, param, newValue),
               ),
             ),
           ),

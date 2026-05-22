@@ -192,6 +192,12 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Mouse X at trim begin.
   double trimStartX = 0.0;
 
+  /// Full clip snapshot at trim start (for undo).
+  MidiClipData? trimStartClipSnapshot;
+
+  /// Full clip snapshot at right-edge resize start (for undo).
+  MidiClipData? resizeStartClipSnapshot;
+
   // ============================================
   // AUDIO CLIP SELECTION STATE
   // ============================================

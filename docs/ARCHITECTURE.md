@@ -343,11 +343,26 @@ ThemeProvider
                     └── [Context-dependent editors]
 ```
 
+## Project Persistence
+
+Project data is split between the Rust engine and the Flutter UI. All UI-only fields must go through `ProjectPersistence.collect()` in [`ui/lib/services/project_persistence.dart`](../ui/lib/services/project_persistence.dart) so manual save, auto-save, and crash recovery stay in sync.
+
+| Data | Owner | File |
+|------|-------|------|
+| Tracks, clips, tempo, effects, audio files | Rust engine | `project.json` |
+| Panel layout, loop region, track colors, view state | Dart UI | `ui_layout.json` |
+| Automation (UI hidden) | Both | engine + `ui_layout.json` |
+
+**Save flow:** `DAWProjectMixin.getCurrentUILayout()` → `ProjectPersistence.collect()` → `ProjectManager.saveProject()` writes `ui_layout.json` alongside the engine's `project.json`.
+
+**Load flow:** `ProjectManager.loadProject()` reads `ui_layout.json` → `DAWProjectMixin.applyUILayout()` restores panel state, loop region, track colors, automation UI data, and optional view state.
+
 ## Services Overview
 
 | Service | Responsibility |
 |---------|---------------|
 | `ProjectManager` | Save/load projects, file I/O |
+| `ProjectPersistence` | Canonical checklist of UI fields in `ui_layout.json` |
 | `UndoRedoManager` | Command history, undo/redo stack |
 | `LibraryService` | Browse presets, samples, instruments |
 | `AutoSaveService` | Periodic project auto-save |

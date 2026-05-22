@@ -10,7 +10,7 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 Or visit [boojy.org](https://boojy.org) for more information.
 
-**Current Status:** Alpha (v0.2.1) — See [CHANGELOG.md](CHANGELOG.md) for details.
+**Current Status:** Alpha (v0.2.4) — See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Features
 
@@ -56,10 +56,9 @@ See [ROADMAP.md](docs/ROADMAP.md) for the full feature tracker and version plan.
 
 | Doc | What it covers |
 |-----|----------------|
-| [ROADMAP.md](docs/ROADMAP.md) | Feature tracker, version plan, milestones, design decisions |
+| [ROADMAP.md](docs/ROADMAP.md) | Version plan, prioritized path to v1.0, design decisions |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, Flutter/Rust split, FFI patterns, folder structure |
-| [UI_DESIGN.md](docs/UI_DESIGN.md) | Layout specs, Boojy Design System colors, component details |
-| [v0.2-design.md](docs/v0.2-design.md) | Next version design spec (send/return, sampler, MIDI CC, tempo automation) |
+| [FEATURE_TRACKER.md](docs/FEATURE_TRACKER.md) | v1.0 feature checklist (what exists vs planned) |
 
 ## Setup
 

@@ -44,6 +44,10 @@ class TrackMixerStrip extends StatefulWidget {
   // Callbacks
   final Function(double)? onVolumeChanged;
   final Function(double)? onPanChanged;
+  final VoidCallback? onVolumeDragStart;
+  final VoidCallback? onVolumeDragEnd;
+  final VoidCallback? onPanDragStart;
+  final VoidCallback? onPanDragEnd;
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
@@ -133,6 +137,10 @@ class TrackMixerStrip extends StatefulWidget {
     this.audioEngine,
     this.onVolumeChanged,
     this.onPanChanged,
+    this.onVolumeDragStart,
+    this.onVolumeDragEnd,
+    this.onPanDragStart,
+    this.onPanDragEnd,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onArmToggle,
@@ -371,6 +379,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               PanKnob(
                 pan: widget.pan,
                 onChanged: widget.onPanChanged,
+                onDragStart: widget.onPanDragStart,
+                onDragEnd: widget.onPanDragEnd,
                 size: panSize,
               ),
             ],
@@ -434,6 +444,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                         rightLevel: widget.peakLevelRight,
                         volumeDb: displayVolumeDb,
                         onVolumeChanged: widget.onVolumeChanged,
+                        onDragStart: widget.onVolumeDragStart,
+                        onDragEnd: widget.onVolumeDragEnd,
                         onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
                         inputLevel: widget.isArmed ? widget.inputLevel : null,
                       ),
@@ -533,6 +545,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             PanKnob(
               pan: widget.pan,
               onChanged: widget.onPanChanged,
+              onDragStart: widget.onPanDragStart,
+              onDragEnd: widget.onPanDragEnd,
               size: buttonSize,
             ),
             const SizedBox(width: BT.xs),
@@ -546,6 +560,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               rightLevel: widget.peakLevelRight,
               volumeDb: displayVolumeDb,
               onVolumeChanged: widget.onVolumeChanged,
+              onDragStart: widget.onVolumeDragStart,
+              onDragEnd: widget.onVolumeDragEnd,
               onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
               inputLevel: widget.isArmed ? widget.inputLevel : null,
             ),
@@ -1810,6 +1826,10 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final double peakLevelRight;
   final Function(double)? onVolumeChanged;
   final Function(double)? onPanChanged;
+  final VoidCallback? onVolumeDragStart;
+  final VoidCallback? onVolumeDragEnd;
+  final VoidCallback? onPanDragStart;
+  final VoidCallback? onPanDragEnd;
 
   // Track height resizing (top edge for master)
   final double trackHeight;
@@ -1826,6 +1846,10 @@ class MasterTrackMixerStrip extends StatefulWidget {
     this.peakLevelRight = 0.0,
     this.onVolumeChanged,
     this.onPanChanged,
+    this.onVolumeDragStart,
+    this.onVolumeDragEnd,
+    this.onPanDragStart,
+    this.onPanDragEnd,
     this.trackHeight = kDefaultHeight,
     this.onHeightChanged,
     this.stripWidth = 380.0,
@@ -1939,6 +1963,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                         PanKnob(
                           pan: widget.pan,
                           onChanged: widget.onPanChanged,
+                          onDragStart: widget.onPanDragStart,
+                          onDragEnd: widget.onPanDragEnd,
                           size: panSize,
                         ),
                       ],
@@ -1985,6 +2011,8 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                             rightLevel: widget.peakLevelRight,
                             volumeDb: widget.volumeDb,
                             onVolumeChanged: widget.onVolumeChanged,
+                            onDragStart: widget.onVolumeDragStart,
+                            onDragEnd: widget.onVolumeDragEnd,
                             onDoubleTap: () =>
                                 widget.onVolumeChanged?.call(0.0),
                           ),

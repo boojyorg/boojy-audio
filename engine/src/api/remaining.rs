@@ -66,8 +66,17 @@ pub fn set_clip_start_time(track_id: u64, clip_id: u64, start_time: f64) -> Resu
         // Try MIDI clips
         for clip in &mut track.midi_clips {
             if clip.id == clip_id {
-                clip.start_time = start_time.max(0.0); // Clamp to >= 0
-                return Ok(format!("MIDI clip {clip_id} moved to {start_time:.3}s"));
+                let clamped = start_time.max(0.0);
+                clip.start_time = clamped;
+                drop(track);
+                drop(track_manager);
+                {
+                    let mut midi_clips = graph.get_midi_clips().lock();
+                    if let Some(global) = midi_clips.iter_mut().find(|c| c.id == clip_id) {
+                        global.start_time = clamped;
+                    }
+                }
+                return Ok(format!("MIDI clip {clip_id} moved to {clamped:.3}s"));
             }
         }
 

@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import '../services/project_manager.dart';
+import '../services/project_persistence.dart';
 
-export '../services/project_manager.dart' show UILayoutData;
+export '../services/project_persistence.dart' show UILayoutData;
 
 /// Snap values for arrangement timeline grid snapping
 enum SnapValue {
@@ -546,15 +546,18 @@ class UILayoutState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get current layout for saving
+  /// Get current layout for saving (panel sizes only)
   UILayoutData getCurrentLayout() {
-    return UILayoutData(
-      libraryWidth: libraryPanelWidth, // Use computed getter
+    return ProjectPersistence.collect(
+      libraryWidth: libraryPanelWidth,
       mixerWidth: _mixerPanelWidth,
       bottomHeight: _editorPanelHeight,
       libraryCollapsed: _isLibraryPanelCollapsed,
       mixerCollapsed: !_isMixerVisible,
       bottomCollapsed: !(_isEditorPanelVisible || _isVirtualPianoVisible),
+      loopEnabled: loopPlaybackEnabled,
+      loopStartBeats: loopStartBeats,
+      loopEndBeats: loopEndBeats,
     );
   }
 }

@@ -74,6 +74,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
   // Optimistic local overrides for sliders (instant UI feedback during drag)
   final Map<String, double> _localParamOverrides =
       {}; // "effectId:paramName" → value
+  final Map<String, double> _paramDragStartValues = {};
   bool _isDraggingSlider = false;
 
   // Instrument bypass state (VST3 instruments use setEffectBypass via effectId)
@@ -337,6 +338,35 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   void _setEffectParameter(int effectId, String paramName, double value) {
     widget.audioEngine?.setEffectParameter(effectId, paramName, value);
+  }
+
+  Future<void> _commitEffectParameterChange(
+    EffectData effect,
+    String paramName,
+    double newValue,
+  ) async {
+    final paramKey = '${effect.id}:$paramName';
+    final oldValue = _paramDragStartValues.remove(paramKey);
+    if (oldValue == null || (newValue - oldValue).abs() < 0.0001) return;
+
+    await UndoRedoManager().execute(
+      SetEffectParameterCommand(
+        effectId: effect.id,
+        effectName: effect.type,
+        paramIndex: 0,
+        paramName: paramName,
+        newValue: newValue,
+        oldValue: oldValue,
+        isBuiltIn: true,
+        onParameterChanged: (effectId, name, value) {
+          if (!mounted) return;
+          setState(() {
+            _localParamOverrides['$effectId:$name'] = value;
+          });
+          _setEffectParameter(effectId, name, value);
+        },
+      ),
+    );
   }
 
   void _resetEffectToDefaults(EffectData effect) {
@@ -1375,7 +1405,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
                 max: max,
                 onChangeStart: effect.bypassed
                     ? null
-                    : (_) => _isDraggingSlider = true,
+                    : (_) {
+                        _isDraggingSlider = true;
+                        _paramDragStartValues[paramKey] = value;
+                      },
                 onChanged: effect.bypassed
                     ? null
                     : (v) {
@@ -1384,9 +1417,9 @@ class _DeviceChainViewState extends State<DeviceChainView>
                       },
                 onChangeEnd: effect.bypassed
                     ? null
-                    : (_) {
+                    : (v) {
                         _isDraggingSlider = false;
-                        // Keep override — removed by _loadEffects when engine catches up
+                        _commitEffectParameterChange(effect, paramName, v);
                       },
               ),
             ),
