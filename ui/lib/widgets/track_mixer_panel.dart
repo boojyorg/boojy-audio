@@ -9,6 +9,7 @@ import '../models/track_automation_data.dart';
 import '../models/track_data.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/track_commands.dart';
+import '../services/commands/mixer_commands.dart';
 import 'platform_drop_target.dart';
 import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
@@ -101,6 +102,71 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   double _dragOffsetY = 0.0;
   bool _dragActivated = false;
   static const double _dragThreshold = 8.0;
+
+  /// Values captured at fader/pan drag start (for undo on drag end).
+  final Map<int, double> _volumeDragStartDb = {};
+  final Map<int, double> _panDragStart = {};
+
+  TrackData? _findTrack(int trackId) {
+    for (final track in _tracks) {
+      if (track.id == trackId) return track;
+    }
+    return null;
+  }
+
+  void _beginVolumeDrag(int trackId, double currentDb) {
+    _volumeDragStartDb.putIfAbsent(trackId, () => currentDb);
+  }
+
+  void _beginPanDrag(int trackId, double currentPan) {
+    _panDragStart.putIfAbsent(trackId, () => currentPan);
+  }
+
+  Future<void> _commitVolumeChange(
+    int trackId,
+    String trackName,
+    double newDb,
+  ) async {
+    final oldDb = _volumeDragStartDb.remove(trackId);
+    if (oldDb == null || (newDb - oldDb).abs() < 0.01) return;
+
+    await UndoRedoManager().execute(
+      SetVolumeCommand(
+        trackId: trackId,
+        trackName: trackName,
+        newVolumeDb: newDb,
+        oldVolumeDb: oldDb,
+        onVolumeChanged: (id, volumeDb) {
+          if (!mounted) return;
+          final track = _findTrack(id);
+          if (track != null) setState(() => track.volumeDb = volumeDb);
+        },
+      ),
+    );
+  }
+
+  Future<void> _commitPanChange(
+    int trackId,
+    String trackName,
+    double newPan,
+  ) async {
+    final oldPan = _panDragStart.remove(trackId);
+    if (oldPan == null || (newPan - oldPan).abs() < 0.001) return;
+
+    await UndoRedoManager().execute(
+      SetPanCommand(
+        trackId: trackId,
+        trackName: trackName,
+        newPan: newPan,
+        oldPan: oldPan,
+        onPanChanged: (id, pan) {
+          if (!mounted) return;
+          final track = _findTrack(id);
+          if (track != null) setState(() => track.pan = pan);
+        },
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -641,12 +707,26 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                 });
                 widget.audioEngine?.setTrackVolume(masterTrack.id, volumeDb);
               },
+              onVolumeDragStart: () =>
+                  _beginVolumeDrag(masterTrack.id, masterTrack.volumeDb),
+              onVolumeDragEnd: () => _commitVolumeChange(
+                masterTrack.id,
+                masterTrack.name,
+                masterTrack.volumeDb,
+              ),
               onPanChanged: (pan) {
                 setState(() {
                   masterTrack.pan = pan;
                 });
                 widget.audioEngine?.setTrackPan(masterTrack.id, pan);
               },
+              onPanDragStart: () =>
+                  _beginPanDrag(masterTrack.id, masterTrack.pan),
+              onPanDragEnd: () => _commitPanChange(
+                masterTrack.id,
+                masterTrack.name,
+                masterTrack.pan,
+              ),
             ),
           ),
       ],
@@ -928,31 +1008,54 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                 });
                 widget.audioEngine?.setTrackVolume(track.id, volumeDb);
               },
+              onVolumeDragStart: () =>
+                  _beginVolumeDrag(track.id, track.volumeDb),
+              onVolumeDragEnd: () =>
+                  _commitVolumeChange(track.id, track.name, track.volumeDb),
               onPanChanged: (pan) {
                 setState(() {
                   track.pan = pan;
                 });
                 widget.audioEngine?.setTrackPan(track.id, pan);
               },
-              onMuteToggle: () {
+              onPanDragStart: () => _beginPanDrag(track.id, track.pan),
+              onPanDragEnd: () =>
+                  _commitPanChange(track.id, track.name, track.pan),
+              onMuteToggle: () async {
+                final oldMute = track.mute;
                 setState(() {
                   track.mute = !track.mute;
                 });
-                Future.microtask(
-                  () => widget.audioEngine?.setTrackMute(
-                    track.id,
-                    mute: track.mute,
+                await UndoRedoManager().execute(
+                  SetMuteCommand(
+                    trackId: track.id,
+                    trackName: track.name,
+                    newMute: track.mute,
+                    oldMute: oldMute,
+                    onMuteChanged: (id, {required bool muted}) {
+                      if (!mounted) return;
+                      final t = _findTrack(id);
+                      if (t != null) setState(() => t.mute = muted);
+                    },
                   ),
                 );
               },
-              onSoloToggle: () {
+              onSoloToggle: () async {
+                final oldSolo = track.solo;
                 setState(() {
                   track.solo = !track.solo;
                 });
-                Future.microtask(
-                  () => widget.audioEngine?.setTrackSolo(
-                    track.id,
-                    solo: track.solo,
+                await UndoRedoManager().execute(
+                  SetSoloCommand(
+                    trackId: track.id,
+                    trackName: track.name,
+                    newSolo: track.solo,
+                    oldSolo: oldSolo,
+                    onSoloChanged: (id, {required bool soloed}) {
+                      if (!mounted) return;
+                      final t = _findTrack(id);
+                      if (t != null) setState(() => t.solo = soloed);
+                    },
                   ),
                 );
               },

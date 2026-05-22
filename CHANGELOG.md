@@ -4,6 +4,25 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.2.4 — 2026-05-22
+
+### Improvements
+
+- **Windows CI**: `windows-latest` jobs run `flutter analyze`, `flutter test`, and `cargo clippy` on every PR (no VST3 build)
+- **Timeline decomposition (phase 1)**: Extracted `timeline_gesture_layer.dart` and `timeline_track_list.dart` from `timeline_view.dart` (~3800 lines moved via `part` files; zero behavior change)
+- **Undo gaps closed**: VST3 plugin parameter drags go through `SetEffectParameterCommand`; clip-move undo covered by integration test
+- **MIDI clip move sync**: `set_clip_start_time` now updates global MIDI clip storage; engine queries prefer track placement for authoritative start times
+
+## v0.2.3 — 2026-05-22
+
+### Improvements
+
+- **Project persistence centralized**: UI layout save/load now goes through `ProjectPersistence.collect()` — single checklist for panel layout, loop region, track colors, view state, automation, and timeline clips in `ui_layout.json`
+- **Integration tests (golden paths)**: Native engine smoke tests for MIDI track save/reload, MIDI note persistence, and WAV export under `ui/integration_test/` (skipped when `libengine` is not built)
+- **Undo audit (partial)**: MIDI clip move/trim, mixer fader/pan/mute/solo, and device-chain effect parameter drags now go through `UndoRedoManager` / `Command`
+
+## v0.2.2 — 2026-05-22
+
 ### Improvements
 
 - **Arrangement background**: Warm charcoal background (#0E0F14) replaces deep blue-black, more professional studio aesthetic

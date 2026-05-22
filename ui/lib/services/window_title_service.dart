@@ -17,12 +17,6 @@ class WindowTitleService {
     await windowManager.ensureInitialized();
     _initialized = true;
 
-    // Set dark title bar on macOS
-    await windowManager.setTitleBarStyle(
-      TitleBarStyle.normal,
-      windowButtonVisibility: true,
-    );
-
     await _updateTitle();
   }
 

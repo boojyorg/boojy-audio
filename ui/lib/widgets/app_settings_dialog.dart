@@ -760,11 +760,8 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Widget _buildInputDeviceSelector() {
-    // Build list: "No Input" + all input devices
-    final deviceNames = <String>['__no_input__']; // Special value for no input
-    for (final device in _inputDevices) {
-      deviceNames.add(device['name'] as String);
-    }
+    // Build list: "No Input" + all input devices (deduplicated)
+    final deviceNames = _deduplicateDeviceNames(_inputDevices, '__no_input__');
 
     // Current value: null means "No Input"
     final currentValue = _selectedInputDevice ?? '__no_input__';
@@ -932,14 +929,31 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
         lower.contains('nova'); // Arctis Nova series
   }
 
-  Widget _buildOutputDeviceSelector() {
-    // Build list: "No Output" + all output devices
-    final deviceNames = <String>[
-      '__no_output__',
-    ]; // Special value for no output
-    for (final device in _outputDevices) {
-      deviceNames.add(device['name'] as String);
+  /// Deduplicate device names by appending " (2)", " (3)" etc. for duplicates.
+  /// DropdownButton requires unique values.
+  List<String> _deduplicateDeviceNames(
+    List<Map<String, dynamic>> devices,
+    String prefix,
+  ) {
+    final result = <String>[prefix];
+    final seen = <String, int>{};
+    for (final device in devices) {
+      var name = device['name'] as String;
+      seen[name] = (seen[name] ?? 0) + 1;
+      if (seen[name]! > 1) {
+        name = '$name (${seen[name]})';
+      }
+      result.add(name);
     }
+    return result;
+  }
+
+  Widget _buildOutputDeviceSelector() {
+    // Build list: "No Output" + all output devices (deduplicated)
+    final deviceNames = _deduplicateDeviceNames(
+      _outputDevices,
+      '__no_output__',
+    );
 
     // Current value: null means use system default, but we show first real device
     // Use special __no_output__ for explicit no output

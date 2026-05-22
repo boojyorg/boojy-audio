@@ -51,13 +51,10 @@ import '../widgets/project_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../models/project_version.dart';
 import '../models/version_type.dart';
-import '../models/project_view_state.dart';
-import '../models/midi_event.dart';
 import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
-import '../widgets/capture_midi_dialog.dart';
 import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
@@ -1191,94 +1188,6 @@ class _DAWScreenState extends State<DAWScreen>
       },
     );
     undoRedoManager.execute(command);
-  }
-
-  /// Capture MIDI from the buffer and create a clip
-  Future<void> _captureMidi() async {
-    if (audioEngine == null) return;
-
-    // Check if we have a selected track
-    if (selectedTrackId == null) {
-      playbackController.setStatusMessage('Please select a MIDI track first');
-      return;
-    }
-
-    // Show capture dialog
-    final capturedEvents = await CaptureMidiDialog.show(
-      context,
-      midiCaptureBuffer,
-    );
-
-    if (capturedEvents == null || capturedEvents.isEmpty) {
-      return;
-    }
-
-    // Convert captured events to MIDI notes
-    final notes = <MidiNoteData>[];
-    final Map<int, MidiEvent> activeNotes = {};
-
-    for (final event in capturedEvents) {
-      if (event.isNoteOn) {
-        // Store note-on event
-        activeNotes[event.note] = event;
-      } else {
-        // Find matching note-on and create MidiNoteData
-        final noteOn = activeNotes.remove(event.note);
-        if (noteOn != null) {
-          final duration = event.beatsFromStart - noteOn.beatsFromStart;
-          notes.add(
-            MidiNoteData(
-              note: event.note,
-              velocity: noteOn.velocity,
-              startTime: noteOn.beatsFromStart,
-              duration: duration.clamp(
-                0.1,
-                double.infinity,
-              ), // Min duration of 0.1 beats
-            ),
-          );
-        }
-      }
-    }
-
-    // Handle any notes that didn't get a note-off (sustained notes)
-    for (final noteOn in activeNotes.values) {
-      notes.add(
-        MidiNoteData(
-          note: noteOn.note,
-          velocity: noteOn.velocity,
-          startTime: noteOn.beatsFromStart,
-          duration: 1.0, // Default 1 beat duration for sustained notes
-        ),
-      );
-    }
-
-    if (notes.isEmpty) {
-      playbackController.setStatusMessage('No complete MIDI notes captured');
-      return;
-    }
-
-    // Calculate clip duration based on last note
-    final lastNote = notes.reduce(
-      (a, b) => (a.startTime + a.duration) > (b.startTime + b.duration) ? a : b,
-    );
-    final clipDuration = (lastNote.startTime + lastNote.duration)
-        .ceilToDouble();
-
-    // Create the clip
-    final clip = MidiClipData(
-      clipId: DateTime.now().millisecondsSinceEpoch,
-      trackId: selectedTrackId!,
-      startTime:
-          playheadPosition / 60.0 * tempo, // Current playhead position in beats
-      duration: clipDuration,
-      loopLength: clipDuration,
-      name: _generateClipName(selectedTrackId!),
-      notes: notes,
-    );
-
-    midiPlaybackManager?.addRecordedClip(clip);
-    playbackController.setStatusMessage('Captured ${notes.length} MIDI notes');
   }
 
   // Library double-click handlers
@@ -2439,56 +2348,6 @@ class _DAWScreenState extends State<DAWScreen>
   /// Apply UI layout from loaded project
   void _applyUILayout(UILayoutData layout) => applyUILayout(layout);
 
-  /// Get current UI layout for saving
-  @override
-  UILayoutData getCurrentUILayout() {
-    // Only save view state if "continue where I left off" is enabled
-    ProjectViewState? viewState;
-    if (userSettings.continueWhereLeftOff) {
-      // Access timeline view state through GlobalKey
-      final timelineState = timelineKey.currentState;
-
-      viewState = ProjectViewState(
-        horizontalScroll: timelineState?.scrollOffset ?? 0.0,
-        verticalScroll: 0.0, // Not tracked in timeline view
-        zoom: timelineState?.pixelsPerBeat ?? 25.0,
-        libraryVisible: !uiLayout.isLibraryPanelCollapsed,
-        mixerVisible: uiLayout.isMixerVisible,
-        editorVisible: uiLayout.isEditorPanelVisible,
-        virtualPianoVisible: uiLayout.isVirtualPianoEnabled,
-        selectedTrackId: selectedTrackId,
-        playheadPosition: playheadPosition,
-      );
-    }
-
-    // Get audio clips from timeline for persistence
-    final timelineState = timelineKey.currentState;
-    final audioClips = timelineState?.clips.toList();
-
-    // Collect track color overrides for persistence
-    final colorOverrides = trackController.trackColorOverrides;
-    final trackColors = colorOverrides.isNotEmpty
-        ? colorOverrides.map((k, v) => MapEntry(k, v.toARGB32()))
-        : null;
-
-    return UILayoutData(
-      libraryWidth: uiLayout.libraryPanelWidth,
-      mixerWidth: uiLayout.mixerPanelWidth,
-      bottomHeight: uiLayout.editorPanelHeight,
-      libraryCollapsed: uiLayout.isLibraryPanelCollapsed,
-      mixerCollapsed: !uiLayout.isMixerVisible,
-      bottomCollapsed:
-          !(uiLayout.isEditorPanelVisible || uiLayout.isVirtualPianoEnabled),
-      viewState: viewState,
-      audioClips: audioClips,
-      automationData: automationController.toJson(),
-      trackColors: trackColors,
-      loopEnabled: uiLayout.loopPlaybackEnabled,
-      loopStartBeats: uiLayout.loopStartBeats,
-      loopEndBeats: uiLayout.loopEndBeats,
-    );
-  }
-
   /// Check for crash recovery backup on startup
   Future<void> _checkForCrashRecovery() async {
     try {
@@ -3198,7 +3057,6 @@ class _DAWScreenState extends State<DAWScreen>
           onRecord: toggleRecording,
           onPauseRecording: pauseRecording,
           onStopRecording: stopRecordingAndReturn,
-          onCaptureMidi: _captureMidi,
           onUndo: undoRedoManager.canUndo ? _performUndo : null,
           onRedo: undoRedoManager.canRedo ? _performRedo : null,
           onMetronomeToggle: _toggleMetronome,
@@ -3303,7 +3161,6 @@ class _DAWScreenState extends State<DAWScreen>
         beatUnit: projectMetadata.timeSignatureDenominator,
         onTimeSignatureChanged: _onTimeSignatureChanged,
         isLoading: isLoading,
-        midiCaptureHasEvents: midiCaptureBuffer.hasEvents,
         isEngineReady: isAudioGraphInitialized,
         onAddMidiTrack: _addMidiTrackWithClip,
         onAddAudioTrack: () {
