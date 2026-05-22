@@ -4,6 +4,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Shared reverb deadlock**: ⚡ → Shared → Reverb no longer freezes the window. `get_track_sends` was holding the source-track lock while walking `TrackManager::get_track`, which re-locks every track to compare its id — `parking_lot::Mutex` is not re-entrant, so the moment a source track gained its first send the iterator hit the held lock and the engine froze. Snapshot the sends list and drop the source lock before resolving return names.
+
+### Features
+
+- **Send/return buses (v0.3)**: ⚡ FX picker on mixer strips — insert effect on track or shared send to built-in return bus (Reverb, Delay, EQ, etc.); send rows with amount knob; return section pinned before Master; undo for send amount, add/remove send, delete return
+- **Hidden master timeline row**: Master arrangement row hidden by default; show via View → Show Master Row or when master automation exists; persisted per project
+
 ## v0.2.4 — 2026-05-22
 
 ### Improvements
