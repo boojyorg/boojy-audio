@@ -72,8 +72,11 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 
 ## Engineering Health
 
-- Latest review: [codebase_review_2026_05_22.md](archive/reviews/codebase_review_2026_05_22.md)
-- Known debt: mega-files (`timeline_view.dart` ~4900 lines, `daw_screen.dart` ~4200), split persistence (Rust `project.json` + Dart `ui_layout.json`), macOS-only CI
+- Latest review: [codebase_review_2026_05_22.md](archive/reviews/codebase_review_2026_05_22.md) (v0.2.2 snapshot; partially addressed in v0.2.3–v0.2.4)
+- `timeline_view.dart` phase 1 split **done** (~1,200 lines); `daw_screen.dart` still ~4,200
+- Persistence **centralized** via `ProjectPersistence` (engine `project.json` + UI `ui_layout.json` split remains by design)
+- CI: macOS full pipeline (analyze, unit + integration tests, clippy) + Windows analyze/test/clippy (no VST3)
+- Next review: pre-v0.3.0 scoped audit on send/return surfaces (mixer, engine, persistence), not a full codebase review
 
 ---
 

@@ -18,19 +18,22 @@
 - `ui/` - Flutter frontend
   - `lib/models/` - Immutable data classes with JSON serialization
   - `lib/services/commands/` - Undo/redo command classes
+  - `lib/services/project_persistence.dart` - Canonical UI layout save/load checklist
   - `lib/screens/daw/mixins/` - DAW screen mixins (recording, playback, etc.)
   - `lib/widgets/` - UI components (timeline, piano roll, painters, shared)
   - `lib/controllers/` - Playback, recording, track controllers
+  - `integration_test/` - Native engine golden-path tests (macOS)
 - `docs/` - Architecture docs, roadmap, design specs
 
 ## Running Tests
 
 - **Flutter tests**: `cd ui && flutter test`
+- **Integration tests**: `./build.sh` first, then `cd ui && flutter test integration_test/ -d macos`
 - **Rust tests**: `cd engine && cargo test`
 - **Static analysis**: `cd ui && flutter analyze --fatal-infos`
 - **Rust lints**: `cd engine && cargo clippy --all-targets`
-- **Format check**: `cd ui && dart format --set-exit-if-changed .`
-- CI runs all of the above on every PR — all must pass
+- **Format check**: `cd ui && dart format --set-exit-if-changed lib/ test/ integration_test/`
+- CI runs all of the above on every PR (macOS full pipeline + Windows analyze/test/clippy, no VST3) — all must pass
 
 ## FFI Workflow (Adding a New Engine Function)
 
@@ -63,6 +66,9 @@ When adding a new function that bridges Rust and Dart:
 - **MIDI clips** use **beats** for startTime/duration; **Audio clips** use **seconds**
 - **Undo/redo** uses the command pattern: `Command`, `CompositeCommand`, `UndoRedoManager`
   - All state-changing user actions should be wrapped in a Command
+  - Known covered areas: clip move/trim, mixer fader/pan/mute/solo, built-in + VST3 effect params — new controls (e.g. send knobs in v0.3.0) must follow the same pattern
+- **UI persistence**: new fields saved in `ui_layout.json` must go through `ProjectPersistence.collect()` / `applyUILayout()` — do not scatter field lists across project managers
+- **Timeline layout**: `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and `timeline_track_list.dart` — private methods share one library; import `timeline_view.dart` only, never the part files directly
 - **Engine interface** uses mixins: `AudioEngine extends _AudioEngineBase with _TransportMixin, _RecordingMixin, ...`
 - **Platform-specific code** uses conditional imports (native/web/stub pattern)
 - **Recording flow**: engine `stop_recording()` returns `RecordingResult`, handled by `daw_recording_mixin.dart`
@@ -135,3 +141,4 @@ All markdown files must stay in sync with the current development version.
 <!-- Format: - **Symptom** — cause and fix -->
 - **App stuck on "initializing"** — Missing FFI symbol. Check that the Dart constructor's symbol lookup matches the Rust `#[no_mangle]` function name exactly
 - **Tests pass but app crashes** — Likely a dylib mismatch. Run `./build.sh` to rebuild
+- **Integration tests fail or skip on macOS** — Run `./build.sh` first so `libengine.dylib` exists
