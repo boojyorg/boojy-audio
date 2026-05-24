@@ -3,6 +3,7 @@ use super::{AudioGraph, BufferSizePreset};
 use crate::audio_file::TARGET_SAMPLE_RATE;
 use crate::midi::MidiClip;
 use crate::track::TimelineMidiClip;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 impl AudioGraph {
@@ -293,10 +294,13 @@ impl AudioGraph {
 
     /// Restore state from `ProjectData` (for loading) - native only (uses recorder)
     #[cfg(not(target_arch = "wasm32"))]
+    /// Restore graph state from project data. Returns a map of save-time
+    /// track IDs to fresh-load track IDs so the API layer can remap audio
+    /// clip attachments (audio clips are restored after this method runs).
     pub fn restore_from_project_data(
         &mut self,
         project_data: crate::project::ProjectData,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HashMap<u64, u64>> {
         use crate::effects::{
             Chorus, Compressor, Delay, EffectType, Limiter, ParametricEQ, Reverb,
         };
@@ -364,6 +368,17 @@ impl AudioGraph {
             eprintln!("   - Buffer size: {buffer_preset:?}");
         }
 
+        // Track save-time IDs to fresh-load-time IDs. `create_track` assigns
+        // new sequential IDs at restore, so a send saved with target=2 may
+        // need to point to (say) new id=4 after restore. Master is always at
+        // id 0 — both save and restore.
+        let mut id_map: HashMap<u64, u64> = HashMap::new();
+        id_map.insert(0, 0);
+        // Sends are restored AFTER all tracks are created so target IDs can
+        // be remapped via `id_map` (the target return might be created later
+        // in the loop than the source track).
+        let mut pending_sends: Vec<(u64, Vec<crate::project::SendData>)> = Vec::new();
+
         // Recreate tracks and effects
         for track_data in project_data.tracks {
             let track_manager = self.track_manager.lock();
@@ -408,6 +423,7 @@ impl AudioGraph {
                 let mut tm = self.track_manager.lock();
                 tm.create_track(track_type, track_data.name.clone())
             };
+            id_map.insert(track_data.id, track_id);
 
             // Update track properties
             {
@@ -428,16 +444,13 @@ impl AudioGraph {
                     } else {
                         track_data.timeline_visible
                     };
-
-                    // Restore send routing
-                    for send_data in &track_data.sends {
-                        track.sends.push(crate::track::Send {
-                            target_track_id: send_data.target_track_id,
-                            amount: send_data.amount,
-                            pre_fader: send_data.pre_fader,
-                        });
-                    }
                 }
+            }
+
+            // Defer send restoration until after all tracks exist so target IDs
+            // can be remapped via id_map.
+            if !track_data.sends.is_empty() {
+                pending_sends.push((track_id, track_data.sends.clone()));
             }
 
             // Restore instrument for MIDI tracks (synth or sampler)
@@ -750,10 +763,37 @@ impl AudioGraph {
             );
         }
 
-        // Note: Audio clips are restored in the API layer (load_project)
-        // because they need access to the loaded AudioClip objects
+        // Second pass: restore sends with remapped target_track_ids.
+        // Save-time target IDs are remapped to new fresh-load IDs via id_map.
+        for (new_track_id, sends) in pending_sends {
+            let tm = self.track_manager.lock();
+            if let Some(track_arc) = tm.get_track(new_track_id) {
+                let mut track = track_arc.lock();
+                for send_data in sends {
+                    match id_map.get(&send_data.target_track_id).copied() {
+                        Some(new_target) => {
+                            track.sends.push(crate::track::Send {
+                                target_track_id: new_target,
+                                amount: send_data.amount,
+                                pre_fader: send_data.pre_fader,
+                            });
+                        }
+                        None => {
+                            eprintln!(
+                                "⚠️  [restore] send from track {new_track_id} → saved target {} not found in id_map, skipping",
+                                send_data.target_track_id
+                            );
+                        }
+                    }
+                }
+            }
+        }
 
-        Ok(())
+        // Note: Audio clips are restored in the API layer (load_project)
+        // because they need access to the loaded AudioClip objects.
+        // Return id_map so the API layer can remap saved track IDs.
+
+        Ok(id_map)
     }
 }
 

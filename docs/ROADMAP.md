@@ -32,7 +32,7 @@ Spec: [plans/v0.3.0-plan.md](plans/v0.3.0-plan.md)
 
 ### v0.1.x — Foundation
 
-Core DAW functionality: multi-track timeline, audio/MIDI recording, piano roll editor, mixer with volume/pan/mute/solo, audio editing (warp, pitch, split, consolidate), track automation, VST3 plugin hosting, library browser, MIDI import/export, WAV/MP3/stem export, project save/load. Design system (Phosphor icons, typography tokens, animation constants), transport bar redesign, empty states, start screen.
+Core DAW functionality: multi-track timeline, audio/MIDI recording, piano roll editor, mixer with volume/pan/mute/solo, audio editing (warp, pitch, split, consolidate), track automation, VST3 plugin hosting, library browser, MIDI import/export, WAV/MP3/stem export, project save/load. Design system (Material icons, typography tokens, animation constants), transport bar redesign, empty states, start screen.
 
 ### v0.2.0 — Recording & Mixing Essentials
 

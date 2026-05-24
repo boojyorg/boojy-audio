@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:boojy_audio/audio_engine.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/track_send_data.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
+import 'package:boojy_audio/services/commands/send_commands.dart';
 import 'package:boojy_audio/services/project_manager.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -210,17 +212,252 @@ void main() {
       final reload = await projectManager.loadProject(projectDir.path);
       expect(reload.result.success, isTrue, reason: reload.result.message);
 
-      final sendsAfter = TrackSendData.parseTrackSendsCsv(
-        engine.getTrackSends(trackId),
-      );
-      expect(sendsAfter, hasLength(sendsBefore.length));
-      expect(sendsAfter.first.returnId, sendsBefore.first.returnId);
-
+      // Track IDs are remapped on reload — restore assigns fresh IDs and
+      // remaps send targets via id_map (same contract as the other reload
+      // tests, which re-query rather than reuse pre-save IDs). Verify send
+      // persistence from the return side instead of the stale source trackId.
       final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
         engine.getAllReturns(),
       );
       expect(returnsAfter, isNotEmpty);
       expect(returnsAfter.first.effectType, 'reverb');
+      expect(
+        engine.countSendsToReturn(returnsAfter.first.id),
+        greaterThanOrEqualTo(1),
+        reason: 'the send must still target the reverb return after reload',
+      );
+    });
+
+    test('shared send dedup: second add reuses existing return', () async {
+      if (!isNativeEngineAvailable) return;
+
+      engine.clearAllTracks();
+
+      final trackA = engine.createTrack('audio', 'Dedup A');
+      final trackB = engine.createTrack('audio', 'Dedup B');
+      expect(trackA, greaterThan(0));
+      expect(trackB, greaterThan(0));
+
+      final addA = engine.addSharedSend(trackA, 'reverb');
+      expect(addA.startsWith('Error'), isFalse, reason: addA);
+
+      final returnsAfterA = ReturnTrackData.parseAllReturnsCsv(
+        engine.getAllReturns(),
+      );
+      expect(returnsAfterA, hasLength(1));
+      final reverbReturnId = returnsAfterA.first.id;
+
+      final addB = engine.addSharedSend(trackB, 'reverb');
+      expect(addB.startsWith('Error'), isFalse, reason: addB);
+
+      final returnsAfterB = ReturnTrackData.parseAllReturnsCsv(
+        engine.getAllReturns(),
+      );
+      expect(
+        returnsAfterB,
+        hasLength(1),
+        reason: 'second shared reverb send must reuse the existing return',
+      );
+      expect(returnsAfterB.first.id, reverbReturnId);
+
+      final sendsA = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackA),
+      );
+      final sendsB = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackB),
+      );
+      expect(sendsA, hasLength(1));
+      expect(sendsB, hasLength(1));
+      expect(sendsA.first.returnId, reverbReturnId);
+      expect(sendsB.first.returnId, reverbReturnId);
+    });
+
+    test('AddSharedSendCommand undo removes both send and return', () async {
+      if (!isNativeEngineAvailable) return;
+
+      engine.clearAllTracks();
+      UndoRedoManager().clear();
+
+      final trackId = engine.createTrack('audio', 'Undo Send');
+      expect(trackId, greaterThan(0));
+
+      final command = AddSharedSendCommand(
+        sourceTrackId: trackId,
+        sourceTrackName: 'Undo Send',
+        effectType: 'reverb',
+        effectLabel: 'Reverb',
+      );
+      await UndoRedoManager().execute(command);
+
+      expect(command.returnTrackId, isNotNull);
+      final returnId = command.returnTrackId!;
+
+      var sends = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackId),
+      );
+      var returns = ReturnTrackData.parseAllReturnsCsv(engine.getAllReturns());
+      expect(sends, hasLength(1));
+      expect(sends.first.returnId, returnId);
+      expect(returns.where((r) => r.id == returnId), hasLength(1));
+
+      final undone = await UndoRedoManager().undo();
+      expect(undone, isTrue);
+
+      sends = TrackSendData.parseTrackSendsCsv(engine.getTrackSends(trackId));
+      returns = ReturnTrackData.parseAllReturnsCsv(engine.getAllReturns());
+      expect(sends, isEmpty);
+      expect(
+        returns.where((r) => r.id == returnId),
+        isEmpty,
+        reason: 'undoing the only sender must also remove the return bus',
+      );
+
+      final redone = await UndoRedoManager().redo();
+      expect(redone, isTrue);
+
+      sends = TrackSendData.parseTrackSendsCsv(engine.getTrackSends(trackId));
+      returns = ReturnTrackData.parseAllReturnsCsv(engine.getAllReturns());
+      expect(sends, hasLength(1));
+      expect(returns, isNotEmpty);
+    });
+
+    test('export with reverb send has more energy than dry baseline', () async {
+      if (!isNativeEngineAvailable) return;
+
+      Future<File> renderProject({required bool withReverbSend}) async {
+        engine.clearAllTracks();
+
+        final trackId = engine.createTrack('midi', 'Reverb Energy');
+        expect(trackId, greaterThan(0));
+
+        // MIDI tracks are silent until an instrument is added — attach the
+        // built-in synth so the note renders to audio (otherwise both the dry
+        // and wet renders are silent and there's nothing for the send to carry).
+        engine.setTrackInstrument(trackId, 'synth');
+
+        final clipId = engine.createMidiClip();
+        expect(clipId, isNot(-1));
+        engine.addMidiNoteToClip(clipId, 60, 110, 0.0, 1.0);
+        engine.addMidiClipToTrack(trackId, clipId, 0.0);
+
+        if (withReverbSend) {
+          final addResult = engine.addSharedSend(trackId, 'reverb');
+          expect(addResult.startsWith('Error'), isFalse, reason: addResult);
+          final returns = ReturnTrackData.parseAllReturnsCsv(
+            engine.getAllReturns(),
+          );
+          expect(returns, hasLength(1));
+          engine.setSendAmount(trackId, returns.first.id, -6.0);
+        }
+
+        final wavPath =
+            '${projectDir.path}/energy_${withReverbSend ? "wet" : "dry"}.wav';
+        engine.resetExportProgress();
+        final result = engine.exportToWav(wavPath, normalize: false);
+        expect(result.startsWith('Error'), isFalse, reason: result);
+        final file = File(wavPath);
+        expect(file.existsSync(), isTrue);
+        expect(file.lengthSync(), greaterThan(44));
+        return file;
+      }
+
+      final dryFile = await renderProject(withReverbSend: false);
+      final dryEnergy = _wavEnergy(dryFile);
+      final dryTail = _wavEnergyTail(dryFile, 0.4);
+
+      final wetFile = await renderProject(withReverbSend: true);
+      final wetTail = _wavEnergyTail(wetFile, 0.4);
+
+      expect(
+        dryEnergy,
+        greaterThan(0),
+        reason: 'dry render must contain signal (synth + MIDI note)',
+      );
+      // A reverb send rings out after the note ends. Compare the tail region
+      // (last 40% of the export), where the dry render has decayed to near
+      // silence — this isolates the reverb's added energy rather than the
+      // total, which is confounded by early-reflection phase cancellation and
+      // the master limiter during the note itself.
+      expect(
+        wetTail,
+        greaterThan(dryTail * 2.0),
+        reason:
+            'reverb send should ring out in the tail well above the dry decay '
+            '(dryTail=$dryTail wetTail=$wetTail)',
+      );
     });
   });
+}
+
+/// Sum of squared float32 samples after the WAV `data` chunk.
+///
+/// Engine exports as 32-bit float WAV at 48 kHz; this skips through the
+/// header chunks to find `data` and returns the energy of the audio payload.
+double _wavEnergy(File wavFile) {
+  final bytes = wavFile.readAsBytesSync();
+  // Walk RIFF chunks looking for `data`.
+  // Header: 'RIFF' (4) + size (4) + 'WAVE' (4) = 12 bytes, then chunks.
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final id = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+    final size = ByteData.sublistView(
+      bytes,
+      offset + 4,
+      offset + 8,
+    ).getUint32(0, Endian.little);
+    if (id == 'data') {
+      final dataStart = offset + 8;
+      final dataEnd = (dataStart + size).clamp(0, bytes.length);
+      final sampleBytes = dataEnd - dataStart;
+      final sampleCount = sampleBytes ~/ 4;
+      final samples = Float32List.view(
+        bytes.buffer,
+        bytes.offsetInBytes + dataStart,
+        sampleCount,
+      );
+      var energy = 0.0;
+      for (final s in samples) {
+        energy += s * s;
+      }
+      return energy;
+    }
+    offset += 8 + size;
+    if (size.isOdd) offset += 1; // chunk size word-align
+  }
+  return 0.0;
+}
+
+/// Energy of the final [fraction] of the WAV payload — the reverb-tail region,
+/// where the dry render has decayed toward silence. Isolating the tail avoids
+/// the phase-cancellation/limiter confounds of comparing total energy.
+double _wavEnergyTail(File wavFile, double fraction) {
+  final bytes = wavFile.readAsBytesSync();
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final id = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+    final size = ByteData.sublistView(
+      bytes,
+      offset + 4,
+      offset + 8,
+    ).getUint32(0, Endian.little);
+    if (id == 'data') {
+      final dataStart = offset + 8;
+      final dataEnd = (dataStart + size).clamp(0, bytes.length);
+      final sampleCount = (dataEnd - dataStart) ~/ 4;
+      final samples = Float32List.view(
+        bytes.buffer,
+        bytes.offsetInBytes + dataStart,
+        sampleCount,
+      );
+      final tailStart = (sampleCount * (1.0 - fraction)).floor();
+      var energy = 0.0;
+      for (var i = tailStart; i < sampleCount; i++) {
+        energy += samples[i] * samples[i];
+      }
+      return energy;
+    }
+    offset += 8 + size;
+    if (size.isOdd) offset += 1;
+  }
+  return 0.0;
 }

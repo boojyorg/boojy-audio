@@ -6,12 +6,22 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Reverb was effectively silent (sends inaudible)**: the Freeverb was mis-scaled — `room_size` fed the comb feedback directly (≈0.5, far too low to resonate) and the wet output was attenuated ~36 dB, so a 100%-wet reverb returned only ~0.1% of its input energy. Used as an insert at 30% wet this read as "subtle"; used as a 100%-wet send return it was silent. Mapped `room_size`→feedback (0.7–0.98) and `damping`→0.4 range and corrected the wet gain, so the reverb now produces a present tail (and existing inserts sound fuller/longer). Covered by a new `reverb_full_wet_produces_comparable_output_energy` engine test and the export golden-path test.
+- **Sends lost after save → quit → reopen**: `restore_from_project_data` recreated each track via `TrackManager::create_track`, which assigned fresh sequential IDs. Sends were restored with the *saved* `target_track_id`, so when the new return came in at a different new id, every send pointed to a phantom id and the renderer dropped the signal. Now the restore runs in two passes: first creates all tracks while building a save-id → new-id map, then applies sends using the remapped target IDs.
+- **Audio clips silently dropped on project reload**: the API `load_project` attached restored audio clips to `track_data.id` (the saved track id) instead of the fresh id assigned by `create_track`. With the new IDs no longer matching the saved IDs, every WAV/MP3 clip went to a phantom track and disappeared. The id_map produced by `restore_from_project_data` is now returned and reused to remap clip attachments. (MIDI clips were unaffected because they're restored inside the per-track loop where the new id is in scope.)
+- **Save dialog produced double-slash paths**: macOS `osascript` returns folder paths with a trailing `/`, and the Save flow joined it with `/$projectName.audio`, producing `…/Projects//Name.audio`. The Load flow already stripped the trailing slash — the Save flow was missed. Mirrored the strip so saved paths are clean.
+- **Mixer fader unresponsive on regular tracks**: track-reorder wrapper used `onPan*` (any direction) for its drag gestures, which won the gesture arena over the fader's `onHorizontalDrag*` — even purely horizontal drags routed to reorder, so the slider never moved. Switched the wrapper to `onVerticalDrag*` (reordering is vertical-only), letting the fader's horizontal gesture win. Master/return strips were unaffected because they aren't wrapped in the reorder gesture detector.
 - **Shared reverb deadlock**: ⚡ → Shared → Reverb no longer freezes the window. `get_track_sends` was holding the source-track lock while walking `TrackManager::get_track`, which re-locks every track to compare its id — `parking_lot::Mutex` is not re-entrant, so the moment a source track gained its first send the iterator hit the held lock and the engine froze. Snapshot the sends list and drop the source lock before resolving return names.
 
 ### Features
 
 - **Send/return buses (v0.3)**: ⚡ FX picker on mixer strips — insert effect on track or shared send to built-in return bus (Reverb, Delay, EQ, etc.); send rows with amount knob; return section pinned before Master; undo for send amount, add/remove send, delete return
+- **Edit return effects**: clicking a return strip now selects it and opens the Editor Panel with the return's effect chain — same interaction as regular tracks. Lets you tweak the shared reverb's room size, decay, damping, etc.
 - **Hidden master timeline row**: Master arrangement row hidden by default; show via View → Show Master Row or when master automation exists; persisted per project
+
+### Improvements
+
+- **Flutter 3.44 / Dart 3.12 toolchain**: upgraded from 3.35 (local) / 3.38 (CI); pinned via FVM (`ui/.fvmrc`) and matched in `.github/workflows/*.yml`. Migrated the FX-chain reorder to the new `onReorderItem` callback (replaces deprecated `onReorder`; framework now handles the index adjustment). Material/Cupertino package decoupling deferred — `material_ui` is still preview (0.0.1) and in-SDK imports are not yet deprecated in 3.44.
 
 ## v0.2.4 — 2026-05-22
 
