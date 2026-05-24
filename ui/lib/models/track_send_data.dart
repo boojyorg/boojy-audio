@@ -92,11 +92,7 @@ class ReturnTrackData {
       if (id == null) continue;
 
       returns.add(
-        ReturnTrackData(
-          id: id,
-          name: parts[1],
-          effectType: parts[2],
-        ),
+        ReturnTrackData(id: id, name: parts[1], effectType: parts[2]),
       );
     }
     return returns;

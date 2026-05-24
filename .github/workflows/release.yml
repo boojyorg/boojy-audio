@@ -9,7 +9,8 @@ permissions:
   contents: write
 
 env:
-  FLUTTER_VERSION: '3.38.0'
+  # Keep in sync with ui/.fvmrc (the local FVM pin).
+  FLUTTER_VERSION: '3.44.0'
 
 jobs:
   build-macos:

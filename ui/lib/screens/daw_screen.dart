@@ -107,13 +107,6 @@ class _DAWScreenState extends State<DAWScreen>
     }());
   }
 
-  void _toggleIconSet() {
-    setState(() {
-      BI.usePhosphor = !BI.usePhosphor;
-      Log.i('Icons: ${BI.usePhosphor ? "Phosphor" : "Material"}');
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -3856,12 +3849,6 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _togglePaletteEditor,
-          // Cmd+Shift+K to toggle Phosphor/Material icons (A/B test)
-          const SingleActivator(
-            LogicalKeyboardKey.keyK,
-            meta: true,
-            shift: true,
-          ): _toggleIconSet,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields
@@ -3869,7 +3856,7 @@ class _DAWScreenState extends State<DAWScreen>
           autofocus: true,
           onKeyEvent: (node, event) => _handleSingleKeyShortcut(event),
           child: Scaffold(
-            key: ValueKey('daw_${BI.usePhosphor}'),
+            key: const ValueKey('daw'),
             backgroundColor: context.colors.dark,
             body: Stack(
               children: [

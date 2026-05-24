@@ -73,9 +73,6 @@ dependencies:
   # SVG rendering for custom icons
   flutter_svg: ^2.0.10+1
 
-  # Phosphor icon set (consistent 1.5px stroke, replaces Material Icons)
-  phosphor_flutter: ^2.1.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

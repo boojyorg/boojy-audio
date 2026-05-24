@@ -289,7 +289,9 @@ void main() {
       expect(command.returnTrackId, isNotNull);
       final returnId = command.returnTrackId!;
 
-      var sends = TrackSendData.parseTrackSendsCsv(engine.getTrackSends(trackId));
+      var sends = TrackSendData.parseTrackSendsCsv(
+        engine.getTrackSends(trackId),
+      );
       var returns = ReturnTrackData.parseAllReturnsCsv(engine.getAllReturns());
       expect(sends, hasLength(1));
       expect(sends.first.returnId, returnId);
@@ -384,8 +386,11 @@ double _wavEnergy(File wavFile) {
   var offset = 12;
   while (offset + 8 <= bytes.length) {
     final id = String.fromCharCodes(bytes.sublist(offset, offset + 4));
-    final size = ByteData.sublistView(bytes, offset + 4, offset + 8)
-        .getUint32(0, Endian.little);
+    final size = ByteData.sublistView(
+      bytes,
+      offset + 4,
+      offset + 8,
+    ).getUint32(0, Endian.little);
     if (id == 'data') {
       final dataStart = offset + 8;
       final dataEnd = (dataStart + size).clamp(0, bytes.length);
