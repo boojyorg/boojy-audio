@@ -15,6 +15,12 @@ Cargo.lock
 # macOS
 /ui/macos/Flutter/ephemeral/
 *.xcworkspace
+# …but the macOS Runner workspace must be tracked — Flutter needs it to build the
+# macOS app (CI failed with "No macOS desktop project configured" without it).
+# Track only contents.xcworkspacedata; keep xcuserdata/ and the SwiftPM state ignored.
+!/ui/macos/Runner.xcworkspace/
+/ui/macos/Runner.xcworkspace/*
+!/ui/macos/Runner.xcworkspace/contents.xcworkspacedata
 .DS_Store
 
 # IDE
