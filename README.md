@@ -65,7 +65,7 @@ See [ROADMAP.md](docs/ROADMAP.md) for the full feature tracker and version plan.
 ### Prerequisites
 
 - **Rust:** `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Flutter:** [Install Flutter](https://docs.flutter.dev/get-started/install)
+- **Flutter 3.44+ via [FVM](https://fvm.app):** `brew install fvm` — the repo pins the exact version in `ui/.fvmrc`, so use `fvm flutter …` for Flutter commands
 - **macOS:** Xcode Command Line Tools
 - **sccache (optional):** `brew install sccache` — speeds up Rust rebuilds
 
@@ -80,9 +80,10 @@ cd boojy-audio
 ./build.sh           # debug
 ./build.sh release   # release
 
-# Run Flutter app
+# Run Flutter app (FVM uses the version pinned in ui/.fvmrc)
 cd ui
-flutter run -d macos
+fvm install              # one-time: fetch the pinned Flutter SDK
+fvm flutter run -d macos
 ```
 
 ### Windows VST3 Setup

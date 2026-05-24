@@ -337,10 +337,8 @@ class _FxChainViewState extends State<FxChainView> {
   Future<void> _onReorder(int oldIndex, int newIndex) async {
     if (widget.audioEngine == null || widget.selectedTrackId == null) return;
 
-    // Adjust index when moving down
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
+    // onReorderItem already adjusts newIndex for the removed item (Flutter 3.44+),
+    // so no manual `newIndex -= 1` is needed here.
 
     // Capture old order before reordering
     final oldOrder = _effects.map((e) => e.id).toList();
@@ -381,7 +379,7 @@ class _FxChainViewState extends State<FxChainView> {
               scrollDirection: Axis.horizontal,
               buildDefaultDragHandles: false,
               itemCount: _effects.length,
-              onReorder: _onReorder,
+              onReorderItem: _onReorder,
               proxyDecorator: (child, index, animation) {
                 return Material(
                   elevation: 4,

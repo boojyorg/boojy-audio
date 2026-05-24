@@ -114,8 +114,11 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
         clips_map.insert(audio_file_data.id, clip_arc);
     }
 
-    // Restore audio graph state from project data
-    graph
+    // Restore audio graph state from project data. The returned id_map
+    // translates save-time track IDs (in the JSON) to the fresh IDs assigned
+    // by `create_track` on this load — audio clips below need it to attach
+    // to the correct track instead of a phantom saved id.
+    let id_map = graph
         .restore_from_project_data(project_data.clone())
         .map_err(|e| e.to_string())?;
 
@@ -123,6 +126,16 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     // Audio clips are stored separately from tracks and need to be re-attached
     let mut audio_clip_count = 0;
     for track_data in &project_data.tracks {
+        let new_track_id = match id_map.get(&track_data.id).copied() {
+            Some(id) => id,
+            None => {
+                eprintln!(
+                    "⚠️  [API] Audio clip restore: saved track {} not in id_map, skipping its clips",
+                    track_data.id
+                );
+                continue;
+            }
+        };
         for clip_data in &track_data.clips {
             // Audio clips have audio_file_id but no midi_notes
             if let Some(audio_file_id) = clip_data.audio_file_id {
@@ -131,7 +144,7 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
                 }
                 if let Some(clip_arc) = clips_map.get(&audio_file_id) {
                     let clip_id = graph.add_clip_to_track_with_params(
-                        track_data.id,
+                        new_track_id,
                         clip_arc.clone(),
                         clip_data.start_time,
                         clip_data.offset,
@@ -140,8 +153,8 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
                     if clip_id.is_some() {
                         audio_clip_count += 1;
                         eprintln!(
-                            "   📎 Restored audio clip {} to track {} at {:.2}s",
-                            audio_file_id, track_data.id, clip_data.start_time
+                            "   📎 Restored audio clip {} to track {} (saved id {}) at {:.2}s",
+                            audio_file_id, new_track_id, track_data.id, clip_data.start_time
                         );
                     }
                 }

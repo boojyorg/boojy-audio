@@ -309,8 +309,13 @@ class TimelineViewState extends State<TimelineView>
       tracksMap[track.id] = track;
     }
 
-    // Separate master track
+    // Separate master and return tracks (returns rendered in arrangement as
+    // section dividers; need them in the tracks list so timeline_view can
+    // pick them up).
     final masterTrack = tracks.where((t) => t.type == 'Master').toList();
+    final returnTracksList = tracks
+        .where((t) => t.type.toLowerCase() == 'return')
+        .toList();
     final regularTrackIds = tracksMap.keys
         .where(
           (id) =>
@@ -332,7 +337,8 @@ class TimelineViewState extends State<TimelineView>
         orderedTracks.add(tracksMap[id]!);
       }
     }
-    // Add master at end
+    // Returns then master at end
+    orderedTracks.addAll(returnTracksList);
     orderedTracks.addAll(masterTrack);
 
     setState(() {
@@ -521,9 +527,13 @@ class TimelineViewState extends State<TimelineView>
       }
 
       if (mounted) {
-        // Separate master track (always at end, not reorderable)
+        // Separate master + returns (returns become section dividers in the
+        // arrangement; they're not in the scrollable track area).
         final masterTrack = tracksMap.values
             .where((t) => t.type == 'Master')
+            .toList();
+        final returnTracksList = tracksMap.values
+            .where((t) => t.type.toLowerCase() == 'return')
             .toList();
         final regularTrackIds = tracksMap.keys
             .where(
@@ -550,7 +560,8 @@ class TimelineViewState extends State<TimelineView>
           }
         }
 
-        // Add master track at the end
+        // Returns then master at the end
+        orderedTracks.addAll(returnTracksList);
         orderedTracks.addAll(masterTrack);
 
         // Only rebuild if tracks actually changed
@@ -745,6 +756,12 @@ class TimelineViewState extends State<TimelineView>
       (t) => t.type == 'Master',
       orElse: () => TimelineTrackData(id: -1, name: 'Master', type: 'Master'),
     );
+    // Return tracks render outside the scroll area as section anchors:
+    // a thin divider + reserved master-height band each. Visually mirrors
+    // the mixer's return strip placement above Master.
+    final returnTracks = tracks
+        .where((t) => t.type.toLowerCase() == 'return')
+        .toList(growable: false);
     double totalTracksHeight = 0.0;
     for (final track in regularTracks) {
       totalTracksHeight +=
@@ -944,13 +961,53 @@ class TimelineViewState extends State<TimelineView>
                                           ),
                                         ),
 
-                                        // Master track pinned at bottom (outside scroll area)
-                                        if (masterTrack.id != -1 &&
-                                            widget.masterTimelineVisible)
-                                          _buildMasterTrack(
-                                            totalWidth,
-                                            masterTrack,
+                                        // Return + Master sections pinned at the bottom of the
+                                        // arrangement, outside the scroll area. Each is a thin
+                                        // divider + reserved-height band so the dividers act as
+                                        // section anchors ("Returns start here", "Master starts
+                                        // here") even when their content is empty / hidden.
+                                        ...returnTracks.map(
+                                          (track) => Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: totalWidth,
+                                                height: 2,
+                                                color: context.colors.hover,
+                                              ),
+                                              SizedBox(
+                                                // Match the mixer strip height for this return
+                                                // so the divider lines up with the top edge of
+                                                // the Reverb strip in the mixer panel.
+                                                height:
+                                                    widget
+                                                        .trackHeightState
+                                                        .clipHeights[track
+                                                        .id] ??
+                                                    UIConstants
+                                                        .defaultClipHeight,
+                                              ),
+                                            ],
                                           ),
+                                        ),
+                                        if (masterTrack.id != -1) ...[
+                                          Container(
+                                            width: totalWidth,
+                                            height: 2,
+                                            color: context.colors.hover,
+                                          ),
+                                          if (widget.masterTimelineVisible)
+                                            _buildMasterTrack(
+                                              totalWidth,
+                                              masterTrack,
+                                            )
+                                          else
+                                            SizedBox(
+                                              height: widget
+                                                  .trackHeightState
+                                                  .masterTrackHeight,
+                                            ),
+                                        ],
                                       ],
                                     ),
 

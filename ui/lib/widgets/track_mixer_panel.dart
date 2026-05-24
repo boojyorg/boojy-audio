@@ -907,10 +907,12 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             : SystemMouseCursors.grab,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onPanStart: (details) => _onDragStart(index, details),
-          onPanUpdate: (details) => _onDragUpdate(details, allTracks),
-          onPanEnd: (details) => _onDragEnd(allTracks),
-          onPanCancel: _onDragCancel, // CRITICAL: Handle arena loss
+          // Reorder is vertical-only; using onVerticalDrag (not onPan) lets the
+          // fader's horizontal-drag recognizer win the gesture arena.
+          onVerticalDragStart: (details) => _onDragStart(index, details),
+          onVerticalDragUpdate: (details) => _onDragUpdate(details, allTracks),
+          onVerticalDragEnd: (details) => _onDragEnd(allTracks),
+          onVerticalDragCancel: _onDragCancel, // CRITICAL: Handle arena loss
           child: isDragging && _dragActivated
               ? SizedBox(
                   height: trackHeight,
@@ -1092,8 +1094,17 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       peakLevelRight: peakRight,
       trackColor: trackColor,
       isReturnTrack: true,
+      isSelected:
+          widget.selectionState.selectedTrackIds?.contains(track.id) ??
+          widget.selectionState.selectedTrackId == track.id,
       clipHeight: widget.trackHeightState.clipHeights[track.id] ?? 100.0,
       stripWidth: widget.config.panelWidth,
+      onTap: (isShiftHeld) {
+        widget.selectionState.onTrackSelected?.call(
+          track.id,
+          isShiftHeld: isShiftHeld,
+        );
+      },
       onVolumeChanged: (volumeDb) {
         setState(() => track.volumeDb = volumeDb);
         widget.audioEngine?.setTrackVolume(track.id, volumeDb);
@@ -1158,6 +1169,9 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
       onDeleteReturn: returnMeta != null
           ? () => _handleDeleteReturn(returnMeta)
           : null,
+      onClipHeightChanged: (height) {
+        widget.trackHeightState.onClipHeightChanged?.call(track.id, height);
+      },
     );
   }
 

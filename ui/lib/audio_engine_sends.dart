@@ -62,11 +62,7 @@ mixin _SendsMixin on _AudioEngineBase {
     }
   }
 
-  String setSendAmount(
-    int sourceTrackId,
-    int returnTrackId,
-    double amountDb,
-  ) {
+  String setSendAmount(int sourceTrackId, int returnTrackId, double amountDb) {
     try {
       final resultPtr = _setSendAmount(sourceTrackId, returnTrackId, amountDb);
       final result = resultPtr.toDartString();
