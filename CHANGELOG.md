@@ -6,11 +6,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Sends lost after save → quit → reopen**: `restore_from_project_data` recreated each track via `TrackManager::create_track`, which assigned fresh sequential IDs. Sends were restored with the *saved* `target_track_id`, so when the new return came in at a different new id, every send pointed to a phantom id and the renderer dropped the signal. Now the restore runs in two passes: first creates all tracks while building a save-id → new-id map, then applies sends using the remapped target IDs.
+- **Audio clips silently dropped on project reload**: the API `load_project` attached restored audio clips to `track_data.id` (the saved track id) instead of the fresh id assigned by `create_track`. With the new IDs no longer matching the saved IDs, every WAV/MP3 clip went to a phantom track and disappeared. The id_map produced by `restore_from_project_data` is now returned and reused to remap clip attachments. (MIDI clips were unaffected because they're restored inside the per-track loop where the new id is in scope.)
+- **Save dialog produced double-slash paths**: macOS `osascript` returns folder paths with a trailing `/`, and the Save flow joined it with `/$projectName.audio`, producing `…/Projects//Name.audio`. The Load flow already stripped the trailing slash — the Save flow was missed. Mirrored the strip so saved paths are clean.
+- **Mixer fader unresponsive on regular tracks**: track-reorder wrapper used `onPan*` (any direction) for its drag gestures, which won the gesture arena over the fader's `onHorizontalDrag*` — even purely horizontal drags routed to reorder, so the slider never moved. Switched the wrapper to `onVerticalDrag*` (reordering is vertical-only), letting the fader's horizontal gesture win. Master/return strips were unaffected because they aren't wrapped in the reorder gesture detector.
 - **Shared reverb deadlock**: ⚡ → Shared → Reverb no longer freezes the window. `get_track_sends` was holding the source-track lock while walking `TrackManager::get_track`, which re-locks every track to compare its id — `parking_lot::Mutex` is not re-entrant, so the moment a source track gained its first send the iterator hit the held lock and the engine froze. Snapshot the sends list and drop the source lock before resolving return names.
 
 ### Features
 
 - **Send/return buses (v0.3)**: ⚡ FX picker on mixer strips — insert effect on track or shared send to built-in return bus (Reverb, Delay, EQ, etc.); send rows with amount knob; return section pinned before Master; undo for send amount, add/remove send, delete return
+- **Edit return effects**: clicking a return strip now selects it and opens the Editor Panel with the return's effect chain — same interaction as regular tracks. Lets you tweak the shared reverb's room size, decay, damping, etc.
 - **Hidden master timeline row**: Master arrangement row hidden by default; show via View → Show Master Row or when master automation exists; persisted per project
 
 ## v0.2.4 — 2026-05-22

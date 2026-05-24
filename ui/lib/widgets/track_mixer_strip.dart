@@ -546,17 +546,17 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         return SizedBox(
           height: UIConstants.sendRowHeight,
           child: Padding(
-            padding: const EdgeInsets.only(left: 6, right: 6, top: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               children: [
-                Expanded(
-                  flex: 2,
+                Flexible(
                   child: Text(
                     send.label,
                     style: TextStyle(color: colors.textSecondary, fontSize: 10),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 6),
                 _SendAmountKnob(
                   amountLinear: send.amountLinear,
                   size: 16,
@@ -578,7 +578,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     fontFamily: BT.fontFamilyMono,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const Spacer(),
                 GestureDetector(
                   onTap: () => widget.onRemoveSend?.call(send.returnId),
                   child: Icon(BI.close, size: 12, color: colors.textMuted),
@@ -1032,25 +1032,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ),
           ),
         if (!widget.isReturnTrack) const SizedBox(width: 8),
-        if (widget.isReturnTrack) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: context.colors.dark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Text(
-              'RETURN',
-              style: TextStyle(
-                color: context.colors.textMuted,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-        ],
         // Name (editable) - expanded to fill remaining space
         Expanded(
           child: _isEditing
@@ -1089,6 +1070,25 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   ),
                 ),
         ),
+        if (widget.isReturnTrack) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: context.colors.dark,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              'RETURN',
+              style: TextStyle(
+                color: context.colors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1306,11 +1306,14 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                   ),
                   child: _buildStandardLayout(context, isHovered),
                 ),
-                // Bottom resize handle
+                // Resize handle: bottom edge on regular tracks, top edge on
+                // return tracks (returns are pinned at the bottom of the mixer,
+                // so dragging the top edge grows the strip upward, like Master).
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 0,
+                  top: widget.isReturnTrack ? 0 : null,
+                  bottom: widget.isReturnTrack ? null : 0,
                   height: UIConstants.trackResizeHandleHeight,
                   child: MouseRegion(
                     cursor: SystemMouseCursors.resizeRow,
@@ -1323,8 +1326,11 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       },
                       onVerticalDragUpdate: (details) {
                         if (_isResizing) {
-                          final delta =
-                              details.globalPosition.dy - _resizeStartY;
+                          // Inverse sign for returns: dragging UP increases height
+                          // (the strip's bottom edge is anchored).
+                          final delta = widget.isReturnTrack
+                              ? _resizeStartY - details.globalPosition.dy
+                              : details.globalPosition.dy - _resizeStartY;
                           final newHeight = (_resizeStartHeight + delta).clamp(
                             TrackMixerStrip.kMinHeight,
                             TrackMixerStrip.kMaxHeight,

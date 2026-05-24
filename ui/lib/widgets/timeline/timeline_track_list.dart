@@ -30,7 +30,9 @@ mixin TimelineTrackListMixin
       );
     }
 
-    // Separate regular tracks from master (returns are mixer-only)
+    // Regular tracks (excluding returns and master). Returns are rendered
+    // outside this widget (in timeline_view, pinned above the master section)
+    // so the visual order matches the mixer: regular → returns → master.
     final regularTracks = tracks
         .where(
           (t) =>
