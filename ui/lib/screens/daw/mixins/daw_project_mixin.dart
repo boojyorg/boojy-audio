@@ -290,7 +290,12 @@ mixin DAWProjectMixin
       ]);
 
       if (result.exitCode == 0) {
-        final parentPath = result.stdout.toString().trim();
+        var parentPath = result.stdout.toString().trim();
+        // osascript's `POSIX path of folder` always returns a trailing slash;
+        // strip it so the join doesn't produce `…/Projects//Name.audio`.
+        if (parentPath.endsWith('/') && parentPath.length > 1) {
+          parentPath = parentPath.substring(0, parentPath.length - 1);
+        }
         if (parentPath.isNotEmpty) {
           final projectPath = '$parentPath/$projectName.audio';
           saveProjectToPath(projectPath);
