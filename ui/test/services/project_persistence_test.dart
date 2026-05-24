@@ -24,7 +24,11 @@ void main() {
           selectedTrackId: 3,
           playheadPosition: 4.5,
         ),
-        automationData: {'tracks': {'1': {'volume': []}}},
+        automationData: {
+          'tracks': {
+            '1': {'volume': []},
+          },
+        },
         trackColors: {1: 0xFF112233, 2: 0xFF445566},
         loopEnabled: true,
         loopStartBeats: 0,

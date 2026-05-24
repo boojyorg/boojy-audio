@@ -1362,7 +1362,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
     final isReturn = widget.isReturnTrack;
 
-
     Log.d(
       'TrackMixerStrip: Showing context menu at position $position for track ${widget.trackName}',
     );
@@ -1456,7 +1455,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         ),
       ),
     ];
-
 
     showMenu(
       context: context,

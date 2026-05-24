@@ -18,6 +18,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Edit return effects**: clicking a return strip now selects it and opens the Editor Panel with the return's effect chain — same interaction as regular tracks. Lets you tweak the shared reverb's room size, decay, damping, etc.
 - **Hidden master timeline row**: Master arrangement row hidden by default; show via View → Show Master Row or when master automation exists; persisted per project
 
+### Improvements
+
+- **Flutter 3.44 / Dart 3.12 toolchain**: upgraded from 3.35 (local) / 3.38 (CI); pinned via FVM (`ui/.fvmrc`) and matched in `.github/workflows/*.yml`. Migrated the FX-chain reorder to the new `onReorderItem` callback (replaces deprecated `onReorder`; framework now handles the index adjustment). Material/Cupertino package decoupling deferred — `material_ui` is still preview (0.0.1) and in-SDK imports are not yet deprecated in 3.44.
+
 ## v0.2.4 — 2026-05-22
 
 ### Improvements

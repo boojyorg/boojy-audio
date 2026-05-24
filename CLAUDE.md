@@ -2,9 +2,10 @@
 
 ## Build & Run
 
+- **Toolchain**: Flutter is pinned to **3.44.0 / Dart 3.12** via FVM (`ui/.fvmrc`). Run Flutter/Dart commands from `ui/` as **`fvm flutter …` / `fvm dart …`** so they use the pinned SDK. `build.sh` is unaffected (it only calls `cargo`). CI pins the same version in `.github/workflows/*.yml` (`FLUTTER_VERSION`).
 - **Debug build**: `./build.sh` (builds Rust engine, updates symlinks, copies dylib)
 - **Release build**: `./build.sh release`
-- **Run app**: `cd ui && flutter run -d macos` (Xcode run script auto-builds the engine)
+- **Run app**: `cd ui && fvm flutter run -d macos` (Xcode run script auto-builds the engine)
 - **sccache**: If installed (`brew install sccache`), build.sh uses it automatically
 - Dev deps are built with `opt-level = 2` for audio performance even in debug
 - If the app gets stuck on "initializing", it's likely a missing FFI symbol
@@ -27,12 +28,12 @@
 
 ## Running Tests
 
-- **Flutter tests**: `cd ui && flutter test`
-- **Integration tests**: `./build.sh` first, then `cd ui && flutter test integration_test/ -d macos`
+- **Flutter tests**: `cd ui && fvm flutter test`
+- **Integration tests**: `./build.sh` first, then `cd ui && fvm flutter test integration_test/ -d macos`
 - **Rust tests**: `cd engine && cargo test`
-- **Static analysis**: `cd ui && flutter analyze --fatal-infos`
+- **Static analysis**: `cd ui && fvm flutter analyze --fatal-infos`
 - **Rust lints**: `cd engine && cargo clippy --all-targets`
-- **Format check**: `cd ui && dart format --set-exit-if-changed lib/ test/ integration_test/`
+- **Format check**: `cd ui && fvm dart format --set-exit-if-changed lib/ test/ integration_test/`
 - CI runs all of the above on every PR (macOS full pipeline + Windows analyze/test/clippy, no VST3) — all must pass
 
 ## FFI Workflow (Adding a New Engine Function)

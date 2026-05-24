@@ -1003,7 +1003,8 @@ class TimelineViewState extends State<TimelineView>
                                             )
                                           else
                                             SizedBox(
-                                              height: widget.trackHeightState
+                                              height: widget
+                                                  .trackHeightState
                                                   .masterTrackHeight,
                                             ),
                                         ],
