@@ -594,19 +594,18 @@ impl Reverb {
 
     fn process_comb(
         input: f32,
-        room_size: f32,
-        damping: f32,
+        feedback: f32,
+        damp: f32,
         buffer: &mut [f32],
         pos: &mut usize,
         filter_state: &mut f32,
     ) -> f32 {
         let output = buffer[*pos];
 
-        // Damped feedback
-        let dampened = *filter_state * (1.0 - damping) + output * damping;
-        *filter_state = dampened;
+        // One-pole lowpass in the feedback path (Freeverb damping).
+        *filter_state = output * (1.0 - damp) + *filter_state * damp;
 
-        buffer[*pos] = input + dampened * room_size;
+        buffer[*pos] = input + *filter_state * feedback;
         *pos = (*pos + 1) % buffer.len();
 
         output
@@ -626,22 +625,29 @@ impl Effect for Reverb {
         // Mix to mono for input
         let mono_input = (left + right) * 0.5;
 
+        // Map the user-facing 0..1 controls to Freeverb's resonant ranges.
+        // The comb feedback must sit in ~0.7..0.98 for the tail to build up;
+        // feeding room_size in directly (≈0.5) made the reverb ~1000x too
+        // quiet — effectively silent when used at 100% wet as a send effect.
+        let feedback = self.room_size * 0.28 + 0.7;
+        let damp = self.damping * 0.4;
+
         // Process comb filters (parallel) - separate positions for L and R
         let mut comb_out_l = 0.0;
         let mut comb_out_r = 0.0;
         for i in 0..8 {
             comb_out_l += Self::process_comb(
                 mono_input,
-                self.room_size,
-                self.damping,
+                feedback,
+                damp,
                 &mut self.comb_buffers_l[i],
                 &mut self.comb_positions_l[i],
                 &mut self.comb_filter_state_l[i],
             );
             comb_out_r += Self::process_comb(
                 mono_input,
-                self.room_size,
-                self.damping,
+                feedback,
+                damp,
                 &mut self.comb_buffers_r[i],
                 &mut self.comb_positions_r[i],
                 &mut self.comb_filter_state_r[i],
@@ -664,9 +670,13 @@ impl Effect for Reverb {
             );
         }
 
-        // Mix wet/dry
-        let final_left = left * (1.0 - self.wet_dry_mix) + out_l * self.wet_dry_mix * 0.015;
-        let final_right = right * (1.0 - self.wet_dry_mix) + out_r * self.wet_dry_mix * 0.015;
+        // Mix wet/dry. WET_GAIN normalises the comb/allpass network's broadband
+        // output so a 100%-wet reverb sits at a usable, present level. The old
+        // value (0.015) left the wet signal ~36 dB down — effectively silent
+        // when used as a 100%-wet send return.
+        let wet_gain = 0.075_f32;
+        let final_left = left * (1.0 - self.wet_dry_mix) + out_l * self.wet_dry_mix * wet_gain;
+        let final_right = right * (1.0 - self.wet_dry_mix) + out_r * self.wet_dry_mix * wet_gain;
 
         (final_left, final_right)
     }
@@ -1090,5 +1100,44 @@ impl EffectManager {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod reverb_energy_tests {
+    use super::*;
+
+    #[test]
+    fn reverb_full_wet_produces_comparable_output_energy() {
+        // Mirror the send/return setup: 100% wet reverb fed 0.5 s of signal,
+        // then ~1 s of silence (the export tail). Measure energy gain.
+        let mut rev = Reverb::new();
+        rev.wet_dry_mix = 1.0;
+
+        let mut in_energy = 0.0f64;
+        let mut out_energy = 0.0f64;
+        let note_frames = TARGET_SAMPLE_RATE as usize / 2; // 0.5 s
+        let tail_frames = TARGET_SAMPLE_RATE as usize; // 1.0 s
+        for i in 0..(note_frames + tail_frames) {
+            // Harmonically rich sawtooth at 220 Hz (approximates a synth note,
+            // which excites the comb resonances far better than a pure sine).
+            let input = if i < note_frames {
+                let phase = (i as f32 * 220.0 / TARGET_SAMPLE_RATE as f32).fract();
+                (2.0 * phase - 1.0) * 0.3
+            } else {
+                0.0
+            };
+            in_energy += f64::from(input * input * 2.0); // stereo (L+R)
+            let (l, r) = rev.process_frame(input, input);
+            out_energy += f64::from(l * l + r * r);
+        }
+        let ratio = out_energy / in_energy;
+        // A 100%-wet reverb must return a substantial fraction of the energy it
+        // receives, otherwise it is silent as a send return. Guards against the
+        // regression where the wet output sat ~36 dB down (ratio ≈ 0.001).
+        assert!(
+            ratio > 0.1,
+            "reverb wet output too quiet to function as a send return (ratio={ratio:.4})"
+        );
     }
 }
