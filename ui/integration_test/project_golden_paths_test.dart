@@ -212,17 +212,20 @@ void main() {
       final reload = await projectManager.loadProject(projectDir.path);
       expect(reload.result.success, isTrue, reason: reload.result.message);
 
-      final sendsAfter = TrackSendData.parseTrackSendsCsv(
-        engine.getTrackSends(trackId),
-      );
-      expect(sendsAfter, hasLength(sendsBefore.length));
-      expect(sendsAfter.first.returnId, sendsBefore.first.returnId);
-
+      // Track IDs are remapped on reload — restore assigns fresh IDs and
+      // remaps send targets via id_map (same contract as the other reload
+      // tests, which re-query rather than reuse pre-save IDs). Verify send
+      // persistence from the return side instead of the stale source trackId.
       final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
         engine.getAllReturns(),
       );
       expect(returnsAfter, isNotEmpty);
       expect(returnsAfter.first.effectType, 'reverb');
+      expect(
+        engine.countSendsToReturn(returnsAfter.first.id),
+        greaterThanOrEqualTo(1),
+        reason: 'the send must still target the reverb return after reload',
+      );
     });
 
     test('shared send dedup: second add reuses existing return', () async {
@@ -327,6 +330,11 @@ void main() {
         final trackId = engine.createTrack('midi', 'Reverb Energy');
         expect(trackId, greaterThan(0));
 
+        // MIDI tracks are silent until an instrument is added — attach the
+        // built-in synth so the note renders to audio (otherwise both the dry
+        // and wet renders are silent and there's nothing for the send to carry).
+        engine.setTrackInstrument(trackId, 'synth');
+
         final clipId = engine.createMidiClip();
         expect(clipId, isNot(-1));
         engine.addMidiNoteToClip(clipId, 60, 110, 0.0, 1.0);
@@ -355,21 +363,27 @@ void main() {
 
       final dryFile = await renderProject(withReverbSend: false);
       final dryEnergy = _wavEnergy(dryFile);
+      final dryTail = _wavEnergyTail(dryFile, 0.4);
 
       final wetFile = await renderProject(withReverbSend: true);
-      final wetEnergy = _wavEnergy(wetFile);
+      final wetTail = _wavEnergyTail(wetFile, 0.4);
 
       expect(
         dryEnergy,
         greaterThan(0),
         reason: 'dry render must contain signal (synth + MIDI note)',
       );
+      // A reverb send rings out after the note ends. Compare the tail region
+      // (last 40% of the export), where the dry render has decayed to near
+      // silence — this isolates the reverb's added energy rather than the
+      // total, which is confounded by early-reflection phase cancellation and
+      // the master limiter during the note itself.
       expect(
-        wetEnergy,
-        greaterThan(dryEnergy * 1.05),
+        wetTail,
+        greaterThan(dryTail * 2.0),
         reason:
-            'reverb send at -6 dB should add measurable energy on top of the '
-            'dry signal (dry=$dryEnergy wet=$wetEnergy)',
+            'reverb send should ring out in the tail well above the dry decay '
+            '(dryTail=$dryTail wetTail=$wetTail)',
       );
     });
   });
@@ -409,6 +423,41 @@ double _wavEnergy(File wavFile) {
     }
     offset += 8 + size;
     if (size.isOdd) offset += 1; // chunk size word-align
+  }
+  return 0.0;
+}
+
+/// Energy of the final [fraction] of the WAV payload — the reverb-tail region,
+/// where the dry render has decayed toward silence. Isolating the tail avoids
+/// the phase-cancellation/limiter confounds of comparing total energy.
+double _wavEnergyTail(File wavFile, double fraction) {
+  final bytes = wavFile.readAsBytesSync();
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final id = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+    final size = ByteData.sublistView(
+      bytes,
+      offset + 4,
+      offset + 8,
+    ).getUint32(0, Endian.little);
+    if (id == 'data') {
+      final dataStart = offset + 8;
+      final dataEnd = (dataStart + size).clamp(0, bytes.length);
+      final sampleCount = (dataEnd - dataStart) ~/ 4;
+      final samples = Float32List.view(
+        bytes.buffer,
+        bytes.offsetInBytes + dataStart,
+        sampleCount,
+      );
+      final tailStart = (sampleCount * (1.0 - fraction)).floor();
+      var energy = 0.0;
+      for (var i = tailStart; i < sampleCount; i++) {
+        energy += samples[i] * samples[i];
+      }
+      return energy;
+    }
+    offset += 8 + size;
+    if (size.isOdd) offset += 1;
   }
   return 0.0;
 }
