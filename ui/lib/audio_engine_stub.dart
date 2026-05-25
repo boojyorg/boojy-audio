@@ -470,6 +470,9 @@ class AudioEngine implements AudioEngineInterface {
   bool previewCheckFullClip() => throw UnsupportedError('stub');
 
   @override
+  bool previewIsFullyDecoded() => throw UnsupportedError('stub');
+
+  @override
   void previewPlay() => throw UnsupportedError('stub');
 
   @override

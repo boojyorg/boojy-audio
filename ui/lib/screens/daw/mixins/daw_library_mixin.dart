@@ -336,11 +336,10 @@ mixin DAWLibraryMixin
         return;
       }
 
-      // 4. Get clip info
+      // 4. Get clip info + a quick low-res waveform for immediate display; the
+      // timeline sharpens it to full resolution a frame later.
       final duration = audioEngine!.getClipDuration(clipId);
-      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
-      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-      final peaks = audioEngine!.getWaveformPeaks(clipId, peakResolution);
+      final peaks = audioEngine!.getWaveformPeaks(clipId, 1000);
 
       // 5. Add to timeline view's clip list
       timelineKey.currentState?.addClip(
@@ -357,7 +356,10 @@ mixin DAWLibraryMixin
       // 6. Select the newly created clip (opens Audio Editor)
       timelineKey.currentState?.selectAudioClip(clipId);
 
-      // 7. Refresh track widgets
+      // 7. Upgrade to the full-resolution waveform once the clip is on screen
+      timelineKey.currentState?.scheduleWaveformUpgrade(clipId);
+
+      // 8. Refresh track widgets
       refreshTrackWidgets();
     } catch (e) {
       Log.e('Failed to add audio file to new track: $e');
@@ -433,6 +435,8 @@ mixin DAWLibraryMixin
           );
           // Select the newly created clip (opens Audio Editor)
           timelineKey.currentState?.selectAudioClip(clipId);
+          // Upgrade to the full-resolution waveform once the clip is on screen
+          timelineKey.currentState?.scheduleWaveformUpgrade(clipId);
         },
         onClipRemoved: (clipId) {
           // Remove from timeline view (undo)

@@ -60,6 +60,13 @@ pub extern "C" fn preview_check_full_clip_ffi() -> bool {
     ffi_catch(false, || api::preview_check_full_clip())
 }
 
+/// Check if the loaded preview clip has finished decoding (true for WAV once
+/// loaded; tracks the background decode for streaming MP3/FLAC)
+#[no_mangle]
+pub extern "C" fn preview_is_fully_decoded_ffi() -> bool {
+    ffi_catch(false, || api::preview_is_fully_decoded())
+}
+
 /// Start preview playback
 #[no_mangle]
 pub extern "C" fn preview_play_ffi() {

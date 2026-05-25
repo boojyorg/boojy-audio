@@ -60,9 +60,9 @@ pub use midi_input::{
 };
 pub use preview::{
     preview_check_full_clip, preview_get_duration, preview_get_position, preview_get_waveform,
-    preview_is_loaded, preview_is_looping, preview_is_playing, preview_load_audio,
-    preview_load_audio_async, preview_play, preview_process_sample, preview_seek,
-    preview_set_looping, preview_stop,
+    preview_is_fully_decoded, preview_is_loaded, preview_is_looping, preview_is_playing,
+    preview_load_audio, preview_load_audio_async, preview_play, preview_process_sample,
+    preview_seek, preview_set_looping, preview_stop,
 };
 pub use project::{
     export_audio, export_mp3_with_options, export_stems, export_to_wav, export_wav_with_options,

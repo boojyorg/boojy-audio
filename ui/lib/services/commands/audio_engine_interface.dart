@@ -94,6 +94,7 @@ abstract class AudioEngineInterface {
   void previewLoadAudioAsync(String path);
   bool previewIsLoaded();
   bool previewCheckFullClip();
+  bool previewIsFullyDecoded();
   void previewPlay();
   void previewStop();
   void previewSeek(double positionSeconds);

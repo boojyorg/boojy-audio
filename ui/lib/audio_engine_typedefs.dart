@@ -714,6 +714,9 @@ typedef _PreviewIsLoadedFfi = bool Function();
 typedef _PreviewCheckFullClipFfiNative = ffi.Bool Function();
 typedef _PreviewCheckFullClipFfi = bool Function();
 
+typedef _PreviewIsFullyDecodedFfiNative = ffi.Bool Function();
+typedef _PreviewIsFullyDecodedFfi = bool Function();
+
 typedef _PreviewPlayFfiNative = ffi.Void Function();
 typedef _PreviewPlayFfi = void Function();
 
