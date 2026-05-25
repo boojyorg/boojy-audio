@@ -844,4 +844,48 @@ mod tests {
         graph.stop().unwrap();
         assert_eq!(graph.get_state(), TransportState::Stopped);
     }
+
+    #[test]
+    fn offline_render_with_send_is_finite_and_audible() {
+        // The offline renderer (export/bounce) is the engine's biggest coverage
+        // gap — a bug here ships silent or NaN-poisoned files. Build master +
+        // audio track + return, route a full send, drop a non-silent clip on the
+        // audio track, and bounce it.
+        let graph = AudioGraph::new().unwrap(); // includes a master track
+
+        let audio_id = {
+            let mut tm = graph.track_manager.lock();
+            let audio_id = tm.create_track(crate::track::TrackType::Audio, "Audio".to_string());
+            let return_id = tm.create_track(crate::track::TrackType::Return, "Reverb".to_string());
+            // Route a full send from the audio track to the return so the render
+            // exercises the return-bus accumulation path.
+            if let Some(track_arc) = tm.get_track(audio_id) {
+                track_arc.lock().sends.push(crate::track::Send {
+                    target_track_id: return_id,
+                    amount: 1.0,
+                    pre_fader: false,
+                });
+            }
+            audio_id
+        };
+
+        // Non-silent audio (constant 0.1) on the audio track.
+        graph
+            .add_clip_to_track(audio_id, Arc::new(create_test_clip(1.0)), 0.0)
+            .expect("clip should attach to the audio track");
+
+        let buf = graph.render_offline(0.5);
+
+        // Stereo interleaved, exact length.
+        let expected_frames = (0.5 * f64::from(TARGET_SAMPLE_RATE)) as usize;
+        assert_eq!(buf.len(), expected_frames * 2);
+        // No NaN/Inf reaches the exported file.
+        assert!(
+            buf.iter().all(|s| s.is_finite()),
+            "offline render produced non-finite samples"
+        );
+        // Dry track + its send both contribute, so the bounce is audible.
+        let energy: f32 = buf.iter().map(|s| s.abs()).sum();
+        assert!(energy > 0.0, "offline render was silent");
+    }
 }
