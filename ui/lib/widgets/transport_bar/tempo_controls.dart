@@ -132,7 +132,16 @@ class TempoDisplay extends StatefulWidget {
   final double tempo;
   final Function(double)? onTempoChanged;
 
-  const TempoDisplay({super.key, required this.tempo, this.onTempoChanged});
+  /// When true, drops the " BPM" suffix and shrinks the min-width — used at
+  /// low transport-bar density so the readout cluster stays compact.
+  final bool compact;
+
+  const TempoDisplay({
+    super.key,
+    required this.tempo,
+    this.onTempoChanged,
+    this.compact = false,
+  });
 
   @override
   State<TempoDisplay> createState() => _TempoDisplayState();
@@ -241,8 +250,8 @@ class _TempoDisplayState extends State<TempoDisplay> {
           child: MouseRegion(
             cursor: SystemMouseCursors.resizeUpDown,
             child: Container(
-              constraints: const BoxConstraints(minWidth: 90),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              constraints: BoxConstraints(minWidth: widget.compact ? 52 : 90),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: _isDragging
                     ? colors.accent.withValues(alpha: 0.2)
@@ -260,10 +269,11 @@ class _TempoDisplayState extends State<TempoDisplay> {
                       text: tempoText.replaceAll(' BPM', ''),
                       style: BT.display(colors.textPrimary),
                     ),
-                    TextSpan(
-                      text: ' BPM',
-                      style: BT.display(colors.textSecondary),
-                    ),
+                    if (!widget.compact)
+                      TextSpan(
+                        text: ' BPM',
+                        style: BT.display(colors.textSecondary),
+                      ),
                   ],
                 ),
               ),

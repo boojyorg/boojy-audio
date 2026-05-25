@@ -228,6 +228,55 @@ void main() {
       );
     });
 
+    test(
+      'multiple tracks sharing one return → save → reload preserves all sends',
+      () async {
+        if (!isNativeEngineAvailable) return;
+
+        engine.clearAllTracks();
+
+        final trackA = engine.createTrack('audio', 'Multi A');
+        final trackB = engine.createTrack('audio', 'Multi B');
+        final trackC = engine.createTrack('audio', 'Multi C');
+        expect([trackA, trackB, trackC].every((id) => id > 0), isTrue);
+
+        // All three send to the same shared reverb return (dedup → one return).
+        for (final id in [trackA, trackB, trackC]) {
+          final r = engine.addSharedSend(id, 'reverb');
+          expect(r.startsWith('Error'), isFalse, reason: r);
+        }
+
+        final returnsBefore = ReturnTrackData.parseAllReturnsCsv(
+          engine.getAllReturns(),
+        );
+        expect(returnsBefore, hasLength(1));
+        expect(returnsBefore.first.effectType, 'reverb');
+        expect(engine.countSendsToReturn(returnsBefore.first.id), 3);
+
+        await projectManager.saveProjectToPath(projectDir.path, null);
+
+        final reload = await projectManager.loadProject(projectDir.path);
+        expect(reload.result.success, isTrue, reason: reload.result.message);
+
+        // IDs are remapped on reload; verify from the return side that all three
+        // sends survived and still target the single (de-duplicated) return.
+        final returnsAfter = ReturnTrackData.parseAllReturnsCsv(
+          engine.getAllReturns(),
+        );
+        expect(
+          returnsAfter,
+          hasLength(1),
+          reason: 'reload must not duplicate the shared return',
+        );
+        expect(returnsAfter.first.effectType, 'reverb');
+        expect(
+          engine.countSendsToReturn(returnsAfter.first.id),
+          3,
+          reason: 'all three sends must survive the save/reload round-trip',
+        );
+      },
+    );
+
     test('shared send dedup: second add reuses existing return', () async {
       if (!isNativeEngineAvailable) return;
 

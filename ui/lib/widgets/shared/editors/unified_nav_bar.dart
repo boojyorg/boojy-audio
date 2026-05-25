@@ -14,6 +14,7 @@ class UnifiedNavBarConfig {
   final bool punchInEnabled;
   final bool punchOutEnabled;
   final bool isPlaying;
+  final int beatsPerBar;
 
   const UnifiedNavBarConfig({
     required this.pixelsPerBeat,
@@ -26,6 +27,7 @@ class UnifiedNavBarConfig {
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
     this.isPlaying = false,
+    this.beatsPerBar = 4,
   });
 }
 
@@ -150,6 +152,7 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
               painter: UnifiedNavBarPainter(
                 pixelsPerBeat: widget.config.pixelsPerBeat,
                 totalBeats: widget.config.totalBeats,
+                beatsPerBar: widget.config.beatsPerBar,
                 loopEnabled: widget.config.loopEnabled,
                 loopStart: widget.config.loopStart,
                 loopEnd: widget.config.loopEnd,

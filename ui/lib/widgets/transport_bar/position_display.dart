@@ -33,6 +33,8 @@ class _PositionDisplayState extends State<PositionDisplay> {
   PositionDisplayMode _mode = PositionDisplayMode.bars;
   bool _isEditing = false;
   bool _isHovered = false;
+  bool _isScrubbing = false;
+  double _scrubBeats = 0;
   late TextEditingController _editController;
   late FocusNode _focusNode;
 
@@ -171,9 +173,10 @@ class _PositionDisplayState extends State<PositionDisplay> {
     }
 
     return Tooltip(
-      message: 'Click to switch bars/time · Double-click to jump',
+      message:
+          'Drag to scrub · Click to switch bars/time · Double-click to jump',
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+        cursor: SystemMouseCursors.resizeLeftRight,
         onEnter: (_) {
           if (!_isHovered) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,14 +194,31 @@ class _PositionDisplayState extends State<PositionDisplay> {
         child: GestureDetector(
           onTap: _toggleMode,
           onDoubleTap: _startEdit,
+          // Horizontal drag scrubs the playhead (same seek path as the ruler).
+          onHorizontalDragStart: (_) => setState(() {
+            _isScrubbing = true;
+            _scrubBeats = widget.playheadPosition * widget.tempo / 60.0;
+          }),
+          onHorizontalDragUpdate: (details) {
+            final fine = HardwareKeyboard.instance.isShiftPressed;
+            final pxPerBeat = fine ? 48.0 : 12.0;
+            _scrubBeats = (_scrubBeats + details.delta.dx / pxPerBeat).clamp(
+              0.0,
+              1e9,
+            );
+            widget.onPositionChanged?.call(_scrubBeats * 60.0 / widget.tempo);
+          },
+          onHorizontalDragEnd: (_) => setState(() => _isScrubbing = false),
           child: Container(
-            constraints: const BoxConstraints(minWidth: 80),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            constraints: const BoxConstraints(minWidth: 64),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: colors.darkest,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _isHovered ? colors.accent : colors.divider,
+                color: (_isHovered || _isScrubbing)
+                    ? colors.accent
+                    : colors.divider,
                 width: 1,
               ),
             ),
