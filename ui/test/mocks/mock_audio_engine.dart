@@ -315,6 +315,12 @@ class MockAudioEngine implements AudioEngineInterface {
   }
 
   @override
+  bool previewIsFullyDecoded() {
+    _record('previewIsFullyDecoded');
+    return true;
+  }
+
+  @override
   void previewPlay() => _record('previewPlay');
 
   @override

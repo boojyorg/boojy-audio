@@ -102,6 +102,14 @@ pub fn preview_check_full_clip() -> bool {
     !guard.is_async_loading()
 }
 
+/// Check whether the loaded preview clip has finished decoding.
+/// True immediately for WAV; tracks background decode for streaming MP3/FLAC.
+pub fn preview_is_fully_decoded() -> bool {
+    let player = get_preview_player();
+    let guard = player.lock();
+    guard.is_clip_fully_decoded()
+}
+
 /// Get waveform peaks for UI display
 pub fn preview_get_waveform(resolution: i32) -> Vec<f32> {
     let player = get_preview_player();
