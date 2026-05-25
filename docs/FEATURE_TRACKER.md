@@ -150,7 +150,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 ### Tempo & Time
 
 - [x] Fixed tempo (BPM display)
-- [ ] Time signature changes
+- [x] Time signature changes (numerator + grid; compound x/8 feel deferred)
 - [ ] Tempo automation
 - [ ] Tap tempo
 - [ ] Swing (0-100% slider)
