@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.3.0 — 2026-05-25
+
 ### Bug Fixes
 
 - **Reverb was effectively silent (sends inaudible)**: the Freeverb was mis-scaled — `room_size` fed the comb feedback directly (≈0.5, far too low to resonate) and the wet output was attenuated ~36 dB, so a 100%-wet reverb returned only ~0.1% of its input energy. Used as an insert at 30% wet this read as "subtle"; used as a 100%-wet send return it was silent. Mapped `room_size`→feedback (0.7–0.98) and `damping`→0.4 range and corrected the wet gain, so the reverb now produces a present tail (and existing inserts sound fuller/longer). Covered by a new `reverb_full_wet_produces_comparable_output_energy` engine test and the export golden-path test.

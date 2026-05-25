@@ -108,9 +108,9 @@ Before locking implementation:
 2. **ASCII mockups — 3–4 variants** when layout is ambiguous; Tyr picks before code.
 3. **Defer on taste, push back on architecture** — one clear preference, then collaborate.
 
-### v0.3.0 active plan
+### Active plan
 
-[docs/plans/v0.3.0-plan.md](docs/plans/v0.3.0-plan.md) — send/return via ⚡ FX picker, hidden master row.
+None — v0.3.0 (send/return via ⚡ FX picker, hidden master row; spec archived at [docs/archive/plans/v0.3.0-plan.md](docs/archive/plans/v0.3.0-plan.md)) shipped 2026-05-25. Next theme is picked from the dogfood friction log ([docs/dogfood/](docs/dogfood/)) before a new `docs/plans/vX.Y-plan.md` is created.
 
 ## Changelog Workflow
 

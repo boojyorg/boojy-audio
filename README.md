@@ -10,7 +10,7 @@ A modern, cross-platform DAW (Digital Audio Workstation) designed for **speed, s
 
 Or visit [boojy.org](https://boojy.org) for more information.
 
-**Current Status:** Alpha — developing v0.3.0 (latest release: v0.2.4). See [CHANGELOG.md](CHANGELOG.md) and [docs/plans/v0.3.0-plan.md](docs/plans/v0.3.0-plan.md).
+**Current Status:** Alpha — latest release v0.3.0 (developing v0.3.x). See [CHANGELOG.md](CHANGELOG.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Features
 
