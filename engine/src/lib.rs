@@ -28,6 +28,23 @@
     clippy::not_unsafe_ptr_arg_deref
 )]
 
+/// Debug-only diagnostic logging. Expands to an `eprintln!` guarded by
+/// `if cfg!(debug_assertions)`, so informational engine chatter (device
+/// selection, render progress, etc.) prints in debug builds but is optimized
+/// away entirely in release — keeping end users' consoles quiet. The guard is
+/// a runtime `if false` in release rather than `#[cfg(...)]`, so the arguments
+/// are still type-checked and "used" (no unused-variable warnings) but never
+/// evaluated. Use plain `eprintln!` for warnings and errors that must survive
+/// release builds.
+#[macro_export]
+macro_rules! dlog {
+    ($($arg:tt)*) => {{
+        if cfg!(debug_assertions) {
+            eprintln!($($arg)*);
+        }
+    }};
+}
+
 // ============================================
 // Core modules (shared across all platforms)
 // ============================================

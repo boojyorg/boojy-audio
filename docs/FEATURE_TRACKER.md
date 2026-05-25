@@ -26,7 +26,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Master track with limiter
 - [x] Stereo level meters
 - [ ] Track grouping (link tracks together)
-- [ ] Bus/Aux sends UI
+- [x] Bus/Aux sends UI (⚡ FX picker + per-strip send knobs, v0.3.0)
 
 **UI & Themes:**
 - [x] 3-panel layout (Library | Timeline | Mixer)
@@ -124,7 +124,8 @@ Detailed checklist of all features planned for v1.0 and their current status.
 
 **Routing:**
 - [ ] Sidechain routing UI
-- [ ] Pre/Post fader sends
+- [x] Post-fader sends (v0.3.0)
+- [ ] Pre-fader sends
 - [ ] Track folders/groups
 - [ ] Summing groups (folder + bus)
 
@@ -143,7 +144,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] FX Chain view (horizontal signal flow)
 - [x] Effect bypass toggle
 - [x] Drag-to-reorder effects
-- [ ] Chorus
+- [x] Chorus
 - [ ] Plugin delay compensation
 
 ### Tempo & Time
@@ -160,7 +161,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] MIDI tracks
 - [x] Master track (always at bottom)
 - [x] Add track menu (Audio/MIDI dropdown)
-- [ ] Aux/Bus tracks
+- [x] Aux/Bus tracks (return buses, v0.3.0)
 - [ ] Freeze tracks (save CPU)
 - [ ] Bounce in place
 - [ ] Track templates

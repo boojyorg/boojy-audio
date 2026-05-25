@@ -1,13 +1,34 @@
 /// Real-time audio render callback — runs on the audio thread
 use super::{interpolate_automation_gain, AudioGraph, TransportState};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::dlog;
 use crate::effects::{Effect, EffectManager};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackType};
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::DeviceTrait;
+
+/// Realtime lock-contention counters. Incremented from the audio thread with
+/// `Relaxed` ordering when a per-buffer `try_lock` fails and we fall back to a
+/// blocking lock. These replace the `eprintln!`s that previously did blocking
+/// stderr I/O on the realtime thread — the exact window when an underrun is
+/// most likely. Read via [`lock_contention_counts`] from any non-realtime
+/// thread for diagnostics.
+static SYNTH_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
+static EFFECT_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
+
+/// `(synth_manager, effect_manager)` realtime lock-contention counts since the
+/// process started. A non-zero, climbing value points at audio-thread stalls.
+// Exposed for future diagnostics / an audio-health FFI; not yet consumed.
+#[allow(dead_code)]
+pub fn lock_contention_counts() -> (u64, u64) {
+    (
+        SYNTH_LOCK_CONTENTION.load(Ordering::Relaxed),
+        EFFECT_LOCK_CONTENTION.load(Ordering::Relaxed),
+    )
+}
 
 /// Track snapshot data extracted from locked tracks for lock-free audio processing.
 /// Defined at module scope so helper functions can reference it.
@@ -194,7 +215,7 @@ impl AudioGraph {
         let device = if let Some(ref name) = selected_name {
             if name.starts_with("[ASIO] ") {
                 let actual_name = name.strip_prefix("[ASIO] ").unwrap_or(name);
-                eprintln!(
+                dlog!(
                     "🔊 [AudioGraph] Attempting to use ASIO device: {}",
                     actual_name
                 );
@@ -202,7 +223,7 @@ impl AudioGraph {
                 match cpal::host_from_id(cpal::HostId::Asio) {
                     Ok(asio_host) => match find_device_in_host(&asio_host, actual_name) {
                         Some(d) => {
-                            eprintln!("🔊 [AudioGraph] Using ASIO device: {}", actual_name);
+                            dlog!("🔊 [AudioGraph] Using ASIO device: {}", actual_name);
                             d
                         }
                         None => {
@@ -224,7 +245,7 @@ impl AudioGraph {
                 let host = cpal::default_host();
                 match find_device_in_host(&host, name) {
                     Some(d) => {
-                        eprintln!("🔊 [AudioGraph] Using selected output device: {}", name);
+                        dlog!("🔊 [AudioGraph] Using selected output device: {}", name);
                         d
                     }
                     None => {
@@ -248,7 +269,7 @@ impl AudioGraph {
             let host = cpal::default_host();
             if let Some(ref name) = selected_name {
                 if let Some(d) = find_device_in_host(&host, name) {
-                    eprintln!("🔊 [AudioGraph] Using selected output device: {name}");
+                    dlog!("🔊 [AudioGraph] Using selected output device: {name}");
                     d
                 } else {
                     eprintln!("⚠️ [AudioGraph] Selected device '{name}' not found, using default");
@@ -263,11 +284,11 @@ impl AudioGraph {
 
         // Log device info
         if let Ok(name) = device.name() {
-            eprintln!("🔊 [AudioGraph] Using device: {name}");
+            dlog!("🔊 [AudioGraph] Using device: {name}");
         }
 
         let supported_config = device.default_output_config()?;
-        eprintln!("🔊 [AudioGraph] Device config: {supported_config:?}");
+        dlog!("🔊 [AudioGraph] Device config: {supported_config:?}");
 
         // Get preferred buffer size
         let preferred_samples = self.preferred_buffer_size.lock().samples();
@@ -277,18 +298,16 @@ impl AudioGraph {
             SupportedBufferSize::Range { min, max } => {
                 // Handle invalid range (e.g., iOS simulator reports [0-0])
                 if *max == 0 {
-                    eprintln!("🔊 [AudioGraph] Buffer size: device reports invalid range [{min}-{max}], using default");
+                    dlog!("🔊 [AudioGraph] Buffer size: device reports invalid range [{min}-{max}], using default");
                     None
                 } else {
                     let clamped = preferred_samples.clamp(*min, *max);
-                    eprintln!("🔊 [AudioGraph] Buffer size: requested={preferred_samples}, device range=[{min}-{max}], using={clamped}");
+                    dlog!("🔊 [AudioGraph] Buffer size: requested={preferred_samples}, device range=[{min}-{max}], using={clamped}");
                     Some(cpal::BufferSize::Fixed(clamped))
                 }
             }
             SupportedBufferSize::Unknown => {
-                eprintln!(
-                    "🔊 [AudioGraph] Buffer size: device doesn't report range, using default"
-                );
+                dlog!("🔊 [AudioGraph] Buffer size: device doesn't report range, using default");
                 None
             }
         };
@@ -543,21 +562,21 @@ impl AudioGraph {
 
                 // OPTIMIZATION: Lock synth manager ONCE before the frame loop
                 // Use try_lock first to detect contention, fall back to blocking lock
-                let mut synth_guard = Some(match track_synth_manager.try_lock() {
-                    Some(guard) => guard,
-                    None => {
-                        eprintln!("⚠️ [Audio] synth_manager lock contention — blocking");
-                        track_synth_manager.lock()
-                    }
+                let mut synth_guard = Some(if let Some(guard) = track_synth_manager.try_lock() {
+                    guard
+                } else {
+                    // Realtime path: count contention, never do I/O here.
+                    SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+                    track_synth_manager.lock()
                 });
 
                 // OPTIMIZATION: Lock effect manager ONCE before the frame loop
-                let mut effect_guard = match effect_manager.try_lock() {
-                    Some(guard) => guard,
-                    None => {
-                        eprintln!("⚠️ [Audio] effect_manager lock contention — blocking");
-                        effect_manager.lock()
-                    }
+                let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
+                    guard
+                } else {
+                    // Realtime path: count contention, never do I/O here.
+                    EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+                    effect_manager.lock()
                 };
 
                 // Check if recording is active (skip clip playback on armed tracks)
