@@ -31,6 +31,8 @@ use crate::midi_recorder::MidiRecorder;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::recorder::Recorder;
 #[cfg(not(target_arch = "wasm32"))]
+// Only used by the stream startup in `new()`, which is cfg'd out under test.
+#[cfg(not(test))]
 use cpal::traits::StreamTrait;
 
 /// Transport state
@@ -221,8 +223,11 @@ impl AudioGraph {
     /// Create a new audio graph (native platforms)
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> anyhow::Result<Self> {
+        #[cfg_attr(test, allow(unused_mut))]
         let mut input_manager = AudioInputManager::new()?;
-        // Enumerate devices on creation
+        // Enumerate devices on creation. Skipped under cfg(test): on a headless
+        // CI runner (notably Windows WASAPI) enumerating absent devices segfaults.
+        #[cfg(not(test))]
         let _ = input_manager.enumerate_devices();
 
         // Create MIDI input manager
@@ -237,6 +242,7 @@ impl AudioGraph {
         let effect_manager = EffectManager::new();
         let master_limiter = Limiter::new();
 
+        #[cfg_attr(test, allow(unused_mut))]
         let mut graph = Self {
             clips: Arc::new(Mutex::new(Vec::new())),
             midi_clips: Arc::new(Mutex::new(Vec::new())),
@@ -264,18 +270,24 @@ impl AudioGraph {
             latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
 
-        // Create audio stream immediately (prevents deadlock on first play)
-        eprintln!("🔊 [AudioGraph] Creating audio stream during initialization...");
-        let stream = graph.create_audio_stream()?;
-        // Keep stream running even when stopped - needed for real-time MIDI preview
-        // The callback checks transport state to decide whether to advance playhead
-        stream.play()?;
-        graph.stream = Some(stream);
-        eprintln!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
+        // Create audio stream immediately (prevents deadlock on first play).
+        // Skipped under cfg(test): opening a cpal stream segfaults on headless
+        // CI runners (Windows WASAPI has no device / COM apartment on the test
+        // thread). Unit tests exercise graph logic, not live audio I/O.
+        #[cfg(not(test))]
+        {
+            eprintln!("🔊 [AudioGraph] Creating audio stream during initialization...");
+            let stream = graph.create_audio_stream()?;
+            // Keep stream running even when stopped - needed for real-time MIDI preview
+            // The callback checks transport state to decide whether to advance playhead
+            stream.play()?;
+            graph.stream = Some(stream);
+            eprintln!("✅ [AudioGraph] Audio stream created and running (for MIDI preview)");
 
-        // Query hardware latency from CoreAudio device
-        if let Err(e) = graph.query_coreaudio_latency() {
-            eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {e}");
+            // Query hardware latency from CoreAudio device
+            if let Err(e) = graph.query_coreaudio_latency() {
+                eprintln!("⚠️ [AudioGraph] Failed to query hardware latency: {e}");
+            }
         }
 
         Ok(graph)
