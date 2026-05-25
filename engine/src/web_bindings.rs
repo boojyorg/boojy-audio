@@ -14,6 +14,9 @@
 //! - Most mixer and effects functionality
 //!
 //! This module exists as a foundation for future web support.
+//!
+//! NOTE: The inline `TODO` markers throughout this file are the tracked backlog
+//! for this deferred web port — intentional placeholders, not stale cruft.
 
 use crate::web_audio::{console_error, console_log};
 use std::cell::RefCell;

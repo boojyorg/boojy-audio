@@ -1,6 +1,7 @@
 /// Offline rendering for export and bounce
 use super::{interpolate_automation_gain, AudioGraph};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
+use crate::dlog;
 use crate::effects::Effect;
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackType};
 
@@ -29,13 +30,13 @@ impl AudioGraph {
         let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
         let mut output = Vec::with_capacity(total_frames * 2); // stereo interleaved
 
-        eprintln!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
+        dlog!("🎵 [AudioGraph] Starting offline render: {duration_seconds:.2}s ({total_frames} frames)");
 
         // Get tempo for timeline positioning
         // Timeline positions are tempo-dependent: at 120 BPM, 1 timeline second = 1 real second
         let current_tempo = self.recorder.get_tempo();
         let tempo_ratio = current_tempo / 120.0;
-        eprintln!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
+        dlog!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
 
         let (track_snapshots, return_snapshots, has_solo, master_snapshot, return_index) = {
             let tm = self.track_manager.lock();
@@ -89,7 +90,7 @@ impl AudioGraph {
             )
         };
 
-        eprintln!(
+        dlog!(
             "🎵 [AudioGraph] Rendering {} tracks (+ {} returns)",
             track_snapshots.len(),
             return_snapshots.len()
@@ -414,11 +415,11 @@ impl AudioGraph {
             // Progress logging every 10%
             if frame_idx % (total_frames / 10).max(1) == 0 {
                 let progress = (frame_idx as f64 / total_frames as f64 * 100.0) as i32;
-                eprintln!("   {progress}% complete...");
+                dlog!("   {progress}% complete...");
             }
         }
 
-        eprintln!(
+        dlog!(
             "✅ [AudioGraph] Offline render complete: {} samples",
             output.len()
         );
@@ -444,7 +445,7 @@ impl AudioGraph {
         let total_frames = (duration_seconds * f64::from(sample_rate)) as usize;
         let mut output = Vec::with_capacity(total_frames * 2);
 
-        eprintln!(
+        dlog!(
             "🎚️ [AudioGraph] Starting track {track_id} offline render: {duration_seconds:.2}s ({total_frames} frames)"
         );
 
@@ -714,11 +715,11 @@ impl AudioGraph {
             // Progress logging every 25%
             if frame_idx % (total_frames / 4).max(1) == 0 && frame_idx > 0 {
                 let progress = (frame_idx as f64 / total_frames as f64 * 100.0) as i32;
-                eprintln!("   Track {track_id} - {progress}% complete...");
+                dlog!("   Track {track_id} - {progress}% complete...");
             }
         }
 
-        eprintln!(
+        dlog!(
             "✅ [AudioGraph] Track {} offline render complete: {} samples",
             track_id,
             output.len()
