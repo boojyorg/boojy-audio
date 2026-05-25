@@ -22,6 +22,8 @@ All notable changes to Boojy Audio will be documented in this file.
 ### Improvements
 
 - **Flutter 3.44 / Dart 3.12 toolchain**: upgraded from 3.35 (local) / 3.38 (CI); pinned via FVM (`ui/.fvmrc`) and matched in `.github/workflows/*.yml`. Migrated the FX-chain reorder to the new `onReorderItem` callback (replaces deprecated `onReorder`; framework now handles the index adjustment). Material/Cupertino package decoupling deferred — `material_ui` is still preview (0.0.1) and in-SDK imports are not yet deprecated in 3.44.
+- **Stock-effect output guards**: added energy/finite sanity tests for EQ, Compressor, Delay, Limiter, and Chorus (mirroring the existing reverb guard) so a mis-scaled built-in effect can no longer ship silent or blow up undetected — the coverage gap that let the reverb regression through.
+- **Realtime logging hygiene**: the per-buffer lock-contention warnings in the audio render callback no longer do blocking stderr I/O — they increment atomic counters instead. Informational engine chatter (device selection, render progress) now goes through a debug-only `dlog!` macro, so release builds stay quiet; genuine errors still print.
 
 ## v0.2.4 — 2026-05-22
 

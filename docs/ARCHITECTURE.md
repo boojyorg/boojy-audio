@@ -268,6 +268,43 @@ class AudioEngine {
 }
 ```
 
+## Audio Graph & Mixer Routing
+
+The Rust engine mixes every track through the same signal chain in both the
+realtime callback (`audio_graph/renderer.rs`) and offline export
+(`audio_graph/offline.rs`), so a bounced file matches what you hear:
+
+```
+per track:  clips → instrument/synth → track FX chain → fader (volume/pan)
+                                                          │
+                                                          ├── main mix ──────────┐
+                                                          └── post-fader sends ─┐ │
+                                                                                ▼ │
+return bus: per-return accumulator → return FX chain ───────────────────────┐  │ │
+                                                                             ▼  ▼ ▼
+                                                                  master FX → output
+```
+
+- **Sends are post-fader.** A track's send amount is applied *after* its
+  volume/pan, summed into a per-return accumulator each frame; the return's own
+  FX chain (e.g. a shared Reverb) then processes that sum into the master mix.
+- **Returns are shared by effect type.** The ⚡ FX picker's "shared" path dedups
+  by effect type via `api/sends.rs`, so several tracks feed one reverb return
+  instead of spawning duplicates.
+- **No plugin delay compensation yet.** Return-chain latency is not aligned
+  against the dry signal (tracked in FEATURE_TRACKER).
+
+### Track locks are non-reentrant (deadlock hazard)
+
+The engine uses `parking_lot::Mutex`, which does **not** support recursive
+locking. `TrackManager::get_track` / `get_master_track` / `remove_track` walk
+the track list and `.lock()` each track to compare ids — so calling any of them
+**while holding a `Track` lock deadlocks the API thread silently** (no panic, no
+log; the UI just freezes). Snapshot what you need (`id`, `fx_chain`,
+`sends.iter().map(...)`) into locals and drop the guard before calling back into
+`TrackManager`. See the snapshot pattern in `api/sends.rs` (`get_track_sends`,
+`find_return_by_effect_type`) and CLAUDE.md.
+
 ## Future Improvement Opportunities
 
 ### High Priority
@@ -283,7 +320,7 @@ class AudioEngine {
    - Add state persistence for UI preferences
 
 3. **Testing Coverage**
-   - Integration tests **started** — `ui/integration_test/` (4 golden paths: save/reload, MIDI notes, clip-move undo, WAV export)
+   - Integration tests **growing** — `ui/integration_test/` (8 native golden paths incl. send/return save+reload, shared-send dedup, reverb-send tail energy); plus Rust stock-effect output guards in `effects.rs`
    - Add widget tests for critical components
    - Golden tests for visual regression
 

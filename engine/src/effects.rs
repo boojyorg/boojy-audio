@@ -1104,23 +1104,28 @@ impl EffectManager {
 }
 
 #[cfg(test)]
-mod reverb_energy_tests {
+mod effect_energy_tests {
     use super::*;
 
-    #[test]
-    fn reverb_full_wet_produces_comparable_output_energy() {
-        // Mirror the send/return setup: 100% wet reverb fed 0.5 s of signal,
-        // then ~1 s of silence (the export tail). Measure energy gain.
-        let mut rev = Reverb::new();
-        rev.wet_dry_mix = 1.0;
-
+    /// Feed an effect 0.5 s of a 220 Hz sawtooth (amplitude 0.3) followed by
+    /// 1.0 s of silence (to capture any tail), and return
+    /// `(output_energy / input_energy, all_outputs_finite)`.
+    ///
+    /// This mirrors the send/return use case — a 100%-wet effect on a return
+    /// bus must produce sane, audible, finite output. These are broad sanity
+    /// guards, not a DSP spec: they catch the class of bug where an effect
+    /// ships silent (the reverb was ~36 dB down / ratio ≈ 0.001 before its
+    /// fix) or blows up, without asserting an exact frequency response.
+    ///
+    /// The sawtooth is harmonically rich (excites comb/allpass resonances far
+    /// better than a pure sine), so it stresses the resonant effects too.
+    fn wet_energy_ratio<E: Effect>(effect: &mut E) -> (f64, bool) {
         let mut in_energy = 0.0f64;
         let mut out_energy = 0.0f64;
+        let mut all_finite = true;
         let note_frames = TARGET_SAMPLE_RATE as usize / 2; // 0.5 s
         let tail_frames = TARGET_SAMPLE_RATE as usize; // 1.0 s
         for i in 0..(note_frames + tail_frames) {
-            // Harmonically rich sawtooth at 220 Hz (approximates a synth note,
-            // which excites the comb resonances far better than a pure sine).
             let input = if i < note_frames {
                 let phase = (i as f32 * 220.0 / TARGET_SAMPLE_RATE as f32).fract();
                 (2.0 * phase - 1.0) * 0.3
@@ -1128,16 +1133,95 @@ mod reverb_energy_tests {
                 0.0
             };
             in_energy += f64::from(input * input * 2.0); // stereo (L+R)
-            let (l, r) = rev.process_frame(input, input);
+            let (l, r) = effect.process_frame(input, input);
+            if !l.is_finite() || !r.is_finite() {
+                all_finite = false;
+            }
             out_energy += f64::from(l * l + r * r);
         }
-        let ratio = out_energy / in_energy;
+        (out_energy / in_energy, all_finite)
+    }
+
+    #[test]
+    fn reverb_full_wet_produces_comparable_output_energy() {
         // A 100%-wet reverb must return a substantial fraction of the energy it
         // receives, otherwise it is silent as a send return. Guards against the
         // regression where the wet output sat ~36 dB down (ratio ≈ 0.001).
+        let mut rev = Reverb::new();
+        rev.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut rev);
+        assert!(finite, "reverb produced non-finite output");
         assert!(
             ratio > 0.1,
             "reverb wet output too quiet to function as a send return (ratio={ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn eq_flat_is_near_pass_through() {
+        // A flat EQ (all bands at 0 dB) at full wet should pass the signal
+        // through roughly unchanged — guards against a band mis-scaling the
+        // level to silence or a blow-up.
+        let mut eq = ParametricEQ::new();
+        eq.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut eq);
+        assert!(finite, "EQ produced non-finite output");
+        assert!(
+            (0.5..=1.5).contains(&ratio),
+            "flat EQ should be near pass-through (ratio={ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn compressor_reduces_but_preserves_energy() {
+        // Default compressor (−20 dB threshold, 4:1) attenuates a 0.3-amplitude
+        // sawtooth but must not crush it to silence or blow up.
+        let mut comp = Compressor::new();
+        comp.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut comp);
+        assert!(finite, "compressor produced non-finite output");
+        assert!(
+            (0.1..=1.2).contains(&ratio),
+            "compressor output outside the sane range (ratio={ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn delay_full_wet_is_audible() {
+        // At 100% wet, the delay's output (delayed taps + feedback tail) must
+        // carry real energy, not silence.
+        let mut delay = Delay::new();
+        delay.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut delay);
+        assert!(finite, "delay produced non-finite output");
+        assert!(ratio > 0.1, "delay wet output too quiet (ratio={ratio:.4})");
+    }
+
+    #[test]
+    fn limiter_below_threshold_is_pass_through() {
+        // A 0.3-amplitude signal sits well under the −0.1 dBFS ceiling, so the
+        // limiter should pass it through essentially untouched.
+        let mut limiter = Limiter::new();
+        limiter.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut limiter);
+        assert!(finite, "limiter produced non-finite output");
+        assert!(
+            (0.5..=1.5).contains(&ratio),
+            "limiter should pass a sub-threshold signal through (ratio={ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn chorus_full_wet_is_audible() {
+        // Modulated delay shouldn't attenuate; at full wet the chorus must
+        // produce substantial output energy.
+        let mut chorus = Chorus::new();
+        chorus.wet_dry_mix = 1.0;
+        let (ratio, finite) = wet_energy_ratio(&mut chorus);
+        assert!(finite, "chorus produced non-finite output");
+        assert!(
+            ratio > 0.1,
+            "chorus wet output too quiet (ratio={ratio:.4})"
         );
     }
 }
