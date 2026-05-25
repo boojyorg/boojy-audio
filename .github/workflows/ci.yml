@@ -13,6 +13,7 @@ env:
 jobs:
   flutter-checks:
     runs-on: macos-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,6 +46,7 @@ jobs:
 
   flutter-checks-windows:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,6 +70,7 @@ jobs:
 
   rust-checks-windows:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,6 +95,7 @@ jobs:
 
   rust-checks:
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
