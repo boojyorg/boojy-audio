@@ -254,6 +254,18 @@ impl PreviewPlayer {
         self.async_loading.load(Ordering::SeqCst)
     }
 
+    /// Whether the loaded clip has finished decoding. Always true once a
+    /// non-streaming clip (raw WAV / decoded) is installed; for streaming
+    /// clips (MP3/FLAC) it tracks the background decode thread, so callers
+    /// can wait before reading the final duration / full waveform.
+    pub fn is_clip_fully_decoded(&self) -> bool {
+        match self.clip.as_deref() {
+            Some(PreviewClipData::Streaming(s)) => s.is_fully_decoded(),
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     /// Start or resume playback
     pub fn play(&mut self) {
         if self.clip.is_some() {
@@ -313,40 +325,62 @@ impl PreviewPlayer {
         self.is_looping.load(Ordering::SeqCst)
     }
 
-    /// Get waveform peaks for UI display.
-    /// Computes lazily from the loaded clip if not yet cached.
-    pub fn get_waveform_peaks(&mut self, resolution: usize) -> Vec<f32> {
-        if self.waveform_peaks.is_empty() {
-            // Compute from loaded clip
-            if let Some(clip) = &self.clip {
-                let frame_count = clip.frame_count();
-                if frame_count > 0 {
-                    let frames_per_peak = (frame_count as f64 / resolution as f64).max(1.0);
-                    let mut peaks = Vec::with_capacity(resolution);
-                    let ch = clip.channels();
-                    for i in 0..resolution {
-                        let start = (i as f64 * frames_per_peak) as usize;
-                        let end = (((i + 1) as f64 * frames_per_peak) as usize).min(frame_count);
-                        let mut max_amp = 0.0f32;
-                        for frame in start..end {
-                            let l = clip.get_sample(frame, 0).abs();
-                            let r = if ch > 1 {
-                                clip.get_sample(frame, 1).abs()
-                            } else {
-                                l
-                            };
-                            max_amp = max_amp.max(l).max(r);
-                        }
-                        peaks.push(max_amp);
-                    }
-                    self.waveform_peaks = peaks;
-                }
+    /// Compute waveform peaks fresh from the loaded clip (no caching).
+    /// Returns an empty vec if there is no clip / no decoded frames yet.
+    fn compute_peaks(&self, resolution: usize) -> Vec<f32> {
+        let Some(clip) = &self.clip else {
+            return Vec::new();
+        };
+        let frame_count = clip.frame_count();
+        if frame_count == 0 {
+            return Vec::new();
+        }
+        let frames_per_peak = (frame_count as f64 / resolution as f64).max(1.0);
+        let mut peaks = Vec::with_capacity(resolution);
+        let ch = clip.channels();
+        for i in 0..resolution {
+            let start = (i as f64 * frames_per_peak) as usize;
+            let end = (((i + 1) as f64 * frames_per_peak) as usize).min(frame_count);
+            let mut max_amp = 0.0f32;
+            for frame in start..end {
+                let l = clip.get_sample(frame, 0).abs();
+                let r = if ch > 1 {
+                    clip.get_sample(frame, 1).abs()
+                } else {
+                    l
+                };
+                max_amp = max_amp.max(l).max(r);
             }
-            if self.waveform_peaks.is_empty() {
+            peaks.push(max_amp);
+        }
+        peaks
+    }
+
+    /// Get waveform peaks for UI display.
+    /// Computes lazily from the loaded clip and caches the result — except while
+    /// a streaming clip is still decoding, where it recomputes on every call so
+    /// the drag-preview waveform grows as more audio arrives (caching resumes
+    /// once the decode has finished).
+    pub fn get_waveform_peaks(&mut self, resolution: usize) -> Vec<f32> {
+        let streaming_incomplete = matches!(
+            self.clip.as_deref(),
+            Some(PreviewClipData::Streaming(s)) if !s.is_fully_decoded()
+        );
+
+        if streaming_incomplete {
+            let peaks = self.compute_peaks(resolution);
+            if peaks.is_empty() {
                 return vec![0.0; resolution];
             }
+            return resample_peaks(&peaks, resolution);
         }
 
+        if self.waveform_peaks.is_empty() {
+            self.waveform_peaks = self.compute_peaks(resolution);
+        }
+        if self.waveform_peaks.is_empty() {
+            return vec![0.0; resolution];
+        }
         resample_peaks(&self.waveform_peaks, resolution)
     }
 

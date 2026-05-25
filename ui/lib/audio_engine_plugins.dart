@@ -885,6 +885,16 @@ mixin _PluginsMixin on _AudioEngineBase {
     }
   }
 
+  /// Check if the loaded preview clip has finished decoding.
+  /// True immediately for WAV; tracks background decode for streaming MP3/FLAC.
+  bool previewIsFullyDecoded() {
+    try {
+      return _previewIsFullyDecoded();
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Start preview playback
   void previewPlay() {
     try {

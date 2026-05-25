@@ -830,6 +830,9 @@ class AudioEngine implements AudioEngineInterface {
   bool previewCheckFullClip() => false;
 
   @override
+  bool previewIsFullyDecoded() => false;
+
+  @override
   void previewPlay() {}
 
   @override
