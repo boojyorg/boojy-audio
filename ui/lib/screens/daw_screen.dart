@@ -613,15 +613,89 @@ class _DAWScreenState extends State<DAWScreen>
     await undoRedoManager.execute(command);
   }
 
-  void _onTimeSignatureChanged(int beatsPerBar, int beatUnit) {
+  // Time-signature drag coalescing: live updates during a vertical drag, one
+  // undo step on release (same pattern as the send knob / position scrubber).
+  bool _timeSigDragging = false;
+  int _timeSigDragStartNum = 4;
+  int _timeSigDragStartUnit = 4;
+
+  /// Apply a time signature to the engine + UI metadata WITHOUT registering undo.
+  void _applyTimeSignature(int beatsPerBar, int beatUnit) {
     setState(() {
       projectMetadata = projectMetadata.copyWith(
         timeSignatureNumerator: beatsPerBar,
         timeSignatureDenominator: beatUnit,
       );
     });
-    // Update engine time signature
     audioEngine?.setTimeSignature(beatsPerBar);
+  }
+
+  Future<void> _onTimeSignatureChanged(int beatsPerBar, int beatUnit) async {
+    // During a drag, apply live; the single undo step is registered on drag end.
+    if (_timeSigDragging) {
+      _applyTimeSignature(beatsPerBar, beatUnit);
+      return;
+    }
+    // Discrete change (menu pick): one undo step.
+    final oldNum = projectMetadata.timeSignatureNumerator;
+    final oldUnit = projectMetadata.timeSignatureDenominator;
+    if (oldNum == beatsPerBar && oldUnit == beatUnit) return;
+    await undoRedoManager.execute(
+      SetTimeSignatureCommand(
+        newNumerator: beatsPerBar,
+        oldNumerator: oldNum,
+        newDenominator: beatUnit,
+        oldDenominator: oldUnit,
+        onChanged: _applyTimeSignature,
+      ),
+    );
+  }
+
+  void _onTimeSignatureDragStart() {
+    _timeSigDragging = true;
+    _timeSigDragStartNum = projectMetadata.timeSignatureNumerator;
+    _timeSigDragStartUnit = projectMetadata.timeSignatureDenominator;
+  }
+
+  Future<void> _onTimeSignatureDragEnd() async {
+    _timeSigDragging = false;
+    final newNum = projectMetadata.timeSignatureNumerator;
+    final newUnit = projectMetadata.timeSignatureDenominator;
+    if (newNum == _timeSigDragStartNum && newUnit == _timeSigDragStartUnit) {
+      return;
+    }
+    // Value is already applied live; register the whole drag as one undo step.
+    await undoRedoManager.execute(
+      SetTimeSignatureCommand(
+        newNumerator: newNum,
+        oldNumerator: _timeSigDragStartNum,
+        newDenominator: newUnit,
+        oldDenominator: _timeSigDragStartUnit,
+        onChanged: _applyTimeSignature,
+      ),
+    );
+  }
+
+  /// Apply a track colour override (null ARGB clears it → auto colour).
+  void _applyTrackColor(int trackId, int? colorArgb) {
+    if (colorArgb == null) {
+      trackController.clearTrackColorOverride(trackId);
+    } else {
+      trackController.setTrackColor(trackId, Color(colorArgb));
+    }
+  }
+
+  Future<void> _onTrackColorChanged(int trackId, Color color) async {
+    final oldColor = trackController.trackColorOverrides[trackId];
+    if (oldColor == color) return;
+    await undoRedoManager.execute(
+      SetTrackColorCommand(
+        trackId: trackId,
+        newColorArgb: color.toARGB32(),
+        oldColorArgb: oldColor?.toARGB32(),
+        onColorChanged: _applyTrackColor,
+      ),
+    );
   }
 
   // M3: Virtual piano methods
@@ -3223,6 +3297,8 @@ class _DAWScreenState extends State<DAWScreen>
         beatsPerBar: projectMetadata.timeSignatureNumerator,
         beatUnit: projectMetadata.timeSignatureDenominator,
         onTimeSignatureChanged: _onTimeSignatureChanged,
+        onTimeSignatureDragStart: _onTimeSignatureDragStart,
+        onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
         isLoading: isLoading,
         isEngineReady: isAudioGraphInitialized,
         onAddMidiTrack: _addMidiTrackWithClip,
@@ -3351,6 +3427,7 @@ class _DAWScreenState extends State<DAWScreen>
         key: screenshotKey,
         child: TimelineView(
           key: timelineKey,
+          beatsPerBar: projectMetadata.timeSignatureNumerator,
           playheadNotifier: playbackController.playheadNotifier,
           clipDuration: clipDuration,
           waveformPeaks: waveformPeaks,
@@ -3593,7 +3670,7 @@ class _DAWScreenState extends State<DAWScreen>
                       edited: true,
                     );
                   },
-                  onColorChanged: setTrackColor,
+                  onColorChanged: _onTrackColorChanged,
                   onIconChanged: (trackId, icon) {
                     setState(() {
                       trackController.setTrackIcon(trackId, icon);

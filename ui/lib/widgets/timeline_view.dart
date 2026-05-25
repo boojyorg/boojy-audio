@@ -134,6 +134,9 @@ class TimelineView extends StatefulWidget {
   final ScrollController?
   automationScrollController; // For syncing automation lane scroll
 
+  /// Beats per bar (time-signature numerator) — drives the grid + nav-bar ruler.
+  final int beatsPerBar;
+
   const TimelineView({
     super.key,
     required this.playheadNotifier,
@@ -171,6 +174,7 @@ class TimelineView extends StatefulWidget {
     this.onAddAudioTrack,
     this.isRecording = false,
     this.masterTimelineVisible = false,
+    this.beatsPerBar = 4,
   });
 
   @override
@@ -816,6 +820,7 @@ class TimelineViewState extends State<TimelineView>
                         config: UnifiedNavBarConfig(
                           pixelsPerBeat: pixelsPerBeat,
                           totalBeats: totalBeats.toDouble(),
+                          beatsPerBar: widget.beatsPerBar,
                           loopEnabled: widget.loopPlaybackEnabled,
                           loopStart: widget.loopStartBeats,
                           loopEnd: widget.loopEndBeats,
@@ -1063,6 +1068,7 @@ class TimelineViewState extends State<TimelineView>
         child: CustomPaint(
           painter: TimelineGridPainter(
             pixelsPerBeat: pixelsPerBeat,
+            beatsPerBar: widget.beatsPerBar,
             loopEnabled: widget.loopPlaybackEnabled,
             loopStart: widget.loopStartBeats,
             loopEnd: widget.loopEndBeats,
@@ -1074,6 +1080,7 @@ class TimelineViewState extends State<TimelineView>
       size: Size(width, height),
       painter: TimelineGridPainter(
         pixelsPerBeat: pixelsPerBeat,
+        beatsPerBar: widget.beatsPerBar,
         loopEnabled: widget.loopPlaybackEnabled,
         loopStart: widget.loopStartBeats,
         loopEnd: widget.loopEndBeats,
