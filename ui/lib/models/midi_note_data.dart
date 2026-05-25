@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'clip_automation_data.dart';
 
 /// Represents a MIDI note in the piano roll
@@ -29,9 +30,7 @@ class MidiNoteData {
     required this.duration,
     this.isSelected = false,
     String? id,
-  }) : id =
-           id ??
-           '${note}_${startTime}_${DateTime.now().microsecondsSinceEpoch}';
+  }) : id = id ?? const Uuid().v4();
 
   /// Get the end time of this note in beats
   double get endTime => startTime + duration;
