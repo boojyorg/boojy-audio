@@ -89,6 +89,8 @@ impl BiquadFilter {
         let omega = 2.0 * PI * freq / sample_rate;
         let sin_omega = omega.sin();
         let cos_omega = omega.cos();
+        // Guard q=0 → divide-by-zero → NaN coefficients on the audio thread.
+        let q = q.max(0.01);
         let alpha = sin_omega / (2.0 * q);
         let a = 10_f32.powf(gain_db / 40.0); // Amplitude
 
@@ -368,8 +370,11 @@ impl Compressor {
     /// Update attack/release coefficients when parameters change
     pub fn update_coefficients(&mut self) {
         let sample_rate = TARGET_SAMPLE_RATE as f32;
-        self.attack_coeff = (-1.0 / (self.attack_ms * 0.001 * sample_rate)).exp();
-        self.release_coeff = (-1.0 / (self.release_ms * 0.001 * sample_rate)).exp();
+        // Clamp to a small positive min: 0 → -inf exponent, negative → coeff > 1 (blowup).
+        let attack_ms = self.attack_ms.max(0.01);
+        let release_ms = self.release_ms.max(0.01);
+        self.attack_coeff = (-1.0 / (attack_ms * 0.001 * sample_rate)).exp();
+        self.release_coeff = (-1.0 / (release_ms * 0.001 * sample_rate)).exp();
     }
 
     /// Calculate gain reduction for a given input level (in linear)
@@ -384,7 +389,7 @@ impl Compressor {
             1.0 // No compression below threshold
         } else {
             let over_db = input_db - self.threshold_db;
-            let gain_reduction_db = over_db * (1.0 - 1.0 / self.ratio);
+            let gain_reduction_db = over_db * (1.0 - 1.0 / self.ratio.max(1.0));
             10_f32.powf(-gain_reduction_db / 20.0)
         }
     }
