@@ -49,6 +49,7 @@ Thumbs.db
 
 # Docs
 docs/private/
+docs/dogfood/
 
 engine/vst3_host/build/
 engine/vst3_host/build_win/
