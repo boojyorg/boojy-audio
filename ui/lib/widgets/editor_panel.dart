@@ -408,7 +408,7 @@ class _EditorPanelState extends State<EditorPanel>
                                 const SizedBox(width: 4),
                                 _buildToolButton(
                                   ToolMode.eraser,
-                                  BI.delete,
+                                  BI.eraser,
                                   'Erase (C) • Hold Alt',
                                 ),
                                 const SizedBox(width: 4),
@@ -523,7 +523,7 @@ class _EditorPanelState extends State<EditorPanel>
                 const SizedBox(width: 4),
                 _buildToolButton(
                   ToolMode.eraser,
-                  BI.delete,
+                  BI.eraser,
                   'Erase (C) • Hold Alt',
                 ),
                 const SizedBox(width: 4),

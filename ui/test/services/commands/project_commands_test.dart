@@ -132,4 +132,126 @@ void main() {
       expect(changedBars, 0);
     });
   });
+
+  group('SetTimeSignatureCommand', () {
+    test('has correct description', () {
+      final command = SetTimeSignatureCommand(
+        newNumerator: 7,
+        oldNumerator: 4,
+        newDenominator: 8,
+        oldDenominator: 4,
+        onChanged: (_, __) {},
+      );
+
+      expect(command.description, 'Change Time Signature: 4/4 → 7/8');
+    });
+
+    test('execute fires onChanged with the new signature', () async {
+      int? num;
+      int? den;
+
+      final command = SetTimeSignatureCommand(
+        newNumerator: 7,
+        oldNumerator: 4,
+        newDenominator: 8,
+        oldDenominator: 4,
+        onChanged: (n, d) {
+          num = n;
+          den = d;
+        },
+      );
+
+      await command.execute(mockEngine);
+
+      expect(num, 7);
+      expect(den, 8);
+    });
+
+    test('undo fires onChanged with the old signature', () async {
+      int? num;
+      int? den;
+
+      final command = SetTimeSignatureCommand(
+        newNumerator: 7,
+        oldNumerator: 4,
+        newDenominator: 8,
+        oldDenominator: 4,
+        onChanged: (n, d) {
+          num = n;
+          den = d;
+        },
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(num, 4);
+      expect(den, 4);
+    });
+  });
+
+  group('SetTrackColorCommand', () {
+    test('has correct description', () {
+      final command = SetTrackColorCommand(
+        trackId: 1,
+        newColorArgb: 0xFFFF0000,
+        oldColorArgb: 0xFF00FF00,
+        onColorChanged: (_, __) {},
+      );
+
+      expect(command.description, 'Change Track Colour');
+    });
+
+    test('execute applies the new colour', () async {
+      int? trackId;
+      int? argb;
+
+      final command = SetTrackColorCommand(
+        trackId: 5,
+        newColorArgb: 0xFFFF0000,
+        oldColorArgb: 0xFF00FF00,
+        onColorChanged: (id, c) {
+          trackId = id;
+          argb = c;
+        },
+      );
+
+      await command.execute(mockEngine);
+
+      expect(trackId, 5);
+      expect(argb, 0xFFFF0000);
+    });
+
+    test('undo restores the old colour', () async {
+      int? argb = -1;
+
+      final command = SetTrackColorCommand(
+        trackId: 5,
+        newColorArgb: 0xFFFF0000,
+        oldColorArgb: 0xFF00FF00,
+        onColorChanged: (_, c) => argb = c,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(argb, 0xFF00FF00);
+    });
+
+    test('undo clears the override when there was none before', () async {
+      int? argb = 0xDEADBEEF;
+
+      final command = SetTrackColorCommand(
+        trackId: 5,
+        newColorArgb: 0xFFFF0000,
+        oldColorArgb: null,
+        onColorChanged: (_, c) => argb = c,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(argb, isNull); // null = revert to the auto colour
+    });
+  });
 }
