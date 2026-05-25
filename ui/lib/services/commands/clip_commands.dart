@@ -428,8 +428,9 @@ class AddAudioClipCommand extends Command {
     _createdClipId = engine.loadAudioFileToTrack(filePath, trackId);
     if (_createdClipId != null && _createdClipId! >= 0) {
       final duration = engine.getClipDuration(_createdClipId!);
-      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-      final peaks = engine.getWaveformPeaks(_createdClipId!, peakResolution);
+      // Quick low-res waveform for immediate display; the timeline upgrades it
+      // to full resolution a frame later (see scheduleWaveformUpgrade).
+      final peaks = engine.getWaveformPeaks(_createdClipId!, 1000);
       engine.setClipStartTime(trackId, _createdClipId!, startTime);
       onClipAdded?.call(_createdClipId!, duration, peaks);
     }

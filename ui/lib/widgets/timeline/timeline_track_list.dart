@@ -169,6 +169,16 @@ mixin TimelineTrackListMixin
                     ? previewMidiDuration! / (widget.tempo / 60.0)
                     : null;
 
+                // Coalesce: skip the rebuild when the ghost would render
+                // identically (position + track unchanged since last frame).
+                final existing = previewClip;
+                if (existing != null &&
+                    existing.trackId == -2 &&
+                    existing.startTime == startTime &&
+                    isMidiFileDraggingOverEmpty) {
+                  return;
+                }
+
                 setState(() {
                   isMidiFileDraggingOverEmpty = true;
                   previewClip = PreviewClip(
@@ -242,6 +252,17 @@ mixin TimelineTrackListMixin
                     final startTime =
                         snappedBeats.clamp(0.0, double.infinity) /
                         (widget.tempo / 60.0);
+
+                    // Coalesce: onMove fires ~60Hz, but the ghost is rendered
+                    // purely from (startTime, trackId) — mousePosition is unused
+                    // for layout. Skip the rebuild when neither has changed.
+                    final existing = previewClip;
+                    if (existing != null &&
+                        existing.trackId == -1 &&
+                        existing.startTime == startTime &&
+                        isAudioFileDraggingOverEmpty) {
+                      return;
+                    }
 
                     setState(() {
                       isAudioFileDraggingOverEmpty = true;
@@ -663,6 +684,15 @@ mixin TimelineTrackListMixin
             ? previewMidiDuration! / (widget.tempo / 60.0)
             : null;
 
+        // Coalesce: skip the rebuild when position + track are unchanged.
+        final existing = previewClip;
+        if (existing != null &&
+            existing.trackId == track.id &&
+            existing.startTime == startTime &&
+            dragHoveredTrackId == track.id) {
+          return;
+        }
+
         setState(() {
           dragHoveredTrackId = track.id;
           previewClip = PreviewClip(
@@ -742,6 +772,15 @@ mixin TimelineTrackListMixin
             final startTime =
                 snappedBeats.clamp(0.0, double.infinity) /
                 (widget.tempo / 60.0);
+
+            // Coalesce: skip the rebuild when position + track are unchanged.
+            final existing = previewClip;
+            if (existing != null &&
+                existing.trackId == track.id &&
+                existing.startTime == startTime &&
+                dragHoveredTrackId == track.id) {
+              return;
+            }
 
             setState(() {
               dragHoveredTrackId = track.id;

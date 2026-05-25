@@ -89,6 +89,10 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Cached waveform peaks for the audio file being dragged.
   List<double>? previewWaveformPeaks;
 
+  /// Polls the engine while a dragged audio file decodes in the background, so
+  /// the preview waveform never blocks the drag. Cancelled on drop/leave/dispose.
+  Timer? previewLoadTimer;
+
   /// Whether an audio file is being dragged over empty space.
   bool isAudioFileDraggingOverEmpty = false;
 

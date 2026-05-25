@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show File;
 import 'package:flutter/material.dart';
 import 'package:cross_file/cross_file.dart';
@@ -54,14 +55,11 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
         return;
       }
 
-      // Get duration and waveform
+      // Get duration + a quick low-res waveform for immediate display. The
+      // full-resolution waveform is computed a frame later via
+      // scheduleWaveformUpgrade so the heavy peak pass doesn't block the drop.
       final duration = widget.audioEngine!.getClipDuration(clipId);
-      // Store high-resolution peaks (8000/sec) - LOD downsampling happens at render time
-      final peakResolution = (duration * 8000).clamp(8000, 240000).toInt();
-      final peaks = widget.audioEngine!.getWaveformPeaks(
-        clipId,
-        peakResolution,
-      );
+      final peaks = widget.audioEngine!.getWaveformPeaks(clipId, 1000);
 
       // Create clip
       final clip = ClipData(
@@ -106,44 +104,112 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
         previewClip = null;
         dragHoveredTrackId = null;
       });
+
+      // Sharpen to the full-resolution waveform once the clip is on screen.
+      scheduleWaveformUpgrade(clipId);
     } catch (e) {
       Log.e('TimelineView: Error loading audio file: $e');
     }
   }
 
-  /// Load waveform data for drag preview.
-  /// Uses the engine's preview system to get duration and waveform without creating a clip.
+  /// Replace a freshly-dropped clip's quick low-res waveform with the
+  /// full-resolution one a frame later, so the heavy peak computation doesn't
+  /// block the clip's first paint. Drop handlers add the clip immediately with a
+  /// cheap waveform (resolution 1000) and then call this to sharpen it once the
+  /// UI has settled.
+  void scheduleWaveformUpgrade(int clipId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final engine = widget.audioEngine;
+      if (engine == null) return;
+      final duration = engine.getClipDuration(clipId);
+      if (duration <= 0) return;
+      // High-resolution peaks (8000/sec); LOD downsampling happens at render.
+      final hiRes = (duration * 8000).clamp(8000, 240000).toInt();
+      final peaks = engine.getWaveformPeaks(clipId, hiRes);
+      if (peaks.isEmpty) return;
+      final index = clips.indexWhere((c) => c.clipId == clipId);
+      if (index == -1) return;
+      setState(() {
+        clips[index] = clips[index].copyWith(waveformPeaks: peaks);
+      });
+    });
+  }
+
+  /// Load waveform data for the drag preview *without blocking the drag*.
+  ///
+  /// The engine decodes the file on a background thread; we poll for it. The
+  /// ghost clip box is already on screen (built in `onMove`), so the waveform
+  /// simply fills in once decode completes. For compressed files (MP3/FLAC) the
+  /// engine streams the decode, so we wait for [previewIsFullyDecoded] before
+  /// reading the final duration + full waveform — otherwise the engine would
+  /// cache a partial waveform from the first ~second of audio.
   void loadWaveformForPreview(String filePath) {
     final engine = widget.audioEngine;
     if (engine == null) return;
 
-    // Load file into engine's preview system
-    final result = engine.previewLoadAudio(filePath);
-    if (result.startsWith('Error')) return;
+    // A new file supersedes any in-flight poll.
+    previewLoadTimer?.cancel();
 
-    final duration = engine.previewGetDuration();
-    final rawPeaks = engine.previewGetWaveform(500); // Low-res for preview
+    // Kick off the background decode (returns immediately).
+    engine.previewLoadAudioAsync(filePath);
 
-    // Convert single-value peaks to [min, max] pairs
-    // WaveformPainter expects [min, max, min, max, ...] format
-    // Mirror the max values to create min values for proper waveform display
-    final peaks = <double>[];
-    for (final value in rawPeaks) {
-      peaks.add(-value.abs()); // min (negative/bottom)
-      peaks.add(value.abs()); // max (positive/top)
-    }
+    var installed = false; // becomes true once the engine has the clip ready
+    var ticks = 0;
+    const maxTicks = 300; // ~15s safety cap at 50ms/tick
 
-    // Only update if we're still previewing this file
-    if (mounted && previewWaveformPath == filePath) {
+    previewLoadTimer = Timer.periodic(const Duration(milliseconds: 50), (
+      timer,
+    ) {
+      // Bail if we navigated away or the user started dragging a different file.
+      if (!mounted || previewWaveformPath != filePath) {
+        timer.cancel();
+        return;
+      }
+
+      // Phase 1: wait for the initial clip to become available.
+      if (!installed) {
+        if (!engine.previewIsLoaded()) {
+          if (++ticks > maxTicks) timer.cancel();
+          return;
+        }
+        installed = true;
+      }
+
+      // Phase 2: clip is installed. Fetch the waveform + duration on every tick
+      // so the ghost shows a waveform immediately and fills in as the file
+      // decodes — the engine recomputes streaming peaks until decode completes,
+      // so we don't have to wait for the (possibly slow) full decode to show
+      // anything. Keep polling until fully decoded for the final, full waveform.
+      final fullyDecoded = engine.previewIsFullyDecoded();
+      final duration = engine.previewGetDuration();
+      final rawPeaks = engine.previewGetWaveform(500); // low-res for preview
+      // WaveformPainter expects [min, max, min, max, ...]; mirror the
+      // single-value peaks into symmetric top/bottom pairs.
+      final peaks = <double>[];
+      for (final value in rawPeaks) {
+        peaks.add(-value.abs());
+        peaks.add(value.abs());
+      }
+
       setState(() {
         previewWaveformDuration = duration;
         previewWaveformPeaks = peaks;
+        // Push fresh data straight into the live ghost so it updates even while
+        // the cursor holds still (onMove coalesces no-op moves).
+        final p = previewClip;
+        if (p != null && p.filePath == filePath && !p.isMidi) {
+          previewClip = p.copyWith(duration: duration, waveformPeaks: peaks);
+        }
       });
-    }
+
+      if (fullyDecoded || ++ticks > maxTicks) timer.cancel();
+    });
   }
 
   /// Clear cached waveform preview data.
   void clearWaveformPreviewCache() {
+    previewLoadTimer?.cancel();
     previewWaveformPath = null;
     previewWaveformDuration = null;
     previewWaveformPeaks = null;
@@ -170,6 +236,16 @@ mixin TimelineFileHandlersMixin on State<TimelineView>, TimelineViewStateMixin {
         setState(() {
           previewMidiDuration = durationBeats;
           previewMidiNotes = result.notes;
+          // Push freshly-decoded notes into the live ghost directly (see the
+          // audio path above) so the preview fills in without a cursor nudge.
+          final p = previewClip;
+          if (p != null && p.filePath == filePath && p.isMidi) {
+            final durationSeconds = durationBeats / (widget.tempo / 60.0);
+            previewClip = p.copyWith(
+              duration: durationSeconds,
+              midiNotes: result.notes,
+            );
+          }
         });
       }
     } catch (e) {
