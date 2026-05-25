@@ -1,18 +1,20 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.2.4 (developing v0.3.0)
-**Working On:** v0.3.0 — Send/return via ⚡ FX picker + hidden master row
+**Current Version:** v0.3.0 (developing v0.3.x)
+**Working On:** v0.3.x — next theme from dogfood friction (ghost notes / clip polish candidates)
 **Goal:** v1.0 public release
 
 ---
 
-## What's Next (v0.3.0)
+## What's Next (v0.3.x)
 
-Spec: [plans/v0.3.0-plan.md](plans/v0.3.0-plan.md)
+Theme to be picked from the dogfood friction log ([dogfood/](dogfood/)) — candidates: ghost notes in the piano roll, clip polish, and the known beat-making gaps (stock drum kit / step sequencer, note quantize).
+
+Shipped in v0.3.0:
 
 - **Send/return:** ⚡ FX button on strips → insert or shared send; return section in mixer; engine DSP (realtime + export)
-- **Master row:** Hidden in arrangement by default; show when master automation exists or View → Show Master Row
-- Data model + project save/load exist; **renderer DSP and UI are the work**
+- **Master row:** Hidden in arrangement by default; shown when master automation exists or via View → Show Master Row
+- Spec archived: [archive/plans/v0.3.0-plan.md](archive/plans/v0.3.0-plan.md)
 
 ---
 
@@ -23,7 +25,7 @@ Spec: [plans/v0.3.0-plan.md](plans/v0.3.0-plan.md)
 | v0.2.2 | UI polish & piano roll | Complete |
 | v0.2.3 | Foundation & consolidation | Complete |
 | v0.2.4 | Finish the foundation | Complete |
-| v0.3.0 | Send/return routing (minimal) | Active |
+| v0.3.0 | Send/return routing (minimal) | Complete |
 | v0.3.x | Ghost notes, clip polish | Planned |
 
 ---
@@ -79,7 +81,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 - `timeline_view.dart` phase 1 split **done** (~1,200 lines); `daw_screen.dart` still ~4,200
 - Persistence **centralized** via `ProjectPersistence` (engine `project.json` + UI `ui_layout.json` split remains by design)
 - CI: macOS full pipeline (analyze, unit + integration tests, clippy) + Windows analyze/test/clippy (no VST3)
-- Pre-v0.3.0 scoped audit **done** — see [v0.3.0-plan.md](plans/v0.3.0-plan.md#pre-v0-3-scoped-audit-2026-05-22)
+- Pre-v0.3.0 scoped audit **done** — see [v0.3.0-plan.md](archive/plans/v0.3.0-plan.md#pre-v0-3-scoped-audit-2026-05-22)
 
 ---
 
