@@ -75,9 +75,12 @@ extension TransportDensityValues on TransportDensity {
   bool get showLabels {
     switch (this) {
       case TransportDensity.comfortable:
+        return true;
+      // Drop tool labels + compact the readouts (BPM suffix) as soon as the bar
+      // is tighter than comfortable, so it fits at fixed size by shedding labels
+      // rather than scaling or clipping.
       case TransportDensity.compact:
       case TransportDensity.tight:
-        return true;
       case TransportDensity.iconsOnly:
       case TransportDensity.compressed:
       case TransportDensity.minimum:
@@ -98,12 +101,30 @@ extension TransportDensityValues on TransportDensity {
         return 24.0;
     }
   }
+
+  /// Compact the LCD readouts ("120 BPM" → "120", Tap → narrow). One stage
+  /// later than [showLabels], so the tool names shed first.
+  bool get compactReadouts {
+    switch (this) {
+      case TransportDensity.comfortable:
+      case TransportDensity.compact:
+        return false;
+      case TransportDensity.tight:
+      case TransportDensity.iconsOnly:
+      case TransportDensity.compressed:
+      case TransportDensity.minimum:
+        return true;
+    }
+  }
 }
 
 /// Compute density from available width.
 /// Approximate preferred content width at comfortable = ~620px.
 TransportDensity _computeDensity(double availableWidth) {
-  const preferredWidth = 620.0;
+  // Width at/above which the full labelled layout fits comfortably; below this
+  // the bar sheds labels (never scales). A margin over the measured labelled
+  // content width so "comfortable" only triggers when labels genuinely fit.
+  const preferredWidth = 700.0;
   final overflow = preferredWidth - availableWidth;
 
   if (overflow <= 0) return TransportDensity.comfortable;
@@ -173,6 +194,11 @@ class TransportBar extends StatefulWidget {
   final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onTimeSignatureChanged;
 
+  /// Fired when the time-signature drag gesture starts/ends, so the parent can
+  /// coalesce the whole drag into a single undo step.
+  final VoidCallback? onTimeSignatureDragStart;
+  final VoidCallback? onTimeSignatureDragEnd;
+
   final bool isLoading;
 
   // Engine status (for status pill)
@@ -223,6 +249,8 @@ class TransportBar extends StatefulWidget {
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.onTimeSignatureChanged,
+    this.onTimeSignatureDragStart,
+    this.onTimeSignatureDragEnd,
     this.isLoading = false,
     this.isEngineReady = false,
     this.sampleRate,
@@ -598,6 +626,7 @@ class _TransportBarState extends State<TransportBar> {
         final cGap = density.clusterGap;
         final wGap = density.withinGap;
         final showLabels = density.showLabels;
+        final compactReadouts = density.compactReadouts;
         final btnSize = density.transportButtonSize;
 
         // Transport buttons are slightly larger (32px) for visual hierarchy
@@ -606,8 +635,11 @@ class _TransportBarState extends State<TransportBar> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: BT.sm),
           child: Row(
+            // Clusters grouped together and centered (small fixed gaps),
+            // instead of spread to the edges with Spacers.
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ── Well 1: Modifiers — LEFT-aligned ──
+              // ── Well 1: Modifiers ──
               _ClusterWell(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -632,6 +664,7 @@ class _TransportBarState extends State<TransportBar> {
                     MetronomeSplitButton(
                       isActive: widget.metronomeEnabled,
                       countInBars: widget.countInBars,
+                      showLabel: showLabels,
                       onToggle: widget.transport.onMetronomeToggle,
                       onCountInChanged: widget.onCountInChanged,
                     ),
@@ -640,9 +673,8 @@ class _TransportBarState extends State<TransportBar> {
               ),
 
               SizedBox(width: cGap),
-              const Spacer(),
 
-              // ── Well 2: Transport — CENTERED ──
+              // ── Well 2: Transport ──
               _ClusterWell(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -712,10 +744,11 @@ class _TransportBarState extends State<TransportBar> {
                 ),
               ),
 
-              const Spacer(),
               SizedBox(width: cGap),
 
-              // ── Well 3: Readouts — RIGHT-aligned ──
+              // ── Well 3: Readouts — RIGHT-aligned. Fixed size; the density
+              // ladder sheds labels (tools → icons, "BPM"/"Tap") before the bar
+              // would overflow — the readouts themselves never scale. ──
               _ClusterWell(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -730,18 +763,23 @@ class _TransportBarState extends State<TransportBar> {
                     TapTempoPill(
                       tempo: widget.tempo,
                       onTempoChanged: widget.onTempoChanged,
-                      mode: ButtonDisplayMode.wide,
+                      mode: compactReadouts
+                          ? ButtonDisplayMode.narrow
+                          : ButtonDisplayMode.wide,
                     ),
                     SizedBox(width: wGap),
                     TempoDisplay(
                       tempo: widget.tempo,
                       onTempoChanged: widget.onTempoChanged,
+                      compact: compactReadouts,
                     ),
                     SizedBox(width: wGap),
                     SignatureDropdown(
                       beatsPerBar: widget.beatsPerBar,
                       beatUnit: widget.beatUnit,
                       onChanged: widget.onTimeSignatureChanged,
+                      onDragStart: widget.onTimeSignatureDragStart,
+                      onDragEnd: widget.onTimeSignatureDragEnd,
                     ),
                   ],
                 ),
@@ -814,7 +852,7 @@ class _ClusterWell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: BT.sm, vertical: BT.xs),
+      padding: const EdgeInsets.symmetric(horizontal: BT.xs, vertical: BT.xs),
       child: child,
     );
   }

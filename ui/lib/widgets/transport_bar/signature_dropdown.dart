@@ -9,11 +9,18 @@ class SignatureDropdown extends StatefulWidget {
   final int beatUnit;
   final Function(int beatsPerBar, int beatUnit)? onChanged;
 
+  /// Fired when the drag-to-change gesture starts/ends, letting the parent
+  /// coalesce the whole drag into a single undo step.
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
+
   const SignatureDropdown({
     super.key,
     required this.beatsPerBar,
     required this.beatUnit,
     this.onChanged,
+    this.onDragStart,
+    this.onDragEnd,
   });
 
   @override
@@ -22,6 +29,17 @@ class SignatureDropdown extends StatefulWidget {
 
 class _SignatureDropdownState extends State<SignatureDropdown> {
   bool _isHovered = false;
+  bool _isDragging = false;
+  double _dragAccumulator = 0;
+
+  /// Step the numerator (beats per bar) by [delta], clamped to a sane range,
+  /// and commit. Keeps the current denominator (beat unit).
+  void _changeNumerator(int delta) {
+    final next = (widget.beatsPerBar + delta).clamp(2, 16);
+    if (next != widget.beatsPerBar) {
+      widget.onChanged?.call(next, widget.beatUnit);
+    }
+  }
 
   void _showSignatureMenu(BuildContext context) {
     final RenderBox button = context.findRenderObject() as RenderBox;
@@ -132,7 +150,7 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
     return Tooltip(
       message: 'Time Signature',
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+        cursor: SystemMouseCursors.resizeUpDown,
         onEnter: (_) {
           if (!_isHovered) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -149,6 +167,26 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
         },
         child: GestureDetector(
           onTap: () => _showSignatureMenu(context),
+          onVerticalDragStart: (_) {
+            widget.onDragStart?.call();
+            setState(() {
+              _isDragging = true;
+              _dragAccumulator = 0;
+            });
+          },
+          onVerticalDragUpdate: (details) {
+            _dragAccumulator += details.delta.dy;
+            const pxPerStep = 6.0;
+            if (_dragAccumulator.abs() >= pxPerStep) {
+              final steps = (_dragAccumulator / pxPerStep).truncate();
+              _dragAccumulator -= steps * pxPerStep;
+              _changeNumerator(-steps); // drag up = increase
+            }
+          },
+          onVerticalDragEnd: (_) {
+            widget.onDragEnd?.call();
+            setState(() => _isDragging = false);
+          },
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -162,7 +200,7 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
                   color: context.colors.darkest,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: _isHovered
+                    color: (_isHovered || _isDragging)
                         ? context.colors.accent
                         : context.colors.divider,
                     width: 1,

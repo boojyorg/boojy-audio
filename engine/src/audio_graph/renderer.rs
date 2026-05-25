@@ -342,6 +342,9 @@ impl AudioGraph {
         // per-callback allocations on the audio thread
         let mut snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(16);
         let mut return_snapshot_buf: Vec<TrackSnapshot> = Vec::with_capacity(4);
+        // Per-frame return-bus accumulator (one slot per return track). Hoisted here and
+        // reused across frames/callbacks so the audio thread never allocates in the hot path.
+        let mut return_accum: Vec<(f32, f32)> = Vec::with_capacity(4);
         let mut peak_buf: HashMap<TrackId, (f32, f32)> = HashMap::with_capacity(16);
 
         let stream = device.build_output_stream(
@@ -593,7 +596,9 @@ impl AudioGraph {
 
                     let mut mix_left = 0.0;
                     let mut mix_right = 0.0;
-                    let mut return_accum = vec![(0.0f32, 0.0f32); return_snapshot_buf.len()];
+                    // Reuse the hoisted buffer instead of allocating a Vec each frame.
+                    return_accum.clear();
+                    return_accum.resize(return_snapshot_buf.len(), (0.0, 0.0));
 
                     // Read input samples (needed for both recording and input monitoring)
                     let (input_left, input_right) = read_input_samples(&input_manager);
