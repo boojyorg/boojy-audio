@@ -1,6 +1,7 @@
 use crate::api;
-/// Simple C-compatible FFI layer for M0
-/// This will be replaced with `flutter_rust_bridge` in M1
+/// Hand-written C-compatible FFI layer (raw `dart:ffi` on the Dart side).
+/// This is the deliberate engine boundary — `flutter_rust_bridge` was considered
+/// and dropped. See `.claude/rules/ffi.md`. Don't reintroduce FRB casually.
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;

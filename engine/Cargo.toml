@@ -52,7 +52,6 @@ walkdir = "2.4"                  # Directory traversal for plugin scanning
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal = "0.15"                    # Cross-platform audio I/O
-flutter_rust_bridge = "2"        # Flutter-Rust bridge
 
 # MIDI I/O (desktop only - midir doesn't support iOS or WASM)
 [target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
