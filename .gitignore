@@ -30,8 +30,8 @@ Cargo.lock
 *.swo
 *~
 
-# Claude Code
-.claude/
+# Claude Code — track shared config/rules/hooks/skills; ignore local-only files
+.claude/settings.local.json
 
 # Generated FFI
 /ui/lib/bridge_generated.dart
