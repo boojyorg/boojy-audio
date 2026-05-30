@@ -36,7 +36,7 @@ All seven of your reported issues are real and root-caused. IDs map to the full 
 | # | What you saw | Root cause | Fix | Effort |
 |---|---|---|---|---|
 | **B1** | App says **v0.3.0** | `pubspec.yaml:19` is `0.3.0+1`; read via `PackageInfo`. Shipped build is v0.3.2. (Known version-sync gap — pubspec isn't on the checklist.) | Bump pubspec; add it to the Version Sync checklist | S |
-| **B2** | **Title left-aligned** ("Untitled - Boojy Audio") | `MainFlutterWindow.swift:27` sets `toolbarStyle = .unifiedCompact` — a comment *claims* it centers, but unified styles leading-align. | `.unifiedCompact` → `.expanded` (centers it, Logic-style) | S |
+| **B2** | **Title left-aligned** ("Untitled - Boojy Audio") | `MainFlutterWindow.swift:27` sets `toolbarStyle = .unifiedCompact` — a comment *claims* it centers, but unified styles leading-align. | Hide the native title + draw it centered in Flutter (`window_manager` `TitleBarStyle.hidden`, keep traffic lights). **`.expanded` was tried in v0.3.3 and reverted** — it adds an empty toolbar row (taller bar) and still left-aligns. | M |
 | **B3** | **Logo misaligned**, vanishes when narrow | `_buildLogo` composites a PNG + the literal word "Audi" (Poppins SVG) + a *detached* blue circle "o" via a `ClipRect`+`OverflowBox` float-math hack. The dot doesn't track the text width → misaligned; at narrow width the whole word snaps to 0. | Author **one** path-outlined `▲udio` SVG (triangle + "udi" + dot on a shared baseline) in a `Flexible`+clip; delete the hack | M |
 | **B4** | **Text too small on 1440p** | Every `TextStyle` hard-codes px; no `MediaQuery` text-scaler hook; chrome heights fixed. Token scale exists but is bypassed 323× | Lift the scale + add a `BT.scaled(context, size)` helper (text-scaler + ≥1440 width bump, capped ~1.25) | L |
 | **B5** | **Grey piano-roll keys** | Keyboard caps are three greys (`#808080`/`#555`/`#2A2A2A`); white-vs-black grid rows differ by only ~11 luminance points; root note never tinted | Bright off-white naturals / near-black sharps; single deep-indigo lane; **root-note band** | M |
@@ -202,7 +202,7 @@ The north star: **Logic's discipline × GarageBand's friendliness**, with space 
 **After** — position LCD is the centred hero; tempo/sig demoted to dim satellites inside it; title centred:
 ```
 ╓──────────────────────── window title (centred) ────────────────────╖
-║ ● ● ●                Untitled — Boojy Audio                         ║  <- .expanded centres title
+║ ● ● ●                Untitled — Boojy Audio                         ║  <- title centered (Flutter-drawn; native title hidden)
 ╠═════════════════════════════════════════════════════════════════════╣
 ║ ▲udio Untitled  ↶↷ [|]│ ◉ ◼ ●  ┌───────────────┐  [↻][▦][⏱]  [|'] ⊕ ✓║
 ║ ◄logo►◄project► ◄undo► transport│   12 . 3 . 1   │ ◄modifiers►  mixer+sts║

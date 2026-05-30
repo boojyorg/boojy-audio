@@ -10,8 +10,6 @@ All notable changes to Boojy Audio will be documented in this file.
   release and the in-app version label (About box, start screen, settings footer) reads it via
   `PackageInfo`. Bumped to v0.3.3 and added `ui/pubspec.yaml` to the Version Sync checklist so it
   stops drifting.
-- **The macOS window title was left-aligned.** The window used the `.unifiedCompact` toolbar style,
-  which leading-aligns the title; switched to `.expanded` so "<Project> — Boojy Audio" is centered.
 - **The "About" box was a placeholder** ("Audio / Version M6.2"). It now shows "Boojy Audio" and the
   real bundle version; the app-menu About/Quit items are named "Boojy Audio" too.
 - **The start screen's "Settings" button did nothing** — it closed the launcher and opened nothing.
