@@ -4,9 +4,25 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
-> **v0.3.2 — "plugins & the audio thread" (audio-thread safety net).** Hardening on the
-> realtime path, landed ahead of the VST3 per-buffer rewrite so the guards are already in
-> place when that lands. Continues the 2026-05-29 review backlog.
+> **v0.3.2 — "plugins & the audio thread."** The realtime cluster from the 2026-05-29 review:
+> VST3 plugins are now processed a whole buffer at a time instead of one sample at a time (the
+> single critical glitch), landed on top of a hardening safety net (NaN guard, denormal flush,
+> stereo/sample-rate validation, plugin-thread fixes) added first so the guards were already in
+> place underneath the rewrite.
+
+### Performance
+
+- **VST3 plugins glitched and underran the moment they did real work.** The engine drove the
+  whole effects path one sample at a time — for every plugin, on every sample, a separate
+  Rust↔C++ `process()` call that allocated buffers and took a lock (~48,000×/second per plugin).
+  The render loop (`renderer.rs` for playback, `offline.rs` for export) now processes each track
+  in sub-blocks: it fills a per-track scratch buffer, then runs the FX chain once per block via
+  `process_block`, so a plugin processes a whole buffer per call with sample-accurate MIDI
+  offsets. Built-in effects are unaffected (their per-buffer path is a `process_frame` loop, so
+  output is bit-identical — pinned by new equivalence tests); VST3 instruments (e.g. Serum) and
+  VST3 effects get the real win. Sub-blocks are capped at 512 frames to respect the plugin's
+  initialised max block size. (The transport-stopped monitoring path still processes per-sample;
+  that's a separate follow-up.)
 
 ### Bug Fixes
 
