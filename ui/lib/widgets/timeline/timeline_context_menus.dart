@@ -7,6 +7,7 @@ import '../../services/commands/clip_commands.dart';
 import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../context_menus/clip_context_menu.dart';
+import '../../utils/track_colors.dart';
 import 'timeline_state.dart';
 import 'timeline_selection.dart';
 import '../timeline_view.dart';
@@ -548,16 +549,8 @@ mixin TimelineContextMenusMixin
 
   /// Show color picker for a MIDI clip
   void showColorPicker(MidiClipData clip) {
-    final colors = [
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.teal,
-      Colors.pink,
-      Colors.amber,
-    ];
+    // Use the curated track palette (soft row) instead of raw Material colours.
+    final colors = TrackColors.manualPalette.take(8).toList();
 
     showDialog(
       context: context,

@@ -10,12 +10,14 @@ class VelocityLanePainter extends CustomPainter {
   final double totalBeats;
   final String? draggedNoteId;
   final String? hoveredNoteId;
+  final Color noteColor;
 
   VelocityLanePainter({
     required this.notes,
     required this.pixelsPerBeat,
     required this.laneHeight,
     required this.totalBeats,
+    required this.noteColor,
     this.draggedNoteId,
     this.hoveredNoteId,
   });
@@ -53,10 +55,11 @@ class VelocityLanePainter extends CustomPainter {
     // Color varies by velocity brightness (matching note_painter.dart)
     const circleRadius = 3.5;
 
-    // Base color for velocity calculation (same as notes)
-    const baseColor = Color(0xFF00BCD4);
-    final baseHsl = HSLColor.fromColor(baseColor);
-    final baseLightness = baseHsl.lightness; // ~0.42
+    // Base color for velocity: adopt the note's hue + saturation, but keep a
+    // fixed lightness midpoint so the velocity->brightness ramp stays monotonic
+    // regardless of how light the track colour is.
+    final baseHsl = HSLColor.fromColor(noteColor);
+    const baseLightness = 0.42;
 
     for (final note in notes) {
       final x = note.startTime * pixelsPerBeat;
@@ -131,6 +134,7 @@ class VelocityLanePainter extends CustomPainter {
         laneHeight != oldDelegate.laneHeight ||
         totalBeats != oldDelegate.totalBeats ||
         draggedNoteId != oldDelegate.draggedNoteId ||
-        hoveredNoteId != oldDelegate.hoveredNoteId;
+        hoveredNoteId != oldDelegate.hoveredNoteId ||
+        noteColor != oldDelegate.noteColor;
   }
 }

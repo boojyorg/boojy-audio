@@ -3057,6 +3057,11 @@ class _DAWScreenState extends State<DAWScreen>
         if (result.projectPath != null) {
           openRecentProject(result.projectPath!);
         }
+      case StartScreenAction.openSettings:
+        await _appSettings();
+        // Return to the launcher after settings closes so the user can still
+        // pick New / Open / a recent project.
+        if (mounted) await _showStartScreen();
       case StartScreenAction.dismissed:
         break;
     }
