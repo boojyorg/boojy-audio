@@ -39,7 +39,9 @@ class LoopBarPainter extends CustomPainter {
         text: const TextSpan(
           text: 'Drag to create loop',
           style: TextStyle(
-            color: Color(0xFF4A4D5A), // BG.hover
+            color: Color(
+              0xFF646880,
+            ), // TEXT.muted — readable hint (was 0xFF4A4D5A, ~2.5:1)
             fontSize: 10,
           ),
         ),

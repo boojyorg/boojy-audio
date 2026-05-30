@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/undo_redo_manager.dart';
 import '../../services/updater_service.dart';
 import '../../state/ui_layout_state.dart';
@@ -110,14 +111,16 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
       label: 'Audio',
       menus: [
         PlatformMenuItem(
-          label: 'About Audio',
-          onSelected: () {
+          label: 'About Boojy Audio',
+          onSelected: () async {
+            final info = await PackageInfo.fromPlatform();
+            if (!context.mounted) return;
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('About Audio'),
-                content: const Text(
-                  'Audio\nVersion M6.2\n\nA modern, cross-platform DAW',
+                title: const Text('About Boojy Audio'),
+                content: Text(
+                  'Boojy Audio\nv${info.version}\n\nA modern, cross-platform DAW',
                 ),
                 actions: [
                   TextButton(
@@ -146,7 +149,7 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
             type: PlatformProvidedMenuItemType.showAllApplications,
           ),
         const PlatformMenuItem(
-          label: 'Quit Audio',
+          label: 'Quit Boojy Audio',
           shortcut: SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
           onSelected: _exitApp,
         ),

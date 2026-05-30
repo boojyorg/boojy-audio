@@ -1144,6 +1144,10 @@ class _PianoRollState extends State<PianoRoll>
                             pixelsPerBeat: pixelsPerBeat,
                             laneHeight: effectiveHeight,
                             totalBeats: totalBeats,
+                            noteColor:
+                                widget.trackColor ??
+                                currentClip?.color ??
+                                context.colors.accent,
                             draggedNoteId: velocityDraggedNoteId,
                             hoveredNoteId: velocityHoveredNoteId,
                           ),

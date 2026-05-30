@@ -111,12 +111,14 @@ All markdown files must stay in sync with the current development version.
 3. `README.md` — update version reference
 4. Move completed plan from `docs/plans/` → `docs/archive/plans/`
 5. Update `docs/FEATURE_TRACKER.md` — check off newly completed features
+6. `ui/pubspec.yaml` — bump `version:` to the new `X.Y.Z+build` (the in-app version label reads this via `PackageInfo`)
 
 **Files that reference the version (keep in sync):**
 - `README.md` — project status line
 - `docs/ROADMAP.md` — "Current Version" and "Working On" header lines
 - `CHANGELOG.md` — release section headers
 - `docs/FEATURE_TRACKER.md` — checked/unchecked items
+- `ui/pubspec.yaml` — `version:` line; drives the in-app version label (About box, start screen, settings) via `PackageInfo` — bump on every release, it is easy to forget
 
 ## Linting & Formatting
 

@@ -19,7 +19,13 @@ class StartScreenResult {
   const StartScreenResult(this.action, [this.projectPath]);
 }
 
-enum StartScreenAction { newProject, openProject, openRecent, dismissed }
+enum StartScreenAction {
+  newProject,
+  openProject,
+  openRecent,
+  openSettings,
+  dismissed,
+}
 
 /// Modal overlay start screen shown on app launch and via File menu.
 /// Two-column layout: left (branding + action buttons), right (recent projects grid).
@@ -210,10 +216,9 @@ class _StartScreenModalState extends State<StartScreenModal> {
         _ActionButton(
           icon: BI.settings,
           label: 'Settings',
-          onTap: () {
-            // Close modal first, then settings will be opened by DAW
-            Navigator.of(context).pop();
-          },
+          onTap: () => Navigator.of(
+            context,
+          ).pop(const StartScreenResult(StartScreenAction.openSettings)),
         ),
       ],
     );

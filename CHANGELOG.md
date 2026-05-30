@@ -4,6 +4,26 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **The app reported the wrong version (v0.3.0).** `pubspec.yaml` had drifted behind the shipped
+  release and the in-app version label (About box, start screen, settings footer) reads it via
+  `PackageInfo`. Bumped to v0.3.3 and added `ui/pubspec.yaml` to the Version Sync checklist so it
+  stops drifting.
+- **The "About" box was a placeholder** ("Audio / Version M6.2"). It now shows "Boojy Audio" and the
+  real bundle version; the app-menu About/Quit items are named "Boojy Audio" too.
+- **The start screen's "Settings" button did nothing** — it closed the launcher and opened nothing.
+  It now opens settings and returns to the launcher afterwards.
+- **The piano-roll zoom-out button showed an "X" (close) icon** instead of a minus.
+- **Tempo could be scrolled or dragged up to 999 BPM** while the type-in dialog and tooltip capped
+  it at 300. All tempo inputs now clamp to 20–300 BPM consistently.
+- **Velocity-lane bars were always cyan**, ignoring the track colour. They now take the track/clip
+  colour (brightening with velocity), matching the notes in the roll.
+- **The MIDI clip colour picker used raw Material swatches** unrelated to the app's palette. It now
+  uses the curated Boojy track colours.
+- **The "Drag to create loop" hint was nearly invisible** (~2.5:1 contrast); raised to a readable
+  muted tone.
+
 ## v0.3.2 — 2026-05-30
 
 > **v0.3.2 — "plugins & the audio thread."** The realtime cluster from the 2026-05-29 review:
