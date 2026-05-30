@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.3.2 — 2026-05-30
+
 > **v0.3.2 — "plugins & the audio thread."** The realtime cluster from the 2026-05-29 review:
 > VST3 plugins are now processed a whole buffer at a time instead of one sample at a time (the
 > single critical glitch), landed on top of a hardening safety net (NaN guard, denormal flush,
@@ -76,6 +78,8 @@ All notable changes to Boojy Audio will be documented in this file.
   `midi_clip_gestures.dart` (kept only `adjustNotesForTrim`, which the overlap handler uses). No
   behaviour change — `flutter analyze --fatal-infos` and the full test suite stay green.
 
+## v0.3.1 — 2026-05-30
+
 > **v0.3.1 — trust/correctness hardening ("don't lose my work").** A cluster of *silent*
 > data-loss and undo-corruption bugs found in the 2026-05-29 whole-app review. None threw an
 > error — they quietly betrayed edits on paths a dogfooding musician hits every session.
@@ -111,8 +115,7 @@ All notable changes to Boojy Audio will be documented in this file.
 - **A multi-clip drag took one undo step per clip.** Dragging several selected clips created N
   separate undo entries, so one Ctrl+Z reverted only one clip. The per-clip move commands are now
   wrapped in a single `CompositeCommand` (both the audio and MIDI drag handlers). *(Making the
-  destructive overlap-resolution on a move undoable is deferred to the next cycle — see the
-  review backlog #9 / bug H-11.)*
+  destructive overlap-resolution on a move undoable followed in v0.3.2 — see H-11 above.)*
 
 ### Improvements
 
