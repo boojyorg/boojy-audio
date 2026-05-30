@@ -243,10 +243,18 @@ pub fn vst3_get_editor_size(effect_id: u64) -> Result<String, String> {
 }
 
 #[cfg(not(target_os = "ios"))]
-/// Attach VST3 editor to a parent window
+/// Attach VST3 editor to a parent window.
 ///
-/// IMPORTANT: This function releases all locks before calling `attach_editor`
-/// to avoid deadlocks - plugins may call back into our code during `attached()`.
+/// Thread-safety: we take a cheap `Clone` of the `VST3Effect` (which shares the
+/// same underlying per-plugin `Arc<Mutex<VST3Plugin>>`), then **drop the graph
+/// and effect-manager locks** before attaching — the plugin may call back into
+/// our host during `attached()`, and those callbacks must be free to take the
+/// graph locks. The attach itself goes through the *locked* `attach_editor`,
+/// which acquires the same per-plugin mutex the audio thread's `process_block`
+/// holds. That serialization is the fix for the prior data race: the old path
+/// extracted a raw handle and attached lock-free, so editor-open could mutate
+/// `editor_view`/`plug_frame`/`parent_window` while the audio thread was calling
+/// `process()` on the same instance (crash on editor-open during playback).
 pub fn vst3_attach_editor(
     effect_id: u64,
     parent_ptr: *mut std::os::raw::c_void,
@@ -256,44 +264,30 @@ pub fn vst3_attach_editor(
 
     eprintln!("🔧 [API] vst3_attach_editor: effect_id={effect_id}, parent_ptr={parent_ptr:?}");
 
-    // Get the VST3 plugin handle while holding locks, then release locks before attach
-    let handle: *mut std::os::raw::c_void;
-
-    {
+    // Snapshot a shared-Arc clone of the effect, then release all manager locks.
+    let vst3_effect: VST3Effect = {
         let graph_mutex = get_audio_graph()?;
-        eprintln!("🔧 [API] Got audio graph mutex");
-
         let graph = graph_mutex.lock();
-        eprintln!("🔧 [API] Locked audio graph");
-
         let effect_manager = graph.effect_manager.lock();
-        eprintln!("🔧 [API] Locked effect manager, looking for effect {effect_id}");
 
         if let Some(effect_arc) = effect_manager.get_effect(effect_id) {
-            eprintln!("🔧 [API] Found effect, acquiring lock");
             let effect = effect_arc.lock();
-            eprintln!("🔧 [API] Locked effect, checking type");
-
             if let EffectType::VST3(vst3) = &*effect {
-                // Get the raw handle - we'll call attach_editor outside the lock
-                handle = vst3.get_handle();
-                eprintln!("🔧 [API] Got VST3 handle: {handle:?}");
+                vst3.clone()
             } else {
                 return Err(format!("Effect {effect_id} is not a VST3 plugin"));
             }
         } else {
             return Err(format!("Effect {effect_id} not found"));
         }
-        // All locks are released here when scope ends
-    }
+        // graph / effect_manager / effect locks all released here.
+    };
 
-    eprintln!("🔧 [API] Locks released, calling attach_editor without locks held");
+    eprintln!("🔧 [API] Manager locks released; attaching via locked per-plugin path");
 
-    // Call attach_editor without holding any locks
-    // This is safe because:
-    // 1. The handle is valid as long as the plugin is loaded
-    // 2. Plugins may call back during attached() and need to acquire locks
-    VST3Effect::attach_editor_raw(handle, parent_ptr)?;
+    // Locks only the shared per-plugin mutex (same one process_block holds), so
+    // the attach can no longer race concurrent audio processing of this plugin.
+    vst3_effect.attach_editor(parent_ptr)?;
 
     eprintln!("🔧 [API] attach_editor returned successfully");
     Ok(String::new()) // Empty string indicates success
