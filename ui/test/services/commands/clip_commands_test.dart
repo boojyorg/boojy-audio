@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
 import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
+import 'package:boojy_audio/utils/clip_overlap_handler.dart';
 import '../../mocks/mock_audio_engine.dart';
 
 void main() {
@@ -528,6 +529,238 @@ void main() {
 
       expect(mockEngine.removedClipIds.first, 42);
       expect(mockEngine.removedClipIds.last, isNot(42));
+    });
+  });
+
+  // H-11: dragging a clip over a neighbour must be fully undoable — both the
+  // moved clip and the overwritten neighbour return on one Ctrl+Z. These tests
+  // drive the command layer against a simulated UI clip list (the timeline's
+  // stateful `clips`) + the mock engine, covering execute / undo / redo.
+  group('H-11 audio move + overlap undo', () {
+    // A stand-in for the timeline's stateful `clips` list.
+    late List<ClipData> ui;
+
+    ClipData clip(int id, double start, double dur, {double offset = 0.0}) =>
+        ClipData(
+          clipId: id,
+          trackId: 1,
+          filePath: 'a.wav',
+          startTime: start,
+          duration: dur,
+          offset: offset,
+        );
+
+    // UI callbacks that mutate `ui` the way the gesture handler wires them.
+    void uiRemove(int id) => ui.removeWhere((c) => c.clipId == id);
+    void uiUpdate(ClipData c) {
+      final i = ui.indexWhere((e) => e.clipId == c.clipId);
+      if (i >= 0) {
+        ui[i] = c;
+      } else {
+        ui.add(c);
+      }
+    }
+
+    void uiAdd(ClipData c) => ui.add(c);
+
+    setUp(() {
+      ui = [];
+    });
+
+    test('simple move: undo and redo move the clip in the UI list', () async {
+      ui = [clip(1, 5.0, 4.0)];
+      final cmd = MoveAudioClipCommand(
+        trackId: 1,
+        clipId: 1,
+        clipName: 'a',
+        oldStartTime: 5.0,
+        newStartTime: 9.0,
+        onClipMoved: (id, start) {
+          final i = ui.indexWhere((c) => c.clipId == id);
+          if (i >= 0) ui[i] = ui[i].copyWith(startTime: start);
+        },
+      );
+
+      await cmd.execute(mockEngine);
+      expect(ui.single.startTime, 9.0); // moved in the UI, not just the engine
+
+      await cmd.undo(mockEngine);
+      expect(ui.single.startTime, 5.0); // ← the bug: previously stayed at 9.0
+
+      await cmd.execute(mockEngine);
+      expect(ui.single.startTime, 9.0);
+    });
+
+    test('complete-cover removal is restored on undo (redo-safe)', () async {
+      final neighbour = clip(200, 0.0, 4.0);
+      ui = [neighbour];
+      final result = AudioOverlapResult(removals: [neighbour]);
+      final cmd = ResolveAudioOverlapCommand(
+        result: result,
+        uiRemoveClip: uiRemove,
+        uiUpdateClip: uiUpdate,
+        uiAddClip: uiAdd,
+      );
+
+      await cmd.execute(mockEngine);
+      expect(ui, isEmpty); // neighbour deleted
+      expect(mockEngine.removedClipIds, [200]);
+
+      await cmd.undo(mockEngine);
+      expect(ui.length, 1); // neighbour restored
+      final restoredId = ui.single.clipId;
+      expect(restoredId, isNot(200)); // engine assigned a fresh id on reload
+      expect(ui.single.startTime, 0.0);
+
+      // Redo must remove the *reloaded* id, not the stale 200.
+      await cmd.execute(mockEngine);
+      expect(ui, isEmpty);
+      expect(mockEngine.removedClipIds.last, restoredId);
+    });
+
+    test(
+      'trim (update) is restored on undo with full offset/duration',
+      () async {
+        final original = clip(200, 0.0, 4.0, offset: 0.0);
+        final trimmed = original.copyWith(duration: 2.0); // end-trimmed
+        ui = [original];
+        final result = AudioOverlapResult(
+          updates: [AudioClipUpdate(original: original, updated: trimmed)],
+        );
+        final cmd = ResolveAudioOverlapCommand(
+          result: result,
+          uiRemoveClip: uiRemove,
+          uiUpdateClip: uiUpdate,
+          uiAddClip: uiAdd,
+        );
+
+        await cmd.execute(mockEngine);
+        expect(ui.single.duration, 2.0);
+
+        await cmd.undo(mockEngine);
+        expect(ui.single.duration, 4.0); // restored
+        expect(ui.single.offset, 0.0);
+        expect(ui.single.clipId, 200); // trims keep the id (resized in place)
+      },
+    );
+
+    test('split is restored on undo and re-applied on redo', () async {
+      // Drop a clip inside a 6s neighbour → split into partA (0..2) + partB (4..6).
+      final original = clip(200, 0.0, 6.0);
+      final partA = original.copyWith(duration: 2.0);
+      final partBTemplate = original.copyWith(
+        clipId: -1,
+        startTime: 4.0,
+        duration: 2.0,
+        offset: 4.0,
+      );
+      ui = [original];
+      final result = AudioOverlapResult(
+        splits: [
+          AudioSplitOperation(
+            original: original,
+            partA: partA,
+            partBTemplate: partBTemplate,
+          ),
+        ],
+      );
+      final cmd = ResolveAudioOverlapCommand(
+        result: result,
+        uiRemoveClip: uiRemove,
+        uiUpdateClip: uiUpdate,
+        uiAddClip: uiAdd,
+      );
+
+      await cmd.execute(mockEngine);
+      expect(ui.length, 2); // partA (original trimmed) + partB (new)
+      expect(ui.firstWhere((c) => c.clipId == 200).duration, 2.0); // partA
+      final partB = ui.firstWhere((c) => c.clipId != 200);
+      expect(partB.startTime, 4.0);
+      expect(partB.duration, 2.0);
+
+      await cmd.undo(mockEngine);
+      expect(ui.length, 1); // back to the single original
+      expect(ui.single.clipId, 200);
+      expect(ui.single.duration, 6.0);
+
+      await cmd.execute(mockEngine);
+      expect(ui.length, 2); // re-split cleanly
+    });
+  });
+
+  group('H-11 MIDI move + overlap undo', () {
+    late List<MidiClipData> ui;
+
+    MidiClipData mclip(int id, double start, double dur) => MidiClipData(
+      clipId: id,
+      trackId: 2,
+      startTime: start,
+      duration: dur,
+      name: 'm$id',
+      notes: const [],
+    );
+
+    ResolveMidiOverlapCommand build(MidiOverlapResult result) =>
+        ResolveMidiOverlapCommand(
+          result: result,
+          tempo: 120.0,
+          deleteClip: (id, _) => ui.removeWhere((c) => c.clipId == id),
+          addClip: (c) {
+            ui.removeWhere(
+              (e) => e.clipId == c.clipId,
+            ); // upsert, like the manager
+            ui.add(c);
+          },
+          updateClipInPlace: (c) {
+            final i = ui.indexWhere((e) => e.clipId == c.clipId);
+            if (i >= 0) ui[i] = c;
+          },
+          rescheduleClip: (_, __) {},
+        );
+
+    setUp(() {
+      ui = [];
+    });
+
+    test('complete-cover removal is restored on undo', () async {
+      final neighbour = mclip(200, 0.0, 4.0);
+      ui = [neighbour];
+      final cmd = build(MidiOverlapResult(removals: [neighbour]));
+
+      await cmd.execute(mockEngine);
+      expect(ui, isEmpty);
+
+      await cmd.undo(mockEngine);
+      expect(ui.single.clipId, 200);
+      expect(ui.single.duration, 4.0);
+    });
+
+    test('split is restored on undo and re-applied on redo', () async {
+      final original = mclip(200, 0.0, 6.0);
+      final partA = original.copyWith(clipId: 201, duration: 2.0);
+      final partB = original.copyWith(
+        clipId: 202,
+        startTime: 4.0,
+        duration: 2.0,
+      );
+      ui = [original];
+      final cmd = build(
+        MidiOverlapResult(
+          splits: [
+            MidiSplitOperation(original: original, partA: partA, partB: partB),
+          ],
+        ),
+      );
+
+      await cmd.execute(mockEngine);
+      expect(ui.map((c) => c.clipId).toSet(), {201, 202}); // split parts only
+
+      await cmd.undo(mockEngine);
+      expect(ui.single.clipId, 200); // original restored
+      expect(ui.single.duration, 6.0);
+
+      await cmd.execute(mockEngine);
+      expect(ui.map((c) => c.clipId).toSet(), {201, 202}); // re-split cleanly
     });
   });
 }

@@ -42,6 +42,15 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Floating plugin windows didn't hide when switching tracks (M-3).** The per-track
   show/hide of floating editor windows only ran on some selection paths. It now runs on every
   track selection, so only the selected track's plugin windows are visible.
+- **Dragging a clip over a neighbour destroyed it un-undoably, and undo didn't move audio
+  clips back (H-11).** Two entangled bugs: the audio move command updated the engine but not
+  the on-screen clip list, so Ctrl+Z left the clip stuck at the moved spot; and the overlap
+  resolution that trims/removes/splits the overwritten neighbour was applied outside the undo
+  system entirely. Both audio and MIDI clip moves now compose the overlap destruction into the
+  same undo step as the move, so a single Ctrl+Z restores **both** the moved clip and the
+  overwritten neighbour (and redo re-applies it). Audio clip deletion also now restores the
+  engine's offset/duration on undo, so re-overlapping an already-trimmed clip round-trips
+  exactly.
 
 > **v0.3.1 — trust/correctness hardening ("don't lose my work").** A cluster of *silent*
 > data-loss and undo-corruption bugs found in the 2026-05-29 whole-app review. None threw an
