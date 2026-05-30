@@ -28,21 +28,20 @@ const _accentTokens = [
   ('accent_hover', 'Accent Hover'),
 ];
 
-// Palette ramp A/B presets. The default ("Graphite") lives in
-// app_colors.dart `_darkBackgrounds`; the "Current"/Graphite chip just clears
-// overrides. These are the cooler alternatives to flip between live.
+// Palette ramp A/B presets. The default ("Gunmetal") lives in
+// app_colors.dart `_darkBackgrounds`; the "Gunmetal"/Current chip just clears
+// overrides. These are alternative ramps to flip between live.
 
-/// Preset: Gunmetal — a touch cooler than Graphite (≈ channel midpoint of
-/// Graphite and Slate): near-neutral grey with a faint blue undertone.
-const Map<String, Color> _gunmetalPreset = {
-  'editor': Color(0xFF0C0E11),
-  'darkest': Color(0xFF131418),
-  'dark': Color(0xFF1B1D22),
-  'standard': Color(0xFF202329),
-  'elevated': Color(0xFF26292F),
-  'surface': Color(0xFF2F3239),
-  'divider': Color(0xFF3A3E46),
-  'hover': Color(0xFF464952),
+/// Preset: Graphite — flat near-neutral dark grey (no blue undertone).
+const Map<String, Color> _graphitePreset = {
+  'editor': Color(0xFF0C0D0F),
+  'darkest': Color(0xFF131417),
+  'dark': Color(0xFF1B1C1F),
+  'standard': Color(0xFF202226),
+  'elevated': Color(0xFF25272B),
+  'surface': Color(0xFF2E3035),
+  'divider': Color(0xFF3A3C42),
+  'hover': Color(0xFF45474E),
 };
 
 /// Preset: Slate — subtle cool blue-grey, between Graphite and Indigo.
@@ -129,8 +128,8 @@ class _PaletteEditorState extends State<PaletteEditor> {
       case 'current':
         provider.clearOverrides();
         break;
-      case 'gunmetal':
-        provider.applyPreset(_gunmetalPreset);
+      case 'graphite':
+        provider.applyPreset(_graphitePreset);
         break;
       case 'slate':
         provider.applyPreset(_slatePreset);
@@ -252,8 +251,8 @@ class _PaletteEditorState extends State<PaletteEditor> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _presetChip('Graphite', 'current', provider, colors),
-          _presetChip('Gunmetal', 'gunmetal', provider, colors),
+          _presetChip('Gunmetal', 'current', provider, colors),
+          _presetChip('Graphite', 'graphite', provider, colors),
           _presetChip('Slate', 'slate', provider, colors),
           _presetChip('Indigo', 'indigo', provider, colors),
         ],

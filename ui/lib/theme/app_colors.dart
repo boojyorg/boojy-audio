@@ -220,21 +220,21 @@ class BoojyColors {
   // ============================================
 
   // --- DARK THEME (Boojy Design System) ---
-  // "Graphite" ramp (v0.4.0 default): one near-neutral dark-grey family,
-  // monotonic in lightness, with only a whisper of cool — so chrome (`dark`)
-  // matches the content area instead of the old warm charcoal #2C2C32, without
-  // the navy cast of the earlier indigo ramp. Cooler alternatives (Slate,
+  // "Gunmetal" ramp (v0.4.0 default): one near-neutral dark-grey family with a
+  // faint cool undertone — chrome (`dark`) matches the content area instead of
+  // the old warm charcoal #2C2C32, a touch cooler than flat Graphite but
+  // without the navy cast of the Indigo ramp. Alternatives (Graphite, Slate,
   // Indigo) live as dev-tool presets — toggle the live palette editor with
   // Cmd+Shift+P to A/B them.
   static const Map<String, Color> _darkBackgrounds = {
-    'editor': Color(0xFF0C0D0F), // BG.editor — content area, star field
-    'darkest': Color(0xFF131417), // BG.darkest — text inputs
-    'dark': Color(0xFF1B1C1F), // BG.dark — chrome (sidebar, top bar)
-    'standard': Color(0xFF202226), // BG.standard — forms, secondary surfaces
-    'elevated': Color(0xFF25272B), // BG.elevated — floating UI
-    'surface': Color(0xFF2E3035), // BG.surface — hover, cards
-    'divider': Color(0xFF3A3C42), // BG.divider — borders
-    'hover': Color(0xFF45474E), // BG.hover — hover states
+    'editor': Color(0xFF0C0E11), // BG.editor — content area, star field
+    'darkest': Color(0xFF131418), // BG.darkest — text inputs
+    'dark': Color(0xFF1B1D22), // BG.dark — chrome (sidebar, top bar)
+    'standard': Color(0xFF202329), // BG.standard — forms, secondary surfaces
+    'elevated': Color(0xFF26292F), // BG.elevated — floating UI
+    'surface': Color(0xFF2F3239), // BG.surface — hover, cards
+    'divider': Color(0xFF3A3E46), // BG.divider — borders
+    'hover': Color(0xFF464952), // BG.hover — hover states
   };
 
   static const Map<String, Color> _darkText = {

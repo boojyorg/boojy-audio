@@ -20,9 +20,10 @@ All notable changes to Boojy Audio will be documented in this file.
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
 - **Unified dark palette.** The top bar and sidebar were a warm charcoal sitting on a cool
-  blue-black content area; the whole dark theme is retuned to one near-neutral **"graphite"**
-  dark-grey ramp so chrome and content belong together. The accent blue is unchanged. (Cooler
-  "Slate" and "Indigo" ramps are available to A/B live via the Cmd+Shift+P palette dev tool.)
+  blue-black content area; the whole dark theme is retuned to one near-neutral **"gunmetal"**
+  dark-grey ramp (a faint cool undertone) so chrome and content belong together. The accent blue is
+  unchanged. (Graphite / Slate / Indigo ramps are available to A/B live via the Cmd+Shift+P palette
+  dev tool.)
 - **Deeper, cooler shadows** on menus, tooltips and floating surfaces (new elevation tokens).
 
 ### Bug Fixes
