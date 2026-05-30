@@ -815,6 +815,12 @@ class _PianoRollState extends State<PianoRoll>
                       child: MouseRegion(
                         cursor: currentCursor,
                         onHover: _onHover,
+                        onExit: (_) {
+                          // Clear the active lane when the pointer leaves the grid.
+                          if (activeRow != null) {
+                            setState(() => activeRow = null);
+                          }
+                        },
                         child: GestureDetector(
                           behavior: HitTestBehavior.translucent,
                           onTapDown: widget.isRecording ? null : _onTapDown,
@@ -849,7 +855,10 @@ class _PianoRollState extends State<PianoRoll>
                                     loopEnd: loopStartBeats + getLoopLength(),
                                     beatsPerBar: beatsPerBar,
                                     tripletEnabled: snapTripletEnabled,
-                                    blackKeyBackground: const Color(0xFF1E2030),
+                                    // Darker, neutral black-key rows widen the
+                                    // white/black gap so the grid reads as a
+                                    // keyboard (was #1E2030, ~7 luminance gap).
+                                    blackKeyBackground: const Color(0xFF15171C),
                                     whiteKeyBackground: context.colors.elevated,
                                     separatorLine: context.colors.elevated,
                                     subdivisionGridLine: context.colors.surface,
@@ -864,6 +873,16 @@ class _PianoRollState extends State<PianoRoll>
                                     foldedPitches: foldViewEnabled
                                         ? foldedPitches
                                         : null,
+                                    // Active lane (cursor row) + faint root band.
+                                    // Accent stays low-opacity so the cyan notes
+                                    // on top keep their contrast.
+                                    activeRow: activeRow,
+                                    activeLaneColor: context.colors.accent
+                                        .withValues(alpha: 0.12),
+                                    activeEdgeColor: context.colors.accent
+                                        .withValues(alpha: 0.85),
+                                    rootBandColor: context.colors.accent
+                                        .withValues(alpha: 0.07),
                                   ),
                                 ),
                                 CustomPaint(
@@ -1503,13 +1522,20 @@ class _PianoRollState extends State<PianoRoll>
 
   // Handle hover for cursor feedback (smart context-aware cursors)
   void _onHover(PointerHoverEvent event) {
+    final position = event.localPosition;
+
+    // Track the pitch row under the cursor for the active-lane highlight.
+    final hoveredRow = getNoteAtY(position.dy);
+    if (hoveredRow != activeRow) {
+      setState(() => activeRow = hoveredRow);
+    }
+
     // Don't update cursor during active drag operations
     if (currentMode == InteractionMode.move ||
         currentMode == InteractionMode.resize) {
       return;
     }
 
-    final position = event.localPosition;
     final hoveredNote = _findNoteAtPosition(position);
     final modifiers = ModifierKeyState.current();
     final toolMode = effectiveToolMode;

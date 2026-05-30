@@ -16,6 +16,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Piano-roll lanes read like a keyboard (phase 2).** The grid's white- vs black-key rows were
+  nearly the same grey; black-key rows are now noticeably darker for a clear keyboard read. The root
+  note (the tonic — C by default, or whatever the scale picker is set to) gets a faint accent-blue
+  **root band** so "home" is glanceable, and the pitch row under your cursor lights up as an
+  **active lane** with an accent edge — so the piano roll now shows which note you're about to draw.
+  The accent stays low-opacity so the notes keep their contrast on top.
+- **Transport readout remembers Bars / Time / Both (phase 2).** Clicking the position readout now
+  cycles through three modes — bars (`1.1.1`), time (`0:00.000`), and a stacked **Both** (bars over a
+  smaller min:sec line, Logic-style) — instead of silently toggling bars↔time. The choice persists
+  across launches.
+- **Pinned "you are here" bar on the arrangement ruler (phase 2).** Scroll the timeline away from
+  the start and a small chip pins to the left of the ruler showing the bar at the left edge, so you
+  always know where in the song you're looking. It stays hidden until you've scrolled past bar 1.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
