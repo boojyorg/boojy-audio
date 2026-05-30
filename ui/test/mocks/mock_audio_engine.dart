@@ -11,7 +11,18 @@ class MockAudioEngine implements AudioEngineInterface {
   int nextTrackId = 1;
   int nextEffectId = 1;
   int nextClipId = 1;
+  int nextReturnId = 1;
   String trackInfoResponse = '';
+
+  /// Captured arguments for remove operations, in call order. These let redo
+  /// tests assert that after undo→redo a Remove command targets the *recreated*
+  /// engine id rather than the stale original id.
+  final List<int> removedEffectIds = [];
+  final List<int> removedReturnIds = [];
+  final List<int> removedClipIds = [];
+
+  /// The effect-chain order passed to the most recent reorderTrackEffects call.
+  List<int>? lastReorder;
 
   void _record(String method) => calls.add(method);
 
@@ -21,7 +32,12 @@ class MockAudioEngine implements AudioEngineInterface {
     nextTrackId = 1;
     nextEffectId = 1;
     nextClipId = 1;
+    nextReturnId = 1;
     trackInfoResponse = '';
+    removedEffectIds.clear();
+    removedReturnIds.clear();
+    removedClipIds.clear();
+    lastReorder = null;
   }
 
   // --- Clip operations ---
@@ -98,6 +114,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   bool removeAudioClip(int trackId, int clipId) {
     _record('removeAudioClip');
+    removedClipIds.add(clipId);
     return true;
   }
 
@@ -188,6 +205,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String removeEffectFromTrack(int trackId, int effectId) {
     _record('removeEffectFromTrack');
+    removedEffectIds.add(effectId);
     return 'OK';
   }
 
@@ -204,8 +222,10 @@ class MockAudioEngine implements AudioEngineInterface {
       _record('setSynthBypass');
 
   @override
-  void reorderTrackEffects(int trackId, List<int> order) =>
-      _record('reorderTrackEffects');
+  void reorderTrackEffects(int trackId, List<int> order) {
+    _record('reorderTrackEffects');
+    lastReorder = List<int>.from(order);
+  }
 
   @override
   bool setVst3ParameterValue(int effectId, int paramIndex, double value) {
@@ -427,7 +447,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   int createReturnWithEffect(String effectType, {String? name}) {
     _record('createReturnWithEffect');
-    return 1;
+    return nextReturnId++;
   }
 
   @override
@@ -457,6 +477,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String removeReturn(int returnTrackId) {
     _record('removeReturn');
+    removedReturnIds.add(returnTrackId);
     return 'OK';
   }
 

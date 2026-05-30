@@ -377,13 +377,12 @@ impl AudioGraph {
                 master_left *= master_snap.volume_gain;
                 master_right *= master_snap.volume_gain;
 
-                // Apply master pan
-                let temp_l =
-                    master_left * master_snap.pan_left + master_right * master_snap.pan_left;
-                let temp_r =
-                    master_left * master_snap.pan_right + master_right * master_snap.pan_right;
-                master_left = temp_l;
-                master_right = temp_r;
+                // Apply master pan — independent per-channel gain, matching the realtime
+                // renderer (renderer.rs `track_left *= pan_left; track_right *= pan_right`)
+                // and the return-bus pan above. The previous matrix summed both channels
+                // into each output, folding every bounce to dual-mono (~3 dB hot).
+                master_left *= master_snap.pan_left;
+                master_right *= master_snap.pan_right;
 
                 // Process master FX chain
                 {

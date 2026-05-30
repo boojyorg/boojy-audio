@@ -2513,7 +2513,10 @@ class _DAWScreenState extends State<DAWScreen>
         if (result?.result.success == true) {
           // Clear and restore MIDI clips from engine for UI display
           midiPlaybackManager?.clearClipIdMappings();
-          midiPlaybackManager?.restoreClipsFromEngine(tempo);
+          midiPlaybackManager?.restoreClipsFromEngine(
+            tempo,
+            savedMetadata: result?.uiLayout?.midiClips,
+          );
 
           statusMessage = 'Recovered from backup';
           refreshTrackWidgets();

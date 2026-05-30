@@ -535,10 +535,26 @@ class MidiPlaybackManager extends ChangeNotifier {
   ///
   /// This queries the engine for all MIDI clips and reconstructs
   /// the Flutter MidiClipData objects for UI display.
-  void restoreClipsFromEngine(double tempo) {
+  /// Restore MIDI clips from the engine after loading a project.
+  ///
+  /// The engine owns the notes; [savedMetadata] (from `ui_layout.json`) carries
+  /// the UI-only fields the engine doesn't store — name, colour, content offset,
+  /// loop length, mute, linked-pattern id and clip automation. Each rebuilt clip
+  /// is matched to its saved metadata by `(trackId, startTime)` and merged in,
+  /// so reloading no longer resets every clip to "MIDI Clip" with defaults.
+  void restoreClipsFromEngine(
+    double tempo, {
+    List<MidiClipData>? savedMetadata,
+  }) {
     // Clear existing clips first
     _midiClips.clear();
     _dartToRustClipIds.clear();
+
+    // Working copy so each saved entry is consumed by at most one clip (avoids
+    // two same-start clips on a track both grabbing the same metadata).
+    final pendingMetadata = savedMetadata == null
+        ? <MidiClipData>[]
+        : List<MidiClipData>.from(savedMetadata);
 
     // Get all clips info from engine
     final clipsInfoStr = _audioEngine.getAllMidiClipsInfo();
@@ -602,7 +618,7 @@ class MidiPlaybackManager extends ChangeNotifier {
       final dartClipId = rustClipId;
 
       // Create the MidiClipData
-      final clipData = MidiClipData(
+      var clipData = MidiClipData(
         clipId: dartClipId,
         trackId: trackId,
         startTime: startTimeBeats,
@@ -611,6 +627,28 @@ class MidiPlaybackManager extends ChangeNotifier {
         notes: notes,
         name: 'MIDI Clip',
       );
+
+      // Merge saved UI metadata, matched by (trackId, startTime).
+      final matchIndex = pendingMetadata.indexWhere(
+        (m) =>
+            m.trackId == trackId &&
+            (m.startTime - startTimeBeats).abs() < 0.001,
+      );
+      if (matchIndex >= 0) {
+        final meta = pendingMetadata.removeAt(matchIndex);
+        clipData = clipData.copyWith(
+          name: meta.name,
+          color: meta.color,
+          isMuted: meta.isMuted,
+          canRepeat: meta.canRepeat,
+          contentStartOffset: meta.contentStartOffset,
+          patternId: meta.patternId,
+          automation: meta.automation,
+          // Preserve the saved loop length only when it was explicitly set
+          // (non-zero); otherwise keep the engine-derived duration above.
+          loopLength: meta.loopLength > 0 ? meta.loopLength : null,
+        );
+      }
 
       _midiClips.add(clipData);
       _dartToRustClipIds[dartClipId] = rustClipId;

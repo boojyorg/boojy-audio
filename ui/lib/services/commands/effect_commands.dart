@@ -64,13 +64,22 @@ class RemoveEffectCommand extends Command {
   final bool isVst3;
   final int effectIndex; // Position in chain for proper restoration
 
+  /// Effect ids of the rest of the chain, in order, excluding this effect.
+  /// Used to restore the removed effect to its original position on undo —
+  /// re-adding appends to the end, so we rebuild the order with the restored
+  /// id slotted back in at [effectIndex]. Empty means "don't reorder".
+  final List<int> siblingEffectIds;
+
   /// Callback to notify UI when effect is removed
   final void Function(int effectId)? onEffectRemoved;
 
   /// Callback to notify UI when effect is re-added (undo)
   final void Function(int effectId)? onEffectAdded;
 
-  int? _restoredEffectId;
+  /// The id currently live in the engine for this effect. Starts as [effectId];
+  /// after undo re-creates the effect the engine assigns a *new* id, so we track
+  /// it here and re-execute (redo) against the live id, not the stale original.
+  late int _currentEffectId = effectId;
 
   RemoveEffectCommand({
     required this.trackId,
@@ -80,27 +89,37 @@ class RemoveEffectCommand extends Command {
     required this.effectType,
     required this.isVst3,
     required this.effectIndex,
+    this.siblingEffectIds = const [],
     this.onEffectRemoved,
     this.onEffectAdded,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    engine.removeEffectFromTrack(trackId, effectId);
-    onEffectRemoved?.call(effectId);
+    engine.removeEffectFromTrack(trackId, _currentEffectId);
+    onEffectRemoved?.call(_currentEffectId);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    // Re-add the effect
-    if (isVst3) {
-      _restoredEffectId = engine.addVst3EffectToTrack(trackId, effectType);
-    } else {
-      _restoredEffectId = engine.addEffectToTrack(trackId, effectType);
+    // Re-add the effect (the engine appends it to the end of the chain and
+    // assigns a new id).
+    final int restored = isVst3
+        ? engine.addVst3EffectToTrack(trackId, effectType)
+        : engine.addEffectToTrack(trackId, effectType);
+    if (restored < 0) return;
+    _currentEffectId = restored;
+
+    // Restore the original chain position: rebuild the order with the restored
+    // id slotted back in at [effectIndex]. Skips cleanly when we have no sibling
+    // context (the effect was the only one, or position is irrelevant).
+    if (siblingEffectIds.isNotEmpty) {
+      final idx = effectIndex.clamp(0, siblingEffectIds.length);
+      final order = List<int>.from(siblingEffectIds)..insert(idx, restored);
+      engine.reorderTrackEffects(trackId, order);
     }
-    if (_restoredEffectId != null && _restoredEffectId! >= 0) {
-      onEffectAdded?.call(_restoredEffectId!);
-    }
+
+    onEffectAdded?.call(restored);
   }
 
   @override

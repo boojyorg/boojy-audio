@@ -190,8 +190,12 @@ mixin DAWProjectMixin
     midiPlaybackManager?.clearClipIdMappings();
     undoRedoManager.clear();
 
-    // Restore MIDI clips from engine for UI display
-    midiPlaybackManager?.restoreClipsFromEngine(tempo);
+    // Restore MIDI clips from engine for UI display, merging the saved UI
+    // metadata (name/colour/offset/loop/mute/automation) from ui_layout.json.
+    midiPlaybackManager?.restoreClipsFromEngine(
+      tempo,
+      savedMetadata: loadResult.uiLayout?.midiClips,
+    );
 
     // Apply UI layout if available
     if (loadResult.uiLayout != null) {
@@ -820,7 +824,10 @@ mixin DAWProjectMixin
         final result = await projectManager?.loadProject(backupPath);
         if (result?.result.success == true) {
           midiPlaybackManager?.clearClipIdMappings();
-          midiPlaybackManager?.restoreClipsFromEngine(tempo);
+          midiPlaybackManager?.restoreClipsFromEngine(
+            tempo,
+            savedMetadata: result?.uiLayout?.midiClips,
+          );
 
           statusMessage = 'Recovered from backup';
           refreshTrackWidgets();
@@ -846,6 +853,24 @@ mixin DAWProjectMixin
     setState(() {
       uiLayout.applyLayout(layout);
     });
+
+    // Restore time signature. The UI owns the display value (numerator +
+    // denominator); the engine is quarter-note based and only needs the
+    // numerator for bar math, so we re-push that. Without this, 3/4 or 6/8
+    // projects silently reopened in 4/4.
+    final tsNum = layout.timeSignatureNumerator;
+    final tsDen = layout.timeSignatureDenominator;
+    if (tsNum != null || tsDen != null) {
+      setState(() {
+        projectMetadata = projectMetadata.copyWith(
+          timeSignatureNumerator: tsNum,
+          timeSignatureDenominator: tsDen,
+        );
+      });
+      if (tsNum != null) {
+        audioEngine?.setTimeSignature(tsNum);
+      }
+    }
 
     if (userSettings.continueWhereLeftOff && layout.viewState != null) {
       restoreViewState(layout.viewState!);
@@ -950,8 +975,11 @@ mixin DAWProjectMixin
       loopEndBeats: uiLayout.loopEndBeats,
       viewState: viewState,
       audioClips: timelineState?.clips.toList(),
+      midiClips: midiPlaybackManager?.midiClips.toList(),
       automationData: automationController.toJson(),
       trackColorOverrides: trackController.trackColorOverrides,
+      timeSignatureNumerator: projectMetadata.timeSignatureNumerator,
+      timeSignatureDenominator: projectMetadata.timeSignatureDenominator,
     );
   }
 
