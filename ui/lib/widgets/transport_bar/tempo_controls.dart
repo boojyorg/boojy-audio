@@ -209,7 +209,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
     // Shift held = fine mode (0.1 BPM), normal = 1 BPM
     final isShift = HardwareKeyboard.instance.isShiftPressed;
     final delta = isShift ? 0.1 : 1.0;
-    final newTempo = (widget.tempo + direction * delta).clamp(20.0, 999.0);
+    final newTempo = (widget.tempo + direction * delta).clamp(20.0, 300.0);
     widget.onTempoChanged!(newTempo);
   }
 
@@ -238,7 +238,7 @@ class _TempoDisplayState extends State<TempoDisplay> {
               final deltaTempo = (deltaY * 0.5).roundToDouble();
               final newTempo = (_dragStartTempo + deltaTempo).clamp(
                 20.0,
-                999.0,
+                300.0,
               );
               widget.onTempoChanged!(newTempo);
             }
