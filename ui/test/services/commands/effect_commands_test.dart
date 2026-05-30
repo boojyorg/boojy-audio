@@ -227,6 +227,56 @@ void main() {
 
       expect(addedId, isNotNull);
     });
+
+    // Regression test for the stale-id-on-redo bug (H-13): undo re-adds the
+    // effect with a *new* engine id, so redo must remove that new id — not the
+    // stale original, which would leave the effect processing audio while the
+    // UI shows it removed.
+    test(
+      'redo targets the recreated effect id, not the stale original',
+      () async {
+        final command = RemoveEffectCommand(
+          trackId: 1,
+          trackName: 'Track 1',
+          effectId: 10,
+          effectName: 'Delay',
+          effectType: 'delay',
+          isVst3: false,
+          effectIndex: 0,
+        );
+
+        await command.execute(mockEngine); // removes 10
+        await command.undo(mockEngine); // re-adds with a fresh id (1)
+        await command.execute(mockEngine); // redo: must remove the recreated id
+
+        expect(mockEngine.removedEffectIds.first, 10);
+        expect(mockEngine.removedEffectIds.last, isNot(10));
+        expect(mockEngine.removedEffectIds.last, 1);
+      },
+    );
+
+    // Regression test for H-14: undo must restore the effect to its original
+    // chain position, not append it to the end (which silently re-orders the
+    // signal chain and changes the sound).
+    test('undo restores effect at its original chain index', () async {
+      final command = RemoveEffectCommand(
+        trackId: 1,
+        trackName: 'Track 1',
+        effectId: 200,
+        effectName: 'Delay',
+        effectType: 'delay',
+        isVst3: false,
+        effectIndex: 1,
+        siblingEffectIds: [100, 300],
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine); // re-adds with fresh id (1)
+
+      // The restored id is slotted back in at index 1, between its siblings.
+      expect(mockEngine.calls, contains('reorderTrackEffects'));
+      expect(mockEngine.lastReorder, [100, 1, 300]);
+    });
   });
 
   group('BypassEffectCommand', () {

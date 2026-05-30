@@ -135,6 +135,10 @@ pub struct ClipData {
     pub audio_file_id: Option<u64>,
     /// MIDI notes (for MIDI clips)
     pub midi_notes: Option<Vec<MidiNoteData>>,
+    /// Recorded MIDI control-change events (for MIDI clips: sustain, mod wheel,
+    /// expression, etc.). `#[serde(default)]` keeps older projects loadable.
+    #[serde(default)]
+    pub midi_cc: Option<Vec<MidiCcData>>,
 }
 
 /// MIDI note data
@@ -148,6 +152,17 @@ pub struct MidiNoteData {
     pub start_time: f64,
     /// Duration (seconds)
     pub duration: f64,
+}
+
+/// Recorded MIDI control-change event
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MidiCcData {
+    /// CC controller number (0-127), e.g. 1 = mod wheel, 64 = sustain
+    pub controller: u8,
+    /// CC value (0-127)
+    pub value: u8,
+    /// Time (seconds from clip start)
+    pub time: f64,
 }
 
 /// Audio file metadata
@@ -354,5 +369,60 @@ mod tests {
 
         // Clean up
         fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn test_time_signature_roundtrips() {
+        let mut project = ProjectData::new("Waltz".to_string());
+        project.time_sig_numerator = 3;
+        project.time_sig_denominator = 4;
+
+        let json = serde_json::to_string(&project).unwrap();
+        let parsed: ProjectData = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.time_sig_numerator, 3);
+        assert_eq!(parsed.time_sig_denominator, 4);
+    }
+
+    #[test]
+    fn test_midi_cc_roundtrips_on_clip() {
+        let clip = ClipData {
+            id: 1,
+            start_time: 0.0,
+            offset: 0.0,
+            duration: Some(4.0),
+            audio_file_id: None,
+            midi_notes: Some(vec![]),
+            midi_cc: Some(vec![MidiCcData {
+                controller: 1, // mod wheel
+                value: 64,
+                time: 1.5,
+            }]),
+        };
+
+        let json = serde_json::to_string(&clip).unwrap();
+        let parsed: ClipData = serde_json::from_str(&json).unwrap();
+
+        let cc = parsed.midi_cc.expect("CC should survive round-trip");
+        assert_eq!(cc.len(), 1);
+        assert_eq!(cc[0].controller, 1);
+        assert_eq!(cc[0].value, 64);
+    }
+
+    #[test]
+    fn test_old_clip_without_midi_cc_still_loads() {
+        // Older projects predate the midi_cc field; #[serde(default)] must keep
+        // them loadable rather than failing deserialization.
+        let json = r#"{
+            "id": 1,
+            "start_time": 0.0,
+            "offset": 0.0,
+            "duration": 4.0,
+            "audio_file_id": null,
+            "midi_notes": []
+        }"#;
+
+        let parsed: ClipData = serde_json::from_str(json).unwrap();
+        assert!(parsed.midi_cc.is_none());
     }
 }

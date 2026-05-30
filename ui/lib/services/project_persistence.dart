@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/clip_data.dart';
+import '../models/midi_note_data.dart';
 import '../models/project_view_state.dart';
 
 /// UI-only project data saved alongside the Rust engine's `project.json`.
@@ -16,11 +17,22 @@ class UILayoutData {
   final bool bottomCollapsed;
   final ProjectViewState? viewState;
   final List<ClipData>? audioClips;
+
+  /// MIDI clip UI metadata (name, colour, offset, loop, mute, automation).
+  /// Notes themselves live in the engine's `project.json`; this only carries
+  /// the UI-owned fields, matched back by `(trackId, startTime)` on load.
+  final List<MidiClipData>? midiClips;
   final Map<String, dynamic>? automationData;
   final Map<int, int>? trackColors;
   final bool? loopEnabled;
   final double? loopStartBeats;
   final double? loopEndBeats;
+
+  /// Time signature — display-only metadata (the engine is quarter-note based
+  /// and owns the numerator for bar math separately). Persisted so 3/4, 6/8,
+  /// etc. survive reload instead of reverting to 4/4.
+  final int? timeSignatureNumerator;
+  final int? timeSignatureDenominator;
 
   const UILayoutData({
     this.libraryWidth = 200.0,
@@ -31,11 +43,14 @@ class UILayoutData {
     this.bottomCollapsed = true,
     this.viewState,
     this.audioClips,
+    this.midiClips,
     this.automationData,
     this.trackColors,
     this.loopEnabled,
     this.loopStartBeats,
     this.loopEndBeats,
+    this.timeSignatureNumerator,
+    this.timeSignatureDenominator,
   });
 
   Map<String, dynamic> toJson() => {
@@ -53,6 +68,8 @@ class UILayoutData {
     if (viewState != null) 'view_state': viewState!.toJson(),
     if (audioClips != null && audioClips!.isNotEmpty)
       'audio_clips': audioClips!.map((c) => c.toJson()).toList(),
+    if (midiClips != null && midiClips!.isNotEmpty)
+      'midi_clips': midiClips!.map((c) => c.toUiLayoutJson()).toList(),
     if (automationData != null && automationData!.isNotEmpty)
       'automation': automationData,
     if (trackColors != null && trackColors!.isNotEmpty)
@@ -60,6 +77,10 @@ class UILayoutData {
     if (loopEnabled != null) 'loop_enabled': loopEnabled,
     if (loopStartBeats != null) 'loop_start_beats': loopStartBeats,
     if (loopEndBeats != null) 'loop_end_beats': loopEndBeats,
+    if (timeSignatureNumerator != null)
+      'time_sig_numerator': timeSignatureNumerator,
+    if (timeSignatureDenominator != null)
+      'time_sig_denominator': timeSignatureDenominator,
   };
 
   factory UILayoutData.fromJson(Map<String, dynamic> json) {
@@ -68,6 +89,7 @@ class UILayoutData {
         json['panel_collapsed'] as Map<String, dynamic>? ?? {};
     final viewStateJson = json['view_state'] as Map<String, dynamic>?;
     final audioClipsJson = json['audio_clips'] as List<dynamic>?;
+    final midiClipsJson = json['midi_clips'] as List<dynamic>?;
     final automationJson = json['automation'] as Map<String, dynamic>?;
     final trackColorsJson = json['track_colors'] as Map<String, dynamic>?;
 
@@ -84,6 +106,9 @@ class UILayoutData {
       audioClips: audioClipsJson
           ?.map((c) => ClipData.fromJson(c as Map<String, dynamic>))
           .toList(),
+      midiClips: midiClipsJson
+          ?.map((c) => MidiClipData.fromUiLayoutJson(c as Map<String, dynamic>))
+          .toList(),
       automationData: automationJson,
       trackColors: trackColorsJson?.map(
         (k, v) => MapEntry(int.parse(k), (v as num).toInt()),
@@ -91,6 +116,8 @@ class UILayoutData {
       loopEnabled: json['loop_enabled'] as bool?,
       loopStartBeats: (json['loop_start_beats'] as num?)?.toDouble(),
       loopEndBeats: (json['loop_end_beats'] as num?)?.toDouble(),
+      timeSignatureNumerator: (json['time_sig_numerator'] as num?)?.toInt(),
+      timeSignatureDenominator: (json['time_sig_denominator'] as num?)?.toInt(),
     );
   }
 }
@@ -115,8 +142,11 @@ class ProjectPersistence {
     required double loopEndBeats,
     ProjectViewState? viewState,
     List<ClipData>? audioClips,
+    List<MidiClipData>? midiClips,
     Map<String, dynamic>? automationData,
     Map<int, Color>? trackColorOverrides,
+    int? timeSignatureNumerator,
+    int? timeSignatureDenominator,
   }) {
     Map<int, int>? trackColors;
     if (trackColorOverrides != null && trackColorOverrides.isNotEmpty) {
@@ -134,11 +164,14 @@ class ProjectPersistence {
       bottomCollapsed: bottomCollapsed,
       viewState: viewState,
       audioClips: audioClips,
+      midiClips: midiClips,
       automationData: automationData,
       trackColors: trackColors,
       loopEnabled: loopEnabled,
       loopStartBeats: loopStartBeats,
       loopEndBeats: loopEndBeats,
+      timeSignatureNumerator: timeSignatureNumerator,
+      timeSignatureDenominator: timeSignatureDenominator,
     );
   }
 }

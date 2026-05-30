@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/commands/clip_commands.dart';
+import 'package:boojy_audio/models/clip_data.dart';
 import 'package:boojy_audio/models/midi_note_data.dart';
 import '../../mocks/mock_audio_engine.dart';
 
@@ -487,6 +488,46 @@ void main() {
       // Undo - should be back to 0.0
       await command.undo(mockEngine);
       expect(currentStartTime, 0.0);
+    });
+  });
+
+  group('DeleteAudioClipCommand', () {
+    ClipData makeClip() => ClipData(
+      clipId: 42,
+      trackId: 3,
+      filePath: '/audio/loop.wav',
+      startTime: 2.0,
+      duration: 4.0,
+    );
+
+    test('execute removes the clip, undo reloads it', () async {
+      int? restoredId;
+      final command = DeleteAudioClipCommand(
+        clipData: makeClip(),
+        onClipRestored: (clip) => restoredId = clip.clipId,
+      );
+
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      expect(mockEngine.calls, contains('removeAudioClip'));
+      expect(mockEngine.calls, contains('loadAudioFileToTrack'));
+      // Undo reloads from disk → engine hands back a fresh clip id.
+      expect(restoredId, isNotNull);
+    });
+
+    // Regression test for the stale-id-on-redo bug (M-10): undo reloads the
+    // clip and the engine assigns a *new* id, so redo must remove that new id —
+    // not the stale original, which would leave the restored clip playing.
+    test('redo targets the reloaded clip id, not the stale original', () async {
+      final command = DeleteAudioClipCommand(clipData: makeClip());
+
+      await command.execute(mockEngine); // removes 42
+      await command.undo(mockEngine); // reloads with a fresh id
+      await command.execute(mockEngine); // redo: must remove the reloaded id
+
+      expect(mockEngine.removedClipIds.first, 42);
+      expect(mockEngine.removedClipIds.last, isNot(42));
     });
   });
 }

@@ -458,6 +458,12 @@ class DeleteAudioClipCommand extends Command {
   /// Callback to restore clip to UI state (undo)
   final void Function(ClipData clip)? onClipRestored;
 
+  /// The id currently live in the engine for this clip. Starts as
+  /// [ClipData.clipId]; undo reloads the file and the engine assigns a *new*
+  /// id, so we track it here and re-execute (redo) against the live id, not the
+  /// stale original (which would no-op, leaving the clip audible after redo).
+  late int _currentClipId = clipData.clipId;
+
   DeleteAudioClipCommand({
     required this.clipData,
     this.onClipRemoved,
@@ -468,11 +474,11 @@ class DeleteAudioClipCommand extends Command {
   Future<void> execute(AudioEngineInterface engine) async {
     // Remove from engine (stops playback)
     Log.d(
-      '[DeleteAudioClipCommand] Executing delete for clip ${clipData.clipId} on track ${clipData.trackId}',
+      '[DeleteAudioClipCommand] Executing delete for clip $_currentClipId on track ${clipData.trackId}',
     );
-    engine.removeAudioClip(clipData.trackId, clipData.clipId);
+    engine.removeAudioClip(clipData.trackId, _currentClipId);
     // Remove from UI
-    onClipRemoved?.call(clipData.clipId);
+    onClipRemoved?.call(_currentClipId);
   }
 
   @override
@@ -485,7 +491,9 @@ class DeleteAudioClipCommand extends Command {
     );
 
     if (newClipId >= 0) {
-      // Restore with new clip ID from engine
+      // Restore with new clip ID from engine, and track it so a subsequent
+      // redo removes the right clip.
+      _currentClipId = newClipId;
       final restoredClip = clipData.copyWith(clipId: newClipId);
       onClipRestored?.call(restoredClip);
     } else {
