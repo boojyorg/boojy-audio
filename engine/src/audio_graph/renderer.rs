@@ -30,6 +30,72 @@ pub fn lock_contention_counts() -> (u64, u64) {
     )
 }
 
+/// Clamp a sample to the device's valid range and replace any non-finite value
+/// with silence. The device boundary is the last line of defence: a NaN/Inf
+/// from a misbehaving plugin or a denormal-driven blow-up would otherwise reach
+/// the DAC as full-scale noise — the master limiter passes NaN straight through
+/// (`NaN > threshold` is `false`, so its gain stays 1.0).
+#[cfg(not(target_arch = "wasm32"))]
+#[inline]
+fn sanitize_sample(x: f32) -> f32 {
+    if x.is_finite() {
+        x.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+/// Write one stereo frame into an interleaved device buffer with `channels`
+/// channels, sanitizing every sample. Mono devices get the L/R average; devices
+/// with more than two channels get L/R in the first two and silence elsewhere.
+/// Centralizes the device-boundary write so the NaN/Inf guard and channel layout
+/// live in exactly one place (was an un-guarded `data[i*2] = ..` at each site).
+#[cfg(not(target_arch = "wasm32"))]
+#[inline]
+fn write_frame(data: &mut [f32], frame_idx: usize, channels: usize, left: f32, right: f32) {
+    let base = frame_idx * channels;
+    match channels {
+        0 => {}
+        1 => data[base] = sanitize_sample((left + right) * 0.5),
+        _ => {
+            data[base] = sanitize_sample(left);
+            data[base + 1] = sanitize_sample(right);
+            for ch in 2..channels {
+                data[base + ch] = 0.0;
+            }
+        }
+    }
+}
+
+/// Pure selection logic for [`select_stereo_48k_config`]: given candidate
+/// `(channels, min_hz, max_hz)` ranges, return the index of the first stereo
+/// range that covers `target_hz`. Extracted so it can be unit-tested without a
+/// real audio device.
+#[cfg(not(target_arch = "wasm32"))]
+fn pick_stereo_config_index(ranges: &[(u16, u32, u32)], target_hz: u32) -> Option<usize> {
+    ranges
+        .iter()
+        .position(|&(ch, min, max)| ch == 2 && min <= target_hz && target_hz <= max)
+}
+
+/// Find a device output config that is stereo and supports `target_rate`,
+/// pinned to that rate. Returns `None` if the device exposes no stereo config
+/// covering the target rate (caller falls back to the device default).
+#[cfg(not(target_arch = "wasm32"))]
+fn select_stereo_48k_config(
+    device: &cpal::Device,
+    target_rate: cpal::SampleRate,
+) -> Option<cpal::SupportedStreamConfig> {
+    let ranges: Vec<cpal::SupportedStreamConfigRange> =
+        device.supported_output_configs().ok()?.collect();
+    let triples: Vec<(u16, u32, u32)> = ranges
+        .iter()
+        .map(|r| (r.channels(), r.min_sample_rate().0, r.max_sample_rate().0))
+        .collect();
+    let idx = pick_stereo_config_index(&triples, target_rate.0)?;
+    Some(ranges[idx].with_sample_rate(target_rate))
+}
+
 /// Track snapshot data extracted from locked tracks for lock-free audio processing.
 /// Defined at module scope so helper functions can reference it.
 struct TrackSnapshot {
@@ -287,8 +353,36 @@ impl AudioGraph {
             dlog!("🔊 [AudioGraph] Using device: {name}");
         }
 
-        let supported_config = device.default_output_config()?;
-        dlog!("🔊 [AudioGraph] Device config: {supported_config:?}");
+        let default_config = device.default_output_config()?;
+        dlog!("🔊 [AudioGraph] Device default config: {default_config:?}");
+
+        // Prefer an explicit stereo 48 kHz config. Many devices *support* stereo
+        // 48 kHz but report a different default (e.g. 44.1 kHz, or a mono/aggregate
+        // layout) — inheriting that default makes playback run at the wrong pitch or
+        // scrambles channels, because all engine time-math assumes TARGET_SAMPLE_RATE
+        // and the callback assumes interleaved stereo. So request 48 kHz stereo
+        // explicitly when the device can provide it, and fall back (with a loud
+        // warning) to the device default otherwise. True sample-rate conversion for
+        // 48k-incapable devices is deferred to a later cycle.
+        let target_rate = cpal::SampleRate(TARGET_SAMPLE_RATE);
+        let supported_config = if let Some(cfg) = select_stereo_48k_config(&device, target_rate) {
+            dlog!("🔊 [AudioGraph] Using stereo {TARGET_SAMPLE_RATE} Hz config: {cfg:?}");
+            cfg
+        } else {
+            eprintln!(
+                "⚠️ [AudioGraph] Output device cannot provide stereo {} Hz (default is \
+                 {:?}, {} ch). Playback may be pitched or use the wrong channel layout \
+                 until sample-rate conversion is implemented.",
+                TARGET_SAMPLE_RATE,
+                default_config.sample_rate(),
+                default_config.channels()
+            );
+            default_config
+        };
+
+        // Channel count of the stream we're actually opening. The callback uses this
+        // (not a hard-coded 2) to lay out interleaved frames.
+        let channels = (supported_config.channels() as usize).max(1);
 
         // Get preferred buffer size
         let preferred_samples = self.preferred_buffer_size.lock().samples();
@@ -350,8 +444,20 @@ impl AudioGraph {
         let stream = device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                // Track actual buffer size (frames = samples / 2 for stereo)
-                let frames = data.len() / 2;
+                // Flush denormals to zero for the duration of this callback. Denormalised
+                // floats in the reverb/delay feedback paths are 10–100× slower to process on
+                // x86, spiking CPU on quiet tails. Apple Silicon flushes by default; this is
+                // the x86 fix and a no-op elsewhere.
+                #[cfg(target_arch = "x86_64")]
+                #[allow(deprecated)] // _mm_{get,set}csr is the standard denormal-flush mechanism
+                unsafe {
+                    use std::arch::x86_64::{_mm_getcsr, _mm_setcsr};
+                    _mm_setcsr(_mm_getcsr() | 0x8040); // FTZ (bit 15) | DAZ (bit 6)
+                }
+
+                // Track actual buffer size. `channels` is the opened stream's channel count
+                // (not a hard-coded 2), so non-stereo devices don't scramble the frame math.
+                let frames = data.len() / channels;
                 actual_buffer_size.store(frames as u32, Ordering::Relaxed);
 
                 // Check if we should be playing (lock-free atomic read)
@@ -490,8 +596,7 @@ impl AudioGraph {
                         out_right += preview_right;
 
                         // Output metronome + synths + VST3 + preview when not playing
-                        data[frame_idx * 2] = out_left;
-                        data[frame_idx * 2 + 1] = out_right;
+                        write_frame(data, frame_idx, channels, out_left, out_right);
                     }
                     return;
                 }
@@ -853,9 +958,8 @@ impl AudioGraph {
                     output_left += preview_left;
                     output_right += preview_right;
 
-                    // Write to output buffer (interleaved stereo)
-                    data[frame_idx * 2] = output_left;
-                    data[frame_idx * 2 + 1] = output_right;
+                    // Write to output buffer (interleaved, channel-count aware + sanitized)
+                    write_frame(data, frame_idx, channels, output_left, output_right);
                 }
 
                 // Release effect manager lock before acquiring track_manager lock for peak updates
@@ -896,5 +1000,64 @@ impl AudioGraph {
         )?;
 
         Ok(stream)
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    // Exact float comparisons are intentional here: the values under test are
+    // deterministic sentinels produced by clamping/sanitizing (exactly 0.0 / ±1.0).
+    #![allow(clippy::float_cmp)]
+    use super::{pick_stereo_config_index, sanitize_sample, write_frame};
+
+    #[test]
+    fn sanitize_replaces_non_finite_with_silence() {
+        assert_eq!(sanitize_sample(f32::NAN), 0.0);
+        assert_eq!(sanitize_sample(f32::INFINITY), 0.0);
+        assert_eq!(sanitize_sample(f32::NEG_INFINITY), 0.0);
+    }
+
+    #[test]
+    fn sanitize_clamps_to_device_range_but_passes_normal_values() {
+        assert_eq!(sanitize_sample(2.5), 1.0);
+        assert_eq!(sanitize_sample(-2.5), -1.0);
+        assert!((sanitize_sample(0.5) - 0.5).abs() < f32::EPSILON);
+        assert!((sanitize_sample(-0.5) + 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn write_frame_stereo_lays_out_lr_and_sanitizes() {
+        let mut buf = [0.0f32; 4];
+        write_frame(&mut buf, 0, 2, 0.5, -0.5);
+        write_frame(&mut buf, 1, 2, f32::NAN, 9.0); // NaN -> 0, 9.0 -> clamped 1.0
+        assert_eq!(buf, [0.5, -0.5, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn write_frame_mono_averages_channels() {
+        let mut buf = [0.0f32; 1];
+        write_frame(&mut buf, 0, 1, 1.0, 0.0);
+        assert!((buf[0] - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn write_frame_multichannel_fills_extra_channels_with_silence() {
+        let mut buf = [7.0f32; 4]; // pre-fill to prove extra channels are zeroed
+        write_frame(&mut buf, 0, 4, 0.25, -0.25);
+        assert_eq!(buf, [0.25, -0.25, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn picks_first_stereo_range_covering_target() {
+        // mono-only, then stereo 44.1–48k: should pick index 1.
+        let ranges = [(1u16, 48_000u32, 48_000u32), (2, 44_100, 48_000)];
+        assert_eq!(pick_stereo_config_index(&ranges, 48_000), Some(1));
+    }
+
+    #[test]
+    fn rejects_when_no_stereo_range_covers_target() {
+        // stereo exists but only up to 44.1k; mono covers 48k. No stereo @ 48k.
+        let ranges = [(2u16, 44_100u32, 44_100u32), (1, 48_000, 48_000)];
+        assert_eq!(pick_stereo_config_index(&ranges, 48_000), None);
     }
 }
