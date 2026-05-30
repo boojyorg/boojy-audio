@@ -4,13 +4,35 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
-> **v0.3.2 — "plugins & the audio thread" (UI correctness).** Three live bugs caused by the
-> dead/diverged DAW-mixin layer: the wired handlers in `daw_screen.dart` had drifted from the
-> mixin versions that held the correct logic. Fixed by collapsing the divergent handlers into
-> the single correct mixin impl. From the 2026-05-29 review backlog (#8).
+> **v0.3.2 — "plugins & the audio thread."** Hardening on the realtime path plus a cluster of
+> live plugin/clip UI bugs, landed ahead of the VST3 per-buffer rewrite so the safety guards are
+> already in place when that lands. Continues the 2026-05-29 review backlog.
 
 ### Bug Fixes
 
+- **A misbehaving plugin or denormal blow-up could blast full-scale noise.** Nothing sanitized
+  the mixed output before it reached the audio device — the master limiter even passes NaN
+  straight through (`NaN > threshold` is false, so its gain stays 1.0). Every output sample is
+  now clamped to `[-1, 1]` and non-finite values are replaced with silence at the device
+  boundary (`renderer.rs`).
+- **Reverb/delay tails spiked CPU on Intel/Windows.** Denormalised floats in the feedback paths
+  are 10–100× slower to process on x86. The audio callback now flushes denormals to zero
+  (FTZ/DAZ) for its duration on x86_64 (Apple Silicon already flushes by default).
+- **Playback could be pitched-up or channel-scrambled on non-48 kHz / non-stereo devices.** The
+  engine inherited the device's default format while all time-math assumes 48 kHz stereo. It now
+  explicitly requests a stereo 48 kHz stream when the device supports it (the common fix for
+  devices that *default* to 44.1 kHz), lays out frames by the stream's real channel count instead
+  of assuming stereo, and logs a clear warning when a device can't provide stereo 48 kHz. (True
+  sample-rate conversion for 48k-incapable devices is still to come.)
+- **Opening a plugin editor during playback could crash.** Editor attach extracted a raw plugin
+  handle and attached *without* the per-plugin lock, racing the audio thread's `process()` on the
+  same instance. Attach now goes through the locked path (the same mutex `process_block` holds),
+  while still dropping the graph/effect-manager locks so plugin callbacks can't deadlock
+  (`api/vst3.rs`, `vst3_host.rs`).
+- **Incoming MIDI CC poked a main-thread plugin object from the audio thread.** The CC handler
+  called `setParamNormalized` on the edit controller (a UI-thread object) from `process()`. That
+  call is removed; the CC still reaches the processor via the thread-safe parameter-change queue
+  (`vst3_host.cpp`).
 - **Dragging a MIDI clip onto an occupied spot left overlapping, double-triggering clips
   (H-8).** The drag-create path skipped overlap resolution that the record/copy paths run.
   It now resolves overlaps at the new position like every other clip-creation path.

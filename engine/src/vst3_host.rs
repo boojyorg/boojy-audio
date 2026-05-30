@@ -822,39 +822,19 @@ impl VST3Effect {
         plugin.get_editor_size()
     }
 
-    /// Attach editor to parent window
+    /// Attach editor to parent window.
+    ///
+    /// Acquires the per-plugin mutex (the same one `process_block` holds), so the
+    /// attach is serialized against concurrent audio processing of this plugin —
+    /// see `api::vst3::vst3_attach_editor` for the rationale. The caller must drop
+    /// any graph/effect-manager locks before calling this, since the plugin may
+    /// call back into the host during `attached()`.
     pub fn attach_editor(&self, parent: *mut c_void) -> Result<(), String> {
-        let plugin = self.plugin.lock();
-        plugin.attach_editor(parent)
-    }
-
-    /// Get the raw C++ handle for the plugin
-    /// This is used for calling `attach_editor` without holding Rust locks
-    pub fn get_handle(&self) -> *mut c_void {
-        let plugin = self.plugin.lock();
-        plugin.handle.cast::<c_void>()
-    }
-
-    /// Attach editor to parent window using raw handle (no locks held)
-    /// This is used to avoid deadlocks when plugins call back during `attached()`
-    pub fn attach_editor_raw(handle: *mut c_void, parent: *mut c_void) -> Result<(), String> {
-        eprintln!("🔧 [VST3Effect] attach_editor_raw: handle={handle:?}, parent={parent:?}");
-
-        if handle.is_null() {
-            return Err("Invalid plugin handle".to_string());
-        }
         if parent.is_null() {
             return Err("Invalid parent pointer".to_string());
         }
-
-        unsafe {
-            let result = vst3_attach_editor(handle.cast::<VST3PluginHandle>(), parent);
-            if result {
-                Ok(())
-            } else {
-                Err(VST3Host::get_last_error())
-            }
-        }
+        let plugin = self.plugin.lock();
+        plugin.attach_editor(parent)
     }
 }
 

@@ -889,8 +889,16 @@ bool vst3_process_midi_event(
                             int32 pointIndex = 0;
                             queue->addPoint(sample_offset, normalizedValue, pointIndex);
                         }
-                        // Also update the controller state for UI sync
-                        instance->controller->setParamNormalized(paramId, normalizedValue);
+                        // NOTE: We intentionally do NOT call
+                        // controller->setParamNormalized() here. This runs on the
+                        // audio thread, but the edit controller is a main-thread
+                        // (UI) object — poking it from here is a data race with the
+                        // UI thread. The queued param change above is the correct,
+                        // thread-safe path: the processor receives it via
+                        // ProcessData::inputParameterChanges on the next process()
+                        // call. (Trade-off: the plugin's editor knob won't visibly
+                        // animate to incoming MIDI CC; that UI sync, if wanted, must
+                        // be marshalled to the main thread separately.)
                     }
                 }
             }
