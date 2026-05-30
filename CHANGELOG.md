@@ -16,6 +16,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Piano-roll lanes read like a keyboard (phase 2).** The grid's white- vs black-key rows were
+  nearly the same grey; black-key rows are now noticeably darker for a clear keyboard read. The root
+  note (the tonic — C by default, or whatever the scale picker is set to) gets a faint accent-blue
+  **root band** so "home" is glanceable, and the pitch row under your cursor lights up as an
+  **active lane** with an accent edge — so the piano roll now shows which note you're about to draw.
+  The accent stays low-opacity so the notes keep their contrast on top.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
