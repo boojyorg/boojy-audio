@@ -4,9 +4,9 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
-> **v0.3.2 — "plugins & the audio thread" (audio-thread safety net).** Hardening on the
-> realtime path, landed ahead of the VST3 per-buffer rewrite so the guards are already in
-> place when that lands. Continues the 2026-05-29 review backlog.
+> **v0.3.2 — "plugins & the audio thread."** Hardening on the realtime path plus a cluster of
+> live plugin/clip UI bugs, landed ahead of the VST3 per-buffer rewrite so the safety guards are
+> already in place when that lands. Continues the 2026-05-29 review backlog.
 
 ### Bug Fixes
 
@@ -33,6 +33,15 @@ All notable changes to Boojy Audio will be documented in this file.
   called `setParamNormalized` on the edit controller (a UI-thread object) from `process()`. That
   call is removed; the CC still reaches the processor via the thread-safe parameter-change queue
   (`vst3_host.cpp`).
+- **Dragging a MIDI clip onto an occupied spot left overlapping, double-triggering clips
+  (H-8).** The drag-create path skipped overlap resolution that the record/copy paths run.
+  It now resolves overlaps at the new position like every other clip-creation path.
+- **Deleting a track leaked its floating plugin windows (H-9).** Track deletion didn't close
+  the track's floated VST3 editor windows — a native-window resource leak plus a dangling
+  editor id. Deletion now closes them.
+- **Floating plugin windows didn't hide when switching tracks (M-3).** The per-track
+  show/hide of floating editor windows only ran on some selection paths. It now runs on every
+  track selection, so only the selected track's plugin windows are visible.
 
 > **v0.3.1 — trust/correctness hardening ("don't lose my work").** A cluster of *silent*
 > data-loss and undo-corruption bugs found in the 2026-05-29 whole-app review. None threw an
