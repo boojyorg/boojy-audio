@@ -43,6 +43,15 @@ All notable changes to Boojy Audio will be documented in this file.
   show/hide of floating editor windows only ran on some selection paths. It now runs on every
   track selection, so only the selected track's plugin windows are visible.
 
+### Improvements
+
+- **Removed dead code (#7).** Deleted never-referenced leftovers verified to have zero live
+  callers: the entire `DAWBuildMixin` (an unused status-bar / collapsed-mixer-bar / latency
+  builder), the `FxChainView` + `EffectCard` widgets, `models/timeline_item.dart`, the unused
+  `audio_clip_gestures.dart` + its barrel, and the dead state classes / calculators in
+  `midi_clip_gestures.dart` (kept only `adjustNotesForTrim`, which the overlap handler uses). No
+  behaviour change — `flutter analyze --fatal-infos` and the full test suite stay green.
+
 > **v0.3.1 — trust/correctness hardening ("don't lose my work").** A cluster of *silent*
 > data-loss and undo-corruption bugs found in the 2026-05-29 whole-app review. None threw an
 > error — they quietly betrayed edits on paths a dogfooding musician hits every session.

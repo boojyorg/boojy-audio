@@ -86,8 +86,7 @@ class _DAWScreenState extends State<DAWScreen>
         DAWClipMixin,
         DAWVst3Mixin,
         DAWLibraryMixin,
-        DAWProjectMixin,
-        DAWBuildMixin {
+        DAWProjectMixin {
   // Drag state for disabling panel animations during resize
   bool _isDraggingLibrary = false;
   bool _isDraggingMixer = false;

@@ -11,7 +11,6 @@
 // 7. DAWVst3Mixin - VST3 plugin management
 // 8. DAWLibraryMixin - library item handlers, sampler
 // 9. DAWProjectMixin - project file operations
-// 10. DAWBuildMixin - widget builder helpers
 
 export 'daw_screen_state.dart';
 export 'daw_playback_mixin.dart';
@@ -22,4 +21,3 @@ export 'daw_clip_mixin.dart';
 export 'daw_vst3_mixin.dart';
 export 'daw_library_mixin.dart';
 export 'daw_project_mixin.dart';
-export 'daw_build_mixin.dart';
