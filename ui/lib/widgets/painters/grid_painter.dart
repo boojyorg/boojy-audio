@@ -39,6 +39,13 @@ class GridPainter extends CustomPainter {
   // Fold mode - when provided, only these pitches are rendered (in order)
   final List<int>? foldedPitches;
 
+  // Active lane + root band (v0.4 lane re-treat).
+  final int? activeRow; // MIDI pitch under the cursor; null when off-grid.
+  final Color activeLaneColor; // Faint accent wash over the active row.
+  final Color activeEdgeColor; // Left accent edge bar on the active row.
+  final Color
+  rootBandColor; // Faint accent wash over root rows (scaleRootMidi).
+
   GridPainter({
     required this.pixelsPerBeat,
     required this.pixelsPerNote,
@@ -63,6 +70,10 @@ class GridPainter extends CustomPainter {
     this.scaleIntervals = const [0, 2, 4, 5, 7, 9, 11], // Major scale default
     this.outOfScaleOverlay = const Color(0x40000000), // Semi-transparent black
     this.foldedPitches,
+    this.activeRow,
+    this.activeLaneColor = const Color(0x00000000),
+    this.activeEdgeColor = const Color(0x00000000),
+    this.rootBandColor = const Color(0x00000000),
   });
 
   @override
@@ -90,6 +101,30 @@ class GridPainter extends CustomPainter {
         canvas.drawRect(
           Rect.fromLTWH(0, y, size.width, pixelsPerNote),
           overlayPaint,
+        );
+      }
+
+      // Root band: a faint accent wash marking root-note rows so "home"
+      // (the tonic, default C) is glanceable. Drawn after the scale overlay
+      // since the root is always in-scale and should never be dimmed.
+      if (rootBandColor.a != 0 && (note % 12) == scaleRootMidi) {
+        canvas.drawRect(
+          Rect.fromLTWH(0, y, size.width, pixelsPerNote),
+          Paint()..color = rootBandColor,
+        );
+      }
+
+      // Active lane: highlight the pitch row under the cursor / being edited,
+      // with a stronger left accent edge bar. Drawn last so it reads on top of
+      // any dimmed/root row.
+      if (activeRow != null && note == activeRow) {
+        canvas.drawRect(
+          Rect.fromLTWH(0, y, size.width, pixelsPerNote),
+          Paint()..color = activeLaneColor,
+        );
+        canvas.drawRect(
+          Rect.fromLTWH(0, y, 3.0, pixelsPerNote),
+          Paint()..color = activeEdgeColor,
         );
       }
 
@@ -203,6 +238,10 @@ class GridPainter extends CustomPainter {
         barGridLine != oldDelegate.barGridLine ||
         scaleHighlightEnabled != oldDelegate.scaleHighlightEnabled ||
         scaleRootMidi != oldDelegate.scaleRootMidi ||
+        activeRow != oldDelegate.activeRow ||
+        activeLaneColor != oldDelegate.activeLaneColor ||
+        activeEdgeColor != oldDelegate.activeEdgeColor ||
+        rootBandColor != oldDelegate.rootBandColor ||
         !_listEquals(foldedPitches, oldDelegate.foldedPitches) ||
         scaleIntervals != oldDelegate.scaleIntervals ||
         minMidiNote != oldDelegate.minMidiNote;

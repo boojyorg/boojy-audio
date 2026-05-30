@@ -108,6 +108,10 @@ mixin PianoRollStateMixin on State<PianoRoll> {
   /// Note ID being hovered over.
   String? hoveredNoteId;
 
+  /// MIDI pitch of the row under the cursor — drives the active-lane highlight.
+  /// Null when the pointer is outside the note grid.
+  int? activeRow;
+
   /// Current cursor style.
   MouseCursor currentCursor = SystemMouseCursors.basic;
 
