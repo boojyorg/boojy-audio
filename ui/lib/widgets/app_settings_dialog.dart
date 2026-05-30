@@ -388,11 +388,79 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   }
 
   Widget _buildAppearanceSettings() {
+    return Column(
+      children: [
+        // Theme selector
+        _appearanceRow(
+          'Theme',
+          DropdownButton<BoojyTheme>(
+            value: _selectedTheme,
+            isExpanded: true,
+            underline: Container(),
+            dropdownColor: context.colors.standard,
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+            items: BoojyTheme.values.map((theme) {
+              return DropdownMenuItem<BoojyTheme>(
+                value: theme,
+                child: Text(theme.displayName),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _selectedTheme = value;
+                });
+                // Save to settings
+                widget.settings.theme = value.key;
+                // Apply theme immediately
+                final themeProvider = Provider.of<ThemeProvider>(
+                  context,
+                  listen: false,
+                );
+                themeProvider.setTheme(value);
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // UI Scale — scales text across the whole app (helps on 1440p+).
+        // Applied live via MediaQuery.textScaler in main.dart.
+        _appearanceRow(
+          'UI Scale',
+          DropdownButton<double>(
+            value: widget.settings.uiScale,
+            isExpanded: true,
+            underline: Container(),
+            dropdownColor: context.colors.standard,
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+            items: UserSettings.uiScaleOptions.map((scale) {
+              return DropdownMenuItem<double>(
+                value: scale,
+                child: Text(
+                  '${UserSettings.uiScaleLabel(scale)}  ·  '
+                  '${(scale * 100).round()}%',
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {});
+                widget.settings.uiScale = value;
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A label + bordered control row, shared by the Appearance section.
+  Widget _appearanceRow(String label, Widget control) {
     return Row(
       children: [
         Expanded(
           child: Text(
-            'Theme',
+            label,
             style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
           ),
         ),
@@ -406,34 +474,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: context.colors.elevated),
             ),
-            child: DropdownButton<BoojyTheme>(
-              value: _selectedTheme,
-              isExpanded: true,
-              underline: Container(),
-              dropdownColor: context.colors.standard,
-              style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
-              items: BoojyTheme.values.map((theme) {
-                return DropdownMenuItem<BoojyTheme>(
-                  value: theme,
-                  child: Text(theme.displayName),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedTheme = value;
-                  });
-                  // Save to settings
-                  widget.settings.theme = value.key;
-                  // Apply theme immediately
-                  final themeProvider = Provider.of<ThemeProvider>(
-                    context,
-                    listen: false,
-                  );
-                  themeProvider.setTheme(value);
-                }
-              },
-            ),
+            child: control,
           ),
         ),
       ],

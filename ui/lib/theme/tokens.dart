@@ -98,8 +98,8 @@ class BoojyTokens {
   // FONT FAMILY
   // ============================================
 
-  /// Monospace font for numeric displays
-  static const String fontFamilyMono = 'monospace';
+  /// Monospace font for numeric displays (bundled — see pubspec fonts:)
+  static const String fontFamilyMono = 'JetBrainsMono';
 
   // ============================================
   // TEXT STYLES (factory methods)
@@ -134,6 +134,19 @@ class BoojyTokens {
     fontFeatures: const [FontFeature.tabularFigures()],
     color: color,
   );
+
+  // ============================================
+  // TEXT SCALING (UI Scale setting)
+  // ============================================
+
+  /// Scale a raw font size by the current UI Scale setting.
+  ///
+  /// `Text` widgets pick up the global `MediaQuery.textScaler` automatically,
+  /// so most of the UI scales for free. `CustomPainter`s do **not** — they
+  /// must scale their own text sizes explicitly. Use this in painters:
+  ///   `fontSize: BT.scaled(context, 11)`
+  static double scaled(BuildContext context, double base) =>
+      MediaQuery.textScalerOf(context).scale(base);
 
   // ============================================
   // FONT WEIGHTS
@@ -188,4 +201,29 @@ class BoojyTokens {
     horizontal: 5.0,
     vertical: 3.0,
   );
+
+  // ============================================
+  // ELEVATION (shadows for floating surfaces)
+  // ============================================
+
+  /// Canonical shadow colour — a deep, cool near-black so floating surfaces
+  /// read as lifted off the indigo deep-space content, not tinted grey.
+  static const Color shadowColor = Color(0x73060810);
+
+  /// Material elevation levels (for Material surfaces: menus, dialogs).
+  static const double elevationLow = 4.0;
+  static const double elevationMedium = 12.0;
+  static const double elevationHigh = 24.0;
+
+  /// BoxShadow presets for custom (non-Material) floating containers.
+  /// Use as `BoxDecoration(boxShadow: BT.shadowMd)`.
+  static const List<BoxShadow> shadowSm = [
+    BoxShadow(color: Color(0x40060810), blurRadius: 8, offset: Offset(0, 2)),
+  ];
+  static const List<BoxShadow> shadowMd = [
+    BoxShadow(color: Color(0x59060810), blurRadius: 18, offset: Offset(0, 6)),
+  ];
+  static const List<BoxShadow> shadowLg = [
+    BoxShadow(color: Color(0x730A0E18), blurRadius: 36, offset: Offset(0, 14)),
+  ];
 }
