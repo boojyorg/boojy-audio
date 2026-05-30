@@ -467,8 +467,8 @@ class _TransportBarState extends State<TransportBar> {
         builder: (context, constraints) {
           final available = constraints.maxWidth;
 
-          // Fixed: O(19)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
-          const fixedWidth = 132.0;
+          // Fixed: ▲(22)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
+          const fixedWidth = 135.0;
           const maxAudiClip = 77.5;
           const nameComfortWidth = 120.0;
 
@@ -556,25 +556,9 @@ class _TransportBarState extends State<TransportBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // "Audi" text: always rendered, smoothly clipped to available width
-        ClipRect(
-          child: SizedBox(
-            width: audiClipWidth,
-            child: OverflowBox(
-              alignment: AlignmentDirectional.centerStart,
-              maxWidth: double.infinity,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: SvgPicture.asset(
-                  'assets/images/boojy_audio_audi.svg',
-                  height: 30,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 2),
-        // Blue circle "O" — settings button
+        // ▲ = the "A": a filled equilateral triangle that doubles as the
+        // Settings button (carries the brand accent and hover-scales, exactly
+        // as the old blue dot did).
         MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) {
@@ -599,14 +583,37 @@ class _TransportBarState extends State<TransportBar> {
                 scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
                 duration: AnimationConstants.hoverDuration,
                 curve: Curves.easeInOut,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: colors.accent,
-                    shape: BoxShape.circle,
+                child: Transform.translate(
+                  // Baseline nudge in px (Offset(0, dy), positive = down).
+                  offset: Offset.zero,
+                  child: CustomPaint(
+                    // Equilateral: height = base * √3/2. ~10% larger than the
+                    // first cut so it reads at the wordmark's weight.
+                    size: const Size(22, 19.05),
+                    painter: _LogoTrianglePainter(colors.accent),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
+        // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
+        // narrows — the same shrink-priority slot the old "Audi" lockup used.
+        ClipRect(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: audiClipWidth),
+            child: Text(
+              'udio',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: BT.weightSemiBold,
+                color: colors.textPrimary,
+                letterSpacing: -0.5,
+                height: 1.0,
               ),
             ),
           ),
@@ -1163,4 +1170,29 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
       ),
     );
   }
+}
+
+/// Filled equilateral triangle used as the "A" in the ▲udio wordmark.
+class _LogoTrianglePainter extends CustomPainter {
+  const _LogoTrianglePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    final path = Path()
+      ..moveTo(size.width / 2, 0) // apex (top centre)
+      ..lineTo(size.width, size.height) // bottom right
+      ..lineTo(0, size.height) // bottom left
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_LogoTrianglePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

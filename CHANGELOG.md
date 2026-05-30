@@ -16,6 +16,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **New ▲udio wordmark.** The top-left logo is now a clean **▲udio** lockup — a filled triangle as
+  the "A" (which still opens Settings, as the old dot did) followed by "udio" — replacing the
+  previous "Audi" + floating-dot composition. It scales and themes cleanly and truncates gracefully
+  when the window narrows.
 - **Track FX buttons use the themed effects icon.** The effects-chain button on each track and the
   Master strip showed a stray yellow emoji (⚡); it now uses the same lightning icon as the Library's
   **Effects** browser, in a muted theme colour (brightening to accent on hover) instead of system
