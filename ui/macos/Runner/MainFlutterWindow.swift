@@ -19,12 +19,13 @@ class MainFlutterWindow: NSWindow {
     self.appearance = NSAppearance(named: .darkAqua)
     self.backgroundColor = NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
 
-    // Add an empty toolbar so macOS centers the window title
+    // Add an empty toolbar and use the .expanded style so macOS centers the
+    // window title. (Unified styles leading-align the title to the left.)
     let toolbar = NSToolbar(identifier: "MainToolbar")
     toolbar.showsBaselineSeparator = false
     self.toolbar = toolbar
     if #available(macOS 11.0, *) {
-      self.toolbarStyle = .unifiedCompact
+      self.toolbarStyle = .expanded
     }
 
     RegisterGeneratedPlugins(registry: flutterViewController)

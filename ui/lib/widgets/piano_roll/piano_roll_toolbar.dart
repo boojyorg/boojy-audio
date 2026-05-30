@@ -49,7 +49,7 @@ class PianoRollToolbar extends StatelessWidget {
       children: [
         // Zoom controls
         ToolbarButton(
-          icon: BI.close,
+          icon: BI.remove,
           label: '',
           onTap: onZoomOut,
           tooltip: 'Zoom out',
