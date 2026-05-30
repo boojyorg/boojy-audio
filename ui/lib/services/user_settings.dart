@@ -122,6 +122,7 @@ class UserSettings extends ChangeNotifier {
   // Appearance keys
   static const String _keyTheme = 'theme';
   static const String _keyUiScale = 'ui_scale';
+  static const String _keyPositionDisplayMode = 'position_display_mode';
 
   // Privacy keys
   static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
@@ -198,6 +199,8 @@ class UserSettings extends ChangeNotifier {
   String _theme =
       'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
   double _uiScale = 1.0; // UI text scale factor (see uiScaleOptions)
+  String _positionDisplayMode =
+      'bars'; // transport readout: 'bars' | 'time' | 'both'
 
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
@@ -585,6 +588,17 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Transport position readout mode: 'bars', 'time', or 'both'. Persisted
+  /// globally (a display preference, like [theme] / [uiScale]).
+  String get positionDisplayMode => _positionDisplayMode;
+  set positionDisplayMode(String value) {
+    if (_positionDisplayMode != value) {
+      _positionDisplayMode = value;
+      _saveAppearanceSettings();
+      notifyListeners();
+    }
+  }
+
   /// Human-readable label for a UI Scale factor.
   static String uiScaleLabel(double scale) {
     if (scale <= 0.90) return 'Compact';
@@ -732,6 +746,8 @@ class UserSettings extends ChangeNotifier {
       // Load appearance settings
       _theme = _prefs?.getString(_keyTheme) ?? 'dark';
       _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
+      _positionDisplayMode =
+          _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
 
       // Load privacy settings
       _crashReportingEnabled =
@@ -905,6 +921,7 @@ class UserSettings extends ChangeNotifier {
     try {
       await _prefs!.setString(_keyTheme, _theme);
       await _prefs!.setDouble(_keyUiScale, _uiScale);
+      await _prefs!.setString(_keyPositionDisplayMode, _positionDisplayMode);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }
