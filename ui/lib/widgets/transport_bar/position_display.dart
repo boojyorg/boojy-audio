@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
+import '../../services/user_settings.dart';
 
 /// Display mode for the position readout
-enum PositionDisplayMode { bars, time }
+enum PositionDisplayMode { bars, time, both }
 
 /// Position display with click-to-toggle between bars and time,
 /// and double-click to jump to a specific position.
@@ -41,6 +42,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
   @override
   void initState() {
     super.initState();
+    _mode = _modeFromString(UserSettings().positionDisplayMode);
     _editController = TextEditingController();
     _focusNode = FocusNode();
     _focusNode.addListener(() {
@@ -81,20 +83,42 @@ class _PositionDisplayState extends State<PositionDisplay> {
   void _toggleMode() {
     if (_isEditing) return;
     setState(() {
-      _mode = _mode == PositionDisplayMode.bars
-          ? PositionDisplayMode.time
-          : PositionDisplayMode.bars;
+      _mode = _nextMode(_mode);
     });
+    // Persist globally so the chosen readout mode survives restarts.
+    UserSettings().positionDisplayMode = _mode.name;
+  }
+
+  static PositionDisplayMode _nextMode(PositionDisplayMode m) {
+    switch (m) {
+      case PositionDisplayMode.bars:
+        return PositionDisplayMode.time;
+      case PositionDisplayMode.time:
+        return PositionDisplayMode.both;
+      case PositionDisplayMode.both:
+        return PositionDisplayMode.bars;
+    }
+  }
+
+  static PositionDisplayMode _modeFromString(String s) {
+    switch (s) {
+      case 'time':
+        return PositionDisplayMode.time;
+      case 'both':
+        return PositionDisplayMode.both;
+      default:
+        return PositionDisplayMode.bars;
+    }
   }
 
   void _startEdit() {
     setState(() {
       _isEditing = true;
-      _editController.text = _mode == PositionDisplayMode.bars
-          ? _formatBars()
+      _editController.text = _mode == PositionDisplayMode.time
+          ? ''
+          : _formatBars()
                 .split('.')
-                .first // Pre-fill with bar number
-          : '';
+                .first; // bars & both: pre-fill the bar number
     });
     // Focus after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,18 +137,18 @@ class _PositionDisplayState extends State<PositionDisplay> {
       return;
     }
 
-    if (_mode == PositionDisplayMode.bars) {
-      // Parse bar number and convert to seconds
+    if (_mode == PositionDisplayMode.time) {
+      // Parse time as seconds
+      final seconds = double.tryParse(text);
+      if (seconds != null && seconds >= 0) {
+        widget.onPositionChanged?.call(seconds);
+      }
+    } else {
+      // bars & both: parse bar number and convert to seconds
       final bar = int.tryParse(text);
       if (bar != null && bar >= 1) {
         final beats = (bar - 1) * widget.beatsPerBar.toDouble();
         final seconds = beats * 60.0 / widget.tempo;
-        widget.onPositionChanged?.call(seconds);
-      }
-    } else {
-      // Parse time as seconds
-      final seconds = double.tryParse(text);
-      if (seconds != null && seconds >= 0) {
         widget.onPositionChanged?.call(seconds);
       }
     }
@@ -138,12 +162,45 @@ class _PositionDisplayState extends State<PositionDisplay> {
     });
   }
 
+  /// The numeric readout content for the current mode. In "both" mode the
+  /// bars line sits over a smaller, dimmer min:sec line (Logic-style dual).
+  Widget _buildReadout() {
+    final colors = context.colors;
+    final primaryStyle = BT.display(colors.textPrimary);
+    switch (_mode) {
+      case PositionDisplayMode.bars:
+        return Text(
+          _formatBars(),
+          textAlign: TextAlign.center,
+          style: primaryStyle,
+        );
+      case PositionDisplayMode.time:
+        return Text(
+          _formatTime(),
+          textAlign: TextAlign.center,
+          style: primaryStyle,
+        );
+      case PositionDisplayMode.both:
+        final timeStyle = BT
+            .display(colors.textSecondary)
+            .copyWith(fontSize: BT.fontLabel);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatBars(),
+              textAlign: TextAlign.center,
+              style: primaryStyle,
+            ),
+            Text(_formatTime(), textAlign: TextAlign.center, style: timeStyle),
+          ],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final displayText = _mode == PositionDisplayMode.bars
-        ? _formatBars()
-        : _formatTime();
 
     if (_isEditing) {
       return Container(
@@ -174,7 +231,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
 
     return Tooltip(
       message:
-          'Drag to scrub · Click to switch bars/time · Double-click to jump',
+          'Drag to scrub · Click to cycle bars / time / both · Double-click to jump',
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeLeftRight,
         onEnter: (_) {
@@ -222,11 +279,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
                 width: 1,
               ),
             ),
-            child: Text(
-              displayText,
-              textAlign: TextAlign.center,
-              style: BT.display(colors.textPrimary),
-            ),
+            child: _buildReadout(),
           ),
         ),
       ),

@@ -22,6 +22,10 @@ All notable changes to Boojy Audio will be documented in this file.
   **root band** so "home" is glanceable, and the pitch row under your cursor lights up as an
   **active lane** with an accent edge — so the piano roll now shows which note you're about to draw.
   The accent stays low-opacity so the notes keep their contrast on top.
+- **Transport readout remembers Bars / Time / Both (phase 2).** Clicking the position readout now
+  cycles through three modes — bars (`1.1.1`), time (`0:00.000`), and a stacked **Both** (bars over a
+  smaller min:sec line, Logic-style) — instead of silently toggling bars↔time. The choice persists
+  across launches.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
