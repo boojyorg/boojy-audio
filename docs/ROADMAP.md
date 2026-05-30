@@ -1,14 +1,16 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.3.2 (developing v0.3.x)
-**Working On:** v0.3.x — next theme from dogfood friction (ghost notes / clip polish candidates)
+**Current Version:** v0.3.2 (developing v0.4.0)
+**Working On:** v0.4.0 — Visual & UX polish (phase 1: type / palette / UI-scale foundation)
 **Goal:** v1.0 public release
 
 ---
 
-## What's Next (v0.3.x)
+## What's Next (v0.4.0)
 
-Theme to be picked from the dogfood friction log ([dogfood/](dogfood/)) — candidates: ghost notes in the piano roll, clip polish, and the known beat-making gaps (stock drum kit / step sequencer, note quantize).
+**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/ui_ux_review_2026_05_30.md) and specced in [plans/v0.4-plan.md](plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B last**. Phase 1 (this slice): bundled Inter + JetBrains Mono, a unified cool "indigo deep-space" palette, and a persisted UI Scale setting. The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag).
+
+The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / step sequencer, quantize) are **deferred** — picked up after the polish pass.
 
 Shipped in v0.3.0:
 
@@ -32,7 +34,8 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.3.0 | Send/return routing (minimal) | Complete |
 | v0.3.1 | Trust/correctness hardening (data-loss) | Complete |
 | v0.3.2 | Plugins & the audio thread (VST3 per-buffer, safety net) | Complete |
-| v0.3.x | Ghost notes, clip polish | Planned |
+| v0.3.x | Ghost notes, clip polish | Deferred |
+| v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | In progress |
 
 ---
 

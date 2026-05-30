@@ -220,15 +220,20 @@ class BoojyColors {
   // ============================================
 
   // --- DARK THEME (Boojy Design System) ---
+  // "Indigo deep-space" ramp: one cool blue-black family, monotonic in
+  // lightness, so chrome (`dark`) belongs to the same tone family as the
+  // content area (`editor`) instead of the old warm charcoal #2C2C32.
   static const Map<String, Color> _darkBackgrounds = {
-    'editor': Color(0xFF0E0F14), // BG.editor — warm charcoal content area
-    'darkest': Color(0xFF13151C), // BG.darkest — text inputs
-    'dark': Color(0xFF2C2C32), // BG.dark — chrome (sidebar, top bar)
-    'standard': Color(0xFF272A38), // BG.standard — forms, secondary surfaces
-    'elevated': Color(0xFF292B36), // BG.elevated — floating UI
-    'surface': Color(0xFF353845), // BG.surface — hover, cards
-    'divider': Color(0xFF3A3D4A), // BG.divider — borders
-    'hover': Color(0xFF4A4D5A), // BG.hover — hover states
+    'editor': Color(0xFF0C0E15), // BG.editor — deep-space content, star field
+    'darkest': Color(0xFF10131C), // BG.darkest — text inputs
+    'dark': Color(
+      0xFF181C2A,
+    ), // BG.dark — chrome (sidebar, top bar); cooled from #2C2C32
+    'standard': Color(0xFF1D2231), // BG.standard — forms, secondary surfaces
+    'elevated': Color(0xFF222942), // BG.elevated — floating UI
+    'surface': Color(0xFF2C3349), // BG.surface — hover, cards
+    'divider': Color(0xFF363E58), // BG.divider — borders
+    'hover': Color(0xFF424A66), // BG.hover — hover states
   };
 
   static const Map<String, Color> _darkText = {

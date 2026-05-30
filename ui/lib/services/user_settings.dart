@@ -121,6 +121,7 @@ class UserSettings extends ChangeNotifier {
 
   // Appearance keys
   static const String _keyTheme = 'theme';
+  static const String _keyUiScale = 'ui_scale';
 
   // Privacy keys
   static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
@@ -196,6 +197,7 @@ class UserSettings extends ChangeNotifier {
   // Appearance settings
   String _theme =
       'dark'; // 'dark', 'highContrastDark', 'light', 'highContrastLight'
+  double _uiScale = 1.0; // UI text scale factor (see uiScaleOptions)
 
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
@@ -566,6 +568,31 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Allowed UI Scale presets (factor; label via [uiScaleLabel]).
+  static const List<double> uiScaleOptions = [0.90, 1.00, 1.10, 1.20];
+
+  /// UI text scale applied app-wide via MediaQuery.textScaler.
+  /// Arbitrary values snap to the nearest [uiScaleOptions] preset.
+  double get uiScale => _uiScale;
+  set uiScale(double value) {
+    final snapped = uiScaleOptions.reduce(
+      (a, b) => (value - a).abs() <= (value - b).abs() ? a : b,
+    );
+    if (_uiScale != snapped) {
+      _uiScale = snapped;
+      _saveAppearanceSettings();
+      notifyListeners();
+    }
+  }
+
+  /// Human-readable label for a UI Scale factor.
+  static String uiScaleLabel(double scale) {
+    if (scale <= 0.90) return 'Compact';
+    if (scale >= 1.20) return 'Large';
+    if (scale >= 1.10) return 'Comfortable';
+    return 'Default';
+  }
+
   // ========================================================================
   // Privacy Settings
   // ========================================================================
@@ -704,6 +731,7 @@ class UserSettings extends ChangeNotifier {
 
       // Load appearance settings
       _theme = _prefs?.getString(_keyTheme) ?? 'dark';
+      _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
 
       // Load privacy settings
       _crashReportingEnabled =
@@ -876,6 +904,7 @@ class UserSettings extends ChangeNotifier {
 
     try {
       await _prefs!.setString(_keyTheme, _theme);
+      await _prefs!.setDouble(_keyUiScale, _uiScale);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }
