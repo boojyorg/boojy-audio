@@ -7,6 +7,7 @@ import 'services/user_settings.dart';
 import 'services/vst3_editor_service.dart';
 import 'services/window_title_service.dart';
 import 'theme/theme_provider.dart';
+import 'theme/tokens.dart';
 
 const String _sentryDsn =
     'https://e9ed35471624004209d192efe41ff66d@o4510676795260928.ingest.de.sentry.io/4510676802207824';
@@ -75,11 +76,14 @@ class BoojyAudioApp extends StatelessWidget {
           brightness: themeProvider.isDark ? Brightness.dark : Brightness.light,
         ).copyWith(primary: colors.accent, surface: colors.standard),
         useMaterial3: true,
+        // Bundled UI typeface — all default Text inherits Inter; numeric
+        // readouts opt into JetBrains Mono via BT.display() / BT.fontFamilyMono.
+        fontFamily: 'Inter',
         scaffoldBackgroundColor: colors.dark,
         popupMenuTheme: PopupMenuThemeData(
           color: colors.elevated,
-          shadowColor: Colors.black.withValues(alpha: 0.4),
-          elevation: 8,
+          shadowColor: BT.shadowColor,
+          elevation: BT.elevationMedium,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: colors.divider, width: 1),
@@ -91,11 +95,30 @@ class BoojyAudioApp extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.darkest,
             borderRadius: BorderRadius.circular(5),
+            boxShadow: BT.shadowSm,
           ),
           textStyle: TextStyle(color: colors.textPrimary, fontSize: 11),
           waitDuration: const Duration(milliseconds: 200),
         ),
       ),
+      builder: (context, child) {
+        // Apply the persisted UI Scale globally via MediaQuery.textScaler.
+        // ListenableBuilder rebuilds live when the user changes it in
+        // Settings → Appearance; `child` is preserved so the app subtree
+        // is not rebuilt, only the inherited MediaQuery re-propagates.
+        return ListenableBuilder(
+          listenable: UserSettings(),
+          builder: (context, _) {
+            final mq = MediaQuery.of(context);
+            return MediaQuery(
+              data: mq.copyWith(
+                textScaler: TextScaler.linear(UserSettings().uiScale),
+              ),
+              child: child!,
+            );
+          },
+        );
+      },
       navigatorObservers: [_VST3OverlayObserver()],
       home: const DAWScreen(),
       debugShowCheckedModeBanner: false,

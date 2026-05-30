@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_provider.dart';
+import '../../theme/tokens.dart';
 
 /// All editable color tokens with their override keys and display names.
 const _bgTokens = [
@@ -339,8 +340,8 @@ class _PaletteEditorState extends State<PaletteEditor> {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 11,
-                fontFamily: 'SF Mono',
-                fontFamilyFallback: const ['Menlo', 'monospace'],
+                fontFamily: BT.fontFamilyMono,
+                fontFamilyFallback: const ['SF Mono', 'Menlo', 'monospace'],
               ),
               decoration: InputDecoration(
                 prefixText: '#',

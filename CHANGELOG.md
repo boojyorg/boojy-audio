@@ -4,11 +4,31 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+> **v0.4.0 — "Visual & UX polish" (phase 1: foundation).** A real typeface, a unified cool
+> palette, and a UI Scale control — the groundwork the rest of the polish pass builds on. Folds in
+> the earlier quick-win bug batch (no separate v0.3.3 release).
+
+### Features
+
+- **UI Scale setting (Settings → Appearance).** Choose Compact / Default / Comfortable / Large to
+  scale the whole interface at once — for high-DPI displays where the UI felt too small. Persists
+  across launches.
+
+### Improvements
+
+- **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
+  readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
+  consistent, more premium look across platforms.
+- **Unified dark palette.** The top bar and sidebar were a warm charcoal sitting on a cool
+  blue-black content area; the whole dark theme is retuned to one cool "indigo deep-space" ramp so
+  chrome and content belong together. The accent blue is unchanged.
+- **Deeper, cooler shadows** on menus, tooltips and floating surfaces (new elevation tokens).
+
 ### Bug Fixes
 
 - **The app reported the wrong version (v0.3.0).** `pubspec.yaml` had drifted behind the shipped
   release and the in-app version label (About box, start screen, settings footer) reads it via
-  `PackageInfo`. Bumped to v0.3.3 and added `ui/pubspec.yaml` to the Version Sync checklist so it
+  `PackageInfo`. Bumped (now v0.4.0) and added `ui/pubspec.yaml` to the Version Sync checklist so it
   stops drifting.
 - **The "About" box was a placeholder** ("Audio / Version M6.2"). It now shows "Boojy Audio" and the
   real bundle version; the app-menu About/Quit items are named "Boojy Audio" too.

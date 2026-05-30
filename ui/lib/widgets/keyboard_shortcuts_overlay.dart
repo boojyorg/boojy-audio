@@ -240,8 +240,13 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
         style: TextStyle(
           color: context.colors.textPrimary,
           fontSize: 12,
-          fontFamily: 'SF Mono',
-          fontFamilyFallback: const ['Menlo', 'Consolas', 'monospace'],
+          fontFamily: BT.fontFamilyMono,
+          fontFamilyFallback: const [
+            'SF Mono',
+            'Menlo',
+            'Consolas',
+            'monospace',
+          ],
           fontWeight: BT.weightMedium,
         ),
       ),
