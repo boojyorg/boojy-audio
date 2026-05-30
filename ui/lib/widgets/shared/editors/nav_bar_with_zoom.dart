@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../theme/boojy_icons.dart';
+import '../../../theme/theme_extension.dart';
+import '../../../theme/tokens.dart';
 import 'zoom_button.dart';
 
 /// A wrapper widget that combines a nav bar with zoom controls.
@@ -23,6 +25,15 @@ class NavBarWithZoom extends StatelessWidget {
   /// Height of the nav bar (default 24.0)
   final double height;
 
+  /// Horizontal zoom (px per beat). When provided together with [beatsPerBar],
+  /// a pinned "orientation chip" shows the bar at the left edge once the ruler
+  /// is scrolled past bar 1. Leave null on editors that don't want the chip
+  /// (e.g. the piano roll).
+  final double? pixelsPerBeat;
+
+  /// Time-signature numerator, paired with [pixelsPerBeat] for the chip.
+  final int? beatsPerBar;
+
   const NavBarWithZoom({
     super.key,
     required this.child,
@@ -30,6 +41,8 @@ class NavBarWithZoom extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     this.height = 24.0,
+    this.pixelsPerBeat,
+    this.beatsPerBar,
   });
 
   @override
@@ -46,6 +59,10 @@ class NavBarWithZoom extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             child: child,
           ),
+          // Orientation chip: the bar at the left edge, pinned (non-scrolling),
+          // shown once scrolled past bar 1. Opt-in via pixelsPerBeat/beatsPerBar.
+          if (pixelsPerBeat != null && beatsPerBar != null)
+            _buildOrientationChip(context),
           // Zoom controls overlaid at right edge (no background)
           Positioned(
             right: 4,
@@ -67,6 +84,49 @@ class NavBarWithZoom extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// A small pinned LCD showing the bar at the left edge of the scrolled
+  /// viewport — a "where am I in the song" cue. Repaints on scroll via the
+  /// shared [scrollController]; hidden until you scroll past bar 1.
+  Widget _buildOrientationChip(BuildContext context) {
+    final ppb = pixelsPerBeat!;
+    final bpb = beatsPerBar!;
+    return Positioned(
+      left: 0,
+      top: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: scrollController,
+          builder: (context, _) {
+            final offset = scrollController.hasClients
+                ? scrollController.offset
+                : 0.0;
+            // Bar containing the left edge of the viewport (1-indexed).
+            final leftBar = (ppb > 0 && bpb > 0)
+                ? (offset / ppb / bpb).floor() + 1
+                : 1;
+            if (leftBar <= 1) return const SizedBox.shrink();
+            final colors = context.colors;
+            return Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: colors.dark,
+                border: Border(
+                  right: BorderSide(color: colors.accent, width: 1.5),
+                ),
+              ),
+              child: Text(
+                '$leftBar',
+                style: BT.label(colors.textPrimary, weight: BT.weightSemiBold),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
