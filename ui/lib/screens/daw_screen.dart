@@ -43,7 +43,6 @@ import '../services/commands/send_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../widgets/fx_picker_dialog.dart';
 import '../services/commands/clip_commands.dart';
-import '../utils/clip_overlap_handler.dart';
 import '../services/library_preview_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
@@ -3398,19 +3397,16 @@ class _DAWScreenState extends State<DAWScreen>
             onDeleted: _deleteMidiClip,
             onBatchDeleted: _deleteMidiClipsBatch,
             onExported: _exportMidiClip,
-            onOverlapResolved: (result) {
-              ClipOverlapHandler.applyMidiResult(
-                result: result,
-                deleteClip: (cId, tId) =>
-                    midiClipController.deleteClip(cId, tId),
-                updateClipInPlace: (clip) =>
-                    midiPlaybackManager?.updateClipInPlace(clip),
-                rescheduleClip: (clip, t) =>
-                    midiPlaybackManager?.rescheduleClip(clip, t),
-                addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
-                tempo: tempo,
-              );
-            },
+            buildMidiOverlapCommand: (result) => ResolveMidiOverlapCommand(
+              result: result,
+              tempo: tempo,
+              deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+              updateClipInPlace: (clip) =>
+                  midiPlaybackManager?.updateClipInPlace(clip),
+              rescheduleClip: (clip, t) =>
+                  midiPlaybackManager?.rescheduleClip(clip, t),
+              addClip: (clip) => midiPlaybackManager?.addRecordedClip(clip),
+            ),
           ),
           audioClipCallbacks: AudioClipCallbacks(
             onSelected: _onAudioClipSelected,
