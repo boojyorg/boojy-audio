@@ -1,6 +1,6 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.3.0 (developing v0.3.x)
+**Current Version:** v0.3.2 (developing v0.3.x)
 **Working On:** v0.3.x — next theme from dogfood friction (ghost notes / clip polish candidates)
 **Goal:** v1.0 public release
 
@@ -16,6 +16,10 @@ Shipped in v0.3.0:
 - **Master row:** Hidden in arrangement by default; shown when master automation exists or via View → Show Master Row
 - Spec archived: [archive/plans/v0.3.0-plan.md](archive/plans/v0.3.0-plan.md)
 
+Shipped in v0.3.1 — **trust/correctness hardening** (data-loss & undo-corruption cluster from the [2026-05-29 review](reviews/)): mono export fix, redo-corruption fix, time-signature / MIDI-CC / clip-metadata persistence, grouped multi-clip move undo.
+
+Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a whole buffer at a time instead of one sample at a time (the critical glitch), on top of a realtime safety net (NaN/Inf guard, denormal flush, stereo/48 kHz validation, plugin-thread fixes), live plugin/clip UI fixes (H-8/H-9/M-3), overlap-move undo (H-11), and a dead-code sweep.
+
 ---
 
 ## Version Plan
@@ -26,6 +30,8 @@ Shipped in v0.3.0:
 | v0.2.3 | Foundation & consolidation | Complete |
 | v0.2.4 | Finish the foundation | Complete |
 | v0.3.0 | Send/return routing (minimal) | Complete |
+| v0.3.1 | Trust/correctness hardening (data-loss) | Complete |
+| v0.3.2 | Plugins & the audio thread (VST3 per-buffer, safety net) | Complete |
 | v0.3.x | Ghost notes, clip polish | Planned |
 
 ---
