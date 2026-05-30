@@ -931,6 +931,25 @@ impl EffectType {
         }
     }
 
+    /// Process a whole block of stereo frames in-place.
+    ///
+    /// Built-in effects fall through to the [`Effect`] trait's default
+    /// `process_block` (a loop over `process_frame`), so their output is
+    /// bit-identical to per-sample processing. `VST3Effect` overrides
+    /// `process_block` to call the plugin once per buffer — the real win.
+    pub fn process_block(&mut self, left: &mut [f32], right: &mut [f32]) {
+        match self {
+            EffectType::EQ(fx) => fx.process_block(left, right),
+            EffectType::Compressor(fx) => fx.process_block(left, right),
+            EffectType::Reverb(fx) => fx.process_block(left, right),
+            EffectType::Delay(fx) => fx.process_block(left, right),
+            EffectType::Limiter(fx) => fx.process_block(left, right),
+            EffectType::Chorus(fx) => fx.process_block(left, right),
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            EffectType::VST3(fx) => fx.process_block(left, right),
+        }
+    }
+
     pub fn reset(&mut self) {
         match self {
             EffectType::EQ(fx) => fx.reset(),
@@ -1228,5 +1247,96 @@ mod effect_energy_tests {
             ratio > 0.1,
             "chorus wet output too quiet (ratio={ratio:.4})"
         );
+    }
+}
+
+#[cfg(test)]
+mod process_block_equivalence_tests {
+    //! The per-buffer render path (PR C / #1) calls `Effect::process_block`
+    //! once per buffer instead of `process_frame` per sample. For every
+    //! built-in effect that relies on the trait's default `process_block` (a
+    //! loop over `process_frame`), the two MUST produce bit-identical output —
+    //! that is the safety property the whole render-loop rewrite leans on.
+    //! These tests pin it so a future override of a built-in's `process_block`
+    //! can't silently diverge per-sample vs per-buffer behaviour.
+    //!
+    //! (VST3 deliberately overrides `process_block` with a real per-buffer
+    //! call and is not — cannot be — covered here; it's validated by listening.)
+    #![allow(clippy::float_cmp)]
+    use super::*;
+
+    /// A harmonically rich, deterministic stereo test signal: a 220 Hz sawtooth
+    /// in the left channel and a 330 Hz sawtooth in the right, so left ≠ right
+    /// (a bug that collapses channels would show up).
+    fn make_signal(len: usize) -> (Vec<f32>, Vec<f32>) {
+        let mut l = Vec::with_capacity(len);
+        let mut r = Vec::with_capacity(len);
+        for i in 0..len {
+            let pl = (i as f32 * 220.0 / TARGET_SAMPLE_RATE as f32).fract();
+            let pr = (i as f32 * 330.0 / TARGET_SAMPLE_RATE as f32).fract();
+            l.push((2.0 * pl - 1.0) * 0.3);
+            r.push((2.0 * pr - 1.0) * 0.3);
+        }
+        (l, r)
+    }
+
+    /// Assert that running `effect` over a whole buffer via `process_block`
+    /// matches a fresh, identically-constructed effect run sample-by-sample.
+    fn assert_block_matches_frames<E: Effect>(mut block_fx: E, mut frame_fx: E) {
+        // Span several typical buffer sizes incl. the 512 max VST3 block.
+        let len = 1024;
+        let (in_l, in_r) = make_signal(len);
+
+        let mut block_l = in_l.clone();
+        let mut block_r = in_r.clone();
+        block_fx.process_block(&mut block_l, &mut block_r);
+
+        for i in 0..len {
+            let (fl, fr) = frame_fx.process_frame(in_l[i], in_r[i]);
+            assert_eq!(
+                block_l[i],
+                fl,
+                "{} L diverged at sample {i}: block={} frame={fl}",
+                block_fx.name(),
+                block_l[i]
+            );
+            assert_eq!(
+                block_r[i],
+                fr,
+                "{} R diverged at sample {i}: block={} frame={fr}",
+                block_fx.name(),
+                block_r[i]
+            );
+        }
+    }
+
+    #[test]
+    fn eq_block_matches_frames() {
+        assert_block_matches_frames(ParametricEQ::new(), ParametricEQ::new());
+    }
+
+    #[test]
+    fn compressor_block_matches_frames() {
+        assert_block_matches_frames(Compressor::new(), Compressor::new());
+    }
+
+    #[test]
+    fn reverb_block_matches_frames() {
+        assert_block_matches_frames(Reverb::new(), Reverb::new());
+    }
+
+    #[test]
+    fn delay_block_matches_frames() {
+        assert_block_matches_frames(Delay::new(), Delay::new());
+    }
+
+    #[test]
+    fn limiter_block_matches_frames() {
+        assert_block_matches_frames(Limiter::new(), Limiter::new());
+    }
+
+    #[test]
+    fn chorus_block_matches_frames() {
+        assert_block_matches_frames(Chorus::new(), Chorus::new());
     }
 }
