@@ -10,6 +10,12 @@ env:
   # Keep in sync with ui/.fvmrc (the local FVM pin).
   FLUTTER_VERSION: '3.44.0'
 
+# Cancel an in-progress run when a newer commit is pushed to the same PR/branch,
+# so superseded runs stop burning a runner instead of finishing pointlessly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   flutter-checks:
     runs-on: macos-latest
@@ -29,6 +35,13 @@ jobs:
       - name: Install dependencies
         run: cd ui && flutter pub get
 
+      # Without this the engine cold-compiles every run (~minutes). Mirrors the
+      # cache in the rust-checks job.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
       - name: Build native engine (integration tests)
         run: cd engine && cargo build
 
@@ -41,7 +54,11 @@ jobs:
       - name: Run unit tests
         run: cd ui && flutter test
 
+      # Capped low because this step intermittently hangs at app-foreground in CI
+      # (a known macOS flake). The cap fails fast instead of dragging the 25-min
+      # job timeout; re-run to clear a hang.
       - name: Run integration tests
+        timeout-minutes: 8
         run: cd ui && flutter test integration_test/ -d macos
 
   flutter-checks-windows:
