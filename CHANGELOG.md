@@ -16,6 +16,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Track FX buttons use the themed effects icon.** The effects-chain button on each track and the
+  Master strip showed a stray yellow emoji (⚡); it now uses the same lightning icon as the Library's
+  **Effects** browser, in a muted theme colour (brightening to accent on hover) instead of system
+  yellow.
 - **Piano-roll lanes read like a keyboard (phase 2).** The grid's white- vs black-key rows were
   nearly the same grey; black-key rows are now noticeably darker for a clear keyboard read. The root
   note (the tonic — C by default, or whatever the scale picker is set to) gets a faint accent-blue
