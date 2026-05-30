@@ -31,7 +31,8 @@ Cargo.lock
 *~
 
 # Claude Code — track shared config/rules/hooks/skills; ignore local-only files
-.claude/settings.local.json
+**/.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Generated FFI
 /ui/lib/bridge_generated.dart
