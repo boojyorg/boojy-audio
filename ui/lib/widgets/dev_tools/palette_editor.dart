@@ -30,7 +30,20 @@ const _accentTokens = [
 
 // Palette ramp A/B presets. The default ("Graphite") lives in
 // app_colors.dart `_darkBackgrounds`; the "Current"/Graphite chip just clears
-// overrides. These two are the cooler alternatives to flip between live.
+// overrides. These are the cooler alternatives to flip between live.
+
+/// Preset: Gunmetal — a touch cooler than Graphite (≈ channel midpoint of
+/// Graphite and Slate): near-neutral grey with a faint blue undertone.
+const Map<String, Color> _gunmetalPreset = {
+  'editor': Color(0xFF0C0E11),
+  'darkest': Color(0xFF131418),
+  'dark': Color(0xFF1B1D22),
+  'standard': Color(0xFF202329),
+  'elevated': Color(0xFF26292F),
+  'surface': Color(0xFF2F3239),
+  'divider': Color(0xFF3A3E46),
+  'hover': Color(0xFF464952),
+};
 
 /// Preset: Slate — subtle cool blue-grey, between Graphite and Indigo.
 const Map<String, Color> _slatePreset = {
@@ -115,6 +128,9 @@ class _PaletteEditorState extends State<PaletteEditor> {
     switch (name) {
       case 'current':
         provider.clearOverrides();
+        break;
+      case 'gunmetal':
+        provider.applyPreset(_gunmetalPreset);
         break;
       case 'slate':
         provider.applyPreset(_slatePreset);
@@ -232,12 +248,13 @@ class _PaletteEditorState extends State<PaletteEditor> {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.divider)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
         children: [
           _presetChip('Graphite', 'current', provider, colors),
-          const SizedBox(width: 4),
+          _presetChip('Gunmetal', 'gunmetal', provider, colors),
           _presetChip('Slate', 'slate', provider, colors),
-          const SizedBox(width: 4),
           _presetChip('Indigo', 'indigo', provider, colors),
         ],
       ),
