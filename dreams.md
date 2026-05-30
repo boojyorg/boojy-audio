@@ -2,26 +2,35 @@
 
 ## §1 Active Engineering Target
 
-**Target:** v0.3.x — **trust/correctness hardening**. The 2026-05-29 whole-app review
-(`docs/reviews/codebase_review_2026_05_29.md`) picked this theme from real friction in code, so the
-dogfood beat isn't a prerequisite. Implement the ranked backlog there, leading with the
-**"don't lose my work, don't corrupt my edits"** cluster. v0.3.0 shipped 2026-05-25. The full
-22-item backlog + the secondary "plugins & the audio thread" cluster live in the review doc.
+**Target:** v0.4.0 — **Visual & UX polish**. The first dedicated UI/UX pass, scoped from the
+2026-05-30 review (`docs/reviews/ui_ux_review_2026_05_30.md`); spec in `docs/plans/v0.4-plan.md`.
+Sequenced **foundation → contained re-treats → top-bar A/B last**, so the A/B happens on the
+finished look. The earlier v0.3.3 quick-win bug batch folds into this release — **no separate
+v0.3.3 tag** (we skipped it and went straight to v0.4.0).
 
-### Milestones — primary cluster first (review §8); all are *fixes, no new features*
-- [x] #2 Fix offline-export pan matrix — every bounce currently folds to mono (`offline.rs:380-386`) — **S** — shipped v0.3.1 (PR #11)
-- [x] #3 Fix stale-id-on-redo across all Remove commands — effects/returns/clips (`effect_commands.dart`, `send_commands.dart`, `clip_commands.dart`) — **M** — shipped v0.3.1 (PR #11)
-- [x] #4 Persist time signature + recorded MIDI CC on save/reload (`project.rs`) — **M** — shipped v0.3.1 (PR #11)
-- [x] #5 Persist MIDI clip metadata via `ui_layout.json` — name/colour/offset/loop/automation (`midi_playback_manager.dart`, `project_persistence.dart`) — **M** — shipped v0.3.1 (PR #11)
-- [x] #9 Group multi-clip moves into one undo + make overlap-move undoable (`timeline_gesture_layer.dart`) — **M** — group-move v0.3.1 (PR #11); overlap-move undo (H-11) v0.3.2 (PR #15)
-- [x] #19 Add the regression tests that protect the above — save/reload fidelity, `send_commands`, execute→undo→execute — **L** — shipped v0.3.1 (PR #11)
-- [ ] Write `docs/plans/v0.3.x-plan.md` once the slice is locked (one active plan at a time) — *skipped by design: work ran straight off the review doc*
+### Milestones
+- [x] **Quick-win bug batch** — version label, About box, start-screen Settings, zoom icon, tempo
+  clamp (20–300), velocity-lane colour, clip-colour palette, loop-hint contrast (was PR #21).
+- [x] **Phase 1 — Foundation:** bundle Inter + JetBrains Mono; unify the dark ramp to one
+  near-neutral **"gunmetal"** dark-grey family (chrome joins content; Graphite/Slate/Indigo are
+  live `Cmd+Shift+P` dev presets to A/B); UI Scale setting
+  (Compact/Default/Comfortable/Large via `MediaQuery.textScaler`, persisted); elevation tokens +
+  `BT.scaled()` helper for painters.
+- [ ] **Phase 2 — Contained re-treats:** piano-roll indigo lane + root band; time-readout
+  *behaviour* (Bars → Time → Both, persisted, pinned ruler overlay).
+- [ ] **Phase 3 — Top-bar A/B (last):** all four layout variants behind a dev-tools "UI Labs"
+  switcher, + the proper macOS title-centring fix.
+- [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
+  high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
+  Serum/VST3 load bug; scaling the 9 painter text sizes.
 
-Secondary cluster: #1 VST3 per-buffer processing **shipped v0.3.2 (PR #14)**; #10/#11/#20 still open.
-With the primary cluster + #1 merged, the v0.3.x trust/correctness target is essentially delivered —
-**next session: pick a fresh target** (dogfood for friction, or take #10/#11/#20).
-**Trap for the UI items (#3/#5/#9):** `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the
-mixins are dead/diverged, so edit the wired private methods, *not* the mixins (review §4, backlog #7/#8).
+**macOS title-bar gotcha:** no native `NSToolbar` style gives "centred + compact" — `.expanded`
+centres the title but adds an empty, taller toolbar row; `.unifiedCompact` is compact but
+left-aligned. Phase 3 hides the native title (`window_manager` `TitleBarStyle.hidden`, keep the
+traffic lights) and draws a centred title in Flutter.
+
+**Trap (still live):** `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are
+dead/diverged, so edit the wired private methods, *not* the mixins (review §4).
 
 ### How we work here
 - Plan **one milestone at a time** — only one active `docs/plans/vX.Y-plan.md`.

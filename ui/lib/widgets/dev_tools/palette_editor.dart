@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/theme_provider.dart';
+import '../../theme/tokens.dart';
 
 /// All editable color tokens with their override keys and display names.
 const _bgTokens = [
@@ -27,28 +28,44 @@ const _accentTokens = [
   ('accent_hover', 'Accent Hover'),
 ];
 
-/// Preset: Neutral grays (no blue tint)
-const Map<String, Color> _neutralPreset = {
-  'editor': Color(0xFF030308),
-  'darkest': Color(0xFF141414),
-  'dark': Color(0xFF2C2C2C),
-  'standard': Color(0xFF282828),
-  'elevated': Color(0xFF303030),
-  'surface': Color(0xFF383838),
-  'divider': Color(0xFF404040),
-  'hover': Color(0xFF484848),
+// Palette ramp A/B presets. The default ("Gunmetal") lives in
+// app_colors.dart `_darkBackgrounds`; the "Gunmetal"/Current chip just clears
+// overrides. These are alternative ramps to flip between live.
+
+/// Preset: Graphite — flat near-neutral dark grey (no blue undertone).
+const Map<String, Color> _graphitePreset = {
+  'editor': Color(0xFF0C0D0F),
+  'darkest': Color(0xFF131417),
+  'dark': Color(0xFF1B1C1F),
+  'standard': Color(0xFF202226),
+  'elevated': Color(0xFF25272B),
+  'surface': Color(0xFF2E3035),
+  'divider': Color(0xFF3A3C42),
+  'hover': Color(0xFF45474E),
 };
 
-/// Preset: Warm grays
-const Map<String, Color> _warmPreset = {
-  'editor': Color(0xFF060504),
-  'darkest': Color(0xFF171614),
-  'dark': Color(0xFF2E2D2A),
-  'standard': Color(0xFF2A2928),
-  'elevated': Color(0xFF323130),
-  'surface': Color(0xFF3A3938),
-  'divider': Color(0xFF434240),
-  'hover': Color(0xFF4C4B48),
+/// Preset: Slate — subtle cool blue-grey, between Graphite and Indigo.
+const Map<String, Color> _slatePreset = {
+  'editor': Color(0xFF0C0E12),
+  'darkest': Color(0xFF121419),
+  'dark': Color(0xFF1B1E25),
+  'standard': Color(0xFF20242C),
+  'elevated': Color(0xFF262A33),
+  'surface': Color(0xFF2F333D),
+  'divider': Color(0xFF3A3F49),
+  'hover': Color(0xFF464B56),
+};
+
+/// Preset: Indigo deep-space — the cool blue-black ramp (more navy).
+const Map<String, Color> _indigoPreset = {
+  'editor': Color(0xFF0C0E15),
+  'darkest': Color(0xFF10131C),
+  'dark': Color(0xFF181C2A),
+  'standard': Color(0xFF1D2231),
+  'elevated': Color(0xFF222942),
+  'surface': Color(0xFF2C3349),
+  'divider': Color(0xFF363E58),
+  'hover': Color(0xFF424A66),
 };
 
 /// A floating dev tool for live-editing the color palette.
@@ -111,11 +128,14 @@ class _PaletteEditorState extends State<PaletteEditor> {
       case 'current':
         provider.clearOverrides();
         break;
-      case 'neutral':
-        provider.applyPreset(_neutralPreset);
+      case 'graphite':
+        provider.applyPreset(_graphitePreset);
         break;
-      case 'warm':
-        provider.applyPreset(_warmPreset);
+      case 'slate':
+        provider.applyPreset(_slatePreset);
+        break;
+      case 'indigo':
+        provider.applyPreset(_indigoPreset);
         break;
     }
   }
@@ -227,13 +247,14 @@ class _PaletteEditorState extends State<PaletteEditor> {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.divider)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
         children: [
-          _presetChip('Current', 'current', provider, colors),
-          const SizedBox(width: 4),
-          _presetChip('Neutral', 'neutral', provider, colors),
-          const SizedBox(width: 4),
-          _presetChip('Warm', 'warm', provider, colors),
+          _presetChip('Gunmetal', 'current', provider, colors),
+          _presetChip('Graphite', 'graphite', provider, colors),
+          _presetChip('Slate', 'slate', provider, colors),
+          _presetChip('Indigo', 'indigo', provider, colors),
         ],
       ),
     );
@@ -339,8 +360,8 @@ class _PaletteEditorState extends State<PaletteEditor> {
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 11,
-                fontFamily: 'SF Mono',
-                fontFamilyFallback: const ['Menlo', 'monospace'],
+                fontFamily: BT.fontFamilyMono,
+                fontFamilyFallback: const ['SF Mono', 'Menlo', 'monospace'],
               ),
               decoration: InputDecoration(
                 prefixText: '#',

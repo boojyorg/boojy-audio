@@ -41,9 +41,10 @@ void main() {
     test('dark theme has expected specific color values', () {
       const colors = BoojyColors(BoojyTheme.dark);
 
-      expect(colors.editor, const Color(0xFF0E0F14));
-      expect(colors.dark, const Color(0xFF2C2C32));
-      expect(colors.darkest, const Color(0xFF13151C));
+      // Gunmetal ramp (v0.4.0 default): near-neutral dark grey, faint cool.
+      expect(colors.editor, const Color(0xFF0C0E11));
+      expect(colors.dark, const Color(0xFF1B1D22));
+      expect(colors.darkest, const Color(0xFF131418));
       expect(colors.textPrimary, const Color(0xFFE8EAF0));
       expect(colors.accent, const Color(0xFF40B3E8));
     });
@@ -73,7 +74,7 @@ void main() {
 
       expect(colors.editor, overrideColor);
       // Non-overridden tokens still return defaults
-      expect(colors.dark, const Color(0xFF2C2C32));
+      expect(colors.dark, const Color(0xFF1B1D22));
     });
 
     // -------------------------------------------------------

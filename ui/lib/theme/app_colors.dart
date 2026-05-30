@@ -220,15 +220,21 @@ class BoojyColors {
   // ============================================
 
   // --- DARK THEME (Boojy Design System) ---
+  // "Gunmetal" ramp (v0.4.0 default): one near-neutral dark-grey family with a
+  // faint cool undertone — chrome (`dark`) matches the content area instead of
+  // the old warm charcoal #2C2C32, a touch cooler than flat Graphite but
+  // without the navy cast of the Indigo ramp. Alternatives (Graphite, Slate,
+  // Indigo) live as dev-tool presets — toggle the live palette editor with
+  // Cmd+Shift+P to A/B them.
   static const Map<String, Color> _darkBackgrounds = {
-    'editor': Color(0xFF0E0F14), // BG.editor — warm charcoal content area
-    'darkest': Color(0xFF13151C), // BG.darkest — text inputs
-    'dark': Color(0xFF2C2C32), // BG.dark — chrome (sidebar, top bar)
-    'standard': Color(0xFF272A38), // BG.standard — forms, secondary surfaces
-    'elevated': Color(0xFF292B36), // BG.elevated — floating UI
-    'surface': Color(0xFF353845), // BG.surface — hover, cards
-    'divider': Color(0xFF3A3D4A), // BG.divider — borders
-    'hover': Color(0xFF4A4D5A), // BG.hover — hover states
+    'editor': Color(0xFF0C0E11), // BG.editor — content area, star field
+    'darkest': Color(0xFF131418), // BG.darkest — text inputs
+    'dark': Color(0xFF1B1D22), // BG.dark — chrome (sidebar, top bar)
+    'standard': Color(0xFF202329), // BG.standard — forms, secondary surfaces
+    'elevated': Color(0xFF26292F), // BG.elevated — floating UI
+    'surface': Color(0xFF2F3239), // BG.surface — hover, cards
+    'divider': Color(0xFF3A3E46), // BG.divider — borders
+    'hover': Color(0xFF464952), // BG.hover — hover states
   };
 
   static const Map<String, Color> _darkText = {
