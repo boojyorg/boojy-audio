@@ -816,6 +816,8 @@ class TimelineViewState extends State<TimelineView>
                           );
                     }),
                     height: UIConstants.navBarHeight,
+                    pixelsPerBeat: pixelsPerBeat,
+                    beatsPerBar: widget.beatsPerBar,
                     child: ValueListenableBuilder<double>(
                       valueListenable: widget.playheadNotifier,
                       builder: (context, _, __) => UnifiedNavBar(

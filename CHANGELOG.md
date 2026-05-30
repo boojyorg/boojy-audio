@@ -26,6 +26,9 @@ All notable changes to Boojy Audio will be documented in this file.
   cycles through three modes — bars (`1.1.1`), time (`0:00.000`), and a stacked **Both** (bars over a
   smaller min:sec line, Logic-style) — instead of silently toggling bars↔time. The choice persists
   across launches.
+- **Pinned "you are here" bar on the arrangement ruler (phase 2).** Scroll the timeline away from
+  the start and a small chip pins to the left of the ruler showing the bar at the left edge, so you
+  always know where in the song you're looking. It stays hidden until you've scrolled past bar 1.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
