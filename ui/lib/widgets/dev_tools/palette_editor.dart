@@ -28,28 +28,32 @@ const _accentTokens = [
   ('accent_hover', 'Accent Hover'),
 ];
 
-/// Preset: Neutral grays (no blue tint)
-const Map<String, Color> _neutralPreset = {
-  'editor': Color(0xFF030308),
-  'darkest': Color(0xFF141414),
-  'dark': Color(0xFF2C2C2C),
-  'standard': Color(0xFF282828),
-  'elevated': Color(0xFF303030),
-  'surface': Color(0xFF383838),
-  'divider': Color(0xFF404040),
-  'hover': Color(0xFF484848),
+// Palette ramp A/B presets. The default ("Graphite") lives in
+// app_colors.dart `_darkBackgrounds`; the "Current"/Graphite chip just clears
+// overrides. These two are the cooler alternatives to flip between live.
+
+/// Preset: Slate — subtle cool blue-grey, between Graphite and Indigo.
+const Map<String, Color> _slatePreset = {
+  'editor': Color(0xFF0C0E12),
+  'darkest': Color(0xFF121419),
+  'dark': Color(0xFF1B1E25),
+  'standard': Color(0xFF20242C),
+  'elevated': Color(0xFF262A33),
+  'surface': Color(0xFF2F333D),
+  'divider': Color(0xFF3A3F49),
+  'hover': Color(0xFF464B56),
 };
 
-/// Preset: Warm grays
-const Map<String, Color> _warmPreset = {
-  'editor': Color(0xFF060504),
-  'darkest': Color(0xFF171614),
-  'dark': Color(0xFF2E2D2A),
-  'standard': Color(0xFF2A2928),
-  'elevated': Color(0xFF323130),
-  'surface': Color(0xFF3A3938),
-  'divider': Color(0xFF434240),
-  'hover': Color(0xFF4C4B48),
+/// Preset: Indigo deep-space — the cool blue-black ramp (more navy).
+const Map<String, Color> _indigoPreset = {
+  'editor': Color(0xFF0C0E15),
+  'darkest': Color(0xFF10131C),
+  'dark': Color(0xFF181C2A),
+  'standard': Color(0xFF1D2231),
+  'elevated': Color(0xFF222942),
+  'surface': Color(0xFF2C3349),
+  'divider': Color(0xFF363E58),
+  'hover': Color(0xFF424A66),
 };
 
 /// A floating dev tool for live-editing the color palette.
@@ -112,11 +116,11 @@ class _PaletteEditorState extends State<PaletteEditor> {
       case 'current':
         provider.clearOverrides();
         break;
-      case 'neutral':
-        provider.applyPreset(_neutralPreset);
+      case 'slate':
+        provider.applyPreset(_slatePreset);
         break;
-      case 'warm':
-        provider.applyPreset(_warmPreset);
+      case 'indigo':
+        provider.applyPreset(_indigoPreset);
         break;
     }
   }
@@ -230,11 +234,11 @@ class _PaletteEditorState extends State<PaletteEditor> {
       ),
       child: Row(
         children: [
-          _presetChip('Current', 'current', provider, colors),
+          _presetChip('Graphite', 'current', provider, colors),
           const SizedBox(width: 4),
-          _presetChip('Neutral', 'neutral', provider, colors),
+          _presetChip('Slate', 'slate', provider, colors),
           const SizedBox(width: 4),
-          _presetChip('Warm', 'warm', provider, colors),
+          _presetChip('Indigo', 'indigo', provider, colors),
         ],
       ),
     );
