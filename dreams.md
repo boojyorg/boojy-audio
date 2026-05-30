@@ -12,8 +12,8 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
 - [x] **Quick-win bug batch** — version label, About box, start-screen Settings, zoom icon, tempo
   clamp (20–300), velocity-lane colour, clip-colour palette, loop-hint contrast (was PR #21).
 - [x] **Phase 1 — Foundation:** bundle Inter + JetBrains Mono; unify the dark ramp to one
-  near-neutral **"graphite"** dark-grey family (chrome joins content; Slate/Indigo are live
-  `Cmd+Shift+P` dev presets to A/B); UI Scale setting
+  near-neutral **"gunmetal"** dark-grey family (chrome joins content; Graphite/Slate/Indigo are
+  live `Cmd+Shift+P` dev presets to A/B); UI Scale setting
   (Compact/Default/Comfortable/Large via `MediaQuery.textScaler`, persisted); elevation tokens +
   `BT.scaled()` helper for painters.
 - [ ] **Phase 2 — Contained re-treats:** piano-roll indigo lane + root band; time-readout
