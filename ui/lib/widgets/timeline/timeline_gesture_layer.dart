@@ -823,17 +823,8 @@ mixin TimelineGestureLayerMixin
                   Log.d(
                     '[OVERLAP] Audio clip drag-end: clip ${selectedClip.clipId} moved ${selectedClip.startTime.toStringAsFixed(3)} → ${newStartTime.toStringAsFixed(3)}s on track ${selectedClip.trackId}',
                   );
-                  // Update the moved clip's position first (before overlap resolution)
-                  final index = clips.indexWhere(
-                    (c) => c.clipId == selectedClip.clipId,
-                  );
-                  if (index >= 0) {
-                    clips[index] = clips[index].copyWith(
-                      startTime: newStartTime,
-                    );
-                  }
 
-                  // Resolve overlaps at new position (exclude the moved clip itself)
+                  // Resolve overlaps at the new position (exclude the moved clip).
                   final overlapResult = ClipOverlapHandler.resolveAudioOverlaps(
                     newStart: newStartTime,
                     newEnd: newStartTime + selectedClip.duration,
@@ -841,29 +832,31 @@ mixin TimelineGestureLayerMixin
                     trackId: selectedClip.trackId,
                     excludeClipId: selectedClip.clipId,
                   );
-                  ClipOverlapHandler.applyAudioResult(
-                    result: overlapResult,
-                    engineRemoveClip: (tId, cId) =>
-                        widget.audioEngine?.removeAudioClip(tId, cId),
-                    engineSetStartTime: (tId, cId, s) =>
-                        widget.audioEngine?.setClipStartTime(tId, cId, s),
-                    engineSetOffset: (tId, cId, o) =>
-                        widget.audioEngine?.setClipOffset(tId, cId, o),
-                    engineSetDuration: (tId, cId, d) =>
-                        widget.audioEngine?.setClipDuration(tId, cId, d),
-                    engineDuplicateClip: (tId, cId, s) =>
-                        widget.audioEngine?.duplicateAudioClip(tId, cId, s) ??
-                        -1,
-                    uiRemoveClip: (cId) =>
-                        clips.removeWhere((c) => c.clipId == cId),
-                    uiUpdateClip: (clip) {
-                      final idx = clips.indexWhere(
-                        (c) => c.clipId == clip.clipId,
-                      );
-                      if (idx >= 0) clips[idx] = clip;
-                    },
-                    uiAddClip: (clip) => clips.add(clip),
-                  );
+                  // H-11: the overlap destruction used to be applied here
+                  // destructively (un-undoable). Compose it into the same undo
+                  // step as the move so one Ctrl+Z restores both the moved clip
+                  // and any overwritten neighbour. Added before the move command
+                  // so execute resolves overlaps then moves, and undo reverses.
+                  if (overlapResult.hasChanges) {
+                    moveCommands.add(
+                      ResolveAudioOverlapCommand(
+                        result: overlapResult,
+                        uiRemoveClip: (cId) =>
+                            clips.removeWhere((c) => c.clipId == cId),
+                        uiUpdateClip: (clip) {
+                          final idx = clips.indexWhere(
+                            (c) => c.clipId == clip.clipId,
+                          );
+                          if (idx >= 0) {
+                            clips[idx] = clip;
+                          } else {
+                            clips.add(clip);
+                          }
+                        },
+                        uiAddClip: (clip) => clips.add(clip),
+                      ),
+                    );
+                  }
 
                   moveCommands.add(
                     MoveAudioClipCommand(
@@ -872,6 +865,14 @@ mixin TimelineGestureLayerMixin
                       clipName: selectedClip.fileName,
                       newStartTime: newStartTime,
                       oldStartTime: selectedClip.startTime,
+                      onClipMoved: (cId, startTime) {
+                        final idx = clips.indexWhere((c) => c.clipId == cId);
+                        if (idx >= 0) {
+                          clips[idx] = clips[idx].copyWith(
+                            startTime: startTime,
+                          );
+                        }
+                      },
                     ),
                   );
                 }
@@ -901,8 +902,14 @@ mixin TimelineGestureLayerMixin
                   trackId: midiClip.trackId,
                   excludeClipId: midiClip.clipId,
                 );
+                // H-11: compose the overlap destruction into the same undo step
+                // as the move (was applied destructively via onOverlapResolved).
                 if (midiOverlap.hasChanges) {
-                  widget.midiClipCallbacks.onOverlapResolved?.call(midiOverlap);
+                  final overlapCmd = widget
+                      .midiClipCallbacks
+                      .buildMidiOverlapCommand
+                      ?.call(midiOverlap);
+                  if (overlapCmd != null) moveCommands.add(overlapCmd);
                 }
 
                 final newStartTimeSeconds = newStartBeats / beatsPerSecond;
@@ -1825,10 +1832,13 @@ mixin TimelineGestureLayerMixin
                               trackId: clip.trackId,
                               excludeClipId: clip.clipId,
                             );
+                        // H-11: compose overlap destruction into the undo step.
                         if (midiOverlap.hasChanges) {
-                          widget.midiClipCallbacks.onOverlapResolved?.call(
-                            midiOverlap,
-                          );
+                          final overlapCmd = widget
+                              .midiClipCallbacks
+                              .buildMidiOverlapCommand
+                              ?.call(midiOverlap);
+                          if (overlapCmd != null) moveCommands.add(overlapCmd);
                         }
 
                         final newStartTimeSeconds =
@@ -1884,35 +1894,28 @@ mixin TimelineGestureLayerMixin
                                 trackId: audioClip.trackId,
                                 excludeClipId: audioClip.clipId,
                               );
-                          ClipOverlapHandler.applyAudioResult(
-                            result: overlapResult,
-                            engineRemoveClip: (tId, cId) =>
-                                widget.audioEngine?.removeAudioClip(tId, cId),
-                            engineSetStartTime: (tId, cId, s) => widget
-                                .audioEngine
-                                ?.setClipStartTime(tId, cId, s),
-                            engineSetOffset: (tId, cId, o) =>
-                                widget.audioEngine?.setClipOffset(tId, cId, o),
-                            engineSetDuration: (tId, cId, d) => widget
-                                .audioEngine
-                                ?.setClipDuration(tId, cId, d),
-                            engineDuplicateClip: (tId, cId, s) =>
-                                widget.audioEngine?.duplicateAudioClip(
-                                  tId,
-                                  cId,
-                                  s,
-                                ) ??
-                                -1,
-                            uiRemoveClip: (cId) =>
-                                clips.removeWhere((c) => c.clipId == cId),
-                            uiUpdateClip: (clip) {
-                              final idx = clips.indexWhere(
-                                (c) => c.clipId == clip.clipId,
-                              );
-                              if (idx >= 0) clips[idx] = clip;
-                            },
-                            uiAddClip: (clip) => clips.add(clip),
-                          );
+                          // H-11: compose the overlap destruction into the undo
+                          // step instead of applying it destructively (see block 1).
+                          if (overlapResult.hasChanges) {
+                            moveCommands.add(
+                              ResolveAudioOverlapCommand(
+                                result: overlapResult,
+                                uiRemoveClip: (cId) =>
+                                    clips.removeWhere((c) => c.clipId == cId),
+                                uiUpdateClip: (clip) {
+                                  final idx = clips.indexWhere(
+                                    (c) => c.clipId == clip.clipId,
+                                  );
+                                  if (idx >= 0) {
+                                    clips[idx] = clip;
+                                  } else {
+                                    clips.add(clip);
+                                  }
+                                },
+                                uiAddClip: (clip) => clips.add(clip),
+                              ),
+                            );
+                          }
 
                           moveCommands.add(
                             MoveAudioClipCommand(
@@ -1921,21 +1924,19 @@ mixin TimelineGestureLayerMixin
                               clipName: audioClip.fileName,
                               newStartTime: newStartTime,
                               oldStartTime: audioClip.startTime,
+                              onClipMoved: (cId, startTime) {
+                                final idx = clips.indexWhere(
+                                  (c) => c.clipId == cId,
+                                );
+                                if (idx >= 0) {
+                                  clips[idx] = clips[idx].copyWith(
+                                    startTime: startTime,
+                                  );
+                                }
+                              },
                             ),
                           );
                         }
-
-                        // Update local state
-                        setState(() {
-                          final index = clips.indexWhere(
-                            (c) => c.clipId == audioClip.clipId,
-                          );
-                          if (index >= 0) {
-                            clips[index] = clips[index].copyWith(
-                              startTime: newStartTime,
-                            );
-                          }
-                        });
                       }
 
                       // Submit all moves (audio + MIDI) as one undo step.

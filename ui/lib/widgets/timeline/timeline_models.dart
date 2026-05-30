@@ -3,6 +3,7 @@ import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
 import '../../models/track_automation_data.dart';
 import '../../models/vst3_plugin_data.dart';
+import '../../services/commands/command.dart';
 import '../../utils/clip_overlap_handler.dart';
 import '../instrument_browser.dart';
 
@@ -14,7 +15,12 @@ class MidiClipCallbacks {
   final Function(int clipId, int trackId)? onDeleted;
   final Function(List<(int clipId, int trackId)>)? onBatchDeleted;
   final Function(MidiClipData clip)? onExported;
-  final Function(MidiOverlapResult result)? onOverlapResolved;
+
+  /// Build an undoable command that resolves the given MIDI overlap (H-11).
+  /// Returns null if no command is available. The caller composes the returned
+  /// command into the move's undo step instead of applying the overlap
+  /// destructively, so one Ctrl+Z restores any trimmed/removed neighbour.
+  final Command? Function(MidiOverlapResult result)? buildMidiOverlapCommand;
 
   const MidiClipCallbacks({
     this.onSelected,
@@ -23,7 +29,7 @@ class MidiClipCallbacks {
     this.onDeleted,
     this.onBatchDeleted,
     this.onExported,
-    this.onOverlapResolved,
+    this.buildMidiOverlapCommand,
   });
 }
 
