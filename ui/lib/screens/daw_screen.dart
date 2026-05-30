@@ -738,45 +738,19 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   // Unified track selection method - handles both timeline and mixer clicks
+  // Forwards to DAWTrackMixin.onTrackSelected — the single, correct impl. The
+  // mixin version also hides/shows floating plugin windows for the selected
+  // track (fixes M-3); the previous divergent private body skipped that, so
+  // windows stayed visible across track switches depending on entry point.
   void _onTrackSelected(
     int? trackId, {
     bool isShiftHeld = false,
     bool autoSelectClip = false,
-  }) {
-    if (trackId == null) {
-      setState(() {
-        selectTrack(null);
-        uiLayout.isEditorPanelVisible = false;
-      });
-      return;
-    }
-
-    setState(() {
-      selectTrack(trackId, isShiftHeld: isShiftHeld);
-      uiLayout.isEditorPanelVisible = true;
-    });
-
-    // Try to find an existing clip for this track and select it
-    // instead of clearing the clip selection (only for single selection)
-    // When autoSelectClip is false (e.g., after instrument drop), don't auto-select clip
-    if (!isShiftHeld && autoSelectClip) {
-      final clipsForTrack = midiPlaybackManager?.midiClips
-          .where((c) => c.trackId == trackId)
-          .toList();
-
-      if (clipsForTrack != null && clipsForTrack.isNotEmpty) {
-        // Select the first clip for this track
-        final clip = clipsForTrack.first;
-        midiPlaybackManager?.selectClip(clip.clipId, clip);
-      } else {
-        // No clips for this track - clear selection
-        midiPlaybackManager?.selectClip(null, null);
-      }
-    } else if (!isShiftHeld && !autoSelectClip) {
-      // Clear clip selection when autoSelectClip is false
-      midiPlaybackManager?.selectClip(null, null);
-    }
-  }
+  }) => onTrackSelected(
+    trackId,
+    isShiftHeld: isShiftHeld,
+    autoSelectClip: autoSelectClip,
+  );
 
   /// Get the type of the currently selected track ("MIDI", "Audio", or "Master")
   String? _getSelectedTrackType() {
@@ -854,16 +828,11 @@ class _DAWScreenState extends State<DAWScreen>
     }
   }
 
-  void _onTrackDeleted(int trackId) {
-    // Remove all MIDI clips for this track via manager
-    midiPlaybackManager?.removeClipsForTrack(trackId);
-
-    // Remove track state from controller
-    trackController.onTrackDeleted(trackId);
-
-    // Refresh timeline immediately
-    refreshTrackWidgets();
-  }
+  // Forwards to DAWTrackMixin.onTrackDeleted — the single, correct impl. The
+  // mixin version also closes this track's floating plugin windows (fixes H-9);
+  // the previous divergent private body leaked them (native-window resource leak
+  // + dangling editor id).
+  void _onTrackDeleted(int trackId) => onTrackDeleted(trackId);
 
   void _onTrackDuplicated(int sourceTrackId, int newTrackId) {
     // Copy track state via controller
@@ -1236,37 +1205,16 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   /// Create a MIDI clip with custom start position and duration
+  // Forwards to DAWClipMixin.createMidiClipWithParams — the single, correct
+  // impl. The mixin version resolves overlaps at the new clip's position (fixes
+  // H-8); the previous divergent private body skipped overlap resolution, so
+  // dragging a clip onto an occupied spot left overlapping, double-triggering
+  // clips (unlike the record/copy paths).
   void _createMidiClipWithParams(
     int trackId,
     double startBeats,
     double durationBeats,
-  ) {
-    final clip = MidiClipData(
-      clipId: DateTime.now().millisecondsSinceEpoch,
-      trackId: trackId,
-      startTime: startBeats,
-      duration: durationBeats,
-      loopLength:
-          durationBeats, // Loop length matches arrangement length initially
-      name: _generateClipName(trackId),
-      notes: [],
-    );
-
-    // Use undo/redo for clip creation
-    final command = CreateMidiClipCommand(
-      clipData: clip,
-      onClipCreated: (newClip) {
-        midiPlaybackManager?.addRecordedClip(newClip);
-        midiPlaybackManager?.selectClip(newClip.clipId, newClip);
-        if (mounted) setState(() {});
-      },
-      onClipRemoved: (clipId, tId) {
-        midiClipController.deleteClip(clipId, tId);
-        if (mounted) setState(() {});
-      },
-    );
-    undoRedoManager.execute(command);
-  }
+  ) => createMidiClipWithParams(trackId, startBeats, durationBeats);
 
   // Library double-click handlers
   void _handleLibraryItemDoubleClick(LibraryItem item) {
