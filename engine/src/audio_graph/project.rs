@@ -128,6 +128,7 @@ impl AudioGraph {
                             duration: timeline_clip.duration,
                             audio_file_id: Some(timeline_clip.id), // Simplified: use clip ID as file ID
                             midi_notes: None,
+                            midi_cc: None,
                         }
                     })
                     .collect();
@@ -141,6 +142,10 @@ impl AudioGraph {
                             &timeline_clip.clip.events,
                             timeline_clip.clip.sample_rate,
                         );
+                        let midi_cc = convert_midi_events_to_cc(
+                            &timeline_clip.clip.events,
+                            timeline_clip.clip.sample_rate,
+                        );
                         let duration_seconds = timeline_clip.clip.duration_samples as f64
                             / f64::from(timeline_clip.clip.sample_rate);
 
@@ -151,6 +156,11 @@ impl AudioGraph {
                             duration: Some(duration_seconds),
                             audio_file_id: None, // MIDI clip, not audio
                             midi_notes: Some(midi_notes),
+                            midi_cc: if midi_cc.is_empty() {
+                                None
+                            } else {
+                                Some(midi_cc)
+                            },
                         }
                     })
                     .collect();
@@ -282,7 +292,11 @@ impl AudioGraph {
             name: project_name,
             tempo: self.recorder.get_tempo(),
             sample_rate: TARGET_SAMPLE_RATE,
-            time_sig_numerator: 4,
+            // Numerator (beats per bar) is the value the engine actually uses for
+            // bar math/metronome — persist the live value, not a hardcoded 4. The
+            // denominator (beat unit) is display-only and owned by the UI layer
+            // (ui_layout.json), so the engine keeps it at its quarter-note default.
+            time_sig_numerator: self.recorder.get_time_signature(),
             time_sig_denominator: 4,
             tracks: tracks_data,
             audio_files,
@@ -339,6 +353,18 @@ impl AudioGraph {
         // Restore tempo (via recorder)
         self.recorder.set_tempo(project_data.tempo);
         eprintln!("   - Tempo: {} BPM", project_data.tempo);
+
+        // Restore time signature numerator (beats per bar). Previously this was
+        // never restored, so 3/4 or 6/8 projects silently reopened in 4/4. Guard
+        // against a zero numerator (would break bar math).
+        if project_data.time_sig_numerator > 0 {
+            self.recorder
+                .set_time_signature(project_data.time_sig_numerator);
+            eprintln!(
+                "   - Time signature: {} beats/bar",
+                project_data.time_sig_numerator
+            );
+        }
 
         // Restore metronome and count-in settings
         self.recorder
@@ -706,9 +732,10 @@ impl AudioGraph {
             let mut midi_clip_count = 0;
             for clip_data in &track_data.clips {
                 if let Some(midi_notes) = &clip_data.midi_notes {
-                    // Reconstruct MIDI clip from serialized notes (with saved duration)
+                    // Reconstruct MIDI clip from serialized notes + CC (with saved duration)
                     let midi_clip = reconstruct_midi_clip_from_notes(
                         midi_notes,
+                        clip_data.midi_cc.as_deref().unwrap_or(&[]),
                         project_data.sample_rate,
                         clip_data.duration,
                     );
@@ -844,9 +871,36 @@ pub(crate) fn convert_midi_events_to_notes(
     notes
 }
 
-/// Reconstruct `MidiClip` from serialized `MidiNoteData`
+/// Convert MIDI events to `MidiCcData` for serialization. Counterpart to
+/// `convert_midi_events_to_notes` — without this, recorded control-change
+/// automation (sustain, mod wheel, expression) was silently dropped on save.
+pub(crate) fn convert_midi_events_to_cc(
+    events: &[crate::midi::MidiEvent],
+    sample_rate: u32,
+) -> Vec<crate::project::MidiCcData> {
+    use crate::midi::MidiEventType;
+    use crate::project::MidiCcData;
+
+    events
+        .iter()
+        .filter_map(|event| {
+            if let MidiEventType::ControlChange { controller, value } = event.event_type {
+                Some(MidiCcData {
+                    controller,
+                    value,
+                    time: event.timestamp_samples as f64 / f64::from(sample_rate),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Reconstruct `MidiClip` from serialized `MidiNoteData` + `MidiCcData`
 pub(crate) fn reconstruct_midi_clip_from_notes(
     notes: &[crate::project::MidiNoteData],
+    cc: &[crate::project::MidiCcData],
     sample_rate: u32,
     saved_duration: Option<f64>,
 ) -> MidiClip {
@@ -874,6 +928,17 @@ pub(crate) fn reconstruct_midi_clip_from_notes(
         ));
     }
 
+    // Restore recorded control-change events alongside the notes.
+    for c in cc {
+        events.push(MidiEvent::new(
+            MidiEventType::ControlChange {
+                controller: c.controller,
+                value: c.value,
+            },
+            (c.time * f64::from(sample_rate)) as u64,
+        ));
+    }
+
     // Sort events by timestamp
     events.sort_by_key(|e| e.timestamp_samples);
 
@@ -896,5 +961,75 @@ pub(crate) fn reconstruct_midi_clip_from_notes(
         events,
         duration_samples: snapped_duration,
         sample_rate,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{convert_midi_events_to_cc, reconstruct_midi_clip_from_notes};
+    use crate::midi::{MidiEvent, MidiEventType};
+    use crate::project::{MidiCcData, MidiNoteData};
+
+    const SR: u32 = 48_000;
+    const SR64: u64 = SR as u64;
+
+    #[test]
+    fn extracts_control_change_events() {
+        let events = vec![
+            MidiEvent::note_on(60, 100, 0),
+            MidiEvent::control_change(1, 64, SR64), // mod wheel at 1.0s
+            MidiEvent::note_off(60, 0, SR64),
+            MidiEvent::control_change(64, 127, 2 * SR64), // sustain at 2.0s
+        ];
+
+        let cc = convert_midi_events_to_cc(&events, SR);
+
+        assert_eq!(cc.len(), 2);
+        assert_eq!(cc[0].controller, 1);
+        assert_eq!(cc[0].value, 64);
+        assert!((cc[0].time - 1.0).abs() < 1e-6);
+        assert_eq!(cc[1].controller, 64);
+    }
+
+    #[test]
+    fn reconstruct_reemits_control_change_events() {
+        let notes = vec![MidiNoteData {
+            note: 60,
+            velocity: 100,
+            start_time: 0.0,
+            duration: 1.0,
+        }];
+        let cc = vec![MidiCcData {
+            controller: 1,
+            value: 100,
+            time: 0.5,
+        }];
+
+        let clip = reconstruct_midi_clip_from_notes(&notes, &cc, SR, Some(2.0));
+
+        let cc_events = clip
+            .events
+            .iter()
+            .filter(|e| matches!(e.event_type, MidiEventType::ControlChange { .. }))
+            .count();
+        assert_eq!(cc_events, 1, "the recorded CC event must be restored");
+    }
+
+    #[test]
+    fn reconstruct_without_cc_is_notes_only() {
+        let notes = vec![MidiNoteData {
+            note: 60,
+            velocity: 100,
+            start_time: 0.0,
+            duration: 1.0,
+        }];
+
+        let clip = reconstruct_midi_clip_from_notes(&notes, &[], SR, Some(2.0));
+
+        let has_cc = clip
+            .events
+            .iter()
+            .any(|e| matches!(e.event_type, MidiEventType::ControlChange { .. }));
+        assert!(!has_cc);
     }
 }

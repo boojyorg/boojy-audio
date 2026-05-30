@@ -1,3 +1,4 @@
+import 'package:boojy_audio/models/midi_note_data.dart';
 import 'package:boojy_audio/models/project_view_state.dart';
 import 'package:boojy_audio/services/project_persistence.dart';
 import 'package:flutter/material.dart';
@@ -50,6 +51,55 @@ void main() {
       expect(restored.loopEnabled, isTrue);
       expect(restored.loopStartBeats, 0);
       expect(restored.loopEndBeats, 16);
+    });
+
+    test('roundtrips time signature through JSON', () {
+      const original = UILayoutData(
+        timeSignatureNumerator: 6,
+        timeSignatureDenominator: 8,
+      );
+
+      final restored = UILayoutData.fromJson(original.toJson());
+
+      expect(restored.timeSignatureNumerator, 6);
+      expect(restored.timeSignatureDenominator, 8);
+    });
+
+    test('roundtrips MIDI clip UI metadata (not notes) through JSON', () {
+      final clip = MidiClipData(
+        clipId: 99, // not authoritative — engine owns ids
+        trackId: 4,
+        startTime: 8.0,
+        duration: 16.0,
+        loopLength: 8.0,
+        name: 'Bassline',
+        color: const Color(0xFF8E24AA),
+        isMuted: true,
+        canRepeat: false,
+        contentStartOffset: 2.0,
+        patternId: 'pattern-7',
+        notes: [
+          MidiNoteData(note: 36, velocity: 100, startTime: 0, duration: 1),
+        ],
+      );
+
+      final layout = UILayoutData(midiClips: [clip]);
+      final restored = UILayoutData.fromJson(layout.toJson());
+
+      expect(restored.midiClips, isNotNull);
+      expect(restored.midiClips!.length, 1);
+      final m = restored.midiClips!.first;
+      expect(m.trackId, 4);
+      expect(m.startTime, 8.0);
+      expect(m.name, 'Bassline');
+      expect(m.color?.toARGB32(), 0xFF8E24AA);
+      expect(m.isMuted, isTrue);
+      expect(m.canRepeat, isFalse);
+      expect(m.contentStartOffset, 2.0);
+      expect(m.patternId, 'pattern-7');
+      expect(m.loopLength, 8.0);
+      // Notes are engine-owned and intentionally NOT persisted in ui_layout.
+      expect(m.notes, isEmpty);
     });
   });
 

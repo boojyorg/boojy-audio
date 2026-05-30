@@ -301,6 +301,10 @@ class _DeviceChainViewState extends State<DeviceChainView>
       effectType: effect.type,
       isVst3: effect.type.startsWith('vst3:'),
       effectIndex: effectIndex,
+      siblingEffectIds: _effects
+          .where((e) => e.id != effectId)
+          .map((e) => e.id)
+          .toList(),
       onEffectRemoved: (_) {
         if (mounted) _loadEffects();
       },

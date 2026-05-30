@@ -384,4 +384,52 @@ class MidiClipData {
       automation: automation ?? this.automation,
     );
   }
+
+  /// Serialize UI-only metadata for `ui_layout.json`.
+  ///
+  /// Notes are deliberately NOT included — they are owned by the engine's
+  /// `project.json` and rebuilt on load. This metadata is matched back onto the
+  /// engine-rebuilt clip by `(trackId, startTime)` in
+  /// `MidiPlaybackManager.restoreClipsFromEngine`, which is why those two fields
+  /// are persisted alongside the cosmetic ones. Keeping notes single-sourced
+  /// (engine) avoids the divergent dual-persistence the codebase review flagged.
+  Map<String, dynamic> toUiLayoutJson() => {
+    'trackId': trackId,
+    'startTime': startTime,
+    'name': name,
+    if (color != null) 'color': color!.toARGB32(),
+    'isMuted': isMuted,
+    'canRepeat': canRepeat,
+    'contentStartOffset': contentStartOffset,
+    'loopLength': loopLength,
+    if (patternId != null) 'patternId': patternId,
+    if (automation.hasAutomation) 'automation': automation.toJson(),
+  };
+
+  /// Rebuild a metadata-only clip from `ui_layout.json`. `clipId`/`duration`
+  /// are placeholders — the engine owns those and the real values come from the
+  /// reloaded clip; only the cosmetic fields and the `(trackId, startTime)`
+  /// match key are authoritative here.
+  factory MidiClipData.fromUiLayoutJson(Map<String, dynamic> json) {
+    final colorValue = json['color'] as int?;
+    final automationJson = json['automation'] as Map<String, dynamic>?;
+    final loopLength = (json['loopLength'] as num?)?.toDouble();
+    return MidiClipData(
+      clipId: -1,
+      trackId: (json['trackId'] as num).toInt(),
+      startTime: (json['startTime'] as num).toDouble(),
+      duration: loopLength ?? 0.0,
+      loopLength: loopLength,
+      name: json['name'] as String? ?? 'MIDI Clip',
+      color: colorValue != null ? Color(colorValue) : null,
+      isMuted: json['isMuted'] as bool? ?? false,
+      canRepeat: json['canRepeat'] as bool? ?? true,
+      contentStartOffset:
+          (json['contentStartOffset'] as num?)?.toDouble() ?? 0.0,
+      patternId: json['patternId'] as String?,
+      automation: automationJson != null
+          ? ClipAutomation.fromJson(automationJson)
+          : null,
+    );
+  }
 }
