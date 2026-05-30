@@ -7,14 +7,17 @@ mixin TimelineGestureLayerMixin
         TimelineViewStateMixin,
         TimelineSelectionMixin,
         TimelineContextMenusMixin {
-  Future<void> _commitMidiClipMove(
+  /// Build a MIDI clip move command, or null if the move is a no-op.
+  /// Multi-clip drags collect these and submit them as a single
+  /// [CompositeCommand] via [_executeGroupedMoves] (one undo step).
+  Command? _buildMidiClipMoveCommand(
     MidiClipData clip,
     double oldStartBeats,
     double newStartBeats,
-  ) async {
-    if ((newStartBeats - oldStartBeats).abs() < 0.001) return;
+  ) {
+    if ((newStartBeats - oldStartBeats).abs() < 0.001) return null;
 
-    final command = MoveMidiClipPositionCommand(
+    return MoveMidiClipPositionCommand(
       originalClip: clip,
       oldStartTime: oldStartBeats,
       newStartTime: newStartBeats,
@@ -28,6 +31,16 @@ mixin TimelineGestureLayerMixin
         );
       },
     );
+  }
+
+  /// Submit a batch of clip-move commands as a single undo step. A multi-clip
+  /// drag previously called `execute()` once per clip, so one Ctrl+Z reverted
+  /// only a single clip; wrapping them in a [CompositeCommand] fixes that.
+  Future<void> _executeGroupedMoves(List<Command> commands) async {
+    if (commands.isEmpty) return;
+    final command = commands.length == 1
+        ? commands.first
+        : CompositeCommand(commands, 'Move ${commands.length} clips');
     await UndoRedoManager().execute(command);
   }
 
@@ -789,6 +802,10 @@ mixin TimelineGestureLayerMixin
               // Convert delta to beats for MIDI clips
               final snappedDeltaBeats = snappedDeltaSeconds * beatsPerSecond;
 
+              // Collect every clip's move command so the whole drag is a single
+              // undo step (one Ctrl+Z reverts all moved clips, not just one).
+              final moveCommands = <Command>[];
+
               // Move audio clips
               final selectedAudioClips = clips
                   .where((c) => selectedAudioClipIds.contains(c.clipId))
@@ -848,14 +865,15 @@ mixin TimelineGestureLayerMixin
                     uiAddClip: (clip) => clips.add(clip),
                   );
 
-                  final command = MoveAudioClipCommand(
-                    trackId: selectedClip.trackId,
-                    clipId: selectedClip.clipId,
-                    clipName: selectedClip.fileName,
-                    newStartTime: newStartTime,
-                    oldStartTime: selectedClip.startTime,
+                  moveCommands.add(
+                    MoveAudioClipCommand(
+                      trackId: selectedClip.trackId,
+                      clipId: selectedClip.clipId,
+                      clipName: selectedClip.fileName,
+                      newStartTime: newStartTime,
+                      oldStartTime: selectedClip.startTime,
+                    ),
                   );
-                  await UndoRedoManager().execute(command);
                 }
               }
               // Single setState to flush all audio clip move + overlap changes
@@ -898,12 +916,16 @@ mixin TimelineGestureLayerMixin
                 );
                 final updatedClip = midiClip.copyWith(startTime: newStartBeats);
                 widget.midiClipCallbacks.onUpdated?.call(updatedClip);
-                await _commitMidiClipMove(
+                final midiMove = _buildMidiClipMoveCommand(
                   midiClip,
                   midiClip.startTime,
                   newStartBeats,
                 );
+                if (midiMove != null) moveCommands.add(midiMove);
               }
+
+              // Submit all moves (audio + MIDI) as one undo step.
+              await _executeGroupedMoves(moveCommands);
 
               // Force UI refresh after parent processes MIDI updates
               if (selectedMidiClips.isNotEmpty) {
@@ -1776,6 +1798,10 @@ mixin TimelineGestureLayerMixin
                     } else {
                       // Move: update ALL selected clips by the same delta
 
+                      // Collect every clip's move command so the whole drag is
+                      // a single undo step (one Ctrl+Z reverts all moved clips).
+                      final moveCommands = <Command>[];
+
                       // Move MIDI clips
                       final selectedMidiClips = widget.midiClips
                           .where((c) => selectedMidiClipIds.contains(c.clipId))
@@ -1819,11 +1845,12 @@ mixin TimelineGestureLayerMixin
                           startTime: newStartBeats,
                         );
                         widget.midiClipCallbacks.onUpdated?.call(updatedClip);
-                        await _commitMidiClipMove(
+                        final midiMove = _buildMidiClipMoveCommand(
                           clip,
                           clip.startTime,
                           newStartBeats,
                         );
+                        if (midiMove != null) moveCommands.add(midiMove);
                       }
 
                       // Force UI refresh after parent processes MIDI updates
@@ -1887,14 +1914,15 @@ mixin TimelineGestureLayerMixin
                             uiAddClip: (clip) => clips.add(clip),
                           );
 
-                          final command = MoveAudioClipCommand(
-                            trackId: audioClip.trackId,
-                            clipId: audioClip.clipId,
-                            clipName: audioClip.fileName,
-                            newStartTime: newStartTime,
-                            oldStartTime: audioClip.startTime,
+                          moveCommands.add(
+                            MoveAudioClipCommand(
+                              trackId: audioClip.trackId,
+                              clipId: audioClip.clipId,
+                              clipName: audioClip.fileName,
+                              newStartTime: newStartTime,
+                              oldStartTime: audioClip.startTime,
+                            ),
                           );
-                          UndoRedoManager().execute(command);
                         }
 
                         // Update local state
@@ -1909,6 +1937,9 @@ mixin TimelineGestureLayerMixin
                           }
                         });
                       }
+
+                      // Submit all moves (audio + MIDI) as one undo step.
+                      await _executeGroupedMoves(moveCommands);
                     }
 
                     setState(() {

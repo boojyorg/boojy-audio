@@ -163,6 +163,11 @@ class RemoveReturnCommand extends Command {
   final List<({int sourceTrackId, double amountDb})> _previousSends = [];
   final void Function()? onChanged;
 
+  /// The id currently live in the engine for this return. Starts as
+  /// [returnTrackId]; undo recreates the return with a *new* id, so we track it
+  /// here and re-execute (redo) against the live id, not the stale original.
+  late int _currentReturnId = returnTrackId;
+
   RemoveReturnCommand({
     required this.returnTrackId,
     required this.returnLabel,
@@ -177,7 +182,7 @@ class RemoveReturnCommand extends Command {
       final csv = engine.getTrackSends(trackId);
       final sends = TrackSendData.parseTrackSendsCsv(csv);
       for (final send in sends) {
-        if (send.returnId == returnTrackId) {
+        if (send.returnId == _currentReturnId) {
           _previousSends.add((
             sourceTrackId: trackId,
             amountDb: TrackSendData.linearToDb(send.amountLinear),
@@ -185,7 +190,7 @@ class RemoveReturnCommand extends Command {
         }
       }
     }
-    engine.removeReturn(returnTrackId);
+    engine.removeReturn(_currentReturnId);
     onChanged?.call();
   }
 
@@ -196,6 +201,7 @@ class RemoveReturnCommand extends Command {
       name: returnLabel,
     );
     if (recreatedId < 0) return;
+    _currentReturnId = recreatedId;
 
     for (final send in _previousSends) {
       engine.addSend(send.sourceTrackId, recreatedId, send.amountDb);

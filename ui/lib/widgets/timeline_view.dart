@@ -22,6 +22,7 @@ import '../models/vst3_plugin_data.dart';
 import '../models/library_item.dart';
 import '../services/tool_mode_resolver.dart';
 import '../services/undo_redo_manager.dart';
+import '../services/commands/command.dart';
 import '../services/commands/clip_commands.dart';
 import 'instrument_browser.dart';
 import 'painters/timeline_grid_painter.dart';

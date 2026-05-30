@@ -4,6 +4,52 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+> **v0.3.1 — trust/correctness hardening ("don't lose my work").** A cluster of *silent*
+> data-loss and undo-corruption bugs found in the 2026-05-29 whole-app review. None threw an
+> error — they quietly betrayed edits on paths a dogfooding musician hits every session.
+
+### Bug Fixes
+
+- **Exports were mono.** The offline-export master-pan stage used a wrong matrix that summed
+  both channels into each output (`temp_l = L*pan_left + R*pan_left`), so every bounce came out
+  dual-mono and ~3 dB hot — what you heard during playback didn't match the WAV. Replaced with
+  independent per-channel gain, matching the realtime renderer (`offline.rs`).
+- **Redo undid the wrong thing (effects / returns / audio clips).** Removing an effect, return,
+  or audio clip then Undo→Redo left the item *still processing audio* while the UI showed it
+  gone: undo recreated the engine object with a **new** id but each Remove command kept the
+  **old** id, so the reused execute()-on-redo path no-op'd against a stale id. Each command now
+  tracks its current live id and updates it on undo (`effect_commands.dart`, `send_commands.dart`,
+  `clip_commands.dart`). Covered by new execute→undo→redo regression tests.
+- **Undoing an effect removal silently re-ordered the signal chain.** `RemoveEffectCommand`
+  ignored `effectIndex` and re-inserted the effect at the *end* of the chain on undo, changing
+  the sound. It now restores the effect to its original position via the sibling chain order.
+- **Non-4/4 projects reopened in 4/4.** The engine hardcoded the time-signature numerator to 4
+  on save and never restored it. It now persists/restores the real numerator (`project.rs`); the
+  display denominator round-trips via `ui_layout.json` and is re-applied (numerator re-pushed to
+  the engine) on load.
+- **Recorded MIDI CC was dropped on save.** The `ControlChange` serialization arm was a no-op,
+  so sustain / mod-wheel / expression you recorded vanished on reload. CC events now serialize to
+  a new per-clip `midi_cc` field (back-compat via `#[serde(default)]`) and are restored alongside
+  the notes.
+- **MIDI clips lost their metadata on reload.** Clips were rebuilt purely from the engine (which
+  stores no UI fields), so name reverted to "MIDI Clip" and colour / content offset / loop / mute
+  / pattern link / clip automation were lost. UI metadata now persists via `ui_layout.json`
+  (mirroring audio clips) and is merged back onto the engine-rebuilt clips by `(trackId,
+  startTime)` — notes stay single-sourced in the engine.
+- **A multi-clip drag took one undo step per clip.** Dragging several selected clips created N
+  separate undo entries, so one Ctrl+Z reverted only one clip. The per-clip move commands are now
+  wrapped in a single `CompositeCommand` (both the audio and MIDI drag handlers). *(Making the
+  destructive overlap-resolution on a move undoable is deferred to the next cycle — see the
+  review backlog #9 / bug H-11.)*
+
+### Improvements
+
+- **Tests for the data-loss cluster**: new `send_commands_test.dart` (the only command family
+  with none) plus execute→undo→redo regression tests for effect/return/audio-clip removal; a
+  `ui_layout.json` round-trip test for MIDI-clip metadata + time signature; and engine tests for
+  time-signature persistence and recorded-CC serialize/restore (incl. an old-project
+  back-compat load).
+
 ## v0.3.0 — 2026-05-25
 
 ### Bug Fixes
