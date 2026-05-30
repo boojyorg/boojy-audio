@@ -368,3 +368,85 @@ This makes Boojy stop reading as "generic dark app" without touching how anythin
 ## 10. Appendix — sequencing note
 
 The design-system debt cluster is **B16 → B15 → B24/B4** (tokenise dialogs → tokenise painters → font + scale). **Tokenise before attempting any light/high-contrast theme work** — the theme switch is currently broken for a large fraction of the UI, so a "light theme" today would render half-dark. v0.4 unifies the *dark* ramp + the piano lane; the broad painter/dialog sweep is the follow-on "theme-switch correctness" pass.
+
+---
+
+## 11. v0.4 brainstorm — top-bar & mixer option sketches
+
+> Rough option sketches from the 2026-05-30 session — **not decisions**. The plan is to build **all four** top-bar variants behind a dev-tools "UI Labs" switcher and A/B them live in the app (the owner can't pick on paper). The mixer is a separate future A/B. Layout truth, aesthetic hint — colour/type/glow come from §6.
+
+### Top bar — four candidate layouts
+
+The open question is **where the hero time readout lives**, given a ~54–60px single-row bar can't stack three lines.
+
+**A — One row, position promoted** (smallest change, guaranteed fit):
+```
+║ ▲udio Untitled  ↶↷ │ ◉ ◼ ●   ‹ 12.3.1 ›  120 BPM 4/4  [↻][▦][⏱]  [|'] ⊕ ✓ ?║
+║                       transport  ▲~20px      ▲~12px dim   modifiers    right    ║
+```
+Position is just bigger/bolder text (no panel), tempo/sig smaller beside it. Fits today's bar; least "hardware".
+
+**B — LCD panel, taller bar (~68px)** — premium hardware look, costs ~10px height:
+```
+║ ▲udio Untitled ↶↷ │ ◉ ◼ ● ┌─────────────┐ [↻][▦][⏱] [|'] ⊕ ✓ ?║
+║                     transp.│  12 . 3 . 1 │ modifiers             ║
+║                            │ 120BPM  4/4 │ ← stacked = taller bar║
+║                            └─────────────┘                       ║
+```
+
+**C — Two-row control bar** (cleanest grouping, ~2× height ~90px):
+```
+║ ▲udio Untitled       ↶↷ [|]                  [|'] ⊕  ✓ Ready  ? ║  row1: brand · menu · status
+╟──────────────────────────────────────────────────────────────────╢
+║       ◉ ◼ ●   ┌── 12.3.1 ──┐  120 BPM 4/4   [↻Loop][▦Snap][⏱]   ║  row2: transport · readout · mods
+```
+
+**D — Compact bar + hero readout *in the arrangement*** (fits the "everything on the page" principle; my pick):
+```
+top bar stays one compact row:
+║ ▲udio Untitled ↶↷ │ ◉ ◼ ● 12.3.1 120BPM 4/4 [↻][▦][⏱] [|'] ⊕ ✓ ?║
+the BIG readout lives where the eyes already are — the arrangement:
+╔═ ruler ══════════════════════════════════════════════════════════╗
+║ ┌─────────────┐ |1    |5    |9    |13   |17                       ║
+║ │  12 . 3 . 1 │ (pinned left, doesn't scroll)                     ║
+║ │  0 : 24.13  │                                                   ║
+║ └─────────────┘                                                   ║
+```
+
+### Mixer — vertical faders, "everything on one page"
+
+Track identity = a **coloured name header** sharing the track's arrangement colour + icon, so "the green one" reads the same in both places.
+
+**One vertical strip:**
+```
+┌───────────┐
+│▐ 1 Synth ⌨│  ← colour bar + number + name + BI icon (shared w/ arrangement)
+│  M  S  R  │  mute / solo / record-arm
+│   ◐ pan   │
+│ ▕█▏  ▓    │  ← vertical fader + meter beside it
+│ ▕█▏  ▓    │
+│ ▕ ▏  ▒    │
+│ ▕ ▏  ░    │
+│  0.0 dB   │
+│ ⤳A   ⤳B   │  sends (small knobs)
+└───────────┘
+```
+
+**Multi-strip dock** (replaces today's single-strip right panel — persistent, never pops out):
+```
+┌──────────────── MIXER ─────────────────────┐
+│▐1 Synth ▐2 Drums ▐3 Bass ▐4 Vox  │ ⏍ Master│  ← coloured name headers = identity
+│ M S R    M S R    M S R   M S R   │  M  S   │
+│  ◐        ◐        ◐       ◐       │   —     │
+│▕█▏▓     ▕█▏▓     ▕ ▏░    ▕█▏▒      │ ▕█▏▓    │  ← vertical fader + meter per track
+│▕█▏▓     ▕█▏▒     ▕ ▏     ▕█▏▒      │ ▕█▏▓    │
+│ 0.0     -3.2     -∞      -6.1      │  0.0    │
+│⤳A ⤳B    ⤳A       ⤳A ⤳B   ⤳A       │  —      │
+└─────────────────────────────────────────────┘
+```
+
+**The honest tension:** arrangement + piano roll + mixer + browser can't all be large at once. Two resolutions to A/B (same UI Labs switcher): **(1) bottom dock** sharing the bottom zone with the editor via a `Mixer | Editor` tab, or **(2) right dock** of narrow vertical strips that horizontal-scrolls past ~6 tracks. Both stay *docked and predictable* (the owner's principle) rather than popping out and reflowing.
+
+### Effects — two forks to settle before sketching variants
+
+(a) Is the GarageBand **3-dot drag-curve** the EQ's *default* face, or a compact band-list with the dots behind an "advanced" reveal? (b) Does a **MIX knob belong on the EQ**, or only on Comp/Reverb/Delay? Both shape the reusable device shell (§5.3 / mockup 7.5).
