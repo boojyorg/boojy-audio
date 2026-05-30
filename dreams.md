@@ -16,8 +16,10 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   live `Cmd+Shift+P` dev presets to A/B); UI Scale setting
   (Compact/Default/Comfortable/Large via `MediaQuery.textScaler`, persisted); elevation tokens +
   `BT.scaled()` helper for painters.
-- [ ] **Phase 2 — Contained re-treats:** piano-roll indigo lane + root band; time-readout
-  *behaviour* (Bars → Time → Both, persisted, pinned ruler overlay).
+- [x] **Phase 2 — Contained re-treats:** piano-roll keyboard-contrast lanes + accent-blue root band
+  + hover active lane (lane *colours* to be refined post-Phase-3); time-readout *behaviour*
+  (Bars → Time → Both, persisted) + a pinned arrangement orientation chip (bar at the left edge).
+  *(`polish/v0.4-phase2`.)*
 - [ ] **Phase 3 — Top-bar A/B (last):** all four layout variants behind a dev-tools "UI Labs"
   switcher, + the proper macOS title-centring fix.
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
