@@ -1,6 +1,7 @@
 import '../../models/clip_data.dart';
 import '../../utils/logger.dart';
 import '../../models/midi_note_data.dart';
+import '../../utils/clip_overlap_handler.dart';
 import 'audio_engine_interface.dart';
 import 'command.dart';
 
@@ -48,13 +49,20 @@ class MoveMidiClipCommand extends Command {
       'Move Clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
 }
 
-/// Command to move an audio clip on the timeline
+/// Command to move an audio clip on the timeline.
+///
+/// `onClipMoved(clipId, startTime)` syncs the on-screen clip list on
+/// execute/undo/redo. Without it the engine position changes but the timeline's
+/// stateful `clips` list does not, so an undone move leaves the clip stuck at
+/// the moved position (the bug this callback fixes — mirrors the MIDI move
+/// command's `onClipMoved`).
 class MoveAudioClipCommand extends Command {
   final int trackId;
   final int clipId;
   final String clipName;
   final double newStartTime;
   final double oldStartTime;
+  final void Function(int clipId, double startTime)? onClipMoved;
 
   MoveAudioClipCommand({
     required this.trackId,
@@ -62,21 +70,274 @@ class MoveAudioClipCommand extends Command {
     required this.clipName,
     required this.newStartTime,
     required this.oldStartTime,
+    this.onClipMoved,
   });
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
     engine.setClipStartTime(trackId, clipId, newStartTime);
+    onClipMoved?.call(clipId, newStartTime);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
     engine.setClipStartTime(trackId, clipId, oldStartTime);
+    onClipMoved?.call(clipId, oldStartTime);
   }
 
   @override
   String get description =>
       'Move Audio Clip: $clipName (${oldStartTime.toStringAsFixed(2)}s → ${newStartTime.toStringAsFixed(2)}s)';
+}
+
+/// Undoable wrapper for "new clip wins" audio overlap resolution.
+///
+/// When a clip is moved (or created) over its neighbours, [ClipOverlapHandler]
+/// resolves the overlap by deleting / trimming / splitting them. Previously that
+/// destruction was applied directly to the engine + UI, *outside* any command,
+/// so it could not be undone (bug H-11). This command performs exactly that
+/// destruction in `execute` and inverts it in `undo`, using the full before-state
+/// the overlap result already carries.
+///
+/// Engine reloads/duplicates assign *new* clip ids, so the live id of every clip
+/// this command removes or creates is tracked across execute/undo cycles —
+/// otherwise a redo would target a stale id and silently no-op (the same hazard
+/// [DeleteAudioClipCommand] guards against).
+class ResolveAudioOverlapCommand extends Command {
+  final AudioOverlapResult result;
+
+  /// Remove a clip from the UI clip list by id.
+  final void Function(int clipId)? uiRemoveClip;
+
+  /// Update an existing clip in the UI clip list (matched by `clip.clipId`).
+  final void Function(ClipData clip)? uiUpdateClip;
+
+  /// Add a clip to the UI clip list.
+  final void Function(ClipData clip)? uiAddClip;
+
+  // Live engine ids, updated whenever a clip is reloaded/duplicated.
+  late final List<int> _removalIds = result.removals
+      .map((c) => c.clipId)
+      .toList();
+  late final List<int> _splitOriginalIds = result.splits
+      .map((s) => s.original.clipId)
+      .toList();
+  late final List<int?> _splitPartBIds = List<int?>.filled(
+    result.splits.length,
+    null,
+  );
+
+  ResolveAudioOverlapCommand({
+    required this.result,
+    this.uiRemoveClip,
+    this.uiUpdateClip,
+    this.uiAddClip,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    // Removals: delete fully-covered neighbours.
+    for (var i = 0; i < result.removals.length; i++) {
+      final clip = result.removals[i];
+      engine.removeAudioClip(clip.trackId, _removalIds[i]);
+      uiRemoveClip?.call(_removalIds[i]);
+    }
+
+    // Updates: trims (id is stable — the clip is resized in place).
+    for (final u in result.updates) {
+      final c = u.updated;
+      engine.setClipStartTime(c.trackId, c.clipId, c.startTime);
+      engine.setClipOffset(c.trackId, c.clipId, c.offset);
+      engine.setClipDuration(c.trackId, c.clipId, c.duration);
+      uiUpdateClip?.call(c);
+    }
+
+    // Splits: duplicate Part B BEFORE modifying the original (the duplicate
+    // copies the original's full state), then trim or remove the original.
+    for (var i = 0; i < result.splits.length; i++) {
+      final s = result.splits[i];
+      final origId = _splitOriginalIds[i];
+      final tmpl = s.partBTemplate;
+      if (tmpl != null) {
+        final partBId = engine.duplicateAudioClip(
+          s.original.trackId,
+          origId,
+          tmpl.startTime,
+        );
+        if (partBId > 0) {
+          engine.setClipOffset(s.original.trackId, partBId, tmpl.offset);
+          engine.setClipDuration(s.original.trackId, partBId, tmpl.duration);
+          _splitPartBIds[i] = partBId;
+          uiAddClip?.call(tmpl.copyWith(clipId: partBId));
+        }
+      }
+      final partA = s.partA;
+      if (partA != null) {
+        engine.setClipDuration(s.original.trackId, origId, partA.duration);
+        uiUpdateClip?.call(partA.copyWith(clipId: origId));
+      } else {
+        engine.removeAudioClip(s.original.trackId, origId);
+        uiRemoveClip?.call(origId);
+      }
+    }
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    // Invert in reverse order: splits, then updates, then removals.
+    for (var i = result.splits.length - 1; i >= 0; i--) {
+      final s = result.splits[i];
+      final origId = _splitOriginalIds[i];
+
+      // Remove the Part B we created.
+      final partBId = _splitPartBIds[i];
+      if (partBId != null) {
+        engine.removeAudioClip(s.original.trackId, partBId);
+        uiRemoveClip?.call(partBId);
+        _splitPartBIds[i] = null;
+      }
+
+      if (s.partA != null) {
+        // Original was trimmed in place → restore it fully.
+        engine.setClipStartTime(
+          s.original.trackId,
+          origId,
+          s.original.startTime,
+        );
+        engine.setClipOffset(s.original.trackId, origId, s.original.offset);
+        engine.setClipDuration(s.original.trackId, origId, s.original.duration);
+        uiUpdateClip?.call(s.original.copyWith(clipId: origId));
+      } else {
+        // Original was removed → reload it (engine assigns a new id).
+        final newId = engine.loadAudioFileToTrack(
+          s.original.filePath,
+          s.original.trackId,
+          startTime: s.original.startTime,
+        );
+        if (newId >= 0) {
+          engine.setClipOffset(s.original.trackId, newId, s.original.offset);
+          engine.setClipDuration(
+            s.original.trackId,
+            newId,
+            s.original.duration,
+          );
+          _splitOriginalIds[i] = newId;
+          uiAddClip?.call(s.original.copyWith(clipId: newId));
+        }
+      }
+    }
+
+    for (var i = result.updates.length - 1; i >= 0; i--) {
+      final o = result.updates[i].original;
+      engine.setClipStartTime(o.trackId, o.clipId, o.startTime);
+      engine.setClipOffset(o.trackId, o.clipId, o.offset);
+      engine.setClipDuration(o.trackId, o.clipId, o.duration);
+      uiUpdateClip?.call(o);
+    }
+
+    for (var i = result.removals.length - 1; i >= 0; i--) {
+      final clip = result.removals[i];
+      final newId = engine.loadAudioFileToTrack(
+        clip.filePath,
+        clip.trackId,
+        startTime: clip.startTime,
+      );
+      if (newId >= 0) {
+        engine.setClipOffset(clip.trackId, newId, clip.offset);
+        engine.setClipDuration(clip.trackId, newId, clip.duration);
+        _removalIds[i] = newId;
+        uiAddClip?.call(clip.copyWith(clipId: newId));
+      } else {
+        uiAddClip?.call(clip);
+      }
+    }
+  }
+
+  @override
+  String get description => 'Resolve clip overlap';
+}
+
+/// Undoable wrapper for "new clip wins" MIDI overlap resolution — the MIDI
+/// counterpart of [ResolveAudioOverlapCommand] (bug H-11).
+///
+/// `execute` performs exactly what `ClipOverlapHandler.applyMidiResult` did
+/// (delete fully-covered neighbours, trim partial overlaps, split clips the new
+/// region lands inside), and `undo` inverts it from the full before-state the
+/// result carries. MIDI clip ids are stable across delete/re-add
+/// (`MidiPlaybackManager.addRecordedClip` preserves `clipId`) and split parts
+/// carry pre-assigned ids, so execute/undo/redo all round-trip cleanly.
+class ResolveMidiOverlapCommand extends Command {
+  final MidiOverlapResult result;
+  final double tempo;
+
+  final void Function(int clipId, int trackId)? deleteClip;
+  final void Function(MidiClipData clip)? updateClipInPlace;
+  final void Function(MidiClipData clip, double tempo)? rescheduleClip;
+  final void Function(MidiClipData clip)? addClip;
+
+  ResolveMidiOverlapCommand({
+    required this.result,
+    required this.tempo,
+    this.deleteClip,
+    this.updateClipInPlace,
+    this.rescheduleClip,
+    this.addClip,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    for (final clip in result.removals) {
+      deleteClip?.call(clip.clipId, clip.trackId);
+    }
+    for (final s in result.splits) {
+      deleteClip?.call(s.original.clipId, s.original.trackId);
+    }
+    for (final u in result.updates) {
+      updateClipInPlace?.call(u.updated);
+      rescheduleClip?.call(u.updated, tempo);
+    }
+    for (final s in result.splits) {
+      final a = s.partA;
+      if (a != null) {
+        addClip?.call(a);
+        rescheduleClip?.call(a, tempo);
+      }
+      final b = s.partB;
+      if (b != null) {
+        addClip?.call(b);
+        rescheduleClip?.call(b, tempo);
+      }
+    }
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    // Remove the split parts we created.
+    for (final s in result.splits) {
+      final a = s.partA;
+      if (a != null) deleteClip?.call(a.clipId, a.trackId);
+      final b = s.partB;
+      if (b != null) deleteClip?.call(b.clipId, b.trackId);
+    }
+    // Re-add the originals we split.
+    for (final s in result.splits) {
+      addClip?.call(s.original);
+      rescheduleClip?.call(s.original, tempo);
+    }
+    // Restore trimmed clips to their original state.
+    for (final u in result.updates) {
+      updateClipInPlace?.call(u.original);
+      rescheduleClip?.call(u.original, tempo);
+    }
+    // Re-add fully-removed clips.
+    for (final clip in result.removals) {
+      addClip?.call(clip);
+      rescheduleClip?.call(clip, tempo);
+    }
+  }
+
+  @override
+  String get description => 'Resolve MIDI clip overlap';
 }
 
 /// Command to delete a MIDI clip
@@ -491,6 +752,11 @@ class DeleteAudioClipCommand extends Command {
     );
 
     if (newClipId >= 0) {
+      // `loadAudioFileToTrack` restores the clip at full length / zero offset.
+      // Re-apply the saved trim so an already-trimmed clip (e.g. one removed by
+      // overlap resolution) comes back exactly as it was, not un-trimmed.
+      engine.setClipOffset(clipData.trackId, newClipId, clipData.offset);
+      engine.setClipDuration(clipData.trackId, newClipId, clipData.duration);
       // Restore with new clip ID from engine, and track it so a subsequent
       // redo removes the right clip.
       _currentClipId = newClipId;
