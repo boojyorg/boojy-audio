@@ -13,6 +13,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/native_engine_harness.dart';
 
 void main() {
+  // CI: force the macOS test host to exit once the suite finishes.
+  //
+  // On the headless GitHub runner, flutter_tools launches the app via `open`,
+  // which fails to foreground it ("open returned 1") and loses the handle it
+  // would use to terminate the app afterwards. A desktop app won't self-quit,
+  // so the suite *passes* but the process hangs until the CI timeout — then the
+  // retry re-runs it and hangs again (~13 min, then red). Test results are
+  // streamed to the reporter as each test completes, so exiting here cannot mask
+  // a failure — flutter_tools has already recorded the verdict. Guarded behind a
+  // compile-time flag (passed via --dart-define=BOOJY_CI=true in ci.yml) so local
+  // `flutter test integration_test -d macos` runs are completely unaffected.
+  if (const bool.fromEnvironment('BOOJY_CI')) {
+    tearDownAll(() async {
+      // Let the reporter flush the final result before the process dies.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      exit(0);
+    });
+  }
+
   group('Project golden paths (native engine)', () {
     late AudioEngine engine;
     late ProjectManager projectManager;

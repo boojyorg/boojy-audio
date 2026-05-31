@@ -54,20 +54,20 @@ jobs:
       - name: Run unit tests
         run: cd ui && flutter test
 
-      # This step intermittently hangs at app-foreground on the macOS runner (a
-      # known flake — the runner has no usable display session, so launching the
-      # windowed app stalls; locally the suite passes in ~2s). Auto-retry so the
-      # flake self-heals instead of needing a manual re-run on every PR: each
-      # attempt is time-boxed (a healthy run takes ~1-2 min; a hang is killed at
-      # 4 min and retried). A genuine failure still fails all attempts, so the
-      # gate is preserved — only the hang gets absorbed.
+      # The macOS test-host app can't foreground on the headless runner
+      # ("open returned 1"), which used to leave the process hanging until the
+      # timeout even though every test passed. BOOJY_CI=true makes the suite
+      # exit(0) once it finishes (see project_golden_paths_test.dart), so the run
+      # now completes in ~1-2 min. The retry stays as a light net for any genuine
+      # transient launch failure; a real test failure is reported by the streamed
+      # test reporter before the exit, so the gate is preserved.
       - name: Run integration tests
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 4
-          max_attempts: 3
+          timeout_minutes: 5
+          max_attempts: 2
           retry_on: any
-          command: cd ui && flutter test integration_test/ -d macos
+          command: cd ui && flutter test integration_test/ -d macos --dart-define=BOOJY_CI=true
 
   flutter-checks-windows:
     runs-on: windows-latest
