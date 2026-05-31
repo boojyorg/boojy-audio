@@ -9,17 +9,13 @@ import '../transport_bar/transport_bar_models.dart';
 /// screen so the transport bar can read it.
 class UiLabsSwitcher extends StatefulWidget {
   final TopBarVariant activeVariant;
-  final bool showCenteredTitle;
   final ValueChanged<TopBarVariant> onVariantSelected;
-  final ValueChanged<bool> onCenteredTitleChanged;
   final VoidCallback onClose;
 
   const UiLabsSwitcher({
     super.key,
     required this.activeVariant,
-    required this.showCenteredTitle,
     required this.onVariantSelected,
-    required this.onCenteredTitleChanged,
     required this.onClose,
   });
 
@@ -61,8 +57,6 @@ class _UiLabsSwitcherState extends State<UiLabsSwitcher> {
                     children: [
                       for (final variant in TopBarVariant.values)
                         _buildVariantRow(colors, variant),
-                      const SizedBox(height: 6),
-                      _buildCenteredTitleToggle(colors),
                     ],
                   ),
                 ),
@@ -135,39 +129,6 @@ class _UiLabsSwitcherState extends State<UiLabsSwitcher> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenteredTitleToggle(BoojyColors colors) {
-    final on = widget.showCenteredTitle;
-    return GestureDetector(
-      onTap: () => widget.onCenteredTitleChanged(!on),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: colors.dark,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: colors.divider),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              on ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 15,
-              color: on ? colors.accent : colors.textMuted,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Centered title',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         ),
       ),
     );

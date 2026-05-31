@@ -138,6 +138,10 @@ class TimelineView extends StatefulWidget {
   /// Beats per bar (time-signature numerator) — drives the grid + nav-bar ruler.
   final int beatsPerBar;
 
+  /// Dev "UI Labs" Variant D — pins the hero position/time readout to the
+  /// top-left of the arrangement (non-scrolling) instead of the top bar.
+  final bool showPinnedReadout;
+
   const TimelineView({
     super.key,
     required this.playheadNotifier,
@@ -176,6 +180,7 @@ class TimelineView extends StatefulWidget {
     this.isRecording = false,
     this.masterTimelineVisible = false,
     this.beatsPerBar = 4,
+    this.showPinnedReadout = false,
   });
 
   @override
@@ -1057,11 +1062,89 @@ class TimelineViewState extends State<TimelineView>
               ), // end Column
               // Empty timeline prompt — on top of grid and stars
               if (_shouldShowEmptyPrompt) _buildEmptyTimelinePrompt(context),
+              // Variant D — hero readout pinned to the arrangement's top-left,
+              // just below the ruler so it clears the orientation chip. Floats
+              // over the grid and never scrolls. IgnorePointer so clicks pass
+              // through to the timeline beneath.
+              if (widget.showPinnedReadout)
+                Positioned(
+                  left: BT.sm,
+                  top: UIConstants.navBarHeight + BT.sm,
+                  child: IgnorePointer(child: _buildPinnedReadout()),
+                ),
             ], // end Stack children
           ), // end Stack (child of DecoratedBox)
         ), // end DecoratedBox (child of Focus)
       ), // end Focus (child of MouseRegion)
     ); // end MouseRegion
+  }
+
+  /// Variant D's pinned readout — bars.beats.ticks over M:SS.mmm in the LCD
+  /// style of the top-bar B panel. Formatting mirrors [PositionDisplay]
+  /// (position_display.dart); kept self-contained as this is a dev A/B variant.
+  Widget _buildPinnedReadout() {
+    final colors = context.colors;
+    return ValueListenableBuilder<double>(
+      valueListenable: widget.playheadNotifier,
+      builder: (context, seconds, _) {
+        final beatsPerSecond = widget.tempo / 60.0;
+        final totalBeats = seconds * beatsPerSecond;
+        final bar = (totalBeats / widget.beatsPerBar).floor() + 1;
+        final beat = (totalBeats % widget.beatsPerBar).floor() + 1;
+        final sub = ((totalBeats % 1) * 4).floor() + 1;
+        final minutes = seconds ~/ 60;
+        final secs = (seconds % 60).floor();
+        final millis = ((seconds % 1) * 1000).floor();
+        final barsText = '$bar.$beat.$sub';
+        final timeText =
+            '$minutes:${secs.toString().padLeft(2, '0')}'
+            '.${millis.toString().padLeft(3, '0')}';
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colors.darkest.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(BT.radiusMd),
+            border: Border.all(color: colors.accent.withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                offset: const Offset(0, 2),
+                blurRadius: 8,
+                color: Colors.black.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                barsText,
+                style: TextStyle(
+                  fontFamily: BT.fontFamilyMono,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                  height: 1.0,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                timeText,
+                style: TextStyle(
+                  fontFamily: BT.fontFamilyMono,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textMuted,
+                  height: 1.0,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildGrid(double width, double duration, double height) {
