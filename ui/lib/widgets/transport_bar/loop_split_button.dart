@@ -124,9 +124,12 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
           decoration: BoxDecoration(
             borderRadius: BT.borderSm,
             border: Border.all(
+              // Off-state outline reads with the same weight as the active
+              // accent one (textMuted, not the near-invisible divider) — just
+              // grey instead of blue.
               color: isActive
                   ? colors.accent.withValues(alpha: 0.7)
-                  : colors.divider,
+                  : colors.textMuted,
               width: 1,
             ),
           ),
@@ -158,7 +161,7 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
                     onTap: widget.onLoopToggle,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
-                      padding: BT.buttonPadding,
+                      padding: BT.splitLeftPadding,
                       decoration: BoxDecoration(
                         color: _isLeftHovered
                             ? (isActive

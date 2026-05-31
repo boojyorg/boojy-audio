@@ -62,6 +62,14 @@ All notable changes to Boojy Audio will be documented in this file.
   menu, then creates that track (undoable), arms it, and starts recording (with count-in). One press
   to capture an idea on a blank project. Audio-track creation also now goes through the same
   undoable command as MIDI (previously it bypassed undo).
+- **Tidier transport readouts + tap-tempo folded into the BPM box (phase 3 cont.).** The
+  `1.1.1` / tempo / `4/4` readouts now share one height and padding so the cluster reads as an even
+  row. The standalone **Tap** pill is gone — tap-tempo now lives *inside* the tempo box as a split
+  button: `[ 120 │ BPM ]`. The number half drags / scrolls / double-clicks to type as before; the
+  **BPM** half is the tap target (tap it in time and it pulses accent to set the tempo). The box
+  keeps a fixed width so it doesn't jitter as the tempo changes digits. The off-state outline of
+  the Loop / Snap / Metronome buttons is also lifted to a clearer grey, so a disabled tool's outline
+  reads with the same weight as an engaged (blue) one.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
