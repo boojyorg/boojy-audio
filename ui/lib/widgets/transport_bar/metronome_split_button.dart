@@ -130,96 +130,52 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
 
     return Tooltip(
       message: tooltip,
-      child: DecoratedBox(
+      child: Container(
         key: _buttonKey,
+        // Clip so the rounded corners never show a grey sliver of the bar
+        // behind the zone fills. The outline turns a soft accent when engaged.
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BT.borderSm,
-          border: Border.all(color: colors.divider, width: 1),
+          border: Border.all(
+            color: widget.isActive
+                ? colors.accent.withValues(alpha: 0.7)
+                : colors.divider,
+            width: 1,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Left zone: metronome icon (toggle on/off)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                if (!_isLeftHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isLeftHovered = true);
-                  });
-                }
-              },
-              onExit: (_) {
-                if (_isLeftHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isLeftHovered = false);
-                  });
-                }
-              },
-              child: GestureDetector(
-                onTap: widget.onToggle,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: BT.buttonPadding,
-                  decoration: BoxDecoration(
-                    color: _isLeftHovered
-                        ? (widget.isActive
-                              ? colors.accent.withValues(
-                                  alpha: BT.opacityMedium,
-                                )
-                              : colors.textPrimary.withValues(
-                                  alpha: BT.opacitySubtle,
-                                ))
-                        : leftBg,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(BT.radiusSm),
-                      bottomLeft: Radius.circular(BT.radiusSm),
-                    ),
-                  ),
-                  child: Image.asset(
-                    'assets/images/metronome.png',
-                    width: BT.iconMd,
-                    height: BT.iconMd,
-                    color: iconColor,
-                  ),
-                ),
-              ),
-            ),
-            // Divider + right zone (count-in value/dropdown) — hidden when
-            // showLabel is false so the metronome collapses to an icon-only
-            // toggle, matching Loop/Snap shedding.
-            if (widget.showLabel) ...[
-              // Divider
-              Container(
-                width: 1,
-                height: 19,
-                color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
-              ),
-              // Right zone: count-in value text (opens dropdown)
+        // IntrinsicHeight pins the row to its content height; stretch then
+        // makes the inter-zone divider span that full height (not the bar).
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left zone: metronome icon (toggle on/off)
               MouseRegion(
                 cursor: SystemMouseCursors.click,
                 onEnter: (_) {
-                  if (!_isRightHovered) {
+                  if (!_isLeftHovered) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isRightHovered = true);
+                      if (mounted) setState(() => _isLeftHovered = true);
                     });
                   }
                 },
                 onExit: (_) {
-                  if (_isRightHovered) {
+                  if (_isLeftHovered) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isRightHovered = false);
+                      if (mounted) setState(() => _isLeftHovered = false);
                     });
                   }
                 },
                 child: GestureDetector(
-                  onTap: () => _showCountInMenu(context, colors.accent),
+                  onTap: widget.onToggle,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 37),
-                    padding: BT.splitRightPadding,
+                    alignment: Alignment.center,
+                    padding: BT.buttonPadding,
                     decoration: BoxDecoration(
-                      color: _isRightHovered
+                      color: _isLeftHovered
                           ? (widget.isActive
                                 ? colors.accent.withValues(
                                     alpha: BT.opacityMedium,
@@ -229,26 +185,86 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                                   ))
                           : leftBg,
                       borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(BT.radiusSm),
-                        bottomRight: Radius.circular(BT.radiusSm),
+                        topLeft: Radius.circular(BT.radiusSm),
+                        bottomLeft: Radius.circular(BT.radiusSm),
                       ),
                     ),
-                    child: Text(
-                      _countInText,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: widget.isActive
-                            ? colors.accent
-                            : colors.textMuted,
-                        fontSize: BT.fontLabel,
-                        fontWeight: BT.weightSemiBold,
-                      ),
+                    child: Image.asset(
+                      'assets/images/metronome.png',
+                      width: BT.iconMd,
+                      height: BT.iconMd,
+                      color: iconColor,
                     ),
                   ),
                 ),
               ),
+              // Divider + right zone (count-in value/dropdown) — hidden when
+              // showLabel is false so the metronome collapses to an icon-only
+              // toggle, matching Loop/Snap shedding.
+              if (widget.showLabel) ...[
+                // Divider — full-height, accent when engaged to match the outline.
+                Container(
+                  width: 1,
+                  color: widget.isActive
+                      ? colors.accent
+                      : colors.textPrimary.withValues(alpha: BT.opacityMedium),
+                ),
+                // Right zone: count-in value text (opens dropdown)
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  onEnter: (_) {
+                    if (!_isRightHovered) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isRightHovered = true);
+                      });
+                    }
+                  },
+                  onExit: (_) {
+                    if (_isRightHovered) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isRightHovered = false);
+                      });
+                    }
+                  },
+                  child: GestureDetector(
+                    onTap: () => _showCountInMenu(context, colors.accent),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      alignment: Alignment.center,
+                      constraints: const BoxConstraints(minWidth: 37),
+                      padding: BT.splitRightPadding,
+                      decoration: BoxDecoration(
+                        color: _isRightHovered
+                            ? (widget.isActive
+                                  ? colors.accent.withValues(
+                                      alpha: BT.opacityMedium,
+                                    )
+                                  : colors.textPrimary.withValues(
+                                      alpha: BT.opacitySubtle,
+                                    ))
+                            : leftBg,
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(BT.radiusSm),
+                          bottomRight: Radius.circular(BT.radiusSm),
+                        ),
+                      ),
+                      child: Text(
+                        _countInText,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: widget.isActive
+                              ? colors.accent
+                              : colors.textMuted,
+                          fontSize: BT.fontLabel,
+                          fontWeight: BT.weightSemiBold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

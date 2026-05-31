@@ -51,6 +51,12 @@ All notable changes to Boojy Audio will be documented in this file.
   earlier in-bar attempt was wedged between unequal sidebar/mixer widths, so it always drifted).
   With the lights moved up into the strip, the transport bar drops its ~78px traffic-light inset and
   the ▲udio wordmark sits at the true left edge.
+- **Cleaner transport tool buttons (phase 3 cont.).** The Loop button is now a single plain pill
+  when looping is off (the stray `|` next to it is gone); turning Loop on reveals the punch-in/out
+  zone, opened via an accent chevron. When **any** of Loop / Snap / Metronome is engaged it now wears
+  a soft accent-blue outline with a full-height accent divider between its two halves, so "this tool
+  is on" reads at a glance — and a 1px grey sliver that used to peek through the rounded corners is
+  gone. The ▲udio wordmark also nudges up ~2px to sit in line with its neighbours.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
