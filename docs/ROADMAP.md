@@ -1,14 +1,14 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.3.2 (developing v0.4.0)
-**Working On:** v0.4.0 — Visual & UX polish (phase 1: type / palette / UI-scale foundation)
+**Working On:** v0.4.0 — Visual & UX polish (foundation + re-treats + top-bar & chrome polish done; **last item: piano-roll lane colours**, then tag)
 **Goal:** v1.0 public release
 
 ---
 
 ## What's Next (v0.4.0)
 
-**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/ui_ux_review_2026_05_30.md) and specced in [plans/v0.4-plan.md](plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B last**. Phase 1 (this slice): bundled Inter + JetBrains Mono, a unified cool "indigo deep-space" palette, and a persisted UI Scale setting. The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag).
+**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/ui_ux_review_2026_05_30.md) and specced in [plans/v0.4-plan.md](plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B → chrome & dogfood polish**. Shipped so far: bundled Inter + JetBrains Mono, a unified "gunmetal" dark palette, a persisted UI Scale setting; piano-roll keyboard-contrast lanes + readout behaviour; the macOS title fix + top-bar A/B (Variant A won); and a dogfood polish batch (shared ▲udio wordmark, centred transport, note resize in Select mode, type-coloured Add-Track buttons, dB-readout + Delete-focus fixes — PR #29). The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag). **Last open item: refine the piano-roll lane colours**, then v0.4.0 can be tagged.
 
 The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / step sequencer, quantize) are **deferred** — picked up after the polish pass.
 

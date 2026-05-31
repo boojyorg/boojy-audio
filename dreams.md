@@ -28,7 +28,16 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   row 1, global toggle retired. _(PR #26 = title + A/B; C & D + title on `polish/v0.4-phase3-cd`.)_
   **A/B decided 2026-05-31: Variant A (inline) wins** — stays the default; B/C/D kept behind the
   debug switcher (pruning them is a deferred cleanup call).
-  **Remaining for v0.4:** refine the piano-roll lane *colours* (the last open item).
+- [x] **Dogfood polish pass** (`polish/v0.4-chrome-titlestrip`, PR #29, merged 2026-05-31): the
+  top-bar/chrome polish (title strip, tool-tidy, always-live record, uniform readouts + BPM split
+  button, red-on-failure ▲ logo, one-band bar + Add-Track in the mixer header) **plus** a
+  visual/UX dogfood batch — shared `BoojyWordmark` (start screen + settings footer), centred
+  transport, piano-roll Loop/Snap restyle, note-colour legibility floor, **note resize in Select
+  mode**, type-coloured + icon'd Add-Track buttons, larger/centred macOS title, dB-readout no-wrap,
+  and the intermittent **Delete-does-nothing** focus fix. ⚠ two items still want a live eyeball:
+  the rebuilt "Boojy" lockup font/kerning, and the transport-centre offset when sidebar≠mixer width.
+  Dogfood log: `docs/dogfood/2026-05-31-v0.4-polish.md` (gitignored, local).
+- [ ] **Piano-roll lane *colours*** — the last open v0.4 item before the release can be tagged.
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
   high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
   Serum/VST3 load bug; scaling the 9 painter text sizes.
