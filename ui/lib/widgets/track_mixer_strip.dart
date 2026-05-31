@@ -518,7 +518,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Text('⚡', style: TextStyle(fontSize: buttonSize * 0.75)),
+              Icon(
+                BI.lightning,
+                size: buttonSize * 0.8,
+                color: _fxHovered
+                    ? context.colors.accent
+                    : context.colors.textSecondary,
+              ),
               if (_fxHovered)
                 Positioned(
                   right: 0,
@@ -2153,9 +2159,10 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                         if (widget.onFxButtonPressed != null)
                           GestureDetector(
                             onTap: widget.onFxButtonPressed,
-                            child: const Text(
-                              '⚡',
-                              style: TextStyle(fontSize: 14),
+                            child: Icon(
+                              BI.lightning,
+                              size: 16,
+                              color: context.colors.textSecondary,
                             ),
                           ),
                         if (widget.onFxButtonPressed != null)

@@ -16,6 +16,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/transport_bar.dart';
 import '../widgets/dev_tools/palette_editor.dart';
+import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/timeline/timeline_models.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/mixer/mixer_models.dart';
@@ -105,6 +106,18 @@ class _DAWScreenState extends State<DAWScreen>
     }());
   }
 
+  // UI Labs top-bar switcher (debug only) + the live A/B selections it drives.
+  bool _showUiLabsSwitcher = false;
+  TopBarVariant _topBarVariant = TopBarVariant.inline;
+  bool _showCenteredTitle = false;
+
+  void _toggleUiLabsSwitcher() {
+    assert(() {
+      setState(() => _showUiLabsSwitcher = !_showUiLabsSwitcher);
+      return true;
+    }());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -142,6 +155,8 @@ class _DAWScreenState extends State<DAWScreen>
               userSettings.libraryRightColumnWidth;
           uiLayout.mixerPanelWidth = userSettings.mixerWidth;
           uiLayout.editorPanelHeight = userSettings.editorHeight;
+          // Restore the persisted top-bar variant (dev A/B choice).
+          _topBarVariant = topBarVariantFromName(userSettings.topBarVariant);
         });
 
         // Show crash reporting opt-in dialog on first launch
@@ -3260,6 +3275,8 @@ class _DAWScreenState extends State<DAWScreen>
           final trackId = audioEngine!.createTrack('audio', 'Audio 1');
           if (trackId >= 0) setState(() {});
         },
+        topBarVariant: _topBarVariant,
+        showCenteredTitle: _showCenteredTitle,
       ),
     );
   }
@@ -3877,6 +3894,12 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _togglePaletteEditor,
+          // Cmd+Shift+L to toggle the UI Labs top-bar switcher (debug only)
+          const SingleActivator(
+            LogicalKeyboardKey.keyL,
+            meta: true,
+            shift: true,
+          ): _toggleUiLabsSwitcher,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields
@@ -3890,8 +3913,9 @@ class _DAWScreenState extends State<DAWScreen>
               children: [
                 Column(
                   children: [
-                    // Top padding to reserve space for transport bar (rendered in Stack above)
-                    const SizedBox(height: 54),
+                    // Reserve space for the transport bar (rendered in the Stack
+                    // above). Height tracks the active top-bar variant.
+                    SizedBox(height: _topBarVariant.barHeight),
 
                     // Main content area - 3-column layout
                     Expanded(
@@ -4104,6 +4128,18 @@ class _DAWScreenState extends State<DAWScreen>
                 ),
                 if (_showPaletteEditor)
                   PaletteEditor(onClose: _togglePaletteEditor),
+                if (_showUiLabsSwitcher)
+                  UiLabsSwitcher(
+                    activeVariant: _topBarVariant,
+                    showCenteredTitle: _showCenteredTitle,
+                    onVariantSelected: (v) {
+                      setState(() => _topBarVariant = v);
+                      userSettings.topBarVariant = v.token;
+                    },
+                    onCenteredTitleChanged: (v) =>
+                        setState(() => _showCenteredTitle = v),
+                    onClose: _toggleUiLabsSwitcher,
+                  ),
               ],
             ),
           ),

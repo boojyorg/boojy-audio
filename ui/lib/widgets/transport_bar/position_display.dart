@@ -18,12 +18,24 @@ class PositionDisplay extends StatefulWidget {
   final int beatsPerBar;
   final Function(double seconds)? onPositionChanged;
 
+  /// Font/size multiplier for the readout. 1.0 = the standard transport size;
+  /// the top-bar "hero" variants pass >1 to promote the position to the focal
+  /// readout.
+  final double scale;
+
+  /// When true the widget drops its own bordered LCD shell (background, border,
+  /// padding, min-width) and renders just the readout + gestures — used when an
+  /// outer panel (Variant B) already supplies the chrome.
+  final bool chromeless;
+
   const PositionDisplay({
     super.key,
     required this.playheadPosition,
     required this.tempo,
     this.beatsPerBar = 4,
     this.onPositionChanged,
+    this.scale = 1.0,
+    this.chromeless = false,
   });
 
   @override
@@ -166,7 +178,10 @@ class _PositionDisplayState extends State<PositionDisplay> {
   /// bars line sits over a smaller, dimmer min:sec line (Logic-style dual).
   Widget _buildReadout() {
     final colors = context.colors;
-    final primaryStyle = BT.display(colors.textPrimary);
+    final base = BT.display(colors.textPrimary);
+    final primaryStyle = widget.scale == 1.0
+        ? base
+        : base.copyWith(fontSize: (base.fontSize ?? 15.0) * widget.scale);
     switch (_mode) {
       case PositionDisplayMode.bars:
         return Text(
@@ -183,7 +198,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
       case PositionDisplayMode.both:
         final timeStyle = BT
             .display(colors.textSecondary)
-            .copyWith(fontSize: BT.fontLabel);
+            .copyWith(fontSize: BT.fontLabel * widget.scale);
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -267,18 +282,24 @@ class _PositionDisplayState extends State<PositionDisplay> {
           },
           onHorizontalDragEnd: (_) => setState(() => _isScrubbing = false),
           child: Container(
-            constraints: const BoxConstraints(minWidth: 64),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.darkest,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: (_isHovered || _isScrubbing)
-                    ? colors.accent
-                    : colors.divider,
-                width: 1,
-              ),
+            constraints: BoxConstraints(
+              minWidth: widget.chromeless ? 0 : 64 * widget.scale,
             ),
+            padding: widget.chromeless
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: widget.chromeless
+                ? null
+                : BoxDecoration(
+                    color: colors.darkest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: (_isHovered || _isScrubbing)
+                          ? colors.accent
+                          : colors.divider,
+                      width: 1,
+                    ),
+                  ),
             child: _buildReadout(),
           ),
         ),
