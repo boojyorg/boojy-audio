@@ -420,6 +420,7 @@ class _DAWScreenState extends State<DAWScreen>
     } catch (e, _) {
       Log.e('Audio engine initialization failed: $e');
       if (mounted) {
+        setState(() => engineInitFailed = true);
         statusMessage = 'Failed to initialize: $e';
         _showInitError(e.toString());
       }
@@ -3284,6 +3285,7 @@ class _DAWScreenState extends State<DAWScreen>
         onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
         isLoading: isLoading,
         isEngineReady: isAudioGraphInitialized,
+        engineFailed: engineInitFailed,
         onAddMidiTrack: _addMidiTrackWithClip,
         onAddAudioTrack: _addAudioTrack,
         topBarVariant: _topBarVariant,

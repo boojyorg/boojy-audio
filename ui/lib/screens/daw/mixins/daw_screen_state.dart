@@ -86,6 +86,12 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
   double? clipDuration;
   List<double> waveformPeaks = [];
   bool isAudioGraphInitialized = false;
+
+  /// True if the audio engine failed to start. Drives the ▲ wordmark turning
+  /// red as a quiet "something's wrong, open Settings" cue. Stays false during
+  /// the normal startup window — only the init catch flips it.
+  bool engineInitFailed = false;
+
   bool isLoading = false;
   bool hasInitializedPanelSizes = false;
   bool masterTimelineVisible = false;

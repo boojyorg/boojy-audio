@@ -70,6 +70,11 @@ All notable changes to Boojy Audio will be documented in this file.
   keeps a fixed width so it doesn't jitter as the tempo changes digits. The off-state outline of
   the Loop / Snap / Metronome buttons is also lifted to a clearer grey, so a disabled tool's outline
   reads with the same weight as an engaged (blue) one.
+- **The ▲ logo is now the engine-health light; the "Ready" badge is gone (phase 3 cont.).** The
+  top-right "✓ Ready" badge restated what you already knew, so it's removed. Instead, if the audio
+  engine fails to start, the ▲ in the **▲udio** wordmark turns **red** — a quiet, always-visible cue
+  that something's wrong — and clicking it (it already opens **Settings**) is where you fix the audio
+  device. When everything's fine the corner stays clean and the logo keeps its brand blue.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.

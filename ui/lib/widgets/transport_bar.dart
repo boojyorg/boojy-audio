@@ -24,7 +24,6 @@ import 'transport_bar/file_menu_button.dart';
 import 'transport_bar/loop_split_button.dart';
 import 'transport_bar/position_display.dart';
 import 'transport_bar/record_controls.dart';
-import 'transport_bar/status_pill.dart';
 import 'transport_bar/transport_bar_models.dart';
 
 export 'transport_bar/transport_bar_models.dart';
@@ -209,11 +208,10 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Engine status (for status pill)
+  // Engine status. [isEngineReady] gates the add-track button; [engineFailed]
+  // turns the ▲ wordmark red as a quiet "engine didn't start" cue.
   final bool isEngineReady;
-  final int? sampleRate;
-  final double? latencyMs;
-  final String? audioOutputDevice;
+  final bool engineFailed;
 
   // Add track callbacks
   final VoidCallback? onAddMidiTrack;
@@ -266,9 +264,7 @@ class TransportBar extends StatefulWidget {
     this.onTimeSignatureDragEnd,
     this.isLoading = false,
     this.isEngineReady = false,
-    this.sampleRate,
-    this.latencyMs,
-    this.audioOutputDevice,
+    this.engineFailed = false,
     this.onAddMidiTrack,
     this.onAddAudioTrack,
     this.topBarVariant = TopBarVariant.inline,
@@ -740,7 +736,11 @@ class _TransportBarState extends State<TransportBar> {
               }
             },
             child: Tooltip(
-              message: 'Settings',
+              // The ▲ doubles as the engine-health light: red ⇒ the engine
+              // didn't start; opening Settings is the place to fix the device.
+              message: widget.engineFailed
+                  ? "Audio engine didn't start — open Settings"
+                  : 'Settings',
               child: GestureDetector(
                 onTap: () => widget.fileMenu.onAppSettings?.call(),
                 child: AnimatedScale(
@@ -754,7 +754,9 @@ class _TransportBarState extends State<TransportBar> {
                       // Equilateral: height = base * √3/2. ~10% larger than the
                       // first cut so it reads at the wordmark's weight.
                       size: const Size(22, 19.05),
-                      painter: _LogoTrianglePainter(colors.accent),
+                      painter: _LogoTrianglePainter(
+                        widget.engineFailed ? colors.error : colors.accent,
+                      ),
                     ),
                   ),
                 ),
@@ -1092,16 +1094,8 @@ class _TransportBarState extends State<TransportBar> {
               onAddAudioTrack: widget.onAddAudioTrack,
             ),
 
-          if (widget.isEngineReady) const SizedBox(width: 10),
-
-          // Status pill [✓ Ready]
-          StatusPill(
-            isReady: widget.isEngineReady,
-            sampleRate: widget.sampleRate,
-            latencyMs: widget.latencyMs,
-            audioOutputDevice: widget.audioOutputDevice,
-          ),
-
+          // Engine health is shown by the ▲ wordmark (it turns red on failure),
+          // so there's no longer a "Ready" badge here.
           const Spacer(),
 
           // Help button — far right
