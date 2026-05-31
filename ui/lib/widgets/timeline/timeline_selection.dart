@@ -38,6 +38,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       selectedAudioClipId,
       selectedClip,
     );
+    // Pull keyboard focus to the timeline so Delete/Backspace act on this clip.
+    timelineFocusNode.requestFocus();
   }
 
   /// Check if a MIDI clip is selected
@@ -80,6 +82,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
         selectedAudioClipId = null;
       }
     });
+    // Pull keyboard focus to the timeline so Delete/Backspace act on this clip.
+    timelineFocusNode.requestFocus();
   }
 
   /// Select an audio clip with multi-selection support
@@ -130,6 +134,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
       selectedAudioClipId,
       selectedClip,
     );
+    // Pull keyboard focus to the timeline so Delete/Backspace act on this clip.
+    timelineFocusNode.requestFocus();
   }
 
   /// Clear all clip selections

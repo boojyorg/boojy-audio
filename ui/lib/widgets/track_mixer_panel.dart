@@ -741,11 +741,17 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               const Spacer(),
               _MixerAddTrackButton(
                 label: full ? 'MIDI Track' : 'MIDI',
+                typeIcon: BI.piano,
+                typeColor:
+                    TrackColors.categoryColors[TrackColorCategory.synth]!,
                 onTap: widget.onAddMidiTrack,
               ),
               const SizedBox(width: 6),
               _MixerAddTrackButton(
                 label: full ? 'Audio Track' : 'Audio',
+                typeIcon: BI.waveform,
+                typeColor:
+                    TrackColors.categoryColors[TrackColorCategory.audio]!,
                 onTap: widget.onAddAudioTrack,
               ),
             ],
@@ -1522,12 +1528,20 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
 }
 
 /// Compact `+ MIDI/Audio Track` button for the mixer header. Quiet at rest, lifts
-/// to accent on hover; muted + non-interactive when its callback is null.
+/// to its track-type colour on hover (so the hint teaches the colour language);
+/// muted + non-interactive when its callback is null.
 class _MixerAddTrackButton extends StatefulWidget {
   final String label;
+  final IconData typeIcon;
+  final Color typeColor;
   final VoidCallback? onTap;
 
-  const _MixerAddTrackButton({required this.label, this.onTap});
+  const _MixerAddTrackButton({
+    required this.label,
+    required this.typeIcon,
+    required this.typeColor,
+    this.onTap,
+  });
 
   @override
   State<_MixerAddTrackButton> createState() => _MixerAddTrackButtonState();
@@ -1543,7 +1557,7 @@ class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
     final active = _hovered && enabled;
     final fg = !enabled
         ? colors.textMuted
-        : (active ? colors.accent : colors.textSecondary);
+        : (active ? widget.typeColor : colors.textSecondary);
 
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -1561,12 +1575,12 @@ class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
           padding: const EdgeInsets.symmetric(horizontal: 7),
           decoration: BoxDecoration(
             color: active
-                ? colors.accent.withValues(alpha: BT.opacityLight)
+                ? widget.typeColor.withValues(alpha: BT.opacityLight)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: active
-                  ? colors.accent.withValues(alpha: 0.5)
+                  ? widget.typeColor.withValues(alpha: 0.5)
                   : colors.divider,
               width: 1,
             ),
@@ -1575,6 +1589,8 @@ class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(BI.add, size: 12, color: fg),
+              const SizedBox(width: 2),
+              Icon(widget.typeIcon, size: 12, color: fg),
               const SizedBox(width: 3),
               Text(
                 widget.label,

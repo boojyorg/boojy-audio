@@ -12,6 +12,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
+import 'shared/boojy_wordmark.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
 import 'shared/pill_toggle_button.dart';
@@ -746,7 +747,7 @@ class _TransportBarState extends State<TransportBar> {
                       // Equilateral: height = base * √3/2. ~10% larger than the
                       // first cut so it reads at the wordmark's weight.
                       size: const Size(22, 19.05),
-                      painter: _LogoTrianglePainter(
+                      painter: BoojyTrianglePainter(
                         widget.engineFailed ? colors.error : colors.accent,
                       ),
                     ),
@@ -792,21 +793,33 @@ class _TransportBarState extends State<TransportBar> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: BT.sm),
           child: Row(
-            // Clusters grouped together and centered (small fixed gaps),
-            // instead of spread to the edges with Spacers.
-            mainAxisAlignment: MainAxisAlignment.center,
+            // Transport (play/stop/record) is pinned to the centre of the bar;
+            // the modifier and readout wells flank it, hugging inward via the
+            // flexible side slots. When the bar narrows the Expanded slots
+            // collapse to zero and this degrades to the old grouped-centre
+            // layout, so the density ladder still prevents overflow.
             children: [
-              _buildModifiersWell(colors, density),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildModifiersWell(colors, density),
+                ),
+              ),
               SizedBox(width: density.clusterGap),
               _buildTransportWell(colors, density),
               SizedBox(width: density.clusterGap),
               // Well 3: Readouts — layout chosen by the UI Labs variant. Fixed
               // size; the density ladder sheds labels (tools → icons,
               // "BPM"/"Tap") before the bar would overflow.
-              _buildReadoutWell(
-                colors,
-                compactReadouts: density.compactReadouts,
-                wGap: density.withinGap,
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildReadoutWell(
+                    colors,
+                    compactReadouts: density.compactReadouts,
+                    wGap: density.withinGap,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1426,26 +1439,3 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
 }
 
 /// Filled equilateral triangle used as the "A" in the ▲udio wordmark.
-class _LogoTrianglePainter extends CustomPainter {
-  const _LogoTrianglePainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    final path = Path()
-      ..moveTo(size.width / 2, 0) // apex (top centre)
-      ..lineTo(size.width, size.height) // bottom right
-      ..lineTo(0, size.height) // bottom left
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_LogoTrianglePainter oldDelegate) =>
-      oldDelegate.color != color;
-}

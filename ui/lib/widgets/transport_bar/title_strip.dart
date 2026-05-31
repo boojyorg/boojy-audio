@@ -43,19 +43,25 @@ class MacTitleStrip extends StatelessWidget {
           const DragToMoveArea(child: SizedBox.expand()),
           Align(
             alignment: Alignment.center,
-            child: IgnorePointer(
-              child: Text(
-                '$projectName — Boojy Audio',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  // macOS-only strip → use the native system UI font (San
-                  // Francisco) rather than the bundled Inter, so the title
-                  // reads like a standard macOS window title.
-                  fontFamily: '.AppleSystemUIFont',
-                  color: colors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+            // The system font sits ascent-heavy in its line box, which optically
+            // pulls the title toward the top of the strip; a 1px downward nudge
+            // re-centres it against the traffic lights.
+            child: Transform.translate(
+              offset: const Offset(0, 1),
+              child: IgnorePointer(
+                child: Text(
+                  '$projectName — Boojy Audio',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    // macOS-only strip → use the native system UI font (San
+                    // Francisco) rather than the bundled Inter, so the title
+                    // reads like a standard macOS window title.
+                    fontFamily: '.AppleSystemUIFont',
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

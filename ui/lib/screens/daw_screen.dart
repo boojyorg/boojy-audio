@@ -538,6 +538,14 @@ class _DAWScreenState extends State<DAWScreen>
       case LogicalKeyboardKey.keyO:
         uiLayout.togglePunchOut();
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.delete:
+      case LogicalKeyboardKey.backspace:
+        // Safety net: the timeline normally handles clip deletion via its own
+        // focus, but if focus drifted to another panel, fall back to deleting
+        // the selected clips here. No-op (ignored) when nothing is selected.
+        return (timelineKey.currentState?.deleteSelectedClips() ?? false)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       default:
         return KeyEventResult.ignored;
     }
