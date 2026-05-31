@@ -3172,6 +3172,8 @@ class _DAWScreenState extends State<DAWScreen>
           onPause: _pause,
           onStop: _stopPlayback,
           onRecord: toggleRecording,
+          onRecordNewMidiTrack: () => _recordIntoNewTrack('midi'),
+          onRecordNewAudioTrack: () => _recordIntoNewTrack('audio'),
           onPauseRecording: pauseRecording,
           onStopRecording: stopRecordingAndReturn,
           onUndo: undoRedoManager.canUndo ? _performUndo : null,
@@ -3283,10 +3285,7 @@ class _DAWScreenState extends State<DAWScreen>
         isLoading: isLoading,
         isEngineReady: isAudioGraphInitialized,
         onAddMidiTrack: _addMidiTrackWithClip,
-        onAddAudioTrack: () {
-          final trackId = audioEngine!.createTrack('audio', 'Audio 1');
-          if (trackId >= 0) setState(() {});
-        },
+        onAddAudioTrack: _addAudioTrack,
         topBarVariant: _topBarVariant,
       ),
     );
@@ -3302,6 +3301,46 @@ class _DAWScreenState extends State<DAWScreen>
     _createDefaultMidiClip(trackId);
     _onTrackSelected(trackId, autoSelectClip: true);
     refreshTrackWidgets();
+  }
+
+  /// Create an audio track (undoable, matching the MIDI path — no default clip).
+  Future<void> _addAudioTrack() async {
+    final command = CreateTrackCommand(
+      trackType: 'audio',
+      trackName: 'Audio 1',
+    );
+    await undoRedoManager.execute(command);
+    final trackId = command.createdTrackId;
+    if (trackId == null || trackId < 0) return;
+
+    _onTrackSelected(trackId);
+    refreshTrackWidgets();
+  }
+
+  /// Record pressed with nothing armed: create a new track of [trackType], arm
+  /// it, and roll (count-in honoured). Lets the record button always be live.
+  Future<void> _recordIntoNewTrack(String trackType) async {
+    if (audioEngine == null) return;
+    final command = CreateTrackCommand(
+      trackType: trackType,
+      trackName: trackType == 'midi' ? 'MIDI 1' : 'Audio 1',
+    );
+    await undoRedoManager.execute(command);
+    final trackId = command.createdTrackId;
+    if (trackId == null || trackId < 0) return;
+
+    if (trackType == 'midi') {
+      _createDefaultMidiClip(trackId);
+    }
+
+    // Arm via the engine (source of truth) so recording targets the new track;
+    // the refresh propagates the armed flag into the mixer + hasArmedTracks.
+    audioEngine!.setTrackArmed(trackId, armed: true);
+    _onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
+    refreshTrackWidgets();
+
+    // Roll. startRecording reads the engine-armed track set synchronously above.
+    startRecording(isAlreadyPlaying: playbackController.isPlaying);
   }
 
   Widget _buildLibrarySection() {
@@ -3539,10 +3578,7 @@ class _DAWScreenState extends State<DAWScreen>
           isPlaying: isPlaying,
           // Empty timeline: add track callbacks
           onAddMidiTrack: _addMidiTrackWithClip,
-          onAddAudioTrack: () {
-            final trackId = audioEngine!.createTrack('audio', 'Audio 1');
-            if (trackId >= 0) setState(() {});
-          },
+          onAddAudioTrack: _addAudioTrack,
           // Recording state (for auto-scroll)
           isRecording: isRecording,
           masterTimelineVisible: masterTimelineVisible,
