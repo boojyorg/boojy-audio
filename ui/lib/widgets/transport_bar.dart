@@ -168,6 +168,11 @@ class TransportBar extends StatefulWidget {
   final String projectName;
   final bool hasProject;
 
+  /// True when a separate macOS title strip is drawn above the bar (it hosts the
+  /// traffic lights), so the bar no longer needs to inset its left group to
+  /// clear them — the wordmark can sit at the true left edge.
+  final bool hasTitleStrip;
+
   // Panel visibility state
   final bool libraryVisible;
   final bool mixerVisible;
@@ -238,6 +243,7 @@ class TransportBar extends StatefulWidget {
     this.countInBeat = 0,
     this.countInProgress = 0.0,
     this.projectName = 'Untitled',
+    this.hasTitleStrip = false,
     this.hasProject = false,
     this.libraryVisible = true,
     this.mixerVisible = true,
@@ -334,8 +340,11 @@ class _TransportBarState extends State<TransportBar> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     // Extra floor on macOS so the left group is wide enough to fully clear the
-    // traffic lights (78px) even when the sidebar is collapsed.
-    final leftMinWidth = _replacesTitleBar ? 214.0 : 200.0;
+    // traffic lights (78px) even when the sidebar is collapsed. When a title
+    // strip hosts the lights above the bar, that clearance is unnecessary.
+    final needsTrafficLightClearance =
+        _replacesTitleBar && !widget.hasTitleStrip;
+    final leftMinWidth = needsTrafficLightClearance ? 214.0 : 200.0;
 
     // C splits the bar into two rows; A/B/D keep the single-row layout.
     final body = widget.topBarVariant == TopBarVariant.twoRow
@@ -563,8 +572,9 @@ class _TransportBarState extends State<TransportBar> {
           // lights — push the logo right to clear them (the 16px base gutter
           // plus this extra, ~78px total). Bounded so the fixed controls always
           // fit; the left-group floor in build() keeps it at the full clearance
-          // in the common collapsed-sidebar case. Off-macOS this is 0.
-          final extraLeftInset = _replacesTitleBar
+          // in the common collapsed-sidebar case. Off-macOS, or when a title
+          // strip hosts the lights above the bar, this is 0.
+          final extraLeftInset = (_replacesTitleBar && !widget.hasTitleStrip)
               ? math.max(0.0, math.min(78.0, available - 119.0) - 16.0)
               : 0.0;
 
