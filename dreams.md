@@ -20,16 +20,22 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   + hover active lane (lane *colours* to be refined post-Phase-3); time-readout *behaviour*
   (Bars → Time → Both, persisted) + a pinned arrangement orientation chip (bar at the left edge).
   *(`polish/v0.4-phase2`.)*
-- [ ] **Phase 3 — Top-bar A/B (last):** all four layout variants behind a dev-tools "UI Labs"
-  switcher, + the proper macOS title-centring fix.
+- [ ] **Phase 3 — Top-bar A/B (last):** _partially shipped (PR #26, `polish/v0.4-phase3`)._ macOS
+  title fix (native bar hidden via `window_manager` `TitleBarStyle.hidden`, traffic lights kept →
+  the transport bar runs edge-to-edge) + dev "UI Labs" switcher (`Cmd+Shift+L`) + **Variants A
+  (inline) & B (LCD panel, taller bar)** done; chosen variant persists (`UserSettings`), centred-
+  title slot wired but **off by default**. **Remaining:** Variants C (two-row) & D (arrangement-
+  pinned LCD), settle the centred title live, then refine the piano-roll lane *colours*.
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
   high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
   Serum/VST3 load bug; scaling the 9 painter text sizes.
 
 **macOS title-bar gotcha:** no native `NSToolbar` style gives "centred + compact" — `.expanded`
 centres the title but adds an empty, taller toolbar row; `.unifiedCompact` is compact but
-left-aligned. Phase 3 hides the native title (`window_manager` `TitleBarStyle.hidden`, keep the
-traffic lights) and draws a centred title in Flutter.
+left-aligned. Phase 3 hid the native title (`window_manager` `TitleBarStyle.hidden`, keep the
+traffic lights) so the transport bar is the only top chrome. A centred Flutter title is *wired but
+off by default* — it collides with the transport controls in single-row variants, so its final form
+is being settled live during the A/B (cleanest in the C two-row variant).
 
 **Trap (still live):** `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are
 dead/diverged, so edit the wired private methods, *not* the mixins (review §4).
