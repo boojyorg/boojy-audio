@@ -54,20 +54,35 @@ jobs:
       - name: Run unit tests
         run: cd ui && flutter test
 
-      # The macOS test-host app can't foreground on the headless runner
-      # ("open returned 1"), which used to leave the process hanging until the
-      # timeout even though every test passed. BOOJY_CI=true makes the suite
-      # exit(0) once it finishes (see project_golden_paths_test.dart), so the run
-      # now completes in ~1-2 min. The retry stays as a light net for any genuine
-      # transient launch failure; a real test failure is reported by the streamed
-      # test reporter before the exit, so the gate is preserved.
+      # The macOS test host can't foreground on the headless runner
+      # ("open returned 1"), so `flutter test -d macos` returns a non-zero exit
+      # code regardless of the actual result — whether the app hangs (old 13-min
+      # stall) or exits cleanly (BOOJY_CI=true makes the suite exit(0) once done,
+      # which the tool then misreads as a crash). So we can't trust the exit code.
+      #
+      # Instead we judge success from the streamed test reporter: flutter prints
+      # "<N> tests passed." only when every test passed, and "Some tests failed."
+      # on any failure. A genuine failure therefore still fails the gate (no pass
+      # marker / failure marker present) — only the bogus lifecycle exit code is
+      # ignored. The retry remains as a net for the separate mid-suite stall flake
+      # (a hang is killed at the timeout and re-run on a fresh attempt).
       - name: Run integration tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 5
-          max_attempts: 2
+          max_attempts: 3
           retry_on: any
-          command: cd ui && flutter test integration_test/ -d macos --dart-define=BOOJY_CI=true
+          command: |
+            cd ui
+            set +e
+            out=$(flutter test integration_test/ -d macos --dart-define=BOOJY_CI=true 2>&1)
+            echo "$out"
+            if echo "$out" | grep -qE "[0-9]+ tests? passed\." && ! echo "$out" | grep -q "Some tests failed"; then
+              echo "Integration suite passed (flutter exit code ignored — known headless-foreground quirk)."
+              exit 0
+            fi
+            echo "::error::Integration suite did not report success."
+            exit 1
 
   flutter-checks-windows:
     runs-on: windows-latest
