@@ -20,12 +20,15 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   + hover active lane (lane *colours* to be refined post-Phase-3); time-readout *behaviour*
   (Bars → Time → Both, persisted) + a pinned arrangement orientation chip (bar at the left edge).
   *(`polish/v0.4-phase2`.)*
-- [ ] **Phase 3 — Top-bar A/B (last):** _partially shipped (PR #26, `polish/v0.4-phase3`)._ macOS
-  title fix (native bar hidden via `window_manager` `TitleBarStyle.hidden`, traffic lights kept →
-  the transport bar runs edge-to-edge) + dev "UI Labs" switcher (`Cmd+Shift+L`) + **Variants A
-  (inline) & B (LCD panel, taller bar)** done; chosen variant persists (`UserSettings`), centred-
-  title slot wired but **off by default**. **Remaining:** Variants C (two-row) & D (arrangement-
-  pinned LCD), settle the centred title live, then refine the piano-roll lane *colours*.
+- [x] **Phase 3 — Top-bar A/B (last):** macOS title fix (native bar hidden via `window_manager`
+  `TitleBarStyle.hidden`, traffic lights kept → transport bar runs edge-to-edge) + dev "UI Labs"
+  switcher (`Cmd+Shift+L`) with **all four variants live** — A inline · B LCD panel · C two-row
+  (88px) · D arrangement-pinned (52px bar + a non-scrolling LCD readout pinned to the timeline's
+  top-left). Chosen variant persists (`UserSettings`). **Centred title decided:** intrinsic to C's
+  row 1, global toggle retired. _(PR #26 = title + A/B; C & D + title on `polish/v0.4-phase3-cd`.)_
+  **A/B decided 2026-05-31: Variant A (inline) wins** — stays the default; B/C/D kept behind the
+  debug switcher (pruning them is a deferred cleanup call).
+  **Remaining for v0.4:** refine the piano-roll lane *colours* (the last open item).
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
   high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
   Serum/VST3 load bug; scaling the 9 painter text sizes.

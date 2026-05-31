@@ -109,7 +109,6 @@ class _DAWScreenState extends State<DAWScreen>
   // UI Labs top-bar switcher (debug only) + the live A/B selections it drives.
   bool _showUiLabsSwitcher = false;
   TopBarVariant _topBarVariant = TopBarVariant.inline;
-  bool _showCenteredTitle = false;
 
   void _toggleUiLabsSwitcher() {
     assert(() {
@@ -505,6 +504,17 @@ class _DAWScreenState extends State<DAWScreen>
 
     // If a text field is focused, don't intercept any single-key shortcuts
     if (_isTextFieldFocused()) return KeyEventResult.ignored;
+
+    // These are bare single-key shortcuts (L = loop, M = metronome, …). When a
+    // command modifier is held the keystroke belongs to a combo shortcut
+    // (e.g. Cmd+Shift+L opens UI Labs) — bail so it reaches CallbackShortcuts
+    // instead of being swallowed here.
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
 
     // Handle single-key shortcuts
     switch (event.logicalKey) {
@@ -3276,7 +3286,6 @@ class _DAWScreenState extends State<DAWScreen>
           if (trackId >= 0) setState(() {});
         },
         topBarVariant: _topBarVariant,
-        showCenteredTitle: _showCenteredTitle,
       ),
     );
   }
@@ -3404,6 +3413,7 @@ class _DAWScreenState extends State<DAWScreen>
           waveformPeaks: waveformPeaks,
           audioEngine: audioEngine,
           tempo: tempo,
+          showPinnedReadout: _topBarVariant.pinsReadoutToArrangement,
           selectedMidiTrackId: selectedTrackId,
           selectedMidiClipId: midiPlaybackManager?.selectedClipId,
           currentEditingClip: midiPlaybackManager?.currentEditingClip,
@@ -4131,13 +4141,10 @@ class _DAWScreenState extends State<DAWScreen>
                 if (_showUiLabsSwitcher)
                   UiLabsSwitcher(
                     activeVariant: _topBarVariant,
-                    showCenteredTitle: _showCenteredTitle,
                     onVariantSelected: (v) {
                       setState(() => _topBarVariant = v);
                       userSettings.topBarVariant = v.token;
                     },
-                    onCenteredTitleChanged: (v) =>
-                        setState(() => _showCenteredTitle = v),
                     onClose: _toggleUiLabsSwitcher,
                   ),
               ],

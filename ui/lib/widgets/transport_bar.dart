@@ -214,13 +214,9 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onAddMidiTrack;
   final VoidCallback? onAddAudioTrack;
 
-  /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the Well-3
-  /// readout layout and the bar height.
+  /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the readout
+  /// layout, the bar height, and (for C) the two-row structure.
   final TopBarVariant topBarVariant;
-
-  /// Whether to draw a centered window title over the bar — the macOS
-  /// title-bar slot. Off by default; toggled live during the A/B.
-  final bool showCenteredTitle;
 
   const TransportBar({
     super.key,
@@ -270,7 +266,6 @@ class TransportBar extends StatefulWidget {
     this.onAddMidiTrack,
     this.onAddAudioTrack,
     this.topBarVariant = TopBarVariant.inline,
-    this.showCenteredTitle = false,
   });
 
   @override
@@ -342,7 +337,41 @@ class _TransportBarState extends State<TransportBar> {
     // traffic lights (78px) even when the sidebar is collapsed.
     final leftMinWidth = _replacesTitleBar ? 214.0 : 200.0;
 
-    final row = Row(
+    // C splits the bar into two rows; A/B/D keep the single-row layout.
+    final body = widget.topBarVariant == TopBarVariant.twoRow
+        ? _buildTwoRowBody(colors, leftMinWidth)
+        : _buildSingleRowBody(colors, leftMinWidth);
+
+    return Container(
+      height: widget.topBarVariant.barHeight,
+      decoration: BoxDecoration(
+        color: colors.dark,
+        boxShadow: [
+          BoxShadow(
+            offset: const Offset(0, 2),
+            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.3),
+          ),
+        ],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Window-drag region for the empty parts of the bar (macOS, native
+          // title hidden). Sits beneath the controls; interactive widgets and
+          // the divider handles claim their own gestures, empty gaps fall
+          // through to here.
+          if (_replacesTitleBar) const DragToMoveArea(child: SizedBox.expand()),
+          body,
+        ],
+      ),
+    );
+  }
+
+  /// A/B/D — the standard single-row bar: left group · centre clusters · right
+  /// group, with the sidebar/mixer resize handles aligned to the panels below.
+  Widget _buildSingleRowBody(BoojyColors colors, double leftMinWidth) {
+    return Row(
       children: [
         // === LEFT GROUP: constrained to sidebar width ===
         SizedBox(
@@ -366,44 +395,53 @@ class _TransportBarState extends State<TransportBar> {
         ),
       ],
     );
+  }
 
-    return Container(
-      height: widget.topBarVariant.barHeight,
-      decoration: BoxDecoration(
-        color: colors.dark,
-        boxShadow: [
-          BoxShadow(
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-            color: Colors.black.withValues(alpha: 0.3),
-          ),
-        ],
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Window-drag region for the empty parts of the bar (macOS, native
-          // title hidden). Sits beneath the controls; interactive widgets and
-          // the divider handles claim their own gestures, empty gaps fall
-          // through to here.
-          if (_replacesTitleBar) const DragToMoveArea(child: SizedBox.expand()),
-          row,
-          // Centered window-title slot — off by default, toggled live in the
-          // A/B. IgnorePointer so it never blocks the controls beneath it.
-          if (widget.showCenteredTitle)
-            IgnorePointer(
-              child: Center(
-                child: Text(
-                  widget.projectName,
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    fontSize: BT.fontLabel,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+  /// C — two-row bar. Row 1 keeps the brand/chrome plus the centred project
+  /// title, and preserves the resize handles + sidebar/mixer column alignment.
+  /// Row 2 carries the transport · readout · modifier clusters, grouped and
+  /// centred (the cleanest grouping, at ~2× the single-row height).
+  Widget _buildTwoRowBody(BoojyColors colors, double leftMinWidth) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              SizedBox(
+                width: math.max(widget.dividers.sidebarWidth, leftMinWidth),
+                child: _buildLeftGroup(colors),
               ),
-            ),
-        ],
+              _buildSidebarHandle(colors),
+              Expanded(child: Center(child: _buildCentredTitle(colors))),
+              _buildMixerHandle(colors),
+              SizedBox(
+                width: widget.dividers.mixerWidth,
+                child: _buildRightGroup(colors),
+              ),
+            ],
+          ),
+        ),
+        Container(height: 1, color: colors.divider),
+        Expanded(child: _buildSecondRow(colors)),
+      ],
+    );
+  }
+
+  /// Centred project title for C's row 1 — its natural home, since the row has
+  /// the horizontal space the single-row variants don't. IgnorePointer so it
+  /// never blocks a window drag in the empty middle.
+  Widget _buildCentredTitle(BoojyColors colors) {
+    return IgnorePointer(
+      child: Text(
+        widget.projectName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: BT.fontLabel,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -691,15 +729,6 @@ class _TransportBarState extends State<TransportBar> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final density = _computeDensity(constraints.maxWidth);
-        final cGap = density.clusterGap;
-        final wGap = density.withinGap;
-        final showLabels = density.showLabels;
-        final compactReadouts = density.compactReadouts;
-        final btnSize = density.transportButtonSize;
-
-        // Transport buttons are slightly larger (32px) for visual hierarchy
-        final transportBtnSize = math.max(btnSize, 32.0);
-
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: BT.sm),
           child: Row(
@@ -707,125 +736,158 @@ class _TransportBarState extends State<TransportBar> {
             // instead of spread to the edges with Spacers.
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ── Well 1: Modifiers ──
-              _ClusterWell(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LoopSplitButton(
-                      loopEnabled: widget.loopPlaybackEnabled,
-                      punchInEnabled: widget.punchInEnabled,
-                      punchOutEnabled: widget.punchOutEnabled,
-                      showLabel: showLabels,
-                      onLoopToggle: widget.transport.onLoopPlaybackToggle,
-                      onPunchInToggle: widget.transport.onPunchInToggle,
-                      onPunchOutToggle: widget.transport.onPunchOutToggle,
-                    ),
-                    SizedBox(width: wGap),
-                    SnapSplitButton(
-                      value: widget.arrangementSnap,
-                      onChanged: widget.onSnapChanged,
-                      mode: ButtonDisplayMode.wide,
-                      isIconOnly: !showLabels,
-                    ),
-                    SizedBox(width: wGap),
-                    MetronomeSplitButton(
-                      isActive: widget.metronomeEnabled,
-                      countInBars: widget.countInBars,
-                      showLabel: showLabels,
-                      onToggle: widget.transport.onMetronomeToggle,
-                      onCountInChanged: widget.onCountInChanged,
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(width: cGap),
-
-              // ── Well 2: Transport ──
-              _ClusterWell(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularToggleButton(
-                      icon: widget.isPlaying ? BI.pause : BI.play,
-                      enabled:
-                          widget.canPlay ||
-                          widget.isRecording ||
-                          widget.isCountingIn,
-                      enabledColor: widget.isPlaying
-                          ? const Color(0xFFF97316)
-                          : const Color(0xFF22C55E),
-                      onPressed: () {
-                        if (widget.isRecording || widget.isCountingIn) {
-                          widget.transport.onPauseRecording?.call();
-                        } else if (widget.isPlaying) {
-                          widget.transport.onPause?.call();
-                        } else {
-                          widget.transport.onPlay?.call();
-                        }
-                      },
-                      tooltip: widget.isPlaying
-                          ? 'Pause (Space)'
-                          : 'Play (Space)',
-                      size: transportBtnSize,
-                      iconSize: BT.iconLg,
-                    ),
-                    SizedBox(width: wGap),
-                    CircularToggleButton(
-                      icon: BI.stop,
-                      enabled:
-                          widget.canPlay ||
-                          widget.isRecording ||
-                          widget.isCountingIn,
-                      enabledColor: const Color(0xFFF97316),
-                      onPressed: () {
-                        if (widget.isRecording || widget.isCountingIn) {
-                          widget.transport.onStopRecording?.call();
-                        } else {
-                          widget.transport.onStop?.call();
-                        }
-                      },
-                      tooltip: 'Stop',
-                      size: transportBtnSize,
-                      iconSize: BT.iconLg,
-                    ),
-                    SizedBox(width: wGap),
-                    RecordButton(
-                      isRecording: widget.isRecording,
-                      isCountingIn: widget.isCountingIn,
-                      countInBars: widget.countInBars,
-                      countInBeat: widget.countInBeat,
-                      countInProgress: widget.countInProgress,
-                      beatsPerBar: widget.beatsPerBar,
-                      onPressed:
-                          (widget.hasArmedTracks ||
-                              widget.isRecording ||
-                              widget.isCountingIn)
-                          ? widget.transport.onRecord
-                          : null,
-                      onCountInChanged: widget.onCountInChanged,
-                      size: transportBtnSize,
-                    ),
-                    // MIDI Capture button removed (v0.2.1) — backend logic retained
-                  ],
-                ),
-              ),
-
-              SizedBox(width: cGap),
-
-              // ── Well 3: Readouts — layout chosen by the UI Labs variant.
-              // Fixed size; the density ladder sheds labels (tools → icons,
-              // "BPM"/"Tap") before the bar would overflow. ──
+              _buildModifiersWell(colors, density),
+              SizedBox(width: density.clusterGap),
+              _buildTransportWell(colors, density),
+              SizedBox(width: density.clusterGap),
+              // Well 3: Readouts — layout chosen by the UI Labs variant. Fixed
+              // size; the density ladder sheds labels (tools → icons,
+              // "BPM"/"Tap") before the bar would overflow.
               _buildReadoutWell(
                 colors,
-                compactReadouts: compactReadouts,
-                wGap: wGap,
+                compactReadouts: density.compactReadouts,
+                wGap: density.withinGap,
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// C — row 2: transport · readout · modifiers, grouped and centred (the
+  /// review's preferred two-row ordering, transport-first). Reuses the same
+  /// density ladder and well builders as the single-row centre group.
+  Widget _buildSecondRow(BoojyColors colors) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final density = _computeDensity(constraints.maxWidth);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: BT.sm),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildTransportWell(colors, density),
+              SizedBox(width: density.clusterGap),
+              _buildReadoutWell(
+                colors,
+                compactReadouts: density.compactReadouts,
+                wGap: density.withinGap,
+              ),
+              SizedBox(width: density.clusterGap),
+              _buildModifiersWell(colors, density),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Modifier cluster (loop · snap · metronome). Extracted so both the
+  /// single-row centre group and C's row 2 can compose it in either order.
+  Widget _buildModifiersWell(BoojyColors colors, TransportDensity density) {
+    final showLabels = density.showLabels;
+    final wGap = density.withinGap;
+    return _ClusterWell(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LoopSplitButton(
+            loopEnabled: widget.loopPlaybackEnabled,
+            punchInEnabled: widget.punchInEnabled,
+            punchOutEnabled: widget.punchOutEnabled,
+            showLabel: showLabels,
+            onLoopToggle: widget.transport.onLoopPlaybackToggle,
+            onPunchInToggle: widget.transport.onPunchInToggle,
+            onPunchOutToggle: widget.transport.onPunchOutToggle,
+          ),
+          SizedBox(width: wGap),
+          SnapSplitButton(
+            value: widget.arrangementSnap,
+            onChanged: widget.onSnapChanged,
+            mode: ButtonDisplayMode.wide,
+            isIconOnly: !showLabels,
+          ),
+          SizedBox(width: wGap),
+          MetronomeSplitButton(
+            isActive: widget.metronomeEnabled,
+            countInBars: widget.countInBars,
+            showLabel: showLabels,
+            onToggle: widget.transport.onMetronomeToggle,
+            onCountInChanged: widget.onCountInChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Transport cluster (play/pause · stop · record). Extracted alongside
+  /// [_buildModifiersWell] so C's row 2 can reorder the clusters.
+  Widget _buildTransportWell(BoojyColors colors, TransportDensity density) {
+    final wGap = density.withinGap;
+    // Transport buttons are slightly larger (32px) for visual hierarchy.
+    final transportBtnSize = math.max(density.transportButtonSize, 32.0);
+    return _ClusterWell(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularToggleButton(
+            icon: widget.isPlaying ? BI.pause : BI.play,
+            enabled:
+                widget.canPlay || widget.isRecording || widget.isCountingIn,
+            enabledColor: widget.isPlaying
+                ? const Color(0xFFF97316)
+                : const Color(0xFF22C55E),
+            onPressed: () {
+              if (widget.isRecording || widget.isCountingIn) {
+                widget.transport.onPauseRecording?.call();
+              } else if (widget.isPlaying) {
+                widget.transport.onPause?.call();
+              } else {
+                widget.transport.onPlay?.call();
+              }
+            },
+            tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
+            size: transportBtnSize,
+            iconSize: BT.iconLg,
+          ),
+          SizedBox(width: wGap),
+          CircularToggleButton(
+            icon: BI.stop,
+            enabled:
+                widget.canPlay || widget.isRecording || widget.isCountingIn,
+            enabledColor: const Color(0xFFF97316),
+            onPressed: () {
+              if (widget.isRecording || widget.isCountingIn) {
+                widget.transport.onStopRecording?.call();
+              } else {
+                widget.transport.onStop?.call();
+              }
+            },
+            tooltip: 'Stop',
+            size: transportBtnSize,
+            iconSize: BT.iconLg,
+          ),
+          SizedBox(width: wGap),
+          RecordButton(
+            isRecording: widget.isRecording,
+            isCountingIn: widget.isCountingIn,
+            countInBars: widget.countInBars,
+            countInBeat: widget.countInBeat,
+            countInProgress: widget.countInProgress,
+            beatsPerBar: widget.beatsPerBar,
+            onPressed:
+                (widget.hasArmedTracks ||
+                    widget.isRecording ||
+                    widget.isCountingIn)
+                ? widget.transport.onRecord
+                : null,
+            onCountInChanged: widget.onCountInChanged,
+            size: transportBtnSize,
+          ),
+          // MIDI Capture button removed (v0.2.1) — backend logic retained
+        ],
+      ),
     );
   }
 
@@ -859,7 +921,11 @@ class _TransportBarState extends State<TransportBar> {
 
     switch (widget.topBarVariant) {
       case TopBarVariant.inline:
-        // A — one row, position promoted to the hero readout.
+      case TopBarVariant.twoRow:
+      case TopBarVariant.arrangementPinned:
+        // A (also C's row 2 and D's compact bar) — one row, position promoted
+        // to the hero readout. For D the bigger readout also lives pinned in
+        // the arrangement; this inline copy stays as the in-bar reference.
         return _ClusterWell(
           child: Row(
             mainAxisSize: MainAxisSize.min,

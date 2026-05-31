@@ -41,7 +41,9 @@ All notable changes to Boojy Audio will be documented in this file.
   above the transport bar is gone — the app's own top bar runs to the very top of the window, with
   the traffic-light buttons sitting cleanly within it. This reclaims vertical space and removes the
   left-aligned duplicate window title. *(Internally this also lands a debug-only "UI Labs" switcher,
-  Cmd+Shift+L, for trying alternate top-bar layouts live — it is not part of release builds.)*
+  Cmd+Shift+L, now offering all four candidate top-bar layouts live — A inline, B LCD panel,
+  C two-row (with a centred project title), and D compact-bar + a position/time readout pinned to
+  the arrangement ruler — for choosing the final look. It is not part of release builds.)*
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
