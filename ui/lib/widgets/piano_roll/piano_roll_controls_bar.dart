@@ -391,14 +391,26 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
   Widget _buildSnapDropdown(BuildContext context, String label) {
     final colors = context.colors;
-    final bgColor = widget.snapEnabled ? colors.accent : colors.dark;
-    final textColor = widget.snapEnabled ? colors.elevated : colors.textPrimary;
+    // Outlined + soft-tint grammar, matching the transport bar's Snap button.
+    final bgColor = widget.snapEnabled
+        ? colors.accent.withValues(alpha: BT.opacityLight)
+        : colors.surface;
+    final textColor = widget.snapEnabled
+        ? colors.textPrimary
+        : colors.textSecondary;
+    final iconColor = widget.snapEnabled ? colors.accent : colors.textSecondary;
 
     return DecoratedBox(
       key: _snapButtonKey,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BT.borderSm,
+        border: Border.all(
+          color: widget.snapEnabled
+              ? colors.accent.withValues(alpha: 0.7)
+              : colors.textMuted,
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -439,7 +451,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                   children: [
                     // Show icon only in wide mode
                     if (_displayMode == _ButtonDisplayMode.wide) ...[
-                      Icon(BI.gridOn, size: 13, color: textColor),
+                      Icon(BI.gridOn, size: 13, color: iconColor),
                       const SizedBox(width: 4),
                     ],
                     Text(
@@ -452,11 +464,13 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             ),
           ),
 
-          // Divider line
+          // Divider line — accent when engaged, like the transport split button
           Container(
             width: 1,
             height: 15,
-            color: colors.textPrimary.withValues(alpha: 0.2),
+            color: widget.snapEnabled
+                ? colors.accent.withValues(alpha: 0.7)
+                : colors.textMuted,
           ),
 
           // Right side: Dropdown arrow
@@ -544,9 +558,12 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
     return DecoratedBox(
       key: _quantizeButtonKey,
+      // Quantize is a momentary action, not a toggle, so it stays in the
+      // "inactive" outlined-chip state — same shape as Snap/Loop, no accent fill.
       decoration: BoxDecoration(
-        color: colors.dark,
-        borderRadius: BorderRadius.circular(2),
+        color: colors.surface,
+        borderRadius: BT.borderSm,
+        border: Border.all(color: colors.textMuted, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -610,11 +627,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           ),
 
           // Divider line
-          Container(
-            width: 1,
-            height: 15,
-            color: colors.textPrimary.withValues(alpha: 0.2),
-          ),
+          Container(width: 1, height: 15, color: colors.textMuted),
 
           // Right side: Dropdown arrow
           MouseRegion(
@@ -712,10 +725,21 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          // Match the main transport bar's toggle grammar: an outlined chip that
+          // fills with a soft accent tint when engaged (not a solid block), so
+          // the piano-roll Loop/Snap read the same as the top bar.
           decoration: BoxDecoration(
-            color: isActive ? colors.accent : colors.dark,
-            borderRadius: BorderRadius.circular(2),
+            color: isActive
+                ? colors.accent.withValues(alpha: BT.opacityLight)
+                : colors.surface,
+            borderRadius: BT.borderSm,
+            border: Border.all(
+              color: isActive
+                  ? colors.accent.withValues(alpha: 0.7)
+                  : colors.textMuted,
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -725,7 +749,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                 Icon(
                   icon,
                   size: 13,
-                  color: isActive ? colors.elevated : colors.textPrimary,
+                  color: isActive ? colors.accent : colors.textSecondary,
                 ),
                 const SizedBox(width: 4),
               ],
@@ -733,7 +757,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isActive ? colors.elevated : colors.textPrimary,
+                  color: isActive ? colors.textPrimary : colors.textSecondary,
                   fontSize: 10,
                 ),
               ),

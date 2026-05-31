@@ -98,8 +98,34 @@ All notable changes to Boojy Audio will be documented in this file.
   unchanged. (Graphite / Slate / Indigo ramps are available to A/B live via the Cmd+Shift+P palette
   dev tool.)
 - **Deeper, cooler shadows** on menus, tooltips and floating surfaces (new elevation tokens).
+- **Start screen & settings now show the live ▲udio wordmark.** The launcher's "Boojy Audio" logo
+  was a near-black raster that vanished on the dark panel; it's rebuilt in code as white "Boojy"
+  (with the amber dot) over the same **▲udio** lockup as the top bar. The settings footer's stale
+  "Audi●" art is replaced by the same shared wordmark, so the three can no longer drift.
+- **Transport is centred in the top bar.** Play/stop/record now pin to the centre, with the
+  modifier and readout clusters flanking them, instead of drifting with the side-panel widths.
+- **Piano-roll Loop/Snap match the transport bar.** They now use the same outlined chip with a soft
+  accent tint when engaged (Quantize keeps the shared shape as a momentary action), instead of a
+  solid blue block.
+- **Add-Track buttons gained type icons and colour.** "+ MIDI" / "+ Audio" (mixer header and the
+  empty-arrangement prompt) now carry a piano / waveform icon and hover in their track-type colour
+  (green for MIDI, grey for Audio).
+- **Larger, re-centred macOS window title.** The "Untitled — Boojy Audio" strip text is ~10% larger
+  and nudged to sit vertically centred against the traffic lights.
 
 ### Bug Fixes
+
+- **Notes can now be resized in Select mode.** Dragging a note's edge in the piano roll's Select
+  tool resizes it (with a resize cursor on hover), matching the Draw tool — previously edge-drags
+  in Select mode only moved the note.
+- **Delete sometimes did nothing on a selected clip.** Selecting a clip now pulls keyboard focus to
+  the timeline, so Delete/Backspace reliably deletes it instead of leaking to whatever panel was
+  last focused; a root-level fallback covers the edge cases.
+- **Piano-roll notes stay legible on dark track colours.** Note brightness is now floored (and
+  capped) so a very dark or near-white track colour no longer renders near-invisible or washed-out
+  notes; velocity shading is preserved.
+- **Track dB readout no longer wraps to a second line** at −10 dB and below — tightened the
+  readout's side padding (track and master strips).
 
 - **The app reported the wrong version (v0.3.0).** `pubspec.yaml` had drifted behind the shipped
   release and the in-app version label (About box, start screen, settings footer) reads it via
