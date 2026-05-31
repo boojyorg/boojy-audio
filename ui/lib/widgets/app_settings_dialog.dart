@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../audio_engine.dart';
@@ -14,6 +13,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../theme/theme_provider.dart';
 import '../utils/logger.dart';
+import 'shared/boojy_wordmark.dart';
 
 /// Unified app-wide settings dialog
 ///
@@ -142,22 +142,12 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                SvgPicture.asset(
-                  'assets/images/boojy_audio_audi.svg',
-                  height: 16,
-                  colorFilter: ColorFilter.mode(
-                    context.colors.textMuted,
-                    BlendMode.srcIn,
-                  ),
-                ),
-                const SizedBox(width: 1),
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: context.colors.accent.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                  ),
+                // Same "▲udio" treatment as the top bar (dimmed for the footer)
+                // — replaces the stale boojy_audio_audi.svg lockup.
+                BoojyWordmark(
+                  triangleColor: context.colors.accent.withValues(alpha: 0.7),
+                  textColor: context.colors.textMuted,
+                  fontSize: 16,
                 ),
                 const SizedBox(width: 8),
                 Text(

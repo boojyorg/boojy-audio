@@ -12,6 +12,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
+import 'shared/boojy_wordmark.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
 import 'shared/pill_toggle_button.dart';
@@ -24,7 +25,6 @@ import 'transport_bar/file_menu_button.dart';
 import 'transport_bar/loop_split_button.dart';
 import 'transport_bar/position_display.dart';
 import 'transport_bar/record_controls.dart';
-import 'transport_bar/status_pill.dart';
 import 'transport_bar/transport_bar_models.dart';
 
 export 'transport_bar/transport_bar_models.dart';
@@ -168,6 +168,11 @@ class TransportBar extends StatefulWidget {
   final String projectName;
   final bool hasProject;
 
+  /// True when a separate macOS title strip is drawn above the bar (it hosts the
+  /// traffic lights), so the bar no longer needs to inset its left group to
+  /// clear them — the wordmark can sit at the true left edge.
+  final bool hasTitleStrip;
+
   // Panel visibility state
   final bool libraryVisible;
   final bool mixerVisible;
@@ -204,11 +209,10 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Engine status (for status pill)
+  // Engine status. [isEngineReady] gates the add-track button; [engineFailed]
+  // turns the ▲ wordmark red as a quiet "engine didn't start" cue.
   final bool isEngineReady;
-  final int? sampleRate;
-  final double? latencyMs;
-  final String? audioOutputDevice;
+  final bool engineFailed;
 
   // Add track callbacks
   final VoidCallback? onAddMidiTrack;
@@ -238,6 +242,7 @@ class TransportBar extends StatefulWidget {
     this.countInBeat = 0,
     this.countInProgress = 0.0,
     this.projectName = 'Untitled',
+    this.hasTitleStrip = false,
     this.hasProject = false,
     this.libraryVisible = true,
     this.mixerVisible = true,
@@ -260,9 +265,7 @@ class TransportBar extends StatefulWidget {
     this.onTimeSignatureDragEnd,
     this.isLoading = false,
     this.isEngineReady = false,
-    this.sampleRate,
-    this.latencyMs,
-    this.audioOutputDevice,
+    this.engineFailed = false,
     this.onAddMidiTrack,
     this.onAddAudioTrack,
     this.topBarVariant = TopBarVariant.inline,
@@ -278,6 +281,57 @@ class _TransportBarState extends State<TransportBar> {
   bool _sidebarHandleDragging = false;
   bool _mixerHandleHovered = false;
   bool _mixerHandleDragging = false;
+
+  /// Anchors the "record to new track" menu shown when record is pressed with
+  /// no armed tracks.
+  final GlobalKey _recordKey = GlobalKey();
+
+  /// Record pressed with nothing armed → offer to create + arm + record a new
+  /// MIDI or Audio track, anchored under the record button.
+  Future<void> _showRecordTrackMenu() async {
+    final box = _recordKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final topLeft = box.localToGlobal(
+      box.size.bottomLeft(Offset.zero),
+      ancestor: overlay,
+    );
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        topLeft & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'midi',
+          child: Row(
+            children: [
+              Icon(BI.piano, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('New MIDI Track'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'audio',
+          child: Row(
+            children: [
+              Icon(BI.waveform, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('New Audio Track'),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (selected == 'midi') {
+      widget.transport.onRecordNewMidiTrack?.call();
+    } else if (selected == 'audio') {
+      widget.transport.onRecordNewAudioTrack?.call();
+    }
+  }
 
   void _onLeftNotifierChanged() {
     if (mounted) setState(() {});
@@ -334,8 +388,11 @@ class _TransportBarState extends State<TransportBar> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     // Extra floor on macOS so the left group is wide enough to fully clear the
-    // traffic lights (78px) even when the sidebar is collapsed.
-    final leftMinWidth = _replacesTitleBar ? 214.0 : 200.0;
+    // traffic lights (78px) even when the sidebar is collapsed. When a title
+    // strip hosts the lights above the bar, that clearance is unnecessary.
+    final needsTrafficLightClearance =
+        _replacesTitleBar && !widget.hasTitleStrip;
+    final leftMinWidth = needsTrafficLightClearance ? 214.0 : 200.0;
 
     // C splits the bar into two rows; A/B/D keep the single-row layout.
     final body = widget.topBarVariant == TopBarVariant.twoRow
@@ -488,19 +545,11 @@ class _TransportBarState extends State<TransportBar> {
         cursor: SystemMouseCursors.resizeColumn,
         onEnter: (_) => setActive(true, isDragging),
         onExit: (_) => setActive(false, isDragging),
-        child: Container(
-          width: 4,
-          color: isActive ? colors.accent : colors.dark,
-          child: isActive
-              ? null
-              : Center(
-                  child: SizedBox(
-                    width: 1,
-                    height: double.infinity,
-                    child: ColoredBox(color: colors.divider),
-                  ),
-                ),
-        ),
+        // No visible line in the bar — the top bar reads as one clean band.
+        // This stays a silent 4px resize zone (cursor + drag still work, and
+        // hovering still lights the panel boundary below via the shared
+        // notifier); the actual visible divider lives in the panels below.
+        child: Container(width: 4, color: colors.dark),
       ),
     );
   }
@@ -563,8 +612,9 @@ class _TransportBarState extends State<TransportBar> {
           // lights — push the logo right to clear them (the 16px base gutter
           // plus this extra, ~78px total). Bounded so the fixed controls always
           // fit; the left-group floor in build() keeps it at the full clearance
-          // in the common collapsed-sidebar case. Off-macOS this is 0.
-          final extraLeftInset = _replacesTitleBar
+          // in the common collapsed-sidebar case. Off-macOS, or when a title
+          // strip hosts the lights above the bar, this is 0.
+          final extraLeftInset = (_replacesTitleBar && !widget.hasTitleStrip)
               ? math.max(0.0, math.min(78.0, available - 119.0) - 16.0)
               : 0.0;
 
@@ -652,72 +702,83 @@ class _TransportBarState extends State<TransportBar> {
   }
 
   Widget _buildLogo(BoojyColors colors, {required double audiClipWidth}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ▲ = the "A": a filled equilateral triangle that doubles as the
-        // Settings button (carries the brand accent and hover-scales, exactly
-        // as the old blue dot did).
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) {
-            if (!_logoHovered) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _logoHovered = true);
-              });
-            }
-          },
-          onExit: (_) {
-            if (_logoHovered) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _logoHovered = false);
-              });
-            }
-          },
-          child: Tooltip(
-            message: 'Settings',
-            child: GestureDetector(
-              onTap: () => widget.fileMenu.onAppSettings?.call(),
-              child: AnimatedScale(
-                scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
-                duration: AnimationConstants.hoverDuration,
-                curve: Curves.easeInOut,
-                child: Transform.translate(
-                  // Baseline nudge in px (Offset(0, dy), positive = down).
-                  offset: Offset.zero,
-                  child: CustomPaint(
-                    // Equilateral: height = base * √3/2. ~10% larger than the
-                    // first cut so it reads at the wordmark's weight.
-                    size: const Size(22, 19.05),
-                    painter: _LogoTrianglePainter(colors.accent),
+    // Nudge the whole wordmark up ~2px so its optical centre lines up with the
+    // smaller siblings (project name, undo/redo) in the centre-aligned row.
+    return Transform.translate(
+      offset: const Offset(0, -2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ▲ = the "A": a filled equilateral triangle that doubles as the
+          // Settings button (carries the brand accent and hover-scales, exactly
+          // as the old blue dot did).
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              if (!_logoHovered) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _logoHovered = true);
+                });
+              }
+            },
+            onExit: (_) {
+              if (_logoHovered) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _logoHovered = false);
+                });
+              }
+            },
+            child: Tooltip(
+              // The ▲ doubles as the engine-health light: red ⇒ the engine
+              // didn't start; opening Settings is the place to fix the device.
+              message: widget.engineFailed
+                  ? "Audio engine didn't start — open Settings"
+                  : 'Settings',
+              child: GestureDetector(
+                onTap: () => widget.fileMenu.onAppSettings?.call(),
+                child: AnimatedScale(
+                  scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
+                  duration: AnimationConstants.hoverDuration,
+                  curve: Curves.easeInOut,
+                  child: Transform.translate(
+                    // Baseline nudge in px (Offset(0, dy), positive = down).
+                    offset: Offset.zero,
+                    child: CustomPaint(
+                      // Equilateral: height = base * √3/2. ~10% larger than the
+                      // first cut so it reads at the wordmark's weight.
+                      size: const Size(22, 19.05),
+                      painter: BoojyTrianglePainter(
+                        widget.engineFailed ? colors.error : colors.accent,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 2),
-        // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
-        // narrows — the same shrink-priority slot the old "Audi" lockup used.
-        ClipRect(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: audiClipWidth),
-            child: Text(
-              'udio',
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.clip,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: BT.weightSemiBold,
-                color: colors.textPrimary,
-                letterSpacing: -0.5,
-                height: 1.0,
+          const SizedBox(width: 2),
+          // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
+          // narrows — the same shrink-priority slot the old "Audi" lockup used.
+          ClipRect(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: audiClipWidth),
+              child: Text(
+                'udio',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.clip,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: BT.weightSemiBold,
+                  color: colors.textPrimary,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -732,21 +793,33 @@ class _TransportBarState extends State<TransportBar> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: BT.sm),
           child: Row(
-            // Clusters grouped together and centered (small fixed gaps),
-            // instead of spread to the edges with Spacers.
-            mainAxisAlignment: MainAxisAlignment.center,
+            // Transport (play/stop/record) is pinned to the centre of the bar;
+            // the modifier and readout wells flank it, hugging inward via the
+            // flexible side slots. When the bar narrows the Expanded slots
+            // collapse to zero and this degrades to the old grouped-centre
+            // layout, so the density ladder still prevents overflow.
             children: [
-              _buildModifiersWell(colors, density),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _buildModifiersWell(colors, density),
+                ),
+              ),
               SizedBox(width: density.clusterGap),
               _buildTransportWell(colors, density),
               SizedBox(width: density.clusterGap),
               // Well 3: Readouts — layout chosen by the UI Labs variant. Fixed
               // size; the density ladder sheds labels (tools → icons,
               // "BPM"/"Tap") before the bar would overflow.
-              _buildReadoutWell(
-                colors,
-                compactReadouts: density.compactReadouts,
-                wGap: density.withinGap,
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildReadoutWell(
+                    colors,
+                    compactReadouts: density.compactReadouts,
+                    wGap: density.withinGap,
+                  ),
+                ),
               ),
             ],
           ),
@@ -870,18 +943,25 @@ class _TransportBarState extends State<TransportBar> {
           ),
           SizedBox(width: wGap),
           RecordButton(
+            key: _recordKey,
             isRecording: widget.isRecording,
             isCountingIn: widget.isCountingIn,
             countInBars: widget.countInBars,
             countInBeat: widget.countInBeat,
             countInProgress: widget.countInProgress,
             beatsPerBar: widget.beatsPerBar,
-            onPressed:
-                (widget.hasArmedTracks ||
-                    widget.isRecording ||
-                    widget.isCountingIn)
-                ? widget.transport.onRecord
-                : null,
+            // Always live. With a track armed (or mid-record/count-in) it acts
+            // as the normal record toggle; with nothing armed it offers to spin
+            // up a new MIDI/Audio track, arm it, and roll.
+            onPressed: () {
+              if (widget.isRecording ||
+                  widget.isCountingIn ||
+                  widget.hasArmedTracks) {
+                widget.transport.onRecord?.call();
+              } else {
+                _showRecordTrackMenu();
+              }
+            },
             onCountInChanged: widget.onCountInChanged,
             size: transportBtnSize,
           ),
@@ -901,11 +981,6 @@ class _TransportBarState extends State<TransportBar> {
     required bool compactReadouts,
     required double wGap,
   }) {
-    final tapTempo = TapTempoPill(
-      tempo: widget.tempo,
-      onTempoChanged: widget.onTempoChanged,
-      mode: compactReadouts ? ButtonDisplayMode.narrow : ButtonDisplayMode.wide,
-    );
     final tempo = TempoDisplay(
       tempo: widget.tempo,
       onTempoChanged: widget.onTempoChanged,
@@ -935,11 +1010,12 @@ class _TransportBarState extends State<TransportBar> {
                 tempo: widget.tempo,
                 beatsPerBar: widget.beatsPerBar,
                 onPositionChanged: widget.transport.onPositionChanged,
-                scale: 1.25,
+                // Uniform size with the tempo / signature boxes (no hero scale)
+                // for a cleaner, even readout row.
+                scale: 1.0,
               ),
-              SizedBox(width: wGap + BT.xs),
-              tapTempo,
               SizedBox(width: wGap),
+              // Tempo + tap fused into one split button (tap the BPM zone).
               tempo,
               SizedBox(width: wGap),
               signature,
@@ -955,8 +1031,6 @@ class _TransportBarState extends State<TransportBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              tapTempo,
-              SizedBox(width: wGap + BT.xs),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1025,16 +1099,8 @@ class _TransportBarState extends State<TransportBar> {
               onAddAudioTrack: widget.onAddAudioTrack,
             ),
 
-          if (widget.isEngineReady) const SizedBox(width: 10),
-
-          // Status pill [✓ Ready]
-          StatusPill(
-            isReady: widget.isEngineReady,
-            sampleRate: widget.sampleRate,
-            latencyMs: widget.latencyMs,
-            audioOutputDevice: widget.audioOutputDevice,
-          ),
-
+          // Engine health is shown by the ▲ wordmark (it turns red on failure),
+          // so there's no longer a "Ready" badge here.
           const Spacer(),
 
           // Help button — far right
@@ -1373,26 +1439,3 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
 }
 
 /// Filled equilateral triangle used as the "A" in the ▲udio wordmark.
-class _LogoTrianglePainter extends CustomPainter {
-  const _LogoTrianglePainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    final path = Path()
-      ..moveTo(size.width / 2, 0) // apex (top centre)
-      ..lineTo(size.width, size.height) // bottom right
-      ..lineTo(0, size.height) // bottom left
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_LogoTrianglePainter oldDelegate) =>
-      oldDelegate.color != color;
-}

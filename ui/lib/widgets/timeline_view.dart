@@ -371,6 +371,7 @@ class TimelineViewState extends State<TimelineView>
     scrollController.removeListener(_onScrollForCulling);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     scrollController.dispose();
+    timelineFocusNode.dispose();
     refreshTimer?.cancel();
     previewLoadTimer?.cancel();
     super.dispose();
@@ -587,49 +588,56 @@ class TimelineViewState extends State<TimelineView>
     }
   }
 
+  /// Deletes every currently-selected MIDI and audio clip. Returns true if
+  /// anything was deleted. Public so the root DAW shortcut handler can use it as
+  /// a Delete fallback when timeline focus was momentarily elsewhere.
+  bool deleteSelectedClips() {
+    bool handled = false;
+
+    // Delete all selected MIDI clips
+    if (selectedMidiClipIds.isNotEmpty) {
+      final clipsToDelete = <(int, int)>[];
+      for (final clipId in selectedMidiClipIds) {
+        final clip = widget.midiClips
+            .where((c) => c.clipId == clipId)
+            .firstOrNull;
+        if (clip != null) {
+          clipsToDelete.add((clip.clipId, clip.trackId));
+        }
+      }
+      if (clipsToDelete.isNotEmpty) {
+        widget.midiClipCallbacks.onBatchDeleted?.call(clipsToDelete);
+        selectedMidiClipIds.clear();
+        handled = true;
+      }
+    }
+
+    // Delete all selected audio clips
+    if (selectedAudioClipIds.isNotEmpty) {
+      final clipsToDelete = <ClipData>[];
+      for (final clipId in selectedAudioClipIds) {
+        final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
+        if (clip != null) {
+          clipsToDelete.add(clip);
+        }
+      }
+      if (clipsToDelete.isNotEmpty) {
+        widget.audioClipCallbacks.onBatchDeleted?.call(clipsToDelete);
+        selectedAudioClipIds.clear();
+        handled = true;
+      }
+    }
+
+    if (handled) setState(() {});
+    return handled;
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
       // Handle Delete/Backspace to delete all selected clips
       if (event.logicalKey == LogicalKeyboardKey.delete ||
           event.logicalKey == LogicalKeyboardKey.backspace) {
-        bool handled = false;
-
-        // Delete all selected MIDI clips
-        if (selectedMidiClipIds.isNotEmpty) {
-          final clipsToDelete = <(int, int)>[];
-          for (final clipId in selectedMidiClipIds) {
-            final clip = widget.midiClips
-                .where((c) => c.clipId == clipId)
-                .firstOrNull;
-            if (clip != null) {
-              clipsToDelete.add((clip.clipId, clip.trackId));
-            }
-          }
-          if (clipsToDelete.isNotEmpty) {
-            widget.midiClipCallbacks.onBatchDeleted?.call(clipsToDelete);
-            selectedMidiClipIds.clear();
-            handled = true;
-          }
-        }
-
-        // Delete all selected audio clips
-        if (selectedAudioClipIds.isNotEmpty) {
-          final clipsToDelete = <ClipData>[];
-          for (final clipId in selectedAudioClipIds) {
-            final clip = clips.where((c) => c.clipId == clipId).firstOrNull;
-            if (clip != null) {
-              clipsToDelete.add(clip);
-            }
-          }
-          if (clipsToDelete.isNotEmpty) {
-            widget.audioClipCallbacks.onBatchDeleted?.call(clipsToDelete);
-            selectedAudioClipIds.clear();
-            handled = true;
-          }
-        }
-
-        if (handled) {
-          setState(() {});
+        if (deleteSelectedClips()) {
           return KeyEventResult.handled;
         }
       }
@@ -791,6 +799,7 @@ class TimelineViewState extends State<TimelineView>
     return MouseRegion(
       cursor: currentCursor,
       child: Focus(
+        focusNode: timelineFocusNode,
         autofocus: true,
         onKeyEvent: _handleKeyEvent,
         child: DecoratedBox(
@@ -1205,54 +1214,92 @@ class TimelineViewState extends State<TimelineView>
   bool get _shouldShowEmptyPrompt =>
       tracks.where((t) => t.type != 'Master').isEmpty;
 
-  /// Centered prompt over star field with add-track buttons.
+  /// Centered prompt over star field with add-track buttons. Lights up when a
+  /// library instrument/sample is dragged over the empty arrangement.
   Widget _buildEmptyTimelinePrompt(BuildContext context) {
     final colors = context.colors;
+    final isDragOver =
+        isMidiFileDraggingOverEmpty || isAudioFileDraggingOverEmpty;
 
     return Positioned.fill(
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Drag an instrument from the',
-                style: TextStyle(color: colors.textSecondary, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                'library to start making music',
-                style: TextStyle(color: colors.textSecondary, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'or',
-                  style: TextStyle(
-                    color: colors.textMuted.withValues(alpha: 0.5),
-                    fontSize: BT.fontLabel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          decoration: BoxDecoration(
+            // A soft accent wash + ring while a sound hovers, so "drop here"
+            // reads instantly; invisible at rest.
+            color: isDragOver
+                ? colors.accent.withValues(alpha: 0.06)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDragOver
+                  ? colors.accent.withValues(alpha: 0.6)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Instrument glyph — the "this is where music goes" anchor.
+                Icon(
+                  BI.piano,
+                  size: 44,
+                  color: isDragOver ? colors.accent : colors.textMuted,
+                ),
+                const SizedBox(height: 16),
+                // Two lines, same length whether dragging or not (no layout jump).
+                Text(
+                  isDragOver
+                      ? 'Drop it here to'
+                      : 'Drag an instrument from the',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  isDragOver
+                      ? 'add your new track'
+                      : 'library to start making music',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'or',
+                    style: TextStyle(
+                      color: colors.textMuted.withValues(alpha: 0.5),
+                      fontSize: BT.fontLabel,
+                    ),
                   ),
                 ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _EmptyPromptButton(
-                    icon: BI.piano,
-                    label: 'MIDI Track',
-                    onTap: widget.onAddMidiTrack,
-                  ),
-                  const SizedBox(width: 12),
-                  _EmptyPromptButton(
-                    icon: BI.waveform,
-                    label: 'Audio Track',
-                    onTap: widget.onAddAudioTrack,
-                  ),
-                ],
-              ),
-            ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _EmptyPromptButton(
+                      icon: BI.piano,
+                      label: 'MIDI Track',
+                      hoverColor:
+                          TrackColors.categoryColors[TrackColorCategory.synth],
+                      onTap: widget.onAddMidiTrack,
+                    ),
+                    const SizedBox(width: 12),
+                    _EmptyPromptButton(
+                      icon: BI.waveform,
+                      label: 'Audio Track',
+                      hoverColor:
+                          TrackColors.categoryColors[TrackColorCategory.audio],
+                      onTap: widget.onAddAudioTrack,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1271,7 +1318,15 @@ class _EmptyPromptButton extends StatefulWidget {
   final String label;
   final VoidCallback? onTap;
 
-  const _EmptyPromptButton({this.icon, required this.label, this.onTap});
+  /// Track-type tint shown on hover (border + type icon). Defaults to accent.
+  final Color? hoverColor;
+
+  const _EmptyPromptButton({
+    this.icon,
+    required this.label,
+    this.onTap,
+    this.hoverColor,
+  });
 
   @override
   State<_EmptyPromptButton> createState() => _EmptyPromptButtonState();
@@ -1283,6 +1338,7 @@ class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final hover = widget.hoverColor ?? colors.accent;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1308,9 +1364,7 @@ class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
           decoration: BoxDecoration(
             color: colors.surface,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: _isHovered ? colors.accent : colors.divider,
-            ),
+            border: Border.all(color: _isHovered ? hover : colors.divider),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1325,7 +1379,8 @@ class _EmptyPromptButtonState extends State<_EmptyPromptButton> {
                 Icon(
                   widget.icon,
                   size: 14,
-                  color: _isHovered ? colors.textPrimary : colors.textMuted,
+                  // Type icon picks up the track-type tint on hover.
+                  color: _isHovered ? hover : colors.textMuted,
                 ),
               ],
               const SizedBox(width: 6),

@@ -190,12 +190,10 @@ class _SignatureDropdownState extends State<SignatureDropdown> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // [4/4] box - LCD readout style
+              // [4/4] box - LCD readout style (h-padding matches the tempo box
+              // so the readout row reads as uniform boxes).
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: context.colors.darkest,
                   borderRadius: BorderRadius.circular(4),

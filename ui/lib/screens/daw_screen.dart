@@ -15,6 +15,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/transport_bar.dart';
+import '../widgets/transport_bar/title_strip.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/timeline/timeline_models.dart';
@@ -419,6 +420,7 @@ class _DAWScreenState extends State<DAWScreen>
     } catch (e, _) {
       Log.e('Audio engine initialization failed: $e');
       if (mounted) {
+        setState(() => engineInitFailed = true);
         statusMessage = 'Failed to initialize: $e';
         _showInitError(e.toString());
       }
@@ -536,6 +538,14 @@ class _DAWScreenState extends State<DAWScreen>
       case LogicalKeyboardKey.keyO:
         uiLayout.togglePunchOut();
         return KeyEventResult.handled;
+      case LogicalKeyboardKey.delete:
+      case LogicalKeyboardKey.backspace:
+        // Safety net: the timeline normally handles clip deletion via its own
+        // focus, but if focus drifted to another panel, fall back to deleting
+        // the selected clips here. No-op (ignored) when nothing is selected.
+        return (timelineKey.currentState?.deleteSelectedClips() ?? false)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       default:
         return KeyEventResult.ignored;
     }
@@ -3171,6 +3181,8 @@ class _DAWScreenState extends State<DAWScreen>
           onPause: _pause,
           onStop: _stopPlayback,
           onRecord: toggleRecording,
+          onRecordNewMidiTrack: () => _recordIntoNewTrack('midi'),
+          onRecordNewAudioTrack: () => _recordIntoNewTrack('audio'),
           onPauseRecording: pauseRecording,
           onStopRecording: stopRecordingAndReturn,
           onUndo: undoRedoManager.canUndo ? _performUndo : null,
@@ -3259,6 +3271,7 @@ class _DAWScreenState extends State<DAWScreen>
         onCountInChanged: _setCountInBars,
         countInBars: userSettings.countInBars,
         projectName: projectMetadata.name,
+        hasTitleStrip: hasMacTitleStrip,
         hasProject: projectManager?.hasProject ?? false,
         libraryVisible: !uiLayout.isLibraryPanelCollapsed,
         mixerVisible: uiLayout.isMixerVisible,
@@ -3280,11 +3293,9 @@ class _DAWScreenState extends State<DAWScreen>
         onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
         isLoading: isLoading,
         isEngineReady: isAudioGraphInitialized,
+        engineFailed: engineInitFailed,
         onAddMidiTrack: _addMidiTrackWithClip,
-        onAddAudioTrack: () {
-          final trackId = audioEngine!.createTrack('audio', 'Audio 1');
-          if (trackId >= 0) setState(() {});
-        },
+        onAddAudioTrack: _addAudioTrack,
         topBarVariant: _topBarVariant,
       ),
     );
@@ -3300,6 +3311,46 @@ class _DAWScreenState extends State<DAWScreen>
     _createDefaultMidiClip(trackId);
     _onTrackSelected(trackId, autoSelectClip: true);
     refreshTrackWidgets();
+  }
+
+  /// Create an audio track (undoable, matching the MIDI path — no default clip).
+  Future<void> _addAudioTrack() async {
+    final command = CreateTrackCommand(
+      trackType: 'audio',
+      trackName: 'Audio 1',
+    );
+    await undoRedoManager.execute(command);
+    final trackId = command.createdTrackId;
+    if (trackId == null || trackId < 0) return;
+
+    _onTrackSelected(trackId);
+    refreshTrackWidgets();
+  }
+
+  /// Record pressed with nothing armed: create a new track of [trackType], arm
+  /// it, and roll (count-in honoured). Lets the record button always be live.
+  Future<void> _recordIntoNewTrack(String trackType) async {
+    if (audioEngine == null) return;
+    final command = CreateTrackCommand(
+      trackType: trackType,
+      trackName: trackType == 'midi' ? 'MIDI 1' : 'Audio 1',
+    );
+    await undoRedoManager.execute(command);
+    final trackId = command.createdTrackId;
+    if (trackId == null || trackId < 0) return;
+
+    if (trackType == 'midi') {
+      _createDefaultMidiClip(trackId);
+    }
+
+    // Arm via the engine (source of truth) so recording targets the new track;
+    // the refresh propagates the armed flag into the mixer + hasArmedTracks.
+    audioEngine!.setTrackArmed(trackId, armed: true);
+    _onTrackSelected(trackId, autoSelectClip: trackType == 'midi');
+    refreshTrackWidgets();
+
+    // Roll. startRecording reads the engine-armed track set synchronously above.
+    startRecording(isAlreadyPlaying: playbackController.isPlaying);
   }
 
   Widget _buildLibrarySection() {
@@ -3537,10 +3588,7 @@ class _DAWScreenState extends State<DAWScreen>
           isPlaying: isPlaying,
           // Empty timeline: add track callbacks
           onAddMidiTrack: _addMidiTrackWithClip,
-          onAddAudioTrack: () {
-            final trackId = audioEngine!.createTrack('audio', 'Audio 1');
-            if (trackId >= 0) setState(() {});
-          },
+          onAddAudioTrack: _addAudioTrack,
           // Recording state (for auto-scroll)
           isRecording: isRecording,
           masterTimelineVisible: masterTimelineVisible,
@@ -3610,6 +3658,8 @@ class _DAWScreenState extends State<DAWScreen>
                 trackInstruments: trackInstruments,
                 trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                 onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
+                onAddMidiTrack: _addMidiTrackWithClip,
+                onAddAudioTrack: _addAudioTrack,
                 getTrackColor: getTrackColor,
                 getTrackIcon: (trackId) =>
                     trackController.getTrackIcon(trackId),
@@ -3923,9 +3973,14 @@ class _DAWScreenState extends State<DAWScreen>
               children: [
                 Column(
                   children: [
-                    // Reserve space for the transport bar (rendered in the Stack
-                    // above). Height tracks the active top-bar variant.
-                    SizedBox(height: _topBarVariant.barHeight),
+                    // Reserve space for the title strip + transport bar (both
+                    // rendered in the Stack above). Height tracks the active
+                    // top-bar variant plus the macOS title strip (0 elsewhere).
+                    SizedBox(
+                      height:
+                          (hasMacTitleStrip ? kMacTitleStripHeight : 0.0) +
+                          _topBarVariant.barHeight,
+                    ),
 
                     // Main content area - 3-column layout
                     Expanded(
@@ -4129,13 +4184,25 @@ class _DAWScreenState extends State<DAWScreen>
                     ),
                   ],
                 ),
-                // Transport bar: rendered in Stack (after Column) so its shadow paints on top
+                // Transport bar: rendered in Stack (after Column) so its shadow
+                // paints on top. Offset below the title strip on macOS.
                 Positioned(
-                  top: 0,
+                  top: hasMacTitleStrip ? kMacTitleStripHeight : 0,
                   left: 0,
                   right: 0,
                   child: _buildTransportBar(),
                 ),
+                // macOS title strip: full-width band above the transport bar,
+                // hosting the traffic lights + window-centred project title.
+                // Painted AFTER the bar so its solid fill masks the bar's upward
+                // shadow bleed — strip + bar read as one seamless chrome.
+                if (hasMacTitleStrip)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: MacTitleStrip(projectName: projectMetadata.name),
+                  ),
                 if (_showPaletteEditor)
                   PaletteEditor(onClose: _togglePaletteEditor),
                 if (_showUiLabsSwitcher)

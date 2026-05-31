@@ -452,8 +452,10 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                     SizedBox(
                       width: dbContainerWidth,
                       child: Container(
+                        // Tight side padding so 3-digit values like "-14.7 dB"
+                        // fit on one line instead of wrapping below.
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 3,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
@@ -465,6 +467,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                               ? '-∞ dB'
                               : '${displayVolumeDb.toStringAsFixed(1)} dB',
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.clip,
                           style: TextStyle(
                             color: hasVolumePreview
                                 ? context.colors.textPrimary
@@ -705,10 +710,13 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           if (showDb) ...[
             const SizedBox(width: BT.xs),
             SizedBox(
-              width: 38,
+              width: 44,
               child: Text(
                 dbText,
                 textAlign: TextAlign.right,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.clip,
                 style: TextStyle(
                   color: colors.textMuted,
                   fontSize: BT.fontCaption,
@@ -934,7 +942,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
     return Container(
       width: containerWidth,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       decoration: BoxDecoration(
         color: colors.darkest,
         borderRadius: BorderRadius.circular(3), // Match volume display
@@ -942,6 +950,9 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
       child: Text(
         valueText,
         textAlign: TextAlign.center,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.clip,
         style: TextStyle(
           color: hasPreview
               ? colors.textPrimary
@@ -2187,8 +2198,10 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                         SizedBox(
                           width: dbContainerWidth,
                           child: Container(
+                            // Tight side padding so 3-digit values stay on one
+                            // line (matches the track strip).
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 3,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
@@ -2200,6 +2213,9 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                                   ? '-∞ dB'
                                   : '${widget.volumeDb.toStringAsFixed(1)} dB',
                               textAlign: TextAlign.center,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.clip,
                               style: TextStyle(
                                 color: context.colors.textSecondary,
                                 fontSize: dbFontSize,
