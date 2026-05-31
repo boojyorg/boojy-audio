@@ -544,19 +544,11 @@ class _TransportBarState extends State<TransportBar> {
         cursor: SystemMouseCursors.resizeColumn,
         onEnter: (_) => setActive(true, isDragging),
         onExit: (_) => setActive(false, isDragging),
-        child: Container(
-          width: 4,
-          color: isActive ? colors.accent : colors.dark,
-          child: isActive
-              ? null
-              : Center(
-                  child: SizedBox(
-                    width: 1,
-                    height: double.infinity,
-                    child: ColoredBox(color: colors.divider),
-                  ),
-                ),
-        ),
+        // No visible line in the bar — the top bar reads as one clean band.
+        // This stays a silent 4px resize zone (cursor + drag still work, and
+        // hovering still lights the panel boundary below via the shared
+        // notifier); the actual visible divider lives in the panels below.
+        child: Container(width: 4, color: colors.dark),
       ),
     );
   }
