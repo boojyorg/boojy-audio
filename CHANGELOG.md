@@ -44,6 +44,13 @@ All notable changes to Boojy Audio will be documented in this file.
   Cmd+Shift+L, now offering all four candidate top-bar layouts live — A inline, B LCD panel,
   C two-row (with a centred project title), and D compact-bar + a position/time readout pinned to
   the arrangement ruler — for choosing the final look. It is not part of release builds.)*
+- **macOS title strip with a centred project title (phase 3 cont.).** A thin strip now sits above
+  the transport bar holding the traffic lights and a window-centred `Untitled — Boojy Audio`
+  title — in the native macOS system font, styled to read as one seamless piece of chrome with the
+  bar below it. Because the strip spans the whole window, the title is *genuinely* centred (the
+  earlier in-bar attempt was wedged between unequal sidebar/mixer widths, so it always drifted).
+  With the lights moved up into the strip, the transport bar drops its ~78px traffic-light inset and
+  the ▲udio wordmark sits at the true left edge.
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.

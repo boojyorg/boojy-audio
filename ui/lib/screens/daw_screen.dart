@@ -15,6 +15,7 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../widgets/transport_bar.dart';
+import '../widgets/transport_bar/title_strip.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/timeline/timeline_models.dart';
@@ -3259,6 +3260,7 @@ class _DAWScreenState extends State<DAWScreen>
         onCountInChanged: _setCountInBars,
         countInBars: userSettings.countInBars,
         projectName: projectMetadata.name,
+        hasTitleStrip: hasMacTitleStrip,
         hasProject: projectManager?.hasProject ?? false,
         libraryVisible: !uiLayout.isLibraryPanelCollapsed,
         mixerVisible: uiLayout.isMixerVisible,
@@ -3923,9 +3925,14 @@ class _DAWScreenState extends State<DAWScreen>
               children: [
                 Column(
                   children: [
-                    // Reserve space for the transport bar (rendered in the Stack
-                    // above). Height tracks the active top-bar variant.
-                    SizedBox(height: _topBarVariant.barHeight),
+                    // Reserve space for the title strip + transport bar (both
+                    // rendered in the Stack above). Height tracks the active
+                    // top-bar variant plus the macOS title strip (0 elsewhere).
+                    SizedBox(
+                      height:
+                          (hasMacTitleStrip ? kMacTitleStripHeight : 0.0) +
+                          _topBarVariant.barHeight,
+                    ),
 
                     // Main content area - 3-column layout
                     Expanded(
@@ -4129,13 +4136,25 @@ class _DAWScreenState extends State<DAWScreen>
                     ),
                   ],
                 ),
-                // Transport bar: rendered in Stack (after Column) so its shadow paints on top
+                // Transport bar: rendered in Stack (after Column) so its shadow
+                // paints on top. Offset below the title strip on macOS.
                 Positioned(
-                  top: 0,
+                  top: hasMacTitleStrip ? kMacTitleStripHeight : 0,
                   left: 0,
                   right: 0,
                   child: _buildTransportBar(),
                 ),
+                // macOS title strip: full-width band above the transport bar,
+                // hosting the traffic lights + window-centred project title.
+                // Painted AFTER the bar so its solid fill masks the bar's upward
+                // shadow bleed — strip + bar read as one seamless chrome.
+                if (hasMacTitleStrip)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: MacTitleStrip(projectName: projectMetadata.name),
+                  ),
                 if (_showPaletteEditor)
                   PaletteEditor(onClose: _togglePaletteEditor),
                 if (_showUiLabsSwitcher)
