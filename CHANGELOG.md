@@ -57,6 +57,11 @@ All notable changes to Boojy Audio will be documented in this file.
   a soft accent-blue outline with a full-height accent divider between its two halves, so "this tool
   is on" reads at a glance — and a 1px grey sliver that used to peek through the rounded corners is
   gone. The ▲udio wordmark also nudges up ~2px to sit in line with its neighbours.
+- **Record is always live (phase 3 cont.).** The record button is no longer dimmed when nothing is
+  armed — pressing it with no armed track now drops a small **New MIDI Track / New Audio Track**
+  menu, then creates that track (undoable), arms it, and starts recording (with count-in). One press
+  to capture an idea on a blank project. Audio-track creation also now goes through the same
+  undoable command as MIDI (previously it bypassed undo).
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.

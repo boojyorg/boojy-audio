@@ -285,6 +285,57 @@ class _TransportBarState extends State<TransportBar> {
   bool _mixerHandleHovered = false;
   bool _mixerHandleDragging = false;
 
+  /// Anchors the "record to new track" menu shown when record is pressed with
+  /// no armed tracks.
+  final GlobalKey _recordKey = GlobalKey();
+
+  /// Record pressed with nothing armed → offer to create + arm + record a new
+  /// MIDI or Audio track, anchored under the record button.
+  Future<void> _showRecordTrackMenu() async {
+    final box = _recordKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final topLeft = box.localToGlobal(
+      box.size.bottomLeft(Offset.zero),
+      ancestor: overlay,
+    );
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        topLeft & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'midi',
+          child: Row(
+            children: [
+              Icon(BI.piano, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('New MIDI Track'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'audio',
+          child: Row(
+            children: [
+              Icon(BI.waveform, size: BT.iconMd),
+              const SizedBox(width: 8),
+              const Text('New Audio Track'),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (selected == 'midi') {
+      widget.transport.onRecordNewMidiTrack?.call();
+    } else if (selected == 'audio') {
+      widget.transport.onRecordNewAudioTrack?.call();
+    }
+  }
+
   void _onLeftNotifierChanged() {
     if (mounted) setState(() {});
   }
@@ -885,18 +936,25 @@ class _TransportBarState extends State<TransportBar> {
           ),
           SizedBox(width: wGap),
           RecordButton(
+            key: _recordKey,
             isRecording: widget.isRecording,
             isCountingIn: widget.isCountingIn,
             countInBars: widget.countInBars,
             countInBeat: widget.countInBeat,
             countInProgress: widget.countInProgress,
             beatsPerBar: widget.beatsPerBar,
-            onPressed:
-                (widget.hasArmedTracks ||
-                    widget.isRecording ||
-                    widget.isCountingIn)
-                ? widget.transport.onRecord
-                : null,
+            // Always live. With a track armed (or mid-record/count-in) it acts
+            // as the normal record toggle; with nothing armed it offers to spin
+            // up a new MIDI/Audio track, arm it, and roll.
+            onPressed: () {
+              if (widget.isRecording ||
+                  widget.isCountingIn ||
+                  widget.hasArmedTracks) {
+                widget.transport.onRecord?.call();
+              } else {
+                _showRecordTrackMenu();
+              }
+            },
             onCountInChanged: widget.onCountInChanged,
             size: transportBtnSize,
           ),

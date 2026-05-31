@@ -114,6 +114,11 @@ class TransportCallbacks {
   final VoidCallback? onPause;
   final VoidCallback? onStop;
   final VoidCallback? onRecord;
+
+  /// Pressed record with nothing armed — create a new track of this type,
+  /// arm it, and start recording (with count-in). Lets record always be live.
+  final VoidCallback? onRecordNewMidiTrack;
+  final VoidCallback? onRecordNewAudioTrack;
   final VoidCallback? onPauseRecording;
   final VoidCallback? onStopRecording;
   final VoidCallback? onUndo;
@@ -130,6 +135,8 @@ class TransportCallbacks {
     this.onPause,
     this.onStop,
     this.onRecord,
+    this.onRecordNewMidiTrack,
+    this.onRecordNewAudioTrack,
     this.onPauseRecording,
     this.onStopRecording,
     this.onUndo,
