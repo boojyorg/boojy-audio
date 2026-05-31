@@ -1,5 +1,54 @@
 import 'package:flutter/foundation.dart';
 
+/// Top-bar layout variants explored live via the dev "UI Labs" switcher
+/// (Cmd+Shift+L). Phase 3 ships A (inline) and B (LCD panel); C/D follow later.
+enum TopBarVariant {
+  /// A — one row, position promoted to a hero-sized readout. Fits the 54px bar.
+  inline,
+
+  /// B — bordered "LCD panel": position over dim tempo/sig satellites. Costs
+  /// ~14px of bar height in exchange for the hardware-instrument look.
+  lcd,
+}
+
+extension TopBarVariantInfo on TopBarVariant {
+  /// Bar height the variant needs. The bar's own `Container` and the spacer
+  /// that reserves room for it under the Stack both read this, so they can
+  /// never drift apart.
+  double get barHeight {
+    switch (this) {
+      case TopBarVariant.inline:
+        return 54.0;
+      case TopBarVariant.lcd:
+        return 68.0;
+    }
+  }
+
+  /// Letter + name shown on the UI Labs chip.
+  String get labLabel {
+    switch (this) {
+      case TopBarVariant.inline:
+        return 'A · Inline';
+      case TopBarVariant.lcd:
+        return 'B · LCD Panel';
+    }
+  }
+
+  /// Persisted token (matches the enum identifier).
+  String get token => name;
+}
+
+/// Parse a persisted token back to a variant, defaulting to [TopBarVariant.inline]
+/// so an unknown or removed value can never crash startup.
+TopBarVariant topBarVariantFromName(String? s) {
+  switch (s) {
+    case 'lcd':
+      return TopBarVariant.lcd;
+    default:
+      return TopBarVariant.inline;
+  }
+}
+
 /// Grouped callbacks for file menu operations
 class FileMenuCallbacks {
   final VoidCallback? onNewProject;

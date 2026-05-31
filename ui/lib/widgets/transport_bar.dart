@@ -1,8 +1,11 @@
 // ignore_for_file: avoid_positional_boolean_parameters
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:window_manager/window_manager.dart';
 import '../theme/animation_constants.dart';
 import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
@@ -211,6 +214,14 @@ class TransportBar extends StatefulWidget {
   final VoidCallback? onAddMidiTrack;
   final VoidCallback? onAddAudioTrack;
 
+  /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the Well-3
+  /// readout layout and the bar height.
+  final TopBarVariant topBarVariant;
+
+  /// Whether to draw a centered window title over the bar — the macOS
+  /// title-bar slot. Off by default; toggled live during the A/B.
+  final bool showCenteredTitle;
+
   const TransportBar({
     super.key,
     this.fileMenu = const FileMenuCallbacks(),
@@ -258,6 +269,8 @@ class TransportBar extends StatefulWidget {
     this.audioOutputDevice,
     this.onAddMidiTrack,
     this.onAddAudioTrack,
+    this.topBarVariant = TopBarVariant.inline,
+    this.showCenteredTitle = false,
   });
 
   @override
@@ -316,12 +329,46 @@ class _TransportBarState extends State<TransportBar> {
     super.dispose();
   }
 
+  /// macOS hides its native title bar (see WindowTitleService), so the bar
+  /// becomes the top chrome: it insets to clear the traffic lights and provides
+  /// a drag region for moving the window.
+  bool get _replacesTitleBar =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    // Extra floor on macOS so the left group is wide enough to fully clear the
+    // traffic lights (78px) even when the sidebar is collapsed.
+    final leftMinWidth = _replacesTitleBar ? 214.0 : 200.0;
+
+    final row = Row(
+      children: [
+        // === LEFT GROUP: constrained to sidebar width ===
+        SizedBox(
+          width: math.max(widget.dividers.sidebarWidth, leftMinWidth),
+          child: _buildLeftGroup(colors),
+        ),
+
+        // === LEFT DIVIDER (aligned with content divider below) ===
+        _buildSidebarHandle(colors),
+
+        // === CENTRE GROUP (expanded) ===
+        Expanded(child: _buildCentreGroup(colors)),
+
+        // === RIGHT DIVIDER (aligned with mixer divider below) ===
+        _buildMixerHandle(colors),
+
+        // === RIGHT GROUP: constrained to mixer width ===
+        SizedBox(
+          width: widget.dividers.mixerWidth,
+          child: _buildRightGroup(colors),
+        ),
+      ],
+    );
 
     return Container(
-      height: 54,
+      height: widget.topBarVariant.barHeight,
       decoration: BoxDecoration(
         color: colors.dark,
         boxShadow: [
@@ -332,28 +379,30 @@ class _TransportBarState extends State<TransportBar> {
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          // === LEFT GROUP: constrained to sidebar width (min 150px) ===
-          SizedBox(
-            width: math.max(widget.dividers.sidebarWidth, 200),
-            child: _buildLeftGroup(colors),
-          ),
-
-          // === LEFT DIVIDER (aligned with content divider below) ===
-          _buildSidebarHandle(colors),
-
-          // === CENTRE GROUP (expanded) ===
-          Expanded(child: _buildCentreGroup(colors)),
-
-          // === RIGHT DIVIDER (aligned with mixer divider below) ===
-          _buildMixerHandle(colors),
-
-          // === RIGHT GROUP: constrained to mixer width ===
-          SizedBox(
-            width: widget.dividers.mixerWidth,
-            child: _buildRightGroup(colors),
-          ),
+          // Window-drag region for the empty parts of the bar (macOS, native
+          // title hidden). Sits beneath the controls; interactive widgets and
+          // the divider handles claim their own gestures, empty gaps fall
+          // through to here.
+          if (_replacesTitleBar) const DragToMoveArea(child: SizedBox.expand()),
+          row,
+          // Centered window-title slot — off by default, toggled live in the
+          // A/B. IgnorePointer so it never blocks the controls beneath it.
+          if (widget.showCenteredTitle)
+            IgnorePointer(
+              child: Center(
+                child: Text(
+                  widget.projectName,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: BT.fontLabel,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -467,13 +516,22 @@ class _TransportBarState extends State<TransportBar> {
         builder: (context, constraints) {
           final available = constraints.maxWidth;
 
-          // Fixed: O(19)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
-          const fixedWidth = 132.0;
+          // Fixed: ▲(22)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
+          const fixedWidth = 135.0;
           const maxAudiClip = 77.5;
           const nameComfortWidth = 120.0;
 
+          // macOS hides the native title bar, so the bar runs under the traffic
+          // lights — push the logo right to clear them (the 16px base gutter
+          // plus this extra, ~78px total). Bounded so the fixed controls always
+          // fit; the left-group floor in build() keeps it at the full clearance
+          // in the common collapsed-sidebar case. Off-macOS this is 0.
+          final extraLeftInset = _replacesTitleBar
+              ? math.max(0.0, math.min(78.0, available - 119.0) - 16.0)
+              : 0.0;
+
           // Shrink priority: 1) spacer  2) audi clip  3) name truncate
-          final flexSpace = available - fixedWidth;
+          final flexSpace = available - fixedWidth - extraLeftInset;
           final audiClipWidth = math.min(
             maxAudiClip,
             math.max(0.0, flexSpace - nameComfortWidth),
@@ -485,6 +543,9 @@ class _TransportBarState extends State<TransportBar> {
 
           return Row(
             children: [
+              // Traffic-light clearance (macOS, native title hidden; 0 elsewhere).
+              SizedBox(width: extraLeftInset),
+
               _buildLogo(colors, audiClipWidth: audiClipWidth),
 
               const SizedBox(width: 12),
@@ -556,25 +617,9 @@ class _TransportBarState extends State<TransportBar> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // "Audi" text: always rendered, smoothly clipped to available width
-        ClipRect(
-          child: SizedBox(
-            width: audiClipWidth,
-            child: OverflowBox(
-              alignment: AlignmentDirectional.centerStart,
-              maxWidth: double.infinity,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: SvgPicture.asset(
-                  'assets/images/boojy_audio_audi.svg',
-                  height: 30,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 2),
-        // Blue circle "O" — settings button
+        // ▲ = the "A": a filled equilateral triangle that doubles as the
+        // Settings button (carries the brand accent and hover-scales, exactly
+        // as the old blue dot did).
         MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) {
@@ -599,14 +644,37 @@ class _TransportBarState extends State<TransportBar> {
                 scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
                 duration: AnimationConstants.hoverDuration,
                 curve: Curves.easeInOut,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: colors.accent,
-                    shape: BoxShape.circle,
+                child: Transform.translate(
+                  // Baseline nudge in px (Offset(0, dy), positive = down).
+                  offset: Offset.zero,
+                  child: CustomPaint(
+                    // Equilateral: height = base * √3/2. ~10% larger than the
+                    // first cut so it reads at the wordmark's weight.
+                    size: const Size(22, 19.05),
+                    painter: _LogoTrianglePainter(colors.accent),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
+        // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
+        // narrows — the same shrink-priority slot the old "Audi" lockup used.
+        ClipRect(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: audiClipWidth),
+            child: Text(
+              'udio',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: BT.weightSemiBold,
+                color: colors.textPrimary,
+                letterSpacing: -0.5,
+                height: 1.0,
               ),
             ),
           ),
@@ -746,11 +814,96 @@ class _TransportBarState extends State<TransportBar> {
 
               SizedBox(width: cGap),
 
-              // ── Well 3: Readouts — RIGHT-aligned. Fixed size; the density
-              // ladder sheds labels (tools → icons, "BPM"/"Tap") before the bar
-              // would overflow — the readouts themselves never scale. ──
-              _ClusterWell(
-                child: Row(
+              // ── Well 3: Readouts — layout chosen by the UI Labs variant.
+              // Fixed size; the density ladder sheds labels (tools → icons,
+              // "BPM"/"Tap") before the bar would overflow. ──
+              _buildReadoutWell(
+                colors,
+                compactReadouts: compactReadouts,
+                wGap: wGap,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Well 3 — the position / tempo / signature readouts. The dev "UI Labs"
+  /// variant chooses the layout: [TopBarVariant.inline] keeps the one-row
+  /// readout with the position promoted to a hero size; [TopBarVariant.lcd]
+  /// groups it into a bordered LCD panel with tempo/sig as dim satellites
+  /// beneath (the taller bar gives the vertical room).
+  Widget _buildReadoutWell(
+    BoojyColors colors, {
+    required bool compactReadouts,
+    required double wGap,
+  }) {
+    final tapTempo = TapTempoPill(
+      tempo: widget.tempo,
+      onTempoChanged: widget.onTempoChanged,
+      mode: compactReadouts ? ButtonDisplayMode.narrow : ButtonDisplayMode.wide,
+    );
+    final tempo = TempoDisplay(
+      tempo: widget.tempo,
+      onTempoChanged: widget.onTempoChanged,
+      compact: compactReadouts,
+    );
+    final signature = SignatureDropdown(
+      beatsPerBar: widget.beatsPerBar,
+      beatUnit: widget.beatUnit,
+      onChanged: widget.onTimeSignatureChanged,
+      onDragStart: widget.onTimeSignatureDragStart,
+      onDragEnd: widget.onTimeSignatureDragEnd,
+    );
+
+    switch (widget.topBarVariant) {
+      case TopBarVariant.inline:
+        // A — one row, position promoted to the hero readout.
+        return _ClusterWell(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PositionDisplay(
+                playheadPosition: widget.playheadPosition,
+                tempo: widget.tempo,
+                beatsPerBar: widget.beatsPerBar,
+                onPositionChanged: widget.transport.onPositionChanged,
+                scale: 1.25,
+              ),
+              SizedBox(width: wGap + BT.xs),
+              tapTempo,
+              SizedBox(width: wGap),
+              tempo,
+              SizedBox(width: wGap),
+              signature,
+            ],
+          ),
+        );
+      case TopBarVariant.lcd:
+        // B — bordered LCD panel: hero position over dim tempo/sig satellites.
+        // Horizontal-only padding (no _ClusterWell) so the panel gets the full
+        // bar height.
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: BT.xs),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              tapTempo,
+              SizedBox(width: wGap + BT.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.darkest,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: colors.accent.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     PositionDisplay(
@@ -758,28 +911,17 @@ class _TransportBarState extends State<TransportBar> {
                       tempo: widget.tempo,
                       beatsPerBar: widget.beatsPerBar,
                       onPositionChanged: widget.transport.onPositionChanged,
+                      scale: 1.3,
+                      chromeless: true,
                     ),
-                    SizedBox(width: wGap + BT.xs),
-                    TapTempoPill(
-                      tempo: widget.tempo,
-                      onTempoChanged: widget.onTempoChanged,
-                      mode: compactReadouts
-                          ? ButtonDisplayMode.narrow
-                          : ButtonDisplayMode.wide,
-                    ),
-                    SizedBox(width: wGap),
-                    TempoDisplay(
-                      tempo: widget.tempo,
-                      onTempoChanged: widget.onTempoChanged,
-                      compact: compactReadouts,
-                    ),
-                    SizedBox(width: wGap),
-                    SignatureDropdown(
-                      beatsPerBar: widget.beatsPerBar,
-                      beatUnit: widget.beatUnit,
-                      onChanged: widget.onTimeSignatureChanged,
-                      onDragStart: widget.onTimeSignatureDragStart,
-                      onDragEnd: widget.onTimeSignatureDragEnd,
+                    const SizedBox(height: 1),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        tempo,
+                        SizedBox(width: wGap + BT.xs),
+                        signature,
+                      ],
                     ),
                   ],
                 ),
@@ -787,8 +929,7 @@ class _TransportBarState extends State<TransportBar> {
             ],
           ),
         );
-      },
-    );
+    }
   }
 
   // ============================================
@@ -1163,4 +1304,29 @@ class _AddTrackButtonState extends State<_AddTrackButton> {
       ),
     );
   }
+}
+
+/// Filled equilateral triangle used as the "A" in the ▲udio wordmark.
+class _LogoTrianglePainter extends CustomPainter {
+  const _LogoTrianglePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    final path = Path()
+      ..moveTo(size.width / 2, 0) // apex (top centre)
+      ..lineTo(size.width, size.height) // bottom right
+      ..lineTo(0, size.height) // bottom left
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_LogoTrianglePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

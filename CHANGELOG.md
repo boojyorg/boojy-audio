@@ -16,6 +16,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **New ▲udio wordmark.** The top-left logo is now a clean **▲udio** lockup — a filled triangle as
+  the "A" (which still opens Settings, as the old dot did) followed by "udio" — replacing the
+  previous "Audi" + floating-dot composition. It scales and themes cleanly and truncates gracefully
+  when the window narrows.
+- **Track FX buttons use the themed effects icon.** The effects-chain button on each track and the
+  Master strip showed a stray yellow emoji (⚡); it now uses the same lightning icon as the Library's
+  **Effects** browser, in a muted theme colour (brightening to accent on hover) instead of system
+  yellow.
 - **Piano-roll lanes read like a keyboard (phase 2).** The grid's white- vs black-key rows were
   nearly the same grey; black-key rows are now noticeably darker for a clear keyboard read. The root
   note (the tonic — C by default, or whatever the scale picker is set to) gets a faint accent-blue
@@ -29,6 +37,11 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Pinned "you are here" bar on the arrangement ruler (phase 2).** Scroll the timeline away from
   the start and a small chip pins to the left of the ruler showing the bar at the left edge, so you
   always know where in the song you're looking. It stays hidden until you've scrolled past bar 1.
+- **macOS window chrome is now edge-to-edge (phase 3).** The redundant native title strip that sat
+  above the transport bar is gone — the app's own top bar runs to the very top of the window, with
+  the traffic-light buttons sitting cleanly within it. This reclaims vertical space and removes the
+  left-aligned duplicate window title. *(Internally this also lands a debug-only "UI Labs" switcher,
+  Cmd+Shift+L, for trying alternate top-bar layouts live — it is not part of release builds.)*
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
