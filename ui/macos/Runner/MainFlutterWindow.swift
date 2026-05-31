@@ -19,19 +19,11 @@ class MainFlutterWindow: NSWindow {
     self.appearance = NSAppearance(named: .darkAqua)
     self.backgroundColor = NSColor(calibratedRed: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
 
-    // KNOWN ISSUE (deferred to v0.4): the window title is LEFT-aligned.
-    // An empty NSToolbar with .unifiedCompact keeps the compact chrome height
-    // but leading-aligns the title; .expanded centers it BUT adds an empty
-    // toolbar row that makes the title bar noticeably taller. Neither native
-    // option gives "centered + compact". Proper fix: hide the native title
-    // (window_manager TitleBarStyle.hidden, keep the traffic lights) and draw a
-    // centered title in Flutter as part of the top chrome.
-    let toolbar = NSToolbar(identifier: "MainToolbar")
-    toolbar.showsBaselineSeparator = false
-    self.toolbar = toolbar
-    if #available(macOS 11.0, *) {
-      self.toolbarStyle = .unifiedCompact
-    }
+    // The native title bar is hidden at runtime via window_manager
+    // (TitleBarStyle.hidden, traffic lights kept) — see WindowTitleService —
+    // so the Flutter transport bar becomes the top chrome and extends
+    // edge-to-edge behind the traffic lights. No NSToolbar here: an empty
+    // toolbar would fight fullSizeContentView and leave a translucent strip.
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
