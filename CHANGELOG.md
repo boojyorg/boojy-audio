@@ -75,6 +75,20 @@ All notable changes to Boojy Audio will be documented in this file.
   engine fails to start, the ▲ in the **▲udio** wordmark turns **red** — a quiet, always-visible cue
   that something's wrong — and clicking it (it already opens **Settings**) is where you fix the audio
   device. When everything's fine the corner stays clean and the logo keeps its brand blue.
+- **Cleaner top bar + Add Track in the mixer (phase 3 cont.).** Four small refinements to the
+  workspace chrome:
+  - **The top bar reads as one clean band.** The two faint vertical lines that boxed in the
+    transport controls are gone; the sidebar and mixer can still be resized by dragging their
+    boundary just below the bar.
+  - **Add a track from the mixer.** The mixer's (previously empty) header now has explicit
+    **+ MIDI Track** and **+ Audio Track** buttons — the mixer is where your tracks live, so it's
+    where you add them. The labels shorten to **+ MIDI** / **+ Audio** when the mixer is narrow.
+    The top-right **(+)** and dragging an instrument onto the timeline still work when the mixer is
+    closed.
+  - **Friendlier empty project.** The blank arrangement now shows an instrument icon, and the whole
+    prompt lights up — *"Drop it here to add your new track"* — when you drag a sound over it.
+  - **Tidier library search.** The search field is slimmer, giving the row back to your Favorites
+    and categories (search is a quick filter here, not the main way around a small library).
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.

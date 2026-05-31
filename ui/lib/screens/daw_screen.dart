@@ -3650,6 +3650,8 @@ class _DAWScreenState extends State<DAWScreen>
                 trackInstruments: trackInstruments,
                 trackVst3PluginCounts: _getTrackVst3PluginCounts(), // M10
                 onAudioFileDropped: (path) => _onAudioFileDroppedOnEmpty(path),
+                onAddMidiTrack: _addMidiTrackWithClip,
+                onAddAudioTrack: _addAudioTrack,
                 getTrackColor: getTrackColor,
                 getTrackIcon: (trackId) =>
                     trackController.getTrackIcon(trackId),

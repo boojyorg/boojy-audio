@@ -1205,54 +1205,88 @@ class TimelineViewState extends State<TimelineView>
   bool get _shouldShowEmptyPrompt =>
       tracks.where((t) => t.type != 'Master').isEmpty;
 
-  /// Centered prompt over star field with add-track buttons.
+  /// Centered prompt over star field with add-track buttons. Lights up when a
+  /// library instrument/sample is dragged over the empty arrangement.
   Widget _buildEmptyTimelinePrompt(BuildContext context) {
     final colors = context.colors;
+    final isDragOver =
+        isMidiFileDraggingOverEmpty || isAudioFileDraggingOverEmpty;
 
     return Positioned.fill(
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Drag an instrument from the',
-                style: TextStyle(color: colors.textSecondary, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                'library to start making music',
-                style: TextStyle(color: colors.textSecondary, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'or',
-                  style: TextStyle(
-                    color: colors.textMuted.withValues(alpha: 0.5),
-                    fontSize: BT.fontLabel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          decoration: BoxDecoration(
+            // A soft accent wash + ring while a sound hovers, so "drop here"
+            // reads instantly; invisible at rest.
+            color: isDragOver
+                ? colors.accent.withValues(alpha: 0.06)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDragOver
+                  ? colors.accent.withValues(alpha: 0.6)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Instrument glyph — the "this is where music goes" anchor.
+                Icon(
+                  BI.piano,
+                  size: 44,
+                  color: isDragOver ? colors.accent : colors.textMuted,
+                ),
+                const SizedBox(height: 16),
+                // Two lines, same length whether dragging or not (no layout jump).
+                Text(
+                  isDragOver
+                      ? 'Drop it here to'
+                      : 'Drag an instrument from the',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  isDragOver
+                      ? 'add your new track'
+                      : 'library to start making music',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'or',
+                    style: TextStyle(
+                      color: colors.textMuted.withValues(alpha: 0.5),
+                      fontSize: BT.fontLabel,
+                    ),
                   ),
                 ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _EmptyPromptButton(
-                    icon: BI.piano,
-                    label: 'MIDI Track',
-                    onTap: widget.onAddMidiTrack,
-                  ),
-                  const SizedBox(width: 12),
-                  _EmptyPromptButton(
-                    icon: BI.waveform,
-                    label: 'Audio Track',
-                    onTap: widget.onAddAudioTrack,
-                  ),
-                ],
-              ),
-            ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _EmptyPromptButton(
+                      icon: BI.piano,
+                      label: 'MIDI Track',
+                      onTap: widget.onAddMidiTrack,
+                    ),
+                    const SizedBox(width: 12),
+                    _EmptyPromptButton(
+                      icon: BI.waveform,
+                      label: 'Audio Track',
+                      onTap: widget.onAddAudioTrack,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

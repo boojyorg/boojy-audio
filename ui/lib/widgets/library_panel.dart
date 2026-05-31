@@ -508,7 +508,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final showChip = _searchQuery.isNotEmpty && _selectedCategory != null;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      // Tighter vertical padding (was 8) — search is a convenience here, not
+      // load-bearing, so it claims less of the panel and Favorites sits higher.
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: colors.dark,
         border: Border(bottom: BorderSide(color: colors.divider)),

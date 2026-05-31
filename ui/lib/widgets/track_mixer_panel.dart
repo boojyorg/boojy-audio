@@ -31,6 +31,12 @@ class TrackMixerPanel extends StatefulWidget {
   // Audio file drag-and-drop
   final Function(String filePath)? onAudioFileDropped;
 
+  // Add-track entry points, shown in the mixer header (the mixer is Boojy's
+  // track list, so this is where adding a track lives). Both reuse the same
+  // undoable CreateTrackCommand path as the transport (+) button.
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
+
   // Track height management (reuses TrackHeightState from timeline_models)
   final TrackHeightState trackHeightState;
   final Function(double height)? onMasterTrackHeightChanged;
@@ -59,6 +65,8 @@ class TrackMixerPanel extends StatefulWidget {
     this.trackInstruments,
     this.trackVst3PluginCounts,
     this.onAudioFileDropped,
+    this.onAddMidiTrack,
+    this.onAddAudioTrack,
     this.trackHeightState = const TrackHeightState(),
     this.onMasterTrackHeightChanged,
     this.getTrackColor,
@@ -722,7 +730,28 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
       ),
-      child: const Row(children: [Spacer()]),
+      // The mixer is Boojy's track list, so adding a track lives here. Two
+      // explicit type buttons (no hidden dropdown); labels abbreviate when the
+      // panel is narrow so both always fit.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final full = constraints.maxWidth >= 240;
+          return Row(
+            children: [
+              const Spacer(),
+              _MixerAddTrackButton(
+                label: full ? 'MIDI Track' : 'MIDI',
+                onTap: widget.onAddMidiTrack,
+              ),
+              const SizedBox(width: 6),
+              _MixerAddTrackButton(
+                label: full ? 'Audio Track' : 'Audio',
+                onTap: widget.onAddAudioTrack,
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -1488,6 +1517,77 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           },
         );
       },
+    );
+  }
+}
+
+/// Compact `+ MIDI/Audio Track` button for the mixer header. Quiet at rest, lifts
+/// to accent on hover; muted + non-interactive when its callback is null.
+class _MixerAddTrackButton extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+
+  const _MixerAddTrackButton({required this.label, this.onTap});
+
+  @override
+  State<_MixerAddTrackButton> createState() => _MixerAddTrackButtonState();
+}
+
+class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final enabled = widget.onTap != null;
+    final active = _hovered && enabled;
+    final fg = !enabled
+        ? colors.textMuted
+        : (active ? colors.accent : colors.textSecondary);
+
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (!_hovered) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (_hovered) setState(() => _hovered = false);
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 18,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          decoration: BoxDecoration(
+            color: active
+                ? colors.accent.withValues(alpha: BT.opacityLight)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: active
+                  ? colors.accent.withValues(alpha: 0.5)
+                  : colors.divider,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(BI.add, size: 12, color: fg),
+              const SizedBox(width: 3),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: BT.fontLabel,
+                  fontWeight: BT.weightMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
