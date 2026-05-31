@@ -37,6 +37,9 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
   final GlobalKey _buttonKey = GlobalKey();
   final LayerLink _layerLink = LayerLink();
 
+  /// Whether any punch marker is set (drives the status text vs the chevron).
+  bool get _hasPunch => widget.punchInEnabled || widget.punchOutEnabled;
+
   /// Punch status text for the right zone
   String get _punchText {
     if (widget.punchInEnabled && widget.punchOutEnabled) return '→|→';
@@ -113,128 +116,156 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
       link: _layerLink,
       child: Tooltip(
         message: tooltip,
-        child: DecoratedBox(
+        child: Container(
           key: _buttonKey,
+          // Clip so the rounded corners never show a grey sliver of the bar
+          // behind the zone fills. The outline turns a soft accent when engaged.
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             borderRadius: BT.borderSm,
-            border: Border.all(color: colors.divider, width: 1),
+            border: Border.all(
+              color: isActive
+                  ? colors.accent.withValues(alpha: 0.7)
+                  : colors.divider,
+              width: 1,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Left zone: icon + label (toggle loop)
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  if (!_isLeftHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isLeftHovered = true);
-                    });
-                  }
-                },
-                onExit: (_) {
-                  if (_isLeftHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isLeftHovered = false);
-                    });
-                  }
-                },
-                child: GestureDetector(
-                  onTap: widget.onLoopToggle,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: BT.buttonPadding,
-                    decoration: BoxDecoration(
-                      color: _isLeftHovered
-                          ? (isActive
-                                ? colors.accent.withValues(
-                                    alpha: BT.opacityMedium,
-                                  )
-                                : colors.textPrimary.withValues(
-                                    alpha: BT.opacitySubtle,
-                                  ))
-                          : leftBg,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(BT.radiusSm),
-                        bottomLeft: Radius.circular(BT.radiusSm),
+          // IntrinsicHeight pins the row to its content height; stretch then
+          // makes the inter-zone divider span that full height (not the bar).
+          child: IntrinsicHeight(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left zone: icon + label (toggle loop)
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  onEnter: (_) {
+                    if (!_isLeftHovered) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isLeftHovered = true);
+                      });
+                    }
+                  },
+                  onExit: (_) {
+                    if (_isLeftHovered) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _isLeftHovered = false);
+                      });
+                    }
+                  },
+                  child: GestureDetector(
+                    onTap: widget.onLoopToggle,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: BT.buttonPadding,
+                      decoration: BoxDecoration(
+                        color: _isLeftHovered
+                            ? (isActive
+                                  ? colors.accent.withValues(
+                                      alpha: BT.opacityMedium,
+                                    )
+                                  : colors.textPrimary.withValues(
+                                      alpha: BT.opacitySubtle,
+                                    ))
+                            : leftBg,
+                        // When loop is off the button is a single plain pill
+                        // (rounds all corners); when on, only the left corners
+                        // round so the punch zone joins seamlessly on the right.
+                        borderRadius: isActive
+                            ? const BorderRadius.only(
+                                topLeft: Radius.circular(BT.radiusSm),
+                                bottomLeft: Radius.circular(BT.radiusSm),
+                              )
+                            : BT.borderSm,
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(BI.loop, size: BT.iconMd, color: iconColor),
-                        if (widget.showLabel) ...[
-                          const SizedBox(width: BT.xs),
-                          Text(
-                            'Loop',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: BT.fontLabel,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(BI.loop, size: BT.iconMd, color: iconColor),
+                          if (widget.showLabel) ...[
+                            const SizedBox(width: BT.xs),
+                            Text(
+                              'Loop',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: BT.fontLabel,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Divider
-              Container(
-                width: 1,
-                height: 19,
-                color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
-              ),
-              // Right zone: punch status text (opens dropdown)
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  if (!_isRightHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isRightHovered = true);
-                    });
-                  }
-                },
-                onExit: (_) {
-                  if (_isRightHovered) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _isRightHovered = false);
-                    });
-                  }
-                },
-                child: GestureDetector(
-                  onTap: _toggleOverlay,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 33),
-                    padding: BT.splitRightPadding,
-                    decoration: BoxDecoration(
-                      color: _isRightHovered
-                          ? (isActive
-                                ? colors.accent.withValues(
-                                    alpha: BT.opacityMedium,
-                                  )
-                                : colors.textPrimary.withValues(
-                                    alpha: BT.opacitySubtle,
-                                  ))
-                          : leftBg,
-                      borderRadius: const BorderRadius.only(
-                        topRight: Radius.circular(BT.radiusSm),
-                        bottomRight: Radius.circular(BT.radiusSm),
-                      ),
-                    ),
-                    child: Text(
-                      _punchText,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: isActive ? colors.accent : colors.textMuted,
-                        fontSize: BT.fontLabel,
-                        fontWeight: BT.weightSemiBold,
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                // Divider + punch zone only exist while looping — punch in/out is
+                // meaningless when loop is off, so the resting button is a single
+                // plain pill (no stray divider, no bare "|").
+                if (isActive) ...[
+                  Container(width: 1, color: colors.accent),
+                  // Right zone: punch status (opens dropdown)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    onEnter: (_) {
+                      if (!_isRightHovered) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _isRightHovered = true);
+                        });
+                      }
+                    },
+                    onExit: (_) {
+                      if (_isRightHovered) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _isRightHovered = false);
+                        });
+                      }
+                    },
+                    child: GestureDetector(
+                      onTap: _toggleOverlay,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        alignment: Alignment.center,
+                        constraints: const BoxConstraints(minWidth: 33),
+                        padding: BT.splitRightPadding,
+                        decoration: BoxDecoration(
+                          color: _isRightHovered
+                              ? (isActive
+                                    ? colors.accent.withValues(
+                                        alpha: BT.opacityMedium,
+                                      )
+                                    : colors.textPrimary.withValues(
+                                        alpha: BT.opacitySubtle,
+                                      ))
+                              : leftBg,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(BT.radiusSm),
+                            bottomRight: Radius.circular(BT.radiusSm),
+                          ),
+                        ),
+                        child: _hasPunch
+                            // Punch markers set → show the →| / |→ / →|→ status.
+                            ? Text(
+                                _punchText,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: colors.accent,
+                                  fontSize: BT.fontLabel,
+                                  fontWeight: BT.weightSemiBold,
+                                ),
+                              )
+                            // No punch yet → an accent chevron that reads as
+                            // "options", not a stray pipe.
+                            : Icon(
+                                BI.expandMore,
+                                size: BT.iconMd,
+                                color: colors.accent,
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

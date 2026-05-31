@@ -662,72 +662,77 @@ class _TransportBarState extends State<TransportBar> {
   }
 
   Widget _buildLogo(BoojyColors colors, {required double audiClipWidth}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ▲ = the "A": a filled equilateral triangle that doubles as the
-        // Settings button (carries the brand accent and hover-scales, exactly
-        // as the old blue dot did).
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) {
-            if (!_logoHovered) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _logoHovered = true);
-              });
-            }
-          },
-          onExit: (_) {
-            if (_logoHovered) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _logoHovered = false);
-              });
-            }
-          },
-          child: Tooltip(
-            message: 'Settings',
-            child: GestureDetector(
-              onTap: () => widget.fileMenu.onAppSettings?.call(),
-              child: AnimatedScale(
-                scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
-                duration: AnimationConstants.hoverDuration,
-                curve: Curves.easeInOut,
-                child: Transform.translate(
-                  // Baseline nudge in px (Offset(0, dy), positive = down).
-                  offset: Offset.zero,
-                  child: CustomPaint(
-                    // Equilateral: height = base * √3/2. ~10% larger than the
-                    // first cut so it reads at the wordmark's weight.
-                    size: const Size(22, 19.05),
-                    painter: _LogoTrianglePainter(colors.accent),
+    // Nudge the whole wordmark up ~2px so its optical centre lines up with the
+    // smaller siblings (project name, undo/redo) in the centre-aligned row.
+    return Transform.translate(
+      offset: const Offset(0, -2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ▲ = the "A": a filled equilateral triangle that doubles as the
+          // Settings button (carries the brand accent and hover-scales, exactly
+          // as the old blue dot did).
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              if (!_logoHovered) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _logoHovered = true);
+                });
+              }
+            },
+            onExit: (_) {
+              if (_logoHovered) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _logoHovered = false);
+                });
+              }
+            },
+            child: Tooltip(
+              message: 'Settings',
+              child: GestureDetector(
+                onTap: () => widget.fileMenu.onAppSettings?.call(),
+                child: AnimatedScale(
+                  scale: _logoHovered ? AnimationConstants.hoverScale : 1.0,
+                  duration: AnimationConstants.hoverDuration,
+                  curve: Curves.easeInOut,
+                  child: Transform.translate(
+                    // Baseline nudge in px (Offset(0, dy), positive = down).
+                    offset: Offset.zero,
+                    child: CustomPaint(
+                      // Equilateral: height = base * √3/2. ~10% larger than the
+                      // first cut so it reads at the wordmark's weight.
+                      size: const Size(22, 19.05),
+                      painter: _LogoTrianglePainter(colors.accent),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 2),
-        // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
-        // narrows — the same shrink-priority slot the old "Audi" lockup used.
-        ClipRect(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: audiClipWidth),
-            child: Text(
-              'udio',
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.clip,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: BT.weightSemiBold,
-                color: colors.textPrimary,
-                letterSpacing: -0.5,
-                height: 1.0,
+          const SizedBox(width: 2),
+          // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
+          // narrows — the same shrink-priority slot the old "Audi" lockup used.
+          ClipRect(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: audiClipWidth),
+              child: Text(
+                'udio',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.clip,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: BT.weightSemiBold,
+                  color: colors.textPrimary,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
