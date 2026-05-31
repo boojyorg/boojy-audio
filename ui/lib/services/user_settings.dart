@@ -123,6 +123,7 @@ class UserSettings extends ChangeNotifier {
   static const String _keyTheme = 'theme';
   static const String _keyUiScale = 'ui_scale';
   static const String _keyPositionDisplayMode = 'position_display_mode';
+  static const String _keyTopBarVariant = 'top_bar_variant';
 
   // Privacy keys
   static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
@@ -201,6 +202,7 @@ class UserSettings extends ChangeNotifier {
   double _uiScale = 1.0; // UI text scale factor (see uiScaleOptions)
   String _positionDisplayMode =
       'bars'; // transport readout: 'bars' | 'time' | 'both'
+  String _topBarVariant = 'inline'; // top-bar layout: 'inline' | 'lcd'
 
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
@@ -599,6 +601,17 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Top-bar layout variant token ('inline' | 'lcd'). Chosen live via the dev
+  /// UI Labs switcher (Cmd+Shift+L) and persisted so a relaunch keeps it.
+  String get topBarVariant => _topBarVariant;
+  set topBarVariant(String value) {
+    if (_topBarVariant != value) {
+      _topBarVariant = value;
+      _saveAppearanceSettings();
+      notifyListeners();
+    }
+  }
+
   /// Human-readable label for a UI Scale factor.
   static String uiScaleLabel(double scale) {
     if (scale <= 0.90) return 'Compact';
@@ -748,6 +761,7 @@ class UserSettings extends ChangeNotifier {
       _uiScale = _prefs?.getDouble(_keyUiScale) ?? 1.0;
       _positionDisplayMode =
           _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
+      _topBarVariant = _prefs?.getString(_keyTopBarVariant) ?? 'inline';
 
       // Load privacy settings
       _crashReportingEnabled =
@@ -922,6 +936,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setString(_keyTheme, _theme);
       await _prefs!.setDouble(_keyUiScale, _uiScale);
       await _prefs!.setString(_keyPositionDisplayMode, _positionDisplayMode);
+      await _prefs!.setString(_keyTopBarVariant, _topBarVariant);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }

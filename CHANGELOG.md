@@ -37,6 +37,11 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Pinned "you are here" bar on the arrangement ruler (phase 2).** Scroll the timeline away from
   the start and a small chip pins to the left of the ruler showing the bar at the left edge, so you
   always know where in the song you're looking. It stays hidden until you've scrolled past bar 1.
+- **macOS window chrome is now edge-to-edge (phase 3).** The redundant native title strip that sat
+  above the transport bar is gone — the app's own top bar runs to the very top of the window, with
+  the traffic-light buttons sitting cleanly within it. This reclaims vertical space and removes the
+  left-aligned duplicate window title. *(Internally this also lands a debug-only "UI Labs" switcher,
+  Cmd+Shift+L, for trying alternate top-bar layouts live — it is not part of release builds.)*
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.

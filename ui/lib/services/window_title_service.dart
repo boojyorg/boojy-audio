@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:window_manager/window_manager.dart';
 
 /// Service for managing the application window title.
@@ -15,6 +16,19 @@ class WindowTitleService {
     if (kIsWeb || _initialized) return;
 
     await windowManager.ensureInitialized();
+
+    // macOS: hide the native title bar so the Flutter transport bar is the only
+    // top chrome (B2). `windowButtonVisibility: true` keeps the traffic lights
+    // floating in their native top-left position; the bar insets its left group
+    // to clear them. The native title is still set below — macOS uses it for
+    // Mission Control / the Window menu / accessibility even while invisible.
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      await windowManager.setTitleBarStyle(
+        TitleBarStyle.hidden,
+        windowButtonVisibility: true,
+      );
+    }
+
     _initialized = true;
 
     await _updateTitle();
