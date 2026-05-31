@@ -152,9 +152,11 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
         decoration: BoxDecoration(
           borderRadius: BT.borderSm,
           border: Border.all(
+            // Off-state outline matches the active accent one in weight
+            // (textMuted, not the near-invisible divider) — grey, not blue.
             color: isActive
                 ? colors.accent.withValues(alpha: 0.7)
-                : colors.divider,
+                : colors.textMuted,
             width: 1,
           ),
         ),
@@ -186,7 +188,7 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
                   onTap: _toggleSnap,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    padding: BT.buttonPadding,
+                    padding: BT.splitLeftPadding,
                     decoration: BoxDecoration(
                       color: _isIconHovered
                           ? (isActive

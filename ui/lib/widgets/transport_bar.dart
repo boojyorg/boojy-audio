@@ -974,11 +974,6 @@ class _TransportBarState extends State<TransportBar> {
     required bool compactReadouts,
     required double wGap,
   }) {
-    final tapTempo = TapTempoPill(
-      tempo: widget.tempo,
-      onTempoChanged: widget.onTempoChanged,
-      mode: compactReadouts ? ButtonDisplayMode.narrow : ButtonDisplayMode.wide,
-    );
     final tempo = TempoDisplay(
       tempo: widget.tempo,
       onTempoChanged: widget.onTempoChanged,
@@ -1008,11 +1003,12 @@ class _TransportBarState extends State<TransportBar> {
                 tempo: widget.tempo,
                 beatsPerBar: widget.beatsPerBar,
                 onPositionChanged: widget.transport.onPositionChanged,
-                scale: 1.25,
+                // Uniform size with the tempo / signature boxes (no hero scale)
+                // for a cleaner, even readout row.
+                scale: 1.0,
               ),
-              SizedBox(width: wGap + BT.xs),
-              tapTempo,
               SizedBox(width: wGap),
+              // Tempo + tap fused into one split button (tap the BPM zone).
               tempo,
               SizedBox(width: wGap),
               signature,
@@ -1028,8 +1024,6 @@ class _TransportBarState extends State<TransportBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              tapTempo,
-              SizedBox(width: wGap + BT.xs),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,

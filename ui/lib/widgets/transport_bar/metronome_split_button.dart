@@ -138,9 +138,11 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
         decoration: BoxDecoration(
           borderRadius: BT.borderSm,
           border: Border.all(
+            // Off-state outline matches the active accent one in weight
+            // (textMuted, not the near-invisible divider) — grey, not blue.
             color: widget.isActive
                 ? colors.accent.withValues(alpha: 0.7)
-                : colors.divider,
+                : colors.textMuted,
             width: 1,
           ),
         ),
@@ -173,7 +175,7 @@ class _MetronomeSplitButtonState extends State<MetronomeSplitButton> {
                   behavior: HitTestBehavior.opaque,
                   child: Container(
                     alignment: Alignment.center,
-                    padding: BT.buttonPadding,
+                    padding: BT.splitLeftPadding,
                     decoration: BoxDecoration(
                       color: _isLeftHovered
                           ? (widget.isActive
