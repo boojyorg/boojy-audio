@@ -94,16 +94,37 @@ When making bug fixes or feature changes:
 - `docs/plans/vX.Y-plan.md` — detailed spec for the active version (features, mockups, scope)
 - `docs/ARCHITECTURE.md` — system design, folder structure, FFI patterns
 - `docs/FEATURE_TRACKER.md` — v1.0 feature checklist (what exists vs what's planned)
+- `docs/reviews/` — dated deep-review reports that set each version's theme (see Milestone Reviews)
 - `CHANGELOG.md` — release history; add entries under "Unreleased" during development
+
+## Milestone Reviews
+
+Each version's theme should come from a **deliberate review, not guesswork** — both the v0.3.x
+trust/correctness theme and the v0.4 visual-polish theme were chosen this way. Run the matching
+review **before opening a new `docs/plans/vX.Y-plan.md`**, save its report to `docs/reviews/`, and
+let it drive the plan. Two reusable multi-agent workflows live in `.claude/workflows/`:
+
+- **UI/UX review — every minor version.** Lighter (~16 agents). Include the word "workflow" in your
+  message, then run `Workflow({ name: 'ui-ux-review', args: { screenshots: ['<abs paths>'] } })`.
+  Pass current screenshots so it grounds against the real UI.
+- **Whole-app codebase audit — at major boundaries** (pre-1.0, or once per minor-version *family*),
+  not every patch. Heavier — ~$30–50 with model tiering (was ~$101 untiered). Run
+  `Workflow({ name: 'codebase-review' })`. Confirm gates are green first.
+
+Both **return** a markdown report (save it to `docs/reviews/`) and are **human-triggered, never
+scheduled** — their value is in you reading and triaging the output. They tier models to control
+cost (readers → Sonnet, adversarial verifiers → Haiku, synthesis → Opus); see the
+`review-workflow-cost-tuning` auto-memory.
 
 ## Version Sync
 
 All markdown files must stay in sync with the current development version.
 
 **When starting a new version (creating a new plan doc):**
-1. Update `docs/ROADMAP.md` — set "Current Version" and "Working On" lines, update version table
-2. Update `README.md` — update the version/status line
-3. Verify `CHANGELOG.md` has an empty `## Unreleased` section ready
+1. Run the matching **Milestone Review** (above) and save its report to `docs/reviews/` — the plan's theme comes from it
+2. Update `docs/ROADMAP.md` — set "Current Version" and "Working On" lines, update version table
+3. Update `README.md` — update the version/status line
+4. Verify `CHANGELOG.md` has an empty `## Unreleased` section ready
 
 **When releasing a version:**
 1. `CHANGELOG.md` — rename `## Unreleased` → `## vX.Y.Z — YYYY-MM-DD`, add new empty `## Unreleased`
