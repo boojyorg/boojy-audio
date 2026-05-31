@@ -1559,11 +1559,15 @@ class _PianoRollState extends State<PianoRoll>
           currentCursor = SystemMouseCursors.copy;
         });
       } else if (toolMode == ToolMode.select) {
-        // Select mode - only move, never resize - show grab cursor
+        // Select mode - move on the body, resize at the edges (same affordance
+        // as draw mode, so notes can be trimmed without switching tools).
+        final edge = _getEdgeAtPosition(position, hoveredNote);
         setState(() {
           hoveredNoteId = hoveredNote.id;
-          hoveredEdge = null; // No resize in select mode
-          currentCursor = SystemMouseCursors.grab;
+          hoveredEdge = edge;
+          currentCursor = edge != null
+              ? SystemMouseCursors.resizeLeftRight
+              : SystemMouseCursors.grab;
         });
       } else {
         // Draw mode (default)
@@ -1892,8 +1896,51 @@ class _PianoRollState extends State<PianoRoll>
       return;
     }
 
-    // Select tool: drag on a note = move the note (not create new)
+    // Select tool: drag near an edge = resize, drag on the body = move.
     if (toolMode == ToolMode.select && clickedNote != null) {
+      // Prefer the stored hover intent when it's the same note (matches the
+      // cursor shown on hover); otherwise recompute the edge.
+      final edge = (hoveredNoteId == clickedNote.id)
+          ? hoveredEdge
+          : _getEdgeAtPosition(details.localPosition, clickedNote);
+
+      if (edge != null) {
+        // Resize from the edge — mirrors the draw-tool resize path so the same
+        // _onPanUpdate resize branch (keyed off InteractionMode.resize) drives it.
+        saveToHistory();
+        movingNoteId = null;
+        dragStartNotes = {
+          for (final n in currentClip?.notes ?? <MidiNoteData>[]) n.id: n,
+        };
+        resizeStartBeat = (edge == 'right')
+            ? clickedNote.endTime
+            : clickedNote.startTime;
+
+        // Auto-select on resize (standard DAW behaviour): keep others only when
+        // shift is held, otherwise select just this note.
+        if (!clickedNote.isSelected) {
+          currentClip = currentClip?.copyWith(
+            notes: currentClip!.notes
+                .map(
+                  (n) => modifiers.isShiftPressed
+                      ? (n.id == clickedNote.id
+                            ? n.copyWith(isSelected: true)
+                            : n)
+                      : n.copyWith(isSelected: n.id == clickedNote.id),
+                )
+                .toList(),
+          );
+        }
+
+        setState(() {
+          resizingNoteId = clickedNote.id;
+          resizingEdge = edge;
+          currentMode = InteractionMode.resize;
+          currentCursor = SystemMouseCursors.resizeLeftRight;
+        });
+        return;
+      }
+
       // Move note(s) - similar to normal drag on note
       saveToHistory();
       setState(() {

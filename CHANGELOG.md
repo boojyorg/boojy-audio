@@ -44,6 +44,51 @@ All notable changes to Boojy Audio will be documented in this file.
   Cmd+Shift+L, now offering all four candidate top-bar layouts live — A inline, B LCD panel,
   C two-row (with a centred project title), and D compact-bar + a position/time readout pinned to
   the arrangement ruler — for choosing the final look. It is not part of release builds.)*
+- **macOS title strip with a centred project title (phase 3 cont.).** A thin strip now sits above
+  the transport bar holding the traffic lights and a window-centred `Untitled — Boojy Audio`
+  title — in the native macOS system font, styled to read as one seamless piece of chrome with the
+  bar below it. Because the strip spans the whole window, the title is *genuinely* centred (the
+  earlier in-bar attempt was wedged between unequal sidebar/mixer widths, so it always drifted).
+  With the lights moved up into the strip, the transport bar drops its ~78px traffic-light inset and
+  the ▲udio wordmark sits at the true left edge.
+- **Cleaner transport tool buttons (phase 3 cont.).** The Loop button is now a single plain pill
+  when looping is off (the stray `|` next to it is gone); turning Loop on reveals the punch-in/out
+  zone, opened via an accent chevron. When **any** of Loop / Snap / Metronome is engaged it now wears
+  a soft accent-blue outline with a full-height accent divider between its two halves, so "this tool
+  is on" reads at a glance — and a 1px grey sliver that used to peek through the rounded corners is
+  gone. The ▲udio wordmark also nudges up ~2px to sit in line with its neighbours.
+- **Record is always live (phase 3 cont.).** The record button is no longer dimmed when nothing is
+  armed — pressing it with no armed track now drops a small **New MIDI Track / New Audio Track**
+  menu, then creates that track (undoable), arms it, and starts recording (with count-in). One press
+  to capture an idea on a blank project. Audio-track creation also now goes through the same
+  undoable command as MIDI (previously it bypassed undo).
+- **Tidier transport readouts + tap-tempo folded into the BPM box (phase 3 cont.).** The
+  `1.1.1` / tempo / `4/4` readouts now share one height and padding so the cluster reads as an even
+  row. The standalone **Tap** pill is gone — tap-tempo now lives *inside* the tempo box as a split
+  button: `[ 120 │ BPM ]`. The number half drags / scrolls / double-clicks to type as before; the
+  **BPM** half is the tap target (tap it in time and it pulses accent to set the tempo). The box
+  keeps a fixed width so it doesn't jitter as the tempo changes digits. The off-state outline of
+  the Loop / Snap / Metronome buttons is also lifted to a clearer grey, so a disabled tool's outline
+  reads with the same weight as an engaged (blue) one.
+- **The ▲ logo is now the engine-health light; the "Ready" badge is gone (phase 3 cont.).** The
+  top-right "✓ Ready" badge restated what you already knew, so it's removed. Instead, if the audio
+  engine fails to start, the ▲ in the **▲udio** wordmark turns **red** — a quiet, always-visible cue
+  that something's wrong — and clicking it (it already opens **Settings**) is where you fix the audio
+  device. When everything's fine the corner stays clean and the logo keeps its brand blue.
+- **Cleaner top bar + Add Track in the mixer (phase 3 cont.).** Four small refinements to the
+  workspace chrome:
+  - **The top bar reads as one clean band.** The two faint vertical lines that boxed in the
+    transport controls are gone; the sidebar and mixer can still be resized by dragging their
+    boundary just below the bar.
+  - **Add a track from the mixer.** The mixer's (previously empty) header now has explicit
+    **+ MIDI Track** and **+ Audio Track** buttons — the mixer is where your tracks live, so it's
+    where you add them. The labels shorten to **+ MIDI** / **+ Audio** when the mixer is narrow.
+    The top-right **(+)** and dragging an instrument onto the timeline still work when the mixer is
+    closed.
+  - **Friendlier empty project.** The blank arrangement now shows an instrument icon, and the whole
+    prompt lights up — *"Drop it here to add your new track"* — when you drag a sound over it.
+  - **Tidier library search.** The search field is slimmer, giving the row back to your Favorites
+    and categories (search is a quick filter here, not the main way around a small library).
 - **Bundled typefaces.** The UI now ships **Inter** (interface) and **JetBrains Mono** (numeric
   readouts — transport, tempo, position, time) instead of falling back to system fonts, for a
   consistent, more premium look across platforms.
@@ -53,8 +98,34 @@ All notable changes to Boojy Audio will be documented in this file.
   unchanged. (Graphite / Slate / Indigo ramps are available to A/B live via the Cmd+Shift+P palette
   dev tool.)
 - **Deeper, cooler shadows** on menus, tooltips and floating surfaces (new elevation tokens).
+- **Start screen & settings now show the live ▲udio wordmark.** The launcher's "Boojy Audio" logo
+  was a near-black raster that vanished on the dark panel; it's rebuilt in code as white "Boojy"
+  (with the amber dot) over the same **▲udio** lockup as the top bar. The settings footer's stale
+  "Audi●" art is replaced by the same shared wordmark, so the three can no longer drift.
+- **Transport is centred in the top bar.** Play/stop/record now pin to the centre, with the
+  modifier and readout clusters flanking them, instead of drifting with the side-panel widths.
+- **Piano-roll Loop/Snap match the transport bar.** They now use the same outlined chip with a soft
+  accent tint when engaged (Quantize keeps the shared shape as a momentary action), instead of a
+  solid blue block.
+- **Add-Track buttons gained type icons and colour.** "+ MIDI" / "+ Audio" (mixer header and the
+  empty-arrangement prompt) now carry a piano / waveform icon and hover in their track-type colour
+  (green for MIDI, grey for Audio).
+- **Larger, re-centred macOS window title.** The "Untitled — Boojy Audio" strip text is ~10% larger
+  and nudged to sit vertically centred against the traffic lights.
 
 ### Bug Fixes
+
+- **Notes can now be resized in Select mode.** Dragging a note's edge in the piano roll's Select
+  tool resizes it (with a resize cursor on hover), matching the Draw tool — previously edge-drags
+  in Select mode only moved the note.
+- **Delete sometimes did nothing on a selected clip.** Selecting a clip now pulls keyboard focus to
+  the timeline, so Delete/Backspace reliably deletes it instead of leaking to whatever panel was
+  last focused; a root-level fallback covers the edge cases.
+- **Piano-roll notes stay legible on dark track colours.** Note brightness is now floored (and
+  capped) so a very dark or near-white track colour no longer renders near-invisible or washed-out
+  notes; velocity shading is preserved.
+- **Track dB readout no longer wraps to a second line** at −10 dB and below — tightened the
+  readout's side padding (track and master strips).
 
 - **The app reported the wrong version (v0.3.0).** `pubspec.yaml` had drifted behind the shipped
   release and the in-app version label (About box, start screen, settings footer) reads it via

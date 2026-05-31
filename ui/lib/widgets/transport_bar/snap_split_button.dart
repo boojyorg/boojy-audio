@@ -144,128 +144,145 @@ class _SnapSplitButtonState extends State<SnapSplitButton> {
 
     return Tooltip(
       message: tooltip,
-      child: DecoratedBox(
+      child: Container(
         key: _buttonKey,
+        // Clip so the rounded corners never show a grey sliver of the bar
+        // behind the zone fills. The outline turns a soft accent when engaged.
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BT.borderSm,
-          border: Border.all(color: colors.divider, width: 1),
+          border: Border.all(
+            // Off-state outline matches the active accent one in weight
+            // (textMuted, not the near-invisible divider) — grey, not blue.
+            color: isActive
+                ? colors.accent.withValues(alpha: 0.7)
+                : colors.textMuted,
+            width: 1,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Left zone: icon + "Snap" label (toggle on/off)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                if (!_isIconHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isIconHovered = true);
-                  });
-                }
-              },
-              onExit: (_) {
-                if (_isIconHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isIconHovered = false);
-                  });
-                }
-              },
-              child: GestureDetector(
-                onTap: _toggleSnap,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: BT.buttonPadding,
-                  decoration: BoxDecoration(
-                    color: _isIconHovered
-                        ? (isActive
-                              ? colors.accent.withValues(
-                                  alpha: BT.opacityMedium,
-                                )
-                              : colors.textPrimary.withValues(
-                                  alpha: BT.opacitySubtle,
-                                ))
-                        : leftBg,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(BT.radiusSm),
-                      bottomLeft: Radius.circular(BT.radiusSm),
+        // IntrinsicHeight pins the row to its content height; stretch then
+        // makes the inter-zone divider span that full height (not the bar).
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left zone: icon + "Snap" label (toggle on/off)
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) {
+                  if (!_isIconHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isIconHovered = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isIconHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isIconHovered = false);
+                    });
+                  }
+                },
+                child: GestureDetector(
+                  onTap: _toggleSnap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: BT.splitLeftPadding,
+                    decoration: BoxDecoration(
+                      color: _isIconHovered
+                          ? (isActive
+                                ? colors.accent.withValues(
+                                    alpha: BT.opacityMedium,
+                                  )
+                                : colors.textPrimary.withValues(
+                                    alpha: BT.opacitySubtle,
+                                  ))
+                          : leftBg,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(BT.radiusSm),
+                        bottomLeft: Radius.circular(BT.radiusSm),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(BI.gridOn, size: BT.iconMd, color: iconColor),
-                      if (!widget.isIconOnly) ...[
-                        const SizedBox(width: BT.xs),
-                        Text(
-                          'Snap',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: BT.fontLabel,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(BI.gridOn, size: BT.iconMd, color: iconColor),
+                        if (!widget.isIconOnly) ...[
+                          const SizedBox(width: BT.xs),
+                          Text(
+                            'Snap',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: BT.fontLabel,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Divider
-            Container(
-              width: 1,
-              height: 19,
-              color: colors.textPrimary.withValues(alpha: BT.opacityMedium),
-            ),
-            // Right zone: current value text (opens dropdown)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                if (!_isChevronHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isChevronHovered = true);
-                  });
-                }
-              },
-              onExit: (_) {
-                if (_isChevronHovered) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _isChevronHovered = false);
-                  });
-                }
-              },
-              child: GestureDetector(
-                onTap: () => _showSnapMenu(context, colors.accent),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 37),
-                  padding: BT.splitRightPadding,
-                  decoration: BoxDecoration(
-                    color: _isChevronHovered
-                        ? (isActive
-                              ? colors.accent.withValues(
-                                  alpha: BT.opacityMedium,
-                                )
-                              : colors.textPrimary.withValues(
-                                  alpha: BT.opacitySubtle,
-                                ))
-                        : leftBg,
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(2),
-                      bottomRight: Radius.circular(2),
-                    ),
-                  ),
-                  child: Text(
-                    widget.value.displayName,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: isActive ? colors.accent : colors.textMuted,
-                      fontSize: BT.fontLabel,
-                      fontWeight: BT.weightSemiBold,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+              // Divider — full-height, accent when engaged to match the outline.
+              Container(
+                width: 1,
+                color: isActive
+                    ? colors.accent
+                    : colors.textPrimary.withValues(alpha: BT.opacityMedium),
+              ),
+              // Right zone: current value text (opens dropdown)
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) {
+                  if (!_isChevronHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isChevronHovered = true);
+                    });
+                  }
+                },
+                onExit: (_) {
+                  if (_isChevronHovered) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _isChevronHovered = false);
+                    });
+                  }
+                },
+                child: GestureDetector(
+                  onTap: () => _showSnapMenu(context, colors.accent),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    alignment: Alignment.center,
+                    constraints: const BoxConstraints(minWidth: 37),
+                    padding: BT.splitRightPadding,
+                    decoration: BoxDecoration(
+                      color: _isChevronHovered
+                          ? (isActive
+                                ? colors.accent.withValues(
+                                    alpha: BT.opacityMedium,
+                                  )
+                                : colors.textPrimary.withValues(
+                                    alpha: BT.opacitySubtle,
+                                  ))
+                          : leftBg,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(2),
+                        bottomRight: Radius.circular(2),
+                      ),
+                    ),
+                    child: Text(
+                      widget.value.displayName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isActive ? colors.accent : colors.textMuted,
+                        fontSize: BT.fontLabel,
+                        fontWeight: BT.weightSemiBold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

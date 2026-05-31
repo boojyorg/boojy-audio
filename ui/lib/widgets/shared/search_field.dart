@@ -105,10 +105,10 @@ class _SearchFieldState extends State<SearchField> {
         duration: AnimationConstants.panelDuration,
         curve: Curves.easeInOut,
         width: _isExpanded ? widget.expandedWidth : 105,
-        height: 28,
+        height: 24,
         decoration: BoxDecoration(
           color: colors.darkest,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _isFocused
                 ? colors.accent.withValues(alpha: 0.37)

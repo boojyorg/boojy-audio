@@ -190,10 +190,19 @@ class BoojyTokens {
     vertical: 3.0,
   );
 
-  /// Standard split button right-zone padding
+  /// Standard split button right-zone padding. Vertical kept a touch shorter
+  /// than the round transport buttons so play/stop/record read as the focus.
   static const EdgeInsets splitRightPadding = EdgeInsets.symmetric(
     horizontal: 7.0,
-    vertical: 5.0,
+    vertical: 4.0,
+  );
+
+  /// Split button left-zone padding — matches [splitRightPadding]'s shorter
+  /// height (vs the shared [buttonPadding]) so the transport tool buttons sit
+  /// a touch lower than the round play/stop/record buttons.
+  static const EdgeInsets splitLeftPadding = EdgeInsets.symmetric(
+    horizontal: sm,
+    vertical: 4.0,
   );
 
   /// Compact split button right-zone padding

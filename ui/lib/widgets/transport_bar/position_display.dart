@@ -287,7 +287,7 @@ class _PositionDisplayState extends State<PositionDisplay> {
             ),
             padding: widget.chromeless
                 ? EdgeInsets.zero
-                : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                : const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: widget.chromeless
                 ? null
                 : BoxDecoration(

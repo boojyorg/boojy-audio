@@ -23,6 +23,12 @@ mixin TimelineViewStateMixin on State<TimelineView>
   /// Scroll controller for nav bar (synced with main scroll).
   final ScrollController navBarScrollController = ScrollController();
 
+  /// Focus node for the timeline canvas. Selecting a clip requests this focus so
+  /// keyboard shortcuts (notably Delete) reliably route here instead of leaking
+  /// to whatever panel was last focused — the cause of the intermittent
+  /// "Delete does nothing on a selected clip" bug.
+  final FocusNode timelineFocusNode = FocusNode(debugLabel: 'TimelineCanvas');
+
   /// Horizontal zoom (pixels per beat).
   double _pixelsPerBeat = UIConstants.timelineDefaultPixelsPerBeat;
 

@@ -128,7 +128,11 @@ class NotePainter extends CustomPainter {
     // Calculate velocity-based brightness (not transparency)
     // vel 100 = standard color, < 100 = darker, > 100 = brighter
     final baseHsl = HSLColor.fromColor(noteColor);
-    final baseLightness = baseHsl.lightness; // ~0.42
+    // Floor (and cap) the base lightness so notes stay legible against the dark
+    // grid regardless of the track colour: a very dark track would otherwise
+    // render near-invisible notes, a near-white one would wash out. The velocity
+    // ramp keys off this anchor, so the whole range lifts/settles with it.
+    final baseLightness = baseHsl.lightness.clamp(0.45, 0.72).toDouble();
 
     double lightness;
     if (note.velocity <= 100) {
