@@ -78,6 +78,7 @@ When making bug fixes or feature changes:
 2. Add entries under the `## Unreleased` section
 3. Use categories: `### Bug Fixes`, `### Features`, `### Improvements`
 4. On release, change "Unreleased" to the version number and date
+5. **Keep `docs/FEATURE_TRACKER.md` in sync as you go:** when a change *completes* a tracker item, tick its `[ ]`→`[x]` in the **same PR** — don't defer it to release, or the tracker silently drifts and future planning re-hunts already-built features. Only tick when the feature is **reachable by a user end-to-end**, not when the engine/FFI exists but no UI path does — annotate those `(partial: …)` instead.
 
 ## Release Process
 
