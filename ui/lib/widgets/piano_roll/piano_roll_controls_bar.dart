@@ -156,6 +156,20 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
   bool _isHoveringQuantizeLabel = false;
   bool _isHoveringQuantizeDropdown = false;
 
+  // Quantize is a one-shot action, not a toggle: it briefly flashes accent on
+  // press to confirm it fired, then settles back to neutral (a toggle would
+  // instead *stay* lit). This is the visual cue that it applies rather than
+  // turning something on/off.
+  bool _quantizePulse = false;
+
+  void _fireQuantize() {
+    widget.onQuantize?.call();
+    setState(() => _quantizePulse = true);
+    Future.delayed(const Duration(milliseconds: 240), () {
+      if (mounted) setState(() => _quantizePulse = false);
+    });
+  }
+
   // Keys and overlays for dropdown menus
   final GlobalKey _snapButtonKey = GlobalKey();
   final GlobalKey _quantizeButtonKey = GlobalKey();
@@ -554,16 +568,29 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
 
   Widget _buildQuantizeDropdown(BuildContext context, String label) {
     final colors = context.colors;
-    final textColor = colors.textPrimary;
+    // Action grammar (distinct from the toggle chips beside it):
+    // - at rest: neutral chip with a *softer* border than the toggles' off-state
+    //   and an always-accent magnet glyph, signalling "this does an accent
+    //   action" without implying an on-state;
+    // - on press: the whole chip flashes accent, then settles back.
+    final pulsing = _quantizePulse;
+    final textColor = pulsing ? colors.accent : colors.textPrimary;
+    final glyphColor = colors.accent;
+    final caretColor = pulsing ? colors.accent : colors.textSecondary;
+    final dividerColor = pulsing
+        ? colors.accent.withValues(alpha: 0.8)
+        : colors.divider;
 
+    // NB: DecoratedBox (not Container/AnimatedContainer) to match the Snap
+    // button's height exactly — a Container reserves layout space for its
+    // border (+2px tall), DecoratedBox only paints it. The press flash is an
+    // instant colour swap rather than a fade.
     return DecoratedBox(
       key: _quantizeButtonKey,
-      // Quantize is a momentary action, not a toggle, so it stays in the
-      // "inactive" outlined-chip state — same shape as Snap/Loop, no accent fill.
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: pulsing ? colors.accent.withValues(alpha: 0.22) : colors.surface,
         borderRadius: BT.borderSm,
-        border: Border.all(color: colors.textMuted, width: 1),
+        border: Border.all(color: dividerColor, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -590,7 +617,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
             },
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: widget.onQuantize,
+              onTap: _fireQuantize,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
@@ -612,7 +639,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                         'assets/images/magnet.png',
                         width: 13,
                         height: 13,
-                        color: textColor,
+                        color: glyphColor,
                       ),
                       const SizedBox(width: 4),
                     ],
@@ -627,7 +654,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
           ),
 
           // Divider line
-          Container(width: 1, height: 15, color: colors.textMuted),
+          Container(width: 1, height: 15, color: dividerColor),
 
           // Right side: Dropdown arrow
           MouseRegion(
@@ -664,7 +691,7 @@ class _PianoRollControlsBarState extends State<PianoRollControlsBar> {
                     bottomRight: Radius.circular(2),
                   ),
                 ),
-                child: Icon(BI.caretDown, size: 15, color: textColor),
+                child: Icon(BI.caretDown, size: 15, color: caretColor),
               ),
             ),
           ),

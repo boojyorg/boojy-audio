@@ -121,13 +121,25 @@ extension TransportDensityValues on TransportDensity {
   }
 }
 
+/// Fixed width of the left and right chrome rails in the single-row bar. Both
+/// sides are pinned to the SAME width on purpose: with equal rails flanking an
+/// Expanded centre, the transport cluster lands on the true window midpoint
+/// regardless of the sidebar/mixer panel widths below — and the left chrome
+/// (▲udio wordmark + undo/redo + library toggle) never reflows when the Library
+/// is collapsed. Wide enough to hold the full left group without clipping the
+/// wordmark; the right group (mixer toggle + help) right-aligns within it.
+const double _kRailWidth = 320.0;
+
 /// Compute density from available width.
-/// Approximate preferred content width at comfortable = ~620px.
+/// The fully-labelled centre group (modifiers + transport + readouts) measures
+/// ~700px now that the readouts carry the BPM split button and uniform boxes.
 TransportDensity _computeDensity(double availableWidth) {
   // Width at/above which the full labelled layout fits comfortably; below this
-  // the bar sheds labels (never scales). A margin over the measured labelled
-  // content width so "comfortable" only triggers when labels genuinely fit.
-  const preferredWidth = 700.0;
+  // the bar sheds labels (never scales). Held a touch above the measured
+  // labelled content width (~700px) so "comfortable" only triggers with genuine
+  // slack — without the margin the readouts sit a sub-pixel over the edge at the
+  // boundary and the signature box reports a "RIGHT OVERFLOWED BY 0" sliver.
+  const preferredWidth = 724.0;
   final overflow = preferredWidth - availableWidth;
 
   if (overflow <= 0) return TransportDensity.comfortable;
@@ -209,14 +221,9 @@ class TransportBar extends StatefulWidget {
 
   final bool isLoading;
 
-  // Engine status. [isEngineReady] gates the add-track button; [engineFailed]
-  // turns the ▲ wordmark red as a quiet "engine didn't start" cue.
-  final bool isEngineReady;
+  // Engine status. [engineFailed] turns the ▲ wordmark red as a quiet
+  // "engine didn't start" cue.
   final bool engineFailed;
-
-  // Add track callbacks
-  final VoidCallback? onAddMidiTrack;
-  final VoidCallback? onAddAudioTrack;
 
   /// Active top-bar layout variant (dev "UI Labs" A/B). Drives the readout
   /// layout, the bar height, and (for C) the two-row structure.
@@ -264,10 +271,7 @@ class TransportBar extends StatefulWidget {
     this.onTimeSignatureDragStart,
     this.onTimeSignatureDragEnd,
     this.isLoading = false,
-    this.isEngineReady = false,
     this.engineFailed = false,
-    this.onAddMidiTrack,
-    this.onAddAudioTrack,
     this.topBarVariant = TopBarVariant.inline,
   });
 
@@ -397,7 +401,7 @@ class _TransportBarState extends State<TransportBar> {
     // C splits the bar into two rows; A/B/D keep the single-row layout.
     final body = widget.topBarVariant == TopBarVariant.twoRow
         ? _buildTwoRowBody(colors, leftMinWidth)
-        : _buildSingleRowBody(colors, leftMinWidth);
+        : _buildSingleRowBody(colors);
 
     return Container(
       height: widget.topBarVariant.barHeight,
@@ -425,31 +429,23 @@ class _TransportBarState extends State<TransportBar> {
     );
   }
 
-  /// A/B/D — the standard single-row bar: left group · centre clusters · right
-  /// group, with the sidebar/mixer resize handles aligned to the panels below.
-  Widget _buildSingleRowBody(BoojyColors colors, double leftMinWidth) {
+  /// A/B/D — the standard single-row bar: fixed left rail · centre clusters ·
+  /// fixed right rail. The two rails are pinned to the same [_kRailWidth] so the
+  /// transport cluster sits on the true window midpoint and the left chrome
+  /// never reflows when the Library panel is collapsed. Panel resizing lives on
+  /// the `ResizableDivider`s in the panels below, so the bar no longer carries
+  /// its own resize handles (the two-row variant C still does).
+  Widget _buildSingleRowBody(BoojyColors colors) {
     return Row(
       children: [
-        // === LEFT GROUP: constrained to sidebar width ===
-        SizedBox(
-          width: math.max(widget.dividers.sidebarWidth, leftMinWidth),
-          child: _buildLeftGroup(colors),
-        ),
+        // === LEFT RAIL (fixed width) ===
+        SizedBox(width: _kRailWidth, child: _buildLeftGroup(colors)),
 
-        // === LEFT DIVIDER (aligned with content divider below) ===
-        _buildSidebarHandle(colors),
-
-        // === CENTRE GROUP (expanded) ===
+        // === CENTRE GROUP (expanded → window-centred) ===
         Expanded(child: _buildCentreGroup(colors)),
 
-        // === RIGHT DIVIDER (aligned with mixer divider below) ===
-        _buildMixerHandle(colors),
-
-        // === RIGHT GROUP: constrained to mixer width ===
-        SizedBox(
-          width: widget.dividers.mixerWidth,
-          child: _buildRightGroup(colors),
-        ),
+        // === RIGHT RAIL (fixed width, content right-aligned) ===
+        SizedBox(width: _kRailWidth, child: _buildRightGroup(colors)),
       ],
     );
   }
@@ -597,111 +593,76 @@ class _TransportBarState extends State<TransportBar> {
   // ============================================
 
   Widget _buildLeftGroup(BoojyColors colors) {
+    // Fixed rail (see [_kRailWidth]): the wordmark + undo/redo + toggle sit at a
+    // stable position and never reflow when the Library is collapsed. The
+    // project name is the only flexible item — it truncates with an ellipsis.
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 0),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final available = constraints.maxWidth;
+      child: Row(
+        children: [
+          _buildLogo(colors),
 
-          // Fixed: ▲(22)+gap(12)+gap(12)+undo(25)+gap(4)+redo(25)+gap(8)+toggle(27)
-          const fixedWidth = 135.0;
-          const maxAudiClip = 77.5;
-          const nameComfortWidth = 120.0;
+          const SizedBox(width: 12),
 
-          // macOS hides the native title bar, so the bar runs under the traffic
-          // lights — push the logo right to clear them (the 16px base gutter
-          // plus this extra, ~78px total). Bounded so the fixed controls always
-          // fit; the left-group floor in build() keeps it at the full clearance
-          // in the common collapsed-sidebar case. Off-macOS, or when a title
-          // strip hosts the lights above the bar, this is 0.
-          final extraLeftInset = (_replacesTitleBar && !widget.hasTitleStrip)
-              ? math.max(0.0, math.min(78.0, available - 119.0) - 16.0)
-              : 0.0;
+          // Project name — only flexible item, truncates with ellipsis
+          Flexible(
+            child: FileMenuButton(
+              projectName: widget.projectName,
+              hasProject: widget.hasProject,
+              mode: ButtonDisplayMode.wide,
+              onNewProject: widget.fileMenu.onNewProject,
+              onOpenProject: widget.fileMenu.onOpenProject,
+              onSaveProject: widget.fileMenu.onSaveProject,
+              onSaveProjectAs: widget.fileMenu.onSaveProjectAs,
+              onRenameProject: widget.fileMenu.onRenameProject,
+              onSaveNewVersion: widget.fileMenu.onSaveNewVersion,
+              onExportAudio: widget.fileMenu.onExportAudio,
+              onExportMp3: widget.fileMenu.onExportMp3,
+              onExportWav: widget.fileMenu.onExportWav,
+              onExportMidi: widget.fileMenu.onExportMidi,
+              onCloseProject: widget.fileMenu.onCloseProject,
+            ),
+          ),
 
-          // Shrink priority: 1) spacer  2) audi clip  3) name truncate
-          final flexSpace = available - fixedWidth - extraLeftInset;
-          final audiClipWidth = math.min(
-            maxAudiClip,
-            math.max(0.0, flexSpace - nameComfortWidth),
-          );
-          final spacerWidth = math.max(
-            0.0,
-            flexSpace - nameComfortWidth - audiClipWidth,
-          );
+          const SizedBox(width: 12),
 
-          return Row(
-            children: [
-              // Traffic-light clearance (macOS, native title hidden; 0 elsewhere).
-              SizedBox(width: extraLeftInset),
+          // Undo button
+          _SvgIconButton(
+            assetPath: 'assets/icons/undo.svg',
+            enabled: widget.canUndo,
+            onTap: widget.transport.onUndo,
+            tooltip: widget.canUndo && widget.undoDescription != null
+                ? 'Undo: ${widget.undoDescription} (⌘Z)'
+                : 'Undo (⌘Z)',
+          ),
 
-              _buildLogo(colors, audiClipWidth: audiClipWidth),
+          const SizedBox(width: 4),
 
-              const SizedBox(width: 12),
+          // Redo button
+          _SvgIconButton(
+            assetPath: 'assets/icons/redo.svg',
+            enabled: widget.canRedo,
+            onTap: widget.transport.onRedo,
+            tooltip: widget.canRedo && widget.redoDescription != null
+                ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
+                : 'Redo (⇧⌘Z)',
+          ),
 
-              // Project name — only flexible item, truncates with ellipsis
-              Flexible(
-                child: FileMenuButton(
-                  projectName: widget.projectName,
-                  hasProject: widget.hasProject,
-                  mode: ButtonDisplayMode.wide,
-                  onNewProject: widget.fileMenu.onNewProject,
-                  onOpenProject: widget.fileMenu.onOpenProject,
-                  onSaveProject: widget.fileMenu.onSaveProject,
-                  onSaveProjectAs: widget.fileMenu.onSaveProjectAs,
-                  onRenameProject: widget.fileMenu.onRenameProject,
-                  onSaveNewVersion: widget.fileMenu.onSaveNewVersion,
-                  onExportAudio: widget.fileMenu.onExportAudio,
-                  onExportMp3: widget.fileMenu.onExportMp3,
-                  onExportWav: widget.fileMenu.onExportWav,
-                  onExportMidi: widget.fileMenu.onExportMidi,
-                  onCloseProject: widget.fileMenu.onCloseProject,
-                ),
-              ),
+          const SizedBox(width: 8),
 
-              const SizedBox(width: 12),
-
-              // Undo button
-              _SvgIconButton(
-                assetPath: 'assets/icons/undo.svg',
-                enabled: widget.canUndo,
-                onTap: widget.transport.onUndo,
-                tooltip: widget.canUndo && widget.undoDescription != null
-                    ? 'Undo: ${widget.undoDescription} (⌘Z)'
-                    : 'Undo (⌘Z)',
-              ),
-
-              const SizedBox(width: 4),
-
-              // Redo button
-              _SvgIconButton(
-                assetPath: 'assets/icons/redo.svg',
-                enabled: widget.canRedo,
-                onTap: widget.transport.onRedo,
-                tooltip: widget.canRedo && widget.redoDescription != null
-                    ? 'Redo: ${widget.redoDescription} (⇧⌘Z)'
-                    : 'Redo (⇧⌘Z)',
-              ),
-
-              // Spacer between redo and toggle — shrinks first
-              SizedBox(width: 5 + spacerWidth),
-
-              // Sidebar toggle [|]
-              _PanelToggleButton(
-                assetPath: 'assets/icons/sidebar_toggle.svg',
-                isActive: widget.libraryVisible,
-                onTap: widget.panels.onToggleLibrary,
-                tooltip: widget.libraryVisible
-                    ? 'Hide Library'
-                    : 'Show Library',
-              ),
-            ],
-          );
-        },
+          // Sidebar toggle [|]
+          _PanelToggleButton(
+            assetPath: 'assets/icons/sidebar_toggle.svg',
+            isActive: widget.libraryVisible,
+            onTap: widget.panels.onToggleLibrary,
+            tooltip: widget.libraryVisible ? 'Hide Library' : 'Show Library',
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildLogo(BoojyColors colors, {required double audiClipWidth}) {
+  Widget _buildLogo(BoojyColors colors) {
     // Nudge the whole wordmark up ~2px so its optical centre lines up with the
     // smaller siblings (project name, undo/redo) in the centre-aligned row.
     return Transform.translate(
@@ -757,24 +718,19 @@ class _TransportBarState extends State<TransportBar> {
             ),
           ),
           const SizedBox(width: 2),
-          // "udio" wordmark in the UI font (Inter). Clips gracefully when the bar
-          // narrows — the same shrink-priority slot the old "Audi" lockup used.
-          ClipRect(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: audiClipWidth),
-              child: Text(
-                'udio',
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.clip,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: BT.weightSemiBold,
-                  color: colors.textPrimary,
-                  letterSpacing: -0.5,
-                  height: 1.0,
-                ),
-              ),
+          // "udio" wordmark in the UI font (Inter). The fixed left rail gives it
+          // a stable home, so it renders at full size and never clips.
+          Text(
+            'udio',
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.clip,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: BT.weightSemiBold,
+              color: colors.textPrimary,
+              letterSpacing: -0.5,
+              height: 1.0,
             ),
           ),
         ],
@@ -908,8 +864,11 @@ class _TransportBarState extends State<TransportBar> {
             icon: widget.isPlaying ? BI.pause : BI.play,
             enabled:
                 widget.canPlay || widget.isRecording || widget.isCountingIn,
+            // Amber while playing (the pause affordance) so it reads as "hold"
+            // and stays distinct from the orange Stop button sitting right next
+            // to it — green when stopped (the play affordance).
             enabledColor: widget.isPlaying
-                ? const Color(0xFFF97316)
+                ? const Color(0xFFF59E0B)
                 : const Color(0xFF22C55E),
             onPressed: () {
               if (widget.isRecording || widget.isCountingIn) {
@@ -1002,24 +961,33 @@ class _TransportBarState extends State<TransportBar> {
         // to the hero readout. For D the bigger readout also lives pinned in
         // the arrangement; this inline copy stays as the in-bar reference.
         return _ClusterWell(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PositionDisplay(
-                playheadPosition: widget.playheadPosition,
-                tempo: widget.tempo,
-                beatsPerBar: widget.beatsPerBar,
-                onPositionChanged: widget.transport.onPositionChanged,
-                // Uniform size with the tempo / signature boxes (no hero scale)
-                // for a cleaner, even readout row.
-                scale: 1.0,
-              ),
-              SizedBox(width: wGap),
-              // Tempo + tap fused into one split button (tap the BPM zone).
-              tempo,
-              SizedBox(width: wGap),
-              signature,
-            ],
+          // The two centre flank slots use equal Expanded flex so the transport
+          // pins to the window midpoint — but the readout well is wider than the
+          // modifiers well, so the even split can starve this slot by a sub-pixel
+          // at certain widths (the "RIGHT OVERFLOWED BY 0" sliver). scaleDown
+          // absorbs that fraction invisibly without shedding labels early.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PositionDisplay(
+                  playheadPosition: widget.playheadPosition,
+                  tempo: widget.tempo,
+                  beatsPerBar: widget.beatsPerBar,
+                  onPositionChanged: widget.transport.onPositionChanged,
+                  // Uniform size with the tempo / signature boxes (no hero scale)
+                  // for a cleaner, even readout row.
+                  scale: 1.0,
+                ),
+                SizedBox(width: wGap),
+                // Tempo + tap fused into one split button (tap the BPM zone).
+                tempo,
+                SizedBox(width: wGap),
+                signature,
+              ],
+            ),
           ),
         );
       case TopBarVariant.lcd:
@@ -1077,10 +1045,15 @@ class _TransportBarState extends State<TransportBar> {
   // ============================================
 
   Widget _buildRightGroup(BoojyColors colors) {
+    // Fixed rail mirroring the left: the controls right-align to the far edge.
+    // Add-track lives in the mixer header + track list now, so the bar carries
+    // only the mixer toggle and Help, sitting together at the far right.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
+          const Spacer(),
+
           // Mixer toggle (mirrored sidebar icon)
           _PanelToggleButton(
             assetPath: 'assets/icons/sidebar_toggle.svg',
@@ -1091,17 +1064,6 @@ class _TransportBarState extends State<TransportBar> {
           ),
 
           const SizedBox(width: 8),
-
-          // (+) Add track — accent circle
-          if (widget.isEngineReady)
-            _AddTrackButton(
-              onAddMidiTrack: widget.onAddMidiTrack,
-              onAddAudioTrack: widget.onAddAudioTrack,
-            ),
-
-          // Engine health is shown by the ▲ wordmark (it turns red on failure),
-          // so there's no longer a "Ready" badge here.
-          const Spacer(),
 
           // Help button — far right
           _HelpButton(onTap: widget.panels.onHelpPressed),
@@ -1328,109 +1290,6 @@ class _HelpButtonState extends State<_HelpButton> with ButtonHoverMixin {
                 color: isHovered ? colors.textPrimary : colors.textSecondary,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Accent-colored circular (+) button that opens a dropdown for adding tracks.
-class _AddTrackButton extends StatefulWidget {
-  final VoidCallback? onAddMidiTrack;
-  final VoidCallback? onAddAudioTrack;
-
-  const _AddTrackButton({this.onAddMidiTrack, this.onAddAudioTrack});
-
-  @override
-  State<_AddTrackButton> createState() => _AddTrackButtonState();
-}
-
-class _AddTrackButtonState extends State<_AddTrackButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    return Tooltip(
-      message: 'Add Track',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (!_isHovered) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _isHovered = true);
-            });
-          }
-        },
-        onExit: (_) {
-          if (_isHovered) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _isHovered = false);
-            });
-          }
-        },
-        child: PopupMenuButton<String>(
-          tooltip: 'Add Track',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-          position: PopupMenuPosition.under,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: colors.divider),
-          ),
-          color: colors.darkest,
-          elevation: 8,
-          onSelected: (value) {
-            if (value == 'midi') {
-              widget.onAddMidiTrack?.call();
-            } else if (value == 'audio') {
-              widget.onAddAudioTrack?.call();
-            }
-          },
-          itemBuilder: (menuContext) => [
-            PopupMenuItem<String>(
-              value: 'midi',
-              height: 36,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(BI.piano, size: 14, color: colors.textMuted),
-                  const SizedBox(width: 8),
-                  Text(
-                    'MIDI Track',
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: BT.fontLabel,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<String>(
-              value: 'audio',
-              height: 36,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(BI.waveform, size: 14, color: colors.textMuted),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Audio Track',
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: BT.fontLabel,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          child: Icon(
-            BI.addCircle,
-            size: 20,
-            color: _isHovered ? colors.textPrimary : colors.textSecondary,
           ),
         ),
       ),
