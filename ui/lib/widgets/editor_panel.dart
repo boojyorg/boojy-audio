@@ -8,6 +8,7 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
+import 'editor_button_variant.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'device_chain/device_chain_view.dart';
@@ -62,6 +63,9 @@ class EditorPanel extends StatefulWidget {
   // Tool mode (shared with arrangement view)
   final ToolMode toolMode;
 
+  // Visual language for the tabs + tool palette (dev UI Labs A/B/C, Cmd+Shift+E)
+  final EditorButtonVariant editorButtonVariant;
+
   // Time signature (from project settings)
   final int beatsPerBar;
   final int beatUnit;
@@ -98,6 +102,7 @@ class EditorPanel extends StatefulWidget {
     this.onBuiltInEffectDropped,
     this.onVst3EffectDropped,
     this.toolMode = ToolMode.draw,
+    this.editorButtonVariant = EditorButtonVariant.outline,
     this.beatsPerBar = 4,
     this.beatUnit = 4,
     this.projectTempo = 120.0,
@@ -967,6 +972,15 @@ class _EditorPanelState extends State<EditorPanel>
     Key? buttonKey,
   }) {
     final isSelected = _selectedTabIndex == index;
+    final style = resolveEditorButtonStyle(
+      widget.editorButtonVariant,
+      context.colors,
+      selected: isSelected,
+      onAccentContent: Colors.white,
+      inactiveContent: context.colors.textSecondary,
+      inactiveBackground: context.colors.surface.withValues(alpha: 0.5),
+      inactiveBorder: context.colors.divider.withValues(alpha: 0.5),
+    );
     return Tooltip(
       key: buttonKey,
       message: label,
@@ -981,26 +995,14 @@ class _EditorPanelState extends State<EditorPanel>
             duration: AnimationConstants.hoverDuration,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? context.colors.accent
-                  : context.colors.surface.withValues(alpha: 0.5),
+              color: style.background,
               borderRadius: BorderRadius.circular(6),
-              border: isSelected
-                  ? null
-                  : Border.all(
-                      color: context.colors.divider.withValues(alpha: 0.5),
-                    ),
+              border: Border.all(color: style.border),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: isSelected
-                      ? Colors.white
-                      : context.colors.textSecondary,
-                ),
+                Icon(icon, size: 16, color: style.content),
                 const SizedBox(width: 6),
                 Text(
                   label,
@@ -1009,9 +1011,7 @@ class _EditorPanelState extends State<EditorPanel>
                     fontWeight: isSelected
                         ? BT.weightSemiBold
                         : BT.weightMedium,
-                    color: isSelected
-                        ? Colors.white
-                        : context.colors.textSecondary,
+                    color: style.content,
                   ),
                 ),
               ],
@@ -1029,24 +1029,23 @@ class _EditorPanelState extends State<EditorPanel>
     final isActive = widget.toolMode == mode;
     final isTempActive = _tempToolMode == mode && !isActive;
 
-    // Determine background color:
-    // - Full accent for sticky active tool
-    // - Dimmer accent (50% opacity) for temporary hold modifier
-    // - Surface bg + border for inactive (stands out from toolbar)
-    Color bgColor;
-    Color iconColor;
-    Border? border;
-    if (isActive) {
-      bgColor = context.colors.accent;
-      iconColor = context.colors.elevated;
-    } else if (isTempActive) {
-      bgColor = context.colors.accent.withValues(alpha: 0.5);
-      iconColor = context.colors.elevated;
-    } else {
-      bgColor = context.colors.surface;
-      iconColor = context.colors.textPrimary;
-      border = Border.all(color: context.colors.divider);
-    }
+    // The selected look follows the active editor-button variant; the inactive
+    // look is shared (surface bg + divider border so the tool stands out from
+    // the toolbar). A temporary hold-modifier preview reuses the selected style
+    // at half-strength fill.
+    final style = resolveEditorButtonStyle(
+      widget.editorButtonVariant,
+      context.colors,
+      selected: isActive || isTempActive,
+      onAccentContent: context.colors.elevated,
+      inactiveContent: context.colors.textPrimary,
+      inactiveBackground: context.colors.surface,
+    );
+    final bgColor = isTempActive
+        ? style.background.withValues(alpha: 0.5)
+        : style.background;
+    final iconColor = style.content;
+    final border = Border.all(color: style.border);
 
     return Tooltip(
       message: tooltip,
