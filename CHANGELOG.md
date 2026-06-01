@@ -16,6 +16,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Steady top bar with a truly centred transport.** The left chrome (▲udio wordmark, undo/redo,
+  Library toggle) now sits on a fixed rail, so it no longer shrinks or shifts — and the wordmark no
+  longer clips — when you collapse the Library. Both side rails share one width, which keeps the
+  play / stop / record cluster locked to the centre of the window even when the Library and Mixer
+  are different widths. The redundant **(+)** add-track button has left the top bar (use the
+  type-coloured add buttons in the mixer header and track list), and the Mixer toggle now sits next
+  to **Help** at the far right.
 - **New ▲udio wordmark.** The top-left logo is now a clean **▲udio** lockup — a filled triangle as
   the "A" (which still opens Settings, as the old dot did) followed by "udio" — replacing the
   previous "Audi" + floating-dot composition. It scales and themes cleanly and truncates gracefully
@@ -115,6 +122,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Pause/Play no longer gets stuck on the pause icon.** After pausing, the play/pause button stayed
+  showing "pause" and wouldn't resume from the current position (only Stop unstuck it). The transport
+  bar was only rebuilding off the 60fps playhead notifier, which `pause()` silences — so it never
+  re-rendered to the paused state. It now also rebuilds on the playback controller's discrete
+  play/pause/stop changes. (Also hardened the engine side: play/pause/stop now apply in the exact
+  order pressed, instead of a deferred-on-contention path that could let a queued pause land after a
+  later play.)
+- **Pause button is now amber, not orange.** While playing, the pause affordance read as the *same*
+  orange as the Stop button sitting right beside it; it's now amber so "hold" stays visually
+  distinct from "stop".
+- **The signature box no longer paints a 1px overflow stripe.** At certain window widths the
+  position / tempo / signature readout cluster sat a sub-pixel past its slot (the two equal-width
+  centre slots can't both fit the wider readout side); it now scales that fraction away invisibly.
 - **Notes can now be resized in Select mode.** Dragging a note's edge in the piano roll's Select
   tool resizes it (with a resize cursor on hover), matching the Draw tool — previously edge-drags
   in Select mode only moved the note.

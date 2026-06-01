@@ -3157,146 +3157,155 @@ class _DAWScreenState extends State<DAWScreen>
   }
 
   Widget _buildTransportBar() {
-    return ValueListenableBuilder<double>(
-      valueListenable: playbackController.playheadNotifier,
-      builder: (context, playheadPos, _) => TransportBar(
-        // Grouped callbacks
-        fileMenu: FileMenuCallbacks(
-          onNewProject: _newProject,
-          onOpenProject: _openProject,
-          onSaveProject: saveProject,
-          onSaveProjectAs: saveProjectAs,
-          onSaveNewVersion: _saveNewVersion,
-          onRenameProject: _renameProject,
-          onExportAudio: _exportAudio,
-          onExportMp3: _quickExportMp3,
-          onExportWav: _quickExportWav,
-          onExportMidi: _exportMidi,
-          onAppSettings: _appSettings,
-          onProjectSettings: _openProjectSettings,
-          onCloseProject: _closeProject,
+    // Rebuild on the controller's discrete state changes (play / pause / stop)
+    // AND on the 60fps playhead notifier. The playhead notifier alone is not
+    // enough: pause() stops the playhead timer, so without listening to the
+    // controller the bar would never rebuild after a pause and the play/pause
+    // button would stay stuck on the "pause" icon — unable to resume until a
+    // Stop nudged the playhead notifier.
+    return ListenableBuilder(
+      listenable: playbackController,
+      builder: (context, _) => ValueListenableBuilder<double>(
+        valueListenable: playbackController.playheadNotifier,
+        builder: (context, playheadPos, _) => TransportBar(
+          // Grouped callbacks
+          fileMenu: FileMenuCallbacks(
+            onNewProject: _newProject,
+            onOpenProject: _openProject,
+            onSaveProject: saveProject,
+            onSaveProjectAs: saveProjectAs,
+            onSaveNewVersion: _saveNewVersion,
+            onRenameProject: _renameProject,
+            onExportAudio: _exportAudio,
+            onExportMp3: _quickExportMp3,
+            onExportWav: _quickExportWav,
+            onExportMidi: _exportMidi,
+            onAppSettings: _appSettings,
+            onProjectSettings: _openProjectSettings,
+            onCloseProject: _closeProject,
+          ),
+          transport: TransportCallbacks(
+            onPlay: _playWithLoopCheck,
+            onPause: _pause,
+            onStop: _stopPlayback,
+            onRecord: toggleRecording,
+            onRecordNewMidiTrack: () => _recordIntoNewTrack('midi'),
+            onRecordNewAudioTrack: () => _recordIntoNewTrack('audio'),
+            onPauseRecording: pauseRecording,
+            onStopRecording: stopRecordingAndReturn,
+            onUndo: undoRedoManager.canUndo ? _performUndo : null,
+            onRedo: undoRedoManager.canRedo ? _performRedo : null,
+            onMetronomeToggle: _toggleMetronome,
+            onPianoToggle: _toggleVirtualPiano,
+            onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
+            onPunchInToggle: uiLayout.togglePunchIn,
+            onPunchOutToggle: uiLayout.togglePunchOut,
+            onPositionChanged: (seconds) {
+              playbackController.seek(seconds);
+            },
+          ),
+          panels: PanelCallbacks(
+            onToggleLibrary: _toggleLibraryPanel,
+            onToggleMixer: _toggleMixer,
+            onToggleEditor: _toggleEditor,
+            onTogglePiano: _toggleVirtualPiano,
+            onResetPanelLayout: _resetPanelLayout,
+            onHelpPressed: _showKeyboardShortcuts,
+          ),
+          dividers: DividerState(
+            sidebarWidth: uiLayout.libraryPanelWidth,
+            onSidebarDividerDrag: (delta) {
+              setState(() {
+                uiLayout.resizeRightColumn(delta);
+                userSettings.libraryRightColumnWidth =
+                    uiLayout.libraryRightColumnWidth;
+                userSettings.libraryCollapsed =
+                    uiLayout.isLibraryPanelCollapsed;
+              });
+            },
+            onSidebarDividerDoubleClick: () {
+              setState(() {
+                uiLayout.toggleLibraryPanel();
+                userSettings.libraryCollapsed =
+                    uiLayout.isLibraryPanelCollapsed;
+              });
+            },
+            onSidebarDividerDragStart: () =>
+                setState(() => _isDraggingLibrary = true),
+            onSidebarDividerDragEnd: () =>
+                setState(() => _isDraggingLibrary = false),
+            mixerWidth: uiLayout.mixerPanelWidth,
+            onMixerDividerDrag: (delta) {
+              final windowWidth = MediaQuery.of(context).size.width;
+              final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
+              setState(() {
+                final newWidth = uiLayout.mixerPanelWidth - delta;
+                if (newWidth < UILayoutState.mixerCollapseThreshold) {
+                  uiLayout.collapseMixer();
+                  userSettings.mixerVisible = false;
+                } else {
+                  uiLayout.mixerPanelWidth = newWidth.clamp(
+                    UILayoutState.mixerMinWidth,
+                    maxWidth,
+                  );
+                  userSettings.mixerWidth = uiLayout.mixerPanelWidth;
+                }
+              });
+            },
+            onMixerDividerDoubleClick: () {
+              setState(() {
+                uiLayout.toggleMixer();
+                userSettings.mixerVisible = uiLayout.isMixerVisible;
+              });
+            },
+            onMixerDividerDragStart: () =>
+                setState(() => _isDraggingMixer = true),
+            onMixerDividerDragEnd: () =>
+                setState(() => _isDraggingMixer = false),
+            leftDividerNotifier: _leftDividerActive,
+            rightDividerNotifier: _rightDividerActive,
+          ),
+          // Remaining individual parameters
+          playheadPosition: playheadPos,
+          isPlaying: isPlaying,
+          canPlay: true, // Always allow transport controls
+          isRecording: isRecording,
+          isCountingIn: isCountingIn,
+          countInBeat: recordingController.countInBeat,
+          countInProgress: recordingController.countInProgress,
+          hasArmedTracks:
+              mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
+          metronomeEnabled: isMetronomeEnabled,
+          virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
+          tempo: tempo,
+          onTempoChanged: _onTempoChanged,
+          onCountInChanged: _setCountInBars,
+          countInBars: userSettings.countInBars,
+          projectName: projectMetadata.name,
+          hasTitleStrip: hasMacTitleStrip,
+          hasProject: projectManager?.hasProject ?? false,
+          libraryVisible: !uiLayout.isLibraryPanelCollapsed,
+          mixerVisible: uiLayout.isMixerVisible,
+          editorVisible: uiLayout.isEditorPanelVisible,
+          pianoVisible: uiLayout.isVirtualPianoEnabled,
+          canUndo: undoRedoManager.canUndo,
+          canRedo: undoRedoManager.canRedo,
+          undoDescription: undoRedoManager.undoDescription,
+          redoDescription: undoRedoManager.redoDescription,
+          arrangementSnap: uiLayout.arrangementSnap,
+          onSnapChanged: (value) => uiLayout.setArrangementSnap(value),
+          loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
+          punchInEnabled: uiLayout.punchInEnabled,
+          punchOutEnabled: uiLayout.punchOutEnabled,
+          beatsPerBar: projectMetadata.timeSignatureNumerator,
+          beatUnit: projectMetadata.timeSignatureDenominator,
+          onTimeSignatureChanged: _onTimeSignatureChanged,
+          onTimeSignatureDragStart: _onTimeSignatureDragStart,
+          onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
+          isLoading: isLoading,
+          engineFailed: engineInitFailed,
+          topBarVariant: _topBarVariant,
         ),
-        transport: TransportCallbacks(
-          onPlay: _playWithLoopCheck,
-          onPause: _pause,
-          onStop: _stopPlayback,
-          onRecord: toggleRecording,
-          onRecordNewMidiTrack: () => _recordIntoNewTrack('midi'),
-          onRecordNewAudioTrack: () => _recordIntoNewTrack('audio'),
-          onPauseRecording: pauseRecording,
-          onStopRecording: stopRecordingAndReturn,
-          onUndo: undoRedoManager.canUndo ? _performUndo : null,
-          onRedo: undoRedoManager.canRedo ? _performRedo : null,
-          onMetronomeToggle: _toggleMetronome,
-          onPianoToggle: _toggleVirtualPiano,
-          onLoopPlaybackToggle: uiLayout.toggleLoopPlayback,
-          onPunchInToggle: uiLayout.togglePunchIn,
-          onPunchOutToggle: uiLayout.togglePunchOut,
-          onPositionChanged: (seconds) {
-            playbackController.seek(seconds);
-          },
-        ),
-        panels: PanelCallbacks(
-          onToggleLibrary: _toggleLibraryPanel,
-          onToggleMixer: _toggleMixer,
-          onToggleEditor: _toggleEditor,
-          onTogglePiano: _toggleVirtualPiano,
-          onResetPanelLayout: _resetPanelLayout,
-          onHelpPressed: _showKeyboardShortcuts,
-        ),
-        dividers: DividerState(
-          sidebarWidth: uiLayout.libraryPanelWidth,
-          onSidebarDividerDrag: (delta) {
-            setState(() {
-              uiLayout.resizeRightColumn(delta);
-              userSettings.libraryRightColumnWidth =
-                  uiLayout.libraryRightColumnWidth;
-              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-            });
-          },
-          onSidebarDividerDoubleClick: () {
-            setState(() {
-              uiLayout.toggleLibraryPanel();
-              userSettings.libraryCollapsed = uiLayout.isLibraryPanelCollapsed;
-            });
-          },
-          onSidebarDividerDragStart: () =>
-              setState(() => _isDraggingLibrary = true),
-          onSidebarDividerDragEnd: () =>
-              setState(() => _isDraggingLibrary = false),
-          mixerWidth: uiLayout.mixerPanelWidth,
-          onMixerDividerDrag: (delta) {
-            final windowWidth = MediaQuery.of(context).size.width;
-            final maxWidth = UILayoutState.getMixerMaxWidth(windowWidth);
-            setState(() {
-              final newWidth = uiLayout.mixerPanelWidth - delta;
-              if (newWidth < UILayoutState.mixerCollapseThreshold) {
-                uiLayout.collapseMixer();
-                userSettings.mixerVisible = false;
-              } else {
-                uiLayout.mixerPanelWidth = newWidth.clamp(
-                  UILayoutState.mixerMinWidth,
-                  maxWidth,
-                );
-                userSettings.mixerWidth = uiLayout.mixerPanelWidth;
-              }
-            });
-          },
-          onMixerDividerDoubleClick: () {
-            setState(() {
-              uiLayout.toggleMixer();
-              userSettings.mixerVisible = uiLayout.isMixerVisible;
-            });
-          },
-          onMixerDividerDragStart: () =>
-              setState(() => _isDraggingMixer = true),
-          onMixerDividerDragEnd: () => setState(() => _isDraggingMixer = false),
-          leftDividerNotifier: _leftDividerActive,
-          rightDividerNotifier: _rightDividerActive,
-        ),
-        // Remaining individual parameters
-        playheadPosition: playheadPos,
-        isPlaying: isPlaying,
-        canPlay: true, // Always allow transport controls
-        isRecording: isRecording,
-        isCountingIn: isCountingIn,
-        countInBeat: recordingController.countInBeat,
-        countInProgress: recordingController.countInProgress,
-        hasArmedTracks:
-            mixerKey.currentState?.tracks.any((t) => t.armed) ?? false,
-        metronomeEnabled: isMetronomeEnabled,
-        virtualPianoEnabled: uiLayout.isVirtualPianoEnabled,
-        tempo: tempo,
-        onTempoChanged: _onTempoChanged,
-        onCountInChanged: _setCountInBars,
-        countInBars: userSettings.countInBars,
-        projectName: projectMetadata.name,
-        hasTitleStrip: hasMacTitleStrip,
-        hasProject: projectManager?.hasProject ?? false,
-        libraryVisible: !uiLayout.isLibraryPanelCollapsed,
-        mixerVisible: uiLayout.isMixerVisible,
-        editorVisible: uiLayout.isEditorPanelVisible,
-        pianoVisible: uiLayout.isVirtualPianoEnabled,
-        canUndo: undoRedoManager.canUndo,
-        canRedo: undoRedoManager.canRedo,
-        undoDescription: undoRedoManager.undoDescription,
-        redoDescription: undoRedoManager.redoDescription,
-        arrangementSnap: uiLayout.arrangementSnap,
-        onSnapChanged: (value) => uiLayout.setArrangementSnap(value),
-        loopPlaybackEnabled: uiLayout.loopPlaybackEnabled,
-        punchInEnabled: uiLayout.punchInEnabled,
-        punchOutEnabled: uiLayout.punchOutEnabled,
-        beatsPerBar: projectMetadata.timeSignatureNumerator,
-        beatUnit: projectMetadata.timeSignatureDenominator,
-        onTimeSignatureChanged: _onTimeSignatureChanged,
-        onTimeSignatureDragStart: _onTimeSignatureDragStart,
-        onTimeSignatureDragEnd: _onTimeSignatureDragEnd,
-        isLoading: isLoading,
-        isEngineReady: isAudioGraphInitialized,
-        engineFailed: engineInitFailed,
-        onAddMidiTrack: _addMidiTrackWithClip,
-        onAddAudioTrack: _addAudioTrack,
-        topBarVariant: _topBarVariant,
       ),
     );
   }

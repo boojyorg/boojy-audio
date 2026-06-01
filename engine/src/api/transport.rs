@@ -2,75 +2,44 @@
 //!
 //! Functions for playback control: play, pause, stop, seek, and state queries.
 
-use super::helpers::{get_audio_graph, with_graph, AUDIO_GRAPH};
+use super::helpers::{with_graph, with_graph_mut};
 use crate::audio_graph::TransportState;
 
 // ============================================================================
 // TRANSPORT CONTROL
 // ============================================================================
 
-/// Start playback (non-blocking: uses `try_lock` to avoid UI freeze)
-pub fn transport_play() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
+// Transport state changes block on the graph lock (like the rest of the API)
+// rather than the old try_lock + detached-thread fallback. That fallback had no
+// ordering guarantee: a pause whose lock was busy got queued onto a background
+// thread and could land *after* a later play, leaving the engine paused while
+// the UI believed it was playing — the intermittent "stuck on pause" bug. The
+// audio render thread holds only cloned atomic handles (see renderer.rs), never
+// this mutex, so blocking here waits at most on another short API call, never on
+// audio. Sequential UI clicks therefore apply to the engine in the order issued.
 
-    if let Some(mut graph) = graph_mutex.try_lock() {
+/// Start playback
+pub fn transport_play() -> Result<String, String> {
+    with_graph_mut(|graph| {
         graph.play().map_err(|e| e.to_string())?;
         Ok("Playing".to_string())
-    } else {
-        eprintln!("⚠️ [API] transport_play: lock busy, spawning thread");
-        std::thread::spawn(|| {
-            if let Some(m) = AUDIO_GRAPH.get() {
-                {
-                    let mut g = m.lock();
-                    let _ = g.play();
-                    eprintln!("✅ [API] transport_play: completed in background thread");
-                }
-            }
-        });
-        Ok("Play queued".to_string())
-    }
+    })
 }
 
-/// Pause playback (non-blocking: uses `try_lock` to avoid UI freeze)
+/// Pause playback (keeps position)
 pub fn transport_pause() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-
-    if let Some(mut graph) = graph_mutex.try_lock() {
+    with_graph_mut(|graph| {
         graph.pause().map_err(|e| e.to_string())?;
         Ok("Paused".to_string())
-    } else {
-        eprintln!("⚠️ [API] transport_pause: lock busy, spawning thread");
-        std::thread::spawn(|| {
-            if let Some(m) = AUDIO_GRAPH.get() {
-                {
-                    let mut g = m.lock();
-                    let _ = g.pause();
-                }
-            }
-        });
-        Ok("Pause queued".to_string())
-    }
+    })
 }
 
-/// Stop playback and reset to start (non-blocking: uses `try_lock` to avoid UI freeze)
+/// Stop playback and reset to start
 pub fn transport_stop() -> Result<String, String> {
-    let graph_mutex = get_audio_graph()?;
-
-    if let Some(mut graph) = graph_mutex.try_lock() {
+    with_graph_mut(|graph| {
         graph.stop().map_err(|e| e.to_string())?;
         Ok("Stopped".to_string())
-    } else {
-        eprintln!("⚠️ [API] transport_stop: lock busy, spawning thread");
-        std::thread::spawn(|| {
-            if let Some(m) = AUDIO_GRAPH.get() {
-                {
-                    let mut g = m.lock();
-                    let _ = g.stop();
-                }
-            }
-        });
-        Ok("Stop queued".to_string())
-    }
+    })
 }
 
 /// Seek to a position in seconds
