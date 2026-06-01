@@ -147,6 +147,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **VST3 instruments load with sound again after reopening a project.** A plugin loaded from a saved
+  project was always treated as an *effect*, so MIDI routed to a VST3 *instrument* (synth/sampler)
+  produced silence until you reloaded it by hand. Boojy now reads the plugin's real type when it
+  loads — the same detection used when scanning your plugins — so "save a song with a soft-synth,
+  reopen it tomorrow" just works. (Also fixes the type for instruments on first load, and the
+  rebuilt host library is now a universal arm64 + Intel binary.)
+- **Top bar no longer overflows in a narrow window.** Shrinking the window past a certain width made
+  the transport bar paint a debug "overflow" stripe; its left/right sections now shrink together so
+  the transport stays centred and the stripe is gone.
 - **Pausing a recording started at bar 1, then resuming, no longer skips a bar.** When a take began at
   (or near) bar 1, the 1-bar count-in had nowhere to pre-roll, so it played "in place" and left the
   transport one bar ahead of the recorded music. Stopping hid this (it returns to the record start),

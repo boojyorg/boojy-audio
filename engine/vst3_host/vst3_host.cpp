@@ -637,13 +637,69 @@ bool vst3_get_plugin_info(VST3PluginHandle handle, VST3PluginInfo* info) {
     auto instance = static_cast<VST3PluginInstance*>(handle);
     std::memset(info, 0, sizeof(VST3PluginInfo));
 
-    // Get info from component
-    PFactoryInfo factory_info;
     std::strncpy(info->file_path, instance->file_path.c_str(), sizeof(info->file_path) - 1);
 
-    // TODO: Extract more detailed info from component
-    info->is_effect = true;
     info->is_instrument = false;
+    info->is_effect = false;
+
+    // Detect instrument-vs-effect from the loaded module's first audio class —
+    // the SAME class vst3_load_plugin instantiates — mirroring the detection in
+    // vst3_scan_directory. Without this the type was hardcoded to "effect", so
+    // any VST3 instrument loaded from a saved project path was treated as an
+    // effect and MIDI routed to it produced silence. (Bug C32.)
+    if (instance->module) {
+        auto factory = instance->module->getFactory();
+
+        PFactoryInfo factory_info;
+        factory.get()->getFactoryInfo(&factory_info);
+        std::strncpy(info->vendor, factory_info.vendor, sizeof(info->vendor) - 1);
+
+        for (const auto& class_info : factory.classInfos()) {
+            if (class_info.category() == kVstAudioEffectClass) {
+                std::string subcat_str = class_info.subCategoriesString();
+                std::string plugin_name = class_info.name();
+                std::strncpy(info->name, plugin_name.c_str(), sizeof(info->name) - 1);
+                std::strncpy(info->category, subcat_str.c_str(), sizeof(info->category) - 1);
+
+                // Instrument subcategories
+                if (subcat_str.find("Instrument") != std::string::npos ||
+                    subcat_str.find("Synth") != std::string::npos ||
+                    subcat_str.find("Sampler") != std::string::npos ||
+                    subcat_str.find("Drum") != std::string::npos ||
+                    subcat_str.find("Piano") != std::string::npos ||
+                    subcat_str.find("SoundGenerator") != std::string::npos ||
+                    subcat_str.find("Generator") != std::string::npos) {
+                    info->is_instrument = true;
+                }
+                // Effect subcategories
+                if (subcat_str.find("Fx") != std::string::npos ||
+                    subcat_str.find("Effect") != std::string::npos) {
+                    info->is_effect = true;
+                }
+
+                // A name containing " FX" is explicitly an effect (e.g. "Serum 2 FX")
+                std::string name_upper = plugin_name;
+                std::transform(name_upper.begin(), name_upper.end(), name_upper.begin(),
+                               [](unsigned char c) { return std::toupper(c); });
+                if (name_upper.find(" FX") != std::string::npos) {
+                    info->is_effect = true;
+                    info->is_instrument = false;
+                }
+
+                // Unknown subcategory → default to instrument (matches scan:
+                // most synths don't declare proper VST3 subcategories).
+                if (!info->is_instrument && !info->is_effect) {
+                    info->is_instrument = true;
+                }
+                break;  // first audio class — the one vst3_load_plugin loaded
+            }
+        }
+    }
+
+    // Module unavailable or no audio class found → conservative effect default.
+    if (!info->is_instrument && !info->is_effect) {
+        info->is_effect = true;
+    }
 
     return true;
 }
