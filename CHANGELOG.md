@@ -4,9 +4,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
-> **v0.4.0 — "Visual & UX polish" (phase 1: foundation).** A real typeface, a unified cool
-> palette, and a UI Scale control — the groundwork the rest of the polish pass builds on. Folds in
-> the earlier quick-win bug batch (no separate v0.3.3 release).
+## v0.4.0 — 2026-06-01
+
+> **"Visual & UX polish."** A real bundled typeface (Inter + JetBrains Mono), a unified cool
+> "gunmetal" palette, a persisted UI Scale control, edge-to-edge macOS chrome, a restyled piano
+> roll and centred transport, and a dogfood polish batch — plus two pre-tag fixes (VST3 instruments
+> reopen with sound; the top bar no longer overflows in a narrow window). Folds in the earlier
+> quick-win bug batch (no separate v0.3.3 release).
 
 ### Features
 
