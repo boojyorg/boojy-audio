@@ -3,7 +3,7 @@
 ## §1 Active Engineering Target
 
 **Target:** v0.4.0 — **Visual & UX polish**. The first dedicated UI/UX pass, scoped from the
-2026-05-30 review (`docs/reviews/ui_ux_review_2026_05_30.md`); spec in `docs/plans/v0.4-plan.md`.
+2026-05-30 review (`docs/reviews/ui_ux_review_2026_05_30.md`); spec in `docs/archive/plans/v0.4-plan.md`.
 Sequenced **foundation → contained re-treats → top-bar A/B last**, so the A/B happens on the
 finished look. The earlier v0.3.3 quick-win bug batch folds into this release — **no separate
 v0.3.3 tag** (we skipped it and went straight to v0.4.0).
@@ -37,9 +37,10 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   and the intermittent **Delete-does-nothing** focus fix. ⚠ two items still want a live eyeball:
   the rebuilt "Boojy" lockup font/kerning, and the transport-centre offset when sidebar≠mixer width.
   Dogfood log: `docs/dogfood/2026-05-31-v0.4-polish.md` (gitignored, local).
-- [ ] **Fix-before-tag (the only v0.4-era items):** (a) **piano-roll lane *colours*** — the long-deferred
-  refinement; (b) **narrow-window top-bar overflow** (`RIGHT OVERFLOWED BY` banner, ui B-TB1 — needs a
-  min-width clamp). Optional cheap add: VST3 instrument-reload-silent (C32/B-2), the worst demo bug.
+- [x] **Fix-before-tag (shipped in v0.4.0):** narrow-window top-bar overflow (ui B-TB1) fixed, and
+  **VST3 instrument-reload-silent (C32/B-2) fixed** (root C++ subcategory detection in
+  `vst3_get_plugin_info` + universal arm64/Intel lib rebuild). The piano-roll lane-*colour*
+  refinement was **deferred to v0.5**.
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
   high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
   Serum/VST3 load bug; scaling the 9 painter text sizes. **(Most of these are now the v0.5 theme — see below.)**
