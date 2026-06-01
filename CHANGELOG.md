@@ -16,7 +16,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
-- **Steady top bar with a truly centred transport.** The left chrome (▲udio wordmark, undo/redo,
+- **Editor toolbar buttons match the rest of the app.** The Instrument/MIDI tabs and the piano-roll
+  tool palette (draw / select / erase / duplicate / slice) now show the selected one with an
+  accent **outline + soft tint** — the same "engaged" look as the top bar's Loop / Snap buttons —
+  instead of a heavier solid-blue fill, so the whole interface reads as one design language.
+- **Quantize now looks like an action, not a toggle.** It previously wore the same outlined pill as
+  the Snap/Loop toggles beside it, so it looked like an on/off switch that was off. It now carries
+  an accent magnet glyph and briefly **flashes when pressed** (then settles back), making it clear
+  it *applies* quantization rather than turning something on. Establishes a consistent rule:
+  outline = toggle, fill = selection, glyph + press-flash = action. The left chrome (▲udio wordmark, undo/redo,
   Library toggle) now sits on a fixed rail, so it no longer shrinks or shifts — and the wordmark no
   longer clips — when you collapse the Library. Both side rails share one width, which keeps the
   play / stop / record cluster locked to the centre of the window even when the Library and Mixer
