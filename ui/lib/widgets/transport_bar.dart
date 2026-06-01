@@ -436,17 +436,27 @@ class _TransportBarState extends State<TransportBar> {
   /// the `ResizableDivider`s in the panels below, so the bar no longer carries
   /// its own resize handles (the two-row variant C still does).
   Widget _buildSingleRowBody(BoojyColors colors) {
-    return Row(
-      children: [
-        // === LEFT RAIL (fixed width) ===
-        SizedBox(width: _kRailWidth, child: _buildLeftGroup(colors)),
+    // Clamp each rail to at most half the available width so the two fixed
+    // rails can never sum past the window — below ~640px they shrink together
+    // (the centre Expanded never gets a negative constraint), which kills the
+    // RenderFlex "RIGHT OVERFLOWED BY" banner at narrow widths while keeping
+    // the rails equal so the transport stays centred. (B-TB1)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final railWidth = (constraints.maxWidth / 2).clamp(0.0, _kRailWidth);
+        return Row(
+          children: [
+            // === LEFT RAIL (clamped width) ===
+            SizedBox(width: railWidth, child: _buildLeftGroup(colors)),
 
-        // === CENTRE GROUP (expanded → window-centred) ===
-        Expanded(child: _buildCentreGroup(colors)),
+            // === CENTRE GROUP (expanded → window-centred) ===
+            Expanded(child: _buildCentreGroup(colors)),
 
-        // === RIGHT RAIL (fixed width, content right-aligned) ===
-        SizedBox(width: _kRailWidth, child: _buildRightGroup(colors)),
-      ],
+            // === RIGHT RAIL (clamped width, content right-aligned) ===
+            SizedBox(width: railWidth, child: _buildRightGroup(colors)),
+          ],
+        );
+      },
     );
   }
 

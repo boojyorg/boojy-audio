@@ -67,7 +67,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Scale/key highlighting
 - [ ] Ghost notes (show notes from other clips)
 - [ ] Chord detection and tools
-- [ ] Quantize options (1/4, 1/8, 1/16, 1/32)
+- [x] Quantize options (1/4, 1/8, 1/16, 1/32)
 - [ ] Humanize
 
 **Step Sequencer:**
@@ -88,7 +88,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Multi-selection (Shift+click, Cmd+click)
 - [x] Consolidate clips (Cmd+J)
 - [ ] Merge clips
-- [ ] Duplicate clips
+- [ ] Duplicate clips (MIDI works; audio-clip path not wired to Cmd+D / Edit menu)
 
 **Clip Trimming:**
 - [x] Audio clip left/right edge trim
@@ -101,7 +101,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Fade in/out (basic)
 - [x] Warp/time stretch
 - [x] Pitch shift (semitones/cents)
-- [ ] Reverse audio
+- [ ] Reverse audio (UI toggle exists; no engine FFI yet — playback unaffected)
 - [ ] Normalize
 - [ ] Transient detection
 
@@ -152,7 +152,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Fixed tempo (BPM display)
 - [x] Time signature changes (numerator + grid; compound x/8 feel deferred)
 - [ ] Tempo automation
-- [ ] Tap tempo
+- [x] Tap tempo
 - [ ] Swing (0-100% slider)
 
 ### Tracks & Organization
@@ -175,8 +175,8 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Preview/Audition sounds
 - [ ] File browser
 - [ ] Sync preview to tempo
-- [ ] Favorites
-- [ ] Search
+- [x] Favorites
+- [x] Search
 - [ ] Collections
 
 ### Project & File
