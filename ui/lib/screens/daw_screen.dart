@@ -63,7 +63,6 @@ import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
-import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
@@ -180,13 +179,6 @@ class _DAWScreenState extends State<DAWScreen>
             userSettings.editorButtonVariant,
           );
         });
-
-        // Show crash reporting opt-in dialog on first launch
-        if (!userSettings.crashReportingAsked && mounted) {
-          final optIn = await CrashReportingDialog.show(context);
-          userSettings.crashReportingEnabled = optIn;
-          userSettings.crashReportingAsked = true;
-        }
 
         // Show start screen modal on launch
         if (mounted) {

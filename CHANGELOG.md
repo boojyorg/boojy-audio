@@ -22,6 +22,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Removed Sentry crash reporting (for now).** It was unblocking nothing pre-beta — you're the only
+  user, and the local error handlers still print crashes to the console during dev. Removing it also
+  fixed a macOS build failure: `sentry_flutter` 9.x ships a Swift Package Manager layout that
+  doesn't resolve under this project's CocoaPods build. We'll re-add telemetry deliberately at beta,
+  when external testers' crashes actually matter. The first-launch crash-reporting opt-in dialog is
+  gone with it.
 - **Recording resumes on the beat, with a visible count-in.** Continuing a paused take now snaps the
   resume point to the nearest beat so the count-in lands cleanly on "1, 2, 3, 4", and the playhead
   **sweeps through the count-in pre-roll** toward the record point instead of sitting frozen until
