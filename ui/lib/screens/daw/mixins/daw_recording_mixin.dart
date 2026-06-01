@@ -33,9 +33,29 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     }
   }
 
+  /// Whether the most recent take started while already playing (Play→Record),
+  /// i.e. with no count-in. Used to size the count-in "in place" offset.
+  bool _lastRecordWasAlreadyPlaying = false;
+
   /// Start recording
   /// [isAlreadyPlaying]: If true, skips count-in and starts recording immediately
   void startRecording({bool isAlreadyPlaying = false}) {
+    _lastRecordWasAlreadyPlaying = isAlreadyPlaying;
+
+    // Beat-snap the record start so the count-in lands on the grid ("1,2,3,4")
+    // and resumed takes stay tight to the beat. Only when a count-in will
+    // actually play (a fresh record, not Play→Record), and only on a real shift.
+    // Seeking here means recordingController.startRecording (which re-reads the
+    // playhead) and the engine seekback both compute from the snapped position.
+    if (!isAlreadyPlaying && userSettings.countInBars > 0) {
+      final current = audioEngine?.getPlayheadPosition() ?? 0.0;
+      final secondsPerBeat = 60.0 / tempo;
+      final snapped = (current / secondsPerBeat).round() * secondsPerBeat;
+      if ((snapped - current).abs() > 1e-4) {
+        playbackController.seek(snapped);
+      }
+    }
+
     // Block preview playback during recording
     libraryPreviewService?.setRecordingState(true);
 
@@ -78,7 +98,27 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     recordingController.addListener(_onRecordingStateChanged);
   }
 
-  /// Detect count-in → recording transition and start playhead polling
+  /// Seconds the count-in plays "in place" because it couldn't seek back a full
+  /// pre-roll — i.e. when recording starts within one count-in of the timeline
+  /// origin (only near bar 1). This is how far the transport playhead ends up
+  /// ahead of the musical content. 0 when there's room for a full pre-roll, and
+  /// 0 for Play→Record (no count-in plays).
+  double _countInInPlaceOffsetSeconds() {
+    if (_lastRecordWasAlreadyPlaying) return 0.0;
+    final countInBars = userSettings.countInBars;
+    if (countInBars <= 0) return 0.0;
+    final beatsPerBar = projectMetadata.timeSignatureNumerator;
+    final countInSeconds = countInBars * beatsPerBar * 60.0 / tempo;
+    final offset = countInSeconds - recordingController.recordingStartPosition;
+    return offset > 0 ? offset : 0.0;
+  }
+
+  /// Detect the count-in → recording transition and start playhead polling.
+  /// When the count-in has real pre-roll room (offset == 0) we start polling
+  /// during count-in so the playhead visibly sweeps through the pre-roll toward
+  /// the record point. Near bar 1 (offset > 0) there's no room to show, so we
+  /// keep the playhead parked until recording begins, then subtract the in-place
+  /// count-in time so the displayed position matches the musical content.
   void _onRecordingStateChanged() {
     // Start playhead polling when entering WaitingForPunchIn (transport is playing)
     if (recordingController.isWaitingForPunchIn) {
@@ -87,15 +127,21 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
       return;
     }
 
+    final offset = _countInInPlaceOffsetSeconds();
+
+    // Pre-roll has room: let the playhead move through the count-in immediately.
+    if (offset <= 0 && recordingController.isCountingIn) {
+      recordingController.removeListener(_onRecordingStateChanged);
+      playbackController.startPlayheadPolling(displayOffset: 0.0);
+      return;
+    }
+
+    // Otherwise wait for recording to actually begin (covers the bar-1 in-place
+    // count-in and the no-count-in Play→Record path, both with offset already 0
+    // for the latter).
     if (recordingController.isRecording && !recordingController.isCountingIn) {
       recordingController.removeListener(_onRecordingStateChanged);
-
-      // Use actual count-in duration from recording controller (measured by engine)
-      // This ensures correct offset for both normal recording (with count-in) and
-      // Play→Record (no count-in, offset = 0)
-      final countInDuration = recordingController.countInDurationSeconds;
-
-      playbackController.startPlayheadPolling(displayOffset: countInDuration);
+      playbackController.startPlayheadPolling(displayOffset: offset);
     }
   }
 
@@ -132,6 +178,21 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
 
     // Pause (stay at current position)
     playbackController.pause();
+
+    // Count-in "played in place" correction.
+    // When a take starts within one count-in of the timeline origin, the engine
+    // can't seek back the full count-in, so it plays the remainder in place —
+    // which leaves the transport playhead ahead of the recorded music by that
+    // un-seekable amount (a full bar when recording from bar 1). Stop() hides
+    // this by returning to the record-start, but Pause() keeps the playhead, so
+    // a resumed take would begin that much late, leaving a gap. Pull the
+    // playhead back to the true musical end so resume continues seamlessly.
+    final offset = _countInInPlaceOffsetSeconds();
+    if (offset > 0) {
+      final enginePlayhead = audioEngine?.getPlayheadPosition() ?? 0.0;
+      final corrected = enginePlayhead - offset;
+      playbackController.seek(corrected > 0 ? corrected : 0.0);
+    }
 
     handleRecordingComplete(result, capturedNotes: capturedNotes);
   }
@@ -574,6 +635,21 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
         duration: Duration(seconds: 2),
       ),
     );
+  }
+
+  /// Rescan for a hot-plugged MIDI keyboard (called on app focus / track arm).
+  /// Silent unless a newly-connected device was picked up, in which case it
+  /// confirms with a brief toast.
+  void rescanMidiForHotPlug() {
+    final connectedName = recordingController.rescanMidiDevices();
+    if (connectedName != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎹 $connectedName connected'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   // ============================================
