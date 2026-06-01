@@ -22,6 +22,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **Recording resumes on the beat, with a visible count-in.** Continuing a paused take now snaps the
+  resume point to the nearest beat so the count-in lands cleanly on "1, 2, 3, 4", and the playhead
+  **sweeps through the count-in pre-roll** toward the record point instead of sitting frozen until
+  recording begins (a first take at bar 1 stays put, since there's no room before it). Applies to
+  both MIDI and audio takes — it's part of the shared transport flow.
 - **Editor toolbar buttons match the rest of the app.** The Instrument/MIDI tabs and the piano-roll
   tool palette (draw / select / erase / duplicate / slice) now show the selected one with an
   accent **outline + soft tint** — the same "engaged" look as the top bar's Loop / Snap buttons —
@@ -136,6 +141,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Pausing a recording started at bar 1, then resuming, no longer skips a bar.** When a take began at
+  (or near) bar 1, the 1-bar count-in had nowhere to pre-roll, so it played "in place" and left the
+  transport one bar ahead of the recorded music. Stopping hid this (it returns to the record start),
+  but pausing kept the offset — so the continued take started a bar late, leaving a gap between
+  clips. Pausing now pulls the playhead back to the true musical end, so resume continues seamlessly
+  (and its own count-in pre-rolls correctly). Mid-timeline takes were unaffected and stay that way.
+- **Play button now turns into Pause while recording.** When a take rolled (count-in or recording),
+  the transport button kept its green "play" look even though clicking it paused the take. It now
+  shows the amber pause affordance throughout playback, count-in, and recording — matching what the
+  button actually does. Recording state lives separately from playback state, so the icon was only
+  tracking plain playback and missed the recording-rolling case.
 - **Pause/Play no longer gets stuck on the pause icon.** After pausing, the play/pause button stayed
   showing "pause" and wouldn't resume from the current position (only Stop unstuck it). The transport
   bar was only rebuilding off the 60fps playhead notifier, which `pause()` silences — so it never
