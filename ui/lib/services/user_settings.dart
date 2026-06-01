@@ -127,8 +127,6 @@ class UserSettings extends ChangeNotifier {
   static const String _keyEditorButtonVariant = 'editor_button_variant';
 
   // Privacy keys
-  static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
-  static const String _keyCrashReportingAsked = 'crash_reporting_asked';
   static const String _keyHasCompletedTour = 'has_completed_tour';
 
   // Limits
@@ -208,8 +206,6 @@ class UserSettings extends ChangeNotifier {
   String _editorButtonVariant = 'outline';
 
   // Privacy settings
-  bool _crashReportingEnabled = false; // Default off - requires opt-in
-  bool _crashReportingAsked = false; // Whether user has been asked
   bool _hasCompletedTour = false;
 
   /// Whether settings have been loaded
@@ -638,26 +634,6 @@ class UserSettings extends ChangeNotifier {
   // Privacy Settings
   // ========================================================================
 
-  /// Whether crash reporting is enabled (requires user opt-in)
-  bool get crashReportingEnabled => _crashReportingEnabled;
-  set crashReportingEnabled(bool value) {
-    if (_crashReportingEnabled != value) {
-      _crashReportingEnabled = value;
-      _savePrivacySettings();
-      notifyListeners();
-    }
-  }
-
-  /// Whether the user has been asked about crash reporting
-  bool get crashReportingAsked => _crashReportingAsked;
-  set crashReportingAsked(bool value) {
-    if (_crashReportingAsked != value) {
-      _crashReportingAsked = value;
-      _savePrivacySettings();
-      notifyListeners();
-    }
-  }
-
   /// Whether the first-run tour has been completed
   bool get hasCompletedTour => _hasCompletedTour;
   set hasCompletedTour(bool value) {
@@ -780,9 +756,6 @@ class UserSettings extends ChangeNotifier {
           _prefs?.getString(_keyEditorButtonVariant) ?? 'outline';
 
       // Load privacy settings
-      _crashReportingEnabled =
-          _prefs?.getBool(_keyCrashReportingEnabled) ?? false;
-      _crashReportingAsked = _prefs?.getBool(_keyCrashReportingAsked) ?? false;
       _hasCompletedTour = _prefs?.getBool(_keyHasCompletedTour) ?? false;
 
       _isLoaded = true;
@@ -964,8 +937,6 @@ class UserSettings extends ChangeNotifier {
     if (_prefs == null) return;
 
     try {
-      await _prefs!.setBool(_keyCrashReportingEnabled, _crashReportingEnabled);
-      await _prefs!.setBool(_keyCrashReportingAsked, _crashReportingAsked);
       await _prefs!.setBool(_keyHasCompletedTour, _hasCompletedTour);
     } catch (e) {
       Log.e('UserSettings: Failed to save privacy settings: $e');

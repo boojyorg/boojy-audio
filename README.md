@@ -121,10 +121,6 @@ For VST3 plugin support on Windows:
 | Cmd+J | Consolidate clips |
 | Cmd+Z / Cmd+Shift+Z | Undo / Redo |
 
-## Contributing
-
-This project is in alpha. Contributions welcome — check [GitHub Issues](https://github.com/tyrbujac/boojy-audio/issues) for open tasks.
-
 ## License
 
 MIT License — See [LICENSE](LICENSE) for details.

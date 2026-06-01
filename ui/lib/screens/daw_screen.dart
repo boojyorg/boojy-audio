@@ -63,7 +63,6 @@ import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
-import '../widgets/dialogs/crash_reporting_dialog.dart';
 import '../widgets/start_screen/start_screen_modal.dart';
 import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
@@ -81,6 +80,7 @@ class DAWScreen extends StatefulWidget {
 
 class _DAWScreenState extends State<DAWScreen>
     with
+        WidgetsBindingObserver,
         DAWScreenStateMixin,
         DAWPlaybackMixin,
         DAWRecordingMixin,
@@ -138,6 +138,10 @@ class _DAWScreenState extends State<DAWScreen>
     // Clean slate on every start (prevents stale undo state from hot restart)
     undoRedoManager.clear();
 
+    // Observe app lifecycle so we can rescan for hot-plugged MIDI keyboards
+    // when the user returns focus to Boojy.
+    WidgetsBinding.instance.addObserver(this);
+
     // Listen for undo/redo state changes to update menu
     undoRedoManager.addListener(_onUndoRedoChanged);
 
@@ -175,13 +179,6 @@ class _DAWScreenState extends State<DAWScreen>
             userSettings.editorButtonVariant,
           );
         });
-
-        // Show crash reporting opt-in dialog on first launch
-        if (!userSettings.crashReportingAsked && mounted) {
-          final optIn = await CrashReportingDialog.show(context);
-          userSettings.crashReportingEnabled = optIn;
-          userSettings.crashReportingAsked = true;
-        }
 
         // Show start screen modal on launch
         if (mounted) {
@@ -266,6 +263,8 @@ class _DAWScreenState extends State<DAWScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
     // Remove undo/redo listener
     undoRedoManager.removeListener(_onUndoRedoChanged);
 
@@ -317,6 +316,16 @@ class _DAWScreenState extends State<DAWScreen>
     _stopPlayback();
 
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Returning focus to Boojy is a natural moment to pick up a MIDI keyboard
+    // that was plugged in while we were in the background.
+    if (state == AppLifecycleState.resumed && isAudioGraphInitialized) {
+      rescanMidiForHotPlug();
+    }
   }
 
   Future<void> _initAudioEngine() async {
@@ -377,8 +386,14 @@ class _DAWScreenState extends State<DAWScreen>
       // Initialize undo/redo manager with engine
       undoRedoManager.initialize(audioEngine!);
 
-      // Initialize controllers with audio engine
+      // Initialize controllers with audio engine.
+      // Set the preferred-MIDI-device reader BEFORE initialize(), which loads
+      // MIDI devices and honors the saved preference. It's a lazy callback, so
+      // if settings haven't finished loading yet it falls back to the default
+      // device and the first focus/arm rescan corrects it.
       playbackController.initialize(audioEngine!);
+      recordingController.getPreferredMidiDevice = () =>
+          userSettings.preferredMidiInput;
       recordingController.initialize(audioEngine!);
       recordingController.setLiveRecordingNotifier(liveRecordingNotifier);
       recordingController.getFirstArmedMidiTrackId = () {
@@ -3697,6 +3712,7 @@ class _DAWScreenState extends State<DAWScreen>
                       recordingController.isRecording ||
                       recordingController.isCountingIn,
                   trackOrder: trackController.trackOrder,
+                  onTrackArmed: rescanMidiForHotPlug,
                 ),
                 selectionState: TrackSelectionState(
                   selectedTrackId: selectedTrackId,

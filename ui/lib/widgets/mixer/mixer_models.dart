@@ -101,11 +101,16 @@ class MixerPanelConfig {
   final bool isRecording;
   final List<int> trackOrder;
 
+  /// Called when a track is armed for recording. Used to rescan for a
+  /// hot-plugged MIDI keyboard at the moment the user is about to play.
+  final VoidCallback? onTrackArmed;
+
   const MixerPanelConfig({
     this.panelWidth = 380.0,
     this.onTogglePanel,
     this.isEngineReady = false,
     this.isRecording = false,
     this.trackOrder = const [],
+    this.onTrackArmed,
   });
 }

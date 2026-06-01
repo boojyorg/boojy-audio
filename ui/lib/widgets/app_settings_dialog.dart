@@ -49,8 +49,10 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
   late BoojyTheme _selectedTheme;
   List<Map<String, dynamic>> _outputDevices = [];
   List<Map<String, dynamic>> _inputDevices = [];
+  List<Map<String, dynamic>> _midiInputDevices = [];
   String? _selectedOutputDevice;
   String? _selectedInputDevice;
+  String? _selectedMidiInputDevice;
   String _selectedDriver = Platform.isMacOS ? 'coreaudio' : 'wasapi';
   bool _asioGuideExpanded = false;
   bool _autoCheckUpdates = true;
@@ -224,13 +226,43 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
       _inputDevices = widget.audioEngine!.getAudioInputDevices();
       _selectedInputDevice = widget.settings.preferredInputDevice;
 
+      // Load MIDI input devices (keyboards/controllers)
+      _loadMidiInputDevices();
+
       Log.i('AppSettings: Driver: $_selectedDriver');
       Log.i('AppSettings: Loaded ${_outputDevices.length} output devices');
       Log.i('AppSettings: Loaded ${_inputDevices.length} input devices');
+      Log.i(
+        'AppSettings: Loaded ${_midiInputDevices.length} MIDI input devices',
+      );
       Log.i('AppSettings: Selected output: $_selectedOutputDevice');
       Log.i('AppSettings: Selected input: $_selectedInputDevice');
     } else {
       Log.e('AppSettings: No audio engine provided');
+    }
+  }
+
+  /// (Re)scan MIDI input devices and resolve the currently-selected one.
+  /// Shows the saved preference if its keyboard is connected, otherwise the
+  /// device the engine auto-selected (the default / first).
+  void _loadMidiInputDevices() {
+    if (widget.audioEngine == null) return;
+    _midiInputDevices = widget.audioEngine!.getMidiInputDevices();
+
+    final preferred = widget.settings.preferredMidiInput;
+    final hasPreferred =
+        preferred != null &&
+        _midiInputDevices.any((d) => d['name'] == preferred);
+    if (hasPreferred) {
+      _selectedMidiInputDevice = preferred;
+    } else if (_midiInputDevices.isNotEmpty) {
+      final defaultDevice = _midiInputDevices.firstWhere(
+        (d) => d['isDefault'] == true,
+        orElse: () => _midiInputDevices.first,
+      );
+      _selectedMidiInputDevice = defaultDevice['name'] as String?;
+    } else {
+      _selectedMidiInputDevice = null;
     }
   }
 
@@ -868,6 +900,85 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     );
   }
 
+  Widget _buildMidiInputSelector() {
+    final devices = _midiInputDevices;
+    final hasDevices = devices.isNotEmpty;
+
+    // Resolve the active device to an index (selection is by name; values are
+    // indices so two keyboards with the same name stay distinct).
+    final selectedIndex = devices.indexWhere(
+      (d) => d['name'] == _selectedMidiInputDevice,
+    );
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'MIDI Input',
+            style: TextStyle(color: context.colors.textPrimary, fontSize: 14),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: context.colors.standard,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: context.colors.elevated),
+            ),
+            child: hasDevices
+                ? DropdownButton<int>(
+                    value: selectedIndex >= 0 ? selectedIndex : 0,
+                    isExpanded: true,
+                    underline: Container(),
+                    dropdownColor: context.colors.standard,
+                    style: TextStyle(
+                      color: context.colors.textPrimary,
+                      fontSize: 14,
+                    ),
+                    items: List.generate(devices.length, (i) {
+                      final name = devices[i]['name'] as String? ?? 'Unknown';
+                      final isDefault = devices[i]['isDefault'] == true;
+                      return DropdownMenuItem<int>(
+                        value: i,
+                        child: Text(
+                          isDefault ? '$name (Default)' : name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }),
+                    onChanged: (index) {
+                      if (index == null) return;
+                      final name = devices[index]['name'] as String?;
+                      setState(() => _selectedMidiInputDevice = name);
+                      widget.settings.preferredMidiInput = name;
+                      widget.audioEngine?.selectMidiInputDevice(index);
+                    },
+                  )
+                : Text(
+                    'No MIDI devices found',
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: Icon(BI.refresh, size: 18, color: context.colors.textSecondary),
+          tooltip: 'Rescan MIDI devices',
+          onPressed: () {
+            widget.audioEngine?.refreshMidiDevices();
+            setState(_loadMidiInputDevices);
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildBufferSizeSelector() {
     // Buffer size options with calculated latency at 48kHz
     final bufferOptions = [
@@ -1106,44 +1217,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'MIDI Input',
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: context.colors.standard,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: context.colors.elevated),
-                ),
-                child: Text(
-                  'All Devices',
-                  style: TextStyle(
-                    color: context.colors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+        _buildMidiInputSelector(),
         const SizedBox(height: 8),
         Text(
-          'MIDI device selection is handled in the transport bar',
+          'Boojy listens to your keyboard automatically and remembers your '
+          'choice. Pick a specific device above if you have more than one.',
           style: TextStyle(color: context.colors.textMuted, fontSize: 12),
         ),
       ],

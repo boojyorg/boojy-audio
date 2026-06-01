@@ -58,9 +58,6 @@ dependencies:
   # State management
   provider: ^6.1.2
 
-  # Crash reporting
-  sentry_flutter: ^9.10.0
-
   # Window management for desktop
   window_manager: ^0.4.3
 
