@@ -37,10 +37,32 @@ v0.3.3 tag** (we skipped it and went straight to v0.4.0).
   and the intermittent **Delete-does-nothing** focus fix. ⚠ two items still want a live eyeball:
   the rebuilt "Boojy" lockup font/kerning, and the transport-centre offset when sidebar≠mixer width.
   Dogfood log: `docs/dogfood/2026-05-31-v0.4-polish.md` (gitignored, local).
-- [ ] **Piano-roll lane *colours*** — the last open v0.4 item before the release can be tagged.
+- [ ] **Fix-before-tag (the only v0.4-era items):** (a) **piano-roll lane *colours*** — the long-deferred
+  refinement; (b) **narrow-window top-bar overflow** (`RIGHT OVERFLOWED BY` banner, ui B-TB1 — needs a
+  min-width clamp). Optional cheap add: VST3 instrument-reload-silent (C32/B-2), the worst demo bug.
 - [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
   high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
-  Serum/VST3 load bug; scaling the 9 painter text sizes.
+  Serum/VST3 load bug; scaling the 9 painter text sizes. **(Most of these are now the v0.5 theme — see below.)**
+
+### Pre-release review outcome (2026-06-01)
+
+Ran a 3-workflow pre-release review chain before tagging v0.4.0 — reports in `docs/reviews/*_2026_06_01.md`
+(`codebase_review`, `ui_ux_review`, `feature_gap_review`) + the consolidated
+`v0.4.0_pre_release_triage_2026_06_01.md`. **Verdict: v0.4.0 is safe to tag** — every critical/high
+defect is *pre-existing* (already in v0.3.2); the v0.4 polish cycle introduced none, so tagging
+regresses nothing. The two fix-before-tag items above are the only genuinely v0.4-era cleanups.
+
+**Next themes decided (all three reviews converged independently):**
+- **v0.5 "Trust & Legibility"** — correctness/hardening (VST3 lifecycle C30/C32/C34/C35, DeleteTrack
+  content-loss undo C62/68/76/97, recorder audio-thread blocking C1–C3, round-trip tempo C72,
+  command/undo holes) **+** the legibility pass (tokenise the ~390 hardcoded colours; painters
+  theme + scale). **Do FIRST:** fix CI/test trust — integration tests skip when the dylib is absent
+  (C92) and clippy is non-fatal (C95) — plus the `FEATURE_TRACKER.md` accuracy sweep.
+- **v0.6 "Sound"** (after hardening) — stock instruments (a new MIDI track is currently *silent*),
+  drum sequencer, starter loop pack, effect presets, swing-to-engine.
+
+Fixes are **not yet applied** — awaiting Tyr's approval on the fix-before-tag shortlist, then a fresh
+branch off `origin/master`.
 
 **macOS title-bar gotcha:** no native `NSToolbar` style gives "centred + compact" — `.expanded`
 centres the title but adds an empty, taller toolbar row; `.unifiedCompact` is compact but
