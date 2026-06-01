@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'screens/daw_screen.dart';
 import 'services/user_settings.dart';
 import 'services/vst3_editor_service.dart';
@@ -9,32 +8,17 @@ import 'services/window_title_service.dart';
 import 'theme/theme_provider.dart';
 import 'theme/tokens.dart';
 
-const String _sentryDsn =
-    'https://e9ed35471624004209d192efe41ff66d@o4510676795260928.ingest.de.sentry.io/4510676802207824';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load user settings first to check crash reporting preference
+  // Load user settings first
   final settings = UserSettings();
   await settings.load();
 
   // Initialize window title service for desktop
   await WindowTitleService.initialize();
 
-  if (settings.crashReportingEnabled && _sentryDsn != 'YOUR_SENTRY_DSN_HERE') {
-    // Initialize Sentry if user has opted in
-    await SentryFlutter.init((options) {
-      options.dsn = _sentryDsn;
-      options.tracesSampleRate = 1.0;
-      options.environment = 'production';
-      // Reduce debug noise in console
-      options.debug = false;
-    }, appRunner: () => _runApp(settings));
-  } else {
-    // Run without Sentry
-    _runApp(settings);
-  }
+  _runApp(settings);
 }
 
 void _runApp(UserSettings settings) {
