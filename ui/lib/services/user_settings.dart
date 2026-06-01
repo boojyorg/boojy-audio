@@ -124,6 +124,7 @@ class UserSettings extends ChangeNotifier {
   static const String _keyUiScale = 'ui_scale';
   static const String _keyPositionDisplayMode = 'position_display_mode';
   static const String _keyTopBarVariant = 'top_bar_variant';
+  static const String _keyEditorButtonVariant = 'editor_button_variant';
 
   // Privacy keys
   static const String _keyCrashReportingEnabled = 'crash_reporting_enabled';
@@ -203,6 +204,8 @@ class UserSettings extends ChangeNotifier {
   String _positionDisplayMode =
       'bars'; // transport readout: 'bars' | 'time' | 'both'
   String _topBarVariant = 'inline'; // top-bar layout: 'inline' | 'lcd'
+  // editor selection-button style: 'solidFill' | 'outline' | 'softFill'
+  String _editorButtonVariant = 'outline';
 
   // Privacy settings
   bool _crashReportingEnabled = false; // Default off - requires opt-in
@@ -612,6 +615,17 @@ class UserSettings extends ChangeNotifier {
     }
   }
 
+  /// Editor selection-button style token ('solidFill' | 'outline' | 'softFill').
+  /// Chosen live via the dev switcher (Cmd+Shift+E) and persisted across launches.
+  String get editorButtonVariant => _editorButtonVariant;
+  set editorButtonVariant(String value) {
+    if (_editorButtonVariant != value) {
+      _editorButtonVariant = value;
+      _saveAppearanceSettings();
+      notifyListeners();
+    }
+  }
+
   /// Human-readable label for a UI Scale factor.
   static String uiScaleLabel(double scale) {
     if (scale <= 0.90) return 'Compact';
@@ -762,6 +776,8 @@ class UserSettings extends ChangeNotifier {
       _positionDisplayMode =
           _prefs?.getString(_keyPositionDisplayMode) ?? 'bars';
       _topBarVariant = _prefs?.getString(_keyTopBarVariant) ?? 'inline';
+      _editorButtonVariant =
+          _prefs?.getString(_keyEditorButtonVariant) ?? 'outline';
 
       // Load privacy settings
       _crashReportingEnabled =
@@ -937,6 +953,7 @@ class UserSettings extends ChangeNotifier {
       await _prefs!.setDouble(_keyUiScale, _uiScale);
       await _prefs!.setString(_keyPositionDisplayMode, _positionDisplayMode);
       await _prefs!.setString(_keyTopBarVariant, _topBarVariant);
+      await _prefs!.setString(_keyEditorButtonVariant, _editorButtonVariant);
     } catch (e) {
       Log.e('UserSettings: Failed to save appearance settings: $e');
     }
