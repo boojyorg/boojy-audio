@@ -1,16 +1,23 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.3.2 (developing v0.4.0)
-**Working On:** v0.4.0 — Visual & UX polish (foundation + re-treats + top-bar & chrome polish done; **last item: piano-roll lane colours**, then tag)
+**Current Version:** v0.4.0 (developing v0.5.0)
+**Working On:** v0.5.0 — Trust & Legibility (correctness/hardening + token/painter legibility), the theme set by the [2026-06-01 review chain](reviews/v0.4.0_pre_release_triage_2026_06_01.md). The deferred piano-roll lane-colour refinement carries into it.
 **Goal:** v1.0 public release
 
 ---
 
 ## What's Next (v0.4.0)
 
-**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/ui_ux_review_2026_05_30.md) and specced in [plans/v0.4-plan.md](plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B → chrome & dogfood polish**. Shipped so far: bundled Inter + JetBrains Mono, a unified "gunmetal" dark palette, a persisted UI Scale setting; piano-roll keyboard-contrast lanes + readout behaviour; the macOS title fix + top-bar A/B (Variant A won); and a dogfood polish batch (shared ▲udio wordmark, centred transport, note resize in Select mode, type-coloured Add-Track buttons, dB-readout + Delete-focus fixes — PR #29). The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag). **Last open item: refine the piano-roll lane colours**, then v0.4.0 can be tagged.
+**Visual & UX polish** — the first dedicated UI/UX pass, scoped from the [2026-05-30 review](reviews/ui_ux_review_2026_05_30.md) and specced in [archive/plans/v0.4-plan.md](archive/plans/v0.4-plan.md). Sequenced **foundation → contained re-treats → top-bar A/B → chrome & dogfood polish**. Shipped: bundled Inter + JetBrains Mono, a unified "gunmetal" dark palette, a persisted UI Scale setting; piano-roll keyboard-contrast lanes + readout behaviour; the macOS title fix + top-bar A/B (Variant A won); a dogfood polish batch (shared ▲udio wordmark, centred transport, note resize in Select mode, type-coloured Add-Track buttons, dB-readout + Delete-focus fixes — PR #29); and two pre-tag fixes (VST3 instruments reopen with sound; narrow top-bar no longer overflows). The earlier quick-win bug batch folds into this release (no separate v0.3.3 tag). The piano-roll lane-colour refinement was **deferred to v0.5.0**.
 
-The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / step sequencer, quantize) are **deferred** — picked up after the polish pass.
+The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / step sequencer, quantize) are **deferred** — picked up in the **v0.6 "Sound"** cycle below.
+
+### After v0.4.0 (themes set by the 2026-06-01 review chain)
+
+A three-review pre-release audit ([codebase](reviews/codebase_review_2026_06_01.md) · [UI/UX](reviews/ui_ux_review_2026_06_01.md) · [feature-gap](reviews/feature_gap_review_2026_06_01.md) · [triage](reviews/v0.4.0_pre_release_triage_2026_06_01.md)) confirmed v0.4.0 is taggable (the critical bugs are pre-existing, not v0.4 regressions) and the three reviews independently converged on the next two themes:
+
+- **v0.5 — "Trust & Legibility":** correctness/hardening for the moment a session leaves the happy path (VST3 lifecycle, DeleteTrack undo content-loss, recorder audio-thread blocking, round-trip tempo, command/undo holes) **+** make the design tokens load-bearing (tokenise the ~390 hardcoded colours; painters theme + scale). Do first: fix CI/test trust (integration tests skip when the dylib is absent; clippy non-fatal) + the FEATURE_TRACKER accuracy sweep.
+- **v0.6 — "Sound":** the dedicated feature cycle — stock instruments (a new MIDI track is currently silent), drum step sequencer, starter loop pack, effect presets, swing-to-engine. Sequenced *after* hardening so a beginner's first from-scratch song doesn't land on the shakiest code paths.
 
 Shipped in v0.3.0:
 
@@ -34,8 +41,9 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.3.0 | Send/return routing (minimal) | Complete |
 | v0.3.1 | Trust/correctness hardening (data-loss) | Complete |
 | v0.3.2 | Plugins & the audio thread (VST3 per-buffer, safety net) | Complete |
-| v0.3.x | Ghost notes, clip polish | Deferred |
-| v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | In progress |
+| v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | Complete |
+| v0.5.0 | Trust & Legibility (correctness/hardening + token/painter legibility) | Next |
+| v0.6.0 | Sound (stock instruments, drum sequencer, loops, effect presets) | Planned |
 
 ---
 
