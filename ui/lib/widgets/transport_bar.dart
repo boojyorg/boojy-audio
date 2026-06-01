@@ -856,18 +856,24 @@ class _TransportBarState extends State<TransportBar> {
     final wGap = density.withinGap;
     // Transport buttons are slightly larger (32px) for visual hierarchy.
     final transportBtnSize = math.max(density.transportButtonSize, 32.0);
+    // The transport is "rolling" whenever the playhead is moving — during plain
+    // playback AND during a take (count-in or recording). In all of these the
+    // primary button acts as Pause, so it must also *look* like Pause; otherwise
+    // you get a green play-looking button that actually pauses the recording.
+    final transportRolling =
+        widget.isPlaying || widget.isRecording || widget.isCountingIn;
     return _ClusterWell(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircularToggleButton(
-            icon: widget.isPlaying ? BI.pause : BI.play,
+            icon: transportRolling ? BI.pause : BI.play,
             enabled:
                 widget.canPlay || widget.isRecording || widget.isCountingIn,
-            // Amber while playing (the pause affordance) so it reads as "hold"
+            // Amber while rolling (the pause affordance) so it reads as "hold"
             // and stays distinct from the orange Stop button sitting right next
             // to it — green when stopped (the play affordance).
-            enabledColor: widget.isPlaying
+            enabledColor: transportRolling
                 ? const Color(0xFFF59E0B)
                 : const Color(0xFF22C55E),
             onPressed: () {
@@ -879,7 +885,7 @@ class _TransportBarState extends State<TransportBar> {
                 widget.transport.onPlay?.call();
               }
             },
-            tooltip: widget.isPlaying ? 'Pause (Space)' : 'Play (Space)',
+            tooltip: transportRolling ? 'Pause (Space)' : 'Play (Space)',
             size: transportBtnSize,
             iconSize: BT.iconLg,
           ),
