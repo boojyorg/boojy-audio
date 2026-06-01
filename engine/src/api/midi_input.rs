@@ -68,6 +68,21 @@ pub fn select_midi_input_device(device_index: i32) -> Result<String, String> {
         .select_device(device_index as usize)
         .map_err(|e| e.to_string())?;
 
+    // If we're already capturing, re-bind the live connection to the newly
+    // selected port. The connection is bound to a specific port when it opens
+    // (see `start_capture`), so without this the stream keeps coming from the
+    // previously selected device and the picker would silently do nothing.
+    // The routing callback lives on the manager, not the connection, so it
+    // survives the stop/start cycle.
+    if midi_manager.is_capturing() {
+        midi_manager
+            .stop_capture()
+            .map_err(|e| format!("Failed to stop MIDI capture during device switch: {e}"))?;
+        midi_manager
+            .start_capture()
+            .map_err(|e| format!("Failed to start MIDI capture on new device: {e}"))?;
+    }
+
     let device_name = midi_manager
         .get_devices()
         .get(device_index as usize)

@@ -48,6 +48,9 @@ class RecordingController extends ChangeNotifier {
   // MIDI device state
   List<Map<String, dynamic>> _midiDevices = [];
   int _selectedMidiDeviceIndex = -1;
+  // The active device tracked by NAME, so the selection survives the device
+  // list re-ordering that happens when a keyboard is plugged/unplugged.
+  String? _selectedMidiDeviceName;
 
   // Callback for when recording stops
   void Function(RecordingResult result)? onRecordingComplete;
@@ -66,6 +69,10 @@ class RecordingController extends ChangeNotifier {
 
   // Callback to check if any audio tracks are armed
   bool Function()? hasArmedAudioTracks;
+
+  // Callback to read the user's saved preferred MIDI device name from
+  // UserSettings (null = no preference). Set by daw_screen, which owns settings.
+  String? Function()? getPreferredMidiDevice;
 
   // Whether audio recording was started (to skip stop if not started)
   bool _audioRecordingStarted = false;
@@ -589,8 +596,8 @@ class RecordingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load available MIDI devices
-  /// Refreshes the device list first since MIDI enumeration is deferred from engine init
+  /// Load available MIDI devices and pick the right one to listen to.
+  /// Refreshes the device list first since MIDI enumeration is deferred from engine init.
   void loadMidiDevices() {
     if (_audioEngine == null) return;
 
@@ -601,46 +608,94 @@ class RecordingController extends ChangeNotifier {
       } catch (e) {
         Log.e('RecordingController: MIDI device scan failed: $e');
       }
-      final devices = _audioEngine!.getMidiInputDevices();
-      _midiDevices = devices;
-
-      // Auto-select default device if available
-      if (_selectedMidiDeviceIndex < 0 && devices.isNotEmpty) {
-        final defaultIndex = devices.indexWhere((d) => d['isDefault'] == true);
-        if (defaultIndex >= 0) {
-          _selectedMidiDeviceIndex = defaultIndex;
-          selectMidiDevice(defaultIndex);
-        }
-      }
+      _midiDevices = _audioEngine!.getMidiInputDevices();
+      _applyDeviceSelection();
       notifyListeners();
     } catch (e) {
       Log.e('RecordingController: Failed to load MIDI devices: $e');
     }
   }
 
-  /// Select a MIDI device by index
+  /// Decide which MIDI device should be active and bind to it.
+  /// Priority: the user's saved preference (if connected) → keep whatever is
+  /// already active (matched by name) → the default / first device.
+  /// Only re-binds the engine when the active device actually changes, so a
+  /// routine rescan doesn't tear down and rebuild a working live MIDI stream.
+  void _applyDeviceSelection() {
+    if (_midiDevices.isEmpty) {
+      _selectedMidiDeviceIndex = -1;
+      _selectedMidiDeviceName = null;
+      return;
+    }
+
+    int indexOfName(String? name) =>
+        name == null ? -1 : _midiDevices.indexWhere((d) => d['name'] == name);
+
+    final preferredIdx = indexOfName(getPreferredMidiDevice?.call());
+    final currentIdx = indexOfName(_selectedMidiDeviceName);
+
+    final int targetIdx;
+    if (preferredIdx >= 0) {
+      targetIdx = preferredIdx;
+    } else if (currentIdx >= 0) {
+      targetIdx = currentIdx;
+    } else {
+      final defaultIdx = _midiDevices.indexWhere((d) => d['isDefault'] == true);
+      targetIdx = defaultIdx >= 0 ? defaultIdx : 0;
+    }
+
+    final targetName = _midiDevices[targetIdx]['name'] as String?;
+    if (_selectedMidiDeviceIndex < 0 || targetName != _selectedMidiDeviceName) {
+      selectMidiDevice(targetIdx);
+    } else {
+      // Same physical device, but its index may have shifted after the rescan.
+      _selectedMidiDeviceIndex = targetIdx;
+    }
+  }
+
+  /// Select a MIDI device by index (re-binds the live engine connection).
   void selectMidiDevice(int deviceIndex) {
     if (_audioEngine == null) return;
 
     try {
       _audioEngine!.selectMidiInputDevice(deviceIndex);
       _selectedMidiDeviceIndex = deviceIndex;
+      _selectedMidiDeviceName =
+          (deviceIndex >= 0 && deviceIndex < _midiDevices.length)
+          ? _midiDevices[deviceIndex]['name'] as String?
+          : null;
       notifyListeners();
     } catch (e) {
       Log.e('RecordingController: Failed to select MIDI device: $e');
     }
   }
 
-  /// Refresh MIDI device list
+  /// Refresh MIDI device list (manual "rescan" button).
   void refreshMidiDevices() {
-    if (_audioEngine == null) return;
+    loadMidiDevices();
+  }
 
-    try {
-      _audioEngine!.refreshMidiDevices();
-      loadMidiDevices();
-    } catch (e) {
-      Log.e('RecordingController: Failed to refresh MIDI devices: $e');
+  /// Rescan for hot-plugged devices and auto-switch when appropriate.
+  /// Returns the name of a newly-connected device we switched onto (so the UI
+  /// can toast "🎹 … connected"), or null when nothing meaningful changed.
+  String? rescanMidiDevices() {
+    if (_audioEngine == null) return null;
+
+    final previousNames = _midiDevices
+        .map((d) => d['name'] as String? ?? '')
+        .toSet();
+    final previousActive = _selectedMidiDeviceName;
+
+    loadMidiDevices();
+
+    final activeName = _selectedMidiDeviceName;
+    if (activeName == null) return null;
+
+    final isNewlyConnected = !previousNames.contains(activeName);
+    if (isNewlyConnected && activeName != previousActive) {
+      return activeName;
     }
+    return null;
   }
 
   /// Get recording duration (while recording)

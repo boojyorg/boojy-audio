@@ -10,6 +10,12 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **MIDI keyboards now "just work."** Boojy listens to your keyboard automatically, picks one up
+  even when you **plug it in after launch** (it re-checks whenever you return to the app or arm an
+  instrument track, with a brief "🎹 *name* connected" confirmation), and **remembers your choice**
+  between sessions. Settings → MIDI now has a real device picker (with a rescan button) for when you
+  have more than one keyboard — replacing the old placeholder. Under the hood, switching devices now
+  actually re-routes the live notes (previously the picker would have had no effect).
 - **UI Scale setting (Settings → Appearance).** Choose Compact / Default / Comfortable / Large to
   scale the whole interface at once — for high-DPI displays where the UI felt too small. Persists
   across launches.

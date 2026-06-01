@@ -576,6 +576,21 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     );
   }
 
+  /// Rescan for a hot-plugged MIDI keyboard (called on app focus / track arm).
+  /// Silent unless a newly-connected device was picked up, in which case it
+  /// confirms with a brief toast.
+  void rescanMidiForHotPlug() {
+    final connectedName = recordingController.rescanMidiDevices();
+    if (connectedName != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎹 $connectedName connected'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   // ============================================
   // HELPER METHODS
   // ============================================

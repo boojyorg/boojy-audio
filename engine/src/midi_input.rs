@@ -112,28 +112,33 @@ impl MidiInputManager {
 
         let ports = midi_input.ports();
 
-        eprintln!("🎹 [MIDI] Scanning for MIDI input devices...");
-        eprintln!("🎹 [MIDI] Found {} MIDI input port(s)", ports.len());
-
         let port_names: Vec<String> = ports
             .iter()
             .enumerate()
             .map(|(i, port)| {
-                let name = midi_input
+                midi_input
                     .port_name(port)
-                    .unwrap_or_else(|_| format!("Unknown Device {i}"));
-                eprintln!("  [{i}] {name}");
-                name
+                    .unwrap_or_else(|_| format!("Unknown Device {i}"))
             })
             .collect();
 
-        if ports.is_empty() {
-            eprintln!("⚠️ [MIDI] No MIDI input devices found!");
-            eprintln!("⚠️ [MIDI] Make sure your MIDI device is:");
-            eprintln!("   - Properly connected (USB/MIDI cable)");
-            eprintln!("   - Powered on");
-            eprintln!("   - Drivers installed (if required)");
-            eprintln!("   - Recognized by macOS (check Audio MIDI Setup app)");
+        // Only log when the device list actually changes. `refresh_devices` is
+        // now called on every window-focus / track-arm to catch hot-plugged
+        // keyboards, so logging unconditionally would flood stderr.
+        let changed = port_names != self.port_names;
+        if changed {
+            eprintln!("🎹 [MIDI] Device list changed — {} port(s):", ports.len());
+            for (i, name) in port_names.iter().enumerate() {
+                eprintln!("  [{i}] {name}");
+            }
+            if ports.is_empty() {
+                eprintln!("⚠️ [MIDI] No MIDI input devices found!");
+                eprintln!("⚠️ [MIDI] Make sure your MIDI device is:");
+                eprintln!("   - Properly connected (USB/MIDI cable)");
+                eprintln!("   - Powered on");
+                eprintln!("   - Drivers installed (if required)");
+                eprintln!("   - Recognized by macOS (check Audio MIDI Setup app)");
+            }
         }
 
         self.ports = ports;
