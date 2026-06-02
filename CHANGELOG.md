@@ -58,6 +58,30 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The UI Scale setting now scales the whole app — including the rulers and lanes (B-TH3).**
+  Custom-drawn surfaces (the timeline ruler, piano-roll note labels, sampler ruler, knob readouts)
+  used to ignore the Appearance → UI Scale setting: their text stayed frozen while everything else
+  grew. They now scale with it, so "Large" actually enlarges every label.
+- **Themed surfaces no longer paint dark bands on a light shell (B-TH4).** Every custom-drawn
+  surface now follows the active theme instead of hardcoding dark-theme colours — the piano-roll
+  lanes, timeline grid, velocity lane, note labels, meters, knobs, and automation lanes. This is the
+  groundwork that lets the Light and High-Contrast themes render correctly rather than as dark
+  patches with invisible text.
+- **The piano roll is easier to read at a glance.** The key gutter now has bright off-white naturals
+  and near-black sharps (so it reads as a keyboard), C is marked as a distinct shade for finding
+  octaves, the root-note row gets a visible accent band plus a left tick, and note labels fall back
+  to a single pitch letter when a note is too narrow for the full name instead of disappearing.
+- **High-Contrast Dark now actually boosts contrast (B-TH6).** It used to reuse the normal dark
+  theme's accent, so picking it changed nothing about the accent; it now uses a brighter, more
+  saturated blue.
+- **One green, one set of colours across the app (B-TH1).** The app had two different greens
+  fighting on adjacent meters and signal indicators; they're now a single cool emerald defined once
+  in the theme. The snapshot, version, and capture dialogs — which used to hardcode their own warm
+  grey palette that clashed with the cool app — now follow the active theme, as do dozens of stray
+  `red`/`amber`/`white` colours that were typed in by hand. Every level meter (fader, device strip,
+  level bar) now reads its green/yellow/red zones from one shared definition, so they can't drift
+  apart. Groundwork for the Light and High-Contrast themes to actually look right.
+
 - **Recording stays off the audio thread's danger paths (C1/C2/C3).** Three realtime-safety holes
   the playing path had already been hardened against, fixed on the recording and stopped paths: the
   not-playing render callback re-locked the effect and track managers *per sample* (now locked once

@@ -135,6 +135,14 @@ class BoojyTokens {
     color: color,
   );
 
+  /// 20px heading — dialog titles, section headings. Use instead of ad-hoc
+  /// `TextStyle(fontSize: 20, …)` so headings stay consistent (B-TH7).
+  static TextStyle heading(Color color, {FontWeight? weight}) => TextStyle(
+    fontSize: fontHeading,
+    fontWeight: weight ?? weightSemiBold,
+    color: color,
+  );
+
   // ============================================
   // TEXT SCALING (UI Scale setting)
   // ============================================

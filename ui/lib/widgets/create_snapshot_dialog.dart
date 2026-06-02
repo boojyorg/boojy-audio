@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 
 /// Dialog for creating a new project snapshot
@@ -60,8 +61,9 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: colors.elevated,
       child: Container(
         width: 450,
         padding: const EdgeInsets.all(24),
@@ -73,33 +75,33 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'New Snapshot',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: BT.fontHeading,
                     fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: colors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Save a snapshot of your current project',
-              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 24),
 
             // Name field
-            const Text(
+            Text(
               'Name',
               style: TextStyle(
-                color: Color(0xFF9E9E9E),
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: BT.weightSemiBold,
               ),
@@ -108,32 +110,32 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'e.g., Chorus Idea 1',
-                hintStyle: const TextStyle(color: Color(0xFF616161)),
+                hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF2A2A2A),
+                fillColor: colors.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
+                  borderSide: BorderSide(color: colors.accent),
                 ),
                 errorText: _errorMessage,
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFF44336)),
+                  borderSide: BorderSide(color: colors.error),
                 ),
                 focusedErrorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFF44336)),
+                  borderSide: BorderSide(color: colors.error),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -150,10 +152,10 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
             const SizedBox(height: 16),
 
             // Note field (optional)
-            const Text(
+            Text(
               'Note (optional)',
               style: TextStyle(
-                color: Color(0xFF9E9E9E),
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: BT.weightSemiBold,
               ),
@@ -162,23 +164,23 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
             TextField(
               controller: _noteController,
               maxLines: 3,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'e.g., Trying different arrangement for the chorus',
-                hintStyle: const TextStyle(color: Color(0xFF616161)),
+                hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF2A2A2A),
+                fillColor: colors.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
+                  borderSide: BorderSide(color: colors.accent),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -195,7 +197,7 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF9E9E9E),
+                    foregroundColor: colors.textSecondary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -207,7 +209,7 @@ class _CreateSnapshotDialogState extends State<CreateSnapshotDialog> {
                 TextButton(
                   onPressed: _create,
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF7FD4A0),
+                    backgroundColor: colors.accent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,

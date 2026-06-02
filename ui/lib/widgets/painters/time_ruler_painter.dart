@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/tokens.dart';
 
 /// Painter for the time ruler (bar numbers with beat subdivisions)
@@ -6,8 +7,15 @@ import '../../theme/tokens.dart';
 class TimeRulerPainter extends CustomPainter {
   final double pixelsPerBeat;
   final int beatsPerBar;
+  final BoojyColors colors;
+  final double textScale;
 
-  TimeRulerPainter({required this.pixelsPerBeat, this.beatsPerBar = 4});
+  TimeRulerPainter({
+    required this.pixelsPerBeat,
+    required this.colors,
+    this.beatsPerBar = 4,
+    this.textScale = 1.0,
+  });
 
   /// Get the smallest grid subdivision to show based on zoom level
   double _getGridDivision() {
@@ -26,8 +34,7 @@ class TimeRulerPainter extends CustomPainter {
     final totalBeats = (size.width / pixelsPerBeat).ceil() + 4;
 
     final paint = Paint()
-      ..color =
-          const Color(0xFF3A3D4A) // BG.divider
+      ..color = colors.divider
       ..strokeWidth = 1;
 
     final textPainter = TextPainter(
@@ -69,11 +76,11 @@ class TimeRulerPainter extends CustomPainter {
 
         textPainter.text = TextSpan(
           text: '$barNumber',
-          style: const TextStyle(
-            color: Color(0xFF9B9EB0), // TEXT.secondary
-            fontSize: BT.fontLabel,
+          style: TextStyle(
+            color: colors.textSecondary,
+            fontSize: BT.fontLabel * textScale,
             fontWeight: BT.weightMedium,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         );
 
@@ -87,10 +94,10 @@ class TimeRulerPainter extends CustomPainter {
         if (beatInBar > 1) {
           textPainter.text = TextSpan(
             text: '$barNumber.$beatInBar',
-            style: const TextStyle(
-              color: Color(0xFF646880), // TEXT.muted
-              fontSize: BT.fontCaption,
-              fontFeatures: [FontFeature.tabularFigures()],
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: BT.fontCaption * textScale,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           );
 
@@ -104,6 +111,8 @@ class TimeRulerPainter extends CustomPainter {
   @override
   bool shouldRepaint(TimeRulerPainter oldDelegate) {
     return oldDelegate.pixelsPerBeat != pixelsPerBeat ||
-        oldDelegate.beatsPerBar != beatsPerBar;
+        oldDelegate.beatsPerBar != beatsPerBar ||
+        oldDelegate.colors != colors ||
+        oldDelegate.textScale != textScale;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/track_automation_data.dart';
+import '../../theme/app_colors.dart';
 
 /// Custom painter for track automation lane (Volume, Pan)
 class TrackAutomationPainter extends CustomPainter {
@@ -13,6 +14,7 @@ class TrackAutomationPainter extends CustomPainter {
   final Color selectedPointColor;
   final Color gridLineColor;
   final Color centerLineColor;
+  final BoojyColors colors;
   final String? hoveredPointId;
   final String? draggedPointId;
   final int beatsPerBar;
@@ -27,6 +29,7 @@ class TrackAutomationPainter extends CustomPainter {
     required this.pointColor,
     required this.selectedPointColor,
     required this.gridLineColor,
+    required this.colors,
     this.centerLineColor = const Color(0x40FFFFFF),
     this.hoveredPointId,
     this.draggedPointId,
@@ -204,16 +207,16 @@ class TrackAutomationPainter extends CustomPainter {
       double strokeWidth;
 
       if (isBar) {
-        lineColor = const Color(0xFF4A4D5A); // BG.hover
+        lineColor = colors.hover;
         strokeWidth = 2.0;
       } else if (isBeat) {
-        lineColor = const Color(0xFF3A3D4A); // BG.divider
+        lineColor = colors.divider;
         strokeWidth = 1.0;
       } else if (isHalfBeat) {
-        lineColor = const Color(0xFF353845); // BG.surface
+        lineColor = colors.divider;
         strokeWidth = 0.5;
       } else {
-        lineColor = const Color(0xFF292B36); // BG.elevated
+        lineColor = colors.surface;
         strokeWidth = 0.5;
       }
 
@@ -293,6 +296,7 @@ class TrackAutomationPainter extends CustomPainter {
         fillColor != oldDelegate.fillColor ||
         hoveredPointId != oldDelegate.hoveredPointId ||
         draggedPointId != oldDelegate.draggedPointId ||
-        beatsPerBar != oldDelegate.beatsPerBar;
+        beatsPerBar != oldDelegate.beatsPerBar ||
+        colors != oldDelegate.colors;
   }
 }

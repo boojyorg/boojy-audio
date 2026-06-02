@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/theme_extension.dart';
 
 /// Capsule-style slider matching track mixer fader appearance.
 /// Has a pill-shaped track with a circular handle.
@@ -42,7 +44,10 @@ class CapsuleSlider extends StatelessWidget {
             cursor: SystemMouseCursors.click,
             child: CustomPaint(
               size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: CapsulePainter(sliderValue: value),
+              painter: CapsulePainter(
+                sliderValue: value,
+                colors: context.colors,
+              ),
             ),
           ),
         );
@@ -53,8 +58,9 @@ class CapsuleSlider extends StatelessWidget {
 
 class CapsulePainter extends CustomPainter {
   final double sliderValue; // 0.0 to 1.0
+  final BoojyColors colors;
 
-  CapsulePainter({required this.sliderValue});
+  CapsulePainter({required this.sliderValue, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -66,13 +72,13 @@ class CapsulePainter extends CustomPainter {
 
     // Draw capsule background
     final bgPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
+      ..color = colors.darkest
       ..style = PaintingStyle.fill;
     canvas.drawRRect(capsuleRect, bgPaint);
 
     // Draw capsule border
     final borderPaint = Paint()
-      ..color = const Color(0xFF3A3A3A)
+      ..color = colors.divider
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawRRect(capsuleRect, borderPaint);
@@ -85,13 +91,13 @@ class CapsulePainter extends CustomPainter {
 
     // Draw semi-transparent grey circle (Logic Pro style)
     final handlePaint = Paint()
-      ..color = const Color(0xFF808080).withValues(alpha: 0.7)
+      ..color = colors.textMuted.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(handleX, handleY), handleRadius, handlePaint);
 
     // Draw subtle border on handle
     final handleBorderPaint = Paint()
-      ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.5)
+      ..color = colors.textSecondary.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawCircle(
@@ -103,6 +109,7 @@ class CapsulePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CapsulePainter oldDelegate) {
-    return oldDelegate.sliderValue != sliderValue;
+    return oldDelegate.sliderValue != sliderValue ||
+        oldDelegate.colors != colors;
   }
 }

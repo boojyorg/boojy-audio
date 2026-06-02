@@ -1144,6 +1144,10 @@ class TimelineViewState extends State<TimelineView>
             loopEnabled: widget.loopPlaybackEnabled,
             loopStart: widget.loopStartBeats,
             loopEnd: widget.loopEndBeats,
+            barLineColor: context.colors.hover,
+            beatLineColor: context.colors.divider,
+            subBeatLineColor: context.colors.surface,
+            minorGridColor: context.colors.standard,
           ),
         ),
       );
@@ -1156,6 +1160,10 @@ class TimelineViewState extends State<TimelineView>
         loopEnabled: widget.loopPlaybackEnabled,
         loopStart: widget.loopStartBeats,
         loopEnd: widget.loopEndBeats,
+        barLineColor: context.colors.hover,
+        beatLineColor: context.colors.divider,
+        subBeatLineColor: context.colors.surface,
+        minorGridColor: context.colors.standard,
       ),
     );
   }

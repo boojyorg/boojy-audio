@@ -885,7 +885,7 @@ class _TransportBarState extends State<TransportBar> {
             // to it — green when stopped (the play affordance).
             enabledColor: transportRolling
                 ? const Color(0xFFF59E0B)
-                : const Color(0xFF22C55E),
+                : colors.success,
             onPressed: () {
               if (widget.isRecording || widget.isCountingIn) {
                 widget.transport.onPauseRecording?.call();

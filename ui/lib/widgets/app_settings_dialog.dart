@@ -1191,7 +1191,11 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
                     Tooltip(
                       message:
                           'Bluetooth/wireless devices have high latency.\nUse a wired connection for recording.',
-                      child: Icon(BI.warning, color: Colors.amber, size: 20),
+                      child: Icon(
+                        BI.warning,
+                        color: context.colors.warning,
+                        size: 20,
+                      ),
                     ),
                   ],
                 ],
@@ -1205,7 +1209,7 @@ class _AppSettingsDialogState extends State<AppSettingsDialog> {
             padding: const EdgeInsets.only(left: 100),
             child: Text(
               'Bluetooth has 100-200ms latency. Use wired for recording.',
-              style: TextStyle(color: Colors.amber.shade700, fontSize: 10),
+              style: TextStyle(color: context.colors.warning, fontSize: 10),
             ),
           ),
         ],

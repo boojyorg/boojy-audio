@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/animation_constants.dart';
+import '../theme/app_colors.dart';
 import '../theme/theme_extension.dart';
 
 /// Logic Pro-style capsule fader with integrated stereo level meters
@@ -87,6 +88,7 @@ class _CapsuleFaderState extends State<CapsuleFader> {
                 inputLevel: widget.inputLevel,
                 isDragging: _isDragging,
                 accentColor: accentColor,
+                colors: context.colors,
               ),
             ),
           ),
@@ -159,6 +161,7 @@ class _CapsuleFaderPainter extends CustomPainter {
   final double? inputLevel; // 0.0 to 1.0, faded overlay when armed
   final bool isDragging;
   final Color accentColor;
+  final BoojyColors colors;
 
   _CapsuleFaderPainter({
     required this.leftLevel,
@@ -167,6 +170,7 @@ class _CapsuleFaderPainter extends CustomPainter {
     this.inputLevel,
     required this.isDragging,
     required this.accentColor,
+    required this.colors,
   });
 
   @override
@@ -179,13 +183,13 @@ class _CapsuleFaderPainter extends CustomPainter {
 
     // Draw capsule background
     final bgPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
+      ..color = colors.darkest
       ..style = PaintingStyle.fill;
     canvas.drawRRect(capsuleRect, bgPaint);
 
     // Draw capsule border
     final borderPaint = Paint()
-      ..color = const Color(0xFF3A3A3A)
+      ..color = colors.divider
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawRRect(capsuleRect, borderPaint);
@@ -249,7 +253,7 @@ class _CapsuleFaderPainter extends CustomPainter {
       const Radius.circular(2),
     );
     final bgPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
+      ..color = colors.darkest
       ..style = PaintingStyle.fill;
     canvas.drawRRect(bgRect, bgPaint);
 
@@ -265,17 +269,18 @@ class _CapsuleFaderPainter extends CustomPainter {
       // Color zones based on dB: -∞ to -12dB green, -12 to -6dB yellow,
       // -6 to 0dB orange→red, above 0dB bright red (clipping)
       // Normalized: -12dB = 0.8, -6dB = 0.9, 0dB = 1.0
+      final zones = MeterColorZones.of(colors);
       final levelPaint = Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           colors: [
-            Color(0xFF22c55e), // Green (low levels)
-            Color(0xFF22c55e), // Green continues
-            Color(0xFFeab308), // Yellow/Amber (-12dB zone)
-            Color(0xFFf97316), // Orange (-6dB zone)
-            Color(0xFFef4444), // Red (0dB)
-            Color(0xFFdc2626), // Bright red (clipping)
+            zones.green, // Green (low levels)
+            zones.green, // Green continues
+            zones.yellow, // Yellow/Amber (-12dB zone)
+            Color.lerp(zones.yellow, zones.red, 0.5)!, // Orange (-6dB zone)
+            zones.red, // Red (0dB)
+            zones.red, // Bright red (clipping)
           ],
-          stops: [0.0, 0.7, 0.8, 0.9, 0.95, 1.0],
+          stops: const [0.0, 0.7, 0.8, 0.9, 0.95, 1.0],
         ).createShader(Rect.fromLTWH(offset.dx, offset.dy, width, height));
 
       canvas.drawRRect(levelRect, levelPaint);
@@ -298,7 +303,7 @@ class _CapsuleFaderPainter extends CustomPainter {
 
     // Faded green overlay at 25% opacity
     final paint = Paint()
-      ..color = const Color(0xFF22c55e).withValues(alpha: 0.25)
+      ..color = colors.meterGreen.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
     canvas.drawRRect(levelRect, paint);
   }
@@ -324,13 +329,13 @@ class _CapsuleFaderPainter extends CustomPainter {
 
     // Draw semi-transparent grey circle (Logic Pro style)
     final handlePaint = Paint()
-      ..color = const Color(0xFF808080).withValues(alpha: 0.6)
+      ..color = colors.textMuted.withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, handleRadius - 1, handlePaint);
 
     // Draw subtle border
     final borderPaint = Paint()
-      ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.4)
+      ..color = colors.textSecondary.withValues(alpha: 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawCircle(center, handleRadius - 1, borderPaint);
@@ -343,6 +348,7 @@ class _CapsuleFaderPainter extends CustomPainter {
         oldDelegate.volumeSliderValue != volumeSliderValue ||
         oldDelegate.inputLevel != inputLevel ||
         oldDelegate.isDragging != isDragging ||
-        oldDelegate.accentColor != accentColor;
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.colors != colors;
   }
 }
