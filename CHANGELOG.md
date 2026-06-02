@@ -71,6 +71,9 @@ All notable changes to Boojy Audio will be documented in this file.
   and near-black sharps (so it reads as a keyboard), C is marked as a distinct shade for finding
   octaves, the root-note row gets a visible accent band plus a left tick, and note labels fall back
   to a single pitch letter when a note is too narrow for the full name instead of disappearing.
+- **High-Contrast Dark now actually boosts contrast (B-TH6).** It used to reuse the normal dark
+  theme's accent, so picking it changed nothing about the accent; it now uses a brighter, more
+  saturated blue.
 - **One green, one set of colours across the app (B-TH1).** The app had two different greens
   fighting on adjacent meters and signal indicators; they're now a single cool emerald defined once
   in the theme. The snapshot, version, and capture dialogs — which used to hardcode their own warm

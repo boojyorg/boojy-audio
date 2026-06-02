@@ -209,8 +209,9 @@ class BoojyColors {
     if (override != null) return override;
     switch (theme) {
       case BoojyTheme.dark:
-      case BoojyTheme.highContrastDark:
         return _darkAccent[token]!;
+      case BoojyTheme.highContrastDark:
+        return _highContrastDarkAccent[token]!;
       case BoojyTheme.light:
         return _lightAccent[token]!;
       case BoojyTheme.highContrastLight:
@@ -267,6 +268,14 @@ class BoojyColors {
     'primary': Color(0xFFFFFFFF),
     'secondary': Color(0xFFC0C4D0),
     'muted': Color(0xFF808498),
+  };
+
+  // High-contrast variant gets a brighter, more saturated accent than the
+  // standard dark theme (which previously reused the normal accent, giving no
+  // contrast boost at all — B-TH6).
+  static const Map<String, Color> _highContrastDarkAccent = {
+    'primary': Color(0xFF5BC8FF),
+    'hover': Color(0xFF85D9FF),
   };
 
   // --- LIGHT THEME ---
