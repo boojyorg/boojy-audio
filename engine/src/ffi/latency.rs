@@ -96,23 +96,26 @@ pub extern "C" fn stop_latency_test_ffi() -> *mut c_char {
 pub extern "C" fn get_latency_test_status_ffi(out_state: *mut i32, out_result_ms: *mut f32) {
     ffi_catch(
         (),
-        AssertUnwindSafe(|| match api::get_latency_test_status() {
-            Ok((state, result_ms)) => unsafe {
-                if !out_state.is_null() {
-                    *out_state = state;
+        AssertUnwindSafe(|| {
+            if let Ok((state, result_ms)) = api::get_latency_test_status() {
+                unsafe {
+                    if !out_state.is_null() {
+                        *out_state = state;
+                    }
+                    if !out_result_ms.is_null() {
+                        *out_result_ms = result_ms;
+                    }
                 }
-                if !out_result_ms.is_null() {
-                    *out_result_ms = result_ms;
+            } else {
+                unsafe {
+                    if !out_state.is_null() {
+                        *out_state = 0;
+                    }
+                    if !out_result_ms.is_null() {
+                        *out_result_ms = -1.0;
+                    }
                 }
-            },
-            Err(_) => unsafe {
-                if !out_state.is_null() {
-                    *out_state = 0;
-                }
-                if !out_result_ms.is_null() {
-                    *out_result_ms = -1.0;
-                }
-            },
+            }
         }),
     );
 }

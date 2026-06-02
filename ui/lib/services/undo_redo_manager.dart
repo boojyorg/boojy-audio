@@ -113,15 +113,20 @@ class UndoRedoManager extends ChangeNotifier {
 
     await _acquireLock();
     try {
-      final command = _undoStack.removeLast();
+      // Peek, don't pop: if undo() throws we must leave the command on the
+      // stack. Mutating the stacks only after a successful undo keeps history
+      // intact instead of silently dropping the command.
+      final command = _undoStack.last;
       await command.undo(_engine!);
 
-      // Move to redo stack
+      // Undo succeeded — move it to the redo stack.
+      _undoStack.removeLast();
       _redoStack.add(command);
 
       notifyListeners();
       return true;
     } catch (e) {
+      Log.e('UndoRedoManager: Error undoing command: $e');
       return false;
     } finally {
       _releaseLock();
@@ -136,15 +141,19 @@ class UndoRedoManager extends ChangeNotifier {
 
     await _acquireLock();
     try {
-      final command = _redoStack.removeLast();
+      // Peek, don't pop (see undo()): a throwing execute() must leave the
+      // command on the redo stack rather than losing it.
+      final command = _redoStack.last;
       await command.execute(_engine!);
 
-      // Move back to undo stack
+      // Redo succeeded — move it back to the undo stack.
+      _redoStack.removeLast();
       _undoStack.add(command);
 
       notifyListeners();
       return true;
     } catch (e) {
+      Log.e('UndoRedoManager: Error redoing command: $e');
       return false;
     } finally {
       _releaseLock();

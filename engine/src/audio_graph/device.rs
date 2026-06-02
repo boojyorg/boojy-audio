@@ -191,7 +191,10 @@ impl AudioGraph {
     }
 
     /// Fallback for non-macOS platforms - estimates latency from buffer size
+    // Returns `Result` to match the macOS variant's signature (it has real error
+    // paths); this estimate can't fail, hence the allow.
     #[cfg(not(target_os = "macos"))]
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn query_coreaudio_latency(&self) -> anyhow::Result<()> {
         let buffer_samples = self.get_actual_buffer_size();
         let sample_rate = TARGET_SAMPLE_RATE as f32;
@@ -200,10 +203,7 @@ impl AudioGraph {
         *self.hardware_input_latency_ms.lock() = estimated_latency_ms;
         *self.hardware_output_latency_ms.lock() = estimated_latency_ms;
 
-        eprintln!(
-            "🎚️ [LATENCY] Estimated latency (non-macOS): {:.2}ms",
-            estimated_latency_ms
-        );
+        eprintln!("🎚️ [LATENCY] Estimated latency (non-macOS): {estimated_latency_ms:.2}ms");
         Ok(())
     }
 

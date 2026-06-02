@@ -3,7 +3,7 @@ export const meta = {
   description:
     'UI/UX review: parallel readers over the Flutter UI by area + 4 competitive DAW teardowns → synthesized verdict, bug ledger, design direction, ASCII mockups, and a milestone proposal. Optional screenshot grounding. Model-tiered (readers + teardowns Sonnet, synthesis Opus). Mirrors docs/reviews/ui_ux_review_2026_05_30.md.',
   whenToUse:
-    "Before opening a new MINOR version's plan doc, to set the visual/UX theme. Lighter than the codebase audit. Pass current screenshots via args.screenshots (absolute paths) for visual grounding — without them the visual read is incomplete. Save the returned report to docs/reviews/.",
+    "Before opening a new MINOR version's plan doc, to set the visual/UX theme. Lighter than the codebase audit. For visual grounding, drop current-build screenshots into docs/reviews/_screenshots/ BEFORE running (see that folder's README) — the readers Glob/Read them from there. Without staged screenshots the visual read is ungrounded and the report will say so. Save the returned report to docs/reviews/.",
   phases: [
     { title: 'Read', detail: 'one read-only reader per UI area (Sonnet)' },
     { title: 'Compare', detail: '4 competitive DAW teardowns (Sonnet)' },
@@ -57,12 +57,24 @@ const TEARDOWN = {
   required: ['steal', 'avoid'],
 }
 
-const screenshots = (args && args.screenshots) || []
+// Screenshots are grounded from a COMMITTED staging path, not from args.
+// Named-workflow `args` get dropped, and pasted-image paths under
+// ~/.claude/image-cache/ are purged mid-run — both leave subagents blind. The
+// staging folder is a real repo path the readers (Explore agents with Glob/Read)
+// can always reach. `args.screenshots` is still honoured as an extra hint if the
+// orchestrator manages to pass absolute paths through. See docs/reviews/_screenshots/README.md.
+const STAGED_SHOTS_DIR = 'docs/reviews/_screenshots/'
+const extraShots = (args && args.screenshots) || []
+const groundingHint =
+  ` Screenshots of the running app are staged in the repo at \`${STAGED_SHOTS_DIR}\`` +
+  (extraShots.length ? ` (and also at: ${extraShots.join(', ')})` : '') +
+  ` — Glob that folder for \`*.png\` and Read every match to ground your visual judgements against the real pixels.` +
+  ` If the folder has no PNGs, say so explicitly and treat your visual read as ungrounded.`
 
 phase('Read')
 const reads = (await parallel(AREAS.map((a) => () =>
   agent(
-    `Review the Boojy Audio Flutter UI for this area:\n\n${a.focus}\n\nBoojy targets BEGINNERS/hobbyists (GarageBand model), not pros — judge it beginner-first ("calm precise instrument", premium-but-simple, silence-when-healthy). Report concrete UI/UX bugs and inconsistencies, each with a file:line or widget, severity, effort (S/M/L/XL), root cause, and a fix. Add a short qualitative read of what feels off and why.${screenshots.length ? ' Screenshots of the running app are at: ' + screenshots.join(', ') + ' — Read them to ground your visual judgements against the real pixels.' : ''}`,
+    `Review the Boojy Audio Flutter UI for this area:\n\n${a.focus}\n\nBoojy targets BEGINNERS/hobbyists (GarageBand model), not pros — judge it beginner-first ("calm precise instrument", premium-but-simple, silence-when-healthy). Report concrete UI/UX bugs and inconsistencies, each with a file:line or widget, severity, effort (S/M/L/XL), root cause, and a fix. Add a short qualitative read of what feels off and why.${groundingHint}`,
     { label: `read:${a.key}`, phase: 'Read', model: 'sonnet', agentType: 'Explore', schema: UI_FINDINGS }
   ).then((r) => ({ ...r, key: a.key }))
 ))).filter(Boolean)
@@ -81,7 +93,7 @@ const teardowns = (await parallel(DAWS.map((d) => () =>
 
 phase('Synthesize')
 const report = await agent(
-  `Write a UI/UX Review & Design Direction for Boojy Audio in the style of docs/reviews/ui_ux_review_2026_05_30.md. Boojy is beginner-first (GarageBand model), premium-but-simple, "a calm precise instrument".\n\nProduce markdown with: (1) a one-paragraph verdict + letter grade; (2) the core diagnosis — the few root causes under most symptoms; (3) a full bug & inconsistency ledger (dedup the findings below; flag quick wins ≤S effort); (4) how Boojy compares to the 4 DAWs (steal/avoid per area); (5) a design direction; (6) a few ASCII before→after mockups for the highest-leverage screens; (7) a proposed next milestone with in/out scope, each design decision paired with the alternative's cost.\n\nUI findings: ${JSON.stringify(findings)}\n\nArea observations: ${JSON.stringify(observations)}\n\nDAW teardowns: ${JSON.stringify(teardowns)}\n\n${screenshots.length ? 'Screenshots were grounded at: ' + screenshots.join(', ') + '.' : 'No screenshots were provided — note in the report that visual grounding is incomplete and recommend verifying on `fvm flutter run -d macos`.'}`,
+  `Write a UI/UX Review & Design Direction for Boojy Audio in the style of docs/reviews/ui_ux_review_2026_05_30.md. Boojy is beginner-first (GarageBand model), premium-but-simple, "a calm precise instrument".\n\nProduce markdown with: (1) a one-paragraph verdict + letter grade; (2) the core diagnosis — the few root causes under most symptoms; (3) a full bug & inconsistency ledger (dedup the findings below; flag quick wins ≤S effort); (4) how Boojy compares to the 4 DAWs (steal/avoid per area); (5) a design direction; (6) a few ASCII before→after mockups for the highest-leverage screens; (7) a proposed next milestone with in/out scope, each design decision paired with the alternative's cost.\n\nUI findings: ${JSON.stringify(findings)}\n\nArea observations: ${JSON.stringify(observations)}\n\nDAW teardowns: ${JSON.stringify(teardowns)}\n\nScreenshots for grounding are staged in the repo at \`${STAGED_SHOTS_DIR}\` — Glob/Read any \`*.png\` there. If that folder had no PNGs, the area readers' visual judgements are ungrounded: say so plainly in the report and recommend verifying on \`fvm flutter run -d macos\`.`,
   { label: 'synthesize', phase: 'Synthesize', model: 'opus' }
 )
 

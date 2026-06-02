@@ -632,7 +632,9 @@ class AudioEngine implements AudioEngineInterface {
   @override
   String removeEffectFromTrack(int trackId, int effectId) => 'OK';
 
+  @override
   String getTrackEffects(int trackId) => '[]';
+  @override
   String getEffectInfo(int effectId) => '{}';
   @override
   String setEffectParameter(int effectId, String paramName, double value) =>
@@ -711,7 +713,9 @@ class AudioEngine implements AudioEngineInterface {
     int velocity,
   ) => 'OK';
 
+  @override
   String getVst3State(int effectId) => '';
+  @override
   String setVst3State(int effectId, String stateBase64) => '';
   String getVst3Presets(int effectId) => '[]';
   String setVst3Program(int effectId, int listId, int programIndex) => '';

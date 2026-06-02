@@ -368,17 +368,43 @@ mixin DAWClipMixin
       color: sortedClips.first.color,
     );
 
-    // Delete original clips
-    for (final clip in sortedClips) {
-      midiClipController.deleteClip(clip.clipId, clip.trackId);
-    }
+    // Route the whole operation through one undo step: delete each original
+    // clip, then create the consolidated one. Undo reverses both (restoring the
+    // originals), so Cmd+Z no longer undoes some unrelated earlier action.
+    final commands = <Command>[
+      for (final clip in sortedClips)
+        DeleteMidiClipFromArrangementCommand(
+          clipData: clip,
+          onClipRemoved: (cId, tId) {
+            midiClipController.deleteClip(cId, tId);
+            if (mounted) setState(() {});
+          },
+          onClipRestored: (restoredClip) {
+            midiPlaybackManager?.addRecordedClip(restoredClip);
+            midiClipController.updateClip(restoredClip, playheadPosition);
+            midiPlaybackManager?.selectClip(restoredClip.clipId, restoredClip);
+            if (mounted) setState(() {});
+          },
+        ),
+      CreateMidiClipCommand(
+        clipData: consolidatedClip,
+        onClipCreated: (clip) {
+          midiClipController.addClip(clip);
+          midiClipController.updateClip(clip, playheadPosition);
+          midiPlaybackManager?.selectClip(clip.clipId, clip);
+          if (mounted) setState(() {});
+        },
+        onClipRemoved: (cId, tId) {
+          midiClipController.deleteClip(cId, tId);
+          if (mounted) setState(() {});
+        },
+      ),
+    ];
 
-    // Add consolidated clip
-    midiClipController.addClip(consolidatedClip);
-    midiClipController.updateClip(consolidatedClip, playheadPosition);
+    undoRedoManager.execute(
+      CompositeCommand(commands, 'Consolidate ${sortedClips.length} clips'),
+    );
 
-    // Select the new consolidated clip
-    midiPlaybackManager?.selectClip(consolidatedClip.clipId, consolidatedClip);
     timelineState.clearClipSelection();
 
     statusMessage = 'Consolidated ${sortedClips.length} clips into one';

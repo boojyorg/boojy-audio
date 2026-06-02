@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:boojy_audio/services/undo_redo_manager.dart';
 import 'package:boojy_audio/services/commands/command.dart';
 import 'package:boojy_audio/services/commands/audio_engine_interface.dart';
+import '../mocks/mock_audio_engine.dart';
 
 /// A mock command for testing that tracks execution
 class MockCommand extends Command {
@@ -45,6 +46,38 @@ class FailingCommand extends Command {
   Future<void> undo(AudioEngineInterface engine) async {
     throw Exception('Undo failed');
   }
+}
+
+/// Executes fine but throws on undo — exercises the undo() failure path.
+class ThrowOnUndoCommand extends Command {
+  @override
+  String get description => 'Throw On Undo';
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {}
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    throw Exception('undo failed');
+  }
+}
+
+/// First execute succeeds; the redo re-execute throws — exercises redo()'s
+/// failure path (the command is already on the redo stack at that point).
+class ThrowOnRedoCommand extends Command {
+  bool _executedOnce = false;
+
+  @override
+  String get description => 'Throw On Redo';
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    if (_executedOnce) throw Exception('redo failed');
+    _executedOnce = true;
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {}
 }
 
 void main() {
@@ -117,6 +150,42 @@ void main() {
       test('redo returns false without engine', () async {
         final result = await manager.redo();
         expect(result, isFalse);
+      });
+    });
+
+    // Regression: a command whose undo/redo throws must NOT be silently
+    // dropped from the stacks (C66/C86). The manager peeks rather than pops,
+    // so a failed undo leaves the command available to retry.
+    group('throwing command does not corrupt history', () {
+      late MockAudioEngine engine;
+
+      setUp(() {
+        engine = MockAudioEngine();
+        manager.initialize(engine);
+      });
+
+      test('failed undo keeps the command on the undo stack', () async {
+        await manager.execute(ThrowOnUndoCommand());
+        expect(manager.canUndo, isTrue);
+
+        final result = await manager.undo();
+
+        expect(result, isFalse, reason: 'undo threw → should report failure');
+        expect(manager.canUndo, isTrue, reason: 'command must be retained');
+        expect(manager.canRedo, isFalse, reason: 'must not move to redo stack');
+      });
+
+      test('failed redo keeps the command on the redo stack', () async {
+        final cmd = ThrowOnRedoCommand();
+        await manager.execute(cmd); // first execute succeeds
+        await manager.undo(); // undo succeeds → command now on redo stack
+        expect(manager.canRedo, isTrue);
+
+        final result = await manager.redo(); // re-execute throws
+
+        expect(result, isFalse, reason: 'redo threw → should report failure');
+        expect(manager.canRedo, isTrue, reason: 'command must be retained');
+        expect(manager.canUndo, isFalse, reason: 'must not move to undo stack');
       });
     });
   });
