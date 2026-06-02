@@ -56,7 +56,7 @@ void main() {
       final allColors = BoojyTheme.values.map((t) => BoojyColors(t)).toList();
 
       for (final colors in allColors) {
-        expect(colors.success, const Color(0xFF4CAF50));
+        expect(colors.success, const Color(0xFF22C55E));
         expect(colors.warning, const Color(0xFFFFC107));
         expect(colors.error, const Color(0xFFFF5722));
       }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/snapshot.dart';
 
@@ -41,8 +43,9 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: colors.elevated,
       child: Container(
         width: 600,
         height: 500,
@@ -54,16 +57,16 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Snapshots',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: BT.fontHeading,
                     fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: colors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -72,15 +75,15 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
             const SizedBox(height: 8),
             Text(
               '${widget.snapshots.length} snapshot${widget.snapshots.length == 1 ? '' : 's'}',
-              style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 24),
 
             // Snapshots list
             Expanded(
               child: widget.snapshots.isEmpty
-                  ? _buildEmptyState()
-                  : _buildSnapshotsList(),
+                  ? _buildEmptyState(colors)
+                  : _buildSnapshotsList(colors),
             ),
 
             const SizedBox(height: 16),
@@ -96,8 +99,8 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                       : null,
                   style: TextButton.styleFrom(
                     foregroundColor: _selectedSnapshot != null
-                        ? const Color(0xFFF44336)
-                        : const Color(0xFF616161),
+                        ? colors.error
+                        : colors.textMuted,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
@@ -113,7 +116,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9E9E9E),
+                        foregroundColor: colors.textSecondary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
@@ -128,11 +131,11 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                           : null,
                       style: TextButton.styleFrom(
                         backgroundColor: _selectedSnapshot != null
-                            ? const Color(0xFF7FD4A0)
-                            : const Color(0xFF363636),
+                            ? colors.accent
+                            : colors.divider,
                         foregroundColor: _selectedSnapshot != null
                             ? Colors.black
-                            : const Color(0xFF616161),
+                            : colors.textMuted,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
@@ -150,21 +153,25 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BoojyColors colors) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(BI.list, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+          Icon(
+            BI.list,
+            size: 64,
+            color: colors.textPrimary.withValues(alpha: 0.1),
+          ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No snapshots yet',
-            style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 16),
+            style: TextStyle(color: colors.textSecondary, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Create a snapshot to save the current state of your project',
-            style: TextStyle(color: Color(0xFF616161), fontSize: 14),
+            style: TextStyle(color: colors.textMuted, fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -172,65 +179,63 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
     );
   }
 
-  Widget _buildSnapshotsList() {
+  Widget _buildSnapshotsList(BoojyColors colors) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF363636)),
+        border: Border.all(color: colors.divider),
         borderRadius: BorderRadius.circular(4),
       ),
       child: ListView.separated(
         itemCount: widget.snapshots.length + 1, // +1 for "Current Version"
         separatorBuilder: (context, index) =>
-            const Divider(height: 1, color: Color(0xFF363636)),
+            Divider(height: 1, color: colors.divider),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _buildCurrentVersionTile();
+            return _buildCurrentVersionTile(colors);
           }
 
           final snapshot = widget.snapshots[index - 1];
           final isSelected = _selectedSnapshot?.id == snapshot.id;
 
-          return _buildSnapshotTile(snapshot, isSelected);
+          return _buildSnapshotTile(snapshot, isSelected, colors);
         },
       ),
     );
   }
 
-  Widget _buildCurrentVersionTile() {
+  Widget _buildCurrentVersionTile(BoojyColors colors) {
     final isSelected = _selectedSnapshot == null;
 
     return InkWell(
       onTap: () => setState(() => _selectedSnapshot = null),
       child: Container(
         padding: const EdgeInsets.all(16),
-        color: isSelected ? const Color(0xFF2A2A2A) : null,
+        color: isSelected ? colors.surface : null,
         child: Row(
           children: [
             Icon(
               isSelected ? BI.radioChecked : BI.circle,
-              color: isSelected
-                  ? const Color(0xFF7FD4A0)
-                  : const Color(0xFF616161),
+              color: isSelected ? colors.accent : colors.textMuted,
               size: 20,
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Current Version',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: BT.weightSemiBold,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     'Working state',
                     style: TextStyle(
-                      color: Color(0xFF9E9E9E),
+                      color: colors.textSecondary,
                       fontSize: BT.fontBody,
                     ),
                   ),
@@ -243,19 +248,21 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
     );
   }
 
-  Widget _buildSnapshotTile(Snapshot snapshot, bool isSelected) {
+  Widget _buildSnapshotTile(
+    Snapshot snapshot,
+    bool isSelected,
+    BoojyColors colors,
+  ) {
     return InkWell(
       onTap: () => setState(() => _selectedSnapshot = snapshot),
       child: Container(
         padding: const EdgeInsets.all(16),
-        color: isSelected ? const Color(0xFF2A2A2A) : null,
+        color: isSelected ? colors.surface : null,
         child: Row(
           children: [
             Icon(
               isSelected ? BI.radioChecked : BI.circle,
-              color: isSelected
-                  ? const Color(0xFF7FD4A0)
-                  : const Color(0xFF616161),
+              color: isSelected ? colors.accent : colors.textMuted,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -265,8 +272,8 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                 children: [
                   Text(
                     snapshot.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: BT.weightMedium,
                     ),
@@ -274,8 +281,8 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                   const SizedBox(height: 4),
                   Text(
                     snapshot.formattedDate,
-                    style: const TextStyle(
-                      color: Color(0xFF9E9E9E),
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: BT.fontBody,
                     ),
                   ),
@@ -283,10 +290,7 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
                     const SizedBox(height: 4),
                     Text(
                       snapshot.note!,
-                      style: const TextStyle(
-                        color: Color(0xFF757575),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: colors.textMuted, fontSize: 12),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -308,34 +312,35 @@ class _SnapshotsListDialogState extends State<SnapshotsListDialog> {
   void _confirmDelete(Snapshot snapshot) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text(
-          'Delete Snapshot?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${snapshot.name}"?\n\nThis action cannot be undone.',
-          style: const TextStyle(color: Color(0xFF9E9E9E)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+      builder: (context) {
+        final colors = context.colors;
+        return AlertDialog(
+          backgroundColor: colors.elevated,
+          title: Text(
+            'Delete Snapshot?',
+            style: TextStyle(color: colors.textPrimary),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close confirmation dialog
-              widget.onDelete?.call(snapshot);
-              setState(() => _selectedSnapshot = null);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFF44336),
+          content: Text(
+            'Are you sure you want to delete "${snapshot.name}"?\n\nThis action cannot be undone.',
+            style: TextStyle(color: colors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close confirmation dialog
+                widget.onDelete?.call(snapshot);
+                setState(() => _selectedSnapshot = null);
+              },
+              style: TextButton.styleFrom(foregroundColor: colors.error),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

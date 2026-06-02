@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../services/midi_capture_buffer.dart';
 import '../models/midi_event.dart';
@@ -40,11 +41,12 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final preview = widget.captureBuffer.getPreview(_selectedDuration);
     final hasEvents = widget.captureBuffer.hasEvents;
 
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: colors.elevated,
       child: Container(
         width: 500,
         padding: const EdgeInsets.all(24),
@@ -58,12 +60,12 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
               children: [
                 Row(
                   children: [
-                    Icon(BI.history, color: const Color(0xFF7FD4A0), size: 24),
+                    Icon(BI.history, color: colors.accent, size: 24),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Capture MIDI',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.textPrimary,
                         fontSize: BT.fontHeading,
                         fontWeight: BT.weightSemiBold,
                       ),
@@ -71,7 +73,7 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                   ],
                 ),
                 IconButton(
-                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: colors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
@@ -80,18 +82,18 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
             const SizedBox(height: 24),
 
             // Description
-            const Text(
+            Text(
               'Capture MIDI events from the recent past and create a clip on the selected track.',
-              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 24),
 
             // Duration selector
             Row(
               children: [
-                const Text(
+                Text(
                   'Capture last',
-                  style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 14),
                 ),
                 const SizedBox(width: 12),
                 Container(
@@ -100,19 +102,16 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF363636)),
+                    border: Border.all(color: colors.divider),
                   ),
                   child: DropdownButton<int>(
                     value: _selectedDuration,
                     isExpanded: false,
                     underline: Container(),
-                    dropdownColor: const Color(0xFF2A2A2A),
-                    style: const TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 14,
-                    ),
+                    dropdownColor: colors.surface,
+                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
                     items: _durationOptions.map((duration) {
                       return DropdownMenuItem(
                         value: duration,
@@ -129,9 +128,9 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'seconds',
-                  style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 14),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 14),
                 ),
               ],
             ),
@@ -141,21 +140,21 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF363636)),
+                border: Border.all(color: colors.divider),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(BI.eye, color: const Color(0xFF7FD4A0), size: 16),
+                      Icon(BI.eye, color: colors.accent, size: 16),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Preview',
                         style: TextStyle(
-                          color: Color(0xFF7FD4A0),
+                          color: colors.accent,
                           fontSize: 12,
                           fontWeight: BT.weightSemiBold,
                           letterSpacing: 1.2,
@@ -166,10 +165,7 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                   const SizedBox(height: 12),
                   Text(
                     preview,
-                    style: const TextStyle(
-                      color: Color(0xFFE0E0E0),
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
                   ),
                 ],
               ),
@@ -183,7 +179,7 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF9E9E9E),
+                    foregroundColor: colors.textSecondary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -195,12 +191,10 @@ class _CaptureMidiDialogState extends State<CaptureMidiDialog> {
                 TextButton(
                   onPressed: hasEvents ? _captureEvents : null,
                   style: TextButton.styleFrom(
-                    backgroundColor: hasEvents
-                        ? const Color(0xFF7FD4A0)
-                        : const Color(0xFF363636),
+                    backgroundColor: hasEvents ? colors.accent : colors.divider,
                     foregroundColor: hasEvents
                         ? Colors.black
-                        : const Color(0xFF616161),
+                        : colors.textMuted,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,

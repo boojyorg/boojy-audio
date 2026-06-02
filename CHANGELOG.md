@@ -58,6 +58,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **One green, one set of colours across the app (B-TH1).** The app had two different greens
+  fighting on adjacent meters and signal indicators; they're now a single cool emerald defined once
+  in the theme. The snapshot, version, and capture dialogs — which used to hardcode their own warm
+  grey palette that clashed with the cool app — now follow the active theme, as do dozens of stray
+  `red`/`amber`/`white` colours that were typed in by hand. Every level meter (fader, device strip,
+  level bar) now reads its green/yellow/red zones from one shared definition, so they can't drift
+  apart. Groundwork for the Light and High-Contrast themes to actually look right.
+
 - **Recording stays off the audio thread's danger paths (C1/C2/C3).** Three realtime-safety holes
   the playing path had already been hardened against, fixed on the recording and stopped paths: the
   not-playing render callback re-locked the effect and track managers *per sample* (now locked once

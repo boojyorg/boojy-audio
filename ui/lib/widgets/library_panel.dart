@@ -1438,6 +1438,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   void _showItemContextMenu(TapUpDetails details, LibraryItem item) {
+    final colors = context.colors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isFavorite = widget.libraryService.isFavorite(item.id);
     final isAudioFile =
@@ -1497,7 +1498,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               Icon(
                 isFavorite ? BI.star : BI.star,
                 size: 16,
-                color: isFavorite ? Colors.amber : null,
+                color: isFavorite ? colors.warning : null,
               ),
               const SizedBox(width: 8),
               Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
@@ -1544,6 +1545,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   void _showVst3ContextMenu(TapUpDetails details, Vst3Plugin plugin) {
+    final colors = context.colors;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final itemId = 'vst3_${plugin.path}';
     final isFavorite = widget.libraryService.isFavorite(itemId);
@@ -1571,7 +1573,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               Icon(
                 isFavorite ? BI.star : BI.star,
                 size: 16,
-                color: isFavorite ? Colors.amber : null,
+                color: isFavorite ? colors.warning : null,
               ),
               const SizedBox(width: 8),
               Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
@@ -1930,7 +1932,8 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (widget.isFavorite) Icon(BI.star, size: 12, color: Colors.amber),
+            if (widget.isFavorite)
+              Icon(BI.star, size: 12, color: colors.warning),
           ],
         ),
       ),
