@@ -186,9 +186,27 @@ mixin DAWProjectMixin
   Future<void> _loadAndApplyProject(String path) async {
     final loadResult = await projectManager!.loadProject(path);
 
+    // A failed engine load returns success: false (e.g. corrupt project.json or
+    // missing referenced files). Bail before wiping undo history or restoring
+    // clips against a half-loaded engine, and surface the reason.
+    if (!loadResult.result.success) {
+      setState(() => isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loadResult.result.message)));
+      return;
+    }
+
     // Clear MIDI clip ID mappings since Rust side has reset
     midiPlaybackManager?.clearClipIdMappings();
     undoRedoManager.clear();
+
+    // Sync the engine's tempo into the UI before restoring clips. MIDI clip
+    // start/end are stored in beats and converted using `tempo`; restoring at
+    // the stale default (120) would shift every note off the grid for any
+    // project saved at a different BPM (e.g. 140).
+    recordingController.setTempo(audioEngine!.getTempo());
 
     // Restore MIDI clips from engine for UI display, merging the saved UI
     // metadata (name/colour/offset/loop/mute/automation) from ui_layout.json.

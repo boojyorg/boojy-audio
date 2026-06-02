@@ -16,8 +16,7 @@ pub fn is_ffmpeg_available() -> bool {
     Command::new("ffmpeg")
         .arg("-version")
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .is_ok_and(|o| o.status.success())
 }
 
 /// Export audio samples to MP3 file
@@ -90,7 +89,7 @@ pub fn export_mp3(
     encode_mp3_ffmpeg(&processed, output_path, options.sample_rate, bitrate)?;
 
     // Get file size
-    let file_size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
+    let file_size = std::fs::metadata(output_path).map_or(0, |m| m.len());
 
     let format_description = format!("MP3 {} kbps", bitrate.kbps());
 

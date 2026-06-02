@@ -85,6 +85,9 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
   /// Delete all selected notes.
   void deleteSelectedNotes() {
     final selectedCount = currentClip?.selectedNotes.length ?? 0;
+    // Snapshot first — without this, commitToHistory() below sees a null
+    // snapshot and returns early, so the delete runs with no undo entry.
+    saveToHistory();
     setState(() {
       final selectedIds =
           currentClip?.selectedNotes.map((n) => n.id).toSet() ?? {};

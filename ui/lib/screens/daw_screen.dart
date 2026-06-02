@@ -899,6 +899,96 @@ class _DAWScreenState extends State<DAWScreen>
   // + dangling editor id).
   void _onTrackDeleted(int trackId) => onTrackDeleted(trackId);
 
+  /// Undoable track deletion that snapshots and restores the track's content.
+  ///
+  /// Lives here (not in the mixer panel) because restoring clips needs the
+  /// playback managers. The command owns the engine-side state (mixer, sends,
+  /// built-in effects, redo id); these closures own the UI/manager state
+  /// (MIDI + audio clips, timeline, selection). VST3 plugins and tweaked synth
+  /// params aren't recovered — surfaced via the command's onNotice.
+  Future<void> _onDeleteTrackRequested(TrackData track) async {
+    // Snapshot the track's content BEFORE the command deletes it.
+    final midiSnapshot =
+        midiPlaybackManager?.midiClips
+            .where((c) => c.trackId == track.id)
+            .toList() ??
+        const <MidiClipData>[];
+    final audioSnapshot =
+        timelineKey.currentState?.getAudioClipsOnTrack(track.id) ??
+        const <ClipData>[];
+    final command = DeleteTrackCommand(
+      trackId: track.id,
+      trackName: track.name,
+      trackType: track.type,
+      volumeDb: track.volumeDb,
+      pan: track.pan,
+      mute: track.mute,
+      solo: track.solo,
+      armed: track.armed,
+      onVst3Restored: (newTrackId, restored) {
+        // The command reloaded these plugins into the engine; re-register them
+        // with the UI plugin manager so their editor + count chip reappear.
+        for (final r in restored) {
+          vst3PluginManager?.registerRestoredPlugin(
+            newTrackId,
+            r.effectId,
+            path: r.path,
+            name: r.name,
+          );
+        }
+      },
+      onCleanup: (tid) {
+        // The engine drops a track's audio clips with the track, but the
+        // timeline UI keeps them — prune them here so redo doesn't leave
+        // ghosts. Then run the shared teardown (MIDI clips, plugin windows).
+        final timeline = timelineKey.currentState;
+        if (timeline != null) {
+          for (final clip in timeline.getAudioClipsOnTrack(tid)) {
+            timeline.removeClip(clip.clipId);
+          }
+        }
+        onTrackDeleted(tid);
+      },
+      onRestoreUi: (newTrackId) {
+        // MIDI clips: re-stamp onto the recreated track, re-add to the manager
+        // and resync to the engine (mirrors DeleteMidiClipFromArrangementCommand).
+        for (final clip in midiSnapshot) {
+          final restored = clip.copyWith(trackId: newTrackId);
+          midiPlaybackManager?.addRecordedClip(restored);
+          midiClipController.updateClip(restored, playheadPosition);
+        }
+        // Audio clips: reload from disk onto the new track and re-apply trim
+        // (mirrors DeleteAudioClipCommand.undo).
+        for (final clip in audioSnapshot) {
+          final newClipId =
+              audioEngine?.loadAudioFileToTrack(
+                clip.filePath,
+                newTrackId,
+                startTime: clip.startTime,
+              ) ??
+              -1;
+          if (newClipId >= 0) {
+            audioEngine?.setClipOffset(newTrackId, newClipId, clip.offset);
+            audioEngine?.setClipDuration(newTrackId, newClipId, clip.duration);
+            timelineKey.currentState?.addClip(
+              clip.copyWith(clipId: newClipId, trackId: newTrackId),
+            );
+          }
+        }
+        refreshTrackWidgets();
+        _onTrackSelected(newTrackId);
+      },
+      onNotice: (message) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      },
+    );
+
+    await undoRedoManager.execute(command);
+  }
+
   void _onTrackDuplicated(int sourceTrackId, int newTrackId) {
     // Copy track state via controller
     trackController.onTrackDuplicated(sourceTrackId, newTrackId);
@@ -2524,8 +2614,11 @@ class _DAWScreenState extends State<DAWScreen>
         // Load the backup project
         final result = await projectManager?.loadProject(backupPath);
         if (result?.result.success == true) {
-          // Clear and restore MIDI clips from engine for UI display
+          // Clear and restore MIDI clips from engine for UI display. Sync the
+          // engine tempo first so beat→time conversion uses the recovered
+          // project's BPM, not the stale default (notes would shift off-grid).
           midiPlaybackManager?.clearClipIdMappings();
+          recordingController.setTempo(audioEngine!.getTempo());
           midiPlaybackManager?.restoreClipsFromEngine(
             tempo,
             savedMetadata: result?.uiLayout?.midiClips,
@@ -3722,6 +3815,7 @@ class _DAWScreenState extends State<DAWScreen>
                 trackCallbacks: TrackManagementCallbacks(
                   onDuplicated: _onTrackDuplicated,
                   onDeleted: _onTrackDeleted,
+                  onDeleteRequested: _onDeleteTrackRequested,
                   onMidiTrackCreated: _createDefaultMidiClip,
                   onTrackCreated: _onTrackCreatedFromMixer,
                   onReordered: _onTrackReordered,

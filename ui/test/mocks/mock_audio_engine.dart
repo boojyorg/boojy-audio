@@ -14,12 +14,31 @@ class MockAudioEngine implements AudioEngineInterface {
   int nextReturnId = 1;
   String trackInfoResponse = '';
 
+  /// Configurable responses for the delete-track snapshot path.
+  String trackSendsResponse = '';
+  String trackEffectsResponse = '';
+  final Map<int, String> effectInfoResponses = {};
+
+  /// VST3 state blobs keyed by effect id, returned by [getVst3State]. Lets
+  /// DeleteTrackCommand tests assert a plugin's state was captured + restored.
+  final Map<int, String> vst3StateResponses = {};
+
+  /// (effectId, base64) pairs passed to [setVst3State], in call order.
+  final List<({int effectId, String stateBase64})> setVst3StateCalls = [];
+
+  /// (trackId, pluginPath) pairs passed to [addVst3EffectToTrack], in order.
+  final List<({int trackId, String path})> addedVst3Plugins = [];
+
   /// Captured arguments for remove operations, in call order. These let redo
   /// tests assert that after undo→redo a Remove command targets the *recreated*
   /// engine id rather than the stale original id.
   final List<int> removedEffectIds = [];
   final List<int> removedReturnIds = [];
   final List<int> removedClipIds = [];
+
+  /// trackIds passed to deleteTrack, in call order — lets DeleteTrackCommand
+  /// redo tests assert it targets the recreated id, not the stale original (C62).
+  final List<int> deletedTrackIds = [];
 
   /// The effect-chain order passed to the most recent reorderTrackEffects call.
   List<int>? lastReorder;
@@ -34,9 +53,16 @@ class MockAudioEngine implements AudioEngineInterface {
     nextClipId = 1;
     nextReturnId = 1;
     trackInfoResponse = '';
+    trackSendsResponse = '';
+    trackEffectsResponse = '';
+    effectInfoResponses.clear();
+    vst3StateResponses.clear();
+    setVst3StateCalls.clear();
+    addedVst3Plugins.clear();
     removedEffectIds.clear();
     removedReturnIds.clear();
     removedClipIds.clear();
+    deletedTrackIds.clear();
     lastReorder = null;
   }
 
@@ -147,6 +173,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String deleteTrack(int trackId) {
     _record('deleteTrack');
+    deletedTrackIds.add(trackId);
     return 'OK';
   }
 
@@ -199,7 +226,21 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   int addVst3EffectToTrack(int trackId, String effectPath) {
     _record('addVst3EffectToTrack');
+    addedVst3Plugins.add((trackId: trackId, path: effectPath));
     return nextEffectId++;
+  }
+
+  @override
+  String getVst3State(int effectId) {
+    _record('getVst3State');
+    return vst3StateResponses[effectId] ?? '';
+  }
+
+  @override
+  String setVst3State(int effectId, String stateBase64) {
+    _record('setVst3State');
+    setVst3StateCalls.add((effectId: effectId, stateBase64: stateBase64));
+    return 'OK';
   }
 
   @override
@@ -207,6 +248,18 @@ class MockAudioEngine implements AudioEngineInterface {
     _record('removeEffectFromTrack');
     removedEffectIds.add(effectId);
     return 'OK';
+  }
+
+  @override
+  String getTrackEffects(int trackId) {
+    _record('getTrackEffects');
+    return trackEffectsResponse;
+  }
+
+  @override
+  String getEffectInfo(int effectId) {
+    _record('getEffectInfo');
+    return effectInfoResponses[effectId] ?? '';
   }
 
   @override
@@ -484,7 +537,7 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   String getTrackSends(int trackId) {
     _record('getTrackSends');
-    return '';
+    return trackSendsResponse;
   }
 
   @override

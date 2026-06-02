@@ -5,6 +5,22 @@ use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
+/// Realtime lock-contention counter for the recorder's per-sample reads on the
+/// audio thread (`process_frame`). Incremented with `Relaxed` ordering when a
+/// `try_lock` fails and we fall back to a blocking lock — the same pattern the
+/// renderer uses (`SYNTH_LOCK_CONTENTION`/`EFFECT_LOCK_CONTENTION`). This, plus
+/// removing the audio-thread `eprintln!`s, keeps the recording/count-in path
+/// off the non-realtime patterns the renderer was already hardened against.
+static RECORDER_LOCK_CONTENTION: AtomicU64 = AtomicU64::new(0);
+
+/// Recorder realtime lock-contention count since process start. A climbing
+/// value points at audio-thread stalls during recording.
+// Exposed for future diagnostics / an audio-health FFI; not yet consumed.
+#[allow(dead_code)]
+pub fn recorder_lock_contention_count() -> u64 {
+    RECORDER_LOCK_CONTENTION.load(Ordering::Relaxed)
+}
+
 /// Recording state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordingState {
@@ -394,11 +410,15 @@ impl RecorderCallbackRefs {
         is_playing: bool,
         playhead_seconds: f64,
     ) -> (f32, f32) {
-        // Read state once and drop lock immediately to avoid blocking UI thread
-        let current_state = {
-            let state = self.state.lock();
+        // Read state once and drop lock immediately. try_lock first so a UI
+        // thread mid-write can't stall the audio thread per sample (C2); only
+        // count + fall back to a blocking lock on the rare contended frame.
+        let current_state = if let Some(state) = self.state.try_lock() {
             *state
-        }; // Lock released here
+        } else {
+            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+            *self.state.lock()
+        };
 
         // Only increment counter when playing or recording
         // This ensures metronome resets properly when stopped
@@ -410,8 +430,21 @@ impl RecorderCallbackRefs {
             self.sample_counter.load(Ordering::SeqCst)
         };
 
-        let tempo = *self.tempo.lock();
-        let time_sig = *self.time_signature.lock();
+        // Same try_lock-or-count treatment for the two per-sample reads below —
+        // both are written only when the user drags the tempo / time-sig
+        // control, so contention is rare but must never block the audio thread.
+        let tempo = if let Some(tempo) = self.tempo.try_lock() {
+            *tempo
+        } else {
+            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+            *self.tempo.lock()
+        };
+        let time_sig = if let Some(time_sig) = self.time_signature.try_lock() {
+            *time_sig
+        } else {
+            RECORDER_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+            *self.time_signature.lock()
+        };
         let metronome_enabled = self.metronome_enabled.load(Ordering::SeqCst);
 
         // Calculate beat information
@@ -468,13 +501,12 @@ impl RecorderCallbackRefs {
                         // Punch-in enabled: wait for playhead to reach region start
                         let punch_in_s = *self.punch_in_seconds.lock();
                         if playhead_seconds >= punch_in_s {
-                            // Already past punch-in point, start recording immediately
-                            eprintln!("✅ [Recorder] Count-in complete, already past punch-in ({playhead_seconds:.3}s >= {punch_in_s:.3}s). Recording immediately.");
+                            // Already past punch-in point, start recording immediately.
+                            // (No audio-thread logging here — see C3.)
                             let mut state = self.state.lock();
                             *state = RecordingState::Recording;
                             drop(state);
                         } else {
-                            eprintln!("✅ [Recorder] Count-in complete, waiting for punch-in at {punch_in_s:.3}s (playhead: {playhead_seconds:.3}s)");
                             let mut state = self.state.lock();
                             *state = RecordingState::WaitingForPunchIn;
                             drop(state);
@@ -482,7 +514,6 @@ impl RecorderCallbackRefs {
                         self.sample_counter.store(0, Ordering::SeqCst);
                     } else {
                         // No punch-in: start recording immediately (existing behavior)
-                        eprintln!("✅ [Recorder] Count-in complete! Transitioning to Recording state (sample: {sample_idx})");
                         let mut state = self.state.lock();
                         *state = RecordingState::Recording;
                         drop(state);
@@ -495,7 +526,6 @@ impl RecorderCallbackRefs {
                 // Transport is playing, waiting for playhead to reach punch-in point
                 let punch_in_s = *self.punch_in_seconds.lock();
                 if playhead_seconds >= punch_in_s {
-                    eprintln!("🎯 [Recorder] Punch-in! Playhead {playhead_seconds:.3}s reached punch point {punch_in_s:.3}s");
                     // Clear buffer and start recording
                     {
                         let mut samples = self.recorded_samples.lock();
@@ -512,7 +542,6 @@ impl RecorderCallbackRefs {
                 if punch_out {
                     let punch_out_s = *self.punch_out_seconds.lock();
                     if playhead_seconds >= punch_out_s {
-                        eprintln!("🎯 [Recorder] Punch-out! Playhead {playhead_seconds:.3}s reached punch point {punch_out_s:.3}s");
                         let mut state = self.state.lock();
                         *state = RecordingState::Idle;
                         drop(state);
@@ -527,15 +556,7 @@ impl RecorderCallbackRefs {
                     let mut samples = self.recorded_samples.lock();
                     samples.push(input_left);
                     samples.push(input_right);
-
-                    // Log every second of recording
-                    if samples.len().is_multiple_of(96000) {
-                        eprintln!(
-                            "🎙️  [Recorder] Recording... {} samples ({:.1}s)",
-                            samples.len(),
-                            samples.len() as f32 / (TARGET_SAMPLE_RATE as f32 * 2.0)
-                        );
-                    }
+                    // (No per-second audio-thread progress logging — see C3.)
                 }
             }
             RecordingState::Idle => {

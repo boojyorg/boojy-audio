@@ -150,6 +150,167 @@ void main() {
       expect(mockEngine.calls, contains('setTrackMute'));
       expect(mockEngine.calls, contains('setTrackSolo'));
     });
+
+    test(
+      'redo deletes the recreated track id, not the stale original (C62)',
+      () async {
+        // createTrack (on undo) hands out 42; redo must delete 42, not 1.
+        mockEngine.nextTrackId = 42;
+
+        final command = DeleteTrackCommand(
+          trackId: 1,
+          trackName: 'Guitar',
+          trackType: 'audio',
+        );
+
+        await command.execute(mockEngine); // deletes original id 1
+        await command.undo(mockEngine); // recreates as id 42
+        mockEngine.deletedTrackIds.clear();
+
+        await command.execute(mockEngine); // redo (manager re-runs execute)
+
+        expect(mockEngine.deletedTrackIds, [42]);
+      },
+    );
+
+    test(
+      'undo rebuilds the built-in FX chain with params and bypass',
+      () async {
+        mockEngine.trackEffectsResponse = '10,11';
+        mockEngine.effectInfoResponses[10] =
+            'type:reverb,bypassed:0,room_size:0.8,damping:0.3,wet_dry:0.5';
+        mockEngine.effectInfoResponses[11] =
+            'type:eq,bypassed:1,low_freq:100,low_gain:3';
+
+        final command = DeleteTrackCommand(
+          trackId: 1,
+          trackName: 'Guitar',
+          trackType: 'audio',
+        );
+
+        await command.execute(mockEngine);
+        mockEngine.calls.clear();
+        await command.undo(mockEngine);
+
+        expect(
+          mockEngine.calls.where((c) => c == 'addEffectToTrack').length,
+          2,
+          reason: 'both built-in effects re-added',
+        );
+        expect(mockEngine.calls, contains('setEffectParameter'));
+        // Only the eq was bypassed.
+        expect(mockEngine.calls.where((c) => c == 'setEffectBypass').length, 1);
+      },
+    );
+
+    test('undo reloads a VST3 plugin with its path + state', () async {
+      // path is last and may contain commas; name precedes it.
+      mockEngine.trackEffectsResponse = '10';
+      mockEngine.effectInfoResponses[10] =
+          'type:vst3,bypassed:0,name:Serum,path:/Library/Audio/Plug-Ins/VST3/Serum.vst3';
+      mockEngine.vst3StateResponses[10] = 'BASE64STATE==';
+      mockEngine.nextEffectId = 50;
+
+      final restored = <({int trackId, List<RestoredVst3> plugins})>[];
+      String? notice;
+      final command = DeleteTrackCommand(
+        trackId: 1,
+        trackName: 'Synth',
+        trackType: 'midi',
+        onVst3Restored: (tid, list) =>
+            restored.add((trackId: tid, plugins: list)),
+        onNotice: (m) => notice = m,
+      );
+
+      await command.execute(mockEngine);
+      // State captured during snapshot.
+      expect(mockEngine.calls, contains('getVst3State'));
+      mockEngine.calls.clear();
+      await command.undo(mockEngine);
+
+      // Reloaded by path, not as a built-in effect.
+      expect(mockEngine.calls, isNot(contains('addEffectToTrack')));
+      expect(mockEngine.addedVst3Plugins.length, 1);
+      expect(
+        mockEngine.addedVst3Plugins.single.path,
+        '/Library/Audio/Plug-Ins/VST3/Serum.vst3',
+      );
+      // State restored onto the freshly reloaded effect id.
+      expect(mockEngine.setVst3StateCalls.length, 1);
+      expect(mockEngine.setVst3StateCalls.single.effectId, 50);
+      expect(mockEngine.setVst3StateCalls.single.stateBase64, 'BASE64STATE==');
+      // Reported back so the UI plugin manager can re-register it.
+      expect(restored.length, 1);
+      expect(restored.single.plugins.single.effectId, 50);
+      expect(restored.single.plugins.single.name, 'Serum');
+      // Successful reload → no failure notice.
+      expect(notice, isNull);
+    });
+
+    test(
+      "undo surfaces a notice when a VST3 plugin can't be reloaded",
+      () async {
+        mockEngine.trackEffectsResponse = '10';
+        mockEngine.effectInfoResponses[10] =
+            'type:vst3,bypassed:0,name:Gone,path:/missing/Gone.vst3';
+        mockEngine.nextEffectId =
+            -1; // addVst3EffectToTrack returns < 0 → failure
+
+        String? notice;
+        final command = DeleteTrackCommand(
+          trackId: 1,
+          trackName: 'Synth',
+          trackType: 'midi',
+          onNotice: (m) => notice = m,
+        );
+
+        await command.execute(mockEngine);
+        mockEngine.calls.clear();
+        await command.undo(mockEngine);
+
+        // Tried to reload, failed, no state restore, surfaced a notice.
+        expect(mockEngine.addedVst3Plugins.length, 1);
+        expect(mockEngine.calls, isNot(contains('setVst3State')));
+        expect(notice, isNotNull);
+        expect(notice, contains('moved or uninstalled'));
+      },
+    );
+
+    test('undo restores sends from the snapshot', () async {
+      mockEngine.trackSendsResponse = '5,-6.00,Reverb;6,-12.00,Delay';
+
+      final command = DeleteTrackCommand(
+        trackId: 1,
+        trackName: 'Guitar',
+        trackType: 'audio',
+      );
+
+      await command.execute(mockEngine);
+      mockEngine.calls.clear();
+      await command.undo(mockEngine);
+
+      expect(mockEngine.calls.where((c) => c == 'addSend').length, 2);
+    });
+
+    test('onCleanup fires on delete, onRestoreUi on undo', () async {
+      mockEngine.nextTrackId = 7;
+      int? cleanupId;
+      int? restoreId;
+
+      final command = DeleteTrackCommand(
+        trackId: 1,
+        trackName: 'Guitar',
+        trackType: 'audio',
+        onCleanup: (id) => cleanupId = id,
+        onRestoreUi: (id) => restoreId = id,
+      );
+
+      await command.execute(mockEngine);
+      expect(cleanupId, 1);
+
+      await command.undo(mockEngine);
+      expect(restoreId, 7);
+    });
   });
 
   group('DuplicateTrackCommand', () {

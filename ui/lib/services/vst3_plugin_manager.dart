@@ -274,6 +274,25 @@ class Vst3PluginManager extends ChangeNotifier {
     }
   }
 
+  /// Re-register a VST3 plugin that was reloaded into the engine outside the
+  /// normal [addToTrack] path — specifically by [DeleteTrackCommand]'s undo,
+  /// which recreates the engine effect (with a fresh effect id) and restores its
+  /// state itself. This only syncs the manager's own maps (so the editor and the
+  /// track's plugin-count chip reappear); it must NOT call the engine again, or
+  /// the plugin would be double-added.
+  void registerRestoredPlugin(
+    int trackId,
+    int effectId, {
+    required String path,
+    required String name,
+    String vendor = '',
+  }) {
+    _trackEffects[trackId] ??= [];
+    _trackEffects[trackId]!.add(effectId);
+    _pluginCache[effectId] = {'name': name, 'path': path, 'vendor': vendor};
+    notifyListeners();
+  }
+
   /// Get effect IDs for a track
   List<int> getTrackEffectIds(int trackId) {
     return List.unmodifiable(_trackEffects[trackId] ?? []);

@@ -4,7 +4,57 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Undo no longer silently swallows an action that fails (C66/C86).** If a command's undo or redo
+  threw, the manager used to discard it entirely — the entry vanished from the history with no
+  trace, and the stacks were left corrupt. It now keeps the command on its stack when the operation
+  fails, so the history stays intact and the action can be retried.
+- **Opening a broken project no longer pretends it worked (C73/C77).** A failed engine load (corrupt
+  `project.json`, missing referenced files) was treated as success: the app rendered an empty/half-
+  loaded state, adopted the bad folder as the current project, and a later auto-save could overwrite
+  it on disk. A failed load now surfaces the error and leaves your current project — and its path —
+  untouched.
+- **Projects saved at a non-default tempo reopen on the grid (C72).** MIDI notes were restored using
+  the stale default tempo (120) before the engine's real tempo synced, so a project saved at e.g.
+  140 BPM reopened with every note shifted off the beat. Tempo is now synced before notes are
+  restored, on both normal open and crash recovery.
+- **Consolidate is now undoable (C53).** Consolidating several MIDI clips into one bypassed the undo
+  system, so pressing Cmd+Z afterwards undid some unrelated earlier action instead. It's now a single
+  undo step that restores the original clips.
+- **Deleting notes in the piano roll is now undoable (C54).** Deleting a multi-note selection ran
+  without recording an undo entry, so Cmd+Z did nothing and the notes were gone for good. The delete
+  is now captured in history.
+- **Undoing a track deletion brings the track's content back (C62/C68/C76/C97).** Deleting a track
+  and pressing Cmd+Z used to recreate an empty shell — your MIDI clips, audio clips, effects, and
+  sends were gone, and a redo left a ghost track behind. Undo now restores the track's clips (MIDI
+  and audio), its full effect chain in order — **built-in effects *and* VST3 plugins/instruments
+  (e.g. Serum), with their exact state** — sends, and mixer state, and redo cleanly removes the
+  recreated track. *Known limits, surfaced when they apply:* tweaked built-in-synth parameters
+  aren't recovered (a fresh default synth comes back with the track), a VST3 plugin that's been
+  moved or uninstalled since the delete can't be reloaded (you're told which), and the track may
+  reappear at the end of the list rather than its original position.
+- **VST3 plugins follow the activation protocol (C30).** The host never called the mandated
+  `IComponent::setActive()` before processing (and never deactivated on teardown), so strictly
+  compliant plugins — including Steinberg's own — could output silence or crash. The host now
+  activates and deactivates each plugin in the correct order.
+- **VST3 preset/program changes are now heard, not just shown (C34).** Selecting a factory preset
+  updated the plugin's editor but never reached the audio processor, so the name changed and the
+  sound didn't. The change is now delivered to the processor.
+- **VST3 restart requests are no longer silently dropped (C35).** The host acknowledged every plugin
+  `restartComponent` request without inspecting it. It now decodes the flags and logs them;
+  on-the-fly bus/processing reconfiguration (a rare path) remains deferred.
+
 ### Improvements
+
+- **Recording stays off the audio thread's danger paths (C1/C2/C3).** Three realtime-safety holes
+  the playing path had already been hardened against, fixed on the recording and stopped paths: the
+  not-playing render callback re-locked the effect and track managers *per sample* (now locked once
+  per buffer with the same try-lock + contention-counter treatment); the recorder read its state,
+  tempo, and time-signature with blocking locks *per sample* (now try-locked); and the recorder
+  emitted `eprintln!` console I/O on the audio thread during count-in, punch, and every second of
+  recording (removed). Net effect: fewer dropouts/xruns when you tweak tempo or add an effect while
+  recording or while live-monitoring stopped.
 
 - **The test suite can no longer lie (C92).** The native-engine integration tests used to
   silently early-return when the engine library was missing — so a CI run that forgot to build the
