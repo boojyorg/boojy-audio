@@ -916,6 +916,14 @@ class _DAWScreenState extends State<DAWScreen>
     final audioSnapshot =
         timelineKey.currentState?.getAudioClipsOnTrack(track.id) ??
         const <ClipData>[];
+    // A VST3 *instrument* (e.g. Serum) lives in the track's InstrumentData
+    // (trackController), NOT in vst3PluginManager — that's what the UI's
+    // instrument slot reads. Capture its path so undo can route the reloaded
+    // plugin back to setTrackInstrument; everything else is a VST3 effect.
+    final deletedInstrument = trackController.getTrackInstrument(track.id);
+    final instrumentPluginPath = (deletedInstrument?.type == 'vst3')
+        ? deletedInstrument?.pluginPath
+        : null;
     final command = DeleteTrackCommand(
       trackId: track.id,
       trackName: track.name,
@@ -926,15 +934,29 @@ class _DAWScreenState extends State<DAWScreen>
       solo: track.solo,
       armed: track.armed,
       onVst3Restored: (newTrackId, restored) {
-        // The command reloaded these plugins into the engine; re-register them
-        // with the UI plugin manager so their editor + count chip reappear.
+        // The command reloaded these plugins into the engine. A reloaded plugin
+        // whose path matches the deleted track's VST3 instrument goes back as
+        // the track's instrument (trackController); the rest are VST3 effects
+        // and re-register with the plugin manager (editor + count chip).
         for (final r in restored) {
-          vst3PluginManager?.registerRestoredPlugin(
-            newTrackId,
-            r.effectId,
-            path: r.path,
-            name: r.name,
-          );
+          if (instrumentPluginPath != null && r.path == instrumentPluginPath) {
+            trackController.setTrackInstrument(
+              newTrackId,
+              InstrumentData.vst3Instrument(
+                trackId: newTrackId,
+                pluginPath: r.path,
+                pluginName: r.name,
+                effectId: r.effectId,
+              ),
+            );
+          } else {
+            vst3PluginManager?.registerRestoredPlugin(
+              newTrackId,
+              r.effectId,
+              path: r.path,
+              name: r.name,
+            );
+          }
         }
       },
       onCleanup: (tid) {
