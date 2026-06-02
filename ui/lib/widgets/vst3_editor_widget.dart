@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/vst3_editor_service.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
@@ -96,24 +97,25 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
 
   Widget _buildUnsupportedPlatform() {
     final isWindows = Platform.isWindows;
+    final colors = context.colors;
     return Container(
       width: widget.width,
       height: widget.height,
-      color: const Color(0xFF202020),
+      color: colors.elevated,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isWindows ? BI.monitor : BI.error,
-              color: isWindows ? Colors.orange : Colors.red,
+              color: isWindows ? colors.warning : colors.error,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
               widget.pluginName,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 16,
                 fontWeight: BT.weightSemiBold,
               ),
@@ -124,7 +126,9 @@ class _VST3EditorWidgetState extends State<VST3EditorWidget> {
                   ? 'Plugin UI not yet available on Windows.\nUse the parameter sliders below.'
                   : 'VST3 editors not supported on ${Platform.operatingSystem}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(
+                color: colors.textPrimary.withValues(alpha: 0.7),
+              ),
             ),
           ],
         ),

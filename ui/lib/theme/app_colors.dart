@@ -110,8 +110,11 @@ class BoojyColors {
   // SEMANTIC COLORS (Theme-independent)
   // ============================================
 
-  /// Success/positive indicator (green)
-  Color get success => const Color(0xFF4CAF50);
+  /// Success/positive indicator (green). The single Boojy green — a cool
+  /// emerald that sits in the Gunmetal ramp. Every green in the app (success
+  /// ticks, meters, signal dots) resolves here; do not reintroduce a second
+  /// green literal (B-TH1).
+  Color get success => const Color(0xFF22C55E);
 
   /// Warning indicator (yellow/amber)
   Color get warning => const Color(0xFFFFC107);
@@ -123,14 +126,14 @@ class BoojyColors {
   // COMPONENT-SPECIFIC COLORS
   // ============================================
 
-  /// Level meter green (low levels)
-  Color get meterGreen => const Color(0xFF4CAF50);
+  /// Level meter green (low levels) — shares the one Boojy green.
+  Color get meterGreen => success;
 
   /// Level meter yellow (mid levels)
-  Color get meterYellow => const Color(0xFFFFC107);
+  Color get meterYellow => const Color(0xFFEAB308);
 
   /// Level meter red (high/clipping levels)
-  Color get meterRed => const Color(0xFFFF5722);
+  Color get meterRed => const Color(0xFFEF4444);
 
   /// Solo button active state - Blue
   Color get soloActive => const Color(0xFF3B82F6);
@@ -311,4 +314,33 @@ class BoojyColors {
     'primary': Color(0xFF0369A1),
     'hover': Color(0xFF075985),
   };
+}
+
+/// Single source of truth for level-meter colour zones (B-FX4).
+///
+/// Every meter — the capsule fader, the device-strip meter, and the horizontal
+/// level meter — builds its gradient/segments from one instance of this, so the
+/// green→yellow→red hues never diverge across panels. The green is always
+/// [BoojyColors.success]: there is exactly one green in the app.
+class MeterColorZones {
+  final Color green;
+  final Color yellow;
+  final Color red;
+
+  const MeterColorZones._(this.green, this.yellow, this.red);
+
+  /// Normalised level at which green gives way to yellow (~−6 dBFS).
+  static const double yellowAt = 0.74;
+
+  /// Normalised level at which yellow gives way to red (~−1.5 dBFS).
+  static const double redAt = 0.90;
+
+  /// Resolve the zone colours from the active theme's meter tokens.
+  factory MeterColorZones.of(BoojyColors colors) =>
+      MeterColorZones._(colors.meterGreen, colors.meterYellow, colors.meterRed);
+
+  /// Colour for a normalised `0..1` meter level. Green holds up to [yellowAt],
+  /// yellow up to [redAt], red above — one shared threshold set for all meters.
+  Color colorAt(double level) =>
+      level >= redAt ? red : (level >= yellowAt ? yellow : green);
 }

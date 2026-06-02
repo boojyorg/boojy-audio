@@ -329,10 +329,10 @@ class _BoojyWordmarkLockup extends StatelessWidget {
       children: [
         Text.rich(
           TextSpan(
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 46,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: colors.textPrimary,
               letterSpacing: -1,
               height: 1.0,
             ),
@@ -359,7 +359,7 @@ class _BoojyWordmarkLockup extends StatelessWidget {
         const SizedBox(height: 6),
         BoojyWordmark(
           triangleColor: colors.accent,
-          textColor: Colors.white,
+          textColor: colors.textPrimary,
           fontSize: 32,
         ),
       ],
@@ -432,7 +432,7 @@ class _ActionButtonState extends State<_ActionButton> {
                 widget.icon,
                 size: BT.iconLg,
                 color: widget.isPrimary
-                    ? Colors.white
+                    ? colors.textPrimary
                     : (_isHovering ? colors.textPrimary : colors.textSecondary),
               ),
               const SizedBox(width: 10),
@@ -440,7 +440,7 @@ class _ActionButtonState extends State<_ActionButton> {
                 widget.label,
                 style: TextStyle(
                   color: widget.isPrimary
-                      ? Colors.white
+                      ? colors.textPrimary
                       : (_isHovering
                             ? colors.textPrimary
                             : colors.textSecondary),
