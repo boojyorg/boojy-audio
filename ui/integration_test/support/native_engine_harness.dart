@@ -12,6 +12,18 @@ bool get isNativeEngineAvailable {
   return findEngineLibraryPath() != null;
 }
 
+/// Whether a missing engine must be treated as a hard failure rather than a
+/// graceful skip.
+///
+/// On a native CI run (`--dart-define=BOOJY_CI=true`) the dylib MUST be present
+/// — a forgotten `./build.sh` would otherwise yield a green-but-vacuous suite:
+/// every test early-returns and flutter still prints "N tests passed". The
+/// integration gate in `ci.yml` judges success purely from that reporter line,
+/// so a vacuous pass slips straight through. We refuse that by failing loudly
+/// instead. See review finding C92.
+bool get isNativeEngineRequired =>
+    !kIsWeb && const bool.fromEnvironment('BOOJY_CI');
+
 /// Search paths aligned with [AudioEngine] dylib discovery in
 /// `audio_engine_base.dart`.
 String? findEngineLibraryPath() {

@@ -126,15 +126,12 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     // Audio clips are stored separately from tracks and need to be re-attached
     let mut audio_clip_count = 0;
     for track_data in &project_data.tracks {
-        let new_track_id = match id_map.get(&track_data.id).copied() {
-            Some(id) => id,
-            None => {
-                eprintln!(
-                    "⚠️  [API] Audio clip restore: saved track {} not in id_map, skipping its clips",
-                    track_data.id
-                );
-                continue;
-            }
+        let Some(new_track_id) = id_map.get(&track_data.id).copied() else {
+            eprintln!(
+                "⚠️  [API] Audio clip restore: saved track {} not in id_map, skipping its clips",
+                track_data.id
+            );
+            continue;
         };
         for clip_data in &track_data.clips {
             // Audio clips have audio_file_id but no midi_notes

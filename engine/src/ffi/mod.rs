@@ -139,7 +139,7 @@ pub extern "C" fn init_audio_engine_ffi() -> *mut c_char {
                 .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
                 .unwrap_or_default();
             let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
-                s.to_string()
+                (*s).to_string()
             } else if let Some(s) = info.payload().downcast_ref::<String>() {
                 s.clone()
             } else {

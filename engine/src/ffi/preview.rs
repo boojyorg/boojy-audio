@@ -28,7 +28,7 @@ pub extern "C" fn preview_load_audio_async_ffi(path: *const c_char) {
 /// Check if async load completed and clip is ready
 #[no_mangle]
 pub extern "C" fn preview_is_loaded_ffi() -> bool {
-    ffi_catch(false, || api::preview_is_loaded())
+    ffi_catch(false, api::preview_is_loaded)
 }
 
 /// Load an audio file for library preview (synchronous, blocks until complete)
@@ -57,14 +57,14 @@ pub extern "C" fn preview_load_audio_ffi(path: *const c_char) -> *mut c_char {
 /// Check if full clip is ready to hot-swap after partial decode
 #[no_mangle]
 pub extern "C" fn preview_check_full_clip_ffi() -> bool {
-    ffi_catch(false, || api::preview_check_full_clip())
+    ffi_catch(false, api::preview_check_full_clip)
 }
 
 /// Check if the loaded preview clip has finished decoding (true for WAV once
 /// loaded; tracks the background decode for streaming MP3/FLAC)
 #[no_mangle]
 pub extern "C" fn preview_is_fully_decoded_ffi() -> bool {
-    ffi_catch(false, || api::preview_is_fully_decoded())
+    ffi_catch(false, api::preview_is_fully_decoded)
 }
 
 /// Start preview playback
@@ -94,19 +94,19 @@ pub extern "C" fn preview_seek_ffi(position_seconds: f64) {
 /// Get current playback position in seconds
 #[no_mangle]
 pub extern "C" fn preview_get_position_ffi() -> f64 {
-    ffi_catch(0.0, || api::preview_get_position())
+    ffi_catch(0.0, api::preview_get_position)
 }
 
 /// Get total duration in seconds
 #[no_mangle]
 pub extern "C" fn preview_get_duration_ffi() -> f64 {
-    ffi_catch(0.0, || api::preview_get_duration())
+    ffi_catch(0.0, api::preview_get_duration)
 }
 
 /// Check if preview is currently playing
 #[no_mangle]
 pub extern "C" fn preview_is_playing_ffi() -> bool {
-    ffi_catch(false, || api::preview_is_playing())
+    ffi_catch(false, api::preview_is_playing)
 }
 
 /// Set looping mode
@@ -120,7 +120,7 @@ pub extern "C" fn preview_set_looping_ffi(should_loop: bool) {
 /// Get looping mode
 #[no_mangle]
 pub extern "C" fn preview_is_looping_ffi() -> bool {
-    ffi_catch(false, || api::preview_is_looping())
+    ffi_catch(false, api::preview_is_looping)
 }
 
 /// Get waveform peaks for UI display
