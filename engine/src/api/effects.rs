@@ -43,6 +43,68 @@ pub fn add_effect_to_track(track_id: TrackId, effect_type_str: &str) -> Result<u
     }
 }
 
+/// Add a band to a Graphic EQ. Returns the new band's index.
+pub fn add_eq_band(effect_id: u64) -> Result<usize, String> {
+    use crate::effects::EffectType;
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+    let effect_arc = effect_manager
+        .get_effect(effect_id)
+        .ok_or_else(|| format!("Effect {effect_id} not found"))?;
+    let mut effect = effect_arc.lock();
+    match &mut *effect {
+        EffectType::EQ(eq) => eq
+            .add_band()
+            .ok_or_else(|| "EQ already at maximum bands".to_string()),
+        _ => Err(format!("Effect {effect_id} is not an EQ")),
+    }
+}
+
+/// Insert a default band at `index` in a Graphic EQ (undo of a removal).
+pub fn insert_eq_band(effect_id: u64, index: usize) -> Result<String, String> {
+    use crate::effects::EffectType;
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+    let effect_arc = effect_manager
+        .get_effect(effect_id)
+        .ok_or_else(|| format!("Effect {effect_id} not found"))?;
+    let mut effect = effect_arc.lock();
+    match &mut *effect {
+        EffectType::EQ(eq) => {
+            if eq.insert_band(index) {
+                Ok(format!("Inserted EQ band at {index}"))
+            } else {
+                Err("EQ already at maximum bands".to_string())
+            }
+        }
+        _ => Err(format!("Effect {effect_id} is not an EQ")),
+    }
+}
+
+/// Remove the band at `index` from a Graphic EQ.
+pub fn remove_eq_band(effect_id: u64, index: usize) -> Result<String, String> {
+    use crate::effects::EffectType;
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let effect_manager = graph.effect_manager.lock();
+    let effect_arc = effect_manager
+        .get_effect(effect_id)
+        .ok_or_else(|| format!("Effect {effect_id} not found"))?;
+    let mut effect = effect_arc.lock();
+    match &mut *effect {
+        EffectType::EQ(eq) => {
+            if eq.remove_band(index) {
+                Ok(format!("Removed EQ band {index}"))
+            } else {
+                Err(format!("EQ band index {index} out of range"))
+            }
+        }
+        _ => Err(format!("Effect {effect_id} is not an EQ")),
+    }
+}
+
 /// Remove an effect from a track's FX chain
 pub fn remove_effect_from_track(track_id: TrackId, effect_id: u64) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
@@ -109,11 +171,15 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
         let effect = effect_arc.lock();
 
         let info = match &*effect {
-            EffectType::EQ(eq) => format!(
-                "type:eq,bypassed:{},low_freq:{},low_gain:{},mid1_freq:{},mid1_gain:{},mid1_q:{},mid2_freq:{},mid2_gain:{},mid2_q:{},high_freq:{},high_gain:{},wet_dry:{}",
-                bypass_str, eq.low_freq, eq.low_gain_db, eq.mid1_freq, eq.mid1_gain_db, eq.mid1_q,
-                eq.mid2_freq, eq.mid2_gain_db, eq.mid2_q, eq.high_freq, eq.high_gain_db, eq.wet_dry_mix
-            ),
+            EffectType::EQ(eq) => {
+                // type:eq,bypassed:_,band_count:N,band_0_freq:_,…,low_cut_on:_,high_cut_on:_,output_gain:_
+                use std::fmt::Write as _;
+                let mut s = format!("type:eq,bypassed:{bypass_str}");
+                eq.write_params(&mut |k, v| {
+                    let _ = write!(s, ",{k}:{v}");
+                });
+                s
+            }
             EffectType::Compressor(comp) => format!(
                 "type:compressor,bypassed:{},threshold:{},ratio:{},attack:{},release:{},makeup:{},wet_dry:{}",
                 bypass_str, comp.threshold_db, comp.ratio, comp.attack_ms, comp.release_ms, comp.makeup_gain_db, comp.wet_dry_mix
@@ -245,52 +311,28 @@ pub fn set_effect_parameter(
         let mut effect = effect_arc.lock();
 
         match &mut *effect {
-            EffectType::EQ(eq) => match param_name {
-                "low_freq" => {
-                    eq.low_freq = value;
-                    eq.update_coefficients();
+            EffectType::EQ(eq) => {
+                // Per-band params use indexed keys "band_<index>_<key>"
+                // (key ∈ freq/gain/focus/shape/on); whole-EQ params are flat.
+                if let Some(rest) = param_name.strip_prefix("band_") {
+                    let mut parts = rest.splitn(2, '_');
+                    let idx: usize = parts
+                        .next()
+                        .and_then(|s| s.parse().ok())
+                        .ok_or_else(|| format!("Bad EQ band param: {param_name}"))?;
+                    let key = parts
+                        .next()
+                        .ok_or_else(|| format!("Bad EQ band param: {param_name}"))?;
+                    eq.set_band_param(idx, key, value)?;
+                } else {
+                    match param_name {
+                        "low_cut_on" => eq.set_low_cut(value >= 0.5),
+                        "high_cut_on" => eq.set_high_cut(value >= 0.5),
+                        "output_gain" => eq.set_output_gain(value),
+                        _ => return Err(format!("Unknown EQ parameter: {param_name}")),
+                    }
                 }
-                "low_gain" => {
-                    eq.low_gain_db = value;
-                    eq.update_coefficients();
-                }
-                "mid1_freq" => {
-                    eq.mid1_freq = value;
-                    eq.update_coefficients();
-                }
-                "mid1_gain" => {
-                    eq.mid1_gain_db = value;
-                    eq.update_coefficients();
-                }
-                "mid1_q" => {
-                    eq.mid1_q = value;
-                    eq.update_coefficients();
-                }
-                "mid2_freq" => {
-                    eq.mid2_freq = value;
-                    eq.update_coefficients();
-                }
-                "mid2_gain" => {
-                    eq.mid2_gain_db = value;
-                    eq.update_coefficients();
-                }
-                "mid2_q" => {
-                    eq.mid2_q = value;
-                    eq.update_coefficients();
-                }
-                "high_freq" => {
-                    eq.high_freq = value;
-                    eq.update_coefficients();
-                }
-                "high_gain" => {
-                    eq.high_gain_db = value;
-                    eq.update_coefficients();
-                }
-                "wet_dry" => {
-                    eq.wet_dry_mix = value;
-                }
-                _ => return Err(format!("Unknown EQ parameter: {param_name}")),
-            },
+            }
             EffectType::Compressor(comp) => match param_name {
                 "threshold" => {
                     comp.threshold_db = value;

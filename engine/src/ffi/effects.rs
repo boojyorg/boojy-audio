@@ -33,6 +33,40 @@ pub extern "C" fn add_effect_to_track_ffi(track_id: u64, effect_type: *const c_c
     )
 }
 
+/// Add a band to a Graphic EQ. Returns the new band index, or -1 on error.
+#[no_mangle]
+pub extern "C" fn add_eq_band_ffi(effect_id: u64) -> i64 {
+    ffi_catch(-1, || match api::add_eq_band(effect_id) {
+        Ok(index) => index as i64,
+        Err(e) => {
+            eprintln!("[FFI] add_eq_band error: {e}");
+            -1
+        }
+    })
+}
+
+/// Insert a default band at `index` in a Graphic EQ (undo of a removal).
+#[no_mangle]
+pub extern "C" fn insert_eq_band_ffi(effect_id: u64, index: u64) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::insert_eq_band(effect_id, index as usize) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Remove the band at `index` from a Graphic EQ.
+#[no_mangle]
+pub extern "C" fn remove_eq_band_ffi(effect_id: u64, index: u64) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::remove_eq_band(effect_id, index as usize) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
 /// Remove an effect from a track
 #[no_mangle]
 pub extern "C" fn remove_effect_from_track_ffi(track_id: u64, effect_id: u64) -> *mut c_char {

@@ -117,6 +117,9 @@ class _AudioEngineBase {
   // M4 functions - Effects
   late final _AddEffectToTrackFfi _addEffectToTrack;
   late final _RemoveEffectFromTrackFfi _removeEffectFromTrack;
+  late final _AddEqBandFfi _addEqBand;
+  late final _RemoveEqBandFfi _removeEqBand;
+  late final _InsertEqBandFfi _insertEqBand;
   late final _GetTrackEffectsFfi _getTrackEffects;
   late final _GetEffectInfoFfi _getEffectInfo;
   late final _SetEffectParameterFfi _setEffectParameter;
@@ -801,6 +804,22 @@ class _AudioEngineBase {
       _removeEffectFromTrack = _lib
           .lookup<ffi.NativeFunction<_RemoveEffectFromTrackFfiNative>>(
             'remove_effect_from_track_ffi',
+          )
+          .asFunction();
+
+      _addEqBand = _lib
+          .lookup<ffi.NativeFunction<_AddEqBandFfiNative>>('add_eq_band_ffi')
+          .asFunction();
+
+      _removeEqBand = _lib
+          .lookup<ffi.NativeFunction<_RemoveEqBandFfiNative>>(
+            'remove_eq_band_ffi',
+          )
+          .asFunction();
+
+      _insertEqBand = _lib
+          .lookup<ffi.NativeFunction<_InsertEqBandFfiNative>>(
+            'insert_eq_band_ffi',
           )
           .asFunction();
 

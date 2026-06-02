@@ -480,6 +480,15 @@ impl AudioGraph {
         let effect_manager = self.effect_manager.clone();
         let master_limiter = self.master_limiter.clone();
 
+        // C12: tell the filter-based effects (EQ/Compressor/Limiter) the real stream
+        // rate so their coefficients are correct in the non-48k fallback path. Done
+        // before the stream starts; new effects inherit it via create_effect. (The
+        // wider engine time-math still assumes TARGET_SAMPLE_RATE — see the config
+        // selection comment above.)
+        let stream_sample_rate = config.sample_rate.0 as f32;
+        effect_manager.lock().set_sample_rate(stream_sample_rate);
+        master_limiter.lock().set_sample_rate(stream_sample_rate);
+
         // M6: Clone track synth manager
         let track_synth_manager = self.track_synth_manager.clone();
 
