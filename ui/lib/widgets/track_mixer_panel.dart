@@ -604,19 +604,25 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             onPressed: () async {
               Navigator.of(context).pop();
 
-              // Use UndoRedoManager for undoable track deletion
-              final command = DeleteTrackCommand(
-                trackId: track.id,
-                trackName: track.name,
-                trackType: track.type,
-                volumeDb: track.volumeDb,
-                pan: track.pan,
-                mute: track.mute,
-                solo: track.solo,
-              );
-
-              await UndoRedoManager().execute(command);
-              widget.trackCallbacks.onDeleted?.call(track.id);
+              // Prefer the DAW-layer undoable delete (snapshots + restores the
+              // track's full content). Fall back to the plain command +
+              // teardown only if the host didn't wire onDeleteRequested.
+              if (widget.trackCallbacks.onDeleteRequested != null) {
+                await widget.trackCallbacks.onDeleteRequested!(track);
+              } else {
+                final command = DeleteTrackCommand(
+                  trackId: track.id,
+                  trackName: track.name,
+                  trackType: track.type,
+                  volumeDb: track.volumeDb,
+                  pan: track.pan,
+                  mute: track.mute,
+                  solo: track.solo,
+                  armed: track.armed,
+                );
+                await UndoRedoManager().execute(command);
+                widget.trackCallbacks.onDeleted?.call(track.id);
+              }
               _loadTracksAsync();
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),

@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import '../../models/track_automation_data.dart';
+import '../../models/track_data.dart';
 import '../../models/library_item.dart';
 import '../../models/vst3_plugin_data.dart';
 import '../../widgets/instrument_browser.dart';
@@ -9,6 +10,13 @@ import '../../widgets/instrument_browser.dart';
 class TrackManagementCallbacks {
   final Function(int, int)? onDuplicated; // (sourceTrackId, newTrackId)
   final Function(int)? onDeleted; // (trackId)
+
+  /// Undoable delete: routes to the DAW layer (which has the playback managers)
+  /// so the whole track — clips, sends, effects — is snapshotted before deletion
+  /// and restored on undo. When set, the mixer panel uses this instead of the
+  /// plain [onDeleted] teardown. Receives the full track so the daw layer can
+  /// read its name/type/mixer without a round-trip.
+  final Future<void> Function(TrackData track)? onDeleteRequested;
   final Function(int trackId)? onMidiTrackCreated;
   final Function(int trackId, String trackType)? onTrackCreated;
   final Function(int oldIndex, int newIndex)? onReordered;
@@ -22,6 +30,7 @@ class TrackManagementCallbacks {
   const TrackManagementCallbacks({
     this.onDuplicated,
     this.onDeleted,
+    this.onDeleteRequested,
     this.onMidiTrackCreated,
     this.onTrackCreated,
     this.onReordered,

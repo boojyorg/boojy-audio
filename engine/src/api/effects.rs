@@ -136,8 +136,14 @@ pub fn get_effect_info(effect_id: u64) -> Result<String, String> {
             ),
             #[cfg(all(feature = "vst3", not(target_os = "ios")))]
             EffectType::VST3(vst3) => {
-                // Return basic VST3 info
-                format!("type:vst3,bypassed:{},name:{}", bypass_str, vst3.name())
+                // `path` is last so a plugin path containing a comma can't corrupt
+                // earlier fields — parsers should read everything after `path:`.
+                format!(
+                    "type:vst3,bypassed:{},name:{},path:{}",
+                    bypass_str,
+                    vst3.name(),
+                    vst3.get_plugin_path()
+                )
             }
         };
         Ok(info)

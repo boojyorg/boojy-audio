@@ -1,7 +1,6 @@
 /// Offline rendering for export and bounce
 use super::{interpolate_automation_gain, AudioGraph};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use crate::dlog;
 use crate::effects::{Effect, EffectManager};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackType};
 

@@ -233,7 +233,7 @@ pub fn export_to_wav(output_path_str: String, normalize: bool) -> Result<String,
         .finalize()
         .map_err(|e| format!("Failed to finalize WAV file: {e}"))?;
 
-    let file_size = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
+    let file_size = std::fs::metadata(output_path).map_or(0, |m| m.len());
 
     eprintln!(
         "✅ [API] WAV export complete: {} samples, {:.2} MB",

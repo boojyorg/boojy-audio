@@ -67,6 +67,19 @@ class ProjectManager extends ChangeNotifier {
     try {
       final loadResult = _audioEngine.loadProject(path);
 
+      // The engine returns an "Error: …" string on failure rather than
+      // throwing. Treating that as success silently overwrites the project
+      // path (so a later auto-save clobbers the bad file) and defeats the
+      // crash-recovery gate. Bail out before touching any project state.
+      if (loadResult.startsWith('Error:')) {
+        _isLoading = false;
+        notifyListeners();
+        return (
+          result: ProjectResult(success: false, message: loadResult),
+          uiLayout: null,
+        );
+      }
+
       // Load UI layout data
       final uiLayout = _loadUILayout(path);
 

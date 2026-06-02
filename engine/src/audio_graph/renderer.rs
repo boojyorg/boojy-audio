@@ -1,7 +1,6 @@
 /// Real-time audio render callback — runs on the audio thread
 use super::{interpolate_automation_gain, AudioGraph, TransportState};
 use crate::audio_file::{AudioClip, TARGET_SAMPLE_RATE};
-use crate::dlog;
 use crate::effects::{Effect, EffectManager};
 use crate::track::{AutomationPoint, TimelineClip, TimelineMidiClip, TrackId, TrackType};
 use std::collections::HashMap;
@@ -542,8 +541,27 @@ impl AudioGraph {
                     // Get current playhead for latency test sample counting
                     let current_playhead = playhead_samples.load(Ordering::SeqCst);
 
-                    // Lock synth manager once for the entire buffer
-                    let mut synth_guard = Some(track_synth_manager.lock());
+                    // Lock the synth, effect, and track managers ONCE for the
+                    // whole buffer, using the same try_lock-or-count-contention
+                    // pattern as the playing path. The stopped path used to
+                    // re-acquire effect_manager and track_manager *per sample*
+                    // with blocking locks (C1) — the exact realtime stall the
+                    // playing path was deliberately hardened against.
+                    let mut synth_guard =
+                        Some(if let Some(guard) = track_synth_manager.try_lock() {
+                            guard
+                        } else {
+                            SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+                            track_synth_manager.lock()
+                        });
+                    let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
+                        guard
+                    } else {
+                        EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
+                        effect_manager.lock()
+                    };
+                    let tm = track_manager.lock();
+                    let has_solo = tm.has_solo();
 
                     for frame_idx in 0..frames {
                         let (input_left, input_right) = read_input_samples(&input_manager);
@@ -564,10 +582,7 @@ impl AudioGraph {
                         // 2. VST3 instruments that need continuous process() calls
                         // 3. Track-level metering for level meters in UI
                         {
-                            let mut effect_mgr = effect_manager.lock();
                             {
-                                let tm = track_manager.lock();
-                                let has_solo = tm.has_solo();
                                 for track_arc in tm.get_all_tracks() {
                                     {
                                         let mut track = track_arc.lock();
@@ -613,7 +628,7 @@ impl AudioGraph {
                                             // Process FX with silence to keep VST3 alive
                                             process_effect_chain(
                                                 &track.fx_chain,
-                                                &mut effect_mgr,
+                                                &mut effect_guard,
                                                 0.0,
                                                 0.0,
                                                 true,
@@ -626,7 +641,7 @@ impl AudioGraph {
                                         if has_solo && !track.solo {
                                             process_effect_chain(
                                                 &track.fx_chain,
-                                                &mut effect_mgr,
+                                                &mut effect_guard,
                                                 0.0,
                                                 0.0,
                                                 true,
@@ -640,7 +655,7 @@ impl AudioGraph {
                                         // Process FX chain for this track
                                         let (fx_l, fx_r) = process_effect_chain(
                                             &track.fx_chain,
-                                            &mut effect_mgr,
+                                            &mut effect_guard,
                                             track_left,
                                             track_right,
                                             false,
