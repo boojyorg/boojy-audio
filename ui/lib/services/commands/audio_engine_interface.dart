@@ -59,11 +59,30 @@ abstract class AudioEngineInterface {
   int addEffectToTrack(int trackId, String effectType);
   int addVst3EffectToTrack(int trackId, String effectPath);
   String removeEffectFromTrack(int trackId, int effectId);
+
+  /// CSV of effect IDs on a track ("id,id,..."). Used to snapshot a track's
+  /// FX chain before deletion so undo can rebuild it.
+  String getTrackEffects(int trackId);
+
+  /// Effect type + bypass + parameters as "type:eq,bypassed:0,low_freq:..,..".
+  /// Built-in effects round-trip through `addEffectToTrack` + `setEffectParameter`
+  /// (the parameter names here match those setters). VST3 effects report
+  /// "type:vst3,bypassed:..,name:..,path:.." — rebuildable via
+  /// `addVst3EffectToTrack(path)` + `setVst3State` (read `path:` as everything
+  /// after the marker, since a plugin path may contain commas).
+  String getEffectInfo(int effectId);
   void setEffectBypass(int effectId, {required bool bypassed});
   void setEffectParameter(int effectId, String paramName, double value);
   void setSynthBypass(int trackId, {required bool bypassed});
   void reorderTrackEffects(int trackId, List<int> order);
   bool setVst3ParameterValue(int effectId, int paramIndex, double value);
+
+  /// Base64-encoded opaque state blob of a VST3 plugin (its full patch). Used to
+  /// snapshot a plugin before track deletion so undo can restore its exact state.
+  String getVst3State(int effectId);
+
+  /// Restore a VST3 plugin's state from a base64 blob produced by [getVst3State].
+  String setVst3State(int effectId, String stateBase64);
 
   // Sampler operations
   int createSamplerForTrack(int trackId);

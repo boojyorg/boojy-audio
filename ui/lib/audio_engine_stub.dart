@@ -222,7 +222,9 @@ class AudioEngine implements AudioEngineInterface {
   void reorderTrackEffects(int trackId, List<int> order) =>
       throw UnsupportedError('stub');
 
+  @override
   String getTrackEffects(int trackId) => throw UnsupportedError('stub');
+  @override
   String getEffectInfo(int effectId) => throw UnsupportedError('stub');
   @override
   String setEffectParameter(int effectId, String paramName, double value) =>
@@ -397,7 +399,9 @@ class AudioEngine implements AudioEngineInterface {
     int velocity,
   ) => throw UnsupportedError('stub');
 
+  @override
   String getVst3State(int effectId) => throw UnsupportedError('stub');
+  @override
   String setVst3State(int effectId, String stateBase64) =>
       throw UnsupportedError('stub');
   String getVst3Presets(int effectId) => throw UnsupportedError('stub');

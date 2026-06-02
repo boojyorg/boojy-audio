@@ -80,9 +80,33 @@ public:
     }
 
     tresult PLUGIN_API restartComponent(int32 flags) override {
-        fprintf(stderr, "📊 [ComponentHandler] restartComponent: flags=%d\n", flags);
+        // Decode the restart flags instead of silently acknowledging everything
+        // (C35). The param-related flags are advisory for our host — the
+        // processor receives values through inputParameterChanges, and the editor
+        // reads the controller directly — so acknowledging them is correct.
+        //
+        // kReloadComponent / kIoChanged request a processing-setup or bus-arrangement
+        // reconfiguration. This host has a single global ComponentHandler shared by
+        // all instances (it has no back-pointer to identify *which* plugin asked),
+        // and its bus layout is fixed stereo-in/stereo-out, set once at init. Doing
+        // a real on-the-fly reconfig would need per-instance handlers plus an
+        // audio-thread-safe re-init — disproportionate for a rare trigger
+        // (sample-rate change on an aggregate device, where the stream restart
+        // already re-initialises every plugin). So we log it explicitly rather
+        // than drop it silently; active reconfiguration is deferred.
+        if (flags & kReloadComponent) {
+            fprintf(stderr, "📊 [ComponentHandler] restartComponent: kReloadComponent requested "
+                            "(full reload not supported by the shared handler; deferred)\n");
+        }
+        if (flags & kIoChanged) {
+            fprintf(stderr, "📊 [ComponentHandler] restartComponent: kIoChanged requested "
+                            "(dynamic bus reconfig not supported; host is fixed stereo)\n");
+        }
+        if (flags & (kParamValuesChanged | kParamTitlesChanged)) {
+            fprintf(stderr, "📊 [ComponentHandler] restartComponent: parameter values/titles "
+                            "changed (flags=%d) — controller is the source of truth, ack\n", flags);
+        }
         fflush(stderr);
-        // TODO: Handle restart flags properly (kReloadComponent, kIoChanged, etc.)
         return kResultOk;
     }
 
@@ -772,10 +796,23 @@ bool vst3_activate_plugin(VST3PluginHandle handle) {
     }
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
-    if (!instance->initialized || !instance->processor) {
+    if (!instance->initialized || !instance->processor || !instance->component) {
         set_error("Plugin not initialized");
         fprintf(stderr, "❌ [C++] vst3_activate_plugin: Plugin not initialized\n");
         fflush(stderr);
+        return false;
+    }
+
+    // VST3 mandates the order setupProcessing → setActive(true) → setProcessing(true)
+    // (setupProcessing + bus activation already ran in vst3_initialize_plugin).
+    // The old code skipped IComponent::setActive() entirely, so strictly
+    // compliant plugins (e.g. Steinberg's own) had not allocated their
+    // processing resources and output silence — or crashed — in process(). (C30.)
+    tresult activeResult = instance->component->setActive(true);
+    fprintf(stdout, "🎛️ [C++] setActive(true) result: %d\n", activeResult);
+    fflush(stdout);
+    if (activeResult != kResultOk) {
+        set_error("Failed to set component active");
         return false;
     }
 
@@ -784,6 +821,8 @@ bool vst3_activate_plugin(VST3PluginHandle handle) {
     fflush(stdout);
 
     if (result != kResultOk) {
+        // Roll back the activation so the component isn't left half-started.
+        instance->component->setActive(false);
         set_error("Failed to start processing");
         return false;
     }
@@ -797,7 +836,13 @@ bool vst3_deactivate_plugin(VST3PluginHandle handle) {
 
     auto instance = static_cast<VST3PluginInstance*>(handle);
     if (instance->active && instance->processor) {
+        // Teardown is the reverse of activation: stop processing, THEN
+        // deactivate the component. The old code skipped setActive(false),
+        // leaving the component in the active state on teardown. (C30.)
         instance->processor->setProcessing(false);
+        if (instance->component) {
+            instance->component->setActive(false);
+        }
         instance->active = false;
     }
 
@@ -1587,16 +1632,22 @@ bool vst3_set_program(
                                 ? static_cast<double>(program_index) / static_cast<double>(pl_info.programCount - 1)
                                 : 0.0;
 
-                            // Set parameter on controller
+                            // Update the controller (drives the plugin's editor UI).
                             instance->controller->setParamNormalized(param_info.id, value);
 
-                            // Also push to component via IComponentHandler pattern
-                            // This ensures the processor gets the update
-                            if (instance->component) {
-                                FUnknownPtr<IEditController> editCtrl(instance->controller);
-                                if (editCtrl) {
-                                    editCtrl->setParamNormalized(param_info.id, value);
-                                }
+                            // Deliver the change to the PROCESSOR too. The old code
+                            // only poked the controller (a second setParamNormalized
+                            // on the same object), so the editor switched preset but
+                            // the audio never changed (C34). Queue the program-change
+                            // parameter into the same inputParameterChanges queue
+                            // process() reads — mirroring the MIDI-CC path above.
+                            // Safe to touch the queue here: set_vst3_program holds the
+                            // effect lock, so process() cannot run concurrently.
+                            int32 queueIndex = 0;
+                            auto* queue = instance->param_changes.addParameterData(param_info.id, queueIndex);
+                            if (queue) {
+                                int32 pointIndex = 0;
+                                queue->addPoint(0, value, pointIndex);
                             }
 
                             return true;

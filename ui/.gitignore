@@ -46,3 +46,6 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+
+# Golden test failure diffs (written on a pixel mismatch; not committed)
+test/**/failures/

@@ -47,7 +47,7 @@ pub extern "C" fn create_return_with_effect_ffi(
             } else {
                 unsafe {
                     match CStr::from_ptr(name).to_str() {
-                        Ok(s) if s.is_empty() => None,
+                        Ok("") => None,
                         Ok(s) => Some(s.to_string()),
                         Err(_) => return -1,
                     }

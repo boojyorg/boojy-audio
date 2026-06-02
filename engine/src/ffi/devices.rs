@@ -64,7 +64,7 @@ pub extern "C" fn set_audio_input_device_ffi(device_index: i32) -> *mut c_char {
 /// Get current sample rate
 #[no_mangle]
 pub extern "C" fn get_sample_rate_ffi() -> u32 {
-    ffi_catch(0, || api::get_sample_rate())
+    ffi_catch(0, api::get_sample_rate)
 }
 
 /// Set audio output device by name
