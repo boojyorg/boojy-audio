@@ -512,30 +512,55 @@ class ResizeMidiNotesCommand extends Command {
 
 /// Command to split a MIDI clip at the playhead position
 /// Creates two clips: one before the split point, one after
+/// Splits a MIDI clip into two halves at [splitPointBeats], undoably.
+///
+/// IMPORTANT — primitive contract. This command works on the clip store
+/// *directly* through [deleteClip] / [addClip] / [selectClip]. It must NOT be
+/// wired to the heavyweight `onCopied` / `onDeleted` arrangement callbacks:
+/// those each push their *own* undo command, reassign the clip id, and run
+/// overlap-resolution that trims neighbours — so feeding a split through them
+/// nests commands, desyncs the ids this command tracks, and destroys the right
+/// region on undo (the data-loss bug this rewrite fixes). The injected
+/// primitives are the same low-level engine+manager ops used by recording:
+///   * [deleteClip] removes a clip from the Dart store AND the engine.
+///   * [addClip] adds a clip (preserving its id) AND schedules it in the engine.
+///   * [selectClip] selects a clip for editing (optional).
 class SplitMidiClipCommand extends Command {
   final MidiClipData originalClip;
   final double
   splitPointBeats; // Split position relative to clip start (in beats)
-  final void Function(MidiClipData leftClip, MidiClipData rightClip)? onSplit;
-  final void Function(MidiClipData originalClip)? onUndo;
 
-  // Generated clip IDs for the split clips
+  /// Remove a clip from the Dart store and the engine (by id + track).
+  final void Function(int clipId, int trackId)? deleteClip;
+
+  /// Add a clip to the Dart store and schedule it in the engine (id preserved).
+  final void Function(MidiClipData clip)? addClip;
+
+  /// Select a clip for editing (optional — UX nicety, not correctness).
+  final void Function(MidiClipData clip)? selectClip;
+
+  // Generated clip IDs for the split clips.
   late final int leftClipId;
   late final int rightClipId;
+
+  // The two halves, computed once so execute and redo apply identical data.
+  late final MidiClipData _leftClip;
+  late final MidiClipData _rightClip;
 
   SplitMidiClipCommand({
     required this.originalClip,
     required this.splitPointBeats,
-    this.onSplit,
-    this.onUndo,
+    this.deleteClip,
+    this.addClip,
+    this.selectClip,
   }) {
     leftClipId = _generateUniqueClipId();
     rightClipId = _generateUniqueClipId();
+    _computeHalves();
   }
 
-  @override
-  Future<void> execute(AudioEngineInterface engine) async {
-    // Split notes into two groups based on the split point
+  void _computeHalves() {
+    // Split notes into two groups based on the split point.
     final leftNotes = <MidiNoteData>[];
     final rightNotes = <MidiNoteData>[];
 
@@ -563,8 +588,8 @@ class SplitMidiClipCommand extends Command {
     final leftAutomation = originalClip.automation.sliceLeft(splitPointBeats);
     final rightAutomation = originalClip.automation.sliceRight(splitPointBeats);
 
-    // Create left clip (same start, shortened duration)
-    final leftClip = originalClip.copyWith(
+    // Left clip (same start, shortened duration)
+    _leftClip = originalClip.copyWith(
       clipId: leftClipId,
       duration: splitPointBeats,
       loopLength: splitPointBeats.clamp(0.25, originalClip.loopLength),
@@ -573,9 +598,9 @@ class SplitMidiClipCommand extends Command {
       automation: leftAutomation,
     );
 
-    // Create right clip (starts at split point, remaining duration)
+    // Right clip (starts at split point, remaining duration)
     final rightDuration = originalClip.duration - splitPointBeats;
-    final rightClip = originalClip.copyWith(
+    _rightClip = originalClip.copyWith(
       clipId: rightClipId,
       startTime: originalClip.startTime + splitPointBeats,
       duration: rightDuration,
@@ -584,13 +609,27 @@ class SplitMidiClipCommand extends Command {
       name: '${originalClip.name} (R)',
       automation: rightAutomation,
     );
+  }
 
-    onSplit?.call(leftClip, rightClip);
+  MidiClipData get leftClip => _leftClip;
+  MidiClipData get rightClip => _rightClip;
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    // Replace the original with its two halves.
+    deleteClip?.call(originalClip.clipId, originalClip.trackId);
+    addClip?.call(_leftClip);
+    addClip?.call(_rightClip);
+    selectClip?.call(_rightClip); // right half = continued-editing focus
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
-    onUndo?.call(originalClip);
+    // Remove BOTH halves, then restore the original intact (full right region).
+    deleteClip?.call(leftClipId, originalClip.trackId);
+    deleteClip?.call(rightClipId, originalClip.trackId);
+    addClip?.call(originalClip);
+    selectClip?.call(originalClip);
   }
 
   @override
@@ -610,12 +649,18 @@ class SplitAudioClipCommand extends Command {
   final double
   splitPointSeconds; // Split position in seconds from timeline start
 
-  final void Function(int leftClipId, int rightClipId)? onSplit;
+  // The engine assigns the right clip's id when it is created in execute();
+  // the UI uses it to add the right clip to its list and to remove it on undo.
+  final void Function(int rightEngineClipId)? onSplit;
   final void Function()? onUndo;
 
-  // Generated clip IDs for the split clips
+  // Generated clip IDs for the split clips (fallbacks when no engine is present,
+  // e.g. headless tests / web stub).
   late final int leftClipId;
   late final int rightClipId;
+
+  // Engine id of the right clip, assigned in execute(). Null until split runs.
+  int? _rightEngineClipId;
 
   SplitAudioClipCommand({
     required this.originalClipId,
@@ -635,14 +680,35 @@ class SplitAudioClipCommand extends Command {
 
   @override
   Future<void> execute(AudioEngineInterface engine) async {
-    // The actual clip creation happens in the callback
-    // because we need to interact with both the engine and the UI state.
-    // Use the helper getters (leftDuration, rightStartTime, etc.) in the callback.
-    onSplit?.call(leftClipId, rightClipId);
+    // C64: trim the original (left) clip in the engine to the split point.
+    // Previously only the UI clip was shortened, so the engine kept playing the
+    // full pre-split length, overlapping the right region.
+    engine.setClipDuration(originalTrackId, originalClipId, leftDuration);
+
+    // Register the right clip in the engine so it plays the post-split region
+    // (offset into the source file + remaining duration). The engine assigns a
+    // new id which becomes the right clip's id in the UI.
+    final rid = engine.loadAudioFileToTrack(
+      originalFilePath,
+      originalTrackId,
+      startTime: rightStartTime,
+    );
+    if (rid >= 0) {
+      engine.setClipOffset(originalTrackId, rid, rightOffset);
+      engine.setClipDuration(originalTrackId, rid, rightDuration);
+      _rightEngineClipId = rid;
+    }
+    onSplit?.call(_rightEngineClipId ?? rightClipId);
   }
 
   @override
   Future<void> undo(AudioEngineInterface engine) async {
+    // C63: remove the right clip from the engine so it stops sounding.
+    if (_rightEngineClipId != null && _rightEngineClipId! >= 0) {
+      engine.removeAudioClip(originalTrackId, _rightEngineClipId!);
+    }
+    // C64: restore the original (left) clip to its full pre-split duration.
+    engine.setClipDuration(originalTrackId, originalClipId, originalDuration);
     onUndo?.call();
   }
 

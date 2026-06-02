@@ -763,4 +763,184 @@ void main() {
       expect(ui.map((c) => c.clipId).toSet(), {201, 202}); // re-split cleanly
     });
   });
+
+  group('SplitMidiClipCommand', () {
+    late MidiClipData original;
+
+    setUp(() {
+      original = MidiClipData(
+        clipId: 300,
+        trackId: 1,
+        startTime: 0.0,
+        duration: 4.0,
+        name: 'Lead',
+        notes: [
+          MidiNoteData(note: 60, velocity: 100, startTime: 0.0, duration: 1.0),
+          MidiNoteData(note: 64, velocity: 80, startTime: 3.0, duration: 1.0),
+        ],
+      );
+    });
+
+    // A tiny in-memory clip store exercised through the command's primitives,
+    // mirroring how the daw layer wires deleteClip/addClip onto the real
+    // manager + engine. Keyed by clipId so an add replaces a same-id entry.
+    late List<MidiClipData> store;
+    late List<int> selected;
+
+    SplitMidiClipCommand build() {
+      store = [original];
+      selected = [];
+      return SplitMidiClipCommand(
+        originalClip: original,
+        splitPointBeats: 2.0,
+        deleteClip: (cId, _) => store.removeWhere((c) => c.clipId == cId),
+        addClip: (c) {
+          store.removeWhere((x) => x.clipId == c.clipId);
+          store.add(c);
+        },
+        selectClip: (c) => selected.add(c.clipId),
+      );
+    }
+
+    test(
+      'execute replaces the original with two halves (no leak, C52)',
+      () async {
+        final command = build();
+
+        await command.execute(mockEngine);
+
+        // Exactly the two halves remain — the original is gone, no ghost third clip.
+        expect(store.map((c) => c.clipId).toSet(), {
+          command.leftClipId,
+          command.rightClipId,
+        });
+        expect(command.leftClip.duration, 2.0);
+        expect(command.rightClip.startTime, original.startTime + 2.0);
+        expect(command.rightClip.duration, 2.0);
+        // Notes partitioned by the split point (note@0 left, note@3 right).
+        expect(command.leftClip.notes.single.note, 60);
+        expect(command.rightClip.notes.single.note, 64);
+        expect(selected.last, command.rightClipId); // right half focused
+      },
+    );
+
+    test(
+      'undo removes BOTH halves and restores the FULL original (data loss fix)',
+      () async {
+        final command = build();
+        await command.execute(mockEngine);
+
+        await command.undo(mockEngine);
+
+        // Only the original remains — both halves deleted, and it is the intact
+        // original (full right region), not a left-only remnant.
+        expect(store, hasLength(1));
+        expect(store.single, same(original));
+        expect(store.single.duration, 4.0);
+        expect(store.single.notes, hasLength(2));
+      },
+    );
+
+    test('redo after undo re-splits cleanly', () async {
+      final command = build();
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+
+      await command.execute(mockEngine); // redo
+
+      expect(store.map((c) => c.clipId).toSet(), {
+        command.leftClipId,
+        command.rightClipId,
+      });
+    });
+  });
+
+  group('SplitAudioClipCommand', () {
+    late ClipData original;
+
+    setUp(() {
+      original = ClipData(
+        clipId: 50,
+        trackId: 2,
+        filePath: '/tmp/a.wav',
+        startTime: 1.0,
+        duration: 4.0,
+      );
+    });
+
+    SplitAudioClipCommand build({
+      void Function(int rightEngineClipId)? onSplit,
+      void Function()? onUndo,
+    }) {
+      return SplitAudioClipCommand(
+        originalClipId: original.clipId,
+        originalTrackId: original.trackId,
+        originalFilePath: original.filePath,
+        originalStartTime: original.startTime,
+        originalDuration: original.duration,
+        originalOffset: original.offset,
+        originalWaveformPeaks: const [],
+        splitPointSeconds: 3.0, // 2s into a clip that starts at t=1
+        onSplit: onSplit,
+        onUndo: onUndo,
+      );
+    }
+
+    test(
+      'execute trims the left clip and registers the right in the engine (C64)',
+      () async {
+        int? rightEngineId;
+        final command = build(onSplit: (id) => rightEngineId = id);
+
+        await command.execute(mockEngine);
+
+        // Right clip got a real engine id (mock returns nextClipId from 1).
+        expect(rightEngineId, 1);
+        // Left trimmed, then right created + positioned (offset) + sized (duration).
+        expect(
+          mockEngine.calls,
+          containsAllInOrder([
+            'setClipDuration', // C64: trim original (left)
+            'loadAudioFileToTrack', // register right region
+            'setClipOffset',
+            'setClipDuration', // size right
+          ]),
+        );
+      },
+    );
+
+    test(
+      'undo removes the right engine clip and restores the left (C63/C64)',
+      () async {
+        final command = build();
+        await command.execute(mockEngine);
+        expect(mockEngine.removedClipIds, isEmpty);
+
+        await command.undo(mockEngine);
+
+        // C63: the right clip created on split is removed from the engine.
+        expect(mockEngine.removedClipIds, [1]);
+        // C64: left duration restored on undo (2 sets on execute + 1 on undo).
+        expect(mockEngine.calls.where((c) => c == 'setClipDuration').length, 3);
+      },
+    );
+
+    test(
+      'redo after undo recreates and re-removes the right clip cleanly',
+      () async {
+        int? rightEngineId;
+        final command = build(onSplit: (id) => rightEngineId = id);
+
+        await command.execute(mockEngine);
+        expect(rightEngineId, 1);
+        await command.undo(mockEngine);
+
+        await command.execute(mockEngine); // redo
+        expect(rightEngineId, 2); // fresh engine id, no stale reuse
+        await command.undo(mockEngine);
+
+        expect(mockEngine.removedClipIds, [1, 2]);
+      },
+    );
+  });
 }

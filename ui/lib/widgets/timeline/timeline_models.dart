@@ -16,6 +16,13 @@ class MidiClipCallbacks {
   final Function(List<(int clipId, int trackId)>)? onBatchDeleted;
   final Function(MidiClipData clip)? onExported;
 
+  /// Split [clip] at [splitPointBeats] (relative to the clip start), undoably.
+  /// The daw layer builds a [SplitMidiClipCommand] with engine+manager
+  /// primitives — the timeline must route ALL split gestures (slice tool,
+  /// right-click) through here, never through onCopied/onDeleted (which would
+  /// nest commands and destroy the right region on undo).
+  final Function(MidiClipData clip, double splitPointBeats)? onSplit;
+
   /// Build an undoable command that resolves the given MIDI overlap (H-11).
   /// Returns null if no command is available. The caller composes the returned
   /// command into the move's undo step instead of applying the overlap
@@ -29,6 +36,7 @@ class MidiClipCallbacks {
     this.onDeleted,
     this.onBatchDeleted,
     this.onExported,
+    this.onSplit,
     this.buildMidiOverlapCommand,
   });
 }

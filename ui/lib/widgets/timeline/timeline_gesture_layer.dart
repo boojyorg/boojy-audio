@@ -273,24 +273,35 @@ mixin TimelineGestureLayerMixin
     });
   }
 
-  /// Split audio clip at preview position
-  Future<void> _splitAudioClipAtPreview(ClipData clip) async {
+  /// Split audio clip at preview position (slice tool)
+  void _splitAudioClipAtPreview(ClipData clip) {
     if (splitPreviewAudioClipId != clip.clipId) return;
 
     // Convert beat position back to seconds
     final splitTimeRelative = splitPreviewBeatPosition * (60.0 / widget.tempo);
     final splitTimeAbsolute = clip.startTime + splitTimeRelative;
 
-    // Validate split point is within clip bounds
-    if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) {
-      _clearSplitPreview();
-      return;
-    }
+    runAudioSplit(clip, splitTimeAbsolute);
+    _clearSplitPreview();
+  }
 
-    // Store original clip data for undo
+  /// The one true audio split: an undoable [SplitAudioClipCommand] that owns all
+  /// engine work (trim the left clip, register/remove the right clip), with these
+  /// callbacks only mutating the on-screen `clips` list. Shared by the slice tool
+  /// and the Cmd+E path so audio split is always engine-synced and undoable
+  /// (the Cmd+E path used to mutate the UI only and never touch the engine).
+  void runAudioSplit(ClipData clip, double splitTimeAbsolute) {
+    final splitTimeRelative = splitTimeAbsolute - clip.startTime;
+
+    // Validate split point is within clip bounds.
+    if (splitTimeRelative <= 0 || splitTimeRelative >= clip.duration) return;
+
     final originalClip = clip;
 
-    // Create command for split operation
+    // The engine assigns the right clip's id when the command runs; remember it
+    // so undo can remove exactly that clip from the UI list.
+    int? rightUiClipId;
+
     final command = SplitAudioClipCommand(
       originalClipId: clip.clipId,
       originalTrackId: clip.trackId,
@@ -300,15 +311,16 @@ mixin TimelineGestureLayerMixin
       originalOffset: clip.offset,
       originalWaveformPeaks: clip.waveformPeaks,
       splitPointSeconds: splitTimeAbsolute,
-      onSplit: (leftClipId, rightClipId) {
+      onSplit: (rightEngineClipId) {
         if (!mounted) return;
+        rightUiClipId = rightEngineClipId;
 
-        // Create left clip (original, shortened - reuse original ID)
+        // Left clip (original, shortened - reuse original ID)
         final leftClip = clip.copyWith(duration: splitTimeRelative);
 
-        // Create right clip (new, starting at split point)
+        // Right clip (new, starting at split point) using the engine id
         final rightClip = clip.copyWith(
-          clipId: rightClipId,
+          clipId: rightEngineClipId,
           startTime: splitTimeAbsolute,
           duration: clip.duration - splitTimeRelative,
           offset: clip.offset + splitTimeRelative,
@@ -320,38 +332,16 @@ mixin TimelineGestureLayerMixin
             clips[index] = leftClip;
             clips.add(rightClip);
           }
+          selectedAudioClipId = rightEngineClipId; // continued-editing focus
         });
-
-        // Register right clip with engine (load same audio file at new position)
-        if (widget.audioEngine != null) {
-          final newEngineClipId = widget.audioEngine!.loadAudioFileToTrack(
-            clip.filePath,
-            clip.trackId,
-            startTime: splitTimeAbsolute,
-          );
-          // Update right clip with engine clip ID if successful
-          if (newEngineClipId >= 0) {
-            setState(() {
-              final rightIndex = clips.indexWhere(
-                (c) => c.clipId == rightClipId,
-              );
-              if (rightIndex >= 0) {
-                clips[rightIndex] = clips[rightIndex].copyWith(
-                  clipId: newEngineClipId,
-                );
-              }
-            });
-          }
-        }
       },
       onUndo: () {
         if (!mounted) return;
         setState(() {
-          // Remove the right clip
-          clips.removeWhere(
-            (c) =>
-                c.startTime == splitTimeAbsolute && c.trackId == clip.trackId,
-          );
+          // Remove the right clip (by the engine id assigned on split)
+          if (rightUiClipId != null) {
+            clips.removeWhere((c) => c.clipId == rightUiClipId);
+          }
           // Restore original left clip
           final index = clips.indexWhere((c) => c.clipId == clip.clipId);
           if (index >= 0) {
@@ -359,12 +349,12 @@ mixin TimelineGestureLayerMixin
           } else {
             clips.add(originalClip);
           }
+          selectedAudioClipId = originalClip.clipId;
         });
       },
     );
 
-    await UndoRedoManager().execute(command);
-    _clearSplitPreview();
+    UndoRedoManager().execute(command);
   }
 
   /// Split MIDI clip at preview position
@@ -380,29 +370,10 @@ mixin TimelineGestureLayerMixin
       return;
     }
 
-    // Create command for split operation
-    final command = SplitMidiClipCommand(
-      originalClip: clip,
-      splitPointBeats: splitPointBeats,
-      onSplit: (leftClip, rightClip) {
-        // Delete original and add both new clips via callbacks
-        widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
-        // Add both new clips
-        widget.midiClipCallbacks.onCopied?.call(leftClip, leftClip.startTime);
-        widget.midiClipCallbacks.onCopied?.call(rightClip, rightClip.startTime);
-      },
-      onUndo: (restoredClip) {
-        // Delete the split clips (by their IDs)
-        // Note: This requires the parent to handle restoration
-        // For now, signal that original clip should be restored
-        widget.midiClipCallbacks.onCopied?.call(
-          restoredClip,
-          restoredClip.startTime,
-        );
-      },
-    );
-
-    await UndoRedoManager().execute(command);
+    // Route through the daw layer, which builds an undoable SplitMidiClipCommand
+    // with engine+manager primitives. Must NOT go through onCopied/onDeleted —
+    // those nest commands and destroy the right region on undo.
+    widget.midiClipCallbacks.onSplit?.call(clip, splitPointBeats);
     _clearSplitPreview();
   }
 
