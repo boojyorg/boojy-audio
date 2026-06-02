@@ -177,18 +177,48 @@ mixin DAWClipMixin
   // CLIP SPLIT
   // ============================================
 
+  /// The one true MIDI split: an undoable [SplitMidiClipCommand] driven by
+  /// engine+manager primitives. Wired to `MidiClipCallbacks.onSplit` (so the
+  /// slice tool and right-click menu use it) and called directly by the Cmd+E
+  /// path below. It must never route through `onMidiClipCopied`/`_deleteMidiClip`
+  /// — those push their own nested commands, reassign clip ids, and run overlap
+  /// trimming, which silently destroyed the right region on undo.
+  void onMidiClipSplit(MidiClipData clip, double splitPointBeats) {
+    // Split point must fall strictly inside the clip.
+    if (splitPointBeats <= 0 || splitPointBeats >= clip.duration) return;
+
+    final command = SplitMidiClipCommand(
+      originalClip: clip,
+      splitPointBeats: splitPointBeats,
+      // Remove from the Dart store AND the engine.
+      deleteClip: (cId, tId) => midiClipController.deleteClip(cId, tId),
+      // Add to the store AND schedule in the engine (id preserved).
+      addClip: (c) {
+        midiPlaybackManager?.addRecordedClip(c);
+        midiPlaybackManager?.updateClip(c, tempo, 0);
+      },
+      selectClip: (c) => midiPlaybackManager?.selectClip(c.clipId, c),
+    );
+
+    undoRedoManager.execute(command);
+    if (mounted) {
+      statusMessage = 'Split MIDI clip';
+      setState(() {});
+    }
+  }
+
   /// Split selected clip at playhead position
   void splitSelectedClipAtPlayhead() {
     // Split at playhead position
     final splitPosition = playheadPosition;
 
-    // Try MIDI clip first
-    if (midiPlaybackManager?.selectedClipId != null) {
-      final success = midiClipController.splitSelectedClipAtPlayhead(
-        splitPosition,
-      );
-      if (success && mounted) {
-        statusMessage = 'Split MIDI clip at playhead';
+    // Try MIDI clip first — route through the unified undoable split.
+    final selectedMidi = midiPlaybackManager?.currentEditingClip;
+    if (midiPlaybackManager?.selectedClipId != null && selectedMidi != null) {
+      final playheadBeats = midiClipController.secondsToBeats(splitPosition);
+      if (playheadBeats > selectedMidi.startTime &&
+          playheadBeats < selectedMidi.endTime) {
+        onMidiClipSplit(selectedMidi, playheadBeats - selectedMidi.startTime);
         return;
       }
     }

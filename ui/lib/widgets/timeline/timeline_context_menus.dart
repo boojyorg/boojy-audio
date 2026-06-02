@@ -432,7 +432,10 @@ mixin TimelineContextMenusMixin
     widget.midiClipCallbacks.onUpdated?.call(quantizedClip);
   }
 
-  /// Split MIDI clip at playhead position
+  /// Split MIDI clip at playhead position.
+  ///
+  /// Routed through the daw layer's undoable split (same path as the slice tool
+  /// and Cmd+E), so it's undoable and never destroys the right region.
   void splitMidiClipAtPlayhead(MidiClipData clip) {
     // Convert playhead from seconds to beats
     final beatsPerSecond = widget.tempo / 60.0;
@@ -446,58 +449,8 @@ mixin TimelineContextMenusMixin
     // Split point in beats relative to clip start
     final splitPointBeats = playheadBeats - clip.startTime;
 
-    // Split notes into two groups
-    final leftNotes = <MidiNoteData>[];
-    final rightNotes = <MidiNoteData>[];
-
-    for (final note in clip.notes) {
-      if (note.endTime <= splitPointBeats) {
-        leftNotes.add(note);
-      } else if (note.startTime >= splitPointBeats) {
-        rightNotes.add(
-          note.copyWith(
-            startTime: note.startTime - splitPointBeats,
-            id: '${note.note}_${note.startTime - splitPointBeats}_${DateTime.now().microsecondsSinceEpoch}',
-          ),
-        );
-      } else {
-        // Note straddles split - truncate to left
-        leftNotes.add(
-          note.copyWith(duration: splitPointBeats - note.startTime),
-        );
-      }
-    }
-
-    // Create left and right clips
-    final leftClipId = DateTime.now().millisecondsSinceEpoch;
-    final rightClipId = leftClipId + 1;
-
-    final leftClip = clip.copyWith(
-      clipId: leftClipId,
-      duration: splitPointBeats,
-      loopLength: splitPointBeats.clamp(0.25, clip.loopLength),
-      notes: leftNotes,
-      name: '${clip.name} (L)',
-    );
-
-    final rightClip = clip.copyWith(
-      clipId: rightClipId,
-      startTime: clip.startTime + splitPointBeats,
-      duration: clip.duration - splitPointBeats,
-      loopLength: (clip.duration - splitPointBeats).clamp(
-        0.25,
-        clip.loopLength,
-      ),
-      notes: rightNotes,
-      name: '${clip.name} (R)',
-    );
-
-    // Delete original and add both new clips via callbacks
-    widget.midiClipCallbacks.onDeleted?.call(clip.clipId, clip.trackId);
-
-    // Add both new clips
-    widget.midiClipCallbacks.onCopied?.call(leftClip, leftClip.startTime);
-    widget.midiClipCallbacks.onCopied?.call(rightClip, rightClip.startTime);
+    // Route through the daw layer's undoable split (engine+manager primitives).
+    widget.midiClipCallbacks.onSplit?.call(clip, splitPointBeats);
   }
 
   // ========================================================================

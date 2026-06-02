@@ -436,34 +436,10 @@ class TimelineViewState extends State<TimelineView>
       return false;
     }
 
-    // Calculate split point relative to clip start
-    final splitRelative = playheadSeconds - clip.startTime;
-
-    // Generate new clip IDs
-    final leftClipId = DateTime.now().millisecondsSinceEpoch;
-    final rightClipId = leftClipId + 1;
-
-    // Create left clip (same start, shorter duration)
-    final leftClip = clip.copyWith(clipId: leftClipId, duration: splitRelative);
-
-    // Create right clip (starts at split point, uses offset for audio position)
-    final rightClip = clip.copyWith(
-      clipId: rightClipId,
-      startTime: playheadSeconds,
-      duration: clip.duration - splitRelative,
-      offset: clip.offset + splitRelative,
-    );
-
-    // Remove original clip
-    setState(() {
-      clips.removeWhere((c) => c.clipId == clip.clipId);
-      clips.add(leftClip);
-      clips.add(rightClip);
-      selectedAudioClipId = rightClipId; // Select the right clip
-    });
-
-    // Engine clip state updates on next project save/load cycle
-
+    // Route through the shared undoable split (trims left + registers right in
+    // the engine). Previously this only mutated the UI list, so the engine kept
+    // playing the un-split clip until the next save/load — and it couldn't undo.
+    runAudioSplit(clip, playheadSeconds);
     return true;
   }
 
