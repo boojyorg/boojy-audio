@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Splitting a clip and undoing no longer destroys part of it (C52/C63/C64).** This was data loss:
+  undoing a MIDI clip split left only the left half on the track and **permanently discarded the
+  right region of the original**, and a split audio clip kept playing its right half and its
+  full-length left half after undo. The split commands were piggy-backing on the
+  copy/delete actions, which quietly re-numbered clips and ran overlap-trimming — so undo could never
+  line things back up. Split is now one clean, fully reversible step: both halves are removed and the
+  **complete** original clip is restored, in the timeline *and* the audio engine.
+- **All three ways to split a clip now behave the same.** The slice tool, the right-click menu, and
+  the Cmd+E shortcut were three separate implementations with different bugs — the right-click and
+  Cmd+E splits couldn't be undone at all, and Cmd+E on an audio clip didn't even reach the audio
+  engine until the next save/reload. They now share one undoable, engine-synced split.
 - **Undo no longer silently swallows an action that fails (C66/C86).** If a command's undo or redo
   threw, the manager used to discard it entirely — the entry vanished from the history with no
   trace, and the stacks were left corrupt. It now keeps the command on its stack when the operation

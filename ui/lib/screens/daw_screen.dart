@@ -2232,39 +2232,6 @@ class _DAWScreenState extends State<DAWScreen>
     onMidiClipCopied(clip, newStartTime);
   }
 
-  void _splitSelectedClipAtPlayhead() {
-    // Split at playhead position
-    final splitPosition = playheadPosition;
-
-    // Try MIDI clip first
-    if (midiPlaybackManager?.selectedClipId != null) {
-      final success = midiClipController.splitSelectedClipAtPlayhead(
-        splitPosition,
-      );
-      if (success && mounted) {
-        statusMessage = 'Split MIDI clip at playhead';
-        return;
-      }
-    }
-
-    // Try audio clip if no MIDI clip or MIDI split failed
-    final audioSplit =
-        timelineKey.currentState?.splitSelectedAudioClipAtPlayhead(
-          splitPosition,
-        ) ??
-        false;
-    if (audioSplit && mounted) {
-      statusMessage = 'Split audio clip at playhead';
-      return;
-    }
-
-    // Neither worked
-    if (mounted) {
-      statusMessage =
-          'Cannot split: select a clip and place playhead within it';
-    }
-  }
-
   void _quantizeSelectedClip() {
     // Default grid size: 1 beat (quarter note)
     const gridSizeBeats = 1.0;
@@ -3635,6 +3602,7 @@ class _DAWScreenState extends State<DAWScreen>
             onDeleted: _deleteMidiClip,
             onBatchDeleted: _deleteMidiClipsBatch,
             onExported: _exportMidiClip,
+            onSplit: onMidiClipSplit,
             buildMidiOverlapCommand: (result) => ResolveMidiOverlapCommand(
               result: result,
               tempo: tempo,
@@ -4051,7 +4019,7 @@ class _DAWScreenState extends State<DAWScreen>
           onSplitAtMarker:
               (midiPlaybackManager?.selectedClipId != null ||
                   timelineKey.currentState?.selectedAudioClipId != null)
-              ? _splitSelectedClipAtPlayhead
+              ? splitSelectedClipAtPlayhead
               : null,
           onQuantizeClip:
               (midiPlaybackManager?.selectedClipId != null ||
@@ -4093,7 +4061,7 @@ class _DAWScreenState extends State<DAWScreen>
               _showKeyboardShortcuts,
           // Cmd+E to split clip at insert marker (or playhead if no marker)
           const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-              _splitSelectedClipAtPlayhead,
+              splitSelectedClipAtPlayhead,
           // Cmd+D to duplicate clip
           const SingleActivator(LogicalKeyboardKey.keyD, meta: true):
               _duplicateSelectedClip,
