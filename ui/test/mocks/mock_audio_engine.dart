@@ -43,6 +43,18 @@ class MockAudioEngine implements AudioEngineInterface {
   /// The effect-chain order passed to the most recent reorderTrackEffects call.
   List<int>? lastReorder;
 
+  /// EQ band-op captures (effectId, index), in call order, for command tests.
+  final List<({int effectId, int index})> removedEqBands = [];
+  final List<({int effectId, int index})> insertedEqBands = [];
+  final List<int> addedEqBandEffectIds = [];
+
+  /// Index returned by [addEqBand].
+  int eqBandIndex = 0;
+
+  /// (effectId, paramName, value) passed to [setEffectParameter], in call order.
+  final List<({int effectId, String paramName, double value})> setParamCalls =
+      [];
+
   void _record(String method) => calls.add(method);
 
   /// Reset call history and return values.
@@ -64,6 +76,11 @@ class MockAudioEngine implements AudioEngineInterface {
     removedClipIds.clear();
     deletedTrackIds.clear();
     lastReorder = null;
+    removedEqBands.clear();
+    insertedEqBands.clear();
+    addedEqBandEffectIds.clear();
+    setParamCalls.clear();
+    eqBandIndex = 0;
   }
 
   // --- Clip operations ---
@@ -267,8 +284,31 @@ class MockAudioEngine implements AudioEngineInterface {
       _record('setEffectBypass');
 
   @override
-  void setEffectParameter(int effectId, String paramName, double value) =>
-      _record('setEffectParameter');
+  void setEffectParameter(int effectId, String paramName, double value) {
+    _record('setEffectParameter');
+    setParamCalls.add((effectId: effectId, paramName: paramName, value: value));
+  }
+
+  @override
+  int addEqBand(int effectId) {
+    _record('addEqBand');
+    addedEqBandEffectIds.add(effectId);
+    return eqBandIndex;
+  }
+
+  @override
+  String removeEqBand(int effectId, int index) {
+    _record('removeEqBand');
+    removedEqBands.add((effectId: effectId, index: index));
+    return 'OK';
+  }
+
+  @override
+  String insertEqBand(int effectId, int index) {
+    _record('insertEqBand');
+    insertedEqBands.add((effectId: effectId, index: index));
+    return 'OK';
+  }
 
   @override
   void setSynthBypass(int trackId, {required bool bypassed}) =>

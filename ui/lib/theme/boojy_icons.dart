@@ -56,6 +56,7 @@ class BoojyIcons {
   static IconData get remove => Icons.remove;
   static IconData get addCircle => Icons.add_circle_outline;
   static IconData get delete => Icons.delete;
+  static IconData get power => Icons.power_settings_new;
   static IconData get search => Icons.search;
   static IconData get settings => Icons.settings;
   static IconData get check => Icons.check;

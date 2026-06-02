@@ -36,9 +36,9 @@ pub mod vst3;
 
 // Re-export all public functions from submodules
 pub use effects::{
-    add_effect_to_track, get_effect_bypass, get_effect_info, get_effect_peak_levels,
-    get_track_effects, remove_effect_from_track, reorder_track_effects, set_effect_bypass,
-    set_effect_parameter,
+    add_effect_to_track, add_eq_band, get_effect_bypass, get_effect_info, get_effect_peak_levels,
+    get_track_effects, insert_eq_band, remove_effect_from_track, remove_eq_band,
+    reorder_track_effects, set_effect_bypass, set_effect_parameter,
 };
 pub use helpers::{get_audio_clips, get_audio_graph, AUDIO_CLIPS, AUDIO_GRAPH};
 pub use init::{init_audio_engine, init_audio_graph, play_sine_wave};

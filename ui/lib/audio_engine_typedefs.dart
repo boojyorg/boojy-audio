@@ -345,6 +345,18 @@ typedef _RemoveEffectFromTrackFfiNative =
     ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64);
 typedef _RemoveEffectFromTrackFfi = ffi.Pointer<Utf8> Function(int, int);
 
+// Graphic EQ band ops
+typedef _AddEqBandFfiNative = ffi.Int64 Function(ffi.Uint64);
+typedef _AddEqBandFfi = int Function(int);
+
+typedef _RemoveEqBandFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64);
+typedef _RemoveEqBandFfi = ffi.Pointer<Utf8> Function(int, int);
+
+typedef _InsertEqBandFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint64);
+typedef _InsertEqBandFfi = ffi.Pointer<Utf8> Function(int, int);
+
 typedef _GetTrackEffectsFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
 typedef _GetTrackEffectsFfi = ffi.Pointer<Utf8> Function(int);
 
