@@ -2323,7 +2323,10 @@ class _SendAmountKnob extends StatelessWidget {
         },
         child: CustomPaint(
           size: Size(size, size),
-          painter: _SendKnobPainter(amount: amountLinear),
+          painter: _SendKnobPainter(
+            amount: amountLinear,
+            colors: context.colors,
+          ),
         ),
       ),
     );
@@ -2332,22 +2335,23 @@ class _SendAmountKnob extends StatelessWidget {
 
 class _SendKnobPainter extends CustomPainter {
   final double amount;
+  final BoojyColors colors;
 
-  _SendKnobPainter({required this.amount});
+  _SendKnobPainter({required this.amount, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 1;
     final trackPaint = Paint()
-      ..color = const Color(0xFF3A3D4A)
+      ..color = colors.divider
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(center, radius, trackPaint);
 
     if (amount > 0.001) {
       final activePaint = Paint()
-        ..color = const Color(0xFF6B9FFF)
+        ..color = colors.accent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round;
@@ -2365,5 +2369,5 @@ class _SendKnobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SendKnobPainter oldDelegate) =>
-      oldDelegate.amount != amount;
+      oldDelegate.amount != amount || oldDelegate.colors != colors;
 }

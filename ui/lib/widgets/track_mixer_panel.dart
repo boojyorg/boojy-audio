@@ -590,6 +590,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   void _confirmDeleteTrack(TrackData track) {
+    final colors = context.colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -625,7 +626,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               }
               _loadTracksAsync();
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: TextStyle(color: colors.error)),
           ),
         ],
       ),

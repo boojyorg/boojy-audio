@@ -855,10 +855,16 @@ class _PianoRollState extends State<PianoRoll>
                                     loopEnd: loopStartBeats + getLoopLength(),
                                     beatsPerBar: beatsPerBar,
                                     tripletEnabled: snapTripletEnabled,
-                                    // Darker, neutral black-key rows widen the
-                                    // white/black gap so the grid reads as a
-                                    // keyboard (was #1E2030, ~7 luminance gap).
-                                    blackKeyBackground: const Color(0xFF15171C),
+                                    // Black-key rows are always a touch darker
+                                    // than white-key rows so the grid reads as a
+                                    // keyboard. Derived by darkening the white-
+                                    // key tier rather than a fixed hex, so the
+                                    // gap survives the Light / High-Contrast
+                                    // themes too (was a fixed #15171C).
+                                    blackKeyBackground: Color.alphaBlend(
+                                      Colors.black.withValues(alpha: 0.20),
+                                      context.colors.elevated,
+                                    ),
                                     whiteKeyBackground: context.colors.elevated,
                                     separatorLine: context.colors.elevated,
                                     subdivisionGridLine: context.colors.surface,
@@ -882,7 +888,9 @@ class _PianoRollState extends State<PianoRoll>
                                     activeEdgeColor: context.colors.accent
                                         .withValues(alpha: 0.85),
                                     rootBandColor: context.colors.accent
-                                        .withValues(alpha: 0.07),
+                                        .withValues(alpha: 0.16),
+                                    rootEdgeColor: context.colors.accent
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 CustomPaint(
@@ -905,6 +913,10 @@ class _PianoRollState extends State<PianoRoll>
                                         widget.trackColor ??
                                         currentClip?.color ??
                                         context.colors.accent,
+                                    colors: context.colors,
+                                    textScale: MediaQuery.textScalerOf(
+                                      context,
+                                    ).scale(1.0),
                                   ),
                                 ),
                                 _buildInsertMarker(canvasHeight),
@@ -1169,6 +1181,7 @@ class _PianoRollState extends State<PianoRoll>
                                 context.colors.accent,
                             draggedNoteId: velocityDraggedNoteId,
                             hoveredNoteId: velocityHoveredNoteId,
+                            colors: context.colors,
                           ),
                         ),
                       ),
@@ -1221,7 +1234,11 @@ class _PianoRollState extends State<PianoRoll>
     final isHighlighted =
         widget.highlightedNote == midiNote || currentlyHeldNote == midiNote;
 
-    // Key colors: white keys are white (C notes slightly grey), black keys dark
+    // The key gutter is a skeuomorphic keyboard: bright off-white naturals and
+    // near-black sharps, with C a distinct shade so octaves are findable at a
+    // glance. These are intentionally fixed musical colours (like a real
+    // keyboard / the meter zones), not theme tokens — a keyboard reads the same
+    // in every theme. Naturals carry dark text, sharps carry light text.
     Color keyColor;
     Color textColor;
     Color borderColor;
@@ -1231,19 +1248,20 @@ class _PianoRollState extends State<PianoRoll>
       textColor = Colors.white;
       borderColor = context.colors.accent;
     } else if (isBlackKey) {
-      keyColor = const Color(0xFF2A2A2A);
-      textColor = context.colors.textSecondary;
-      borderColor = const Color(0xFF1A1A1A);
+      // Sharps: near-black for a strong contrast against the bright naturals.
+      keyColor = const Color(0xFF1E1E1E);
+      textColor = const Color(0xFFC8C8C8);
+      borderColor = const Color(0xFF0E0E0E);
     } else if (isC) {
-      // C notes: darker grey to visually separate octaves
-      keyColor = const Color(0xFF555555);
-      textColor = context.colors.textPrimary;
-      borderColor = const Color(0xFF444444);
+      // C: a touch greyer than the other naturals to mark the octave boundary.
+      keyColor = const Color(0xFFC2C2C2);
+      textColor = const Color(0xFF1A1A1A);
+      borderColor = const Color(0xFF9E9E9E);
     } else {
-      // White keys: medium grey
-      keyColor = const Color(0xFF808080);
-      textColor = context.colors.textPrimary;
-      borderColor = const Color(0xFF6A6A6A);
+      // Naturals: bright off-white.
+      keyColor = const Color(0xFFD8D8D8);
+      textColor = const Color(0xFF2A2A2A);
+      borderColor = const Color(0xFFB0B0B0);
     }
 
     return Container(

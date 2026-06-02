@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../theme/theme_extension.dart';
 import '../../painters/unified_nav_bar_painter.dart';
 
 /// Configuration for UnifiedNavBar behavior and state.
@@ -163,6 +164,8 @@ class _UnifiedNavBarState extends State<UnifiedNavBar> {
                 isPlaying: widget.config.isPlaying,
                 punchInEnabled: widget.config.punchInEnabled,
                 punchOutEnabled: widget.config.punchOutEnabled,
+                colors: context.colors,
+                textScale: MediaQuery.textScalerOf(context).scale(1.0),
               ),
             ),
           ),

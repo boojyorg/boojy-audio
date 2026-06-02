@@ -330,13 +330,15 @@ class _LiveMeterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF22c55e), // Green
+                        context.colors.success, // Green
                         if (level > 0.8)
-                          const Color(0xFFeab308) // Yellow at high levels
+                          context
+                              .colors
+                              .warning // Yellow at high levels
                         else
-                          const Color(0xFF22c55e),
+                          context.colors.success,
                         if (level > 0.9)
-                          const Color(0xFFef4444), // Red at clipping
+                          context.colors.error, // Red at clipping
                       ],
                     ),
                   ),

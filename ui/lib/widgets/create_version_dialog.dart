@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/version_type.dart';
 
@@ -100,8 +102,9 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: colors.elevated,
       child: Container(
         width: 450,
         padding: const EdgeInsets.all(24),
@@ -113,46 +116,46 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'New Version',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: BT.fontHeading,
                     fontWeight: BT.weightSemiBold,
                   ),
                 ),
                 IconButton(
-                  icon: Icon(BI.close, color: const Color(0xFF9E9E9E)),
+                  icon: Icon(BI.close, color: colors.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Save a version of your current project',
-              style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 24),
 
             // Version type selector
-            const Text(
+            Text(
               'Type',
               style: TextStyle(
-                color: Color(0xFF9E9E9E),
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: BT.weightSemiBold,
               ),
             ),
             const SizedBox(height: 8),
-            _buildVersionTypeSelector(),
+            _buildVersionTypeSelector(colors),
             const SizedBox(height: 16),
 
             // Name field
-            const Text(
+            Text(
               'Name',
               style: TextStyle(
-                color: Color(0xFF9E9E9E),
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: BT.weightSemiBold,
               ),
@@ -161,32 +164,32 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: InputDecoration(
                 hintText: _getSuggestedName(),
-                hintStyle: const TextStyle(color: Color(0xFF616161)),
+                hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF2A2A2A),
+                fillColor: colors.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
+                  borderSide: BorderSide(color: colors.accent),
                 ),
                 errorText: _errorMessage,
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFF44336)),
+                  borderSide: BorderSide(color: colors.error),
                 ),
                 focusedErrorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFFF44336)),
+                  borderSide: BorderSide(color: colors.error),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -203,10 +206,10 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
             const SizedBox(height: 16),
 
             // Note field (optional)
-            const Text(
+            Text(
               'Note (optional)',
               style: TextStyle(
-                color: Color(0xFF9E9E9E),
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: BT.weightSemiBold,
               ),
@@ -215,23 +218,23 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
             TextField(
               controller: _noteController,
               maxLines: 3,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'e.g., Trying different arrangement for the chorus',
-                hintStyle: const TextStyle(color: Color(0xFF616161)),
+                hintStyle: TextStyle(color: colors.textMuted),
                 filled: true,
-                fillColor: const Color(0xFF2A2A2A),
+                fillColor: colors.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF363636)),
+                  borderSide: BorderSide(color: colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: Color(0xFF7FD4A0)),
+                  borderSide: BorderSide(color: colors.accent),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -248,7 +251,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF9E9E9E),
+                    foregroundColor: colors.textSecondary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -260,7 +263,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                 TextButton(
                   onPressed: _create,
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFF7FD4A0),
+                    backgroundColor: colors.accent,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -277,12 +280,12 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
     );
   }
 
-  Widget _buildVersionTypeSelector() {
+  Widget _buildVersionTypeSelector(BoojyColors colors) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF363636)),
+        border: Border.all(color: colors.divider),
       ),
       child: Row(
         children: VersionType.values.map((type) {
@@ -300,9 +303,7 @@ class _CreateVersionDialogState extends State<CreateVersionDialog> {
                   child: Text(
                     type.displayName,
                     style: TextStyle(
-                      color: isSelected
-                          ? Colors.black
-                          : const Color(0xFF9E9E9E),
+                      color: isSelected ? Colors.black : colors.textSecondary,
                       fontWeight: isSelected
                           ? BT.weightSemiBold
                           : FontWeight.normal,

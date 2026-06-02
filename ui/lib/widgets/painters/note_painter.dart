@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/tokens.dart';
+import '../../theme/app_colors.dart';
 import '../../models/midi_note_data.dart';
 
 /// Custom painter for MIDI notes in piano roll
@@ -25,18 +26,26 @@ class NotePainter extends CustomPainter {
   /// Base color for notes — defaults to cyan, but can be set to track color.
   final Color noteColor;
 
+  /// Active theme colours (for theme-aware borders/labels).
+  final BoojyColors colors;
+
+  /// UI Scale factor — multiplies the in-note label font size.
+  final double textScale;
+
   NotePainter({
     required this.notes,
     this.previewNote,
     required this.pixelsPerBeat,
     required this.pixelsPerNote,
     required this.maxMidiNote,
+    required this.colors,
     this.selectionStart,
     this.selectionEnd,
     this.ghostNotes = const [],
     this.showGhostNotes = false,
     this.foldedPitches,
     this.noteColor = const Color(0xFF00BCD4),
+    this.textScale = 1.0,
   });
 
   /// Calculate Y coordinate for a MIDI note (fold-aware)
@@ -100,14 +109,13 @@ class NotePainter extends CustomPainter {
       const Radius.circular(4),
     );
 
-    // Ghost note fill - grey at 30% opacity
-    final fillPaint = Paint()
-      ..color = const Color(0xFF808080).withValues(alpha: 0.3);
+    // Ghost note fill - muted grey at 30% opacity
+    final fillPaint = Paint()..color = colors.textMuted.withValues(alpha: 0.3);
     canvas.drawRRect(rect, fillPaint);
 
     // Ghost note border - subtle
     final borderPaint = Paint()
-      ..color = const Color(0xFF606060).withValues(alpha: 0.4)
+      ..color = colors.textMuted.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawRRect(rect, borderPaint);
@@ -173,27 +181,33 @@ class NotePainter extends CustomPainter {
         const Radius.circular(3),
       );
       final borderPaint = Paint()
-        ..color = Colors.white
+        ..color = colors.textPrimary
         ..style = PaintingStyle.stroke
         ..strokeWidth = borderWidth;
       canvas.drawRRect(borderRect, borderPaint);
     }
 
-    // Draw note name inside
+    // Draw note name inside. Full name when there's room; a single pitch-letter
+    // fallback at narrow widths so the label doesn't simply vanish on zoom-out.
+    String? label;
     if (width > 30) {
-      // Only show label if note is wide enough
+      label = note.noteName; // e.g., "G5", "D#4", "C3"
+    } else if (width > 15) {
+      label = note.noteName.isNotEmpty ? note.noteName[0] : null; // e.g. "G"
+    }
+    if (label != null) {
       final textPainter = TextPainter(
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.left,
       );
 
       textPainter.text = TextSpan(
-        text: note.noteName, // e.g., "G5", "D#4", "C3"
+        text: label,
         style: TextStyle(
-          color: Colors.white.withValues(
-            alpha: 0.9,
-          ), // White text on cyan background
-          fontSize: 10,
+          // High-contrast label that flips with the theme (light text on the
+          // dark themes, dark text on the light themes).
+          color: colors.textPrimary.withValues(alpha: 0.92),
+          fontSize: 10 * textScale,
           fontWeight: BT.weightSemiBold,
         ),
       );
@@ -229,6 +243,9 @@ class NotePainter extends CustomPainter {
         selectionEnd != oldDelegate.selectionEnd ||
         ghostNotes != oldDelegate.ghostNotes ||
         showGhostNotes != oldDelegate.showGhostNotes ||
+        noteColor != oldDelegate.noteColor ||
+        colors != oldDelegate.colors ||
+        textScale != oldDelegate.textScale ||
         !_listEquals(foldedPitches, oldDelegate.foldedPitches);
   }
 }

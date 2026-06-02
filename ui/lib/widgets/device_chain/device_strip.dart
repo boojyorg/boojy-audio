@@ -163,7 +163,8 @@ class _DeviceStripState extends State<DeviceStrip> {
 
   /// Vertical capsule fader — exact copy of CapsuleFader logic, rotated 90°.
   Widget _buildCapsuleMeter() {
-    final accentColor = context.colors.accent;
+    final colors = context.colors;
+    final accentColor = colors.accent;
     final sliderValue = _volumeDbToSlider(widget.volumeDb);
 
     return LayoutBuilder(
@@ -176,6 +177,7 @@ class _DeviceStripState extends State<DeviceStrip> {
             volumeSliderValue: widget.showVolumeThumb ? sliderValue : -1,
             isDragging: _isDragging,
             accentColor: accentColor,
+            colors: colors,
           ),
         );
 
@@ -213,18 +215,19 @@ class _DeviceStripState extends State<DeviceStrip> {
 
 /// Vertical capsule fader painter — exact rotation of _CapsuleFaderPainter.
 ///
-/// Every value copied from capsule_fader.dart:
-///   capsule bg: 0xFF1A1A1A, border: 0xFF3A3A3A @ 1.5px
+/// Every value mirrors capsule_fader.dart:
+///   capsule bg: colors.darkest, border: colors.divider @ 1.5px
 ///   capsule radius: width/2 (perfect pill)
 ///   meter padding: 4px
-///   gradient: green→green→yellow→orange→red→brightred at stops [0,0.7,0.8,0.9,0.95,1.0]
-///   handle: grey 0xFF808080 @ 0.6, border 0xFFAAAAAA @ 0.4
+///   gradient: MeterColorZones green→yellow→red at stops [0,0.7,0.8,0.9,0.95,1.0]
+///   handle: colors.textMuted @ 0.6, border colors.textSecondary @ 0.4
 class _VerticalCapsulePainter extends CustomPainter {
   final double leftLevel;
   final double rightLevel;
   final double volumeSliderValue; // 0-1, or <0 to hide handle
   final bool isDragging;
   final Color accentColor;
+  final BoojyColors colors;
 
   _VerticalCapsulePainter({
     required this.leftLevel,
@@ -232,6 +235,7 @@ class _VerticalCapsulePainter extends CustomPainter {
     required this.volumeSliderValue,
     required this.isDragging,
     required this.accentColor,
+    required this.colors,
   });
 
   @override
@@ -244,13 +248,13 @@ class _VerticalCapsulePainter extends CustomPainter {
     );
 
     // Draw capsule background — same color as CapsuleFader
-    canvas.drawRRect(capsuleRect, Paint()..color = const Color(0xFF1A1A1A));
+    canvas.drawRRect(capsuleRect, Paint()..color = colors.darkest);
 
     // Draw capsule border — same as CapsuleFader
     canvas.drawRRect(
       capsuleRect,
       Paint()
-        ..color = const Color(0xFF3A3A3A)
+        ..color = colors.divider
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -308,7 +312,7 @@ class _VerticalCapsulePainter extends CustomPainter {
         Rect.fromLTWH(offset.dx, offset.dy, width, height),
         const Radius.circular(2),
       ),
-      Paint()..color = const Color(0xFF1A1A1A),
+      Paint()..color = colors.darkest,
     );
 
     // Level bar with gradient — fills from bottom
@@ -322,19 +326,20 @@ class _VerticalCapsulePainter extends CustomPainter {
         const Radius.circular(2),
       );
 
+      final zones = MeterColorZones.of(colors);
       final levelPaint = Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            Color(0xFF22c55e), // Green (low levels)
-            Color(0xFF22c55e), // Green continues
-            Color(0xFFeab308), // Yellow/Amber
-            Color(0xFFf97316), // Orange
-            Color(0xFFef4444), // Red
-            Color(0xFFdc2626), // Bright red (clipping)
+            zones.green, // Green (low levels)
+            zones.green, // Green continues
+            zones.yellow, // Yellow/Amber
+            Color.lerp(zones.yellow, zones.red, 0.5)!, // Orange
+            zones.red, // Red
+            zones.red, // Bright red (clipping)
           ],
-          stops: [0.0, 0.7, 0.8, 0.9, 0.95, 1.0],
+          stops: const [0.0, 0.7, 0.8, 0.9, 0.95, 1.0],
         ).createShader(Rect.fromLTWH(offset.dx, offset.dy, width, height));
 
       canvas.drawRRect(levelRect, levelPaint);
@@ -373,7 +378,7 @@ class _VerticalCapsulePainter extends CustomPainter {
     canvas.drawCircle(
       center,
       handleRadius - 1,
-      Paint()..color = const Color(0xFF808080).withValues(alpha: 0.6),
+      Paint()..color = colors.textMuted.withValues(alpha: 0.6),
     );
 
     // Border — same as CapsuleFader
@@ -381,7 +386,7 @@ class _VerticalCapsulePainter extends CustomPainter {
       center,
       handleRadius - 1,
       Paint()
-        ..color = const Color(0xFFAAAAAA).withValues(alpha: 0.4)
+        ..color = colors.textSecondary.withValues(alpha: 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -393,6 +398,7 @@ class _VerticalCapsulePainter extends CustomPainter {
         oldDelegate.rightLevel != rightLevel ||
         oldDelegate.volumeSliderValue != volumeSliderValue ||
         oldDelegate.isDragging != isDragging ||
-        oldDelegate.accentColor != accentColor;
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.colors != colors;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/tokens.dart';
 
 /// Painter for the unified navigation bar that combines loop region and bar numbers.
@@ -17,10 +18,13 @@ class UnifiedNavBarPainter extends CustomPainter {
   final int beatsPerBar;
   final bool punchInEnabled;
   final bool punchOutEnabled;
+  final BoojyColors colors;
+  final double textScale;
 
   UnifiedNavBarPainter({
     required this.pixelsPerBeat,
     required this.totalBeats,
+    required this.colors,
     this.loopEnabled = false,
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
@@ -32,6 +36,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     this.beatsPerBar = 4,
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
+    this.textScale = 1.0,
   });
 
   /// Get adaptive grid division based on zoom level
@@ -56,7 +61,7 @@ class UnifiedNavBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Draw dark background
-    final darkBgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
+    final darkBgPaint = Paint()..color = colors.editor;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
     // 2. Always draw the loop/punch region (grey when inactive)
@@ -86,35 +91,35 @@ class UnifiedNavBarPainter extends CustomPainter {
     final loopRect = Rect.fromLTWH(loopStartX, 0, loopWidth, size.height);
 
     // Determine colors based on mode:
-    //   Loop + Punch → solid red
-    //   Punch only   → faded red
-    //   Loop only    → orange
-    //   All off      → grey
+    //   Loop + Punch → solid red (lit recordActive)
+    //   Punch only   → faded red (dim recordActive)
+    //   Loop only    → muted amber (dim warning)
+    //   All off      → grey (elevated/divider)
     final hasPunch = punchInEnabled || punchOutEnabled;
     Color fillColor;
     Color borderColor;
     Color hoverColor;
 
     if (hasPunch && loopEnabled) {
-      // Mode 3: Loop + Punch — solid red
-      fillColor = const Color(0xFFAA2222);
-      borderColor = const Color(0xFFCC3333);
-      hoverColor = const Color(0xFFFF6666);
+      // Mode 3: Loop + Punch — solid red (lit)
+      fillColor = colors.recordActive;
+      borderColor = colors.recordActive.withValues(alpha: 0.8);
+      hoverColor = colors.error;
     } else if (hasPunch) {
-      // Mode 4: Punch only (no loop) — faded red
-      fillColor = const Color(0x66AA2222);
-      borderColor = const Color(0x88CC3333);
-      hoverColor = const Color(0xAAFF6666);
+      // Mode 4: Punch only (no loop) — faded red (dim)
+      fillColor = colors.recordActive.withValues(alpha: 0.4);
+      borderColor = colors.recordActive.withValues(alpha: 0.53);
+      hoverColor = colors.error.withValues(alpha: 0.67);
     } else if (loopEnabled) {
-      // Mode 2: Loop only — muted amber
-      fillColor = const Color(0xFF5A3D10);
-      borderColor = const Color(0xFFC88A30);
-      hoverColor = const Color(0xFFD4A050);
+      // Mode 2: Loop only — muted amber (dim warning)
+      fillColor = colors.warning.withValues(alpha: 0.35);
+      borderColor = colors.warning.withValues(alpha: 0.78);
+      hoverColor = colors.warning;
     } else {
       // Mode 1: All off — grey bar with darker grey edge
-      fillColor = const Color(0xFF292B36); // BG.elevated
-      borderColor = const Color(0xFF3A3D4A); // BG.divider
-      hoverColor = const Color(0xFF4A4D5A); // BG.hover
+      fillColor = colors.elevated;
+      borderColor = colors.divider;
+      hoverColor = colors.hover;
     }
 
     // Fill
@@ -179,8 +184,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       if (isBar) {
         // Bar line - taller tick
         final tickPaint = Paint()
-          ..color =
-              const Color(0xFF646880) // TEXT.muted
+          ..color = colors.textMuted
           ..strokeWidth = 1.5;
         canvas.drawLine(
           Offset(x, size.height - 6),
@@ -195,9 +199,9 @@ class UnifiedNavBarPainter extends CustomPainter {
         if (barNumber % barInterval == 1 || barInterval == 1) {
           textPainter.text = TextSpan(
             text: '$barNumber',
-            style: const TextStyle(
-              color: Color(0xFFE0E0E0),
-              fontSize: 12,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 12 * textScale,
               fontWeight: BT.weightSemiBold,
             ),
           );
@@ -207,8 +211,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       } else if (isBeat) {
         // Beat tick - medium height
         final tickPaint = Paint()
-          ..color =
-              const Color(0xFF4A4D5A) // BG.hover
+          ..color = colors.hover
           ..strokeWidth = 1;
         canvas.drawLine(
           Offset(x, size.height - 4),
@@ -240,10 +243,8 @@ class UnifiedNavBarPainter extends CustomPainter {
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop
-                      ? const Color(0xFFFFFFFF)
-                      : const Color(0xFFE8EAF0),
-                  fontSize: 12,
+                  color: isOverLoop ? colors.textPrimary : colors.textPrimary,
+                  fontSize: 12 * textScale,
                   fontWeight: BT.weightSemiBold,
                 ),
               );
@@ -257,10 +258,8 @@ class UnifiedNavBarPainter extends CustomPainter {
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop
-                      ? const Color(0xFFFFFFFF)
-                      : const Color(0xFF646880),
-                  fontSize: BT.fontCaption,
+                  color: isOverLoop ? colors.textPrimary : colors.textMuted,
+                  fontSize: BT.fontCaption * textScale,
                 ),
               );
               textPainter.layout();
@@ -271,8 +270,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       } else {
         // Subdivision tick - short
         final tickPaint = Paint()
-          ..color =
-              const Color(0xFF3A3D4A) // BG.divider
+          ..color = colors.divider
           ..strokeWidth = 0.5;
         canvas.drawLine(
           Offset(x, size.height - 2),
@@ -310,10 +308,8 @@ class UnifiedNavBarPainter extends CustomPainter {
             textPainter.text = TextSpan(
               text: '$barNumber.$beatInBar.$subInBeat',
               style: TextStyle(
-                color: isOverLoop
-                    ? const Color(0xFFFFFFFF)
-                    : const Color(0xFF646880),
-                fontSize: BT.fontCaption,
+                color: isOverLoop ? colors.textPrimary : colors.textMuted,
+                fontSize: BT.fontCaption * textScale,
               ),
             );
             textPainter.layout();
@@ -327,10 +323,9 @@ class UnifiedNavBarPainter extends CustomPainter {
   void _drawInsertMarker(Canvas canvas, Size size, double beat) {
     final x = beat * pixelsPerBeat;
 
-    // Vertical line
+    // Vertical line (accent blue)
     final linePaint = Paint()
-      ..color =
-          const Color(0xFF4FC3F7) // Light blue
+      ..color = colors.accent
       ..strokeWidth = 2.0;
     canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
 
@@ -343,7 +338,7 @@ class UnifiedNavBarPainter extends CustomPainter {
       ..close();
 
     final diamondPaint = Paint()
-      ..color = const Color(0xFF4FC3F7)
+      ..color = colors.accent
       ..style = PaintingStyle.fill;
     canvas.drawPath(diamondPath, diamondPaint);
   }
@@ -352,7 +347,7 @@ class UnifiedNavBarPainter extends CustomPainter {
     if (playheadPosition == null) return;
 
     final x = playheadPosition! * pixelsPerBeat;
-    const playheadColor = Color(0xFF3B82F6); // Blue
+    final playheadColor = colors.accent;
 
     // Head radius: 5px default, 6px on hover
     final headRadius = isHoveringPlayhead ? 6.0 : 5.0;
@@ -404,6 +399,8 @@ class UnifiedNavBarPainter extends CustomPainter {
         isPlaying != oldDelegate.isPlaying ||
         beatsPerBar != oldDelegate.beatsPerBar ||
         punchInEnabled != oldDelegate.punchInEnabled ||
-        punchOutEnabled != oldDelegate.punchOutEnabled;
+        punchOutEnabled != oldDelegate.punchOutEnabled ||
+        colors != oldDelegate.colors ||
+        textScale != oldDelegate.textScale;
   }
 }

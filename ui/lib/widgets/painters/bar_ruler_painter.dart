@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/tokens.dart';
 
 /// Painter for bar number ruler (displays bar numbers and playhead).
@@ -8,12 +9,16 @@ class BarRulerPainter extends CustomPainter {
   final double totalBeats;
   final double playheadPosition; // in beats
   final int beatsPerBar;
+  final BoojyColors colors;
+  final double textScale;
 
   BarRulerPainter({
     required this.pixelsPerBeat,
     required this.totalBeats,
+    required this.colors,
     this.playheadPosition = 0.0,
     this.beatsPerBar = 4,
+    this.textScale = 1.0,
   });
 
   @override
@@ -33,9 +38,9 @@ class BarRulerPainter extends CustomPainter {
       final barNumber = bar + 1; // 1-indexed
       textPainter.text = TextSpan(
         text: '$barNumber',
-        style: const TextStyle(
-          color: Color(0xFFE8EAF0), // TEXT.primary
-          fontSize: BT.fontBody,
+        style: TextStyle(
+          color: colors.textPrimary,
+          fontSize: BT.fontBody * textScale,
           fontWeight: BT.weightSemiBold,
         ),
       );
@@ -51,8 +56,7 @@ class BarRulerPainter extends CustomPainter {
       for (int beat = 0; beat < beatsPerBar; beat++) {
         final beatX = (barStartBeat + beat) * pixelsPerBeat;
         final tickPaint = Paint()
-          ..color =
-              const Color(0xFF4A4D5A) // BG.hover
+          ..color = colors.hover
           ..strokeWidth = 1;
 
         canvas.drawLine(
@@ -63,7 +67,7 @@ class BarRulerPainter extends CustomPainter {
       }
     }
 
-    // Draw playhead triangle (orange)
+    // Draw playhead triangle (warning/orange)
     if (playheadPosition >= 0 && playheadPosition <= totalBeats) {
       final playheadX = playheadPosition * pixelsPerBeat;
 
@@ -74,16 +78,14 @@ class BarRulerPainter extends CustomPainter {
         ..close();
 
       final playheadPaint = Paint()
-        ..color =
-            const Color(0xFFFF9800) // Orange
+        ..color = colors.warning
         ..style = PaintingStyle.fill;
 
       canvas.drawPath(trianglePath, playheadPaint);
 
       // Playhead border for definition
       final borderPaint = Paint()
-        ..color =
-            const Color(0xFFE65100) // Darker orange border
+        ..color = colors.warning.withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
 
@@ -96,6 +98,8 @@ class BarRulerPainter extends CustomPainter {
     return playheadPosition != oldDelegate.playheadPosition ||
         pixelsPerBeat != oldDelegate.pixelsPerBeat ||
         totalBeats != oldDelegate.totalBeats ||
-        beatsPerBar != oldDelegate.beatsPerBar;
+        beatsPerBar != oldDelegate.beatsPerBar ||
+        colors != oldDelegate.colors ||
+        textScale != oldDelegate.textScale;
   }
 }

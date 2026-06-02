@@ -398,6 +398,9 @@ class _SamplerEditorState extends State<SamplerEditor> {
                             hoverSeconds: _isNearLoopEdge(_navBarHoverSeconds)
                                 ? _navBarHoverSeconds
                                 : null,
+                            textScale: MediaQuery.textScalerOf(
+                              context,
+                            ).scale(1.0),
                           ),
                         ),
                       ),

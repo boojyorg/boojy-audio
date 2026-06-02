@@ -142,6 +142,7 @@ class _ClipAutomationLaneWidgetState extends State<ClipAutomationLaneWidget> {
                   pointColor: colors.textPrimary,
                   selectedPointColor: widget.trackColor,
                   gridLineColor: colors.surface,
+                  colors: colors,
                   hoveredPointId: _hoveredPointId,
                   draggedPointId: _draggingPointId,
                   beatsPerBar: widget.beatsPerBar,

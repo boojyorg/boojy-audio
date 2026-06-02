@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/boojy_icons.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
@@ -39,6 +40,7 @@ class _FileDropZoneState extends State<FileDropZone> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     if (widget.hasFile) {
       // Show minimal UI when file is loaded
       return Container(
@@ -87,12 +89,10 @@ class _FileDropZoneState extends State<FileDropZone> {
         padding: const EdgeInsets.all(48),
         decoration: BoxDecoration(
           color: _isDragging
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
+              ? colors.success.withValues(alpha: 0.1)
               : const Color(0xFF2B2B2B),
           border: Border.all(
-            color: _isDragging
-                ? const Color(0xFF4CAF50)
-                : const Color(0xFF404040),
+            color: _isDragging ? colors.success : const Color(0xFF404040),
             width: 2,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
@@ -104,9 +104,7 @@ class _FileDropZoneState extends State<FileDropZone> {
             Icon(
               _isDragging ? Icons.cloud_upload : BI.audioFile,
               size: 64,
-              color: _isDragging
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFF606060),
+              color: _isDragging ? colors.success : const Color(0xFF606060),
             ),
             const SizedBox(height: 16),
             Text(
@@ -116,9 +114,7 @@ class _FileDropZoneState extends State<FileDropZone> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: BT.weightMedium,
-                color: _isDragging
-                    ? const Color(0xFF4CAF50)
-                    : const Color(0xFF808080),
+                color: _isDragging ? colors.success : const Color(0xFF808080),
               ),
             ),
             const SizedBox(height: 8),
