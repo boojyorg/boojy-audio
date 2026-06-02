@@ -4,6 +4,29 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+- **The test suite can no longer lie (C92).** The native-engine integration tests used to
+  silently early-return when the engine library was missing — so a CI run that forgot to build the
+  engine would still print "9 tests passed" while testing nothing. They now fail loudly under CI
+  when the engine is absent, and report as *skipped* (not passed) locally. Internal only — no
+  user-facing change, but it means every other fix this cycle is actually being measured.
+- **CI now rejects Rust warnings for real (C95).** `cargo clippy` in CI was non-fatal despite the
+  docs claiming it gated warnings; it now runs with `-D warnings`, and the 13 warnings that had
+  quietly accumulated behind the non-fatal gate were cleaned up.
+
+### Internal
+
+- **Headless golden-screenshot tests** for the piano-roll lane painter and the timeline grid
+  painter (`ui/test/goldens/`). They render the painters to PNG under plain `flutter test` (no
+  device) so visual regressions in the upcoming legibility work fail the suite instead of slipping
+  through; refresh with `fvm flutter test --update-goldens test/goldens/`. Compared on macOS only.
+- **`ui-ux-review` screenshot grounding fixed.** The review workflow now grounds its subagents on a
+  committed staging folder (`docs/reviews/_screenshots/`) instead of the ephemeral pasted-image
+  cache, so future UI reviews actually see the app.
+- **Feature-tracker accuracy sweep:** re-marked input monitoring and the two automation items
+  `(partial)` — engine support exists but no user-reachable UI.
+
 ## v0.4.0 — 2026-06-01
 
 > **"Visual & UX polish."** A real bundled typeface (Inter + JetBrains Mono), a unified cool

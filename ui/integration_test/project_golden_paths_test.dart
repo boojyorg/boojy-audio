@@ -32,14 +32,30 @@ void main() {
     });
   }
 
+  // C92: never report a vacuous green suite. If the native engine is missing,
+  // either fail loudly (CI, where the dylib MUST be built) or skip visibly
+  // (local/web without a build) — but do not let every test silently
+  // early-return while flutter still prints "N tests passed". Because this
+  // returns before the group is defined, the tests below run only when the
+  // engine is genuinely available, so they need no per-test availability guard.
+  if (!isNativeEngineAvailable) {
+    const reason = 'native engine library not found — run ./build.sh first';
+    if (isNativeEngineRequired) {
+      test('native engine present (required under BOOJY_CI)', () {
+        fail('$reason. Refusing to report a vacuous green suite (C92).');
+      });
+    } else {
+      test('Project golden paths (native engine)', () {}, skip: reason);
+    }
+    return;
+  }
+
   group('Project golden paths (native engine)', () {
     late AudioEngine engine;
     late ProjectManager projectManager;
     late Directory projectDir;
 
     setUp(() async {
-      if (!isNativeEngineAvailable) return;
-
       engine = await createInitializedEngine();
       UndoRedoManager().initialize(engine);
       UndoRedoManager().clear();
@@ -48,16 +64,10 @@ void main() {
     });
 
     tearDown(() {
-      if (!isNativeEngineAvailable) return;
       deleteTempProjectDir(projectDir);
     });
 
     test('create MIDI track → save → reload preserves track count', () async {
-      if (!isNativeEngineAvailable) {
-        // Stub/web CI jobs without a built engine — skip gracefully.
-        return;
-      }
-
       final baselineCount = engine.getTrackCount();
       final trackId = engine.createTrack('midi', 'Integration MIDI');
       expect(trackId, greaterThan(0));
@@ -93,8 +103,6 @@ void main() {
     });
 
     test('MIDI note in clip → save → reload preserves note data', () async {
-      if (!isNativeEngineAvailable) return;
-
       final trackId = engine.createTrack('midi', 'Note Test');
       expect(trackId, greaterThan(0));
 
@@ -134,8 +142,6 @@ void main() {
     });
 
     test('MIDI clip move → undo restores start time', () async {
-      if (!isNativeEngineAvailable) return;
-
       const tempo = 120.0;
       const beatsPerSecond = tempo / 60.0;
 
@@ -185,8 +191,6 @@ void main() {
     test(
       'export WAV smoke test completes for project with MIDI content',
       () async {
-        if (!isNativeEngineAvailable) return;
-
         final trackId = engine.createTrack('midi', 'Export Test');
         expect(trackId, greaterThan(0));
 
@@ -208,8 +212,6 @@ void main() {
     );
 
     test('shared send → save → reload preserves return and send', () async {
-      if (!isNativeEngineAvailable) return;
-
       final trackId = engine.createTrack('audio', 'Send Test');
       expect(trackId, greaterThan(0));
 
@@ -250,8 +252,6 @@ void main() {
     test(
       'multiple tracks sharing one return → save → reload preserves all sends',
       () async {
-        if (!isNativeEngineAvailable) return;
-
         engine.clearAllTracks();
 
         final trackA = engine.createTrack('audio', 'Multi A');
@@ -297,8 +297,6 @@ void main() {
     );
 
     test('shared send dedup: second add reuses existing return', () async {
-      if (!isNativeEngineAvailable) return;
-
       engine.clearAllTracks();
 
       final trackA = engine.createTrack('audio', 'Dedup A');
@@ -341,8 +339,6 @@ void main() {
     });
 
     test('AddSharedSendCommand undo removes both send and return', () async {
-      if (!isNativeEngineAvailable) return;
-
       engine.clearAllTracks();
       UndoRedoManager().clear();
 
@@ -390,8 +386,6 @@ void main() {
     });
 
     test('export with reverb send has more energy than dry baseline', () async {
-      if (!isNativeEngineAvailable) return;
-
       Future<File> renderProject({required bool withReverbSend}) async {
         engine.clearAllTracks();
 

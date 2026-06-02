@@ -142,7 +142,7 @@ jobs:
           Copy-Item -Path "lib\Release\*.lib" -Destination "..\..\lib\" -Force
 
       - name: Clippy
-        run: cd engine && cargo clippy --all-targets
+        run: cd engine && cargo clippy --all-targets -- -D warnings
 
       - name: Run tests
         run: cd engine && cargo test
@@ -167,7 +167,7 @@ jobs:
           workspaces: engine
 
       - name: Clippy
-        run: cd engine && cargo clippy --all-targets
+        run: cd engine && cargo clippy --all-targets -- -D warnings
 
       - name: Run tests
         run: cd engine && cargo test

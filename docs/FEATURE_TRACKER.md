@@ -2,6 +2,15 @@
 
 Detailed checklist of all features planned for v1.0 and their current status.
 
+> **Accuracy note (2026-06-02 sweep):** a targeted pass cross-checked ticked `[x]` items
+> against actual UI reachability (engine/FFI present but no user-facing control =
+> over-claim). It re-marked 3 items `(partial: …)`: input monitoring, and the two
+> automation items (both gated behind `UIConstants.enableAutomation = false` — the v0.5
+> "automation flag-flip" rescue). This was high-precision, not exhaustive: ~55 of ~114
+> ticked items were spot-checked, prioritising sections likely to hide engine/UI gaps
+> (recording, automation, mixing, processing). Routine UI-obvious items (faders, mute/solo,
+> clip drag, piano-roll entry, export) were not re-verified.
+
 ---
 
 ### Views & Workflow
@@ -44,7 +53,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Record arm button
 - [x] Count-in metronome (1 bar)
 - [x] Punch in/out
-- [x] Input monitoring (auto mode)
+- [ ] Input monitoring (auto mode) — (partial: `set_track_input_monitoring_ffi` + Dart binding wired; no UI control, user can't change monitoring state)
 - [ ] Loop recording (multiple takes)
 - [ ] Comping / take lanes
 - [ ] Pre-roll / Post-roll
@@ -107,8 +116,8 @@ Detailed checklist of all features planned for v1.0 and their current status.
 
 ### Automation
 
-- [x] Basic automation lanes (volume/pan) — backend complete; UI hidden behind feature flag in v0.2.2 (data preserved in projects)
-- [x] Draw automation points
+- [ ] Basic automation lanes (volume/pan) — (partial: engine backend + project persistence complete; all UI surfaces gated behind `UIConstants.enableAutomation = false`, so no user-reachable lane — this is the v0.5 "automation flag-flip" rescue, B-3)
+- [ ] Draw automation points — (partial: draw-point logic implemented; unreachable while `UIConstants.enableAutomation = false` hides the lane)
 - [ ] Automation shapes (sine, square, ramp)
 - [ ] Per-parameter automation lanes
 
