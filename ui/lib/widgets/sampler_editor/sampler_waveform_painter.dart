@@ -254,7 +254,8 @@ class SamplerWaveformPainter extends CustomPainter {
         loopStartSeconds != oldDelegate.loopStartSeconds ||
         loopEndSeconds != oldDelegate.loopEndSeconds ||
         originalBpm != oldDelegate.originalBpm ||
-        beatsPerBar != oldDelegate.beatsPerBar;
+        beatsPerBar != oldDelegate.beatsPerBar ||
+        colors != oldDelegate.colors;
   }
 }
 
@@ -271,6 +272,7 @@ class SamplerRulerPainter extends CustomPainter {
   final double originalBpm;
   final int beatsPerBar;
   final double? hoverSeconds; // For loop edge hover feedback
+  final double textScale;
 
   SamplerRulerPainter({
     required this.pixelsPerSecond,
@@ -282,6 +284,7 @@ class SamplerRulerPainter extends CustomPainter {
     this.originalBpm = 120.0,
     this.beatsPerBar = 4,
     this.hoverSeconds,
+    this.textScale = 1.0,
   });
 
   double get _pixelsPerBeat {
@@ -311,7 +314,7 @@ class SamplerRulerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Dark background
-    final bgPaint = Paint()..color = const Color(0xFF1A1A1A);
+    final bgPaint = Paint()..color = colors.darkest;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // 2. Draw loop region (full-height colored bar)
@@ -335,11 +338,11 @@ class SamplerRulerPainter extends CustomPainter {
     Color borderColor;
 
     if (loopEnabled) {
-      fillColor = const Color(0xFFB36800);
-      borderColor = const Color(0xFFFF9800);
+      fillColor = colors.warning;
+      borderColor = colors.warning;
     } else {
-      fillColor = const Color(0xFF333333);
-      borderColor = const Color(0xFF555555);
+      fillColor = colors.divider;
+      borderColor = colors.divider;
     }
 
     final fillPaint = Paint()..color = fillColor;
@@ -355,7 +358,7 @@ class SamplerRulerPainter extends CustomPainter {
     if (hoverSeconds != null) {
       final hoverX = hoverSeconds! * pixelsPerSecond;
       const edgeHitZone = 10.0;
-      const hoverColor = Color(0xFFFFB74D);
+      final hoverColor = colors.warning;
 
       if ((hoverX - loopStartX).abs() < edgeHitZone) {
         final highlightPaint = Paint()
@@ -403,7 +406,7 @@ class SamplerRulerPainter extends CustomPainter {
       if (isBar) {
         // Bar tick — taller
         final tickPaint = Paint()
-          ..color = const Color(0xFF707070)
+          ..color = colors.textMuted
           ..strokeWidth = 1.5;
         canvas.drawLine(
           Offset(x, size.height - 6),
@@ -416,15 +419,11 @@ class SamplerRulerPainter extends CustomPainter {
         final barInterval = _getBarNumberInterval();
         if (barNumber % barInterval == 1 || barInterval == 1) {
           final textX = x + 4;
-          final isOverLoop =
-              loopEnabled && textX >= loopStartX && textX < loopEndX;
           textPainter.text = TextSpan(
             text: '$barNumber',
             style: TextStyle(
-              color: isOverLoop
-                  ? const Color(0xFFFFFFFF)
-                  : const Color(0xFFE0E0E0),
-              fontSize: 12,
+              color: colors.textPrimary,
+              fontSize: 12 * textScale,
               fontWeight: BT.weightSemiBold,
             ),
           );
@@ -434,7 +433,7 @@ class SamplerRulerPainter extends CustomPainter {
       } else if (isBeat) {
         // Beat tick — medium
         final tickPaint = Paint()
-          ..color = const Color(0xFF505050)
+          ..color = colors.divider
           ..strokeWidth = 1;
         canvas.drawLine(
           Offset(x, size.height - 4),
@@ -452,15 +451,11 @@ class SamplerRulerPainter extends CustomPainter {
 
             if (subdivisionsVisible) {
               final textX = x + 4;
-              final isOverLoop =
-                  loopEnabled && textX >= loopStartX && textX < loopEndX;
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop
-                      ? const Color(0xFFFFFFFF)
-                      : const Color(0xFFE0E0E0),
-                  fontSize: 12,
+                  color: colors.textPrimary,
+                  fontSize: 12 * textScale,
                   fontWeight: BT.weightSemiBold,
                 ),
               );
@@ -473,10 +468,8 @@ class SamplerRulerPainter extends CustomPainter {
               textPainter.text = TextSpan(
                 text: '$barNumber.$beatInBar',
                 style: TextStyle(
-                  color: isOverLoop
-                      ? const Color(0xFFFFFFFF)
-                      : const Color(0xFF808080),
-                  fontSize: BT.fontCaption,
+                  color: isOverLoop ? colors.textPrimary : colors.textMuted,
+                  fontSize: BT.fontCaption * textScale,
                 ),
               );
               textPainter.layout();
@@ -487,7 +480,7 @@ class SamplerRulerPainter extends CustomPainter {
       } else {
         // Subdivision tick — short
         final tickPaint = Paint()
-          ..color = const Color(0xFF404040)
+          ..color = colors.divider
           ..strokeWidth = 0.5;
         canvas.drawLine(
           Offset(x, size.height - 2),
@@ -517,10 +510,8 @@ class SamplerRulerPainter extends CustomPainter {
             textPainter.text = TextSpan(
               text: '$barNumber.$beatInBar.$subInBeat',
               style: TextStyle(
-                color: isOverLoop
-                    ? const Color(0xFFFFFFFF)
-                    : const Color(0xFF808080),
-                fontSize: BT.fontCaption,
+                color: isOverLoop ? colors.textPrimary : colors.textMuted,
+                fontSize: BT.fontCaption * textScale,
               ),
             );
             textPainter.layout();
@@ -540,6 +531,8 @@ class SamplerRulerPainter extends CustomPainter {
         loopEndSeconds != oldDelegate.loopEndSeconds ||
         originalBpm != oldDelegate.originalBpm ||
         beatsPerBar != oldDelegate.beatsPerBar ||
-        hoverSeconds != oldDelegate.hoverSeconds;
+        hoverSeconds != oldDelegate.hoverSeconds ||
+        colors != oldDelegate.colors ||
+        textScale != oldDelegate.textScale;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/clip_automation_data.dart';
+import '../../theme/app_colors.dart';
 
 /// Custom painter for clip-level automation curves.
 /// Similar to TrackAutomationPainter but designed for clip-based automation
@@ -17,6 +18,7 @@ class ClipAutomationPainter extends CustomPainter {
   final Color selectedPointColor;
   final Color gridLineColor;
   final Color ghostColor;
+  final BoojyColors colors;
   final String? hoveredPointId;
   final String? draggedPointId;
   final int beatsPerBar;
@@ -36,6 +38,7 @@ class ClipAutomationPainter extends CustomPainter {
     required this.pointColor,
     required this.selectedPointColor,
     required this.gridLineColor,
+    required this.colors,
     this.ghostColor = const Color(0x40FFFFFF),
     this.hoveredPointId,
     this.draggedPointId,
@@ -60,13 +63,13 @@ class ClipAutomationPainter extends CustomPainter {
 
     // Fill
     final fillPaint = Paint()
-      ..color = const Color(0xFF00BCD4).withValues(alpha: 0.2)
+      ..color = colors.accent.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill;
     canvas.drawRect(rect, fillPaint);
 
     // Border
     final borderPaint = Paint()
-      ..color = const Color(0xFF00BCD4)
+      ..color = colors.accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawRect(rect, borderPaint);
@@ -283,6 +286,7 @@ class ClipAutomationPainter extends CustomPainter {
         draggedPointId != oldDelegate.draggedPointId ||
         selectionStart != oldDelegate.selectionStart ||
         selectionEnd != oldDelegate.selectionEnd ||
+        colors != oldDelegate.colors ||
         !_setEquals(selectedPointIds, oldDelegate.selectedPointIds);
   }
 

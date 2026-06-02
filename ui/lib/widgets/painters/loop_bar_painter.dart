@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 
 /// Painter for the dedicated loop bar row.
 /// Renders a solid bar for the loop/punch region with 4-mode color scheme:
@@ -14,21 +15,25 @@ class LoopBarPainter extends CustomPainter {
   final double loopEnd;
   final bool punchInEnabled;
   final bool punchOutEnabled;
+  final BoojyColors colors;
+  final double textScale;
 
   LoopBarPainter({
     required this.pixelsPerBeat,
     required this.totalBeats,
+    required this.colors,
     this.loopEnabled = false,
     this.loopStart = 0.0,
     this.loopEnd = 4.0,
     this.punchInEnabled = false,
     this.punchOutEnabled = false,
+    this.textScale = 1.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // Full background - darker for non-loop areas
-    final darkBgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
+    final darkBgPaint = Paint()..color = colors.editor;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), darkBgPaint);
 
     final hasPunch = punchInEnabled || punchOutEnabled;
@@ -36,14 +41,9 @@ class LoopBarPainter extends CustomPainter {
     if (!loopEnabled && !hasPunch) {
       // Mode 1: No loop, no punch — show hint text
       final textPainter = TextPainter(
-        text: const TextSpan(
+        text: TextSpan(
           text: 'Drag to create loop',
-          style: TextStyle(
-            color: Color(
-              0xFF646880,
-            ), // TEXT.muted — readable hint (was 0xFF4A4D5A, ~2.5:1)
-            fontSize: 10,
-          ),
+          style: TextStyle(color: colors.textMuted, fontSize: 10 * textScale),
         ),
         textDirection: TextDirection.ltr,
       );
@@ -65,17 +65,17 @@ class LoopBarPainter extends CustomPainter {
     Color borderColor;
 
     if (hasPunch && loopEnabled) {
-      // Mode 3: Loop + Punch — solid red
-      fillColor = const Color(0xFFAA2222);
-      borderColor = const Color(0xFFCC3333);
+      // Mode 3: Loop + Punch — solid red (lit recordActive)
+      fillColor = colors.recordActive;
+      borderColor = colors.recordActive.withValues(alpha: 0.8);
     } else if (hasPunch) {
-      // Mode 4: Punch only (no loop) — faded red
-      fillColor = const Color(0x66AA2222);
-      borderColor = const Color(0x88CC3333);
+      // Mode 4: Punch only (no loop) — faded red (dim recordActive)
+      fillColor = colors.recordActive.withValues(alpha: 0.4);
+      borderColor = colors.recordActive.withValues(alpha: 0.53);
     } else {
-      // Mode 2: Loop only (no punch) — muted amber
-      fillColor = const Color(0xFF5A3D10);
-      borderColor = const Color(0xFFC88A30);
+      // Mode 2: Loop only (no punch) — muted amber (dim warning)
+      fillColor = colors.warning.withValues(alpha: 0.35);
+      borderColor = colors.warning.withValues(alpha: 0.78);
     }
 
     // Fill bar
@@ -98,6 +98,8 @@ class LoopBarPainter extends CustomPainter {
         loopStart != oldDelegate.loopStart ||
         loopEnd != oldDelegate.loopEnd ||
         punchInEnabled != oldDelegate.punchInEnabled ||
-        punchOutEnabled != oldDelegate.punchOutEnabled;
+        punchOutEnabled != oldDelegate.punchOutEnabled ||
+        colors != oldDelegate.colors ||
+        textScale != oldDelegate.textScale;
   }
 }

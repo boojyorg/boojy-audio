@@ -45,6 +45,7 @@ class GridPainter extends CustomPainter {
   final Color activeEdgeColor; // Left accent edge bar on the active row.
   final Color
   rootBandColor; // Faint accent wash over root rows (scaleRootMidi).
+  final Color rootEdgeColor; // 2px accent tick on the left of root rows.
 
   GridPainter({
     required this.pixelsPerBeat,
@@ -74,6 +75,7 @@ class GridPainter extends CustomPainter {
     this.activeLaneColor = const Color(0x00000000),
     this.activeEdgeColor = const Color(0x00000000),
     this.rootBandColor = const Color(0x00000000),
+    this.rootEdgeColor = const Color(0x00000000),
   });
 
   @override
@@ -112,6 +114,14 @@ class GridPainter extends CustomPainter {
           Rect.fromLTWH(0, y, size.width, pixelsPerNote),
           Paint()..color = rootBandColor,
         );
+        // A 2px accent tick on the left edge makes the root row glanceable even
+        // when the wash is subtle.
+        if (rootEdgeColor.a != 0) {
+          canvas.drawRect(
+            Rect.fromLTWH(0, y, 2.0, pixelsPerNote),
+            Paint()..color = rootEdgeColor,
+          );
+        }
       }
 
       // Active lane: highlight the pitch row under the cursor / being edited,
@@ -242,6 +252,7 @@ class GridPainter extends CustomPainter {
         activeLaneColor != oldDelegate.activeLaneColor ||
         activeEdgeColor != oldDelegate.activeEdgeColor ||
         rootBandColor != oldDelegate.rootBandColor ||
+        rootEdgeColor != oldDelegate.rootEdgeColor ||
         !_listEquals(foldedPitches, oldDelegate.foldedPitches) ||
         scaleIntervals != oldDelegate.scaleIntervals ||
         minMidiNote != oldDelegate.minMidiNote;
