@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
@@ -107,6 +108,8 @@ class _MiniKnobState extends State<MiniKnob> {
                   baseColor: context.colors.textMuted,
                   valueFormatter: widget.valueFormatter,
                   rawValue: widget.value,
+                  colors: context.colors,
+                  textScale: MediaQuery.textScalerOf(context).scale(1.0),
                 ),
               ),
             ),
@@ -134,6 +137,8 @@ class _MiniKnobPainter extends CustomPainter {
   final Color baseColor;
   final String Function(double)? valueFormatter;
   final double rawValue;
+  final BoojyColors colors;
+  final double textScale;
 
   _MiniKnobPainter({
     required this.value,
@@ -142,6 +147,8 @@ class _MiniKnobPainter extends CustomPainter {
     required this.baseColor,
     this.valueFormatter,
     required this.rawValue,
+    required this.colors,
+    this.textScale = 1.0,
   });
 
   @override
@@ -210,8 +217,8 @@ class _MiniKnobPainter extends CustomPainter {
         text: TextSpan(
           text: label,
           style: TextStyle(
-            color: const Color(0xFFE0E0E0),
-            fontSize: size.width * 0.28, // Bigger text
+            color: colors.textPrimary,
+            fontSize: size.width * 0.28 * textScale, // Bigger text
             fontWeight: BT.weightMedium,
           ),
         ),
@@ -229,7 +236,10 @@ class _MiniKnobPainter extends CustomPainter {
   bool shouldRepaint(_MiniKnobPainter oldDelegate) {
     return oldDelegate.value != value ||
         oldDelegate.isDragging != isDragging ||
-        oldDelegate.arcColor != arcColor;
+        oldDelegate.arcColor != arcColor ||
+        oldDelegate.baseColor != baseColor ||
+        oldDelegate.colors != colors ||
+        oldDelegate.textScale != textScale;
   }
 }
 

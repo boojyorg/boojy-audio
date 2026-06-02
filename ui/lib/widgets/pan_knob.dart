@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 
 /// Logic Pro-style minimal pan knob
@@ -50,7 +52,11 @@ class PanKnob extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: CustomPaint(
             size: Size(size, size),
-            painter: _PanKnobPainter(pan: pan),
+            painter: _PanKnobPainter(
+              pan: pan,
+              colors: context.colors,
+              textScale: MediaQuery.textScalerOf(context).scale(1.0),
+            ),
           ),
         ),
       ),
@@ -60,8 +66,14 @@ class PanKnob extends StatelessWidget {
 
 class _PanKnobPainter extends CustomPainter {
   final double pan; // -1.0 to 1.0
+  final BoojyColors colors;
+  final double textScale;
 
-  _PanKnobPainter({required this.pan});
+  _PanKnobPainter({
+    required this.pan,
+    required this.colors,
+    this.textScale = 1.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -77,8 +89,7 @@ class _PanKnobPainter extends CustomPainter {
 
     // 1. Draw darker bottom arc (5 o'clock to 7 o'clock) - inactive zone
     final bottomArcPaint = Paint()
-      ..color =
-          const Color(0xFF3A3A3A) // Darker grey for inactive zone
+      ..color = colors.divider
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
@@ -92,7 +103,7 @@ class _PanKnobPainter extends CustomPainter {
 
     // 2. Draw grey active zone arc (7 o'clock to 5 o'clock)
     final baseArcPaint = Paint()
-      ..color = const Color(0xFF5A5A5A)
+      ..color = colors.hover
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
@@ -106,10 +117,8 @@ class _PanKnobPainter extends CustomPainter {
 
     // 3. Draw colored position arc (only if not centered)
     if (pan.abs() > 0.02) {
-      // Orange for left, red for right
-      final arcColor = pan < 0
-          ? const Color(0xFFFF9800) // Orange for left
-          : const Color(0xFFF44336); // Red for right
+      // Orange for left pan, red for right pan
+      final arcColor = pan < 0 ? colors.warning : colors.error;
 
       final positionArcPaint = Paint()
         ..color = arcColor
@@ -140,8 +149,8 @@ class _PanKnobPainter extends CustomPainter {
         text: TextSpan(
           text: label,
           style: TextStyle(
-            color: const Color(0xFFE0E0E0),
-            fontSize: size.width * 0.34, // Larger text (was 0.28)
+            color: colors.textPrimary,
+            fontSize: size.width * 0.34 * textScale, // Larger text (was 0.28)
             fontWeight: BT.weightSemiBold, // Bolder (was w500)
           ),
         ),
@@ -157,6 +166,8 @@ class _PanKnobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PanKnobPainter oldDelegate) {
-    return oldDelegate.pan != pan;
+    return oldDelegate.pan != pan ||
+        oldDelegate.colors != colors ||
+        oldDelegate.textScale != textScale;
   }
 }

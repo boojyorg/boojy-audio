@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../models/midi_note_data.dart';
 
 /// Painter for velocity editing lane (Ableton-style)
@@ -11,6 +12,7 @@ class VelocityLanePainter extends CustomPainter {
   final String? draggedNoteId;
   final String? hoveredNoteId;
   final Color noteColor;
+  final BoojyColors colors;
 
   VelocityLanePainter({
     required this.notes,
@@ -18,6 +20,7 @@ class VelocityLanePainter extends CustomPainter {
     required this.laneHeight,
     required this.totalBeats,
     required this.noteColor,
+    required this.colors,
     this.draggedNoteId,
     this.hoveredNoteId,
   });
@@ -25,13 +28,12 @@ class VelocityLanePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Draw background
-    final bgPaint = Paint()..color = const Color(0xFF13151C); // BG.darkest
+    final bgPaint = Paint()..color = colors.darkest;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Draw horizontal grid lines at 25%, 50%, 75%, 100%
     final gridPaint = Paint()
-      ..color =
-          const Color(0xFF292B36) // BG.elevated
+      ..color = colors.elevated
       ..strokeWidth = 1;
 
     for (var i = 1; i <= 4; i++) {
@@ -41,8 +43,7 @@ class VelocityLanePainter extends CustomPainter {
 
     // Draw vertical bar lines (every 4 beats)
     final barPaint = Paint()
-      ..color =
-          const Color(0xFF3A3D4A) // BG.divider
+      ..color = colors.divider
       ..strokeWidth = 1;
 
     for (double beat = 0; beat <= totalBeats; beat += 4) {
@@ -89,7 +90,7 @@ class VelocityLanePainter extends CustomPainter {
       // Derive border color - white if highlighted, brighter if hovered, else darker velocity color
       Color borderColor;
       if (isHighlighted) {
-        borderColor = Colors.white;
+        borderColor = colors.textPrimary;
       } else if (isHovered) {
         borderColor = baseHsl
             .withLightness((hoverLightness + 0.1).clamp(0.0, 0.8))
@@ -101,7 +102,7 @@ class VelocityLanePainter extends CustomPainter {
       }
 
       final linePaint = Paint()
-        ..color = isHighlighted ? Colors.white : velocityColor
+        ..color = isHighlighted ? colors.textPrimary : velocityColor
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
 
@@ -135,6 +136,7 @@ class VelocityLanePainter extends CustomPainter {
         totalBeats != oldDelegate.totalBeats ||
         draggedNoteId != oldDelegate.draggedNoteId ||
         hoveredNoteId != oldDelegate.hoveredNoteId ||
-        noteColor != oldDelegate.noteColor;
+        noteColor != oldDelegate.noteColor ||
+        colors != oldDelegate.colors;
   }
 }

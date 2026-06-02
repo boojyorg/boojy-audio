@@ -60,7 +60,10 @@ void main() {
         activeBeats: totalBeats,
         // Lane / key-row colours — sourced from the real dark theme so a token
         // change moves these pixels and trips the golden.
-        blackKeyBackground: const Color(0xFF15171C),
+        blackKeyBackground: Color.alphaBlend(
+          Colors.black.withValues(alpha: 0.20),
+          colors.elevated,
+        ),
         whiteKeyBackground: colors.elevated,
         separatorLine: colors.elevated,
         subdivisionGridLine: colors.surface,
@@ -72,7 +75,8 @@ void main() {
         activeRow: 60,
         activeLaneColor: colors.accent.withValues(alpha: 0.12),
         activeEdgeColor: colors.accent.withValues(alpha: 0.85),
-        rootBandColor: colors.accent.withValues(alpha: 0.18),
+        rootBandColor: colors.accent.withValues(alpha: 0.16),
+        rootEdgeColor: colors.accent.withValues(alpha: 0.6),
       );
 
       await tester.pumpWidget(
@@ -101,6 +105,12 @@ void main() {
       loopEnabled: true,
       loopStart: 4.0,
       loopEnd: 8.0,
+      // Mirror the production call site (timeline_view) so the golden tracks the
+      // real theme-sourced grid colours, not the painter's bare defaults.
+      barLineColor: colors.hover,
+      beatLineColor: colors.divider,
+      subBeatLineColor: colors.surface,
+      minorGridColor: colors.standard,
     );
 
     await tester.pumpWidget(host(const Size(960, 120), painter));
