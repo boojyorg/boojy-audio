@@ -32,6 +32,13 @@ pub trait Effect: Send {
 
     /// Get effect name
     fn name(&self) -> &str;
+
+    /// Update the effect's sample rate, recomputing any rate-dependent
+    /// coefficients. Default no-op: effects whose DSP is rate-agnostic, or that
+    /// size buffers at construction, can ignore this. Filter-based effects
+    /// (EQ, Compressor, Limiter) override it so their coefficients track the
+    /// real device rate instead of a hardcoded constant.
+    fn set_sample_rate(&mut self, _sample_rate: f32) {}
 }
 
 /// Unique identifier for effects
@@ -47,6 +54,10 @@ pub enum BiquadType {
     LowShelf,
     HighShelf,
     Parametric,
+    /// 2nd-order high-pass (used for the EQ's fixed Low Cut). `gain_db` ignored.
+    HighPass,
+    /// 2nd-order low-pass (used for the EQ's fixed High Cut). `gain_db` ignored.
+    LowPass,
 }
 
 /// Biquad filter (2nd-order IIR filter)
@@ -54,7 +65,7 @@ pub enum BiquadType {
 /// Used for EQ bands. Implements cookbook formulae from:
 /// "Audio EQ Cookbook" by Robert Bristow-Johnson
 #[derive(Clone)]
-struct BiquadFilter {
+pub(crate) struct BiquadFilter {
     // Coefficients
     b0: f32,
     b1: f32,
@@ -83,9 +94,8 @@ impl BiquadFilter {
         }
     }
 
-    /// Design a biquad filter
-    fn design(&mut self, biquad_type: BiquadType, freq: f32, gain_db: f32, q: f32) {
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
+    /// Design a biquad filter at the given sample rate
+    fn design(&mut self, biquad_type: BiquadType, freq: f32, gain_db: f32, q: f32, sample_rate: f32) {
         let omega = 2.0 * PI * freq / sample_rate;
         let sin_omega = omega.sin();
         let cos_omega = omega.cos();
@@ -143,6 +153,36 @@ impl BiquadFilter {
                 self.a1 = a1 / a0;
                 self.a2 = a2 / a0;
             }
+            BiquadType::HighPass => {
+                // 2nd-order Butterworth-ish high-pass (RBJ cookbook). gain_db unused.
+                let b0 = f32::midpoint(1.0, cos_omega); // (1 + cos)/2
+                let b1 = -(1.0 + cos_omega);
+                let b2 = b0;
+                let a0 = 1.0 + alpha;
+                let a1 = -2.0 * cos_omega;
+                let a2 = 1.0 - alpha;
+
+                self.b0 = b0 / a0;
+                self.b1 = b1 / a0;
+                self.b2 = b2 / a0;
+                self.a1 = a1 / a0;
+                self.a2 = a2 / a0;
+            }
+            BiquadType::LowPass => {
+                // 2nd-order low-pass (RBJ cookbook). gain_db unused.
+                let b0 = f32::midpoint(1.0, -cos_omega); // (1 - cos)/2
+                let b1 = 1.0 - cos_omega;
+                let b2 = b0;
+                let a0 = 1.0 + alpha;
+                let a1 = -2.0 * cos_omega;
+                let a2 = 1.0 - alpha;
+
+                self.b0 = b0 / a0;
+                self.b1 = b1 / a0;
+                self.b2 = b2 / a0;
+                self.a1 = a1 / a0;
+                self.a2 = a2 / a0;
+            }
         }
     }
 
@@ -171,36 +211,112 @@ impl BiquadFilter {
 }
 
 // ========================================================================
-// PARAMETRIC EQ (4-band)
+// GRAPHIC EQ (variable-band)
 // ========================================================================
 
-/// 4-band parametric EQ
+/// Maximum number of bands a Graphic EQ can hold (spec §7).
+pub(crate) const MAX_EQ_BANDS: usize = 8;
+/// Fixed Low Cut (high-pass) corner frequency.
+const LOW_CUT_FREQ: f32 = 80.0;
+/// Fixed High Cut (low-pass) corner frequency.
+const HIGH_CUT_FREQ: f32 = 12_000.0;
+/// Internal Q for the fixed-slope shelves and the cut filters (spec §6.2).
+const SHELF_Q: f32 = 0.707;
+
+/// The role/shape of an EQ band. Determines its filter type and whether Focus
+/// (Q) applies. A band keeps its shape regardless of where it is dragged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BandShape {
+    LowShelf,
+    Bell,
+    HighShelf,
+}
+
+impl BandShape {
+    /// Encode for the flat param/persistence map (0 = low shelf, 1 = bell, 2 = high shelf).
+    fn to_code(self) -> f32 {
+        match self {
+            BandShape::LowShelf => 0.0,
+            BandShape::Bell => 1.0,
+            BandShape::HighShelf => 2.0,
+        }
+    }
+    fn from_code(v: f32) -> Self {
+        match v.round() as i32 {
+            0 => BandShape::LowShelf,
+            2 => BandShape::HighShelf,
+            _ => BandShape::Bell,
+        }
+    }
+    fn biquad_type(self) -> BiquadType {
+        match self {
+            BandShape::LowShelf => BiquadType::LowShelf,
+            BandShape::Bell => BiquadType::Parametric,
+            BandShape::HighShelf => BiquadType::HighShelf,
+        }
+    }
+}
+
+/// One adjustable EQ band (a draggable dot in the UI).
+#[derive(Clone)]
+struct EqBand {
+    freq: f32,
+    gain_db: f32,
+    /// 0.0..1.0 "Focus" — how narrow the band is. Only meaningful for Bell shapes.
+    focus: f32,
+    shape: BandShape,
+    bypassed: bool,
+    filter_l: BiquadFilter,
+    filter_r: BiquadFilter,
+}
+
+impl EqBand {
+    fn new(freq: f32, gain_db: f32, focus: f32, shape: BandShape) -> Self {
+        Self {
+            freq,
+            gain_db,
+            focus,
+            shape,
+            bypassed: false,
+            filter_l: BiquadFilter::new(),
+            filter_r: BiquadFilter::new(),
+        }
+    }
+
+    /// Map Focus (0..1) to Q geometrically: `Q = 0.4 * 15^focus` (spec §6.1).
+    /// Shelves use a fixed gentle slope (spec §6.2).
+    fn q(&self) -> f32 {
+        match self.shape {
+            BandShape::Bell => 0.4 * 15_f32.powf(self.focus.clamp(0.0, 1.0)),
+            _ => SHELF_Q,
+        }
+    }
+
+    fn update(&mut self, sample_rate: f32) {
+        let bt = self.shape.biquad_type();
+        let q = self.q();
+        self.filter_l.design(bt, self.freq, self.gain_db, q, sample_rate);
+        self.filter_r.design(bt, self.freq, self.gain_db, q, sample_rate);
+    }
+
+    fn reset(&mut self) {
+        self.filter_l.reset();
+        self.filter_r.reset();
+    }
+}
+
+/// Variable-band graphic EQ: 3 default bands (Low shelf / Mid bell / High shelf),
+/// up to [`MAX_EQ_BANDS`]. Plus a fixed Low Cut (HPF) and High Cut (LPF) and an
+/// output trim. The struct name stays `ParametricEQ` so `EffectType` is unchanged.
 #[derive(Clone)]
 pub struct ParametricEQ {
-    // Bands: low shelf, mid1, mid2, high shelf
-    low_shelf: BiquadFilter,
-    mid1: BiquadFilter,
-    mid2: BiquadFilter,
-    high_shelf: BiquadFilter,
-
-    // Stereo: duplicate filters for right channel
-    low_shelf_r: BiquadFilter,
-    mid1_r: BiquadFilter,
-    mid2_r: BiquadFilter,
-    high_shelf_r: BiquadFilter,
-
-    // Parameters
-    pub low_freq: f32,
-    pub low_gain_db: f32,
-    pub mid1_freq: f32,
-    pub mid1_gain_db: f32,
-    pub mid1_q: f32,
-    pub mid2_freq: f32,
-    pub mid2_gain_db: f32,
-    pub mid2_q: f32,
-    pub high_freq: f32,
-    pub high_gain_db: f32,
-    pub wet_dry_mix: f32, // 0.0 = dry, 1.0 = wet
+    bands: Vec<EqBand>,
+    low_cut: [BiquadFilter; 2],
+    high_cut: [BiquadFilter; 2],
+    low_cut_on: bool,
+    high_cut_on: bool,
+    output_gain_db: f32,
+    sample_rate: f32,
 }
 
 impl Default for ParametricEQ {
@@ -211,115 +327,202 @@ impl Default for ParametricEQ {
 
 impl ParametricEQ {
     pub fn new() -> Self {
+        // Three flat default bands → the EQ does nothing until touched (spec §5).
         let mut eq = Self {
-            low_shelf: BiquadFilter::new(),
-            mid1: BiquadFilter::new(),
-            mid2: BiquadFilter::new(),
-            high_shelf: BiquadFilter::new(),
-            low_shelf_r: BiquadFilter::new(),
-            mid1_r: BiquadFilter::new(),
-            mid2_r: BiquadFilter::new(),
-            high_shelf_r: BiquadFilter::new(),
-            low_freq: 100.0,
-            low_gain_db: 0.0,
-            mid1_freq: 500.0,
-            mid1_gain_db: 0.0,
-            mid1_q: 1.0,
-            mid2_freq: 2000.0,
-            mid2_gain_db: 0.0,
-            mid2_q: 1.0,
-            high_freq: 8000.0,
-            high_gain_db: 0.0,
-            wet_dry_mix: 1.0,
+            bands: vec![
+                EqBand::new(100.0, 0.0, 0.4, BandShape::LowShelf),
+                EqBand::new(1000.0, 0.0, 0.4, BandShape::Bell),
+                EqBand::new(10_000.0, 0.0, 0.4, BandShape::HighShelf),
+            ],
+            low_cut: [BiquadFilter::new(), BiquadFilter::new()],
+            high_cut: [BiquadFilter::new(), BiquadFilter::new()],
+            low_cut_on: false,
+            high_cut_on: false,
+            output_gain_db: 0.0,
+            sample_rate: TARGET_SAMPLE_RATE as f32,
         };
         eq.update_coefficients();
         eq
     }
 
-    /// Update filter coefficients when parameters change
-    pub fn update_coefficients(&mut self) {
-        self.low_shelf
-            .design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
-        self.mid1.design(
-            BiquadType::Parametric,
-            self.mid1_freq,
-            self.mid1_gain_db,
-            self.mid1_q,
-        );
-        self.mid2.design(
-            BiquadType::Parametric,
-            self.mid2_freq,
-            self.mid2_gain_db,
-            self.mid2_q,
-        );
-        self.high_shelf.design(
-            BiquadType::HighShelf,
-            self.high_freq,
-            self.high_gain_db,
-            0.707,
-        );
+    pub fn band_count(&self) -> usize {
+        self.bands.len()
+    }
 
-        // Copy to right channel
-        self.low_shelf_r
-            .design(BiquadType::LowShelf, self.low_freq, self.low_gain_db, 0.707);
-        self.mid1_r.design(
-            BiquadType::Parametric,
-            self.mid1_freq,
-            self.mid1_gain_db,
-            self.mid1_q,
-        );
-        self.mid2_r.design(
-            BiquadType::Parametric,
-            self.mid2_freq,
-            self.mid2_gain_db,
-            self.mid2_q,
-        );
-        self.high_shelf_r.design(
-            BiquadType::HighShelf,
-            self.high_freq,
-            self.high_gain_db,
-            0.707,
-        );
+    /// Recompute every band + cut filter for the current sample rate.
+    pub fn update_coefficients(&mut self) {
+        let sr = self.sample_rate;
+        for band in &mut self.bands {
+            band.update(sr);
+        }
+        for f in &mut self.low_cut {
+            f.design(BiquadType::HighPass, LOW_CUT_FREQ, 0.0, SHELF_Q, sr);
+        }
+        for f in &mut self.high_cut {
+            f.design(BiquadType::LowPass, HIGH_CUT_FREQ, 0.0, SHELF_Q, sr);
+        }
+    }
+
+    /// Add a default bell band (1 kHz, 0 dB, focus 0.4). Returns the new band's
+    /// index, or `None` if already at [`MAX_EQ_BANDS`].
+    pub fn add_band(&mut self) -> Option<usize> {
+        if self.bands.len() >= MAX_EQ_BANDS {
+            return None;
+        }
+        let mut band = EqBand::new(1000.0, 0.0, 0.4, BandShape::Bell);
+        band.update(self.sample_rate);
+        self.bands.push(band);
+        Some(self.bands.len() - 1)
+    }
+
+    /// Insert a default bell band at `index` (clamped to the end). Used by undo
+    /// of a band removal so the band returns to its original slot — keeping every
+    /// other band's index stable, which the index-addressed param keys rely on.
+    /// Returns false if already at [`MAX_EQ_BANDS`].
+    pub fn insert_band(&mut self, index: usize) -> bool {
+        if self.bands.len() >= MAX_EQ_BANDS {
+            return false;
+        }
+        let mut band = EqBand::new(1000.0, 0.0, 0.4, BandShape::Bell);
+        band.update(self.sample_rate);
+        let i = index.min(self.bands.len());
+        self.bands.insert(i, band);
+        true
+    }
+
+    /// Remove the band at `index`. Returns false if out of range.
+    pub fn remove_band(&mut self, index: usize) -> bool {
+        if index < self.bands.len() {
+            self.bands.remove(index);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set a per-band parameter by key: `freq`, `gain`, `focus`, `shape`, `on`.
+    pub fn set_band_param(&mut self, index: usize, key: &str, value: f32) -> Result<(), String> {
+        let sr = self.sample_rate;
+        let band = self
+            .bands
+            .get_mut(index)
+            .ok_or_else(|| format!("EQ band index {index} out of range"))?;
+        match key {
+            "freq" => band.freq = value.clamp(20.0, 20_000.0),
+            "gain" => band.gain_db = value.clamp(-12.0, 12.0),
+            "focus" => band.focus = value.clamp(0.0, 1.0),
+            "shape" => band.shape = BandShape::from_code(value),
+            "on" => band.bypassed = value < 0.5,
+            _ => return Err(format!("Unknown EQ band param: {key}")),
+        }
+        band.update(sr);
+        Ok(())
+    }
+
+    pub fn set_low_cut(&mut self, on: bool) {
+        self.low_cut_on = on;
+    }
+
+    pub fn set_high_cut(&mut self, on: bool) {
+        self.high_cut_on = on;
+    }
+
+    pub fn set_output_gain(&mut self, gain_db: f32) {
+        self.output_gain_db = gain_db.clamp(-12.0, 12.0);
+    }
+
+    /// Emit the full state as flat `key, value` pairs (bands indexed
+    /// `band_N_freq` / `_gain` / `_focus` / `_shape` / `_on`). Shared by
+    /// `get_effect_info` serialization and project save. Not realtime.
+    pub fn write_params(&self, out: &mut dyn FnMut(&str, f32)) {
+        out("band_count", self.bands.len() as f32);
+        for (i, b) in self.bands.iter().enumerate() {
+            out(&format!("band_{i}_freq"), b.freq);
+            out(&format!("band_{i}_gain"), b.gain_db);
+            out(&format!("band_{i}_focus"), b.focus);
+            out(&format!("band_{i}_shape"), b.shape.to_code());
+            out(&format!("band_{i}_on"), if b.bypassed { 0.0 } else { 1.0 });
+        }
+        out("low_cut_on", if self.low_cut_on { 1.0 } else { 0.0 });
+        out("high_cut_on", if self.high_cut_on { 1.0 } else { 0.0 });
+        out("output_gain", self.output_gain_db);
+    }
+
+    /// Rebuild bands + cuts + output from a flat lookup (project load). Returns
+    /// false if no `band_count` key was present (an old-format project) so the
+    /// caller can keep the flat default bands rather than dropping the EQ.
+    pub fn load_params(&mut self, get: &dyn Fn(&str) -> Option<f32>) -> bool {
+        let Some(count) = get("band_count") else {
+            return false; // old-format project → keep default flat bands
+        };
+        let count = (count.round() as usize).min(MAX_EQ_BANDS);
+        let mut bands = Vec::with_capacity(count);
+        for i in 0..count {
+            let freq = get(&format!("band_{i}_freq")).unwrap_or(1000.0);
+            let gain = get(&format!("band_{i}_gain")).unwrap_or(0.0);
+            let focus = get(&format!("band_{i}_focus")).unwrap_or(0.4);
+            let shape = BandShape::from_code(get(&format!("band_{i}_shape")).unwrap_or(1.0));
+            let mut band = EqBand::new(freq, gain, focus, shape);
+            band.bypassed = get(&format!("band_{i}_on")).unwrap_or(1.0) < 0.5;
+            bands.push(band);
+        }
+        if !bands.is_empty() {
+            self.bands = bands;
+        }
+        self.low_cut_on = get("low_cut_on").unwrap_or(0.0) >= 0.5;
+        self.high_cut_on = get("high_cut_on").unwrap_or(0.0) >= 0.5;
+        self.output_gain_db = get("output_gain").unwrap_or(0.0);
+        self.update_coefficients();
+        true
     }
 }
 
 impl Effect for ParametricEQ {
     fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        // Process left channel through all bands
-        let mut left_out = left;
-        left_out = self.low_shelf.process(left_out);
-        left_out = self.mid1.process(left_out);
-        left_out = self.mid2.process(left_out);
-        left_out = self.high_shelf.process(left_out);
+        let mut l = left;
+        let mut r = right;
 
-        // Process right channel through all bands
-        let mut right_out = right;
-        right_out = self.low_shelf_r.process(right_out);
-        right_out = self.mid1_r.process(right_out);
-        right_out = self.mid2_r.process(right_out);
-        right_out = self.high_shelf_r.process(right_out);
+        // Low Cut → bands (in order) → High Cut → output trim (spec §10 signal flow).
+        if self.low_cut_on {
+            l = self.low_cut[0].process(l);
+            r = self.low_cut[1].process(r);
+        }
+        for band in &mut self.bands {
+            if !band.bypassed {
+                l = band.filter_l.process(l);
+                r = band.filter_r.process(r);
+            }
+        }
+        if self.high_cut_on {
+            l = self.high_cut[0].process(l);
+            r = self.high_cut[1].process(r);
+        }
 
-        // Wet/dry blend
-        let mix = self.wet_dry_mix;
-        (
-            left * (1.0 - mix) + left_out * mix,
-            right * (1.0 - mix) + right_out * mix,
-        )
+        let gain = 10_f32.powf(self.output_gain_db / 20.0);
+        (l * gain, r * gain)
     }
 
     fn reset(&mut self) {
-        self.low_shelf.reset();
-        self.mid1.reset();
-        self.mid2.reset();
-        self.high_shelf.reset();
-        self.low_shelf_r.reset();
-        self.mid1_r.reset();
-        self.mid2_r.reset();
-        self.high_shelf_r.reset();
+        for band in &mut self.bands {
+            band.reset();
+        }
+        for f in &mut self.low_cut {
+            f.reset();
+        }
+        for f in &mut self.high_cut {
+            f.reset();
+        }
     }
 
     fn name(&self) -> &'static str {
-        "Parametric EQ"
+        "Graphic EQ"
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            self.update_coefficients();
+        }
     }
 }
 
@@ -342,6 +545,7 @@ pub struct Compressor {
     envelope: f32, // Current gain reduction envelope
     attack_coeff: f32,
     release_coeff: f32,
+    sample_rate: f32,
 }
 
 impl Default for Compressor {
@@ -362,6 +566,7 @@ impl Compressor {
             envelope: 1.0, // Start at no gain reduction
             attack_coeff: 0.0,
             release_coeff: 0.0,
+            sample_rate: TARGET_SAMPLE_RATE as f32,
         };
         comp.update_coefficients();
         comp
@@ -369,7 +574,7 @@ impl Compressor {
 
     /// Update attack/release coefficients when parameters change
     pub fn update_coefficients(&mut self) {
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let sample_rate = self.sample_rate;
         // Clamp to a small positive min: 0 → -inf exponent, negative → coeff > 1 (blowup).
         let attack_ms = self.attack_ms.max(0.01);
         let release_ms = self.release_ms.max(0.01);
@@ -435,6 +640,13 @@ impl Effect for Compressor {
 
     fn name(&self) -> &'static str {
         "Compressor"
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            self.update_coefficients();
+        }
     }
 }
 
@@ -726,6 +938,7 @@ pub struct Limiter {
     envelope_left: f32,
     envelope_right: f32,
     release_coeff: f32,
+    sample_rate: f32,
 }
 
 impl Default for Limiter {
@@ -743,13 +956,14 @@ impl Limiter {
             envelope_left: 0.0,
             envelope_right: 0.0,
             release_coeff: 0.0,
+            sample_rate: TARGET_SAMPLE_RATE as f32,
         };
         limiter.update_coefficients();
         limiter
     }
 
     pub fn update_coefficients(&mut self) {
-        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let sample_rate = self.sample_rate;
         self.release_coeff = (-1.0 / (self.release_ms * 0.001 * sample_rate)).exp();
     }
 }
@@ -808,6 +1022,13 @@ impl Effect for Limiter {
 
     fn name(&self) -> &'static str {
         "Limiter"
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            self.update_coefficients();
+        }
     }
 }
 
@@ -975,6 +1196,19 @@ impl EffectType {
             EffectType::VST3(fx) => fx.name(),
         }
     }
+
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        match self {
+            EffectType::EQ(fx) => fx.set_sample_rate(sample_rate),
+            EffectType::Compressor(fx) => fx.set_sample_rate(sample_rate),
+            EffectType::Reverb(fx) => fx.set_sample_rate(sample_rate),
+            EffectType::Delay(fx) => fx.set_sample_rate(sample_rate),
+            EffectType::Limiter(fx) => fx.set_sample_rate(sample_rate),
+            EffectType::Chorus(fx) => fx.set_sample_rate(sample_rate),
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            EffectType::VST3(fx) => fx.set_sample_rate(sample_rate),
+        }
+    }
 }
 
 // ========================================================================
@@ -993,6 +1227,8 @@ pub struct EffectManager {
     /// Per-effect output peak levels (linear 0.0+), written by audio thread
     peak_levels: HashMap<EffectId, (f32, f32)>,
     next_id: EffectId,
+    /// Current device sample rate, applied to new effects and fanned out on change.
+    sample_rate: f32,
 }
 
 impl Default for EffectManager {
@@ -1008,11 +1244,21 @@ impl EffectManager {
             bypass_states: HashMap::new(),
             peak_levels: HashMap::new(),
             next_id: 0,
+            sample_rate: TARGET_SAMPLE_RATE as f32,
+        }
+    }
+
+    /// Set the device sample rate and fan it out to every existing effect.
+    /// Called by the renderer once the real stream rate is known.
+    pub fn set_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        for effect in self.effects.values() {
+            effect.lock().set_sample_rate(sample_rate);
         }
     }
 
     /// Create a new effect and return its ID
-    pub fn create_effect(&mut self, effect: EffectType) -> EffectId {
+    pub fn create_effect(&mut self, mut effect: EffectType) -> EffectId {
         let id = self.next_id;
         self.next_id += 1;
 
@@ -1022,6 +1268,9 @@ impl EffectManager {
             id
         );
 
+        // New effects inherit the current device rate so their coefficients are
+        // correct even if the stream isn't running at TARGET_SAMPLE_RATE.
+        effect.set_sample_rate(self.sample_rate);
         self.effects.insert(id, Arc::new(Mutex::new(effect)));
         self.bypass_states.insert(id, false); // Effects start not bypassed
         self.peak_levels.insert(id, (0.0, 0.0));
@@ -1187,12 +1436,108 @@ mod effect_energy_tests {
         // through roughly unchanged — guards against a band mis-scaling the
         // level to silence or a blow-up.
         let mut eq = ParametricEQ::new();
-        eq.wet_dry_mix = 1.0;
         let (ratio, finite) = wet_energy_ratio(&mut eq);
         assert!(finite, "EQ produced non-finite output");
         assert!(
             (0.5..=1.5).contains(&ratio),
             "flat EQ should be near pass-through (ratio={ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn eq_defaults_to_three_flat_bands() {
+        let eq = ParametricEQ::new();
+        assert_eq!(eq.band_count(), 3);
+        let mut count = 0.0;
+        eq.write_params(&mut |k, v| {
+            if k == "band_count" {
+                count = v;
+            }
+        });
+        assert_eq!(count, 3.0);
+    }
+
+    #[test]
+    fn eq_add_band_caps_at_max() {
+        let mut eq = ParametricEQ::new(); // starts with 3
+        for _ in 0..(MAX_EQ_BANDS - 3) {
+            assert!(eq.add_band().is_some());
+        }
+        assert_eq!(eq.band_count(), MAX_EQ_BANDS);
+        assert!(eq.add_band().is_none(), "should refuse a 9th band");
+        assert_eq!(eq.band_count(), MAX_EQ_BANDS);
+    }
+
+    #[test]
+    fn eq_remove_then_insert_restores_count() {
+        let mut eq = ParametricEQ::new();
+        let before = eq.band_count();
+        assert!(eq.remove_band(1));
+        assert_eq!(eq.band_count(), before - 1);
+        assert!(!eq.remove_band(99), "out-of-range remove is a no-op");
+        assert!(eq.insert_band(1));
+        assert_eq!(eq.band_count(), before);
+    }
+
+    #[test]
+    fn eq_params_round_trip() {
+        let mut eq = ParametricEQ::new();
+        eq.set_band_param(1, "gain", 6.0).unwrap();
+        eq.set_band_param(1, "freq", 800.0).unwrap();
+        eq.set_band_param(1, "focus", 0.8).unwrap();
+        eq.set_low_cut(true);
+        eq.set_output_gain(-3.0);
+
+        let mut map = HashMap::new();
+        eq.write_params(&mut |k, v| {
+            map.insert(k.to_string(), v);
+        });
+
+        let mut eq2 = ParametricEQ::new();
+        assert!(eq2.load_params(&|k| map.get(k).copied()));
+
+        let mut map2 = HashMap::new();
+        eq2.write_params(&mut |k, v| {
+            map2.insert(k.to_string(), v);
+        });
+        assert_eq!(map, map2, "EQ state must round-trip through save/load");
+    }
+
+    #[test]
+    fn eq_old_project_keeps_defaults() {
+        // A param map without band_count (old 4-band project) → load_params
+        // returns false and the EQ keeps its 3 flat defaults, never dropped.
+        let mut eq = ParametricEQ::new();
+        let old = HashMap::from([
+            ("low_freq".to_string(), 120.0_f32),
+            ("mid1_gain_db".to_string(), 4.0_f32),
+        ]);
+        assert!(!eq.load_params(&|k| old.get(k).copied()));
+        assert_eq!(eq.band_count(), 3);
+    }
+
+    #[test]
+    fn eq_low_cut_attenuates_low_frequency() {
+        // With Low Cut on, a 40 Hz tone (an octave below the 80 Hz corner) must
+        // come out quieter than it went in.
+        let mut eq = ParametricEQ::new();
+        eq.set_low_cut(true);
+        let sr = TARGET_SAMPLE_RATE as f32;
+        let n = TARGET_SAMPLE_RATE as usize;
+        let mut in_e = 0.0f64;
+        let mut out_e = 0.0f64;
+        for i in 0..n {
+            let s = (2.0 * PI * 40.0 * i as f32 / sr).sin() * 0.5;
+            let (l, _r) = eq.process_frame(s, s);
+            if i > n / 2 {
+                // skip filter warm-up
+                in_e += f64::from(s * s);
+                out_e += f64::from(l * l);
+            }
+        }
+        assert!(
+            out_e < in_e * 0.6,
+            "low cut should attenuate 40 Hz (in={in_e:.3}, out={out_e:.3})"
         );
     }
 

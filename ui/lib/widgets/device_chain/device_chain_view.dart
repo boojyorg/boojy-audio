@@ -18,6 +18,7 @@ import '../vst3_instrument_view.dart';
 import '../synthesizer_panel.dart';
 import 'device_box.dart';
 import 'device_dropdown.dart';
+import 'eq/eq_device_body.dart';
 import 'signal_flow_arrow.dart';
 
 /// Combined instrument + effects chain view.
@@ -384,14 +385,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
 
   Map<String, double> _getEffectDefaults(String type) {
     switch (type) {
-      case 'eq':
-        return {
-          'low_gain': 0,
-          'mid1_gain': 0,
-          'mid2_gain': 0,
-          'high_gain': 0,
-          'wet_dry': 1,
-        };
+      // 'eq' intentionally omitted — the Graphic EQ has a dynamic band list, so
+      // a flat reset map doesn't apply; reset bands via the graph (double-click).
       case 'compressor':
         return {
           'threshold': -20,
@@ -1266,7 +1261,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
         isEnabled: !effect.bypassed,
         isSelected: _selectedDeviceId == effect.id,
         width: _getEffectWidth(effect.type),
-        expandContent: false,
+        expandContent: effect.type == 'eq',
         leftLevel: levels.$1,
         rightLevel: levels.$2,
         onToggleEnabled: () => _toggleBypass(effect.id),
@@ -1275,7 +1270,19 @@ class _DeviceChainViewState extends State<DeviceChainView>
           effect,
           _getEffectDisplayName(effect.type),
         ),
-        child: _buildEffectContent(effect),
+        child: effect.type == 'eq'
+            ? EqDeviceBody(
+                effect: effect,
+                engine: widget.audioEngine,
+                onChanged: () {
+                  if (mounted) _loadEffects();
+                },
+                onDragStateChanged: (dragging) {
+                  _isDraggingSlider = dragging;
+                  if (!dragging && mounted) _loadEffects();
+                },
+              )
+            : _buildEffectContent(effect),
       ),
     );
   }
@@ -1286,7 +1293,7 @@ class _DeviceChainViewState extends State<DeviceChainView>
       case 'compressor':
         return 192; // 170 + 22
       case 'eq':
-        return 192; // 170 + 22
+        return 360; // wide graph card (incl. 22px strip)
       default:
         return 172; // 150 + 22
     }
@@ -1310,15 +1317,8 @@ class _DeviceChainViewState extends State<DeviceChainView>
   }
 
   List<Widget> _buildParameterSliders(EffectData effect) {
+    // Note: 'eq' is handled by EqDeviceBody (graph), not these sliders.
     switch (effect.type) {
-      case 'eq':
-        return [
-          _paramSlider(effect, 'Low', 'low_gain', -12, 12, 'dB'),
-          _paramSlider(effect, 'Mid1', 'mid1_gain', -12, 12, 'dB'),
-          _paramSlider(effect, 'Mid2', 'mid2_gain', -12, 12, 'dB'),
-          _paramSlider(effect, 'High', 'high_gain', -12, 12, 'dB'),
-          _paramSlider(effect, 'Mix', 'wet_dry', 0, 1, ''),
-        ];
       case 'compressor':
         return [
           _paramSlider(effect, 'Thresh', 'threshold', -60, 0, 'dB'),

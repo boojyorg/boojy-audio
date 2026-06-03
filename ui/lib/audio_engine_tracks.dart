@@ -368,6 +368,39 @@ mixin _TracksMixin on _AudioEngineBase {
     }
   }
 
+  /// Add a band to a Graphic EQ effect. Returns the new band index, or -1 on error.
+  int addEqBand(int effectId) {
+    try {
+      return _addEqBand(effectId);
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  /// Remove the band at [index] from a Graphic EQ effect.
+  String removeEqBand(int effectId, int index) {
+    try {
+      final resultPtr = _removeEqBand(effectId, index);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Insert a default band at [index] in a Graphic EQ effect (undo of a removal).
+  String insertEqBand(int effectId, int index) {
+    try {
+      final resultPtr = _insertEqBand(effectId, index);
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Remove an effect from a track's FX chain
   String removeEffectFromTrack(int trackId, int effectId) {
     try {

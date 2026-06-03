@@ -209,6 +209,17 @@ class AudioEngine implements AudioEngineInterface {
       throw UnsupportedError('stub');
 
   @override
+  int addEqBand(int effectId) => throw UnsupportedError('stub');
+
+  @override
+  String removeEqBand(int effectId, int index) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String insertEqBand(int effectId, int index) =>
+      throw UnsupportedError('stub');
+
+  @override
   void setEffectBypass(int effectId, {required bool bypassed}) =>
       throw UnsupportedError('stub');
 

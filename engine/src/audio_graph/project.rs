@@ -47,18 +47,12 @@ impl AudioGraph {
                             // Get parameters based on effect type
                             match &*effect {
                                 ET::EQ(eq) => {
+                                    // Keep the type key "eq" so older builds don't drop the
+                                    // effect; the variable band list rides in the param map.
                                     effect_type_str = "eq".to_string();
-                                    parameters.insert("low_freq".to_string(), eq.low_freq);
-                                    parameters.insert("low_gain_db".to_string(), eq.low_gain_db);
-                                    parameters.insert("mid1_freq".to_string(), eq.mid1_freq);
-                                    parameters.insert("mid1_gain_db".to_string(), eq.mid1_gain_db);
-                                    parameters.insert("mid1_q".to_string(), eq.mid1_q);
-                                    parameters.insert("mid2_freq".to_string(), eq.mid2_freq);
-                                    parameters.insert("mid2_gain_db".to_string(), eq.mid2_gain_db);
-                                    parameters.insert("mid2_q".to_string(), eq.mid2_q);
-                                    parameters.insert("high_freq".to_string(), eq.high_freq);
-                                    parameters.insert("high_gain_db".to_string(), eq.high_gain_db);
-                                    parameters.insert("wet_dry_mix".to_string(), eq.wet_dry_mix);
+                                    eq.write_params(&mut |k, v| {
+                                        parameters.insert(k.to_string(), v);
+                                    });
                                 }
                                 ET::Compressor(comp) => {
                                     effect_type_str = "compressor".to_string();
@@ -518,40 +512,11 @@ impl AudioGraph {
                 let effect = match effect_data.effect_type.as_str() {
                     "eq" => {
                         let mut eq = ParametricEQ::new();
-                        if let Some(&v) = effect_data.parameters.get("low_freq") {
-                            eq.low_freq = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("low_gain_db") {
-                            eq.low_gain_db = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid1_freq") {
-                            eq.mid1_freq = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid1_gain_db") {
-                            eq.mid1_gain_db = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid1_q") {
-                            eq.mid1_q = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid2_freq") {
-                            eq.mid2_freq = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid2_gain_db") {
-                            eq.mid2_gain_db = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("mid2_q") {
-                            eq.mid2_q = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("high_freq") {
-                            eq.high_freq = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("high_gain_db") {
-                            eq.high_gain_db = v;
-                        }
-                        if let Some(&v) = effect_data.parameters.get("wet_dry_mix") {
-                            eq.wet_dry_mix = v;
-                        }
-                        eq.update_coefficients();
+                        // New-format projects carry a band list (band_count + band_N_*).
+                        // Old-format projects (low_freq/mid1_*/…) have no band_count, so
+                        // load_params returns false and the EQ keeps its flat defaults
+                        // rather than being dropped.
+                        eq.load_params(&|k| effect_data.parameters.get(k).copied());
                         EffectType::EQ(eq)
                     }
                     "compressor" => {

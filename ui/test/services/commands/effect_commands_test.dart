@@ -421,4 +421,76 @@ void main() {
       expect(mockEngine.calls, contains('setVst3ParameterValue'));
     });
   });
+
+  group('AddEqBandCommand', () {
+    test('execute adds a band; undo removes the added index', () async {
+      mockEngine.eqBandIndex = 3; // engine appends at index 3
+      final command = AddEqBandCommand(effectId: 7);
+
+      await command.execute(mockEngine);
+      expect(mockEngine.addedEqBandEffectIds, [7]);
+
+      await command.undo(mockEngine);
+      expect(mockEngine.removedEqBands, [(effectId: 7, index: 3)]);
+    });
+
+    test('redo re-adds (execute is repeatable)', () async {
+      mockEngine.eqBandIndex = 2;
+      final command = AddEqBandCommand(effectId: 5);
+      await command.execute(mockEngine);
+      await command.undo(mockEngine);
+      mockEngine.addedEqBandEffectIds.clear();
+      await command.execute(mockEngine); // redo
+      expect(mockEngine.addedEqBandEffectIds, [5]);
+    });
+  });
+
+  group('RemoveEqBandCommand', () {
+    test('execute removes the band at index', () async {
+      final command = RemoveEqBandCommand(
+        effectId: 9,
+        index: 1,
+        freq: 800,
+        gain: 6,
+        focus: 0.7,
+        shape: 1,
+        on: true,
+      );
+
+      await command.execute(mockEngine);
+      expect(mockEngine.removedEqBands, [(effectId: 9, index: 1)]);
+    });
+
+    test(
+      'undo re-inserts at original index and restores all band params',
+      () async {
+        final command = RemoveEqBandCommand(
+          effectId: 9,
+          index: 1,
+          freq: 800,
+          gain: 6,
+          focus: 0.7,
+          shape: 2, // high shelf
+          on: false,
+        );
+
+        await command.execute(mockEngine);
+        await command.undo(mockEngine);
+
+        // Re-inserted at the same index → keeps every other band's index stable.
+        expect(mockEngine.insertedEqBands, [(effectId: 9, index: 1)]);
+        // All five band params restored.
+        expect(
+          mockEngine.setParamCalls,
+          containsAll([
+            (effectId: 9, paramName: 'band_1_freq', value: 800),
+            (effectId: 9, paramName: 'band_1_gain', value: 6),
+            (effectId: 9, paramName: 'band_1_focus', value: 0.7),
+            (effectId: 9, paramName: 'band_1_shape', value: 2),
+            (effectId: 9, paramName: 'band_1_on', value: 0), // on:false → 0
+          ]),
+        );
+      },
+    );
+  });
 }

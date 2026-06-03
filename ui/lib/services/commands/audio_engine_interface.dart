@@ -60,6 +60,15 @@ abstract class AudioEngineInterface {
   int addVst3EffectToTrack(int trackId, String effectPath);
   String removeEffectFromTrack(int trackId, int effectId);
 
+  /// Add a band to a Graphic EQ. Returns the new band index, or -1 on error.
+  int addEqBand(int effectId);
+
+  /// Remove the band at [index] from a Graphic EQ.
+  String removeEqBand(int effectId, int index);
+
+  /// Insert a default band at [index] in a Graphic EQ (undo of a removal).
+  String insertEqBand(int effectId, int index);
+
   /// CSV of effect IDs on a track ("id,id,..."). Used to snapshot a track's
   /// FX chain before deletion so undo can rebuild it.
   String getTrackEffects(int trackId);
