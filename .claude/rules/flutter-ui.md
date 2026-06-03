@@ -23,6 +23,12 @@ load-bearing rules:
   `screen_retriever_macos` don't support SwiftPM yet. The `FlutterGeneratedPluginSwiftPackage`
   scaffolding in `ui/macos/Runner.xcodeproj` is Flutter-generated (hybrid) — leave it, don't
   hand-edit.
+- **macOS title bar: native title is hidden, the transport bar is the only top chrome.** No native
+  `NSToolbar` style gives "centred + compact" — `.expanded` centres the title but adds an empty,
+  taller toolbar row; `.unifiedCompact` is compact but left-aligned. So we hide the native title via
+  `window_manager` `TitleBarStyle.hidden` (keeping the traffic lights) and let the transport bar run
+  edge-to-edge. A centred Flutter-drawn title exists but is **off by default** — it collides with the
+  transport controls in single-row layouts. Don't re-enable the native title bar.
 - **Reorderable lists use `onReorderItem`**, not the deprecated `onReorder`. `onReorderItem` already
   adjusts `newIndex` for the removed item — do **not** add a manual `if (newIndex > oldIndex)
   newIndex--`.
@@ -42,6 +48,9 @@ load-bearing rules:
 - **Timeline layout:** `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and
   `timeline_track_list.dart` (private methods share one library). Import `timeline_view.dart` only,
   never the part files directly.
+- **`daw_screen.dart` trap:** it wires **private `_` copies** of its mixins; the actual mixin files
+  are **dead/diverged**. Edit the wired private methods in `daw_screen.dart`, *not* the mixins —
+  editing the mixins changes nothing the app runs.
 - **UI persistence:** new fields saved in `ui_layout.json` must go through
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.
