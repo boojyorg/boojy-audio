@@ -72,6 +72,18 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The arrangement canvas is a refined dark grey instead of near-black.** The timeline background
+  was an almost-black `#0C0E11`; it's now a slightly lifted `#1C1D21` for a more polished look, with
+  the bar/beat grid lines nudged a touch brighter so they stay visible against it. Coloured clips
+  (green MIDI, grey waveforms) still pop.
+- **Arrangement-view polish pass — consistency and unfinished edges.** A round of small visual fixes
+  so repeated elements get one treatment everywhere: the top-bar Loop / Grid / Metronome buttons now
+  share a single height (Grid no longer sits taller); the sidebar-toggle icons match the help `?`
+  glyph's lighter grey instead of reading darker; the editor tool buttons (draw/select/erase/…) now
+  show the same hover feedback as the top bar; the library search field is squared off and slimmed to
+  match the `+ MIDI/Audio Track` buttons and no longer clips its placeholder to `Searc…`; the
+  favourite star is a quiet grey rather than a loud gold; and the editor's collapse chevron is a bare
+  glyph instead of a boxed button.
 - **The dB readout beside each mixer fader is now editable.** It used to be a dead label. Now you
   can **drag it up/down** to nudge the volume precisely (a finer touch than the fader), or **click
   it and type an exact value** (e.g. `-6`) — Enter or clicking away applies it, Esc cancels. Works
