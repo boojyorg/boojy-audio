@@ -1,17 +1,23 @@
 # Claude Code Instructions
 
-## Memory
+**Suite-wide process/conventions live in the root `~/Documents/Projects/boojy/CLAUDE.md`**
+(memory model, changelog/release skeleton, branch discipline, context-hygiene, working prefs);
+this file is the app-specific architecture, stack, and gotchas.
 
-This repo uses a lightweight docs/memory system:
+## Memory & docs (repo-specific)
 
-- **`dreams.md` (repo root), §1** — the active engineering target + a milestone checklist. Read it
-  to know what we're working on now.
-- **`.claude/rules/*.md`** — per-area gotchas with `paths:` frontmatter, meant to load when you
-  touch matching files (`ffi.md`, `audio-export.md`, `flutter-ui.md`, `state.md`,
-  `build-and-test.md`). Conditional loading is still flaky in early-2026 Claude Code, so treat these
-  as organization — genuinely global rules live here in `CLAUDE.md`.
-- **Claude Code auto memory** — incidental learnings (skim `/memory` after a big refactor).
-- **git log** — the history. There is no incident log, backlog, or session ledger.
+Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / git log) → root
+`CLAUDE.md`. Local layout:
+
+- **`dreams.md` §1** — the active engineering target + milestone checklist. Read it first.
+- **`docs/ROADMAP.md`** (ordered intentions) · **`docs/BACKLOG.md`** (unscheduled someday) ·
+  **`docs/FEATURE_TRACKER.md`** (built-vs-not, v1.0 checklist) split the overflow.
+- **`docs/plans/vX.Y-plan.md`** — detailed spec for the active version (features, mockups, scope).
+- **`docs/reviews/`** — dated deep-review reports that set each version's theme (see Milestone
+  Reviews). **`docs/ARCHITECTURE.md`** — system design, folder structure, FFI patterns.
+- **`.claude/rules/*.md`** — per-area gotchas with `paths:` frontmatter (`ffi.md`, `audio-export.md`,
+  `flutter-ui.md`, `state.md`, `build-and-test.md`). Conditional loading is flaky in early-2026
+  Claude Code, so treat these as organization — genuinely global rules live here in `CLAUDE.md`.
 
 ## Build & Run
 
@@ -71,32 +77,34 @@ them on every PR — macOS full pipeline + Windows analyze/test/clippy, no VST3)
 - **Recording flow**: engine `stop_recording()` returns `RecordingResult`, handled by `daw_recording_mixin.dart`
 - **Track locks are non-reentrant**: engine uses `parking_lot::Mutex` which does **not** support recursive locking. `TrackManager::get_track`, `get_master_track`, and `remove_track` all walk the track list and call `.lock()` on each track to compare ids — so calling any of them while holding another `Track` lock **deadlocks the API thread silently** (no panic, no log, the UI just freezes). Snapshot what you need (`id`, `fx_chain`, `sends.iter().map(...)`) into local variables and drop the `MutexGuard` before calling back into `TrackManager`. See `find_return_by_effect_type` and `get_track_sends` in `engine/src/api/sends.rs` for the snapshot pattern.
 
-## Changelog Workflow
+## Design philosophy (repo-specific)
 
-When making bug fixes or feature changes:
-1. Update `CHANGELOG.md` immediately after each fix
-2. Add entries under the `## Unreleased` section
-3. Use categories: `### Bug Fixes`, `### Features`, `### Improvements`
-4. On release, change "Unreleased" to the version number and date
-5. **Keep `docs/FEATURE_TRACKER.md` in sync as you go:** when a change *completes* a tracker item, tick its `[ ]`→`[x]` in the **same PR** — don't defer it to release, or the tracker silently drifts and future planning re-hunts already-built features. Only tick when the feature is **reachable by a user end-to-end**, not when the engine/FFI exists but no UI path does — annotate those `(partial: …)` instead.
+General "prefer simple, minimal — avoid over-engineering" → root `CLAUDE.md`. The concrete audio
+anchor: the built-in synth is deliberately **one oscillator (sine/saw/square/triangle) + one-pole
+lowpass + ADSR + 8-voice polyphony** — *not* 3 oscillators + resonant filter + LFO + modulation
+matrix. Add complexity only when explicitly asked.
 
-## Release Process
+## Working style (repo-specific)
 
-1. Update CHANGELOG.md with release date
-2. Commit all changes
-3. Tag with version: `git tag v0.x.x && git push origin v0.x.x`
-4. GitHub Actions builds and creates draft release
-5. Edit release notes in GitHub, then publish
+General design-decision posture (defer on taste, push back on architecture) → root `CLAUDE.md` + the
+global `~/.claude`. Audio-specific habits:
 
-## Documentation Layout
+- **One milestone at a time** — only one active `docs/plans/vX.Y-plan.md`. `docs/ROADMAP.md` +
+  `docs/FEATURE_TRACKER.md` are a backlog, **not** a pre-scheduled ladder.
+- **After each release, dogfood** on a real project, then pick the next theme from the friction you
+  hit (see Milestone Reviews — the theme comes from a deliberate review, not guesswork).
+- **UI/UX before code:** brainstorm tradeoffs with Tyr first; when layout is ambiguous, offer **3–4
+  ASCII mockups** and let him pick before implementing.
 
-- `dreams.md` — §1: active engineering target + milestone checklist
-- `docs/ROADMAP.md` — version plan and what's being worked on now
-- `docs/plans/vX.Y-plan.md` — detailed spec for the active version (features, mockups, scope)
-- `docs/ARCHITECTURE.md` — system design, folder structure, FFI patterns
-- `docs/FEATURE_TRACKER.md` — v1.0 feature checklist (what exists vs what's planned)
-- `docs/reviews/` — dated deep-review reports that set each version's theme (see Milestone Reviews)
-- `CHANGELOG.md` — release history; add entries under "Unreleased" during development
+## Release (repo-specific)
+
+General changelog + release flow → root `CLAUDE.md`. Local specifics: **`ui/pubspec.yaml`** is the
+version source (drives the in-app version label via `PackageInfo` — bump on every release, it's easy
+to forget); tagging `v*` triggers GitHub Actions to build the draft release (DMG/EXE), which you then
+edit + publish. When a change *completes* a `docs/FEATURE_TRACKER.md` item, tick it in the **same
+PR** — and only when the feature is **reachable by a user end-to-end**, not when the engine/FFI
+exists but no UI path does (annotate those `(partial: …)`). Full version-reference checklist →
+**Version Sync** below.
 
 ## Milestone Reviews
 
@@ -147,4 +155,6 @@ All markdown files must stay in sync with the current development version.
 - **Dart**: `flutter_lints` with 60+ rules in `analysis_options.yaml` — strict mode
 - **Rust**: `clippy::pedantic` enabled with pragmatic exceptions in `lib.rs`
 - **Formatting**: `dart format` for Dart, `rustfmt` for Rust
+- **Debug logging**: Rust uses `println!` during development; Dart/Flutter uses `Log.d()/.e()/.i()`
+  (`utils/logger.dart`), **not** `print()`.
 - Run `flutter analyze` and `cargo clippy` before submitting — CI rejects warnings
