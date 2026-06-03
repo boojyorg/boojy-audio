@@ -40,12 +40,8 @@ fn effect_type_name(effect: &EffectType) -> Option<&'static str> {
 
 fn create_effect_with_full_wet(effect_type: &str) -> Result<EffectType, String> {
     let effect = match effect_type.to_lowercase().as_str() {
-        "eq" => {
-            let mut eq = ParametricEQ::new();
-            eq.wet_dry_mix = 1.0;
-            eq.update_coefficients();
-            EffectType::EQ(eq)
-        }
+        // EQ has no wet/dry — it processes in series and is inherently "full wet".
+        "eq" => EffectType::EQ(ParametricEQ::new()),
         "compressor" => {
             let mut comp = Compressor::new();
             comp.wet_dry_mix = 1.0;

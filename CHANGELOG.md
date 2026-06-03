@@ -56,8 +56,26 @@ All notable changes to Boojy Audio will be documented in this file.
   `restartComponent` request without inspecting it. It now decodes the flags and logs them;
   on-the-fly bus/processing reconfiguration (a rare path) remains deferred.
 
+### Features
+
+- **The built-in EQ is now a graph you draw on.** The old EQ was five flat sliders (four band gains
+  + a Mix slider) with no sense of what they did. It's been rebuilt as a **Graphic EQ**: a
+  frequency-response graph with draggable dots. A new EQ starts with three sensible Low / Mid / High
+  bands (all flat, so it does nothing until you touch it); drag a dot left/right to choose the pitch
+  range and up/down to boost or cut. Click a dot to edit it with **Freq / Gain / Focus** knobs (Focus
+  sets how wide or narrow the band is), double-click a dot to remove it or the empty graph to add
+  one, and use **+ Add Band** for up to eight bands. There are fixed **Low Cut** / **High Cut**
+  switches to remove rumble and harsh highs, and an **Output** trim. Every action — drag, add,
+  remove, cut, output — is a single undo step, and the whole EQ saves and reloads with your project.
+  Existing projects' EQs load flat (no data loss). *Out of scope by design (reach for a VST3 plugin):*
+  no Mix knob on the EQ, no spectrum analyser, no adjustable filter slopes.
+
 ### Improvements
 
+- **EQ / Compressor / Limiter now compute their filters at the real device sample rate (C12).** These
+  effects baked in 48 kHz; they now take the actual stream rate, so their coefficients are correct on
+  the rare device that can't open at 48 kHz. (The wider engine still targets 48 kHz — a full
+  variable-rate engine remains future work.)
 - **The UI Scale setting now scales the whole app — including the rulers and lanes (B-TH3).**
   Custom-drawn surfaces (the timeline ruler, piano-roll note labels, sampler ruler, knob readouts)
   used to ignore the Appearance → UI Scale setting: their text stayed frozen while everything else

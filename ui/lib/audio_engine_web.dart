@@ -633,6 +633,15 @@ class AudioEngine implements AudioEngineInterface {
   String removeEffectFromTrack(int trackId, int effectId) => 'OK';
 
   @override
+  int addEqBand(int effectId) => -1;
+
+  @override
+  String removeEqBand(int effectId, int index) => 'OK';
+
+  @override
+  String insertEqBand(int effectId, int index) => 'OK';
+
+  @override
   String getTrackEffects(int trackId) => '[]';
   @override
   String getEffectInfo(int effectId) => '{}';

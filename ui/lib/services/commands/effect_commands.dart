@@ -230,3 +230,77 @@ class SetEffectParameterCommand extends Command {
   String get description =>
       'Change $effectName: $paramName (${oldValue.toStringAsFixed(2)} → ${newValue.toStringAsFixed(2)})';
 }
+
+/// Add a band to a Graphic EQ. The engine appends the band; undo removes that
+/// same index (append/remove-last is index-stable).
+class AddEqBandCommand extends Command {
+  final int effectId;
+  final void Function()? onChanged;
+  int? _addedIndex;
+
+  AddEqBandCommand({required this.effectId, this.onChanged});
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    final idx = engine.addEqBand(effectId);
+    _addedIndex = idx >= 0 ? idx : null;
+    onChanged?.call();
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    final idx = _addedIndex;
+    if (idx != null) {
+      engine.removeEqBand(effectId, idx);
+      onChanged?.call();
+    }
+  }
+
+  @override
+  String get description => 'Add EQ Band';
+}
+
+/// Remove a band from a Graphic EQ. Undo re-inserts the band at its original
+/// index (keeping every other band's index stable) and restores its params, so
+/// redo stays correct even when band edits are interleaved on the undo stack.
+class RemoveEqBandCommand extends Command {
+  final int effectId;
+  final int index;
+  final double freq;
+  final double gain;
+  final double focus;
+  final double shape; // 0 = low shelf, 1 = bell, 2 = high shelf
+  final bool on;
+  final void Function()? onChanged;
+
+  RemoveEqBandCommand({
+    required this.effectId,
+    required this.index,
+    required this.freq,
+    required this.gain,
+    required this.focus,
+    required this.shape,
+    required this.on,
+    this.onChanged,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    engine.removeEqBand(effectId, index);
+    onChanged?.call();
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    engine.insertEqBand(effectId, index);
+    engine.setEffectParameter(effectId, 'band_${index}_freq', freq);
+    engine.setEffectParameter(effectId, 'band_${index}_gain', gain);
+    engine.setEffectParameter(effectId, 'band_${index}_focus', focus);
+    engine.setEffectParameter(effectId, 'band_${index}_shape', shape);
+    engine.setEffectParameter(effectId, 'band_${index}_on', on ? 1.0 : 0.0);
+    onChanged?.call();
+  }
+
+  @override
+  String get description => 'Remove EQ Band';
+}
