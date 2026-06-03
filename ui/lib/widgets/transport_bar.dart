@@ -1211,14 +1211,16 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final iconOpacity = widget.isActive ? 1.0 : 0.5;
 
     Widget svgIcon = SvgPicture.asset(
       widget.assetPath,
       width: 18,
       height: 18,
       colorFilter: ColorFilter.mode(
-        isHovered ? colors.textPrimary : colors.textMuted,
+        // Rest colour matches the help (?) glyph — textSecondary, the one
+        // chrome-icon grey — and we no longer dim the collapsed-panel state to
+        // 0.5, which made these toggles read darker/heavier than the help icon.
+        isHovered ? colors.textPrimary : colors.textSecondary,
         BlendMode.srcIn,
       ),
     );
@@ -1250,7 +1252,7 @@ class _PanelToggleButtonState extends State<_PanelToggleButton>
                 color: isHovered ? colors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Opacity(opacity: iconOpacity, child: svgIcon),
+              child: svgIcon,
             ),
           ),
         ),

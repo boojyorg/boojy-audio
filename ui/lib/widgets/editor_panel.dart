@@ -135,6 +135,10 @@ class _EditorPanelState extends State<EditorPanel>
   // Temporary tool mode when holding modifier keys (Alt, Cmd)
   ToolMode? _tempToolMode;
 
+  // Which tool button the pointer is currently over (drives the inactive-hover
+  // tint, matching the top-bar split buttons). Null when nothing is hovered.
+  ToolMode? _hoveredTool;
+
   // Highlighted note from Virtual Piano (for Piano Roll sync)
   int? _highlightedNote;
 
@@ -546,7 +550,7 @@ class _EditorPanelState extends State<EditorPanel>
               ],
             ),
           ),
-          // Right side: Virtual Piano toggle + Expand button
+          // Right side: Expand button
           Positioned(
             right: 8,
             top: 0,
@@ -554,11 +558,8 @@ class _EditorPanelState extends State<EditorPanel>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Virtual Piano toggle - for MIDI and Sampler tracks
-                if (!_isAudioTrack) ...[
-                  _buildPianoToggle(),
-                  const SizedBox(width: 8),
-                ],
+                // Virtual Piano toggle hidden from the collapsed bar for now
+                // (the _buildPianoToggle widget is kept for easy restore).
                 // Expand chevron (rightmost)
                 _buildCollapseChevron(isCollapsed: true),
               ],
@@ -581,19 +582,16 @@ class _EditorPanelState extends State<EditorPanel>
               ? widget.callbacks.onExpandPanel
               : widget.callbacks.onClosePanel,
           borderRadius: BorderRadius.circular(6),
-          child: Container(
+          // Bare glyph — no box/border, just the caret (matches the lighter
+          // tool-icon row). The 28×28 keeps the hit target; the InkWell still
+          // gives a hover ripple within the rounded area.
+          child: SizedBox(
             width: 28,
             height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: context.colors.surface.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: context.colors.divider.withValues(alpha: 0.5),
-              ),
-            ),
             child: Icon(
-              isCollapsed ? BI.caretUp : BI.caretDown,
+              // Thin two-stroke chevrons (^ / ⌄) in both states — not the
+              // filled triangle arrow_drop_down the expanded state used before.
+              isCollapsed ? BI.expandLess : BI.expandMore,
               size: 20,
               color: context.colors.textSecondary,
             ),
@@ -1041,11 +1039,22 @@ class _EditorPanelState extends State<EditorPanel>
       inactiveContent: context.colors.textPrimary,
       inactiveBackground: context.colors.surface,
     );
-    final bgColor = isTempActive
+    var bgColor = isTempActive
         ? style.background.withValues(alpha: 0.5)
         : style.background;
     final iconColor = style.content;
     final border = Border.all(color: style.border);
+
+    // Inactive tools gain the same hover tint the top-bar split buttons use
+    // (textPrimary @ subtle alpha) so the toolbar reads as interactive too. The
+    // active/temp tool already carries its accent fill, so it's left as-is.
+    final isHovered = _hoveredTool == mode;
+    if (isHovered && !isActive && !isTempActive) {
+      bgColor = Color.alphaBlend(
+        context.colors.textPrimary.withValues(alpha: BT.opacitySubtle),
+        bgColor,
+      );
+    }
 
     return Tooltip(
       message: tooltip,
@@ -1053,6 +1062,20 @@ class _EditorPanelState extends State<EditorPanel>
         onTap: () => widget.callbacks.onToolModeChanged?.call(mode),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
+          onEnter: (_) {
+            if (_hoveredTool != mode) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _hoveredTool = mode);
+              });
+            }
+          },
+          onExit: (_) {
+            if (_hoveredTool == mode) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _hoveredTool = null);
+              });
+            }
+          },
           child: Container(
             width: 28,
             height: 28,
@@ -1068,7 +1091,10 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  /// Build the Virtual Piano toggle button
+  /// Build the Virtual Piano toggle button.
+  /// Currently not rendered (hidden from the collapsed bar) but kept so it can
+  /// be dropped back in without rebuilding it.
+  // ignore: unused_element
   Widget _buildPianoToggle() {
     final isActive = widget.virtualPianoEnabled;
 

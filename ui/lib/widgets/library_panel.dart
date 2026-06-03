@@ -522,8 +522,8 @@ class _LibraryPanelState extends State<LibraryPanel> {
           LayoutBuilder(
             builder: (context, constraints) {
               final placeholder = _selectedCategory != null
-                  ? 'Search ${_categoryLabel(_selectedCategory!).toLowerCase()}...'
-                  : 'Search all...';
+                  ? 'Search ${_categoryLabel(_selectedCategory!).toLowerCase()}…'
+                  : 'Search all…';
               return Align(
                 alignment: Alignment.centerLeft,
                 child: SearchField(
@@ -1498,7 +1498,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               Icon(
                 isFavorite ? BI.star : BI.star,
                 size: 16,
-                color: isFavorite ? colors.warning : null,
+                color: isFavorite ? colors.textMuted : null,
               ),
               const SizedBox(width: 8),
               Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
@@ -1573,7 +1573,7 @@ class _LibraryPanelState extends State<LibraryPanel> {
               Icon(
                 isFavorite ? BI.star : BI.star,
                 size: 16,
-                color: isFavorite ? colors.warning : null,
+                color: isFavorite ? colors.textMuted : null,
               ),
               const SizedBox(width: 8),
               Text(isFavorite ? 'Remove from Favorites' : 'Add to Favorites'),
@@ -1933,7 +1933,9 @@ class _LibraryItemWidgetState extends State<_LibraryItemWidget> {
               ),
             ),
             if (widget.isFavorite)
-              Icon(BI.star, size: 12, color: colors.warning),
+              // Quiet grey marker — the favourite star shouldn't be the
+              // brightest thing in the panel (was the shared gold `warning`).
+              Icon(BI.star, size: 12, color: colors.textMuted),
           ],
         ),
       ),
