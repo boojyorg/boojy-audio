@@ -72,6 +72,10 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The dB readout beside each mixer fader is now editable.** It used to be a dead label. Now you
+  can **drag it up/down** to nudge the volume precisely (a finer touch than the fader), or **click
+  it and type an exact value** (e.g. `-6`) — Enter or clicking away applies it, Esc cancels. Works
+  on track strips and the master, and every change is a single undo step.
 - **EQ / Compressor / Limiter now compute their filters at the real device sample rate (C12).** These
   effects baked in 48 kHz; they now take the actual stream rate, so their coefficients are correct on
   the rare device that can't open at 48 kHz. (The wider engine still targets 48 kHz — a full
