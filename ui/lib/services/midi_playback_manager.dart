@@ -34,6 +34,14 @@ class MidiPlaybackManager extends ChangeNotifier {
     return List.unmodifiable(_midiClips);
   }
 
+  /// Finalized MIDI clips only — for save / auto-save / crash recovery.
+  ///
+  /// Excludes the in-flight live recording clip (sentinel id -999), which
+  /// [midiClips] folds in for display. Saving mid-recording used to persist
+  /// that partial clip into `ui_layout.json`, so it reappeared as a phantom
+  /// clip on reload. Persistence must use this getter, never [midiClips]. (C74)
+  List<MidiClipData> get persistableMidiClips => List.unmodifiable(_midiClips);
+
   /// Set the live recording clip (displayed during recording)
   void setLiveRecordingClip(MidiClipData? clip) {
     _liveRecordingClip = clip;

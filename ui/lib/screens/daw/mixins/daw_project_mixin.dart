@@ -993,7 +993,8 @@ mixin DAWProjectMixin
       loopEndBeats: uiLayout.loopEndBeats,
       viewState: viewState,
       audioClips: timelineState?.clips.toList(),
-      midiClips: midiPlaybackManager?.midiClips.toList(),
+      // Finalized clips only — never persist the in-flight recording clip (C74).
+      midiClips: midiPlaybackManager?.persistableMidiClips.toList(),
       automationData: automationController.toJson(),
       trackColorOverrides: trackController.trackColorOverrides,
       timeSignatureNumerator: projectMetadata.timeSignatureNumerator,
