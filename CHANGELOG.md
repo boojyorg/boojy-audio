@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.0 — 2026-06-04
+
 ### Bug Fixes
 
 - **Extending a clip now actually moves the loop end during playback.** When the arrangement loop was

@@ -1,7 +1,7 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.4.0 (developing v0.5.0)
-**Working On:** v0.5.0 — Trust & Legibility (correctness/hardening + token/painter legibility), the theme set by the [2026-06-01 review chain](reviews/v0.4.0_pre_release_triage_2026_06_01.md). The deferred piano-roll lane-colour refinement carries into it.
+**Current Version:** v0.5.0 (developing v0.5.1)
+**Working On:** v0.5.1 — Loop & device polish (metronome loop-wrap doubling, MIDI-keyboard hot-plug, carried device items C24/C99/C104), the small follow-up surfaced while dogfooding v0.5.0.
 **Goal:** v1.0 public release
 
 ---
@@ -43,8 +43,8 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.3.1 | Trust/correctness hardening (data-loss) | Complete |
 | v0.3.2 | Plugins & the audio thread (VST3 per-buffer, safety net) | Complete |
 | v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | Complete |
-| v0.5.0 | Trust & Legibility (correctness/hardening + token/painter legibility) | Next |
-| v0.5.1 | Loop & device polish (metronome loop-wrap, MIDI hot-plug, device handling) | Planned |
+| v0.5.0 | Trust & Legibility (correctness/hardening + token/painter legibility) | Complete |
+| v0.5.1 | Loop & device polish (metronome loop-wrap, MIDI hot-plug, device handling) | Next |
 | v0.6.0 | Sound (stock instruments, drum sequencer, loops, effect presets) | Planned |
 
 ---
