@@ -103,6 +103,9 @@ pub struct TrackData {
     /// Sampler settings (for MIDI tracks with sampler instrument)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sampler_settings: Option<crate::sampler::SamplerData>,
+    /// Drum-kit settings (for MIDI tracks with a drum-kit instrument)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drum_kit_settings: Option<crate::drum_kit::DrumKitData>,
     /// Send routing to return tracks
     #[serde(default)]
     pub sends: Vec<SendData>,
