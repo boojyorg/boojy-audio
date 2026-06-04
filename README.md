@@ -123,7 +123,9 @@ For VST3 plugin support on Windows:
 
 ## License
 
-MIT License — See [LICENSE](LICENSE) for details.
+Boojy Audio is licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
+
+Copyright (c) 2025–2026 Tyr Bujac
 
 ## Contact
 
