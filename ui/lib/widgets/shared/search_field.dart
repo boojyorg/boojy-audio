@@ -104,10 +104,11 @@ class _SearchFieldState extends State<SearchField> {
         curve: Curves.easeInOut,
         // Always fill the available width (the panel is fixed-width) — the old
         // 105px idle pill was what clipped the placeholder to "Searc…". The
-        // squared 4px corners + 18px height match the right-sidebar
-        // "+ MIDI/Audio Track" buttons so both sidebars share one control shape.
+        // squared 4px corners + shared control height line the field up with the
+        // loop bar and the "+ MIDI/Audio Track" buttons (all BT.controlHeight),
+        // so every compact control shares one shape and height.
         width: widget.expandedWidth,
-        height: 18,
+        height: BT.controlHeight,
         decoration: BoxDecoration(
           color: colors.darkest,
           borderRadius: BorderRadius.circular(BT.radiusMd),

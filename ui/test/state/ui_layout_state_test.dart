@@ -365,6 +365,63 @@ void main() {
       });
     });
 
+    group('resetSizesToDefaults', () {
+      test('sets all panels proportional to the window', () {
+        final state = UILayoutState();
+        state.resetSizesToDefaults(1600, 1000);
+
+        // mixer: 1600 * 0.28 = 448 (below hardMax 500)
+        expect(state.mixerPanelWidth, closeTo(448.0, 0.01));
+        // editor: 1000 * 0.32 = 320 (above min, below hardMax)
+        expect(state.editorPanelHeight, closeTo(320.0, 0.01));
+        // library total: 1600 * 0.15 = 240 → left 130 + divider 8 + right 102
+        expect(state.libraryPanelWidth, closeTo(240.0, 0.01));
+      });
+
+      test(
+        'overrides a previous oversized drag (consistency on new project)',
+        () {
+          final state = UILayoutState();
+          // Simulate a project where the user dragged the editor very tall.
+          state.editorPanelHeight = 800.0;
+          state.mixerPanelWidth = 500.0;
+          expect(state.editorPanelHeight, 800.0);
+
+          state.resetSizesToDefaults(1600, 1000);
+
+          // A new project no longer inherits the stray drag.
+          expect(state.editorPanelHeight, closeTo(320.0, 0.01));
+          expect(state.mixerPanelWidth, closeTo(448.0, 0.01));
+        },
+      );
+
+      test('clamps to minimums on a tiny window', () {
+        final state = UILayoutState();
+        state.resetSizesToDefaults(400, 200);
+
+        expect(
+          state.editorPanelHeight,
+          greaterThanOrEqualTo(UILayoutState.editorMinHeight),
+        );
+        expect(
+          state.mixerPanelWidth,
+          greaterThanOrEqualTo(UILayoutState.mixerMinWidth),
+        );
+        expect(
+          state.libraryPanelWidth,
+          greaterThanOrEqualTo(UILayoutState.libraryMinWidth),
+        );
+      });
+
+      test('notifies listeners', () {
+        final state = UILayoutState();
+        var notified = false;
+        state.addListener(() => notified = true);
+        state.resetSizesToDefaults(1600, 1000);
+        expect(notified, isTrue);
+      });
+    });
+
     // ── Arrangement width helpers ──────────────
 
     group('arrangement width', () {

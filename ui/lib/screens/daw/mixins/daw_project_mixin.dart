@@ -94,6 +94,12 @@ mixin DAWProjectMixin
     // Reset loop auto-follow for new project
     uiLayout.resetLoopAutoFollow();
 
+    // Reset panel sizes to a consistent proportional baseline so a new project
+    // doesn't inherit the last drag. Per-project sizes are still restored from
+    // the saved file when an existing project is opened.
+    final windowSize = MediaQuery.of(context).size;
+    uiLayout.resetSizesToDefaults(windowSize.width, windowSize.height);
+
     // Clear automation data
     automationController.clear();
 

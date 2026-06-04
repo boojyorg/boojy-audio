@@ -109,6 +109,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The library search box is taller and no longer looks like a box-in-a-box.** The "Search…" field
+  was a short (18px), squished input sitting inside a second divider-fenced header band. It's now a
+  single, comfortably-tall box on the panel, and its height (plus the mixer's "+ MIDI/Audio Track"
+  buttons) is standardized to the same 24px as the loop-bar controls — so the compact controls across
+  both sidebars and the transport all line up.
+- **New projects open at a consistent panel layout.** The left library, right mixer, and bottom
+  editor panels used to remember their size globally, so one stray drag could leave every future new
+  project with, say, a weirdly tall editor. A new project now opens all three at a tidy size
+  proportional to your window (so it feels the same on a laptop or a large display). Resizing is
+  still remembered *per project* — saved in the project file and restored when you reopen it — and
+  your preferred layout is still remembered across app relaunches.
 - **The arrangement canvas is a refined dark grey instead of near-black.** The timeline background
   was an almost-black `#0C0E11`; it's now a slightly lifted `#1C1D21` for a more polished look, with
   the bar/beat grid lines nudged a touch brighter so they stay visible against it. Coloured clips

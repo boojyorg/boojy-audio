@@ -3966,29 +3966,13 @@ class _DAWScreenState extends State<DAWScreen>
     if (!hasInitializedPanelSizes && userSettings.isLoaded) {
       hasInitializedPanelSizes = true;
       if (!userSettings.hasSavedPanelSettings) {
-        // First launch: use percentage-based sizing
+        // First launch: use percentage-based sizing for all resizable panels.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
-              // Calculate target total library width
-              final targetLibraryTotal = (windowSize.width * 0.15).clamp(
-                UILayoutState.libraryMinWidth,
-                UILayoutState.libraryHardMax,
-              );
-              // Split into left (default) and right (remainder)
-              uiLayout.libraryLeftColumnWidth =
-                  UILayoutState.libraryLeftColumnDefault;
-              uiLayout.libraryRightColumnWidth =
-                  (targetLibraryTotal -
-                          UILayoutState.libraryLeftColumnDefault -
-                          UILayoutState.libraryDividerWidth)
-                      .clamp(
-                        UILayoutState.libraryRightColumnMin,
-                        UILayoutState.libraryRightColumnMax,
-                      );
-              uiLayout.mixerPanelWidth = (windowSize.width * 0.28).clamp(
-                UILayoutState.mixerMinWidth,
-                UILayoutState.mixerHardMax,
+              uiLayout.resetSizesToDefaults(
+                windowSize.width,
+                windowSize.height,
               );
             });
           }
