@@ -2242,6 +2242,14 @@ class _DAWScreenState extends State<DAWScreen>
     // Only update if changed (avoids unnecessary rebuilds)
     if (newLoopEnd != uiLayout.loopEndBeats) {
       uiLayout.setLoopRegion(uiLayout.loopStartBeats, newLoopEnd);
+      // Keep playback's cached loop bounds in sync. Without this, extending a
+      // clip while loop-cycling grew the *displayed* loop region but playback
+      // kept wrapping at the old end. updateLoopBounds self-guards on
+      // is-playing/is-cycling, so it's a no-op when stopped.
+      playbackController.updateLoopBounds(
+        loopStartBeats: uiLayout.loopStartBeats,
+        loopEndBeats: newLoopEnd,
+      );
     }
   }
 
