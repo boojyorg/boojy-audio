@@ -132,11 +132,15 @@ pub fn load_audio_file_to_track_api(
     let clip = load_audio_file(&path).map_err(|e| e.to_string())?;
     let clip_arc = Arc::new(clip);
 
-    let clips_mutex = clips()?;
-    let mut clips_map = clips_mutex.lock();
-
+    // Lock GRAPH before CLIPS — the canonical order used everywhere else
+    // (project.rs save/load, recording.rs). Taking CLIPS first here was an
+    // AB/BA lock-order inversion that could deadlock against a concurrent
+    // stop-recording. (C44)
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
+
+    let clips_mutex = clips()?;
+    let mut clips_map = clips_mutex.lock();
 
     let clip_id = graph
         .add_clip_to_track(track_id, clip_arc.clone(), start_time)
@@ -152,11 +156,12 @@ pub fn load_audio_file_api(path: String) -> Result<u64, String> {
     let clip = load_audio_file(&path).map_err(|e| e.to_string())?;
     let clip_arc = Arc::new(clip);
 
-    let clips_mutex = clips()?;
-    let mut clips_map = clips_mutex.lock();
-
+    // Lock GRAPH before CLIPS — the canonical order (see C44 above).
     let graph_mutex = graph()?;
     let graph = graph_mutex.lock();
+
+    let clips_mutex = clips()?;
+    let mut clips_map = clips_mutex.lock();
 
     // Find armed audio track first, then any audio track
     let target_track_id = {

@@ -76,8 +76,14 @@ where
         std::thread::spawn(move || {
             if let Some(m) = AUDIO_GRAPH.get() {
                 let mut g = m.lock();
-                let _ = f(&mut g);
-                eprintln!("✅ [API] {action}: completed in background thread");
+                // Surface a background failure instead of dropping it on the
+                // floor — the caller already received `queued_msg` and can't see
+                // this Result, so logging is the only signal the deferred action
+                // failed. (C46)
+                match f(&mut g) {
+                    Ok(_) => eprintln!("✅ [API] {action}: completed in background thread"),
+                    Err(e) => eprintln!("❌ [API] {action}: failed in background thread: {e}"),
+                }
             }
         });
         Ok(queued_msg.to_string())
