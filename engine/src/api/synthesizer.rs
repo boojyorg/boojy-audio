@@ -273,3 +273,130 @@ pub fn get_sampler_waveform_peaks(track_id: u64, resolution: usize) -> Result<Ve
         .get_sampler_waveform_peaks(track_id, resolution)
         .ok_or_else(|| format!("Track {track_id} has no sampler or no sample loaded"))
 }
+
+// ============================================================================
+// DRUM KIT API
+// ============================================================================
+
+/// Create a drum-kit instrument for a track. Returns the instrument id (the track id).
+pub fn create_drum_kit_for_track(track_id: u64) -> Result<i64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    let id = synth_manager.create_drum_kit(track_id);
+    Ok(id as i64)
+}
+
+/// Add an empty pad pinned to `pinned_note`. Returns the new pad index, or an error if the track
+/// isn't a drum kit or the note is already in use.
+pub fn add_drum_pad(track_id: u64, pinned_note: u8) -> Result<i64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    synth_manager
+        .add_drum_pad(track_id, pinned_note)
+        .map(i64::from)
+        .ok_or_else(|| format!("Could not add pad on note {pinned_note} to track {track_id}"))
+}
+
+/// Remove a pad by index.
+pub fn remove_drum_pad(track_id: u64, pad_index: u8) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if synth_manager.remove_drum_pad(track_id, pad_index) {
+        Ok(format!("Removed pad {pad_index} from track {track_id}"))
+    } else {
+        Err(format!("No pad {pad_index} on track {track_id}"))
+    }
+}
+
+/// Load a sample file into a drum pad.
+pub fn load_drum_pad_sample(track_id: u64, pad_index: u8, path: String) -> Result<String, String> {
+    let audio_clip =
+        load_audio_file(&path).map_err(|e| format!("Failed to load sample '{path}': {e}"))?;
+    let clip_arc = Arc::new(audio_clip);
+
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if synth_manager.load_drum_pad_sample(track_id, pad_index, clip_arc) {
+        Ok(format!(
+            "Loaded sample '{path}' into pad {pad_index} on track {track_id}"
+        ))
+    } else {
+        Err(format!(
+            "Track {track_id} is not a drum kit or has no pad {pad_index}"
+        ))
+    }
+}
+
+/// Set a per-pad parameter (`pan`, `muted`, `soloed`, `volume_db`, `attack`, `release`,
+/// `transpose_semitones`, `reversed`, …).
+pub fn set_drum_pad_parameter(
+    track_id: u64,
+    pad_index: u8,
+    param_name: String,
+    value: String,
+) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let mut synth_manager = graph.track_synth_manager.lock();
+
+    if !synth_manager.has_drum_kit(track_id) {
+        return Err(format!("Track {track_id} is not a drum-kit track"));
+    }
+    synth_manager.set_drum_pad_parameter(track_id, pad_index, &param_name, &value);
+    Ok(format!(
+        "Set pad {pad_index} {param_name} = {value} on track {track_id}"
+    ))
+}
+
+/// Check if a track has a drum-kit instrument.
+pub fn is_drum_kit_track(track_id: u64) -> Result<bool, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+    Ok(synth_manager.has_drum_kit(track_id))
+}
+
+/// The next free MIDI note for a new pad, searching from `start` upward. Returns -1 if none free.
+pub fn drum_next_free_note(track_id: u64, start: u8) -> Result<i64, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+    Ok(synth_manager
+        .drum_next_free_note(track_id, start)
+        .map_or(-1, i64::from))
+}
+
+/// Drum-kit state as JSON (pad list, pinned notes, per-pad params, sample paths) for UI sync.
+pub fn get_drum_kit_info(track_id: u64) -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+
+    let data = synth_manager
+        .get_drum_kit_parameters(track_id)
+        .ok_or_else(|| format!("Track {track_id} is not a drum-kit track"))?;
+    serde_json::to_string(&data).map_err(|e| format!("Failed to serialize drum kit: {e}"))
+}
+
+/// Waveform peaks for a single pad's loaded sample.
+pub fn get_drum_pad_waveform_peaks(
+    track_id: u64,
+    pad_index: u8,
+    resolution: usize,
+) -> Result<Vec<f32>, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    let synth_manager = graph.track_synth_manager.lock();
+
+    synth_manager
+        .get_drum_pad_waveform_peaks(track_id, pad_index, resolution)
+        .ok_or_else(|| format!("Track {track_id} pad {pad_index} has no sample loaded"))
+}
