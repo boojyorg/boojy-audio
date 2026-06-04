@@ -6,6 +6,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Extending a clip now actually moves the loop end during playback.** When the arrangement loop was
+  set to auto-follow your content, growing a clip (e.g. lengthening a note so the part went from 2
+  bars to 3) stretched the *displayed* loop region but playback kept wrapping at the old end. The
+  playback engine's loop boundary is now kept in sync with the auto-followed region, so it loops where
+  the bracket shows.
 - **Resizing a note past the bar line and back no longer leaves an extra bar.** In the piano roll,
   dragging a note's edge (or moving a note) out beyond the clip's end added a bar — but that bar was
   added *mid-drag* and never removed, so pulling the note back within the same drag left the clip one
