@@ -19,6 +19,7 @@ import '../widgets/transport_bar/title_strip.dart';
 import '../widgets/dev_tools/palette_editor.dart';
 import '../widgets/dev_tools/ui_labs_switcher.dart';
 import '../widgets/dev_tools/editor_button_switcher.dart';
+import '../widgets/canvas_bg_variant.dart';
 import '../widgets/editor_button_variant.dart';
 import '../widgets/timeline/timeline_models.dart';
 import '../widgets/timeline_view.dart';
@@ -127,6 +128,27 @@ class _DAWScreenState extends State<DAWScreen>
   void _toggleEditorButtonSwitcher() {
     assert(() {
       setState(() => _showEditorButtonSwitcher = !_showEditorButtonSwitcher);
+      return true;
+    }());
+  }
+
+  // Arrangement-canvas background lift. Chosen default = noticeableGrey
+  // (#1C1D21) — Tyr picked it in the v0.5 polish pass; may revisit later, so
+  // the dev Cmd+Shift+B cycle is left in place to A/B the options live.
+  CanvasBgVariant _canvasBgVariant = CanvasBgVariant.noticeableGrey;
+
+  void _cycleCanvasBg() {
+    assert(() {
+      setState(() => _canvasBgVariant = _canvasBgVariant.next);
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Canvas background: ${_canvasBgVariant.labLabel}'),
+            duration: const Duration(milliseconds: 1100),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       return true;
     }());
   }
@@ -2220,6 +2242,14 @@ class _DAWScreenState extends State<DAWScreen>
     // Only update if changed (avoids unnecessary rebuilds)
     if (newLoopEnd != uiLayout.loopEndBeats) {
       uiLayout.setLoopRegion(uiLayout.loopStartBeats, newLoopEnd);
+      // Keep playback's cached loop bounds in sync. Without this, extending a
+      // clip while loop-cycling grew the *displayed* loop region but playback
+      // kept wrapping at the old end. updateLoopBounds self-guards on
+      // is-playing/is-cycling, so it's a no-op when stopped.
+      playbackController.updateLoopBounds(
+        loopStartBeats: uiLayout.loopStartBeats,
+        loopEndBeats: newLoopEnd,
+      );
     }
   }
 
@@ -3588,6 +3618,7 @@ class _DAWScreenState extends State<DAWScreen>
           audioEngine: audioEngine,
           tempo: tempo,
           showPinnedReadout: _topBarVariant.pinsReadoutToArrangement,
+          canvasBgVariant: _canvasBgVariant,
           selectedMidiTrackId: selectedTrackId,
           selectedMidiClipId: midiPlaybackManager?.selectedClipId,
           currentEditingClip: midiPlaybackManager?.currentEditingClip,
@@ -3943,29 +3974,13 @@ class _DAWScreenState extends State<DAWScreen>
     if (!hasInitializedPanelSizes && userSettings.isLoaded) {
       hasInitializedPanelSizes = true;
       if (!userSettings.hasSavedPanelSettings) {
-        // First launch: use percentage-based sizing
+        // First launch: use percentage-based sizing for all resizable panels.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
-              // Calculate target total library width
-              final targetLibraryTotal = (windowSize.width * 0.15).clamp(
-                UILayoutState.libraryMinWidth,
-                UILayoutState.libraryHardMax,
-              );
-              // Split into left (default) and right (remainder)
-              uiLayout.libraryLeftColumnWidth =
-                  UILayoutState.libraryLeftColumnDefault;
-              uiLayout.libraryRightColumnWidth =
-                  (targetLibraryTotal -
-                          UILayoutState.libraryLeftColumnDefault -
-                          UILayoutState.libraryDividerWidth)
-                      .clamp(
-                        UILayoutState.libraryRightColumnMin,
-                        UILayoutState.libraryRightColumnMax,
-                      );
-              uiLayout.mixerPanelWidth = (windowSize.width * 0.28).clamp(
-                UILayoutState.mixerMinWidth,
-                UILayoutState.mixerHardMax,
+              uiLayout.resetSizesToDefaults(
+                windowSize.width,
+                windowSize.height,
               );
             });
           }
@@ -4092,6 +4107,12 @@ class _DAWScreenState extends State<DAWScreen>
             meta: true,
             shift: true,
           ): _toggleEditorButtonSwitcher,
+          // Cmd+Shift+B cycles the arrangement-canvas background (debug only)
+          const SingleActivator(
+            LogicalKeyboardKey.keyB,
+            meta: true,
+            shift: true,
+          ): _cycleCanvasBg,
         },
         // Single-key shortcuts (Space, Q, L, M) are handled in Focus.onKeyEvent
         // so they don't interfere with text input fields

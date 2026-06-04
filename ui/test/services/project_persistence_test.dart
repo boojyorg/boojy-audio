@@ -101,6 +101,42 @@ void main() {
       // Notes are engine-owned and intentionally NOT persisted in ui_layout.
       expect(m.notes, isEmpty);
     });
+
+    test(
+      'a malformed track_colors entry is skipped, not fatal to the whole layout (C80)',
+      () {
+        // A non-integer key and a non-numeric value used to throw, and the
+        // loader's blanket catch then discarded the ENTIRE saved layout. The
+        // good colour and every other field must survive.
+        final json = {
+          'panel_sizes': {'library_width': 240.0},
+          'loop_enabled': true,
+          'track_colors': {
+            '1': 0xFF112233, // valid
+            'not_an_int': 0xFF445566, // bad key
+            '2': 'not_a_number', // bad value
+          },
+        };
+
+        final restored = UILayoutData.fromJson(json);
+
+        expect(restored.trackColors, {1: 0xFF112233});
+        // The rest of the layout is intact — the bad colour didn't wipe it.
+        expect(restored.libraryWidth, 240.0);
+        expect(restored.loopEnabled, isTrue);
+      },
+    );
+
+    test(
+      'track_colors with only bad entries yields null, not a crash (C80)',
+      () {
+        final json = {
+          'track_colors': {'x': 'y'},
+        };
+        final restored = UILayoutData.fromJson(json);
+        expect(restored.trackColors, isNull);
+      },
+    );
   });
 
   group('ProjectPersistence.collect', () {

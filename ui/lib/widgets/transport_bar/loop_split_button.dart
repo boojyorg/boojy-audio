@@ -133,9 +133,11 @@ class _LoopSplitButtonState extends State<LoopSplitButton> {
               width: 1,
             ),
           ),
-          // IntrinsicHeight pins the row to its content height; stretch then
-          // makes the inter-zone divider span that full height (not the bar).
-          child: IntrinsicHeight(
+          // Pinned to a shared height (not IntrinsicHeight) so Loop · Snap ·
+          // Metronome align despite differing zone content; stretch then makes
+          // the inter-zone divider span that full height (not the bar).
+          child: SizedBox(
+            height: BT.splitButtonHeight,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1584,7 +1584,7 @@ class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          height: 18,
+          height: BT.controlHeight,
           padding: const EdgeInsets.symmetric(horizontal: 7),
           decoration: BoxDecoration(
             color: active

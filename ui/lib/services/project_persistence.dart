@@ -110,15 +110,32 @@ class UILayoutData {
           ?.map((c) => MidiClipData.fromUiLayoutJson(c as Map<String, dynamic>))
           .toList(),
       automationData: automationJson,
-      trackColors: trackColorsJson?.map(
-        (k, v) => MapEntry(int.parse(k), (v as num).toInt()),
-      ),
+      trackColors: _parseTrackColors(trackColorsJson),
       loopEnabled: json['loop_enabled'] as bool?,
       loopStartBeats: (json['loop_start_beats'] as num?)?.toDouble(),
       loopEndBeats: (json['loop_end_beats'] as num?)?.toDouble(),
       timeSignatureNumerator: (json['time_sig_numerator'] as num?)?.toInt(),
       timeSignatureDenominator: (json['time_sig_denominator'] as num?)?.toInt(),
     );
+  }
+
+  /// Parse the `track_colors` map defensively.
+  ///
+  /// One malformed entry (a non-integer key, or a non-numeric value) must not
+  /// throw — the loader catches any exception and discards the *entire* saved
+  /// layout, so a single corrupt colour would silently wipe panel sizes, view
+  /// state, clips, automation and loop settings too. Bad entries are skipped;
+  /// every well-formed colour (and the rest of the layout) survives. (C80)
+  static Map<int, int>? _parseTrackColors(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final result = <int, int>{};
+    json.forEach((key, value) {
+      final trackId = int.tryParse(key);
+      if (trackId != null && value is num) {
+        result[trackId] = value.toInt();
+      }
+    });
+    return result.isEmpty ? null : result;
   }
 }
 

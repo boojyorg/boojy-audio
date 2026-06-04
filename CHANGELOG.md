@@ -4,8 +4,52 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.0 — 2026-06-04
+
 ### Bug Fixes
 
+- **Extending a clip now actually moves the loop end during playback.** When the arrangement loop was
+  set to auto-follow your content, growing a clip (e.g. lengthening a note so the part went from 2
+  bars to 3) stretched the *displayed* loop region but playback kept wrapping at the old end. The
+  playback engine's loop boundary is now kept in sync with the auto-followed region, so it loops where
+  the bracket shows.
+- **Resizing a note past the bar line and back no longer leaves an extra bar.** In the piano roll,
+  dragging a note's edge (or moving a note) out beyond the clip's end added a bar — but that bar was
+  added *mid-drag* and never removed, so pulling the note back within the same drag left the clip one
+  bar longer than the note needed. The clip length is now recalculated once when you release the
+  mouse, based on where the note actually ends, so a drag out-and-back leaves the length unchanged.
+
+- **A corrupt colour can no longer wipe your whole saved layout (C80).** If a project's saved track
+  colours contained even one bad entry, loading it threw an error that was caught by discarding the
+  *entire* UI layout — panel sizes, view position, clip metadata, loop and time-signature all reset
+  to defaults silently. Bad colour entries are now skipped individually; everything else loads
+  normally.
+- **Saving while recording no longer leaves a phantom clip (C74).** Saving or auto-saving in the
+  middle of a MIDI recording wrote the half-finished, still-recording clip into the project, so it
+  reappeared as a stray clip when you reopened. Only finalised clips are saved now.
+- **Mono exports are now genuinely mono (C22).** Choosing "mono" when exporting to WAV used to write
+  a normal two-channel stereo file with the same audio copied into both channels — twice the file
+  size, and not actually a mono file. A mono export now writes a true single-channel WAV.
+- **Exported songs keep their MIDI automation (C23).** Control-change data saved in a clip — the
+  sustain pedal, mod wheel, and similar — was applied during live playback but **silently dropped
+  when you bounced or exported**, so e.g. a held sustain pedal was ignored and notes cut off early in
+  the rendered file. Export now applies the same control-change events that playback does.
+- **Dragging an audio file into a track can no longer freeze the app (C44).** Loading an audio file
+  grabbed two internal locks in the opposite order to everywhere else in the engine, so doing it at
+  the same moment a recording was stopping could deadlock the whole app — a silent hang with no
+  crash, on multi-core machines. The load path now takes those locks in the standard order, matching
+  save/load and recording.
+- **Background actions that fail no longer disappear without a trace (C46).** When the engine was
+  momentarily busy, certain actions were retried on a background thread whose result was thrown away
+  — a failure there left no log at all. Those failures are now logged. (Internal hardening; no
+  user-facing path triggers this today.)
+- **Exporting a synth track that has an effect on it is no longer silent (C6).** When you bounced or
+  exported your song, any MIDI/instrument track carrying a built-in effect (a reverb, an EQ, anything)
+  came out **completely silent** — its notes were being sent to a plugin slot that wasn't there
+  instead of to the built-in synth. Live playback was always fine; only the exported file was wrong,
+  so it was easy to miss until you opened the bounce. Export now decides where a track's notes go from
+  what's actually in its effect chain (the same way playback already did), so a synth with effects
+  records exactly what you hear.
 - **Splitting a clip and undoing no longer destroys part of it (C52/C63/C64).** This was data loss:
   undoing a MIDI clip split left only the left half on the track and **permanently discarded the
   right region of the original**, and a split audio clip kept playing its right half and its
@@ -72,6 +116,33 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The library search box is taller and no longer looks like a box-in-a-box.** The "Search…" field
+  was a short (18px), squished input sitting inside a second divider-fenced header band. It's now a
+  single, comfortably-tall box on the panel, and its height (plus the mixer's "+ MIDI/Audio Track"
+  buttons) is standardized to the same 24px as the loop-bar controls — so the compact controls across
+  both sidebars and the transport all line up.
+- **New projects open at a consistent panel layout.** The left library, right mixer, and bottom
+  editor panels used to remember their size globally, so one stray drag could leave every future new
+  project with, say, a weirdly tall editor. A new project now opens all three at a tidy size
+  proportional to your window (so it feels the same on a laptop or a large display). Resizing is
+  still remembered *per project* — saved in the project file and restored when you reopen it — and
+  your preferred layout is still remembered across app relaunches.
+- **The arrangement canvas is a refined dark grey instead of near-black.** The timeline background
+  was an almost-black `#0C0E11`; it's now a slightly lifted `#1C1D21` for a more polished look, with
+  the bar/beat grid lines nudged a touch brighter so they stay visible against it. Coloured clips
+  (green MIDI, grey waveforms) still pop.
+- **Arrangement-view polish pass — consistency and unfinished edges.** A round of small visual fixes
+  so repeated elements get one treatment everywhere: the top-bar Loop / Grid / Metronome buttons now
+  share a single height (Grid no longer sits taller); the sidebar-toggle icons match the help `?`
+  glyph's lighter grey instead of reading darker; the editor tool buttons (draw/select/erase/…) now
+  show the same hover feedback as the top bar; the library search field is squared off and slimmed to
+  match the `+ MIDI/Audio Track` buttons and no longer clips its placeholder to `Searc…`; the
+  favourite star is a quiet grey rather than a loud gold; and the editor's collapse chevron is a bare
+  glyph instead of a boxed button.
+- **The dB readout beside each mixer fader is now editable.** It used to be a dead label. Now you
+  can **drag it up/down** to nudge the volume precisely (a finer touch than the fader), or **click
+  it and type an exact value** (e.g. `-6`) — Enter or clicking away applies it, Esc cancels. Works
+  on track strips and the master, and every change is a single undo step.
 - **EQ / Compressor / Limiter now compute their filters at the real device sample rate (C12).** These
   effects baked in 48 kHz; they now take the actual stream rate, so their coefficients are correct on
   the rare device that can't open at 48 kHz. (The wider engine still targets 48 kHz — a full

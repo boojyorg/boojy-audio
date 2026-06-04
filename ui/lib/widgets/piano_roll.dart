@@ -2320,9 +2320,6 @@ class _PianoRollState extends State<PianoRoll>
       int? newPitchForAudition;
       int? velocityForAudition;
 
-      // Track moved notes for auto-extend
-      final List<MidiNoteData> movedNotes = [];
-
       setState(() {
         currentClip = currentClip?.copyWith(
           notes: currentClip!.notes.map((n) {
@@ -2352,7 +2349,6 @@ class _PianoRollState extends State<PianoRoll>
                   startTime: newStartTime,
                   note: newNote,
                 );
-                movedNotes.add(movedNote);
                 return movedNote;
               }
             }
@@ -2360,10 +2356,9 @@ class _PianoRollState extends State<PianoRoll>
           }).toList(),
         );
 
-        // Auto-extend loop if any moved note extends beyond loop boundary
-        for (final movedNote in movedNotes) {
-          autoExtendLoopIfNeeded(movedNote);
-        }
+        // Loop is extended once on release (see _onPanEnd), not per-frame, so
+        // dragging a note past the end and back in one gesture leaves no
+        // residual bar. movedNotes is no longer needed here.
         // Don't update dragStart here - keep original for cumulative delta
       });
 
@@ -2423,10 +2418,9 @@ class _PianoRollState extends State<PianoRoll>
           }).toList(),
         );
 
-        // Auto-extend loop if note was resized beyond loop boundary
-        if (lastResizedNote != null) {
-          autoExtendLoopIfNeeded(lastResizedNote!);
-        }
+        // Loop is extended once on release (see _onPanEnd), not per-frame, so
+        // resizing a note past the end and back in one gesture leaves no
+        // residual bar.
       });
       notifyClipUpdated();
     }
@@ -2469,6 +2463,9 @@ class _PianoRollState extends State<PianoRoll>
 
     // Commit move or duplicate operation to history
     if (currentMode == InteractionMode.move) {
+      // Extend the loop once, now that the gesture is finished, so a note moved
+      // out past the end and back leaves no residual bar.
+      extendLoopToFitNotes();
       if (isDuplicating) {
         final duplicateCount = currentClip?.selectedNotes.length ?? 1;
         commitToHistory(
@@ -2493,6 +2490,9 @@ class _PianoRollState extends State<PianoRoll>
       );
       if (resizedNote != null) {
         lastNoteDuration = resizedNote.duration;
+        // Extend the loop once, now that the gesture is finished, so a note
+        // dragged out past the end and back leaves no residual bar.
+        extendLoopToFitNotes();
         commitToHistory('Resize note');
       }
     }

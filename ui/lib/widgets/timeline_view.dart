@@ -24,6 +24,7 @@ import '../services/tool_mode_resolver.dart';
 import '../services/undo_redo_manager.dart';
 import '../services/commands/command.dart';
 import '../services/commands/clip_commands.dart';
+import 'canvas_bg_variant.dart';
 import 'instrument_browser.dart';
 import 'painters/timeline_grid_painter.dart';
 import 'platform_drop_target.dart';
@@ -142,6 +143,10 @@ class TimelineView extends StatefulWidget {
   /// top-left of the arrangement (non-scrolling) instead of the top bar.
   final bool showPinnedReadout;
 
+  /// Canvas background lift (dev Cmd+Shift+B switcher). Drives the canvas fill,
+  /// the grid-line lift, and the optional alternating-lane tint.
+  final CanvasBgVariant canvasBgVariant;
+
   const TimelineView({
     super.key,
     required this.playheadNotifier,
@@ -181,6 +186,7 @@ class TimelineView extends StatefulWidget {
     this.masterTimelineVisible = false,
     this.beatsPerBar = 4,
     this.showPinnedReadout = false,
+    this.canvasBgVariant = CanvasBgVariant.noticeableGrey,
   });
 
   @override
@@ -780,7 +786,7 @@ class TimelineViewState extends State<TimelineView>
         onKeyEvent: _handleKeyEvent,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: context.colors.editor,
+            color: widget.canvasBgVariant.background,
             border: Border.all(color: context.colors.divider),
           ),
           child: Stack(
@@ -1144,10 +1150,16 @@ class TimelineViewState extends State<TimelineView>
             loopEnabled: widget.loopPlaybackEnabled,
             loopStart: widget.loopStartBeats,
             loopEnd: widget.loopEndBeats,
-            barLineColor: context.colors.hover,
-            beatLineColor: context.colors.divider,
-            subBeatLineColor: context.colors.surface,
-            minorGridColor: context.colors.standard,
+            barLineColor: widget.canvasBgVariant.liftGrid(context.colors.hover),
+            beatLineColor: widget.canvasBgVariant.liftGrid(
+              context.colors.divider,
+            ),
+            subBeatLineColor: widget.canvasBgVariant.liftGrid(
+              context.colors.surface,
+            ),
+            minorGridColor: widget.canvasBgVariant.liftGrid(
+              context.colors.standard,
+            ),
           ),
         ),
       );
@@ -1160,10 +1172,14 @@ class TimelineViewState extends State<TimelineView>
         loopEnabled: widget.loopPlaybackEnabled,
         loopStart: widget.loopStartBeats,
         loopEnd: widget.loopEndBeats,
-        barLineColor: context.colors.hover,
-        beatLineColor: context.colors.divider,
-        subBeatLineColor: context.colors.surface,
-        minorGridColor: context.colors.standard,
+        barLineColor: widget.canvasBgVariant.liftGrid(context.colors.hover),
+        beatLineColor: widget.canvasBgVariant.liftGrid(context.colors.divider),
+        subBeatLineColor: widget.canvasBgVariant.liftGrid(
+          context.colors.surface,
+        ),
+        minorGridColor: widget.canvasBgVariant.liftGrid(
+          context.colors.standard,
+        ),
       ),
     );
   }

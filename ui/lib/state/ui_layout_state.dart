@@ -122,9 +122,9 @@ class UILayoutState extends ChangeNotifier {
   // Percentage-based constraints
   static const double libraryDefaultPct = 0.15;
   static const double libraryMaxPct = 0.30;
-  static const double mixerDefaultPct = 0.25;
+  static const double mixerDefaultPct = 0.28;
   static const double mixerMaxPct = 0.35;
-  static const double editorDefaultPct = 0.35;
+  static const double editorDefaultPct = 0.32;
   static const double editorMaxPct = 0.65;
 
   // Minimum arrangement view width (protects timeline visibility)
@@ -168,6 +168,24 @@ class UILayoutState extends ChangeNotifier {
       editorMinHeight,
       min(windowHeight * editorDefaultPct, editorHardMax),
     );
+  }
+
+  /// Reset all resizable panels (library, mixer, editor) to their proportional
+  /// baseline sizes for the given window. Called on new-project creation and on
+  /// first launch so every new project opens at a consistent size instead of
+  /// inheriting the last drag. Per-project sizes are still restored separately
+  /// via [applyLayout] when an existing project is opened.
+  void resetSizesToDefaults(double windowWidth, double windowHeight) {
+    final libraryTotal = getLibraryDefaultWidth(windowWidth);
+    _libraryLeftColumnWidth = libraryLeftColumnDefault;
+    _libraryRightColumnWidth =
+        (libraryTotal - libraryLeftColumnDefault - libraryDividerWidth).clamp(
+          libraryRightColumnMin,
+          libraryRightColumnMax,
+        );
+    _mixerPanelWidth = getMixerDefaultWidth(windowWidth);
+    _editorPanelHeight = getEditorDefaultHeight(windowHeight);
+    notifyListeners();
   }
 
   // ============================================
