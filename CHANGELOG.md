@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Dragging an audio file into a track can no longer freeze the app (C44).** Loading an audio file
+  grabbed two internal locks in the opposite order to everywhere else in the engine, so doing it at
+  the same moment a recording was stopping could deadlock the whole app — a silent hang with no
+  crash, on multi-core machines. The load path now takes those locks in the standard order, matching
+  save/load and recording.
+- **Background actions that fail no longer disappear without a trace (C46).** When the engine was
+  momentarily busy, certain actions were retried on a background thread whose result was thrown away
+  — a failure there left no log at all. Those failures are now logged. (Internal hardening; no
+  user-facing path triggers this today.)
 - **Exporting a synth track that has an effect on it is no longer silent (C6).** When you bounced or
   exported your song, any MIDI/instrument track carrying a built-in effect (a reverb, an EQ, anything)
   came out **completely silent** — its notes were being sent to a plugin slot that wasn't there
