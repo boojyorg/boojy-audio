@@ -4,6 +4,18 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **The Sampler is now usable — it used to come up completely blank.** Adding a Sampler showed an
+  empty editor panel with no controls, no waveform, and no way to load a sample. Three things were
+  wrong: (1) picking "Sampler" while a MIDI track was selected silently created a *Synthesizer*
+  instead (the instrument type was ignored); (2) creating a Sampler on an empty track didn't open the
+  editor panel; and (3) the actual Sampler editor widget was never displayed — the panel showed the
+  effect-chain view, which has nothing to draw for a sampler. Now selecting Sampler creates a real
+  sampler, opens the editor, and shows the sampler interface (waveform, root note, attack/release,
+  loop controls, and a **Load** button to pick a sample). *(A first-run empty state / drag-a-sample
+  drop target on the empty sampler is a separate follow-up.)*
+
 ## v0.5.1 — 2026-06-05
 
 ### Bug Fixes

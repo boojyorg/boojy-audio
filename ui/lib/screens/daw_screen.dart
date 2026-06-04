@@ -898,6 +898,21 @@ class _DAWScreenState extends State<DAWScreen>
 
   // M9: Instrument methods
   void _onInstrumentSelected(int trackId, String instrumentId) {
+    // The Sampler is an engine-side instrument (tracked via isSamplerTrack),
+    // not an InstrumentData, so it can't go through the synth path below —
+    // that would silently leave the track a Synthesizer. Swap the existing
+    // track to a sampler instead, mirroring the new-track path.
+    if (instrumentId == 'sampler') {
+      trackController.removeTrackInstrument(trackId);
+      audioEngine?.createSamplerForTrack(trackId);
+      trackController.selectTrack(trackId);
+      uiLayout.isEditorPanelVisible = true;
+      if (!trackController.isTrackNameUserEdited(trackId)) {
+        audioEngine?.setTrackName(trackId, 'Sampler');
+      }
+      return;
+    }
+
     // Create default instrument data for the track
     final instrumentData = InstrumentData.defaultSynthesizer(trackId);
     trackController.setTrackInstrument(trackId, instrumentData);
@@ -1087,6 +1102,7 @@ class _DAWScreenState extends State<DAWScreen>
 
       refreshTrackWidgets();
       selectTrack(trackId);
+      uiLayout.isEditorPanelVisible = true;
       return;
     }
 
