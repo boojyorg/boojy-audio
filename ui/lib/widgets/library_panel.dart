@@ -508,13 +508,11 @@ class _LibraryPanelState extends State<LibraryPanel> {
     final showChip = _searchQuery.isNotEmpty && _selectedCategory != null;
 
     return Container(
-      // Tighter vertical padding (was 8) — search is a convenience here, not
-      // load-bearing, so it claims less of the panel and Favorites sits higher.
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.dark,
-        border: Border(bottom: BorderSide(color: colors.divider)),
-      ),
+      // No bottom divider: the search field is the single box here. Drawing a
+      // divider under it fenced the field inside a second "band", which read as
+      // a box-in-a-box. Whitespace separates it from the category list instead.
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(color: colors.dark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
