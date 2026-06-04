@@ -213,6 +213,17 @@ class BoojyTokens {
     vertical: 4.0,
   );
 
+  /// Shared height for the transport modifier split buttons (Loop · Snap ·
+  /// Metronome). Pinned so they align regardless of per-zone content — Snap
+  /// always shows a value zone and Loop/Snap carry a text label, which made
+  /// Snap measure taller than the others when each sized to its own content.
+  static const double splitButtonHeight = 24.0;
+
+  /// Shared height for small inline controls (library search field, mixer
+  /// "+ Track" buttons). Matches [splitButtonHeight] / the timeline nav bar so
+  /// every compact control across the sidebars and transport lines up.
+  static const double controlHeight = 24.0;
+
   /// Compact split button right-zone padding
   static const EdgeInsets splitRightPaddingCompact = EdgeInsets.symmetric(
     horizontal: 5.0,

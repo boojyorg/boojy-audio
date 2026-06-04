@@ -85,6 +85,7 @@ mixin TimelineTrackListMixin
               currentMidiCount,
               showAutomation: showAutomation,
               totalBeats: totalBeats,
+              laneIndex: index,
             ),
           );
         }),
@@ -622,6 +623,7 @@ mixin TimelineTrackListMixin
     int midiCount, {
     bool showAutomation = false,
     double totalBeats = 0.0,
+    int laneIndex = 0,
   }) {
     // Find clips for this track
     final trackClips = clips.where((c) => c.trackId == track.id).toList();
@@ -1200,10 +1202,15 @@ mixin TimelineTrackListMixin
                               widget.trackHeightState.clipHeights[track.id] ??
                               UIConstants.defaultClipHeight,
                           decoration: BoxDecoration(
-                            // Transparent background to show grid through
+                            // Normally transparent (shows the canvas + grid
+                            // through); the tinted-lanes bg variant washes
+                            // alternating lanes for Logic-style structure.
                             color: isHovered
                                 ? context.colors.accent.withValues(alpha: 0.1)
-                                : Colors.transparent,
+                                : (laneIndex.isOdd
+                                          ? widget.canvasBgVariant.laneTint
+                                          : null) ??
+                                      Colors.transparent,
                             border: Border(
                               top: isHovered
                                   ? BorderSide(

@@ -19,6 +19,7 @@ import '../utils/track_colors.dart';
 import 'instrument_browser.dart';
 import 'pan_knob.dart';
 import 'capsule_fader.dart';
+import 'volume_readout_box.dart';
 import 'input_selector_dropdown.dart';
 import '../models/track_send_data.dart';
 import '../utils/logger.dart';
@@ -448,38 +449,17 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                       _buildAutomationButton(context, rowHeight),
                       const SizedBox(width: 4),
                     ],
-                    // dB value display (fixed size and width)
-                    SizedBox(
+                    // dB value display — drag vertically to scrub, click to type.
+                    VolumeReadoutBox(
+                      volumeDb: displayVolumeDb,
+                      onVolumeChanged: widget.onVolumeChanged,
+                      onVolumeDragStart: widget.onVolumeDragStart,
+                      onVolumeDragEnd: widget.onVolumeDragEnd,
                       width: dbContainerWidth,
-                      child: Container(
-                        // Tight side padding so 3-digit values like "-14.7 dB"
-                        // fit on one line instead of wrapping below.
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 3,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: context.colors.darkest,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          displayVolumeDb <= -60.0
-                              ? '-∞ dB'
-                              : '${displayVolumeDb.toStringAsFixed(1)} dB',
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.clip,
-                          style: TextStyle(
-                            color: hasVolumePreview
-                                ? context.colors.textPrimary
-                                : context.colors.textSecondary,
-                            fontSize: dbFontSize,
-                            fontFamily: BT.fontFamilyMono,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ),
+                      fontSize: dbFontSize,
+                      textColor: hasVolumePreview
+                          ? context.colors.textPrimary
+                          : context.colors.textSecondary,
                     ),
                     const SizedBox(width: 8),
                     // Volume Slider (height scales, X position fixed)
@@ -623,9 +603,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
     // Volume display
     final displayVolumeDb = widget.volumeDb;
-    final dbText = displayVolumeDb <= -60.0
-        ? '-∞'
-        : displayVolumeDb.toStringAsFixed(1);
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -706,24 +683,20 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ),
           ),
 
-          // dB text (drops before pan)
+          // dB text (drops before pan) — drag vertically to scrub, click to type.
           if (showDb) ...[
             const SizedBox(width: BT.xs),
-            SizedBox(
+            VolumeReadoutBox(
+              volumeDb: displayVolumeDb,
+              onVolumeChanged: widget.onVolumeChanged,
+              onVolumeDragStart: widget.onVolumeDragStart,
+              onVolumeDragEnd: widget.onVolumeDragEnd,
               width: 44,
-              child: Text(
-                dbText,
-                textAlign: TextAlign.right,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.clip,
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: BT.fontCaption,
-                  fontFamily: BT.fontFamilyMono,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
+              fontSize: BT.fontCaption,
+              textColor: colors.textMuted,
+              textAlign: TextAlign.right,
+              showSuffix: false,
+              boxed: false,
             ),
           ],
         ],
@@ -2194,38 +2167,15 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
                     height: rowHeight,
                     child: Row(
                       children: [
-                        // dB value display
-                        SizedBox(
+                        // dB value display — drag vertically to scrub, click to type.
+                        VolumeReadoutBox(
+                          volumeDb: widget.volumeDb,
+                          onVolumeChanged: widget.onVolumeChanged,
+                          onVolumeDragStart: widget.onVolumeDragStart,
+                          onVolumeDragEnd: widget.onVolumeDragEnd,
                           width: dbContainerWidth,
-                          child: Container(
-                            // Tight side padding so 3-digit values stay on one
-                            // line (matches the track strip).
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 3,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.colors.darkest,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              widget.volumeDb <= -60.0
-                                  ? '-∞ dB'
-                                  : '${widget.volumeDb.toStringAsFixed(1)} dB',
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.clip,
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: dbFontSize,
-                                fontFamily: BT.fontFamilyMono,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ),
+                          fontSize: dbFontSize,
+                          textColor: context.colors.textSecondary,
                         ),
                         const SizedBox(width: 8),
                         // Volume Slider

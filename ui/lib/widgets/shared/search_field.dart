@@ -5,12 +5,12 @@ import '../../theme/boojy_icons.dart';
 import '../../theme/theme_extension.dart';
 import '../../theme/tokens.dart';
 
-/// A styled search field matching the Boojy Notes pill-shaped design.
+/// A styled search field — a slim, squared rectangle that matches the
+/// right-sidebar "+ MIDI/Audio Track" buttons (4px corners, 18px tall).
 ///
 /// Features:
-/// - Compact 95px pill when idle (icon + "Search" hint)
-/// - Expands to [expandedWidth] when focused or has text
-/// - Dark filled background with pill border
+/// - Fills [expandedWidth] (the host panel is fixed-width)
+/// - Dark filled background with a 4px-radius border
 /// - Clear button (✕) when text is present
 /// - Escape key clears text and blurs
 class SearchField extends StatefulWidget {
@@ -92,8 +92,6 @@ class _SearchFieldState extends State<SearchField> {
     return KeyEventResult.ignored;
   }
 
-  bool get _isExpanded => _isFocused || _hasText;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -104,11 +102,16 @@ class _SearchFieldState extends State<SearchField> {
       child: AnimatedContainer(
         duration: AnimationConstants.panelDuration,
         curve: Curves.easeInOut,
-        width: _isExpanded ? widget.expandedWidth : 105,
-        height: 24,
+        // Always fill the available width (the panel is fixed-width) — the old
+        // 105px idle pill was what clipped the placeholder to "Searc…". The
+        // squared 4px corners + shared control height line the field up with the
+        // loop bar and the "+ MIDI/Audio Track" buttons (all BT.controlHeight),
+        // so every compact control shares one shape and height.
+        width: widget.expandedWidth,
+        height: BT.controlHeight,
         decoration: BoxDecoration(
           color: colors.darkest,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(BT.radiusMd),
           border: Border.all(
             color: _isFocused
                 ? colors.accent.withValues(alpha: 0.37)
@@ -116,11 +119,11 @@ class _SearchFieldState extends State<SearchField> {
           ),
         ),
         clipBehavior: Clip.hardEdge,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 7),
         child: Row(
           children: [
-            Icon(BI.search, size: BT.iconMd, color: const Color(0xFF646880)),
-            const SizedBox(width: 8),
+            Icon(BI.search, size: BT.iconMd, color: colors.textMuted),
+            const SizedBox(width: 6),
             Expanded(
               child: Focus(
                 onKeyEvent: _handleKeyEvent,
@@ -132,14 +135,14 @@ class _SearchFieldState extends State<SearchField> {
                   onSubmitted: widget.onSubmitted,
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: BT.fontBody,
+                    fontSize: BT.fontLabel,
                     fontWeight: BT.weightMedium,
                   ),
                   decoration: InputDecoration(
                     hintText: widget.hintText,
                     hintStyle: TextStyle(
                       color: colors.textMuted,
-                      fontSize: BT.fontBody,
+                      fontSize: BT.fontLabel,
                       fontWeight: BT.weightMedium,
                     ),
                     border: InputBorder.none,

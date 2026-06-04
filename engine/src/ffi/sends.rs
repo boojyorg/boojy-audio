@@ -16,6 +16,10 @@ pub extern "C" fn find_return_by_effect_type_ffi(effect_type: *const c_char) -> 
                 }
             };
 
+            // Sentinels: id (>0) found, 0 = none, -1 = error. 0 is unambiguous
+            // because this only ever returns Return-track ids, and Return tracks
+            // are always created with id > 0 — only the Master track is id 0, and
+            // it is excluded from the search. (C47)
             match api::find_return_by_effect_type(effect_type_str) {
                 Ok(Some(id)) => id as i64,
                 Ok(None) => 0,
