@@ -8,6 +8,10 @@ paths:
 
 # Build & test gotchas
 
+- **Rust changes must be built in release mode.** `ui/macos/Runner/libengine.dylib` is a **symlink**
+  to `engine/target/release/libengine.dylib`, so a plain `cargo build` (debug → `target/debug/`)
+  won't be picked up. Use `./build.sh release` (or `cd engine && cargo build --release`). **Don't run
+  `flutter build`** — the Xcode run script builds the engine on `flutter run`.
 - **Tests pass but the app crashes** → likely a dylib mismatch. Run `./build.sh` to rebuild the
   engine and refresh the symlinked `libengine.dylib`.
 - **Integration tests fail or skip on macOS** → `libengine.dylib` is missing. Run `./build.sh`

@@ -1,14 +1,19 @@
 # Boojy Audio — Dreams
 
+> Live working memory: the Active Engineering Target only (this week's target). Slow-changing rules
+> live in `CLAUDE.md` + `.claude/rules/`; ordered intentions + version table → `docs/ROADMAP.md`;
+> unscheduled tasks → `docs/BACKLOG.md`; per-feature status → `docs/FEATURE_TRACKER.md`; history →
+> `git log` + auto memory. This file is volatile state only — safe to wipe each milestone.
+
 ## §1 Active Engineering Target
 
 **Target:** v0.5.0 — **Trust & Legibility**. Correctness/hardening for the moments a session leaves
 the happy path, plus legibility (tokenised colours, themed/scaled painters). Theme set by the
 2026-06-01 review chain (`docs/reviews/v0.4.0_pre_release_triage_2026_06_01.md`).
 
-**Status (2026-06-04): in CI, dogfooding before tag.** The whole v0.5 branch is up as **PR #43**
-(`feat/v0.5-mixer-fader-affordances` → master) — the first time it has hit CI. Decision: **skip the
-unpublished v0.4.0 draft release**, next published tag is **v0.5.0**.
+**Status (2026-06-04): tagging v0.5.0.** The whole v0.5 branch went up as **PR #43**
+(`feat/v0.5-mixer-fader-affordances` → master), CI all-green. Decision: **skip the unpublished
+v0.4.0 draft release**, next published tag is **v0.5.0**.
 
 ### Milestones
 - [x] CI/test trust (C92/C95) + FEATURE_TRACKER sweep + headless goldens.
@@ -26,9 +31,8 @@ unpublished v0.4.0 draft release**, next published tag is **v0.5.0**.
 - [x] Arrangement-view polish pass + lighter canvas (`#1C1D21`).
 - [x] UX/dogfood fixes: consistent panel sizes on new project; single-box 24px library search;
   piano-roll resize no-residual-bar; loop-end playback sync (dogfood bug B).
-- [ ] **Before tag:** PR #43 CI all-green → finish dogfood → merge → version-sync (CHANGELOG →
-  v0.5.0, ROADMAP, README, FEATURE_TRACKER, **bump `ui/pubspec.yaml`**, archive the plan doc) →
-  tag `v0.5.0`.
+- [x] **Tag:** PR #43 CI all-green → merge → version-sync (CHANGELOG → v0.5.0, ROADMAP, README,
+  FEATURE_TRACKER, **bump `ui/pubspec.yaml`**) → tag `v0.5.0`.
 
 ### Deferred → v0.5.1 "loop & device polish"
 - **Metronome downbeat doubles at loop wrap (intermittent).** Loop-wrap is driven by a Dart 60fps
