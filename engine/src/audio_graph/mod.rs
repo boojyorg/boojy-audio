@@ -888,4 +888,63 @@ mod tests {
         let energy: f32 = buf.iter().map(|s| s.abs()).sum();
         assert!(energy > 0.0, "offline render was silent");
     }
+
+    #[test]
+    fn offline_render_midi_track_with_builtin_fx_is_audible() {
+        // Bug C6: the offline renderer used `!fx_chain.is_empty()` to decide
+        // whether a track's MIDI goes to a VST3 plugin or the built-in synth, so
+        // adding ANY built-in effect (e.g. reverb) to a MIDI track routed its
+        // notes to the (absent) VST3 queue and the track exported silent. The fix
+        // routes on the actual effect types: a chain of built-in effects still
+        // feeds the synth. This test bounces a sustained note under a reverb and
+        // asserts the result is audible — it was silent before the fix.
+        use crate::effects::{EffectType, Reverb};
+        use crate::midi::{MidiClip, MidiEvent};
+
+        let graph = AudioGraph::new().unwrap(); // includes a master track
+
+        let midi_id = {
+            let mut tm = graph.track_manager.lock();
+            tm.create_track(crate::track::TrackType::Midi, "Synth".to_string())
+        };
+        // Give the track a built-in synth voice (a real MIDI track gets one on
+        // creation); without an instrument the synth path is silent regardless.
+        graph.track_synth_manager.lock().create_synth(midi_id);
+
+        // Built-in reverb on the MIDI track — a non-VST3 effect. Before the fix,
+        // its mere presence silenced the track's MIDI on export.
+        {
+            let mut em = graph.effect_manager.lock();
+            let effect_id = em.create_effect(EffectType::Reverb(Reverb::new()));
+            let tm = graph.track_manager.lock();
+            if let Some(track_arc) = tm.get_track(midi_id) {
+                track_arc.lock().fx_chain.push(effect_id);
+            }
+        }
+
+        // A sustained note covering the whole bounce (note-on at frame 0).
+        let sr = TARGET_SAMPLE_RATE;
+        let clip = MidiClip::with_events(
+            vec![
+                MidiEvent::note_on(60, 100, 0),
+                MidiEvent::note_off(60, 0, u64::from(sr)), // 1s later — outlasts the render
+            ],
+            sr,
+        );
+        graph
+            .add_midi_clip_to_track(midi_id, Arc::new(clip), 0.0, 0)
+            .expect("MIDI clip should attach to the track");
+
+        let buf = graph.render_offline(0.5);
+
+        assert!(
+            buf.iter().all(|s| s.is_finite()),
+            "offline render produced non-finite samples"
+        );
+        let energy: f32 = buf.iter().map(|s| s.abs()).sum();
+        assert!(
+            energy > 0.0,
+            "MIDI track with a built-in effect exported silent (C6 regression)"
+        );
+    }
 }
