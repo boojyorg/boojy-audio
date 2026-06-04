@@ -947,4 +947,56 @@ mod tests {
             "MIDI track with a built-in effect exported silent (C6 regression)"
         );
     }
+
+    #[test]
+    fn offline_render_applies_midi_control_change() {
+        // Bug C23: both offline render paths dropped ControlChange events
+        // (`=> {}`), so MIDI CC automation (mod wheel, sustain, etc.) saved in a
+        // clip was silently lost on export even though realtime playback honours
+        // it. This test holds the sustain pedal (CC64) and releases the note
+        // early: with CC applied the note rings through the whole bounce, so the
+        // tail is loud; if CC is dropped the note releases at ~50ms and the tail
+        // (last 0.1s) is silent.
+        use crate::midi::{MidiClip, MidiEvent};
+
+        let graph = AudioGraph::new().unwrap();
+
+        let midi_id = {
+            let mut tm = graph.track_manager.lock();
+            tm.create_track(crate::track::TrackType::Midi, "Synth".to_string())
+        };
+        graph.track_synth_manager.lock().create_synth(midi_id);
+
+        let sr = TARGET_SAMPLE_RATE;
+        // Note-on + sustain-pedal-down at frame 0, note-off at 50ms. The synth's
+        // release is only 300ms, so without sustain the voice is silent well
+        // before the 0.5s bounce ends.
+        let note_off_frame = u64::from(sr) / 20; // 50ms
+        let clip = MidiClip::with_events(
+            vec![
+                MidiEvent::note_on(60, 100, 0),
+                MidiEvent::control_change(64, 127, 0), // sustain pedal down
+                MidiEvent::note_off(60, 0, note_off_frame),
+            ],
+            sr,
+        );
+        graph
+            .add_midi_clip_to_track(midi_id, Arc::new(clip), 0.0, 0)
+            .expect("MIDI clip should attach to the track");
+
+        let buf = graph.render_offline(0.5);
+        assert!(
+            buf.iter().all(|s| s.is_finite()),
+            "offline render produced non-finite samples"
+        );
+
+        // Energy in the final 0.1s (interleaved stereo → last 0.1s * sr * 2).
+        let tail_samples = (f64::from(sr) * 0.1) as usize * 2;
+        let tail = &buf[buf.len().saturating_sub(tail_samples)..];
+        let tail_energy: f32 = tail.iter().map(|s| s.abs()).sum();
+        assert!(
+            tail_energy > 1.0,
+            "sustain-pedal CC was dropped on export — note released early (C23 regression), tail_energy={tail_energy}"
+        );
+    }
 }

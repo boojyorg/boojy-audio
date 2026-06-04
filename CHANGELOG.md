@@ -6,6 +6,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Mono exports are now genuinely mono (C22).** Choosing "mono" when exporting to WAV used to write
+  a normal two-channel stereo file with the same audio copied into both channels — twice the file
+  size, and not actually a mono file. A mono export now writes a true single-channel WAV.
+- **Exported songs keep their MIDI automation (C23).** Control-change data saved in a clip — the
+  sustain pedal, mod wheel, and similar — was applied during live playback but **silently dropped
+  when you bounced or exported**, so e.g. a held sustain pedal was ignored and notes cut off early in
+  the rendered file. Export now applies the same control-change events that playback does.
 - **Dragging an audio file into a track can no longer freeze the app (C44).** Loading an audio file
   grabbed two internal locks in the opposite order to everywhere else in the engine, so doing it at
   the same moment a recording was stopping could deadlock the whole app — a silent hang with no

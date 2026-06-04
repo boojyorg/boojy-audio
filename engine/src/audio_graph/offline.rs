@@ -360,8 +360,29 @@ impl AudioGraph {
                                                 }
                                             }
                                             crate::midi::MidiEventType::ControlChange {
-                                                ..
-                                            } => {}
+                                                controller,
+                                                value,
+                                            } => {
+                                                // Mirror realtime: route CC (mod
+                                                // wheel, sustain, etc.) to the VST3
+                                                // queue or the built-in synth so
+                                                // exports keep MIDI automation. (C23)
+                                                if has_vst3 {
+                                                    vst3_events.push((
+                                                        2,
+                                                        0,
+                                                        i32::from(controller),
+                                                        i32::from(value),
+                                                        i as i32,
+                                                    ));
+                                                } else {
+                                                    synth_manager.control_change(
+                                                        track_snap.id,
+                                                        controller,
+                                                        value,
+                                                    );
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -739,7 +760,26 @@ impl AudioGraph {
                                                 synth_manager.note_off(track_id, note);
                                             }
                                         }
-                                        crate::midi::MidiEventType::ControlChange { .. } => {}
+                                        crate::midi::MidiEventType::ControlChange {
+                                            controller,
+                                            value,
+                                        } => {
+                                            // Mirror realtime so stem/track
+                                            // exports keep MIDI CC automation. (C23)
+                                            if has_vst3 {
+                                                vst3_events.push((
+                                                    2,
+                                                    0,
+                                                    i32::from(controller),
+                                                    i32::from(value),
+                                                    i as i32,
+                                                ));
+                                            } else {
+                                                synth_manager.control_change(
+                                                    track_id, controller, value,
+                                                );
+                                            }
+                                        }
                                     }
                                 }
                             }
