@@ -6,6 +6,14 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A corrupt colour can no longer wipe your whole saved layout (C80).** If a project's saved track
+  colours contained even one bad entry, loading it threw an error that was caught by discarding the
+  *entire* UI layout — panel sizes, view position, clip metadata, loop and time-signature all reset
+  to defaults silently. Bad colour entries are now skipped individually; everything else loads
+  normally.
+- **Saving while recording no longer leaves a phantom clip (C74).** Saving or auto-saving in the
+  middle of a MIDI recording wrote the half-finished, still-recording clip into the project, so it
+  reappeared as a stray clip when you reopened. Only finalised clips are saved now.
 - **Mono exports are now genuinely mono (C22).** Choosing "mono" when exporting to WAV used to write
   a normal two-channel stereo file with the same audio copied into both channels — twice the file
   size, and not actually a mono file. A mono export now writes a true single-channel WAV.
