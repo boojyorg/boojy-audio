@@ -5,7 +5,7 @@
 use super::dither::{convert_to_16bit, convert_to_24bit};
 use super::normalize::normalize_peak;
 use super::options::{ExportOptions, ExportResult, WavBitDepth};
-use super::resample::{mono_to_stereo, resample_stereo, stereo_to_mono};
+use super::resample::{resample_mono, resample_stereo, stereo_to_mono};
 use std::path::Path;
 
 /// Internal sample rate used by the audio engine
@@ -41,11 +41,15 @@ pub fn export_wav(
     // Make a mutable copy of samples for processing
     let mut processed = samples.to_vec();
 
+    // Output channel count. A mono export writes a true single-channel WAV
+    // (half the size, correctly tagged mono) rather than a dual-mono stereo
+    // file with two identical channels. (C22)
+    let channels: u16 = if options.mono { 1 } else { 2 };
+
     // Apply mono mixdown if requested
     if options.mono {
         eprintln!("🔊 [WAV Export] Converting to mono");
         processed = stereo_to_mono(&processed);
-        processed = mono_to_stereo(&processed); // Convert back for stereo output file
     }
 
     // Apply sample rate conversion if needed
@@ -54,31 +58,47 @@ pub fn export_wav(
             "🔄 [WAV Export] Resampling {}Hz → {}Hz",
             ENGINE_SAMPLE_RATE, options.sample_rate
         );
-        processed = resample_stereo(&processed, ENGINE_SAMPLE_RATE, options.sample_rate)?;
+        processed = if options.mono {
+            resample_mono(&processed, ENGINE_SAMPLE_RATE, options.sample_rate)?
+        } else {
+            resample_stereo(&processed, ENGINE_SAMPLE_RATE, options.sample_rate)?
+        };
     }
 
-    // Apply normalization if requested
+    // Apply normalization if requested (peak scan is channel-agnostic)
     if options.normalize {
         eprintln!("📊 [WAV Export] Normalizing to -0.1 dBFS");
         normalize_peak(&mut processed, -0.1);
     }
 
     // Calculate duration
-    let num_frames = processed.len() / 2;
+    let num_frames = processed.len() / channels as usize;
     let duration = num_frames as f64 / f64::from(options.sample_rate);
 
     // Write WAV based on bit depth
     let format_description = match bit_depth {
         WavBitDepth::Int16 => {
-            write_wav_16bit(&processed, output_path, options.sample_rate, options.dither)?;
+            write_wav_16bit(
+                &processed,
+                output_path,
+                options.sample_rate,
+                channels,
+                options.dither,
+            )?;
             "WAV 16-bit".to_string()
         }
         WavBitDepth::Int24 => {
-            write_wav_24bit(&processed, output_path, options.sample_rate, options.dither)?;
+            write_wav_24bit(
+                &processed,
+                output_path,
+                options.sample_rate,
+                channels,
+                options.dither,
+            )?;
             "WAV 24-bit".to_string()
         }
         WavBitDepth::Float32 => {
-            write_wav_float32(&processed, output_path, options.sample_rate)?;
+            write_wav_float32(&processed, output_path, options.sample_rate, channels)?;
             "WAV 32-bit float".to_string()
         }
     };
@@ -107,10 +127,11 @@ fn write_wav_16bit(
     samples: &[f32],
     output_path: &Path,
     sample_rate: u32,
+    channels: u16,
     dither: bool,
 ) -> Result<(), String> {
     let spec = hound::WavSpec {
-        channels: 2,
+        channels,
         sample_rate,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
@@ -140,10 +161,11 @@ fn write_wav_24bit(
     samples: &[f32],
     output_path: &Path,
     sample_rate: u32,
+    channels: u16,
     dither: bool,
 ) -> Result<(), String> {
     let spec = hound::WavSpec {
-        channels: 2,
+        channels,
         sample_rate,
         bits_per_sample: 24,
         sample_format: hound::SampleFormat::Int,
@@ -169,9 +191,14 @@ fn write_wav_24bit(
 }
 
 /// Write 32-bit float WAV file
-fn write_wav_float32(samples: &[f32], output_path: &Path, sample_rate: u32) -> Result<(), String> {
+fn write_wav_float32(
+    samples: &[f32],
+    output_path: &Path,
+    sample_rate: u32,
+    channels: u16,
+) -> Result<(), String> {
     let spec = hound::WavSpec {
-        channels: 2,
+        channels,
         sample_rate,
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
@@ -256,6 +283,47 @@ mod tests {
         assert!(result.is_ok());
 
         // Clean up
+        let _ = std::fs::remove_file(&temp_path);
+    }
+
+    /// A mono export must write a genuine single-channel WAV — not a
+    /// dual-mono stereo file with two identical channels. (C22)
+    #[test]
+    fn test_export_wav_mono_is_single_channel() {
+        let samples = create_test_samples(); // 48000 stereo frames
+        let temp_path = env::temp_dir().join("test_export_mono.wav");
+
+        // Pin the export rate to the engine rate so no resampling alters the
+        // frame count — we want to assert the mono mixdown preserves frames.
+        let options = ExportOptions::wav(WavBitDepth::Int16)
+            .with_mono(true)
+            .with_sample_rate(ENGINE_SAMPLE_RATE);
+        let result = export_wav(&samples, &temp_path, &options).unwrap();
+
+        // Read the file header back and confirm it is truly mono with the
+        // same frame count / duration as the stereo source.
+        let reader = hound::WavReader::open(&temp_path).unwrap();
+        let spec = reader.spec();
+        assert_eq!(spec.channels, 1, "mono export must be 1 channel");
+        assert_eq!(reader.duration(), 48000, "mono frame count must match source");
+        assert!((result.duration - 1.0).abs() < 0.01);
+
+        let _ = std::fs::remove_file(&temp_path);
+    }
+
+    /// A default (non-mono) export stays stereo. Guards against the mono
+    /// fix accidentally collapsing every export to one channel.
+    #[test]
+    fn test_export_wav_stereo_is_two_channels() {
+        let samples = create_test_samples();
+        let temp_path = env::temp_dir().join("test_export_stereo_channels.wav");
+
+        let options = ExportOptions::wav(WavBitDepth::Int16);
+        export_wav(&samples, &temp_path, &options).unwrap();
+
+        let reader = hound::WavReader::open(&temp_path).unwrap();
+        assert_eq!(reader.spec().channels, 2, "default export must be stereo");
+
         let _ = std::fs::remove_file(&temp_path);
     }
 }
