@@ -7,9 +7,13 @@ paths:
 
 # Flutter 3.44 / Dart 3.12 conventions & UI changes
 
-Flutter is pinned to **3.44.0 / Dart 3.12** via FVM (`ui/.fvmrc`). Full rationale and the
-"revisit-when" log live in [docs/FLUTTER_3.44_RULES.md](../../docs/FLUTTER_3.44_RULES.md); the
-load-bearing rules:
+Flutter is pinned to **3.44.0 / Dart 3.12** via FVM (`ui/.fvmrc`).
+
+> Heads-up: much of the public 3.44 advice targets **mobile** (iOS SwiftPM, Android Hybrid
+> Composition) and does **not** apply to this macOS/Windows desktop DAW — verify against this
+> project before acting on a generic "3.44 best practices" list.
+
+The load-bearing rules:
 
 - **Keep `package:flutter/material.dart` imports.** Do **not** migrate to the standalone
   `material_ui` / `cupertino_ui` packages yet — they're preview (`0.0.1`) and the in-SDK imports are
@@ -37,6 +41,18 @@ load-bearing rules:
   experimental — don't use them.
 - **Toolchain sync:** changing the Flutter version means updating `ui/.fvmrc` **and**
   `FLUTTER_VERSION` in both `.github/workflows/*.yml` together.
+
+## Deferred 3.44 decisions — revisit when…
+
+| Topic | Decision | Revisit when |
+| --- | --- | --- |
+| `material_ui` / `cupertino_ui` standalone packages | **Stay on `package:flutter/material.dart`.** Preview (`material_ui` is `0.0.1`, "Coming soon"); the in-SDK imports are **not** deprecated in 3.44 — migrating now bets ~170 files on a preview package. | `material_ui` ships a stable (≥1.0) release **and** the in-SDK imports start emitting deprecation warnings. |
+| SwiftPM (3.44 default for new iOS/macOS projects) | **Keep CocoaPods.** Don't run `flutter config --enable-swift-package-manager`. | `window_manager`, `desktop_drop`, and `screen_retriever_macos` all ship SwiftPM support (today `flutter pub get` warns they don't). |
+| Dart 3.12 private named parameters | **Allowed, not mandated** — fine for new constructors, no mass refactor. | n/a — use at discretion. Primary constructors stay off (experimental). |
+
+**Not applicable here** (don't burn time on generic 3.44 advice): Android Hybrid Composition /
+SurfaceControl (no Android target); Impeller migration (already the macOS default); iOS
+CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 
 ## When modifying UI widgets
 
