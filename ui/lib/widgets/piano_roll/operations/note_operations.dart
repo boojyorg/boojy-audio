@@ -544,6 +544,23 @@ mixin NoteOperationsMixin on State<PianoRoll>, PianoRollStateMixin {
     }
   }
 
+  /// Extend the loop/clip length once to fit the furthest note in the clip.
+  ///
+  /// Call this at the END of a continuous drag (resize/move) instead of on every
+  /// drag-update frame. [autoExtendLoopIfNeeded] only ever grows the loop, so
+  /// calling it per-frame meant dragging a note out past the end and back within
+  /// a single gesture left a residual extra bar. Computing the extension once,
+  /// from the gesture's final note positions, avoids that.
+  void extendLoopToFitNotes() {
+    final notes = currentClip?.notes;
+    if (notes == null || notes.isEmpty) return;
+    final furthest = notes.reduce(
+      (a, b) =>
+          (a.startTime + a.duration) >= (b.startTime + b.duration) ? a : b,
+    );
+    autoExtendLoopIfNeeded(furthest);
+  }
+
   /// Update the loop length in the current clip.
   /// Only syncs duration if clip is not looped (arrangement length == loop length).
   void updateLoopLength(double newLength) {
