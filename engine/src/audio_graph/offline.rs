@@ -35,6 +35,26 @@ fn process_chain_block_offline(
     }
 }
 
+/// True if the chain hosts a VST3 plugin, which receives the track's MIDI as an
+/// instrument. Built-in effects (reverb, EQ, …) do not — for those the track's
+/// MIDI must reach the built-in synth instead. This mirrors the realtime
+/// renderer's routing decision (`renderer.rs`): without it, offline export used
+/// `!fx_chain.is_empty()`, so any MIDI track carrying a built-in effect routed
+/// its notes to the (absent) VST3 queue and exported silent. (Bug C6)
+#[cfg(all(feature = "vst3", not(target_os = "ios")))]
+fn fx_chain_hosts_vst3(effect_mgr: &EffectManager, fx_chain: &[u64]) -> bool {
+    fx_chain.iter().any(|effect_id| {
+        effect_mgr.get_effect(*effect_id).is_some_and(|effect_arc| {
+            matches!(*effect_arc.lock(), crate::effects::EffectType::VST3(_))
+        })
+    })
+}
+
+#[cfg(not(all(feature = "vst3", not(target_os = "ios"))))]
+fn fx_chain_hosts_vst3(_effect_mgr: &EffectManager, _fx_chain: &[u64]) -> bool {
+    false
+}
+
 /// A queued MIDI event for a VST3 instrument: `(event_type, channel, data1,
 /// data2, sample_offset)` where `sample_offset` is relative to the start of the
 /// current render block. Collected during the per-sample fill pass and flushed
@@ -58,6 +78,7 @@ impl AudioGraph {
             muted: bool,
             soloed: bool,
             fx_chain: Vec<u64>,
+            has_vst3_instrument: bool, // fx_chain hosts a VST3 plugin → MIDI routes to it, not the synth (C6)
             sends: Vec<(u64, f32)>,
             volume_automation: Vec<AutomationPoint>, // For per-frame interpolation
         }
@@ -74,7 +95,7 @@ impl AudioGraph {
         let tempo_ratio = current_tempo / 120.0;
         dlog!("🎵 [AudioGraph] Using tempo {current_tempo} BPM (ratio: {tempo_ratio:.3})");
 
-        let (track_snapshots, return_snapshots, has_solo, master_snapshot, return_index) = {
+        let (mut track_snapshots, return_snapshots, has_solo, master_snapshot, return_index) = {
             let tm = self.track_manager.lock();
             let has_solo_flag = tm.has_solo();
             let all_tracks = tm.get_all_tracks();
@@ -95,6 +116,10 @@ impl AudioGraph {
                         muted: track.mute,
                         soloed: track.solo,
                         fx_chain: track.fx_chain.clone(),
+                        // Set in a second pass below, after the track-manager
+                        // lock is released, to avoid nesting the effect-manager
+                        // lock inside it.
+                        has_vst3_instrument: false,
                         sends: track
                             .sends
                             .iter()
@@ -125,6 +150,17 @@ impl AudioGraph {
                 return_index,
             )
         };
+
+        // Decide MIDI routing per track now that the track-manager lock is
+        // released: a track hosting a VST3 plugin sends its MIDI to that plugin;
+        // every other track (including ones with only built-in effects) feeds
+        // the built-in synth. One effect-manager lock for the whole pass. (C6)
+        {
+            let effect_mgr = self.effect_manager.lock();
+            for snap in &mut track_snapshots {
+                snap.has_vst3_instrument = fx_chain_hosts_vst3(&effect_mgr, &snap.fx_chain);
+            }
+        }
 
         dlog!(
             "🎵 [AudioGraph] Rendering {} tracks (+ {} returns)",
@@ -170,8 +206,9 @@ impl AudioGraph {
             // --- Tracks ---
             for track_snap in &track_snapshots {
                 let audible = !track_snap.muted && (!has_solo || track_snap.soloed);
-                // Route MIDI to EITHER built-in synth OR VST3 (not both).
-                let has_vst3 = !track_snap.fx_chain.is_empty();
+                // Route MIDI to EITHER built-in synth OR VST3 (not both) —
+                // precomputed from the actual effect types, not chain emptiness. (C6)
+                let has_vst3 = track_snap.has_vst3_instrument;
                 vst3_events.clear();
 
                 // Pass 1: fill scratch with the pre-FX signal (clips + synth),
@@ -556,8 +593,12 @@ impl AudioGraph {
         let mut scratch_l = vec![0.0f32; OFFLINE_BLOCK];
         let mut scratch_r = vec![0.0f32; OFFLINE_BLOCK];
         let mut vst3_events: Vec<QueuedVst3Event> = Vec::with_capacity(128);
-        // Route MIDI to EITHER built-in synth OR VST3 (not both).
-        let has_vst3 = !track_snap.fx_chain.is_empty();
+        // Route MIDI to EITHER built-in synth OR VST3 (not both) — based on the
+        // actual effect types in the chain, not chain emptiness. (C6)
+        let has_vst3 = {
+            let effect_mgr = self.effect_manager.lock();
+            fx_chain_hosts_vst3(&effect_mgr, &track_snap.fx_chain)
+        };
 
         let mut block_start = 0usize;
         while block_start < total_frames {

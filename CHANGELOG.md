@@ -6,6 +6,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Exporting a synth track that has an effect on it is no longer silent (C6).** When you bounced or
+  exported your song, any MIDI/instrument track carrying a built-in effect (a reverb, an EQ, anything)
+  came out **completely silent** — its notes were being sent to a plugin slot that wasn't there
+  instead of to the built-in synth. Live playback was always fine; only the exported file was wrong,
+  so it was easy to miss until you opened the bounce. Export now decides where a track's notes go from
+  what's actually in its effect chain (the same way playback already did), so a synth with effects
+  records exactly what you hear.
 - **Splitting a clip and undoing no longer destroys part of it (C52/C63/C64).** This was data loss:
   undoing a MIDI clip split left only the left half on the track and **permanently discarded the
   right region of the original**, and a split audio clip kept playing its right half and its
