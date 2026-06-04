@@ -17,6 +17,7 @@ The v0.3.x beat-making candidates (ghost notes, clip polish, stock drum kit / st
 A three-review pre-release audit ([codebase](reviews/codebase_review_2026_06_01.md) · [UI/UX](reviews/ui_ux_review_2026_06_01.md) · [feature-gap](reviews/feature_gap_review_2026_06_01.md) · [triage](reviews/v0.4.0_pre_release_triage_2026_06_01.md)) confirmed v0.4.0 is taggable (the critical bugs are pre-existing, not v0.4 regressions) and the three reviews independently converged on the next two themes:
 
 - **v0.5 — "Trust & Legibility":** correctness/hardening for the moment a session leaves the happy path (VST3 lifecycle, DeleteTrack undo content-loss, recorder audio-thread blocking, round-trip tempo, command/undo holes) **+** make the design tokens load-bearing (tokenise the ~390 hardcoded colours; painters theme + scale). Do first: fix CI/test trust (integration tests skip when the dylib is absent; clippy non-fatal) + the FEATURE_TRACKER accuracy sweep.
+- **v0.5.1 — "loop & device polish":** a small follow-up for issues surfaced while dogfooding v0.5 — the metronome downbeat doubling intermittently at loop wrap (the Dart-timer-driven loop-wrap races the audio thread; the click window has no "already-fired-this-beat" guard), MIDI-keyboard hot-plug (a keyboard connected mid-session is detected but doesn't play — midir's input isn't re-connected on re-enumeration), plus the carried device items C24 (VST3 block size on reload), C99 (device disconnect kills playback), C104 (output device not persisted).
 - **v0.6 — "Sound":** the dedicated feature cycle — stock instruments (a new MIDI track is currently silent), drum step sequencer, starter loop pack, effect presets, swing-to-engine. Sequenced *after* hardening so a beginner's first from-scratch song doesn't land on the shakiest code paths.
 
 Shipped in v0.3.0:
@@ -43,6 +44,7 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.3.2 | Plugins & the audio thread (VST3 per-buffer, safety net) | Complete |
 | v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | Complete |
 | v0.5.0 | Trust & Legibility (correctness/hardening + token/painter legibility) | Next |
+| v0.5.1 | Loop & device polish (metronome loop-wrap, MIDI hot-plug, device handling) | Planned |
 | v0.6.0 | Sound (stock instruments, drum sequencer, loops, effect presets) | Planned |
 
 ---

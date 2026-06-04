@@ -2,87 +2,58 @@
 
 ## §1 Active Engineering Target
 
-**Target:** v0.4.0 — **Visual & UX polish**. The first dedicated UI/UX pass, scoped from the
-2026-05-30 review (`docs/reviews/ui_ux_review_2026_05_30.md`); spec in `docs/archive/plans/v0.4-plan.md`.
-Sequenced **foundation → contained re-treats → top-bar A/B last**, so the A/B happens on the
-finished look. The earlier v0.3.3 quick-win bug batch folds into this release — **no separate
-v0.3.3 tag** (we skipped it and went straight to v0.4.0).
+**Target:** v0.5.0 — **Trust & Legibility**. Correctness/hardening for the moments a session leaves
+the happy path, plus legibility (tokenised colours, themed/scaled painters). Theme set by the
+2026-06-01 review chain (`docs/reviews/v0.4.0_pre_release_triage_2026_06_01.md`).
+
+**Status (2026-06-04): in CI, dogfooding before tag.** The whole v0.5 branch is up as **PR #43**
+(`feat/v0.5-mixer-fader-affordances` → master) — the first time it has hit CI. Decision: **skip the
+unpublished v0.4.0 draft release**, next published tag is **v0.5.0**.
 
 ### Milestones
-- [x] **Quick-win bug batch** — version label, About box, start-screen Settings, zoom icon, tempo
-  clamp (20–300), velocity-lane colour, clip-colour palette, loop-hint contrast (was PR #21).
-- [x] **Phase 1 — Foundation:** bundle Inter + JetBrains Mono; unify the dark ramp to one
-  near-neutral **"gunmetal"** dark-grey family (chrome joins content; Graphite/Slate/Indigo are
-  live `Cmd+Shift+P` dev presets to A/B); UI Scale setting
-  (Compact/Default/Comfortable/Large via `MediaQuery.textScaler`, persisted); elevation tokens +
-  `BT.scaled()` helper for painters.
-- [x] **Phase 2 — Contained re-treats:** piano-roll keyboard-contrast lanes + accent-blue root band
-  + hover active lane (lane *colours* to be refined post-Phase-3); time-readout *behaviour*
-  (Bars → Time → Both, persisted) + a pinned arrangement orientation chip (bar at the left edge).
-  *(`polish/v0.4-phase2`.)*
-- [x] **Phase 3 — Top-bar A/B (last):** macOS title fix (native bar hidden via `window_manager`
-  `TitleBarStyle.hidden`, traffic lights kept → transport bar runs edge-to-edge) + dev "UI Labs"
-  switcher (`Cmd+Shift+L`) with **all four variants live** — A inline · B LCD panel · C two-row
-  (88px) · D arrangement-pinned (52px bar + a non-scrolling LCD readout pinned to the timeline's
-  top-left). Chosen variant persists (`UserSettings`). **Centred title decided:** intrinsic to C's
-  row 1, global toggle retired. _(PR #26 = title + A/B; C & D + title on `polish/v0.4-phase3-cd`.)_
-  **A/B decided 2026-05-31: Variant A (inline) wins** — stays the default; B/C/D kept behind the
-  debug switcher (pruning them is a deferred cleanup call).
-- [x] **Dogfood polish pass** (`polish/v0.4-chrome-titlestrip`, PR #29, merged 2026-05-31): the
-  top-bar/chrome polish (title strip, tool-tidy, always-live record, uniform readouts + BPM split
-  button, red-on-failure ▲ logo, one-band bar + Add-Track in the mixer header) **plus** a
-  visual/UX dogfood batch — shared `BoojyWordmark` (start screen + settings footer), centred
-  transport, piano-roll Loop/Snap restyle, note-colour legibility floor, **note resize in Select
-  mode**, type-coloured + icon'd Add-Track buttons, larger/centred macOS title, dB-readout no-wrap,
-  and the intermittent **Delete-does-nothing** focus fix. ⚠ two items still want a live eyeball:
-  the rebuilt "Boojy" lockup font/kerning, and the transport-centre offset when sidebar≠mixer width.
-  Dogfood log: `docs/dogfood/2026-05-31-v0.4-polish.md` (gitignored, local).
-- [x] **Fix-before-tag (shipped in v0.4.0):** narrow-window top-bar overflow (ui B-TB1) fixed, and
-  **VST3 instrument-reload-silent (C32/B-2) fixed** (root C++ subcategory detection in
-  `vst3_get_plugin_info` + universal arm64/Intel lib rebuild). The piano-roll lane-*colour*
-  refinement was **deferred to v0.5**.
-- [ ] Deferred to later sessions: the ~390 hardcoded-colour tokenisation (B15/B16) + light/
-  high-contrast ramp; effects/device overhaul (universal MIX knob, GR meter, EQ dot-curve);
-  Serum/VST3 load bug; scaling the 9 painter text sizes. **(Most of these are now the v0.5 theme — see below.)**
+- [x] CI/test trust (C92/C95) + FEATURE_TRACKER sweep + headless goldens.
+- [x] Correctness cluster: VST3 lifecycle (C30/34/35), DeleteTrack content-loss undo
+  (C62/68/76/97) incl. VST3 instrument restore, recorder audio-thread blocking (C1–C3),
+  round-trip tempo (C72), undo-integrity (C66/86), loadProject gate (C73/77), split-clip
+  undo (C52/63/64).
+- [x] Offline export fixes: synth+FX silence (C6), true mono WAV (C22), MIDI CC on bounce (C23).
+- [x] FFI lock-safety (C44/46/47) — deadlock on audio-file drag.
+- [x] Project-layout robustness (C74/C80).
+- [x] Graphic EQ (variable bands, drag-the-dot graph) + sample-rate fix (C12) — PR #40.
+- [x] Legibility pass (#10): one green, MeterColorZones, painters threaded with colours + textScale,
+  piano-roll lane legibility.
+- [x] Mixer affordances (#11): editable dB readout (drag to scrub / click to type, one undo step).
+- [x] Arrangement-view polish pass + lighter canvas (`#1C1D21`).
+- [x] UX/dogfood fixes: consistent panel sizes on new project; single-box 24px library search;
+  piano-roll resize no-residual-bar; loop-end playback sync (dogfood bug B).
+- [ ] **Before tag:** PR #43 CI all-green → finish dogfood → merge → version-sync (CHANGELOG →
+  v0.5.0, ROADMAP, README, FEATURE_TRACKER, **bump `ui/pubspec.yaml`**, archive the plan doc) →
+  tag `v0.5.0`.
 
-### Pre-release review outcome (2026-06-01)
+### Deferred → v0.5.1 "loop & device polish"
+- **Metronome downbeat doubles at loop wrap (intermittent).** Loop-wrap is driven by a Dart 60fps
+  timer that seeks the engine, racing the audio thread; the metronome click window
+  (`position_in_beat < 4000`, `engine/src/recorder.rs`) has no "already-fired-this-beat" guard and
+  `seek_metronome` sets zero cooldown. Real fix: a per-beat last-fired-index guard and/or move the
+  loop-wrap into the audio thread.
+- **MIDI keyboard hot-plug doesn't work.** Connect a keyboard mid-session → Settings detects it but
+  no notes flow; midir's `MidiInput` is consumed on connect (`engine/src/midi_input.rs`), refresh
+  re-enumerates but the input connection isn't re-established for the new device. Needs hardware
+  testing.
+- Carried from earlier: **C24** (VST3 block size hardcoded on reload), **C99** (device disconnect
+  kills playback silently), **C104** (output device not persisted).
 
-Ran a 3-workflow pre-release review chain before tagging v0.4.0 — reports in `docs/reviews/*_2026_06_01.md`
-(`codebase_review`, `ui_ux_review`, `feature_gap_review`) + the consolidated
-`v0.4.0_pre_release_triage_2026_06_01.md`. **Verdict: v0.4.0 is safe to tag** — every critical/high
-defect is *pre-existing* (already in v0.3.2); the v0.4 polish cycle introduced none, so tagging
-regresses nothing. The two fix-before-tag items above are the only genuinely v0.4-era cleanups.
-
-**Next themes decided (all three reviews converged independently):**
-- **v0.5 "Trust & Legibility"** — correctness/hardening (VST3 lifecycle C30/C32/C34/C35, DeleteTrack
-  content-loss undo C62/68/76/97, recorder audio-thread blocking C1–C3, round-trip tempo C72,
-  command/undo holes) **+** the legibility pass (tokenise the ~390 hardcoded colours; painters
-  theme + scale). **Do FIRST:** fix CI/test trust — integration tests skip when the dylib is absent
-  (C92) and clippy is non-fatal (C95) — plus the `FEATURE_TRACKER.md` accuracy sweep.
-- **v0.6 "Sound"** (after hardening) — stock instruments (a new MIDI track is currently *silent*),
-  drum sequencer, starter loop pack, effect presets, swing-to-engine.
-
-Fixes are **not yet applied** — awaiting Tyr's approval on the fix-before-tag shortlist, then a fresh
-branch off `origin/master`.
-
-**macOS title-bar gotcha:** no native `NSToolbar` style gives "centred + compact" — `.expanded`
-centres the title but adds an empty, taller toolbar row; `.unifiedCompact` is compact but
-left-aligned. Phase 3 hid the native title (`window_manager` `TitleBarStyle.hidden`, keep the
-traffic lights) so the transport bar is the only top chrome. A centred Flutter title is *wired but
-off by default* — it collides with the transport controls in single-row variants, so its final form
-is being settled live during the A/B (cleanest in the C two-row variant).
-
-**Trap (still live):** `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are
-dead/diverged, so edit the wired private methods, *not* the mixins (review §4).
+### Trap (still live)
+`daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are dead/diverged, so edit the
+wired private methods, *not* the mixins.
 
 ### How we work here
 - Plan **one milestone at a time** — only one active `docs/plans/vX.Y-plan.md`.
 - After each release: **dogfood** on a real project, then pick the next theme from friction.
-  `docs/ROADMAP.md` + `docs/FEATURE_TRACKER.md` are backlog, not a pre-scheduled ladder.
-- **Design decisions (UI/UX)** before locking implementation:
-  1. Brainstorm with Tyr — tradeoffs first (UX, then implementation). Ask; don't dictate.
-  2. ASCII mockups — 3–4 variants when layout is ambiguous; Tyr picks before code.
-  3. Defer on taste, push back on architecture — one clear preference, then collaborate.
+  `docs/ROADMAP.md` + `docs/FEATURE_TRACKER.md` are the backlog, not a pre-scheduled ladder.
+- **Design decisions (UI/UX)** before locking implementation: brainstorm tradeoffs (UX first) →
+  ASCII mockups (3–4 variants when layout is ambiguous; Tyr picks before code) → defer on taste,
+  push back on architecture.
 
 <!-- §1 only by design. git log is the history; Claude Code auto memory holds incidental learnings.
      No incident log, no backlog, no session ledger. -->
