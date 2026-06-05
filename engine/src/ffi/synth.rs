@@ -383,3 +383,175 @@ pub extern "C" fn free_sampler_waveform_peaks_ffi(ptr: *mut f32, length: usize) 
         }),
     );
 }
+
+// ============================================================================
+// DRUM KIT FFI
+// ============================================================================
+
+/// Create a drum-kit instrument for a track. Returns the instrument id, or -1 on error.
+#[no_mangle]
+pub extern "C" fn create_drum_kit_for_track_ffi(track_id: u64) -> i64 {
+    ffi_catch(-1, || match api::create_drum_kit_for_track(track_id) {
+        Ok(id) => id,
+        Err(e) => {
+            eprintln!("[FFI] Failed to create drum kit: {e}");
+            -1
+        }
+    })
+}
+
+/// Add an empty pad pinned to `pinned_note`. Returns the new pad index, or -1 on error.
+#[no_mangle]
+pub extern "C" fn add_drum_pad_ffi(track_id: u64, pinned_note: u8) -> i64 {
+    ffi_catch(-1, || match api::add_drum_pad(track_id, pinned_note) {
+        Ok(idx) => idx,
+        Err(e) => {
+            eprintln!("[FFI] Failed to add drum pad: {e}");
+            -1
+        }
+    })
+}
+
+/// Remove a pad by index. Returns a status/error message.
+#[no_mangle]
+pub extern "C" fn remove_drum_pad_ffi(track_id: u64, pad_index: u8) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::remove_drum_pad(track_id, pad_index) {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Load a sample file into a drum pad. Returns 1 on success, 0 on failure, -1 on panic.
+#[no_mangle]
+pub extern "C" fn load_drum_pad_sample_ffi(
+    track_id: u64,
+    pad_index: u8,
+    path: *const c_char,
+) -> i32 {
+    ffi_catch(
+        -1,
+        AssertUnwindSafe(|| {
+            let path_str = unsafe {
+                match CStr::from_ptr(path).to_str() {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return 0,
+                }
+            };
+            match api::load_drum_pad_sample(track_id, pad_index, path_str) {
+                Ok(msg) => {
+                    println!("[FFI] {msg}");
+                    1
+                }
+                Err(e) => {
+                    eprintln!("[FFI] Failed to load drum pad sample: {e}");
+                    0
+                }
+            }
+        }),
+    )
+}
+
+/// Set a per-pad parameter. Returns a status/error message.
+#[no_mangle]
+pub extern "C" fn set_drum_pad_parameter_ffi(
+    track_id: u64,
+    pad_index: u8,
+    param_name: *const c_char,
+    value: *const c_char,
+) -> *mut c_char {
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            let param_name_str = unsafe {
+                match CStr::from_ptr(param_name).to_str() {
+                    Ok(s) => s.to_string(),
+                    Err(_) => {
+                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
+                    }
+                }
+            };
+            let value_str = unsafe {
+                match CStr::from_ptr(value).to_str() {
+                    Ok(s) => s.to_string(),
+                    Err(_) => return safe_cstring("Error: Invalid value".to_string()).into_raw(),
+                }
+            };
+            match api::set_drum_pad_parameter(track_id, pad_index, param_name_str, value_str) {
+                Ok(msg) => safe_cstring(msg).into_raw(),
+                Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+            }
+        }),
+    )
+}
+
+/// Check if a track has a drum kit. Returns 1 if yes, 0 if no, -1 on error.
+#[no_mangle]
+pub extern "C" fn is_drum_kit_track_ffi(track_id: u64) -> i32 {
+    ffi_catch(-1, || match api::is_drum_kit_track(track_id) {
+        Ok(true) => 1,
+        Ok(false) => 0,
+        Err(e) => {
+            eprintln!("[FFI] Failed to check drum-kit track: {e}");
+            -1
+        }
+    })
+}
+
+/// The next free MIDI note for a new pad, from `start` upward. Returns -1 if none / on error.
+#[no_mangle]
+pub extern "C" fn drum_next_free_note_ffi(track_id: u64, start: u8) -> i64 {
+    ffi_catch(-1, || match api::drum_next_free_note(track_id, start) {
+        Ok(note) => note,
+        Err(e) => {
+            eprintln!("[FFI] drum_next_free_note failed: {e}");
+            -1
+        }
+    })
+}
+
+/// Get drum-kit state as a JSON string (caller frees via the shared string-free FFI).
+#[no_mangle]
+pub extern "C" fn get_drum_kit_info_ffi(track_id: u64) -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::get_drum_kit_info(track_id) {
+            Ok(json) => safe_cstring(json).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}
+
+/// Waveform peaks for a single pad's sample. Returns an f32 array; free with
+/// `free_sampler_waveform_peaks_ffi` (same allocation scheme).
+#[no_mangle]
+pub extern "C" fn get_drum_pad_waveform_peaks_ffi(
+    track_id: u64,
+    pad_index: u8,
+    resolution: usize,
+    out_length: *mut usize,
+) -> *mut f32 {
+    ffi_catch(
+        std::ptr::null_mut(),
+        AssertUnwindSafe(|| {
+            if let Ok(peaks) = api::get_drum_pad_waveform_peaks(track_id, pad_index, resolution) {
+                let len = peaks.len();
+                let boxed = peaks.into_boxed_slice();
+                let ptr = Box::into_raw(boxed).cast::<f32>();
+                if !out_length.is_null() {
+                    unsafe {
+                        *out_length = len;
+                    }
+                }
+                ptr
+            } else {
+                if !out_length.is_null() {
+                    unsafe {
+                        *out_length = 0;
+                    }
+                }
+                std::ptr::null_mut()
+            }
+        }),
+    )
+}

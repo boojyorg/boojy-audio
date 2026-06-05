@@ -168,9 +168,10 @@ impl AudioGraph {
                 // Get track type string
                 let track_type_str = format!("{:?}", track.track_type);
 
-                // Get instrument settings for MIDI tracks (synth or sampler)
+                // Get instrument settings for MIDI tracks (synth, sampler, or drum kit)
                 let synth_settings = synth_manager.get_synth_parameters(track.id);
                 let sampler_settings = synth_manager.get_sampler_parameters(track.id);
+                let drum_kit_settings = synth_manager.get_drum_kit_parameters(track.id);
 
                 // Export send routing
                 let sends: Vec<SendData> = track
@@ -229,6 +230,7 @@ impl AudioGraph {
                     fx_chain,
                     synth_settings,
                     sampler_settings,
+                    drum_kit_settings,
                     sends,
                     parent_group_id: track.parent_group,
                     input_monitoring: track.input_monitoring,
@@ -495,6 +497,30 @@ impl AudioGraph {
                         }
                     }
                     synth_manager.restore_sampler_parameters(track_id, sampler_data);
+                } else if let Some(drum_kit_data) = &track_data.drum_kit_settings {
+                    let mut synth_manager = self.track_synth_manager.lock();
+                    synth_manager.create_drum_kit(track_id);
+                    for slot in &drum_kit_data.slots {
+                        // Restore pad metadata, load its sample file (if any), then restore the
+                        // pad's sampler params — same order as the single-sampler restore above.
+                        synth_manager.restore_drum_pad_meta(track_id, slot);
+                        if let Some(path) = crate::drum_kit::DrumKit::slot_sample_path(slot) {
+                            if let Ok(clip) = crate::audio_file::load_audio_file(path) {
+                                synth_manager.load_drum_pad_sample(
+                                    track_id,
+                                    slot.pad_index,
+                                    Arc::new(clip),
+                                );
+                            }
+                        }
+                        if let Some(sampler_data) = &slot.sampler {
+                            synth_manager.restore_drum_pad_sampler(
+                                track_id,
+                                slot.pad_index,
+                                sampler_data,
+                            );
+                        }
+                    }
                 } else if track_data.track_type == "Sampler" {
                     // Legacy: old project with Sampler type but no sampler_settings
                     let mut synth_manager = self.track_synth_manager.lock();
