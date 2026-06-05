@@ -511,7 +511,9 @@ class _LibraryPanelState extends State<LibraryPanel> {
       // No bottom divider: the search field is the single box here. Drawing a
       // divider under it fenced the field inside a second "band", which read as
       // a box-in-a-box. Whitespace separates it from the category list instead.
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      // No vertical padding either, so the 24px field's top edge sits flush with
+      // the timeline loop bar (both BT.controlHeight); only a small side inset.
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(color: colors.dark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
