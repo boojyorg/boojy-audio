@@ -89,6 +89,17 @@ class _AudioEngineBase {
   late final _GetSamplerWaveformPeaksFfi _getSamplerWaveformPeaks;
   late final _FreeSamplerWaveformPeaksFfi _freeSamplerWaveformPeaks;
 
+  // Drum-kit functions (v0.6)
+  late final _CreateDrumKitForTrackFfi _createDrumKitForTrack;
+  late final _AddDrumPadFfi _addDrumPad;
+  late final _RemoveDrumPadFfi _removeDrumPad;
+  late final _LoadDrumPadSampleFfi _loadDrumPadSample;
+  late final _SetDrumPadParameterFfi _setDrumPadParameter;
+  late final _IsDrumKitTrackFfi _isDrumKitTrack;
+  late final _DrumNextFreeNoteFfi _drumNextFreeNote;
+  late final _GetDrumKitInfoFfi _getDrumKitInfo;
+  late final _GetDrumPadWaveformPeaksFfi _getDrumPadWaveformPeaks;
+
   // M4 functions - Tracks & Mixer
   late final _CreateTrackFfi _createTrack;
   late final _SetTrackVolumeFfi _setTrackVolume;
@@ -1015,6 +1026,59 @@ class _AudioEngineBase {
       _freeSamplerWaveformPeaks = _lib
           .lookup<ffi.NativeFunction<_FreeSamplerWaveformPeaksFfiNative>>(
             'free_sampler_waveform_peaks_ffi',
+          )
+          .asFunction();
+
+      // Bind Drum-kit functions (v0.6)
+      _createDrumKitForTrack = _lib
+          .lookup<ffi.NativeFunction<_CreateDrumKitForTrackFfiNative>>(
+            'create_drum_kit_for_track_ffi',
+          )
+          .asFunction();
+
+      _addDrumPad = _lib
+          .lookup<ffi.NativeFunction<_AddDrumPadFfiNative>>('add_drum_pad_ffi')
+          .asFunction();
+
+      _removeDrumPad = _lib
+          .lookup<ffi.NativeFunction<_RemoveDrumPadFfiNative>>(
+            'remove_drum_pad_ffi',
+          )
+          .asFunction();
+
+      _loadDrumPadSample = _lib
+          .lookup<ffi.NativeFunction<_LoadDrumPadSampleFfiNative>>(
+            'load_drum_pad_sample_ffi',
+          )
+          .asFunction();
+
+      _setDrumPadParameter = _lib
+          .lookup<ffi.NativeFunction<_SetDrumPadParameterFfiNative>>(
+            'set_drum_pad_parameter_ffi',
+          )
+          .asFunction();
+
+      _isDrumKitTrack = _lib
+          .lookup<ffi.NativeFunction<_IsDrumKitTrackFfiNative>>(
+            'is_drum_kit_track_ffi',
+          )
+          .asFunction();
+
+      _drumNextFreeNote = _lib
+          .lookup<ffi.NativeFunction<_DrumNextFreeNoteFfiNative>>(
+            'drum_next_free_note_ffi',
+          )
+          .asFunction();
+
+      _getDrumKitInfo = _lib
+          .lookup<ffi.NativeFunction<_GetDrumKitInfoFfiNative>>(
+            'get_drum_kit_info_ffi',
+          )
+          .asFunction();
+
+      _getDrumPadWaveformPeaks = _lib
+          .lookup<ffi.NativeFunction<_GetDrumPadWaveformPeaksFfiNative>>(
+            'get_drum_pad_waveform_peaks_ffi',
           )
           .asFunction();
 

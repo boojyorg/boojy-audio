@@ -7,34 +7,38 @@
 
 ## §1 Active Engineering Target
 
-**Target:** v0.5.0 — **Trust & Legibility**. Correctness/hardening for the moments a session leaves
-the happy path, plus legibility (tokenised colours, themed/scaled painters). Theme set by the
-2026-06-01 review chain (`docs/reviews/v0.4.0_pre_release_triage_2026_06_01.md`).
+**Target:** v0.6 — **Sound**. Headline feature: the **Drum Kit** — a one-click multi-slot one-shot
+sampler that lets a beginner make their first beat. A drum hit is an ordinary MIDI note routed to a
+pinned pad, so the kit writes to a normal MIDI clip (arrangement/undo/save-load come free). Plan:
+`~/.claude/plans/bright-soaring-fox.md` (settled Layout A + design — don't relitigate).
 
-**Status (2026-06-04): tagging v0.5.0.** The whole v0.5 branch went up as **PR #43**
-(`feat/v0.5-mixer-fader-affordances` → master), CI all-green. Decision: **skip the unpublished
-v0.4.0 draft release**, next published tag is **v0.5.0**.
+**Status (2026-06-05): PR2 (editor UI) in progress** on `feat/v0.6-drum-kit-engine`.
+PR-stack: **PR1 engine** committed `7884fdb` (DrumKit struct + 9 extern-C FFI shims + save/load;
+`cargo test` 146 green; **Dart bindings deferred to PR2; not pushed, no PR yet**) → **PR2 UI**
+(current) → **PR3 bundled starter kit**.
 
-### Milestones
-- [x] CI/test trust (C92/C95) + FEATURE_TRACKER sweep + headless goldens.
-- [x] Correctness cluster: VST3 lifecycle (C30/34/35), DeleteTrack content-loss undo
-  (C62/68/76/97) incl. VST3 instrument restore, recorder audio-thread blocking (C1–C3),
-  round-trip tempo (C72), undo-integrity (C66/86), loadProject gate (C73/77), split-clip
-  undo (C52/63/64).
-- [x] Offline export fixes: synth+FX silence (C6), true mono WAV (C22), MIDI CC on bounce (C23).
-- [x] FFI lock-safety (C44/46/47) — deadlock on audio-file drag.
-- [x] Project-layout robustness (C74/C80).
-- [x] Graphic EQ (variable bands, drag-the-dot graph) + sample-rate fix (C12) — PR #40.
-- [x] Legibility pass (#10): one green, MeterColorZones, painters threaded with colours + textScale,
-  piano-roll lane legibility.
-- [x] Mixer affordances (#11): editable dB readout (drag to scrub / click to type, one undo step).
-- [x] Arrangement-view polish pass + lighter canvas (`#1C1D21`).
-- [x] UX/dogfood fixes: consistent panel sizes on new project; single-box 24px library search;
-  piano-roll resize no-residual-bar; loop-end playback sync (dogfood bug B).
-- [x] **Tag:** PR #43 CI all-green → merge → version-sync (CHANGELOG → v0.5.0, ROADMAP, README,
-  FEATURE_TRACKER, **bump `ui/pubspec.yaml`**) → tag `v0.5.0`.
+### Milestones (v0.6 Drum Kit)
+- [x] **PR1 engine** — `DrumKit`/`DrumSlot`, note routing by pinned note, per-pad pan/mute/solo,
+  duplicate-note rejection, reserved `choke_group`, `DrumKitData` save/load, 9 extern-C FFI shims.
+- [ ] **PR2 UI** — Dart FFI bindings (mirror sampler) · `DrumKitInfo` model parsing
+  `get_drum_kit_info` JSON · `editor_panel.dart` `_isDrumKitTrack` branch (`[DrumKit, MIDI]` tabs) ·
+  `DrumKitEditor` (Layout A: detail panel left, step grid right) · `DrumStepSequencer` rows
+  (colour swatch + `CapsuleFader`/`VolumeReadoutBox` + round M/S) · Library "Drum Kit" create-path ·
+  undo (step toggles reuse `AddMidiNoteCommand`/`DeleteMidiNotesCommand`).
+- [ ] **PR3 content** — bundled CC0 starter kit (kick/snare/hat/clap) wired into the create-path
+  (the one-click first beat); asset-copy-to-app-support mechanism.
 
-### Deferred → v0.5.1 "loop & device polish"
+### v0.6 FFI surface (PR1, ready to bind)
+`create_drum_kit_for_track_ffi(u64)->i64` · `add_drum_pad_ffi(u64,u8 pinned_note)->i64 pad_index` ·
+`remove_drum_pad_ffi(u64,u8)->*c_char` · `load_drum_pad_sample_ffi(u64,u8,*path)->i32` ·
+`set_drum_pad_parameter_ffi(u64,u8,*name,*value)->*c_char` · `is_drum_kit_track_ffi(u64)->i32` ·
+`drum_next_free_note_ffi(u64,u8 start)->i64` · `get_drum_kit_info_ffi(u64)->*c_char` (JSON
+`DrumKitData{slots:[{pad_index,pinned_note,pan,muted,soloed,choke_group,sampler:SamplerData?}]}`) ·
+`get_drum_pad_waveform_peaks_ffi(u64,u8,usize,*out_len)->*f32` (free via
+`free_sampler_waveform_peaks_ffi`). Param names = sampler's: `pan/muted/soloed/volume_db/attack_ms/
+release_ms/transpose_semitones/fine_cents`.
+
+### Deferred → v0.5.1 "loop & device polish" (still owed, post-v0.6)
 - **Metronome downbeat doubles at loop wrap (intermittent).** Loop-wrap is driven by a Dart 60fps
   timer that seeks the engine, racing the audio thread; the metronome click window
   (`position_in_beat < 4000`, `engine/src/recorder.rs`) has no "already-fired-this-beat" guard and

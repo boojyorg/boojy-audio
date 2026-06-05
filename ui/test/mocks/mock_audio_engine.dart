@@ -1,3 +1,4 @@
+import 'package:boojy_audio/models/drum_kit_info.dart';
 import 'package:boojy_audio/models/sampler_info.dart';
 import 'package:boojy_audio/services/commands/audio_engine_interface.dart';
 
@@ -361,6 +362,71 @@ class MockAudioEngine implements AudioEngineInterface {
   @override
   List<double> getSamplerWaveformPeaks(int trackId, int resolution) {
     _record('getSamplerWaveformPeaks');
+    return [];
+  }
+
+  // --- Drum-kit operations ---
+
+  @override
+  int createDrumKitForTrack(int trackId) {
+    _record('createDrumKitForTrack');
+    return 1;
+  }
+
+  @override
+  int addDrumPad(int trackId, int pinnedNote) {
+    _record('addDrumPad');
+    return 0;
+  }
+
+  @override
+  String removeDrumPad(int trackId, int padIndex) {
+    _record('removeDrumPad');
+    return 'OK';
+  }
+
+  @override
+  bool loadDrumPadSample(int trackId, int padIndex, String path) {
+    _record('loadDrumPadSample');
+    return true;
+  }
+
+  @override
+  String setDrumPadParameter(
+    int trackId,
+    int padIndex,
+    String param,
+    String value,
+  ) {
+    _record('setDrumPadParameter');
+    return 'OK';
+  }
+
+  @override
+  bool isDrumKitTrack(int trackId) {
+    _record('isDrumKitTrack');
+    return false;
+  }
+
+  @override
+  int drumNextFreeNote(int trackId, int start) {
+    _record('drumNextFreeNote');
+    return start;
+  }
+
+  @override
+  DrumKitInfo? getDrumKitInfo(int trackId) {
+    _record('getDrumKitInfo');
+    return null;
+  }
+
+  @override
+  List<double> getDrumPadWaveformPeaks(
+    int trackId,
+    int padIndex,
+    int resolution,
+  ) {
+    _record('getDrumPadWaveformPeaks');
     return [];
   }
 

@@ -898,6 +898,13 @@ class _DAWScreenState extends State<DAWScreen>
 
   // M9: Instrument methods
   void _onInstrumentSelected(int trackId, String instrumentId) {
+    // A Drum Kit is a whole multi-pad track, not an in-place instrument swap —
+    // always spin up a fresh drum-kit track rather than overwriting this one.
+    if (instrumentId == 'drum_kit') {
+      _createDrumKitTrack();
+      return;
+    }
+
     // Create default instrument data for the track
     final instrumentData = InstrumentData.defaultSynthesizer(trackId);
     trackController.setTrackInstrument(trackId, instrumentData);
@@ -1087,6 +1094,12 @@ class _DAWScreenState extends State<DAWScreen>
 
       refreshTrackWidgets();
       selectTrack(trackId);
+      return;
+    }
+
+    // Handle Drum Kit instrument — multi-pad one-shot sampler on a MIDI track
+    if (instrument.id == 'drum_kit') {
+      _createDrumKitTrack();
       return;
     }
 
@@ -1596,6 +1609,37 @@ class _DAWScreenState extends State<DAWScreen>
     selectTrack(trackId);
 
     _showSnackBar('Created sampler with "${_truncateName(sampleName, 30)}"');
+  }
+
+  /// Create a new Drum Kit track seeded with standard empty pads.
+  ///
+  /// Pads are pinned to General-MIDI percussion notes (kick/snare/hat/clap) so
+  /// the editor opens with a sensible grid. Samples are loaded by the user for
+  /// now; the bundled starter kit (PR3) will pre-fill them for a one-click beat.
+  void _createDrumKitTrack() {
+    if (audioEngine == null) return;
+
+    final trackId = audioEngine!.createTrack('midi', 'Drum Kit');
+    if (trackId < 0) {
+      _showSnackBar('Failed to create drum kit track');
+      return;
+    }
+
+    final kitId = audioEngine!.createDrumKitForTrack(trackId);
+    if (kitId < 0) {
+      _showSnackBar('Failed to create drum kit');
+      return;
+    }
+
+    // GM percussion notes: 36 kick, 38 snare, 42 closed hat, 39 clap.
+    for (final note in const [36, 38, 42, 39]) {
+      audioEngine!.addDrumPad(trackId, note);
+    }
+
+    createDefaultMidiClip(trackId);
+    refreshTrackWidgets();
+    selectTrack(trackId);
+    _showSnackBar('Created drum kit');
   }
 
   /// Convert an Audio track to a Sampler track
@@ -4263,6 +4307,9 @@ class _DAWScreenState extends State<DAWScreen>
                               currentEditingClip:
                                   midiPlaybackManager?.currentEditingClip,
                               onMidiClipUpdated: _onMidiClipUpdated,
+                              undoManager: undoRedoManager,
+                              playheadNotifier:
+                                  playbackController.playheadNotifier,
                               onInstrumentParameterChanged:
                                   _onInstrumentParameterChanged,
                               currentEditingAudioClip: selectedAudioClip,
