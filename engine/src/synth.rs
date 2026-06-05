@@ -1,4 +1,5 @@
 use crate::audio_file::AudioClip;
+use crate::drum_kit::{DrumKit, DrumKitData};
 use crate::project::SynthData;
 use crate::sampler::{Sampler, SamplerData};
 /// Minimal per-track synthesizer
@@ -411,6 +412,7 @@ impl Synth {
 pub enum TrackInstrument {
     Synth(Synth),
     Sampler(Sampler),
+    DrumKit(DrumKit),
 }
 
 impl TrackInstrument {
@@ -418,6 +420,7 @@ impl TrackInstrument {
         match self {
             TrackInstrument::Synth(s) => s.note_on(note, velocity),
             TrackInstrument::Sampler(s) => s.note_on(note, velocity),
+            TrackInstrument::DrumKit(k) => k.note_on(note, velocity),
         }
     }
 
@@ -425,13 +428,15 @@ impl TrackInstrument {
         match self {
             TrackInstrument::Synth(s) => s.note_off(note),
             TrackInstrument::Sampler(s) => s.note_off(note),
+            TrackInstrument::DrumKit(k) => k.note_off(note),
         }
     }
 
     pub fn control_change(&mut self, controller: u8, value: u8) {
         match self {
             TrackInstrument::Synth(s) => s.control_change(controller, value),
-            TrackInstrument::Sampler(_) => {} // Sampler doesn't handle CC yet
+            // Samplers and drum kits don't handle CC yet
+            TrackInstrument::Sampler(_) | TrackInstrument::DrumKit(_) => {}
         }
     }
 
@@ -439,6 +444,7 @@ impl TrackInstrument {
         match self {
             TrackInstrument::Synth(s) => s.all_notes_off(),
             TrackInstrument::Sampler(s) => s.all_notes_off(),
+            TrackInstrument::DrumKit(k) => k.all_notes_off(),
         }
     }
 
@@ -447,6 +453,7 @@ impl TrackInstrument {
         match self {
             TrackInstrument::Synth(s) => s.process_sample(),
             TrackInstrument::Sampler(s) => s.process_sample_mono(),
+            TrackInstrument::DrumKit(k) => k.process_sample_mono(),
         }
     }
 
@@ -458,6 +465,7 @@ impl TrackInstrument {
                 (mono, mono)
             }
             TrackInstrument::Sampler(s) => s.process_sample(),
+            TrackInstrument::DrumKit(k) => k.process_sample(),
         }
     }
 
@@ -465,6 +473,8 @@ impl TrackInstrument {
         match self {
             TrackInstrument::Synth(s) => s.set_parameter(key, value),
             TrackInstrument::Sampler(s) => s.set_parameter(key, value),
+            // Drum-kit parameters are per-pad; use set_drum_pad_parameter instead.
+            TrackInstrument::DrumKit(_) => {}
         }
     }
 
@@ -476,24 +486,42 @@ impl TrackInstrument {
         matches!(self, TrackInstrument::Sampler(_))
     }
 
+    pub fn is_drum_kit(&self) -> bool {
+        matches!(self, TrackInstrument::DrumKit(_))
+    }
+
     pub fn as_synth(&self) -> Option<&Synth> {
         match self {
             TrackInstrument::Synth(s) => Some(s),
-            TrackInstrument::Sampler(_) => None,
+            _ => None,
         }
     }
 
     pub fn as_sampler(&self) -> Option<&Sampler> {
         match self {
             TrackInstrument::Sampler(s) => Some(s),
-            TrackInstrument::Synth(_) => None,
+            _ => None,
         }
     }
 
     pub fn as_sampler_mut(&mut self) -> Option<&mut Sampler> {
         match self {
             TrackInstrument::Sampler(s) => Some(s),
-            TrackInstrument::Synth(_) => None,
+            _ => None,
+        }
+    }
+
+    pub fn as_drum_kit(&self) -> Option<&DrumKit> {
+        match self {
+            TrackInstrument::DrumKit(k) => Some(k),
+            _ => None,
+        }
+    }
+
+    pub fn as_drum_kit_mut(&mut self) -> Option<&mut DrumKit> {
+        match self {
+            TrackInstrument::DrumKit(k) => Some(k),
+            _ => None,
         }
     }
 }
@@ -774,6 +802,127 @@ impl TrackSynthManager {
             }
         } else {
             None
+        }
+    }
+
+    // ========================================================================
+    // DRUM KIT
+    // ========================================================================
+
+    /// Create a drum-kit instrument for a track.
+    pub fn create_drum_kit(&mut self, track_id: u64) -> u64 {
+        self.instruments.insert(
+            track_id,
+            TrackInstrument::DrumKit(DrumKit::new(self.sample_rate)),
+        );
+        println!("✅ Created drum kit for track {track_id}");
+        track_id
+    }
+
+    /// Add an empty pad pinned to `pinned_note`. Returns the new pad index, or `None` if the track
+    /// isn't a drum kit or the note is already taken.
+    pub fn add_drum_pad(&mut self, track_id: u64, pinned_note: u8) -> Option<u8> {
+        self.instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+            .and_then(|k| k.add_pad(pinned_note))
+    }
+
+    /// Remove a pad by index. Returns `true` if a pad was removed.
+    pub fn remove_drum_pad(&mut self, track_id: u64, pad_index: u8) -> bool {
+        self.instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+            .is_some_and(|k| k.remove_pad(pad_index))
+    }
+
+    /// Load a sample into a drum pad.
+    pub fn load_drum_pad_sample(
+        &mut self,
+        track_id: u64,
+        pad_index: u8,
+        clip: Arc<AudioClip>,
+    ) -> bool {
+        self.instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+            .is_some_and(|k| k.load_pad_sample(pad_index, clip))
+    }
+
+    /// Set a per-pad parameter (`pan`, `muted`, `soloed`, `volume_db`, `attack`, `release`,
+    /// `transpose_semitones`, `reversed`, …).
+    pub fn set_drum_pad_parameter(&mut self, track_id: u64, pad_index: u8, key: &str, value: &str) {
+        if let Some(k) = self
+            .instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+        {
+            k.set_pad_parameter(pad_index, key, value);
+        }
+    }
+
+    /// Check if a track has a drum kit specifically.
+    pub fn has_drum_kit(&self, track_id: u64) -> bool {
+        self.instruments
+            .get(&track_id)
+            .is_some_and(TrackInstrument::is_drum_kit)
+    }
+
+    /// The next free MIDI note for a new pad, searching from `start` upward.
+    pub fn drum_next_free_note(&self, track_id: u64, start: u8) -> Option<u8> {
+        self.instruments
+            .get(&track_id)
+            .and_then(TrackInstrument::as_drum_kit)
+            .and_then(|k| k.next_free_note(start))
+    }
+
+    /// Drum-kit parameters for serialization / UI sync.
+    pub fn get_drum_kit_parameters(&self, track_id: u64) -> Option<DrumKitData> {
+        self.instruments
+            .get(&track_id)
+            .and_then(TrackInstrument::as_drum_kit)
+            .map(DrumKit::get_parameters)
+    }
+
+    /// Restore a pad's metadata (call before loading its sample).
+    pub fn restore_drum_pad_meta(&mut self, track_id: u64, data: &crate::drum_kit::DrumSlotData) {
+        if let Some(k) = self
+            .instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+        {
+            k.restore_pad_meta(data);
+        }
+    }
+
+    /// Restore a pad's sampler parameters (call after loading its sample).
+    pub fn restore_drum_pad_sampler(&mut self, track_id: u64, pad_index: u8, data: &SamplerData) {
+        if let Some(k) = self
+            .instruments
+            .get_mut(&track_id)
+            .and_then(TrackInstrument::as_drum_kit_mut)
+        {
+            k.restore_pad_sampler(pad_index, data);
+        }
+    }
+
+    /// Waveform peaks for a single pad's loaded sample.
+    pub fn get_drum_pad_waveform_peaks(
+        &self,
+        track_id: u64,
+        pad_index: u8,
+        resolution: usize,
+    ) -> Option<Vec<f32>> {
+        let kit = self
+            .instruments
+            .get(&track_id)
+            .and_then(TrackInstrument::as_drum_kit)?;
+        let slot = kit.slots().iter().find(|s| s.pad_index == pad_index)?;
+        let peaks = slot.sampler.get_waveform_peaks(resolution);
+        if peaks.is_empty() {
+            None
+        } else {
+            Some(peaks)
         }
     }
 }

@@ -50,6 +50,7 @@ macro_rules! dlog {
 // ============================================
 pub mod audio_file;
 mod audio_graph;
+pub mod drum_kit; // Drum Kit instrument (multi-slot one-shot sampler)
 pub mod effects; // M4: Audio effects
 mod export; // M8: Audio export (WAV, MP3, stems)
 pub mod midi;
