@@ -6,15 +6,15 @@
     <description>Updates for Boojy Audio</description>
     <language>en</language>
     <item>
-      <title>Version 0.5.0</title>
-      <pubDate>Thu, 04 Jun 2026 12:40:18 +0000</pubDate>
-      <sparkle:version>0.5.0</sparkle:version>
-      <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+      <title>Version 0.5.1</title>
+      <pubDate>Fri, 05 Jun 2026 19:09:12 +0000</pubDate>
+      <sparkle:version>0.5.1</sparkle:version>
+      <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>11.0</sparkle:minimumSystemVersion>
       <enclosure
         url="https://github.com/boojyorg/boojy-audio/releases/latest/download/Boojy-Audio-mac.dmg"
-        sparkle:edSignature="sparkle:edSignature=gv5IDMS4JceIFLYMqFS9JZCGlcs0C9l54s3xYFs5ECubJ/iovUNxUu1hWVXYLuCJ9gTA29F02DxaQNH4678/Ag== length=25160786"
-        length="25160786"
+        sparkle:edSignature="sparkle:edSignature=+wJbAhCecC5nTvmc7Fwa/P6Cxl09tFSxeckAhy74PIU4Hlfgj+8+XTFerolCaGg4ptu9RraykvMrziDSal+rDw== length=25189289"
+        length="25189289"
         type="application/octet-stream"
       />
     </item>
