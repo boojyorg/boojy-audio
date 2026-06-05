@@ -12,6 +12,8 @@ import '../theme/boojy_icons.dart';
 import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../state/ui_layout_state.dart';
+import '../utils/track_colors.dart';
+import 'shared/add_track_button.dart';
 import 'shared/boojy_wordmark.dart';
 import 'shared/button_hover_mixin.dart';
 import 'shared/circular_toggle_button.dart';
@@ -1061,29 +1063,56 @@ class _TransportBarState extends State<TransportBar> {
   // ============================================
 
   Widget _buildRightGroup(BoojyColors colors) {
-    // Fixed rail mirroring the left: the controls right-align to the far edge.
-    // Add-track lives in the mixer header + track list now, so the bar carries
-    // only the mixer toggle and Help, sitting together at the far right.
+    // Fixed rail mirroring the left, right-aligned to the far edge. Add-track
+    // buttons sit just left of the mixer toggle + Help (a small gap separates
+    // the "create" group from the panel chrome). Labels collapse to icon-only
+    // on a narrow rail so they never overflow.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          const Spacer(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showLabels = constraints.maxWidth >= 210;
+          return Row(
+            children: [
+              const Spacer(),
 
-          // Mixer toggle (mirrored sidebar icon)
-          _PanelToggleButton(
-            assetPath: 'assets/icons/sidebar_toggle.svg',
-            isActive: widget.mixerVisible,
-            onTap: widget.panels.onToggleMixer,
-            tooltip: widget.mixerVisible ? 'Hide Mixer' : 'Show Mixer',
-            mirrored: true,
-          ),
+              // Add MIDI / Audio track
+              AddTrackButton(
+                label: showLabels ? 'MIDI' : '',
+                typeIcon: BI.piano,
+                typeColor:
+                    TrackColors.categoryColors[TrackColorCategory.synth]!,
+                onTap: widget.panels.onAddMidiTrack,
+                tooltip: 'Add MIDI Track',
+              ),
+              const SizedBox(width: 6),
+              AddTrackButton(
+                label: showLabels ? 'Audio' : '',
+                typeIcon: BI.waveform,
+                typeColor:
+                    TrackColors.categoryColors[TrackColorCategory.audio]!,
+                onTap: widget.panels.onAddAudioTrack,
+                tooltip: 'Add Audio Track',
+              ),
 
-          const SizedBox(width: 8),
+              const SizedBox(width: 12),
 
-          // Help button — far right
-          _HelpButton(onTap: widget.panels.onHelpPressed),
-        ],
+              // Mixer toggle (mirrored sidebar icon)
+              _PanelToggleButton(
+                assetPath: 'assets/icons/sidebar_toggle.svg',
+                isActive: widget.mixerVisible,
+                onTap: widget.panels.onToggleMixer,
+                tooltip: widget.mixerVisible ? 'Hide Mixer' : 'Show Mixer',
+                mirrored: true,
+              ),
+
+              const SizedBox(width: 8),
+
+              // Help button — far right
+              _HelpButton(onTap: widget.panels.onHelpPressed),
+            ],
+          );
+        },
       ),
     );
   }
