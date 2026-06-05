@@ -31,12 +31,6 @@ class TrackMixerPanel extends StatefulWidget {
   // Audio file drag-and-drop
   final Function(String filePath)? onAudioFileDropped;
 
-  // Add-track entry points, shown in the mixer header (the mixer is Boojy's
-  // track list, so this is where adding a track lives). Both reuse the same
-  // undoable CreateTrackCommand path as the transport (+) button.
-  final VoidCallback? onAddMidiTrack;
-  final VoidCallback? onAddAudioTrack;
-
   // Track height management (reuses TrackHeightState from timeline_models)
   final TrackHeightState trackHeightState;
   final Function(double height)? onMasterTrackHeightChanged;
@@ -65,8 +59,6 @@ class TrackMixerPanel extends StatefulWidget {
     this.trackInstruments,
     this.trackVst3PluginCounts,
     this.onAudioFileDropped,
-    this.onAddMidiTrack,
-    this.onAddAudioTrack,
     this.trackHeightState = const TrackHeightState(),
     this.onMasterTrackHeightChanged,
     this.getTrackColor,
@@ -590,46 +582,51 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   void _confirmDeleteTrack(TrackData track) {
-    final colors = context.colors;
+    // Read theme from the dialog's own build context — reading `context.colors`
+    // here (an event-handler callback, not a build) makes Provider.of listen
+    // from outside the widget tree, which throws and silently aborts the delete.
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Track'),
-        content: Text('Are you sure you want to delete "${track.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
+      builder: (context) {
+        final colors = context.colors;
+        return AlertDialog(
+          title: const Text('Delete Track'),
+          content: Text('Are you sure you want to delete "${track.name}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
 
-              // Prefer the DAW-layer undoable delete (snapshots + restores the
-              // track's full content). Fall back to the plain command +
-              // teardown only if the host didn't wire onDeleteRequested.
-              if (widget.trackCallbacks.onDeleteRequested != null) {
-                await widget.trackCallbacks.onDeleteRequested!(track);
-              } else {
-                final command = DeleteTrackCommand(
-                  trackId: track.id,
-                  trackName: track.name,
-                  trackType: track.type,
-                  volumeDb: track.volumeDb,
-                  pan: track.pan,
-                  mute: track.mute,
-                  solo: track.solo,
-                  armed: track.armed,
-                );
-                await UndoRedoManager().execute(command);
-                widget.trackCallbacks.onDeleted?.call(track.id);
-              }
-              _loadTracksAsync();
-            },
-            child: Text('Delete', style: TextStyle(color: colors.error)),
-          ),
-        ],
-      ),
+                // Prefer the DAW-layer undoable delete (snapshots + restores the
+                // track's full content). Fall back to the plain command +
+                // teardown only if the host didn't wire onDeleteRequested.
+                if (widget.trackCallbacks.onDeleteRequested != null) {
+                  await widget.trackCallbacks.onDeleteRequested!(track);
+                } else {
+                  final command = DeleteTrackCommand(
+                    trackId: track.id,
+                    trackName: track.name,
+                    trackType: track.type,
+                    volumeDb: track.volumeDb,
+                    pan: track.pan,
+                    mute: track.mute,
+                    solo: track.solo,
+                    armed: track.armed,
+                  );
+                  await UndoRedoManager().execute(command);
+                  widget.trackCallbacks.onDeleted?.call(track.id);
+                }
+                _loadTracksAsync();
+              },
+              child: Text('Delete', style: TextStyle(color: colors.error)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -736,40 +733,14 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   Widget _buildHeader() {
+    // Empty 24px strip kept as the mixer's alignment spacer: it mirrors the
+    // timeline loop bar's height so the first track strip lines up with the
+    // first arrangement row. Add-track buttons now live in the top bar.
     return Container(
       height: 24, // Match timeline nav bar height
-      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
-      ),
-      // The mixer is Boojy's track list, so adding a track lives here. Two
-      // explicit type buttons (no hidden dropdown); labels abbreviate when the
-      // panel is narrow so both always fit.
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final full = constraints.maxWidth >= 240;
-          return Row(
-            children: [
-              const Spacer(),
-              _MixerAddTrackButton(
-                label: full ? 'MIDI Track' : 'MIDI',
-                typeIcon: BI.piano,
-                typeColor:
-                    TrackColors.categoryColors[TrackColorCategory.synth]!,
-                onTap: widget.onAddMidiTrack,
-              ),
-              const SizedBox(width: 6),
-              _MixerAddTrackButton(
-                label: full ? 'Audio Track' : 'Audio',
-                typeIcon: BI.waveform,
-                typeColor:
-                    TrackColors.categoryColors[TrackColorCategory.audio]!,
-                onTap: widget.onAddAudioTrack,
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -895,6 +866,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
             builder: (context, levels, _) => MasterTrackMixerStrip(
               volumeDb: masterTrack.volumeDb,
               pan: masterTrack.pan,
+              isSelected:
+                  widget.selectionState.selectedTrackId == masterTrack.id,
+              onTap: () =>
+                  widget.selectionState.onTrackSelected?.call(masterTrack.id),
               peakLevelLeft: levels[masterTrack.id]?.$1 ?? 0.0,
               peakLevelRight: levels[masterTrack.id]?.$2 ?? 0.0,
               trackHeight: widget.trackHeightState.masterTrackHeight,
@@ -1536,87 +1511,6 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
           },
         );
       },
-    );
-  }
-}
-
-/// Compact `+ MIDI/Audio Track` button for the mixer header. Quiet at rest, lifts
-/// to its track-type colour on hover (so the hint teaches the colour language);
-/// muted + non-interactive when its callback is null.
-class _MixerAddTrackButton extends StatefulWidget {
-  final String label;
-  final IconData typeIcon;
-  final Color typeColor;
-  final VoidCallback? onTap;
-
-  const _MixerAddTrackButton({
-    required this.label,
-    required this.typeIcon,
-    required this.typeColor,
-    this.onTap,
-  });
-
-  @override
-  State<_MixerAddTrackButton> createState() => _MixerAddTrackButtonState();
-}
-
-class _MixerAddTrackButtonState extends State<_MixerAddTrackButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final enabled = widget.onTap != null;
-    final active = _hovered && enabled;
-    final fg = !enabled
-        ? colors.textMuted
-        : (active ? widget.typeColor : colors.textSecondary);
-
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (_hovered) setState(() => _hovered = false);
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          height: BT.controlHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 7),
-          decoration: BoxDecoration(
-            color: active
-                ? widget.typeColor.withValues(alpha: BT.opacityLight)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: active
-                  ? widget.typeColor.withValues(alpha: 0.5)
-                  : colors.divider,
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(BI.add, size: 12, color: fg),
-              const SizedBox(width: 2),
-              Icon(widget.typeIcon, size: 12, color: fg),
-              const SizedBox(width: 3),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: BT.fontLabel,
-                  fontWeight: BT.weightMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

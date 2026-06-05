@@ -2011,6 +2011,10 @@ class MasterTrackMixerStrip extends StatefulWidget {
   final VoidCallback? onPanDragEnd;
   final VoidCallback? onFxButtonPressed;
 
+  // Selection (tap the strip to edit Master's effects chain in the editor)
+  final bool isSelected;
+  final VoidCallback? onTap;
+
   // Track height resizing (top edge for master)
   final double trackHeight;
   final Function(double)? onHeightChanged;
@@ -2031,6 +2035,8 @@ class MasterTrackMixerStrip extends StatefulWidget {
     this.onPanDragStart,
     this.onPanDragEnd,
     this.onFxButtonPressed,
+    this.isSelected = false,
+    this.onTap,
     this.trackHeight = kDefaultHeight,
     this.onHeightChanged,
     this.stripWidth = 380.0,
@@ -2069,6 +2075,10 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
   @override
   Widget build(BuildContext context) {
     final masterColor = context.colors.accent;
+    // When selected, the border goes white to match the regular track strips.
+    final borderColor = widget.isSelected
+        ? Colors.white.withValues(alpha: 0.9)
+        : masterColor;
     final scale = _scaleFactor;
 
     // Layout dimensions (same logic as regular tracks)
@@ -2088,149 +2098,153 @@ class _MasterTrackMixerStripState extends State<MasterTrackMixerStrip> {
     const double dbFontSize = UIConstants.dbFontSize;
     const double dbContainerWidth = UIConstants.dbContainerWidth;
 
-    return SizedBox(
-      width: widget.stripWidth,
-      height: widget.trackHeight,
-      child: Stack(
-        children: [
-          // Main content container
-          Container(
-            width: widget.stripWidth,
-            height: widget.trackHeight,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(
-              color: _getTintedBackgroundColor(context),
-              border: Border(
-                left: BorderSide(color: masterColor, width: 4),
-                top: BorderSide(color: masterColor, width: 2),
-                right: BorderSide(color: masterColor, width: 2),
-                bottom: BorderSide(color: masterColor, width: 2),
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: widget.stripWidth,
+        height: widget.trackHeight,
+        child: Stack(
+          children: [
+            // Main content container
+            Container(
+              width: widget.stripWidth,
+              height: widget.trackHeight,
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: _getTintedBackgroundColor(context),
+                border: Border(
+                  left: BorderSide(color: borderColor, width: 4),
+                  top: BorderSide(color: borderColor, width: 2),
+                  right: BorderSide(color: borderColor, width: 2),
+                  bottom: BorderSide(color: borderColor, width: 2),
+                ),
               ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: horizontalPadding,
-                right: horizontalPadding,
-                top: topPadding,
-                bottom: bottomPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Row 1: Icon + "Master" text + Pan knob
-                  SizedBox(
-                    height: rowHeight,
-                    child: Row(
-                      children: [
-                        // Icon (headphones)
-                        const Text('🎧', style: TextStyle(fontSize: 14)),
-                        const SizedBox(width: 6),
-                        // "Master" text
-                        Expanded(
-                          child: Text(
-                            'Master',
-                            style: TextStyle(
-                              color: masterColor,
-                              fontSize: fontSize,
-                              fontWeight: BT.weightSemiBold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (widget.onFxButtonPressed != null)
-                          GestureDetector(
-                            onTap: widget.onFxButtonPressed,
-                            child: Icon(
-                              BI.lightning,
-                              size: 16,
-                              color: context.colors.textSecondary,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                  top: topPadding,
+                  bottom: bottomPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Row 1: Icon + "Master" text + Pan knob
+                    SizedBox(
+                      height: rowHeight,
+                      child: Row(
+                        children: [
+                          // Icon (headphones)
+                          const Text('🎧', style: TextStyle(fontSize: 14)),
+                          const SizedBox(width: 6),
+                          // "Master" text
+                          Expanded(
+                            child: Text(
+                              'Master',
+                              style: TextStyle(
+                                color: masterColor,
+                                fontSize: fontSize,
+                                fontWeight: BT.weightSemiBold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        if (widget.onFxButtonPressed != null)
-                          const SizedBox(width: 4),
-                        // Pan knob (aligned right)
-                        PanKnob(
-                          pan: widget.pan,
-                          onChanged: widget.onPanChanged,
-                          onDragStart: widget.onPanDragStart,
-                          onDragEnd: widget.onPanDragEnd,
-                          size: panSize,
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          if (widget.onFxButtonPressed != null)
+                            GestureDetector(
+                              onTap: widget.onFxButtonPressed,
+                              child: Icon(
+                                BI.lightning,
+                                size: 16,
+                                color: context.colors.textSecondary,
+                              ),
+                            ),
+                          if (widget.onFxButtonPressed != null)
+                            const SizedBox(width: 4),
+                          // Pan knob (aligned right)
+                          PanKnob(
+                            pan: widget.pan,
+                            onChanged: widget.onPanChanged,
+                            onDragStart: widget.onPanDragStart,
+                            onDragEnd: widget.onPanDragEnd,
+                            size: panSize,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Row 2: dB + Volume Slider (same as regular tracks)
-                  SizedBox(
-                    height: rowHeight,
-                    child: Row(
-                      children: [
-                        // dB value display — drag vertically to scrub, click to type.
-                        VolumeReadoutBox(
-                          volumeDb: widget.volumeDb,
-                          onVolumeChanged: widget.onVolumeChanged,
-                          onVolumeDragStart: widget.onVolumeDragStart,
-                          onVolumeDragEnd: widget.onVolumeDragEnd,
-                          width: dbContainerWidth,
-                          fontSize: dbFontSize,
-                          textColor: context.colors.textSecondary,
-                        ),
-                        const SizedBox(width: 8),
-                        // Volume Slider
-                        Expanded(
-                          child: CapsuleFader(
-                            leftLevel: widget.peakLevelLeft,
-                            rightLevel: widget.peakLevelRight,
+                    // Row 2: dB + Volume Slider (same as regular tracks)
+                    SizedBox(
+                      height: rowHeight,
+                      child: Row(
+                        children: [
+                          // dB value display — drag vertically to scrub, click to type.
+                          VolumeReadoutBox(
                             volumeDb: widget.volumeDb,
                             onVolumeChanged: widget.onVolumeChanged,
-                            onDragStart: widget.onVolumeDragStart,
-                            onDragEnd: widget.onVolumeDragEnd,
-                            onDoubleTap: () =>
-                                widget.onVolumeChanged?.call(0.0),
+                            onVolumeDragStart: widget.onVolumeDragStart,
+                            onVolumeDragEnd: widget.onVolumeDragEnd,
+                            width: dbContainerWidth,
+                            fontSize: dbFontSize,
+                            textColor: context.colors.textSecondary,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          // Volume Slider
+                          Expanded(
+                            child: CapsuleFader(
+                              leftLevel: widget.peakLevelLeft,
+                              rightLevel: widget.peakLevelRight,
+                              volumeDb: widget.volumeDb,
+                              onVolumeChanged: widget.onVolumeChanged,
+                              onDragStart: widget.onVolumeDragStart,
+                              onDragEnd: widget.onVolumeDragEnd,
+                              onDoubleTap: () =>
+                                  widget.onVolumeChanged?.call(0.0),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          // Top resize handle (master uses top edge, opposite of regular tracks)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: UIConstants.trackResizeHandleHeight,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: GestureDetector(
-                onVerticalDragStart: (details) {
-                  _isResizing = true;
-                  _resizeStartY = details.globalPosition.dy;
-                  _resizeStartHeight = widget.trackHeight;
-                },
-                onVerticalDragUpdate: (details) {
-                  if (_isResizing) {
-                    // Note: negative delta because dragging UP should increase height
-                    final delta = _resizeStartY - details.globalPosition.dy;
-                    final newHeight = (_resizeStartHeight + delta).clamp(
-                      MasterTrackMixerStrip.kMinHeight,
-                      MasterTrackMixerStrip.kMaxHeight,
-                    );
-                    widget.onHeightChanged?.call(newHeight);
-                  }
-                },
-                onVerticalDragEnd: (details) {
-                  _isResizing = false;
-                },
-                child: Container(color: Colors.transparent),
+            // Top resize handle (master uses top edge, opposite of regular tracks)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: UIConstants.trackResizeHandleHeight,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeRow,
+                child: GestureDetector(
+                  onVerticalDragStart: (details) {
+                    _isResizing = true;
+                    _resizeStartY = details.globalPosition.dy;
+                    _resizeStartHeight = widget.trackHeight;
+                  },
+                  onVerticalDragUpdate: (details) {
+                    if (_isResizing) {
+                      // Note: negative delta because dragging UP should increase height
+                      final delta = _resizeStartY - details.globalPosition.dy;
+                      final newHeight = (_resizeStartHeight + delta).clamp(
+                        MasterTrackMixerStrip.kMinHeight,
+                        MasterTrackMixerStrip.kMaxHeight,
+                      );
+                      widget.onHeightChanged?.call(newHeight);
+                    }
+                  },
+                  onVerticalDragEnd: (details) {
+                    _isResizing = false;
+                  },
+                  child: Container(color: Colors.transparent),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

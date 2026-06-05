@@ -4,6 +4,26 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.1 — 2026-06-05
+
+### Bug Fixes
+
+- **Right-click → Delete now actually deletes the track.** In debug builds, opening a track's
+  right-click menu and choosing Delete did nothing — the confirmation dialog read the theme from the
+  wrong context (an event handler rather than a widget build), which threw before the dialog could
+  even appear, so the delete silently aborted. The dialog now reads its colours from its own build
+  context, so Delete works.
+
+### Improvements
+
+- **"+ MIDI Track" / "+ Audio Track" moved into the top bar**, just left of the mixer toggle and
+  Help — they were cramped into the mixer header before. They lift to the track-type colour on hover
+  and collapse to icons on a narrow window.
+- **The Master strip is now selectable.** Click it to open an Effects tab in the editor and add (e.g.)
+  a Reverb to the master bus, the same way you would on any other track.
+- **The Library search field lines up with the loop bar.** It used to sit slightly lower inside a
+  padded band; its top edge is now flush with the timeline ruler.
+
 ## v0.5.0 — 2026-06-04
 
 ### Bug Fixes
