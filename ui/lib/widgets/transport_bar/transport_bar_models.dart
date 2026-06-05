@@ -158,6 +158,8 @@ class PanelCallbacks {
   final VoidCallback? onTogglePiano;
   final VoidCallback? onResetPanelLayout;
   final VoidCallback? onHelpPressed;
+  final VoidCallback? onAddMidiTrack;
+  final VoidCallback? onAddAudioTrack;
 
   const PanelCallbacks({
     this.onToggleLibrary,
@@ -166,6 +168,8 @@ class PanelCallbacks {
     this.onTogglePiano,
     this.onResetPanelLayout,
     this.onHelpPressed,
+    this.onAddMidiTrack,
+    this.onAddAudioTrack,
   });
 }
 

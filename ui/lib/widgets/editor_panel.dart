@@ -172,6 +172,11 @@ class _EditorPanelState extends State<EditorPanel>
       widget.trackContext.selectedTrackType?.toLowerCase() == 'midi' &&
       !_isSamplerTrack;
 
+  /// Whether the selected track is the Master bus (effects chain only — no
+  /// instrument, no piano roll).
+  bool get _isMasterTrack =>
+      widget.trackContext.selectedTrackType?.toLowerCase() == 'master';
+
   /// Get the first tab label based on track type
   /// For audio tracks, shows the clip filename (truncated if needed)
   /// For sampler tracks, shows "Sampler" or sample filename
@@ -216,7 +221,7 @@ class _EditorPanelState extends State<EditorPanel>
   /// MIDI: 2 tabs (Chain + MIDI)
   /// Sampler: 2 tabs (Chain + MIDI)
   int get _tabCount {
-    return 2;
+    return _isMasterTrack ? 1 : 2;
   }
 
   @override
@@ -883,6 +888,10 @@ class _EditorPanelState extends State<EditorPanel>
   /// MIDI: [Instrument] [MIDI]
   /// Sampler: [Sampler] [MIDI]
   List<Widget> _buildTabButtons() {
+    if (_isMasterTrack) {
+      return [_buildTabButton(0, BI.lightning, 'Effects')];
+    }
+
     if (_isAudioTrack) {
       return [
         _buildTabButton(0, BI.audioFile, 'Audio'),
@@ -922,6 +931,11 @@ class _EditorPanelState extends State<EditorPanel>
   /// MIDI: [Chain (instrument + effects), MIDI Piano Roll]
   /// Sampler: [Chain (sampler + effects), MIDI Piano Roll]
   List<Widget> _buildTabContent() {
+    if (_isMasterTrack) {
+      // Master: effects chain only (no instrument, no piano roll)
+      return [_buildChainTab()];
+    }
+
     if (_isAudioTrack) {
       // Tab 0: audio editor (waveform), Tab 1: effects chain
       return [_buildAudioEditorTab(), _buildChainTab()];
