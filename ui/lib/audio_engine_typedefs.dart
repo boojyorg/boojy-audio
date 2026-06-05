@@ -580,6 +580,56 @@ typedef _FreeSamplerWaveformPeaksFfiNative =
 typedef _FreeSamplerWaveformPeaksFfi =
     void Function(ffi.Pointer<ffi.Float>, int);
 
+// Drum-kit types (v0.6) — a drum kit is N pinned-note samplers in one instrument.
+// Per-pad waveform peaks are freed via free_sampler_waveform_peaks_ffi (same alloc scheme).
+typedef _CreateDrumKitForTrackFfiNative = ffi.Int64 Function(ffi.Uint64);
+typedef _CreateDrumKitForTrackFfi = int Function(int);
+
+typedef _AddDrumPadFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Uint8);
+typedef _AddDrumPadFfi = int Function(int, int);
+
+typedef _RemoveDrumPadFfiNative =
+    ffi.Pointer<Utf8> Function(ffi.Uint64, ffi.Uint8);
+typedef _RemoveDrumPadFfi = ffi.Pointer<Utf8> Function(int, int);
+
+typedef _LoadDrumPadSampleFfiNative =
+    ffi.Int32 Function(ffi.Uint64, ffi.Uint8, ffi.Pointer<ffi.Char>);
+typedef _LoadDrumPadSampleFfi = int Function(int, int, ffi.Pointer<ffi.Char>);
+
+typedef _SetDrumPadParameterFfiNative =
+    ffi.Pointer<Utf8> Function(
+      ffi.Uint64,
+      ffi.Uint8,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+    );
+typedef _SetDrumPadParameterFfi =
+    ffi.Pointer<Utf8> Function(
+      int,
+      int,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+    );
+
+typedef _IsDrumKitTrackFfiNative = ffi.Int32 Function(ffi.Uint64);
+typedef _IsDrumKitTrackFfi = int Function(int);
+
+typedef _DrumNextFreeNoteFfiNative = ffi.Int64 Function(ffi.Uint64, ffi.Uint8);
+typedef _DrumNextFreeNoteFfi = int Function(int, int);
+
+typedef _GetDrumKitInfoFfiNative = ffi.Pointer<Utf8> Function(ffi.Uint64);
+typedef _GetDrumKitInfoFfi = ffi.Pointer<Utf8> Function(int);
+
+typedef _GetDrumPadWaveformPeaksFfiNative =
+    ffi.Pointer<ffi.Float> Function(
+      ffi.Uint64,
+      ffi.Uint8,
+      ffi.Size,
+      ffi.Pointer<ffi.Size>,
+    );
+typedef _GetDrumPadWaveformPeaksFfi =
+    ffi.Pointer<ffi.Float> Function(int, int, int, ffi.Pointer<ffi.Size>);
+
 // M7 types - VST3 Plugin Hosting
 typedef _ScanVst3PluginsStandardFfiNative = ffi.Pointer<Utf8> Function();
 typedef _ScanVst3PluginsStandardFfi = ffi.Pointer<Utf8> Function();
