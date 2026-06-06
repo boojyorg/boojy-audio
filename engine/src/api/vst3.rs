@@ -21,9 +21,14 @@ pub fn add_vst3_effect_to_track(track_id: TrackId, plugin_path: &str) -> Result<
     let track_manager = graph.track_manager.lock();
     let mut effect_manager = graph.effect_manager.lock();
 
-    // Get audio settings
+    // Get audio settings.
+    //
+    // C21/C62: maxSamplesPerBlock honours the session's buffer preset (same
+    // rule as project reload in `audio_graph/project.rs`). The host never
+    // hands a plugin more than 512 frames per call (live MAX_VST3_BLOCK and
+    // offline OFFLINE_BLOCK both sub-block), so the floor stays 512.
     let sample_rate = f64::from(crate::audio_file::TARGET_SAMPLE_RATE);
-    let block_size = 512; // Hardcoded: should come from user settings (v0.6.0)
+    let block_size = graph.preferred_buffer_size.lock().samples().max(512) as i32;
 
     // Load VST3 plugin
     let mut vst3_effect = VST3Effect::new(plugin_path, sample_rate, block_size)

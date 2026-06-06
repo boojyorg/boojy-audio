@@ -13,6 +13,15 @@ All notable changes to Boojy Audio will be documented in this file.
   are now reset at the start of every offline render, making exports deterministic. (VST3 plugin
   state is deliberately left untouched — resetting it is a heavyweight reinitialise; VST3 export
   fidelity is its own later cycle.)
+- **Switching audio devices no longer pitch-shifts VST3 plugins.** A plugin's processing setup is
+  fixed when it initialises, and the engine never told plugins about a device-rate change — switch
+  from a 44.1 kHz to a 48 kHz interface mid-session and every plugin ran ~9% sharp with aliasing
+  until the project was reopened. Plugins are now re-initialised at the new rate when the device
+  rate actually changes.
+- **VST3 plugins now initialise with the project's saved buffer setting.** Reloading a project
+  hardcoded every plugin's maximum block size to 512 regardless of the saved buffer preset (and
+  adding a plugin live did the same); plugins that pre-size internal buffers at initialise time
+  now see the preset the project was saved with.
 - **A comma in a track name no longer corrupts the mixer.** Renaming a track to something like
   "Drums, Kit" silently shifted the data the UI reads for it — track type, volume and pan could
   all mis-parse, and a send or return bus with a comma (or semicolon) in its name could corrupt
