@@ -96,11 +96,11 @@ class PianoRoll extends StatefulWidget {
 class _PianoRollState extends State<PianoRoll>
     with
         PianoRollStateMixin,
+        AuditionMixin,
         NoteOperationsMixin,
         ClipboardOperationsMixin,
         SelectionOperationsMixin,
         NoteGestureHandlerMixin,
-        AuditionMixin,
         VelocityLaneMixin,
         ZoomMixin {
   // ============================================
