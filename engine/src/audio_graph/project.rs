@@ -652,9 +652,17 @@ impl AudioGraph {
                         vst3_data.plugin_name, vst3_data.plugin_path
                     );
 
-                    // Load the VST3 plugin
+                    // Load the VST3 plugin.
+                    //
+                    // C21/C62: maxSamplesPerBlock honours the project's
+                    // restored buffer preset instead of a hardcoded 512. The
+                    // host never hands a plugin more than 512 frames per call
+                    // (live renderer MAX_VST3_BLOCK and offline export
+                    // OFFLINE_BLOCK both sub-block), so the floor stays 512 —
+                    // going lower would break that contract for plugins that
+                    // pre-size internal buffers at init.
                     let sample_rate = f64::from(TARGET_SAMPLE_RATE);
-                    let block_size = 512; // Hardcoded: should come from user settings (v0.6.0)
+                    let block_size = buffer_preset.samples().max(512) as i32;
 
                     match VST3Effect::new(&vst3_data.plugin_path, sample_rate, block_size) {
                         Ok(mut vst3_effect) => {

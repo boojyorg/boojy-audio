@@ -875,6 +875,42 @@ impl crate::effects::Effect for VST3Effect {
         let _ = plugin.activate();
     }
 
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        // C26: a VST3 plugin's processing setup is fixed at initialise time,
+        // so following a device-rate change means a full deactivate →
+        // reinitialise → activate cycle. Without this, switching from a
+        // 44.1 kHz to a 48 kHz interface mid-session left every plugin
+        // rendering at the stale rate (~9% sharp, aliased).
+        let new_rate = f64::from(sample_rate);
+        if new_rate <= 0.0 || (new_rate - self.sample_rate).abs() < f64::EPSILON {
+            return; // unchanged — never thrash a running plugin
+        }
+        self.sample_rate = new_rate;
+
+        // An uninitialised plugin just picks the new rate up in `initialize()`.
+        if self.initialized {
+            let plugin = self.plugin.lock();
+            if let Err(e) = plugin.deactivate() {
+                eprintln!(
+                    "⚠️ [VST3] {}: deactivate failed on rate change: {e}",
+                    self.name
+                );
+            }
+            if let Err(e) = plugin.initialize(self.sample_rate, self.block_size) {
+                eprintln!(
+                    "⚠️ [VST3] {}: reinitialise at {new_rate} Hz failed: {e}",
+                    self.name
+                );
+            }
+            if let Err(e) = plugin.activate() {
+                eprintln!(
+                    "⚠️ [VST3] {}: activate failed on rate change: {e}",
+                    self.name
+                );
+            }
+        }
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
