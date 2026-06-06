@@ -4,6 +4,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **The Windows installer now actually ships the audio engine.** A wrong relative path in the
+  Windows build script silently skipped bundling `engine.dll`, so installed apps had no audio at
+  all. The path is fixed and the build now fails loudly if the engine is ever missing, so a broken
+  installer can't ship quietly again.
+
+### Improvements
+
+- **New Boojy Audio app icon on macOS and Windows.** Windows previously showed the stock Flutter
+  icon in the taskbar and title bar; both platforms now use the ▲udio mark (multi-size, so it stays
+  sharp at small taskbar/title-bar sizes).
+
 ## v0.5.2 — 2026-06-06
 
 ### Bug Fixes

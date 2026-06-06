@@ -107,9 +107,15 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-# Copy the Rust audio engine DLL
-set(ENGINE_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../engine/target/release/engine.dll")
-if(EXISTS "${ENGINE_DLL_PATH}")
-  install(FILES "${ENGINE_DLL_PATH}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    COMPONENT Runtime)
-endif()
+# Copy the Rust audio engine DLL next to the executable. The app loads it via
+# DynamicLibrary.open('engine.dll'), so a bundle without it has no audio engine.
+# Checked at install time (not configure time) so a missing DLL fails the build
+# loudly instead of silently shipping a broken installer.
+set(ENGINE_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../engine/target/release/engine.dll")
+install(CODE "
+  if(NOT EXISTS \"${ENGINE_DLL_PATH}\")
+    message(FATAL_ERROR \"engine.dll not found at ${ENGINE_DLL_PATH} — build the Rust engine first: cd engine && cargo build --release\")
+  endif()
+  " COMPONENT Runtime)
+install(FILES "${ENGINE_DLL_PATH}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
