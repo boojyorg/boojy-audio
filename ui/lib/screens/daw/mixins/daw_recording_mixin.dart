@@ -8,6 +8,7 @@ import '../../../services/commands/project_commands.dart';
 import '../../../services/clip_naming_service.dart';
 import '../../../services/live_recording_notifier.dart';
 import '../../../utils/clip_overlap_handler.dart';
+import '../../../utils/csv_field.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
 
@@ -683,7 +684,8 @@ mixin DAWRecordingMixin on State<DAWScreen>, DAWScreenStateMixin {
     final parts = info.split(',');
     if (parts.length < 2) return null;
 
-    return parts[1];
+    // Name is percent-encoded by the engine (C34).
+    return decodeCsvField(parts[1]);
   }
 
   /// Generate clip name for a track using instrument or track name

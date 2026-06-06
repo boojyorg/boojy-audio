@@ -40,6 +40,7 @@ import 'timeline/timeline_context_menus.dart';
 import '../services/live_recording_notifier.dart';
 import 'timeline/painters/painters.dart';
 import 'timeline/track_automation_lane_widget.dart';
+import '../utils/csv_field.dart';
 import '../utils/logger.dart';
 
 part 'timeline/timeline_gesture_layer.dart';
@@ -59,7 +60,8 @@ class TimelineTrackData {
       if (parts.length < 3) return null;
       return TimelineTrackData(
         id: int.parse(parts[0]),
-        name: parts[1],
+        // Engine percent-encodes the name field (C34).
+        name: decodeCsvField(parts[1]),
         type: parts[2],
       );
     } catch (e) {

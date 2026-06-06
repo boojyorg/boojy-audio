@@ -1,3 +1,5 @@
+import '../utils/csv_field.dart';
+
 /// Track data model
 /// Unified model for track information parsed from audio engine CSV format
 class TrackData {
@@ -37,7 +39,8 @@ class TrackData {
 
       return TrackData(
         id: int.parse(parts[0]),
-        name: parts[1],
+        // Engine percent-encodes the name field (C34).
+        name: decodeCsvField(parts[1]),
         type: parts[2],
         volumeDb: double.parse(parts[3]),
         pan: double.parse(parts[4]),
