@@ -300,6 +300,7 @@ class _DAWScreenState extends State<DAWScreen>
     // Clear callbacks to prevent memory leaks
     recordingController.onRecordingComplete = null;
     playbackController.onAutoStop = null;
+    playbackController.onStreamError = null;
 
     // Dispose controllers (ChangeNotifiers must be disposed)
     playbackController.dispose();
@@ -405,6 +406,20 @@ class _DAWScreenState extends State<DAWScreen>
           'Ready to record or load audio files',
         );
       }
+
+      // Surface output-stream death (device unplugged mid-playback — C99).
+      // The controller has already stopped the transport.
+      playbackController.onStreamError = (message) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Audio device lost — playback stopped. '
+              'Pick an output device in Settings.',
+            ),
+          ),
+        );
+      };
 
       // Initialize undo/redo manager with engine
       undoRedoManager.initialize(audioEngine!);

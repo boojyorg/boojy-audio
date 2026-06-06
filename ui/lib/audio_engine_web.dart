@@ -520,6 +520,8 @@ class AudioEngine implements AudioEngineInterface {
   List<Map<String, dynamic>> getAudioOutputDevices() => [];
   String setAudioOutputDevice(String deviceName) => 'OK';
   String getSelectedAudioOutputDevice() => 'Default';
+  // Web audio runs in-page — there is no device stream that can die (C99).
+  String getAudioStreamError() => '';
   int getSampleRate() => 48000;
 
   // ============================================================================

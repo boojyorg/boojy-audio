@@ -68,6 +68,11 @@ class PlaybackController extends ChangeNotifier {
   // Callback for auto-stop at end of clip
   VoidCallback? onAutoStop;
 
+  /// Called when the engine reports the output stream died mid-playback
+  /// (e.g. the audio interface was unplugged — C99). The transport has
+  /// already been stopped; the message is the engine's error text.
+  void Function(String message)? onStreamError;
+
   PlaybackController();
 
   // Getters
@@ -269,10 +274,12 @@ class PlaybackController extends ChangeNotifier {
   void stopPlayheadPolling() => _stopPlayheadTimer();
 
   int _playheadLogCounter = 0; // For throttled debug logging
+  int _streamErrorPollCounter = 0; // Throttles the C99 device-death check
 
   void _startPlayheadTimer() {
     _playheadTimer?.cancel();
     _playheadLogCounter = 0;
+    _streamErrorPollCounter = 0;
     // 16ms = ~60fps for smooth visual playhead updates
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
       if (_audioEngine != null) {
@@ -311,6 +318,20 @@ class PlaybackController extends ChangeNotifier {
         if (!_isLoopCycling && _clipDuration != null && pos >= _clipDuration!) {
           stop();
           onAutoStop?.call();
+        }
+
+        // Device-death check (C99): if the output stream errored (device
+        // unplugged), stop instead of letting the playhead advance in
+        // silence. ~2x/second is plenty; the engine call is a cheap take.
+        _streamErrorPollCounter++;
+        if (_streamErrorPollCounter % 30 == 0) {
+          final streamError = _audioEngine!.getAudioStreamError();
+          if (streamError.isNotEmpty) {
+            Log.e('🔌 [PLAYBACK] Audio stream error: $streamError');
+            stop();
+            setStatusMessage('Audio device lost — playback stopped');
+            onStreamError?.call(streamError);
+          }
         }
       }
     });

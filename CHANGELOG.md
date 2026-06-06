@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **The metronome no longer doubles its downbeat at a loop wrap.** When the loop cycled, the
+  beat-one click fired twice a split second apart (an audible flam) — the loop seek landed the
+  metronome back on a beat boundary just after that beat had already clicked. A sounding click now
+  also rides smoothly through the wrap instead of being cut off and restarted.
+- **A MIDI keyboard plugged in mid-session now just works.** Unplugging and replugging a keyboard
+  (or plugging one in after connecting once) left the engine holding a dead connection — it
+  reported "already capturing" while no notes arrived. The engine now reconnects automatically
+  when the device list changes, keeping your selected device by name where possible.
+- **Unplugging the audio interface during playback now stops the transport with a message.** The
+  stream error was only logged to the console while the playhead kept advancing in silence. The
+  app now stops playback and shows "Audio device lost" with a pointer to Settings.
 - **Time-based effects are now correct on non-48 kHz audio devices.** The Delay, Chorus and Reverb
   assumed a 48 kHz device: on an interface running at 44.1 kHz, a 500 ms delay measured ~544 ms,
   the chorus wobbled at the wrong speed, and the reverb's character shifted. They now follow the

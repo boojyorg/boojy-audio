@@ -64,7 +64,25 @@ pub struct Recorder {
     punch_out_seconds: Arc<Mutex<f64>>,
     /// Set by audio callback when auto-punch-out fires
     punch_complete: Arc<AtomicBool>,
+    /// Monotonic processed-frame count — never reset (unlike `sample_counter`,
+    /// which seeks/loops rewind). Time base for the click refractory guard.
+    monotonic_frames: Arc<AtomicU64>,
+    /// `monotonic_frames` value at which the current click started, or
+    /// `NO_CLICK` when none is sounding. Restarting a click within half a
+    /// beat of the last one is suppressed — the loop-wrap seek lands the
+    /// counter back on a beat boundary a few frames after the boundary click
+    /// already fired, which used to double the downbeat as an audible flam.
+    click_started_at: Arc<AtomicU64>,
+    /// True when the sounding click is a downbeat (1200 Hz vs 800 Hz).
+    click_is_downbeat: Arc<AtomicBool>,
 }
+
+/// Sentinel for `click_started_at`: no click is sounding.
+const NO_CLICK: u64 = u64::MAX;
+
+/// Metronome click length in frames: ~80ms at 48kHz (increased from 40ms for
+/// better audibility).
+const CLICK_FRAMES: u64 = 4000;
 
 impl Default for Recorder {
     fn default() -> Self {
@@ -92,6 +110,9 @@ impl Recorder {
             punch_in_seconds: Arc::new(Mutex::new(0.0)),
             punch_out_seconds: Arc::new(Mutex::new(0.0)),
             punch_complete: Arc::new(AtomicBool::new(false)),
+            monotonic_frames: Arc::new(AtomicU64::new(0)),
+            click_started_at: Arc::new(AtomicU64::new(NO_CLICK)),
+            click_is_downbeat: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -113,6 +134,9 @@ impl Recorder {
             punch_in_seconds: self.punch_in_seconds.clone(),
             punch_out_seconds: self.punch_out_seconds.clone(),
             punch_complete: self.punch_complete.clone(),
+            monotonic_frames: self.monotonic_frames.clone(),
+            click_started_at: self.click_started_at.clone(),
+            click_is_downbeat: self.click_is_downbeat.clone(),
         }
     }
 
@@ -315,6 +339,9 @@ impl Recorder {
     /// Reset metronome beat position (called when transport stops)
     pub fn reset_metronome(&self) {
         let old_value = self.sample_counter.swap(0, Ordering::SeqCst);
+        // Forget the sounding click so the next play's first downbeat fires
+        // immediately (the refractory guard only suppresses *seek* doubles).
+        self.click_started_at.store(NO_CLICK, Ordering::Relaxed);
         eprintln!("🔄 [Recorder] Metronome reset: {old_value} → 0");
     }
 
@@ -419,6 +446,9 @@ pub struct RecorderCallbackRefs {
     pub punch_in_seconds: Arc<Mutex<f64>>,
     pub punch_out_seconds: Arc<Mutex<f64>>,
     pub punch_complete: Arc<AtomicBool>,
+    pub monotonic_frames: Arc<AtomicU64>,
+    pub click_started_at: Arc<AtomicU64>,
+    pub click_is_downbeat: Arc<AtomicBool>,
 }
 
 impl RecorderCallbackRefs {
@@ -481,19 +511,47 @@ impl RecorderCallbackRefs {
         // Generate metronome click
         let mut metronome_output = 0.0;
 
+        // Monotonic frame clock for the click — unlike `sample_idx`, this
+        // never rewinds on seek/loop, so a sounding click rides smoothly
+        // through a loop wrap instead of being truncated and restarted.
+        let monotonic = self.monotonic_frames.fetch_add(1, Ordering::Relaxed);
+
         // Only generate click if not in cooldown period (prevents overlapping clicks after seek)
         if metronome_enabled && cooldown == 0 {
             let position_in_bar = sample_idx % samples_per_bar;
             let beat_in_bar = position_in_bar / samples_per_beat;
             let position_in_beat = position_in_bar % samples_per_beat;
 
-            // Generate click (short sine burst)
-            if position_in_beat < 4000 {
-                // ~80ms click at 48kHz (increased from 40ms for better audibility)
-                let t = position_in_beat as f32 / TARGET_SAMPLE_RATE as f32;
-                let freq = if beat_in_bar == 0 { 1200.0 } else { 800.0 }; // Higher pitch on downbeat
-                let envelope = (1.0 - (position_in_beat as f32 / 4000.0)).powi(2);
-                metronome_output = (2.0 * PI * freq * t).sin() * 0.6 * envelope;
+            // A beat boundary starts a click — unless one started less than
+            // half a beat ago. Real consecutive beats are a full beat apart;
+            // only the loop-wrap seek (which lands `sample_idx` back on a
+            // beat boundary a buffer after that beat already clicked) gets
+            // closer, and used to double the downbeat as an audible flam.
+            if position_in_beat == 0 && should_tick {
+                let last = self.click_started_at.load(Ordering::Relaxed);
+                if last == NO_CLICK || monotonic.wrapping_sub(last) >= samples_per_beat / 2 {
+                    self.click_started_at.store(monotonic, Ordering::Relaxed);
+                    self.click_is_downbeat
+                        .store(beat_in_bar == 0, Ordering::Relaxed);
+                }
+            }
+
+            // Render the sounding click (short sine burst) from the monotonic
+            // clock, so its envelope is immune to seeks.
+            let started = self.click_started_at.load(Ordering::Relaxed);
+            if started != NO_CLICK {
+                let since = monotonic.wrapping_sub(started);
+                if since < CLICK_FRAMES {
+                    let t = since as f32 / TARGET_SAMPLE_RATE as f32;
+                    // Higher pitch on downbeat
+                    let freq = if self.click_is_downbeat.load(Ordering::Relaxed) {
+                        1200.0
+                    } else {
+                        800.0
+                    };
+                    let envelope = (1.0 - (since as f32 / CLICK_FRAMES as f32)).powi(2);
+                    metronome_output = (2.0 * PI * freq * t).sin() * 0.6 * envelope;
+                }
             }
         }
 
@@ -834,5 +892,83 @@ mod tests {
             .samples
             .iter()
             .all(|&s| (s - 0.25).abs() < f32::EPSILON));
+    }
+
+    /// Process `frames` callback frames and return the number of click
+    /// onsets heard. An onset is sound following a sustained silent gap —
+    /// the click is a sine burst, so instantaneous zero-crossings inside it
+    /// must not read as silence (a 1200/800 Hz cycle is 40–60 frames; a real
+    /// gap between clicks is thousands).
+    fn count_click_onsets(refs: &RecorderCallbackRefs, frames: usize, silent_run: &mut u32) -> u32 {
+        let mut onsets = 0;
+        for _ in 0..frames {
+            let (out, _) = refs.process_frame(0.0, 0.0, true, 0.0);
+            if out.abs() < 1e-6 {
+                *silent_run += 1;
+            } else {
+                if *silent_run >= 100 {
+                    onsets += 1;
+                }
+                *silent_run = 0;
+            }
+        }
+        onsets
+    }
+
+    #[test]
+    fn loop_wrap_does_not_double_the_downbeat() {
+        // At a loop wrap the transport plays a few frames past the loop end
+        // (the boundary beat clicks), then seeks the metronome back to 0 —
+        // which lands on a beat boundary again. That used to restart the
+        // downbeat click ~a buffer after it already fired: an audible flam.
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_tempo(120.0); // 24000 frames per beat at 48 kHz
+        recorder.set_metronome_enabled(true);
+        let refs = recorder.get_callback_refs();
+        let mut silent_run = 1000; // long silence before the first frame
+
+        // One full 4/4 bar plus a few frames: beats at 0, 24000, 48000,
+        // 72000 and the next bar's downbeat at 96000 (each click's first
+        // audible sample lands a frame after its boundary — sin(0) = 0).
+        let onsets = count_click_onsets(&refs, 96_010, &mut silent_run);
+        assert_eq!(onsets, 5, "one click per beat plus the wrap-boundary beat");
+
+        // The callback runs ~a buffer past the loop end before the UI seek
+        // lands, then the metronome is rewound to the loop start.
+        count_click_onsets(&refs, 512, &mut silent_run);
+        recorder.seek_metronome(0);
+
+        // No new click right after the wrap — the boundary beat just fired.
+        let flam = count_click_onsets(&refs, 8_000, &mut silent_run);
+        assert_eq!(
+            flam, 0,
+            "the wrap seek must not restart the downbeat (flam)"
+        );
+
+        // …but the next real beat still clicks (the guard isn't a mute).
+        let next_beat = count_click_onsets(&refs, 24_000, &mut silent_run);
+        assert_eq!(next_beat, 1, "the beat after the wrap must still click");
+    }
+
+    #[test]
+    fn stop_and_restart_clicks_immediately() {
+        // Stopping clears the sounding click, so a fresh play's first
+        // downbeat fires immediately even within the refractory window.
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.set_tempo(120.0);
+        recorder.set_metronome_enabled(true);
+        let refs = recorder.get_callback_refs();
+        let mut silent_run = 1000;
+
+        assert_eq!(count_click_onsets(&refs, 100, &mut silent_run), 1);
+        recorder.reset_metronome(); // stop
+        silent_run = 1000;
+        assert_eq!(
+            count_click_onsets(&refs, 100, &mut silent_run),
+            1,
+            "restart must click its downbeat right away"
+        );
     }
 }
