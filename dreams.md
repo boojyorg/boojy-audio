@@ -22,8 +22,11 @@ behind this cycle).
   save-as-copy path leak (real live instance was the auto-save backup repoint); C65 held notes
   dropped on save; C66 audio clips dropped on reload (root cause: clips_map keyed by saved ids vs
   fresh timeline ids — now re-keyed on load + honest save/load errors).
-- [ ] **P3 — No stuck notes, no clicks:** C38 PianoRoll dispose NoteOff; C41 chord-preview after
-  dispose; C7 synth release anchor; C10 voice-steal ramp.
+- [x] **P3 — No stuck notes, no clicks:** C38 PianoRoll dispose NoteOff; C41 chord-preview after
+  dispose (fix = capture engine + track pending notes, flush on dispose — a bare `mounted` check
+  would have made the leak worse); C7 synth release anchor (`release_start_level`, sampler
+  pattern); C10 voice-steal ramp (stolen voice → 5ms fade-out tail, synth + sampler; steal
+  prefers already-releasing voices).
 - [ ] **P4 — Export tells the truth:** C16 LUFS dead code; C18 export range ignored; C68 stem
   gain-stage order ≠ mix.
 - [ ] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.

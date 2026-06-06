@@ -96,11 +96,11 @@ class PianoRoll extends StatefulWidget {
 class _PianoRollState extends State<PianoRoll>
     with
         PianoRollStateMixin,
+        AuditionMixin,
         NoteOperationsMixin,
         ClipboardOperationsMixin,
         SelectionOperationsMixin,
         NoteGestureHandlerMixin,
-        AuditionMixin,
         VelocityLaneMixin,
         ZoomMixin {
   // ============================================
@@ -163,6 +163,11 @@ class _PianoRollState extends State<PianoRoll>
 
   @override
   void dispose() {
+    // Release any sounding audition notes before the widget goes away —
+    // otherwise a held click (or a chord preview within its 500ms window)
+    // sustains indefinitely after the editor closes.
+    stopAudition();
+    stopChordPreview();
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     undoRedoManager.removeListener(_onUndoRedoChanged);
     horizontalScroll.removeListener(_syncNavBarFromGrid);
