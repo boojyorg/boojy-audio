@@ -484,6 +484,24 @@ mixin _RecordingMixin on _AudioEngineBase {
     }
   }
 
+  /// Take (read-and-clear) the last audio output stream error (C99).
+  /// Returns an empty string when the stream is healthy. Polled during
+  /// playback so a disconnected device stops the transport with a message
+  /// instead of failing silently.
+  String getAudioStreamError() {
+    try {
+      final resultPtr = _getAudioStreamError();
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      if (result.startsWith('Error:')) {
+        return '';
+      }
+      return result;
+    } catch (e) {
+      return '';
+    }
+  }
+
   /// Get current sample rate
   int getSampleRate() {
     try {

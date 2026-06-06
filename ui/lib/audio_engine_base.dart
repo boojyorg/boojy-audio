@@ -187,6 +187,7 @@ class _AudioEngineBase {
   late final _SetAudioInputDeviceFfi _setAudioInputDevice;
   late final _SetAudioOutputDeviceFfi _setAudioOutputDevice;
   late final _GetSelectedAudioOutputDeviceFfi _getSelectedAudioOutputDevice;
+  late final _GetAudioStreamErrorFfi _getAudioStreamError;
   late final _GetSampleRateFfi _getSampleRate;
 
   // Library Preview functions
@@ -1217,6 +1218,12 @@ class _AudioEngineBase {
       _getSelectedAudioOutputDevice = _lib
           .lookup<ffi.NativeFunction<_GetSelectedAudioOutputDeviceFfiNative>>(
             'get_selected_audio_output_device_ffi',
+          )
+          .asFunction();
+
+      _getAudioStreamError = _lib
+          .lookup<ffi.NativeFunction<_GetAudioStreamErrorFfiNative>>(
+            'get_audio_stream_error_ffi',
           )
           .asFunction();
 

@@ -211,6 +211,11 @@ pub struct AudioGraph {
     /// default — recording duration math and time-based DSP need the real
     /// rate (C22/C4).
     pub(crate) stream_sample_rate: Arc<std::sync::atomic::AtomicU32>,
+    /// Last output-stream error (e.g. the device was disconnected), set by
+    /// the cpal error callback. The UI polls and *takes* it (C99) — before
+    /// this, a yanked interface only logged to stderr while the playhead
+    /// kept advancing in silence. Cleared when a stream is (re)built.
+    pub(crate) stream_error: Arc<Mutex<Option<String>>>,
 
     // --- Latency Testing --- (native only)
     #[cfg(not(target_arch = "wasm32"))]
@@ -274,6 +279,7 @@ impl AudioGraph {
             hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
             stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
+            stream_error: Arc::new(Mutex::new(None)),
             latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
 
@@ -331,6 +337,7 @@ impl AudioGraph {
             hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
             stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
+            stream_error: Arc::new(Mutex::new(None)),
         };
 
         Ok(graph)
@@ -793,6 +800,12 @@ impl AudioGraph {
     /// stream fell back to the device default (see `create_audio_stream`).
     pub fn current_stream_sample_rate(&self) -> u32 {
         self.stream_sample_rate.load(Ordering::Relaxed)
+    }
+
+    /// Take (read-and-clear) the last output-stream error, if any (C99).
+    /// The UI polls this; take-semantics mean one banner per failure.
+    pub fn take_stream_error(&self) -> Option<String> {
+        self.stream_error.lock().take()
     }
 }
 

@@ -141,9 +141,50 @@ impl MidiInputManager {
             }
         }
 
+        // Remember the selected device by NAME before swapping the lists —
+        // indices shift when devices come and go.
+        let selected_name = self
+            .selected_port_index
+            .and_then(|i| self.port_names.get(i).cloned());
+
         self.ports = ports;
         self.port_names = port_names;
         self.midi_input = Some(midi_input);
+
+        if changed {
+            // Re-resolve the selection on the new list; fall back to the
+            // first device (mirrors `enumerate`'s auto-select).
+            self.selected_port_index = selected_name
+                .as_deref()
+                .and_then(|n| self.port_names.iter().position(|p| p == n))
+                .or(if self.port_names.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                });
+
+            // Hot-plug: an active capture is bound to the OLD port list.
+            // Unplugging and replugging a keyboard left a dead connection
+            // that reported "already capturing" while no notes flowed —
+            // close it and reconnect to the re-resolved device.
+            if self.connection.is_some() {
+                if let Some(connection) = self.connection.take() {
+                    // close() hands back the stale MidiInput; we already
+                    // stored a fresh one above.
+                    let _ = connection.close();
+                }
+                if self.selected_port_index.is_some() {
+                    match self.start_capture() {
+                        Ok(()) => eprintln!("🎹 [MIDI] Reconnected after device change"),
+                        Err(e) => {
+                            eprintln!("⚠️ [MIDI] Reconnect after device change failed: {e}");
+                        }
+                    }
+                } else {
+                    eprintln!("🛑 [MIDI] Capture stopped — no devices left");
+                }
+            }
+        }
 
         Ok(())
     }
