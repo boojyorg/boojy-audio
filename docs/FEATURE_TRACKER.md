@@ -230,7 +230,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [ ] Basic synthesizer (8-voice, ADSR, filter)
 - [ ] Boojy Synth (wavetable, Serum-style)
 - [ ] Boojy Sampler (simple/advanced modes) *(partial: basic sampler usable since v0.5.2 — load sample, root note, attack/release, loop; simple/advanced modes not built)*
-- [ ] Boojy Drums (pad grid + step sequencer)
+- [x] Boojy Drums (pad grid + step sequencer) *(v0.6: Layout-A editor + bundled starter kit — 8 CC0/in-house sounds pre-loaded on create; per-step velocity lane, choke groups and variable resolution deliberately deferred)*
 - [ ] Preset Player (piano, strings, etc.)
 
 ### Keyboard Shortcuts

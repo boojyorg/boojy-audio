@@ -40,6 +40,10 @@ Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / gi
   - `lib/models/` - Immutable data classes with JSON serialization
   - `lib/services/commands/` - Undo/redo command classes
   - `lib/services/project_persistence.dart` - Canonical UI layout save/load checklist
+  - `lib/services/bundled_content_service.dart` - Bundled samples (`ui/assets/samples/drums/`,
+    licences in its `LICENSES.md`) copied to app-support on first use — the engine loads by
+    filesystem path, never from the asset bundle. Bump `contentRevision` when bundled content
+    changes; keep `drumSamples` in sync with the pubspec asset dirs
   - `lib/screens/daw/mixins/` - DAW screen mixins (recording, playback, etc.)
   - `lib/widgets/` - UI components (timeline, piano roll, painters, shared)
   - `lib/controllers/` - Playback, recording, track controllers
