@@ -9,6 +9,7 @@ import '../theme/tokens.dart';
 import '../audio_engine.dart';
 import '../services/user_settings.dart';
 import '../utils/logger.dart';
+import '../utils/native_dialogs.dart';
 
 /// Export progress info from the engine
 class ExportProgressInfo {
@@ -702,20 +703,10 @@ class _ExportDialogState extends State<ExportDialog> {
 
       // Handle stem export (choose folder)
       if (_options.exportStems) {
-        final folderResult = await Process.run('osascript', [
-          '-e',
-          'POSIX path of (choose folder with prompt "Choose folder for stem export")',
-        ]);
-
-        if (folderResult.exitCode != 0) {
+        folderPath = await pickFolder(title: 'Choose folder for stem export');
+        if (folderPath == null || folderPath.isEmpty) {
           setState(() => _isExporting = false);
           return; // User cancelled
-        }
-
-        folderPath = folderResult.stdout.toString().trim();
-        if (folderPath.isEmpty) {
-          setState(() => _isExporting = false);
-          return;
         }
       }
 
@@ -723,20 +714,13 @@ class _ExportDialogState extends State<ExportDialog> {
       if (hasFormatSelected && !_options.exportStems) {
         final extension = _options.exportMp3 ? 'mp3' : 'wav';
 
-        final result = await Process.run('osascript', [
-          '-e',
-          'POSIX path of (choose file name with prompt "Export as" default name "$baseName.$extension")',
-        ]);
-
-        if (result.exitCode != 0) {
+        filePath = await pickSaveFilePath(
+          title: 'Export as',
+          defaultName: '${sanitizeFileName(baseName)}.$extension',
+        );
+        if (filePath == null || filePath.isEmpty) {
           setState(() => _isExporting = false);
           return; // User cancelled
-        }
-
-        filePath = result.stdout.toString().trim();
-        if (filePath.isEmpty) {
-          setState(() => _isExporting = false);
-          return;
         }
 
         // Ensure correct extension

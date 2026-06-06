@@ -13,9 +13,14 @@ String? getEnv(String name) => Platform.environment[name];
 
 /// Get the default projects folder path
 Future<String> getDefaultProjectsFolder() async {
+  // HOME is unset on Windows (it's USERPROFILE there).
   final home =
-      Platform.environment['HOME'] ?? '/Users/${Platform.environment['USER']}';
-  final projectsPath = '$home/Documents/Boojy/Audio/Projects';
+      Platform.environment['HOME'] ??
+      Platform.environment['USERPROFILE'] ??
+      '/Users/${Platform.environment['USER']}';
+  final sep = Platform.pathSeparator;
+  final projectsPath =
+      '$home${sep}Documents${sep}Boojy${sep}Audio${sep}Projects';
 
   // Create the folder if it doesn't exist
   final dir = Directory(projectsPath);

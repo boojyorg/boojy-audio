@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../../../utils/logger.dart';
+import '../../../utils/native_dialogs.dart';
 import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
 import '../../../models/version_type.dart';
@@ -126,34 +127,23 @@ mixin DAWProjectMixin
       // Get default projects folder
       final defaultFolder = await getDefaultProjectsFolder();
 
-      // Use macOS native file picker with default location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Select Boojy Audio Project (.audio folder)" default location POSIX file "$defaultFolder")',
-      ]);
+      // Native folder picker (AppleScript on macOS, file_picker elsewhere)
+      final path = await pickFolder(
+        title: 'Select Boojy Audio Project (.audio folder)',
+        initialDirectory: defaultFolder,
+      );
+      if (path == null) return;
 
-      if (result.exitCode == 0) {
-        var path = result.stdout.toString().trim();
-        // Remove trailing slash if present
-        if (path.endsWith('/')) {
-          path = path.substring(0, path.length - 1);
-        }
-
-        if (path.isEmpty) {
-          return;
-        }
-
-        if (!path.endsWith('.audio')) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a .audio folder')),
-          );
-          return;
-        }
-
-        setState(() => isLoading = true);
-        await _loadAndApplyProject(path);
+      if (!path.endsWith('.audio')) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a .audio folder')),
+        );
+        return;
       }
+
+      setState(() => isLoading = true);
+      await _loadAndApplyProject(path);
     } catch (e) {
       setState(() => isLoading = false);
       if (!mounted) return;
@@ -311,23 +301,19 @@ mixin DAWProjectMixin
       // Get default projects folder
       final defaultFolder = await getDefaultProjectsFolder();
 
-      // Use macOS native file picker for save location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose folder with prompt "Choose location to save project" default location POSIX file "$defaultFolder")',
-      ]);
+      // Native folder picker (AppleScript on macOS, file_picker elsewhere)
+      final parentPath = await pickFolder(
+        title: 'Choose location to save project',
+        initialDirectory: defaultFolder,
+      );
 
-      if (result.exitCode == 0) {
-        var parentPath = result.stdout.toString().trim();
-        // osascript's `POSIX path of folder` always returns a trailing slash;
-        // strip it so the join doesn't produce `…/Projects//Name.audio`.
-        if (parentPath.endsWith('/') && parentPath.length > 1) {
-          parentPath = parentPath.substring(0, parentPath.length - 1);
-        }
-        if (parentPath.isNotEmpty) {
-          final projectPath = '$parentPath/$projectName.audio';
-          saveProjectToPath(projectPath);
-        }
+      if (parentPath != null) {
+        // Strip characters Windows forbids in folder names — the project name
+        // becomes the .audio folder's name.
+        final safeName = sanitizeFileName(projectName);
+        final projectPath =
+            '$parentPath${Platform.pathSeparator}$safeName.audio';
+        saveProjectToPath(projectPath);
       }
     } catch (e) {
       if (mounted) {
@@ -1041,8 +1027,15 @@ mixin DAWProjectMixin
 
   /// Get default projects folder path
   Future<String> getDefaultProjectsFolder() async {
-    final homeDir = Platform.environment['HOME'] ?? '/Users';
-    final projectsPath = '$homeDir/Documents/Boojy/Audio/Projects';
+    // HOME is unset on Windows (it's USERPROFILE there) — falling back to a
+    // bare '/Users' path made every save land in an unwritable location.
+    final homeDir =
+        Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        '/Users';
+    final sep = Platform.pathSeparator;
+    final projectsPath =
+        '$homeDir${sep}Documents${sep}Boojy${sep}Audio${sep}Projects';
 
     final dir = Directory(projectsPath);
     if (!await dir.exists()) {
