@@ -245,7 +245,9 @@ jobs:
         run: |
           cd engine
           cargo build --release
-          copy target\release\engine.dll ..\ui\assets\
+          # engine.dll is bundled by ui/windows/CMakeLists.txt during
+          # `flutter build windows` — no manual copy needed (the old copy to
+          # ui/assets/ was dead: pubspec only bundles images/ and icons/).
 
       - name: Build Windows app
         run: |
