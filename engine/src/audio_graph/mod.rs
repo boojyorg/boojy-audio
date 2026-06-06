@@ -205,6 +205,12 @@ pub struct AudioGraph {
     // --- Device Selection ---
     /// Selected output device name (None = use system default)
     pub(crate) selected_output_device: Arc<Mutex<Option<String>>>,
+    /// Sample rate the output stream actually runs at. Usually
+    /// `TARGET_SAMPLE_RATE` (the renderer requests 48 kHz explicitly), but on
+    /// a device that can't provide it the stream falls back to the device
+    /// default — recording duration math and time-based DSP need the real
+    /// rate (C22/C4).
+    pub(crate) stream_sample_rate: Arc<std::sync::atomic::AtomicU32>,
 
     // --- Latency Testing --- (native only)
     #[cfg(not(target_arch = "wasm32"))]
@@ -267,6 +273,7 @@ impl AudioGraph {
             hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
             hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
+            stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
             latency_test: Arc::new(crate::latency_test::LatencyTest::new(TARGET_SAMPLE_RATE)),
         };
 
@@ -323,6 +330,7 @@ impl AudioGraph {
             hardware_input_latency_ms: Arc::new(Mutex::new(0.0)),
             hardware_output_latency_ms: Arc::new(Mutex::new(0.0)),
             selected_output_device: Arc::new(Mutex::new(None)),
+            stream_sample_rate: Arc::new(std::sync::atomic::AtomicU32::new(TARGET_SAMPLE_RATE)),
         };
 
         Ok(graph)
@@ -778,6 +786,13 @@ impl AudioGraph {
     /// Get current sample rate
     pub fn get_sample_rate() -> u32 {
         TARGET_SAMPLE_RATE
+    }
+
+    /// The sample rate the output stream actually runs at. Equals
+    /// `TARGET_SAMPLE_RATE` unless the device couldn't provide 48 kHz and the
+    /// stream fell back to the device default (see `create_audio_stream`).
+    pub fn current_stream_sample_rate(&self) -> u32 {
+        self.stream_sample_rate.load(Ordering::Relaxed)
     }
 }
 

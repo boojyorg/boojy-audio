@@ -6,6 +6,23 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Time-based effects are now correct on non-48 kHz audio devices.** The Delay, Chorus and Reverb
+  assumed a 48 kHz device: on an interface running at 44.1 kHz, a 500 ms delay measured ~544 ms,
+  the chorus wobbled at the wrong speed, and the reverb's character shifted. They now follow the
+  rate the device actually runs at — and the delay's buffer grows on 96 kHz devices, where a 1.5 s
+  delay setting used to wrap into garbage. Exports are unaffected (they always render at the
+  engine's 48 kHz, and now explicitly pin the effects there for the duration of the render).
+- **Recordings made on a non-48 kHz device now play back at the right speed and pitch.** The
+  recorder stamped every take as 48 kHz regardless of the device rate, so on a 44.1 kHz stream
+  recordings came back ~9% fast and sharp, with the wrong clip length on the timeline. Takes are
+  now resampled to the engine rate with the correct wall-clock duration.
+- **The synth's filter knob now means the same thing on every device.** The cutoff knob mapped to a
+  raw filter coefficient, so the same knob position filtered a different frequency at different
+  device rates. It now tracks a fixed cutoff frequency (sounds identical at 48 kHz, so existing
+  projects don't change).
+- **Arming/disarming input monitoring fades over the same 20 ms on every device.** The anti-click
+  ramp was hardcoded for 48 kHz — at 96 kHz it ran twice as fast (and could click), at 44.1 kHz it
+  dragged.
 - **Exports now start from silence instead of inheriting playback state.** Offline renders (full
   mix and stems) reused the live effect instances without clearing them, so an export made after
   pressing play — or a stem bounced right after the full mix — could start with leftover compressor
