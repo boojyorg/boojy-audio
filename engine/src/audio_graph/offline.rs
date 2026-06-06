@@ -606,11 +606,12 @@ impl AudioGraph {
             return output;
         };
 
-        // Render the stem in sub-blocks of OFFLINE_BLOCK frames. Order matches
-        // the previous per-sample path: clips + synth, then fader/pan, then the
-        // FX chain (so the FX run on the post-fader signal). Built-in effects'
-        // `process_block` is a `process_frame` loop, so output is bit-identical;
-        // VST3 plugins process each chunk in one call with MIDI offsets.
+        // Render the stem in sub-blocks of OFFLINE_BLOCK frames: clips + synth
+        // into scratch, FX chain over the block, THEN fader/pan — the same
+        // gain-stage order as `render_offline`, so a stem's compressor/EQ sees
+        // the identical pre-fader signal it sees in the mix. (C68: stems used
+        // to apply fader/pan before the FX chain, making them sound different
+        // from the full mix.)
         let mut scratch_l = vec![0.0f32; OFFLINE_BLOCK];
         let mut scratch_r = vec![0.0f32; OFFLINE_BLOCK];
         let mut vst3_events: Vec<QueuedVst3Event> = Vec::with_capacity(128);
@@ -791,18 +792,6 @@ impl AudioGraph {
                     track_left += synth_left;
                     track_right += synth_right;
 
-                    // Apply track volume (use automation if available) then pan,
-                    // BEFORE the FX chain — preserving the stem's existing order.
-                    let frame_volume_gain = if track_snap.volume_automation.is_empty() {
-                        track_snap.volume_gain
-                    } else {
-                        interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
-                    };
-                    track_left *= frame_volume_gain;
-                    track_right *= frame_volume_gain;
-                    track_left *= track_snap.pan_left;
-                    track_right *= track_snap.pan_right;
-
                     scratch_l[i] = track_left;
                     scratch_r[i] = track_right;
                 }
@@ -832,10 +821,18 @@ impl AudioGraph {
                 );
             }
 
-            // Write interleaved stereo output.
+            // Pass 3: per-sample fader/pan AFTER the FX chain — matching
+            // `render_offline` — then write interleaved stereo output. (C68)
             for i in 0..block_len {
-                output.push(scratch_l[i]);
-                output.push(scratch_r[i]);
+                let frame_idx = block_start + i;
+                let playhead_seconds = (frame_idx as f64 / f64::from(sample_rate)) * tempo_ratio;
+                let frame_volume_gain = if track_snap.volume_automation.is_empty() {
+                    track_snap.volume_gain
+                } else {
+                    interpolate_automation_gain(&track_snap.volume_automation, playhead_seconds)
+                };
+                output.push(scratch_l[i] * frame_volume_gain * track_snap.pan_left);
+                output.push(scratch_r[i] * frame_volume_gain * track_snap.pan_right);
             }
 
             // Progress logging (~once per block)
