@@ -3,7 +3,7 @@
 //! Functions for creating and managing tracks, including volume, pan, mute, solo,
 //! armed state, and clip management.
 
-use super::helpers::get_audio_graph;
+use super::helpers::{encode_csv_field, get_audio_graph};
 use crate::track::{ClipId, TrackId, TrackType};
 
 // ============================================================================
@@ -306,7 +306,9 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
         Ok(format!(
             "{},{},{},{:.2},{:.2},{},{},{},{},{}",
             track.id,
-            track.name,
+            // Percent-encoded: a comma in the name must not shift the fields
+            // after it (C34). Dart decodes via decodeCsvField.
+            encode_csv_field(&track.name),
             type_str,
             track.volume_db,
             track.pan,

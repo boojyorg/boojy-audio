@@ -69,6 +69,7 @@ import '../state/ui_layout_state.dart';
 import '../services/window_title_service.dart';
 import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
+import '../utils/csv_field.dart';
 import '../utils/logger.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
@@ -863,8 +864,9 @@ class _DAWScreenState extends State<DAWScreen>
     if (info.isEmpty) return null;
     final parts = info.split(',');
     if (parts.length >= 2) {
-      // Track name is at index 1: "track_id,name,type,..."
-      return parts[1];
+      // Track name is at index 1: "track_id,name,type,..." —
+      // percent-encoded by the engine (C34).
+      return decodeCsvField(parts[1]);
     }
     return null;
   }
@@ -1749,7 +1751,8 @@ class _DAWScreenState extends State<DAWScreen>
     final parts = info.split(',');
     if (parts.length < 2) return null;
 
-    return parts[1];
+    // Name is percent-encoded by the engine (C34).
+    return decodeCsvField(parts[1]);
   }
 
   // Helper: Generate clip name for a track using instrument or track name

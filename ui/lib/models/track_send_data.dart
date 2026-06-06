@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../utils/csv_field.dart';
+
 /// A send from a source track to a return bus.
 class TrackSendData {
   final int returnId;
@@ -31,7 +33,9 @@ class TrackSendData {
       if (returnId == null) continue;
 
       final amountDb = double.tryParse(parts[1]) ?? -20.0;
-      final label = parts.sublist(2).join(',');
+      // Engine percent-encodes the name field (C34); the sublist-join keeps
+      // older unencoded CSV parsing the way it used to.
+      final label = decodeCsvField(parts.sublist(2).join(','));
 
       sends.add(
         TrackSendData(
@@ -92,7 +96,12 @@ class ReturnTrackData {
       if (id == null) continue;
 
       returns.add(
-        ReturnTrackData(id: id, name: parts[1], effectType: parts[2]),
+        // Engine percent-encodes the name field (C34).
+        ReturnTrackData(
+          id: id,
+          name: decodeCsvField(parts[1]),
+          effectType: parts[2],
+        ),
       );
     }
     return returns;
