@@ -107,6 +107,19 @@ PR** — and only when the feature is **reachable by a user end-to-end**, not wh
 exists but no UI path does (annotate those `(partial: …)`). Full version-reference checklist →
 **Version Sync** below.
 
+**Windows smoke test — every release, before publishing the draft.** Development happens on macOS,
+so the installed Windows build is the one artifact nobody has run. Install the freshly built
+`Boojy-Audio-win.exe` on the Windows machine (~5 min):
+
+1. App launches; taskbar + title bar show the Boojy icon (not the Flutter default)
+2. Audio devices listed in settings; default output works (play the metronome or a clip)
+3. Record a short MIDI clip with the built-in synth → it plays back
+4. Load/save a project round-trips
+5. In-app version label matches the tag
+
+(v0.5.2 and earlier shipped without `engine.dll` because nothing exercised the installer — this
+checklist exists so that class of bug is caught on day one.)
+
 ## Milestone Reviews
 
 Each version's theme should come from a **deliberate review, not guesswork** — both the v0.3.x

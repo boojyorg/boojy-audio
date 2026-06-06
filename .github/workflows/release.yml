@@ -255,6 +255,14 @@ jobs:
           flutter pub get
           flutter build windows --release
 
+      - name: Bundle VC++ runtime DLLs
+        run: |
+          # Flutter Windows apps (and the Rust engine) need the MSVC runtime; a
+          # clean machine without the VC++ redistributable can't launch the app.
+          # Ship the three DLLs app-local — Flutter's documented lightweight
+          # alternative to running vc_redist.x64.exe from the installer.
+          Copy-Item "C:\Windows\System32\msvcp140.dll","C:\Windows\System32\vcruntime140.dll","C:\Windows\System32\vcruntime140_1.dll" -Destination "ui\build\windows\x64\runner\Release\"
+
       - name: Create installer
         run: |
           # Download Inno Setup
