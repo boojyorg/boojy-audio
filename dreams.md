@@ -16,7 +16,7 @@ refer to `docs/reviews/codebase_review_2026_06_05.md`.
 behind this cycle).
 
 ### Milestones
-- [ ] **P1 — Criticals:** C32 stopped-path lock-order deadlock; C46/C63 clip-move undo never syncs
+- [x] **P1 — Criticals:** C32 stopped-path lock-order deadlock; C46/C63 clip-move undo never syncs
   engine start time; cherry-pick sampler blank-panel fix `6df5ac6`.
 - [ ] **P2 — Honest saves, faithful reloads:** C55 save reports success on `Error:`; C61
   save-as-copy path leak; C65 held notes dropped on save; C66 audio clips dropped on reload.
