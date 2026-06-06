@@ -7,45 +7,38 @@
 
 ## §1 Active Engineering Target
 
-**Target:** v0.5.0 — **Trust & Legibility**. Correctness/hardening for the moments a session leaves
-the happy path, plus legibility (tokenised colours, themed/scaled painters). Theme set by the
-2026-06-01 review chain (`docs/reviews/v0.4.0_pre_release_triage_2026_06_01.md`).
+**Target:** v0.5.2 — **"Correct on real hardware, right after undo."** Correctness-only cycle set
+by the 2026-06-05 review chain (`docs/reviews/triage_2026_06_05.md`); no features, no visible UI.
+Spec: `docs/plans/v0.5.2-plan.md` (each phase = one small PR, gates green between). Bug IDs (C…)
+refer to `docs/reviews/codebase_review_2026_06_05.md`.
 
-**Status (2026-06-04): tagging v0.5.0.** The whole v0.5 branch went up as **PR #43**
-(`feat/v0.5-mixer-fader-affordances` → master), CI all-green. Decision: **skip the unpublished
-v0.4.0 draft release**, next published tag is **v0.5.0**.
+**Status (2026-06-06):** plan opened. v0.5.1 published; drum-kit PRs #44/#45 merged (v0.6 paused
+behind this cycle).
 
 ### Milestones
-- [x] CI/test trust (C92/C95) + FEATURE_TRACKER sweep + headless goldens.
-- [x] Correctness cluster: VST3 lifecycle (C30/34/35), DeleteTrack content-loss undo
-  (C62/68/76/97) incl. VST3 instrument restore, recorder audio-thread blocking (C1–C3),
-  round-trip tempo (C72), undo-integrity (C66/86), loadProject gate (C73/77), split-clip
-  undo (C52/63/64).
-- [x] Offline export fixes: synth+FX silence (C6), true mono WAV (C22), MIDI CC on bounce (C23).
-- [x] FFI lock-safety (C44/46/47) — deadlock on audio-file drag.
-- [x] Project-layout robustness (C74/C80).
-- [x] Graphic EQ (variable bands, drag-the-dot graph) + sample-rate fix (C12) — PR #40.
-- [x] Legibility pass (#10): one green, MeterColorZones, painters threaded with colours + textScale,
-  piano-roll lane legibility.
-- [x] Mixer affordances (#11): editable dB readout (drag to scrub / click to type, one undo step).
-- [x] Arrangement-view polish pass + lighter canvas (`#1C1D21`).
-- [x] UX/dogfood fixes: consistent panel sizes on new project; single-box 24px library search;
-  piano-roll resize no-residual-bar; loop-end playback sync (dogfood bug B).
-- [x] **Tag:** PR #43 CI all-green → merge → version-sync (CHANGELOG → v0.5.0, ROADMAP, README,
-  FEATURE_TRACKER, **bump `ui/pubspec.yaml`**) → tag `v0.5.0`.
+- [ ] **P1 — Criticals:** C32 stopped-path lock-order deadlock; C46/C63 clip-move undo never syncs
+  engine start time; cherry-pick sampler blank-panel fix `6df5ac6`.
+- [ ] **P2 — Honest saves, faithful reloads:** C55 save reports success on `Error:`; C61
+  save-as-copy path leak; C65 held notes dropped on save; C66 audio clips dropped on reload.
+- [ ] **P3 — No stuck notes, no clicks:** C38 PianoRoll dispose NoteOff; C41 chord-preview after
+  dispose; C7 synth release anchor; C10 voice-steal ramp.
+- [ ] **P4 — Export tells the truth:** C16 LUFS dead code; C18 export range ignored; C68 stem
+  gain-stage order ≠ mix.
+- [ ] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.
+- [ ] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`-D warnings`, `--fatal-infos`);
+  C78/C79 commit both lockfiles; appcast edSignature double-wrap fix (auto-update broken since
+  v0.1.4).
+- [ ] **P7 — Engine test net, first slice (C69):** save/load round-trip, command
+  execute→undo→redo vs engine state, export smoke.
+- [ ] **P8 — Real hardware** *(designated split-out → v0.5.3 if slimming)*: sample-rate sweep
+  (C2/C9/C4/C6/C11/C22/C26 + C21/C62); metronome loop-wrap doubling; MIDI hot-plug (needs real
+  hardware); C99 device-disconnect; C104 output-device persistence.
+- [ ] **Tag v0.5.2:** version-sync (CHANGELOG, ROADMAP, README, **bump `ui/pubspec.yaml`**),
+  archive the plan, tag.
 
-### Deferred → v0.5.1 "loop & device polish"
-- **Metronome downbeat doubles at loop wrap (intermittent).** Loop-wrap is driven by a Dart 60fps
-  timer that seeks the engine, racing the audio thread; the metronome click window
-  (`position_in_beat < 4000`, `engine/src/recorder.rs`) has no "already-fired-this-beat" guard and
-  `seek_metronome` sets zero cooldown. Real fix: a per-beat last-fired-index guard and/or move the
-  loop-wrap into the audio thread.
-- **MIDI keyboard hot-plug doesn't work.** Connect a keyboard mid-session → Settings detects it but
-  no notes flow; midir's `MidiInput` is consumed on connect (`engine/src/midi_input.rs`), refresh
-  re-enumerates but the input connection isn't re-established for the new device. Needs hardware
-  testing.
-- Carried from earlier: **C24** (VST3 block size hardcoded on reload), **C99** (device disconnect
-  kills playback silently), **C104** (output device not persisted).
+**If-time (explicit call, don't pull in silently):** C45/C47/C48/C49/C52/C54 (adjacent undo
+holes), C17 quantize, C40/C71 non-4/4, C81/C83/C87 release Lows. **Out:** UI ledger + mockups →
+v0.6; C37/C50 → v0.6 Join rewrite; VST3 fidelity (C27–C30) → its own later cycle.
 
 ### Trap (still live)
 `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are dead/diverged, so edit the
