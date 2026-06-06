@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Adding or removing an effect while stopped can no longer freeze the app.** The audio engine's
+  stopped path and the add/remove-effect call took the same two internal locks in opposite orders —
+  a classic deadlock that silently froze the whole UI (no crash, no log) when you edited a track's
+  effects while playback was stopped, which is the normal way of working. The lock order is now the
+  same everywhere.
+- **Moving a MIDI clip now moves its sound too — including after undo.** Dragging a clip to a new
+  bar updated the visuals but the engine kept playing it from the old position; Cmd+Z snapped the
+  clip back visually while the audio stayed at the *new* position. The engine's clip start time is
+  now kept in sync on every move, undo, and redo.
 - **The Sampler is now usable — it used to come up completely blank.** Adding a Sampler showed an
   empty editor panel with no controls, no waveform, and no way to load a sample. Three things were
   wrong: (1) picking "Sampler" while a MIDI track was selected silently created a *Synthesizer*
