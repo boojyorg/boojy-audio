@@ -289,7 +289,13 @@ class LibraryService extends ChangeNotifier {
     // Map from availableInstruments
     final items = availableInstruments
         .where(
-          (i) => ['Piano', 'Synthesizer', 'Drums', 'Sampler'].contains(i.name),
+          (i) => [
+            'Piano',
+            'Synthesizer',
+            'Drums',
+            'Sampler',
+            'Drum Kit',
+          ].contains(i.name),
         )
         .map(
           (i) => LibraryItem(
