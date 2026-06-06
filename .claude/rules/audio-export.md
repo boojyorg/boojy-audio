@@ -32,6 +32,17 @@ matching `render_offline` (C68) — a stem's compressor must see the same pre-fa
 Note the UI does not yet expose range/platform-target controls — the options work engine-side and
 arrive via the `ExportOptions` JSON.
 
+Two more offline-render invariants (locked by the v0.5.2 P7 tests in `engine/src/api/tests.rs`):
+
+- **Offline renders start from silence.** Effect instances are shared with live playback, so both
+  `render_offline` and `render_track_offline` call `reset_builtin_fx_offline` first — otherwise an
+  export made after playback (or a stem bounced after the mix) starts with leftover compressor
+  envelopes / delay / reverb tails. VST3 is deliberately *not* reset (its `reset()` is a full
+  deactivate/reinit cycle — VST3 fidelity is its own later cycle, C27–C30).
+- **The full mix has a master stage that stems don't:** master volume → constant-power master pan
+  (≈0.707 per channel at centre) → master FX → master limiter. A single-track stem equals the mix
+  only after factoring that stage out — don't "fix" stem≠mix by touching the master stage.
+
 ## Reality of the ffmpeg fallback (don't trust the comment)
 
 - The doc-comment at the top of `mp3.rs` says it "falls back to WAV if ffmpeg is not available" —

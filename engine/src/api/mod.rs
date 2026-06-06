@@ -34,6 +34,9 @@ pub mod transport;
 #[cfg(all(feature = "vst3", not(target_os = "ios")))]
 pub mod vst3;
 
+#[cfg(test)]
+mod tests;
+
 // Re-export all public functions from submodules
 pub use effects::{
     add_effect_to_track, add_eq_band, get_effect_bypass, get_effect_info, get_effect_peak_levels,
