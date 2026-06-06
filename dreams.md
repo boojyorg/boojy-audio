@@ -27,8 +27,10 @@ behind this cycle).
   would have made the leak worse); C7 synth release anchor (`release_start_level`, sampler
   pattern); C10 voice-steal ramp (stolen voice → 5ms fade-out tail, synth + sampler; steal
   prefers already-releasing voices).
-- [ ] **P4 — Export tells the truth:** C16 LUFS dead code; C18 export range ignored; C68 stem
-  gain-stage order ≠ mix.
+- [x] **P4 — Export tells the truth:** C16 LUFS dead code (now applied pre-mixdown, supersedes
+  peak-normalize); C18 export range ignored (sliced post-render so FX are warmed up; empty range =
+  hard error); C68 stem gain-stage order ≠ mix (stems now fader/pan *after* FX, same as
+  `render_offline`). Note: UI doesn't expose range/platform-target yet — engine-side truth only.
 - [ ] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.
 - [ ] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`-D warnings`, `--fatal-infos`);
   C78/C79 commit both lockfiles; appcast edSignature double-wrap fix (auto-update broken since

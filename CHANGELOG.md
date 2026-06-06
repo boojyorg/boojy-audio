@@ -53,6 +53,23 @@ All notable changes to Boojy Audio will be documented in this file.
   sampler, opens the editor, and shows the sampler interface (waveform, root note, attack/release,
   loop controls, and a **Load** button to pick a sample). *(A first-run empty state / drag-a-sample
   drop target on the empty sampler is a separate follow-up.)*
+- **Platform loudness targets now actually do something.** Exporting "for Spotify" (or any LUFS
+  target) was silently a no-op — the loudness machinery existed but was never called, so the file
+  shipped at whatever level the mix happened to be. The target now applies real gain (with clip
+  protection), and it takes charge of loudness: plain peak-normalize is skipped when a platform
+  target is set rather than quietly undoing it. *(Engine-side — the export dialog doesn't expose
+  platform targets yet.)*
+- **Export range is no longer ignored.** Asking the engine for a section of the project (e.g. the
+  loop region) always produced the full mix from bar 1. The requested range is now cut from the
+  rendered audio — with effects properly "warmed up", so a reverb tail ringing into your range is
+  there, exactly as you'd hear it mid-song — and an empty or out-of-bounds range is a real error
+  instead of a silent full export. *(Engine-side — the export dialog doesn't expose a range picker
+  yet.)*
+- **Stems now sound like the mix.** Stem export applied a track's fader and pan *before* its
+  effects, while the full mix applies them *after* — so a compressor or EQ on the track saw a
+  different signal level in the stem than in the mix, changing its loudness and character. Stems
+  now use the exact gain-stage order of the mix; re-importing your stems reproduces what you
+  exported.
 
 ## v0.5.1 — 2026-06-05
 

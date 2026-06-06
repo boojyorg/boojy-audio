@@ -3,13 +3,79 @@
 //! Supports 16-bit, 24-bit, and 32-bit float WAV formats.
 
 use super::dither::{convert_to_16bit, convert_to_24bit};
-use super::normalize::normalize_peak;
+use super::normalize::{normalize_lufs, normalize_peak};
 use super::options::{ExportOptions, ExportResult, WavBitDepth};
 use super::resample::{resample_mono, resample_stereo, stereo_to_mono};
 use std::path::Path;
 
 /// Internal sample rate used by the audio engine
 pub const ENGINE_SAMPLE_RATE: u32 = 48000;
+
+/// Trim rendered audio to the export range requested in the options (C18).
+///
+/// `samples` are stereo interleaved at `ENGINE_SAMPLE_RATE` (the raw
+/// `render_offline` output, before any mixdown/resampling). With no range
+/// set this is just a copy of the full render.
+pub(crate) fn slice_export_range(
+    samples: &[f32],
+    options: &ExportOptions,
+) -> Result<Vec<f32>, String> {
+    if options.start_time.is_none() && options.end_time.is_none() {
+        return Ok(samples.to_vec());
+    }
+
+    let num_frames = samples.len() / 2;
+    let start_secs = options.start_time.unwrap_or(0.0).max(0.0);
+    let end_secs = options.end_time.unwrap_or(f64::MAX);
+    if end_secs <= start_secs {
+        return Err(format!(
+            "Export range is empty ({start_secs:.2}s – {end_secs:.2}s)"
+        ));
+    }
+
+    let start_frame = ((start_secs * f64::from(ENGINE_SAMPLE_RATE)) as usize).min(num_frames);
+    let end_frame = if options.end_time.is_some() {
+        ((end_secs * f64::from(ENGINE_SAMPLE_RATE)) as usize).min(num_frames)
+    } else {
+        num_frames
+    };
+    if start_frame >= end_frame {
+        return Err(format!(
+            "Export range ({start_secs:.2}s onwards) starts after the end of the audio"
+        ));
+    }
+
+    eprintln!(
+        "✂️ [Export] Trimming to range: {start_secs:.2}s – frame {start_frame}..{end_frame}"
+    );
+    Ok(samples[start_frame * 2..end_frame * 2].to_vec())
+}
+
+/// Apply the platform LUFS target if one is set (C16). Returns whether a
+/// target was applied — peak normalization must then be skipped, since
+/// re-scaling to a peak level afterwards would silently break the loudness
+/// target.
+///
+/// Must run on stereo interleaved audio at the engine rate (the LUFS
+/// measurement assumes stereo), so callers apply it before any mono
+/// mixdown/resampling; the uniform gain survives both unchanged.
+pub(crate) fn apply_platform_lufs(
+    processed: &mut [f32],
+    options: &ExportOptions,
+    label: &str,
+) -> bool {
+    let Some(target) = options.platform_target.target_lufs() else {
+        return false;
+    };
+    eprintln!("📊 [{label}] Applying platform loudness target: {target:.1} LUFS");
+    normalize_lufs(processed, ENGINE_SAMPLE_RATE, target);
+    if options.normalize {
+        eprintln!(
+            "📊 [{label}] Skipping peak normalization — the platform LUFS target supersedes it"
+        );
+    }
+    true
+}
 
 /// Export audio samples to WAV file
 ///
@@ -38,8 +104,12 @@ pub fn export_wav(
         }
     };
 
-    // Make a mutable copy of samples for processing
-    let mut processed = samples.to_vec();
+    // Trim to the requested export range first — everything downstream
+    // (mixdown, resample, loudness) operates on the trimmed audio. (C18)
+    let mut processed = slice_export_range(samples, options)?;
+
+    // Platform LUFS target runs on the stereo engine-rate buffer. (C16)
+    let lufs_applied = apply_platform_lufs(&mut processed, options, "WAV Export");
 
     // Output channel count. A mono export writes a true single-channel WAV
     // (half the size, correctly tagged mono) rather than a dual-mono stereo
@@ -65,8 +135,10 @@ pub fn export_wav(
         };
     }
 
-    // Apply normalization if requested (peak scan is channel-agnostic)
-    if options.normalize {
+    // Apply peak normalization if requested (peak scan is channel-agnostic;
+    // runs last so resampling can't shift the final peak). Skipped when a
+    // platform LUFS target was applied — that target owns the loudness.
+    if options.normalize && !lufs_applied {
         eprintln!("📊 [WAV Export] Normalizing to -0.1 dBFS");
         normalize_peak(&mut processed, -0.1);
     }
@@ -309,6 +381,80 @@ mod tests {
         assert!((result.duration - 1.0).abs() < 0.01);
 
         let _ = std::fs::remove_file(&temp_path);
+    }
+
+    /// The export range must actually trim the output (C18) — a 1s render
+    /// exported with a 0.25s–0.5s range produces a 0.25s file.
+    #[test]
+    fn export_range_trims_output() {
+        let samples = create_test_samples(); // 1 second @ 48kHz stereo
+        let temp_path = env::temp_dir().join("test_export_range.wav");
+
+        let options = ExportOptions::wav(WavBitDepth::Int16)
+            .with_sample_rate(ENGINE_SAMPLE_RATE)
+            .with_range(0.25, 0.5);
+        let result = export_wav(&samples, &temp_path, &options).unwrap();
+
+        assert!(
+            (result.duration - 0.25).abs() < 0.01,
+            "expected 0.25s export, got {:.3}s",
+            result.duration
+        );
+
+        let _ = std::fs::remove_file(&temp_path);
+    }
+
+    /// An end time past the end of the audio clamps instead of erroring.
+    #[test]
+    fn export_range_end_clamps_to_audio_length() {
+        let samples = create_test_samples(); // 1 second
+        let options = ExportOptions::wav(WavBitDepth::Int16).with_range(0.5, 99.0);
+        let sliced = slice_export_range(&samples, &options).unwrap();
+        assert_eq!(sliced.len(), 48000); // 0.5s of stereo frames
+    }
+
+    /// An empty or inverted range is an error, not a silent full export.
+    #[test]
+    fn export_range_empty_is_an_error() {
+        let samples = create_test_samples();
+        let options = ExportOptions::wav(WavBitDepth::Int16).with_range(0.5, 0.5);
+        assert!(slice_export_range(&samples, &options).is_err());
+
+        let inverted = ExportOptions::wav(WavBitDepth::Int16).with_range(0.8, 0.2);
+        assert!(slice_export_range(&samples, &inverted).is_err());
+
+        let past_end = ExportOptions::wav(WavBitDepth::Int16).with_range(5.0, 9.0);
+        assert!(slice_export_range(&samples, &past_end).is_err());
+    }
+
+    /// A platform LUFS target must change the audio (C16 — it used to be
+    /// dead code), and must suppress the conflicting peak normalization.
+    #[test]
+    fn platform_target_applies_lufs_gain() {
+        use super::super::options::PlatformTarget;
+
+        let samples = create_test_samples(); // 0.5-amplitude sine
+        let mut with_target = samples.clone();
+        let options = ExportOptions::wav(WavBitDepth::Float32)
+            .with_normalize(true)
+            .with_platform(PlatformTarget::Custom(-30.0));
+
+        let applied = apply_platform_lufs(&mut with_target, &options, "test");
+        assert!(applied, "platform target must report as applied");
+
+        // -30 LUFS is far below the source loudness → audio must get quieter.
+        let peak_before = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        let peak_after = with_target.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        assert!(
+            peak_after < peak_before * 0.5,
+            "expected significant attenuation toward -30 LUFS: {peak_before} -> {peak_after}"
+        );
+
+        // No platform target → not applied, peak normalize stays in charge.
+        let no_target = ExportOptions::wav(WavBitDepth::Float32).with_normalize(true);
+        let mut untouched = samples.clone();
+        assert!(!apply_platform_lufs(&mut untouched, &no_target, "test"));
+        assert_eq!(untouched, samples);
     }
 
     /// A default (non-mono) export stays stereo. Guards against the mono
