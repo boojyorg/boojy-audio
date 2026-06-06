@@ -19,6 +19,7 @@ mid tom, crash); High Contrast hidden in v0.6; small mixer fixes in, §6.B strip
 parked pending a design conversation.
 
 ### Milestones
+
 - [ ] **Publish v0.5.4 draft release** (Tyr) — notes are paste-ready on the draft.
 - [ ] **Windows smoke test, round 2** (Tyr, parallel to dev): 5 CLAUDE.md steps + Save As
   (native dialog → `Documents\Boojy\Audio\Projects`), Open round-trip, Export WAV. Failures →
