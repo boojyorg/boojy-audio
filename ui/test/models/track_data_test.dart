@@ -22,6 +22,21 @@ void main() {
         expect(track.inputChannel, 1);
       });
 
+      test('decodes a percent-encoded name with a comma (C34)', () {
+        // The engine escapes ','/';'/'%' in the name field so a name like
+        // "Drums, Kit" can't shift the fields after it.
+        final track = TrackData.fromCSV(
+          '1,Drums%2C Kit,midi,-6.0,0.3,0,1,0,2,1',
+        );
+
+        expect(track, isNotNull);
+        expect(track!.name, 'Drums, Kit');
+        expect(track.type, 'midi');
+        expect(track.volumeDb, -6.0);
+        expect(track.solo, true);
+        expect(track.inputChannel, 1);
+      });
+
       test('parses 8-field format (with armed)', () {
         final track = TrackData.fromCSV(
           '1,Piano,midi,-6.0,0.3,false,true,false',

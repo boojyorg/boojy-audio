@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -26,14 +25,11 @@ pub extern "C" fn set_track_instrument_ffi(track_id: u64, instrument_type: *cons
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let instrument_type_str = unsafe {
-                match CStr::from_ptr(instrument_type).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return -1,
-                }
+            let Some(instrument_type_str) = (unsafe { cstr_arg(instrument_type) }) else {
+                return -1;
             };
 
-            match api::set_track_instrument(track_id, instrument_type_str) {
+            match api::set_track_instrument(track_id, instrument_type_str.to_string()) {
                 Ok(id) => id,
                 Err(e) => {
                     eprintln!("[FFI] Failed to set instrument: {e}");
@@ -54,23 +50,15 @@ pub extern "C" fn set_synth_parameter_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let param_name_str = unsafe {
-                match CStr::from_ptr(param_name).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
-                    }
-                }
+            let Some(param_name_str) = (unsafe { cstr_arg(param_name) }) else {
+                return safe_cstring("Error: Invalid parameter name".to_string()).into_raw();
             };
 
-            let value_str = unsafe {
-                match CStr::from_ptr(value).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return safe_cstring("Error: Invalid value".to_string()).into_raw(),
-                }
+            let Some(value_str) = (unsafe { cstr_arg(value) }) else {
+                return safe_cstring("Error: Invalid value".to_string()).into_raw();
             };
 
-            match api::set_synth_parameter(track_id, param_name_str, value_str) {
+            match api::set_synth_parameter(track_id, param_name_str.to_string(), value_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -161,16 +149,13 @@ pub extern "C" fn load_sample_for_track_ffi(
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let path_str = unsafe {
-                match CStr::from_ptr(path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return 0,
-                }
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
+                return 0;
             };
 
             println!("[FFI] Loading sample for track {track_id}: {path_str} (root={root_note})");
 
-            match api::load_sample_for_track(track_id, path_str, root_note) {
+            match api::load_sample_for_track(track_id, path_str.to_string(), root_note) {
                 Ok(msg) => {
                     println!("[FFI] {msg}");
                     1
@@ -196,25 +181,17 @@ pub extern "C" fn set_sampler_parameter_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let param_name_str = unsafe {
-                match CStr::from_ptr(param_name).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
-                    }
-                }
+            let Some(param_name_str) = (unsafe { cstr_arg(param_name) }) else {
+                return safe_cstring("Error: Invalid parameter name".to_string()).into_raw();
             };
 
-            let value_str = unsafe {
-                match CStr::from_ptr(value).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return safe_cstring("Error: Invalid value".to_string()).into_raw(),
-                }
+            let Some(value_str) = (unsafe { cstr_arg(value) }) else {
+                return safe_cstring("Error: Invalid value".to_string()).into_raw();
             };
 
             println!("[FFI] Set sampler param for track {track_id}: {param_name_str}={value_str}");
 
-            match api::set_sampler_parameter(track_id, param_name_str, value_str) {
+            match api::set_sampler_parameter(track_id, param_name_str.to_string(), value_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -433,13 +410,10 @@ pub extern "C" fn load_drum_pad_sample_ffi(
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let path_str = unsafe {
-                match CStr::from_ptr(path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return 0,
-                }
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
+                return 0;
             };
-            match api::load_drum_pad_sample(track_id, pad_index, path_str) {
+            match api::load_drum_pad_sample(track_id, pad_index, path_str.to_string()) {
                 Ok(msg) => {
                     println!("[FFI] {msg}");
                     1
@@ -464,21 +438,13 @@ pub extern "C" fn set_drum_pad_parameter_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let param_name_str = unsafe {
-                match CStr::from_ptr(param_name).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
-                    }
-                }
+            let Some(param_name_str) = (unsafe { cstr_arg(param_name) }) else {
+                return safe_cstring("Error: Invalid parameter name".to_string()).into_raw();
             };
-            let value_str = unsafe {
-                match CStr::from_ptr(value).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return safe_cstring("Error: Invalid value".to_string()).into_raw(),
-                }
+            let Some(value_str) = (unsafe { cstr_arg(value) }) else {
+                return safe_cstring("Error: Invalid value".to_string()).into_raw();
             };
-            match api::set_drum_pad_parameter(track_id, pad_index, param_name_str, value_str) {
+            match api::set_drum_pad_parameter(track_id, pad_index, param_name_str.to_string(), value_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
