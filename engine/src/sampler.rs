@@ -7,6 +7,10 @@ use std::sync::Arc;
 
 const MAX_VOICES: usize = 8;
 
+/// Fade-out time for a stolen voice — long enough to avoid a click, short
+/// enough to be inaudible as a "note".
+const STEAL_FADE_MS: f32 = 5.0;
+
 // ============================================================================
 // ENVELOPE (simplified AR - Attack/Release only)
 // ============================================================================
@@ -248,6 +252,9 @@ impl SamplerVoice {
 
 pub struct Sampler {
     voices: Vec<SamplerVoice>,
+    // Stolen voices fading out over STEAL_FADE_MS so reusing their slot
+    // doesn't cut the old note dead mid-waveform (audible click).
+    steal_tails: Vec<SamplerVoice>,
     sample: Option<Arc<AudioClip>>,
     pub root_note: u8, // MIDI note that plays sample at original pitch (default 60 = C4)
     pub envelope: SamplerEnvelope,
@@ -271,6 +278,7 @@ impl Sampler {
     pub fn new(sample_rate: f32) -> Self {
         Self {
             voices: (0..MAX_VOICES).map(|_| SamplerVoice::new()).collect(),
+            steal_tails: (0..MAX_VOICES).map(|_| SamplerVoice::new()).collect(),
             sample: None,
             root_note: 60, // C4
             envelope: SamplerEnvelope::default(),
@@ -380,9 +388,28 @@ impl Sampler {
             0.0
         };
 
-        // Find free voice or steal oldest
+        // Find free voice or steal one
         let idx = self.find_free_voice_index();
+        if self.voices[idx].is_active {
+            self.start_steal_fade(self.voices[idx].clone());
+        }
         self.voices[idx].note_on(note, velocity, playback_rate, start_pos);
+    }
+
+    /// Move a stolen voice into a fade-out tail so the new note can start
+    /// immediately while the old one ramps to silence. Re-anchors the release
+    /// unconditionally — a voice already mid-release would otherwise compute
+    /// progress against the 5ms fade and cut dead.
+    fn start_steal_fade(&mut self, mut stolen: SamplerVoice) {
+        stolen.release_start_level = stolen.env_level;
+        stolen.env_state = EnvelopeState::Release;
+        stolen.env_time = 0.0;
+        let slot = self
+            .steal_tails
+            .iter()
+            .position(|t| !t.is_active)
+            .unwrap_or(0);
+        self.steal_tails[slot] = stolen;
     }
 
     pub fn note_off(&mut self, note: u8) {
@@ -398,7 +425,7 @@ impl Sampler {
     }
 
     pub fn all_notes_off(&mut self) {
-        for voice in &mut self.voices {
+        for voice in self.voices.iter_mut().chain(self.steal_tails.iter_mut()) {
             voice.is_active = false;
             voice.env_state = EnvelopeState::Idle;
             voice.env_level = 0.0;
@@ -423,6 +450,26 @@ impl Sampler {
             let (l, r) = voice.process(
                 sample,
                 &self.envelope,
+                self.sample_rate,
+                loop_enabled,
+                loop_start,
+                loop_end,
+                reversed,
+            );
+            left_out += l;
+            right_out += r;
+        }
+
+        // Mix stolen voices with a fast declick fade instead of the
+        // patch's release time
+        let fade_env = SamplerEnvelope {
+            release_ms: STEAL_FADE_MS,
+            ..self.envelope
+        };
+        for tail in &mut self.steal_tails {
+            let (l, r) = tail.process(
+                sample,
+                &fade_env,
                 self.sample_rate,
                 loop_enabled,
                 loop_start,
@@ -567,8 +614,12 @@ impl Sampler {
                 return i;
             }
         }
-        // All voices active - steal first one (simple voice stealing)
-        0
+        // All voices active — prefer stealing one that's already fading out
+        // (least audible to cut short), otherwise take the first
+        self.voices
+            .iter()
+            .position(|v| v.env_state == EnvelopeState::Release)
+            .unwrap_or(0)
     }
 
     pub fn active_voice_count(&self) -> usize {
@@ -930,6 +981,46 @@ mod tests {
         assert_eq!(sampler.beats_per_bar, 1);
         sampler.set_parameter("beat_unit", "32");
         assert_eq!(sampler.beat_unit, 16);
+    }
+
+    #[test]
+    fn voice_steal_fades_old_note_instead_of_cutting() {
+        let mut sampler = Sampler::new(48000.0);
+        // 1-second mono DC sample so an active voice is always audible
+        sampler.load_sample(Arc::new(AudioClip {
+            samples: vec![1.0; 48000],
+            channels: 1,
+            sample_rate: 48000,
+            duration_seconds: 1.0,
+            file_path: "test.wav".to_string(),
+        }));
+        sampler.loop_enabled = true; // sustain so voices stay active
+
+        // Fill all voices and let them settle past the 1ms attack
+        for note in 0..MAX_VOICES {
+            sampler.note_on(60 + u8::try_from(note).unwrap(), 100);
+        }
+        for _ in 0..480 {
+            sampler.process_sample();
+        }
+        assert_eq!(sampler.active_voice_count(), MAX_VOICES);
+
+        // 9th note steals a voice: the stolen note must keep sounding via a
+        // fade tail (C10), not vanish in a single sample.
+        sampler.note_on(72, 100);
+        assert!(
+            sampler.steal_tails.iter().any(|t| t.is_active),
+            "stolen voice was cut with no fade tail"
+        );
+
+        // After the 5ms fade (240 samples @ 48kHz) the tail must be finished.
+        for _ in 0..480 {
+            sampler.process_sample();
+        }
+        assert!(
+            sampler.steal_tails.iter().all(|t| !t.is_active),
+            "steal tail still active after the fade window"
+        );
     }
 
     #[test]
