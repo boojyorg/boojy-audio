@@ -1,7 +1,7 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.5.4
-**Working On:** v0.6 — "Sound" (drum kit, automation flag-flip, monitoring UI, join/reverse/normalize clips, UI fixes ledger) — plan to be opened next; theme set by the [2026-06-05 review chain](reviews/triage_2026_06_05.md).
+**Working On:** v0.6 — "Sound" (drum kit, automation flag-flip, monitoring UI, join/reverse/normalize clips, UI fixes ledger) — spec: [plans/v0.6-plan.md](plans/v0.6-plan.md); theme set by the [2026-06-05 review chain](reviews/triage_2026_06_05.md).
 **Goal:** v1.0 public release
 
 ---
