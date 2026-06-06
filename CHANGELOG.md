@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.4 — 2026-06-06
+
 ### Bug Fixes
 
 - **Save As, Open Project, and Export now work on Windows.** Every file/folder dialog was macOS

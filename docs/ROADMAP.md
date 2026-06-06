@@ -1,6 +1,6 @@
 # Boojy Audio Roadmap
 
-**Current Version:** v0.5.3
+**Current Version:** v0.5.4
 **Working On:** v0.6 — "Sound" (drum kit, automation flag-flip, monitoring UI, join/reverse/normalize clips, UI fixes ledger) — plan to be opened next; theme set by the [2026-06-05 review chain](reviews/triage_2026_06_05.md).
 **Goal:** v1.0 public release
 
@@ -48,6 +48,7 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.5.1 | UI polish & fixes (top-bar add-track, selectable Master, library alignment, delete fix) | Complete |
 | v0.5.2 | Correct on real hardware, right after undo (criticals, save/reload honesty, sample-rate sweep, device polish) | Complete |
 | v0.5.3 | Windows installer fix (engine.dll was never bundled) + new app icon on macOS/Windows | Complete |
+| v0.5.4 | Windows file dialogs (Save As/Open/Export were macOS-only) + tour auto-start removed | Complete |
 | v0.6.0 | Sound (drum kit + starter sounds, automation, monitoring, join/reverse/normalize, UI fixes) | Planned |
 
 ---
