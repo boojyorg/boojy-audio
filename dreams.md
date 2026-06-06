@@ -9,7 +9,7 @@
 
 **Target:** v0.5.2 — **"Correct on real hardware, right after undo."** Correctness-only cycle set
 by the 2026-06-05 review chain (`docs/reviews/triage_2026_06_05.md`); no features, no visible UI.
-Spec: `docs/plans/v0.5.2-plan.md` (each phase = one small PR, gates green between). Bug IDs (C…)
+Spec: `docs/archive/plans/v0.5.2-plan.md` (each phase = one small PR, gates green between). Bug IDs (C…)
 refer to `docs/reviews/codebase_review_2026_06_05.md`.
 
 **Status (2026-06-06):** plan opened. v0.5.1 published; drum-kit PRs #44/#45 merged (v0.6 paused
@@ -52,8 +52,10 @@ behind this cycle).
   (refractory guard + monotonic click clock); MIDI hot-plug reconnect-by-name; C99 stream death →
   transport stops + banner (`get_audio_stream_error` FFI, take-semantics). C104 verified
   already-covered app-level (user_settings + startup apply) — project.json would be the wrong
-  home. ⚠ **Hardware pass still owed (Tyr)** — checklist in PR #58: 44.1 kHz delay/recording,
-  VST3 rate switch, loop-wrap metronome, MIDI replug, interface yank.
+  home. **Hardware pass (2026-06-06):** loop-wrap metronome, MIDI replug, interface yank —
+  ✅ passed by Tyr. 44.1 kHz delay/recording + VST3 rate switch — **deferred to the v0.6
+  dogfood** (no in-app rate switch; needs Audio MIDI Setup fiddling — engine-level tests cover
+  the rate math). Sample-rate selector added to `docs/BACKLOG.md`.
 - [ ] **Tag v0.5.2:** AFTER the hardware pass — version-sync (CHANGELOG, ROADMAP, README, **bump
   `ui/pubspec.yaml`**), archive the plan, tag.
 
@@ -62,10 +64,12 @@ holes), C17 quantize, C40/C71 non-4/4, C81/C83/C87 release Lows. **Out:** UI led
 v0.6; C37/C50 → v0.6 Join rewrite; VST3 fidelity (C27–C30) → its own later cycle.
 
 ### Trap (still live)
+
 `daw_screen.dart` wires PRIVATE `_` copies of its mixins — the mixins are dead/diverged, so edit the
 wired private methods, *not* the mixins.
 
 ### How we work here
+
 - Plan **one milestone at a time** — only one active `docs/plans/vX.Y-plan.md`.
 - After each release: **dogfood** on a real project, then pick the next theme from friction.
   `docs/ROADMAP.md` + `docs/FEATURE_TRACKER.md` are the backlog, not a pre-scheduled ladder.

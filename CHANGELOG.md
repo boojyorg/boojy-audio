@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.2 — 2026-06-06
+
 ### Bug Fixes
 
 - **The metronome no longer doubles its downbeat at a loop wrap.** When the loop cycled, the
@@ -128,6 +130,14 @@ All notable changes to Boojy Audio will be documented in this file.
   the in-app updater silently rejected every update — manual downloads were the only way to
   upgrade. The next release publishes a correctly signed feed.
 
+### Improvements
+
+- **The engine's save/load, undo and export paths are now covered by automated tests.** First
+  slice of the engine test net: save → load round-trip fidelity (multi-clip tracks, held notes,
+  honest errors for missing audio files), clip-move execute → undo → redo against real engine
+  state, and export smoke tests (range honoured, loudness target applied, stem gain-staging
+  matches the mix). These lock in this cycle's fixes so they can't silently regress.
+
 ## v0.5.1 — 2026-06-05
 
 ### Bug Fixes
@@ -140,11 +150,6 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
-- **The engine's save/load, undo and export paths are now covered by automated tests.** First
-  slice of the engine test net: save → load round-trip fidelity (multi-clip tracks, held notes,
-  honest errors for missing audio files), clip-move execute → undo → redo against real engine
-  state, and export smoke tests (range honoured, loudness target applied, stem gain-staging
-  matches the mix). These lock in this cycle's fixes so they can't silently regress.
 - **"+ MIDI Track" / "+ Audio Track" moved into the top bar**, just left of the mixer toggle and
   Help — they were cramped into the mixer header before. They lift to the track-type colour on hover
   and collapse to icons on a narrow window.
