@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/logger.dart';
 import '../models/library_item.dart';
+import 'bundled_content_service.dart';
 import '../theme/boojy_icons.dart';
 import '../widgets/instrument_browser.dart';
 import '../screens/daw_screen_io.dart'
@@ -23,9 +25,30 @@ class LibraryService extends ChangeNotifier {
 
   LibraryService() {
     _loadPreferences();
+    _installBundledContent();
     // Schedule a notification after the first frame to ensure widgets are listening
     // This fixes built-in effects not appearing until manual refresh
     Future.microtask(() => notifyListeners());
+  }
+
+  /// On-disk root of the bundled drum samples (set once installed).
+  String? _bundledDrumsRoot;
+
+  /// Copy the bundled samples out of the asset bundle (no-op when already
+  /// installed), then surface them in the Samples category.
+  Future<void> _installBundledContent() async {
+    final root = await BundledContentService.ensureInstalled();
+    if (root != null) {
+      _bundledDrumsRoot = root;
+      notifyListeners();
+    }
+  }
+
+  /// Test seam: set the bundled-drums root without a real install.
+  @visibleForTesting
+  void debugSetBundledDrumsRoot(String? root) {
+    _bundledDrumsRoot = root;
+    notifyListeners();
   }
 
   /// Get default user content path based on platform
@@ -177,7 +200,8 @@ class LibraryService extends ChangeNotifier {
     try {
       await for (final entity in dir.list()) {
         if (entity is File) {
-          final name = entity.path.split('/').last;
+          // p.basename handles both / and \ — split('/') broke on Windows.
+          final name = p.basename(entity.path);
           final ext = name.split('.').last.toLowerCase();
 
           // Check if audio or MIDI file
@@ -200,7 +224,7 @@ class LibraryService extends ChangeNotifier {
             );
           }
         } else if (entity is Directory) {
-          final folderName = entity.path.split('/').last;
+          final folderName = p.basename(entity.path);
           // Add subfolder
           items.add(
             FolderItem(
@@ -273,14 +297,23 @@ class LibraryService extends ChangeNotifier {
     );
   }
 
-  /// Build Samples category (empty - not yet implemented)
+  /// Build Samples category — bundled content, copied out to disk on first
+  /// launch and browsed with the same folder scanning as user folders.
   LibraryCategory _buildSamplesCategory() {
+    final drumsRoot = _bundledDrumsRoot;
     return LibraryCategory(
       id: 'samples',
       name: 'Samples',
       icon: BI.audioFile,
       subcategories: [],
-      items: [],
+      items: [
+        if (drumsRoot != null)
+          FolderItem(
+            id: 'builtin_samples_drums',
+            name: 'Drums',
+            folderPath: drumsRoot,
+          ),
+      ],
     );
   }
 
