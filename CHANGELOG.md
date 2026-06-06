@@ -4,6 +4,21 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- **Drum Kit editor — playing-column highlight.** When the loop plays, the current 1/16 step is now
+  outlined in white across every pad row (with a matching tick on the bar ruler), so you can see
+  where you are in the bar, GarageBand-style. Clears when playback stops.
+- **Drop a sound straight onto a pad row.** You can now drag a sample from the Library directly onto
+  a pad in the step sequencer — it loads there and selects that pad. The left waveform box still
+  works for the select-then-drop flow.
+
+### Bug Fixes
+
+- **Undo now covers the Drum Kit pad knobs.** Changing a pad's Attack, Decay, Pitch, Reverse or Pan
+  can be undone/redone with Cmd+Z — a whole knob drag collapses into a single undo step. Previously
+  only the step-grid toggles were undoable.
+
 ## v0.5.0 — 2026-06-04
 
 ### Bug Fixes
