@@ -9,11 +9,23 @@ class CapsuleSlider extends StatelessWidget {
   final Function(double)? onChanged;
   final VoidCallback? onDoubleTap;
 
+  /// Fired once when an edit gesture begins (drag-start, or tap-down for a
+  /// click). Lets callers coalesce a whole drag into a single undo step by
+  /// snapshotting the pre-gesture value here.
+  final VoidCallback? onChangeStart;
+
+  /// Fired once when an edit gesture ends (drag-end/cancel, or tap-up). Note:
+  /// when a tap turns into a drag the recognizer fires onTapCancel (handled
+  /// silently) followed by onHorizontalDragStart, so a drag stays one gesture.
+  final VoidCallback? onChangeEnd;
+
   const CapsuleSlider({
     super.key,
     required this.value,
     this.onChanged,
     this.onDoubleTap,
+    this.onChangeStart,
+    this.onChangeEnd,
   });
 
   @override
@@ -22,6 +34,7 @@ class CapsuleSlider extends StatelessWidget {
       builder: (context, constraints) {
         return GestureDetector(
           onDoubleTap: onDoubleTap,
+          onHorizontalDragStart: (_) => onChangeStart?.call(),
           onHorizontalDragUpdate: (details) {
             if (onChanged == null) return;
             final sliderValue =
@@ -31,8 +44,11 @@ class CapsuleSlider extends StatelessWidget {
                 );
             onChanged!(sliderValue);
           },
+          onHorizontalDragEnd: (_) => onChangeEnd?.call(),
+          onHorizontalDragCancel: () => onChangeEnd?.call(),
           onTapDown: (details) {
             if (onChanged == null) return;
+            onChangeStart?.call();
             final sliderValue =
                 (details.localPosition.dx / constraints.maxWidth).clamp(
                   0.0,
@@ -40,6 +56,10 @@ class CapsuleSlider extends StatelessWidget {
                 );
             onChanged!(sliderValue);
           },
+          onTapUp: (_) => onChangeEnd?.call(),
+          // A tap that becomes a drag cancels here; the drag-start that follows
+          // re-opens the same gesture, so we deliberately do NOT end it.
+          onTapCancel: () {},
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: CustomPaint(
