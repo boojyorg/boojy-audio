@@ -35,6 +35,30 @@ fn process_chain_block_offline(
     }
 }
 
+/// Reset every built-in effect in a chain before an offline render, so the
+/// export starts from silence — not from whatever compressor envelopes, delay
+/// lines and reverb tails live playback (or a previous offline render) left
+/// behind. Effect instances are shared with realtime playback, so without
+/// this a stem rendered after the full mix starts with the mix render's FX
+/// state and audibly diverges from it.
+///
+/// VST3 plugins are deliberately skipped: their `reset()` is a full
+/// deactivate/reinitialize/activate cycle (`vst3_host.rs`), too heavy and
+/// risky to fire on every export. VST3 export fidelity is its own later
+/// cycle (C27–C30).
+fn reset_builtin_fx_offline(effect_mgr: &EffectManager, fx_chain: &[u64]) {
+    for effect_id in fx_chain {
+        if let Some(effect_arc) = effect_mgr.get_effect(*effect_id) {
+            let mut effect = effect_arc.lock();
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            if matches!(*effect, crate::effects::EffectType::VST3(_)) {
+                continue;
+            }
+            effect.reset();
+        }
+    }
+}
+
 /// True if the chain hosts a VST3 plugin, which receives the track's MIDI as an
 /// instrument. Built-in effects (reverb, EQ, …) do not — for those the track's
 /// MIDI must reach the built-in synth instead. This mirrors the realtime
@@ -159,6 +183,19 @@ impl AudioGraph {
             let effect_mgr = self.effect_manager.lock();
             for snap in &mut track_snapshots {
                 snap.has_vst3_instrument = fx_chain_hosts_vst3(&effect_mgr, &snap.fx_chain);
+            }
+
+            // Start the export from silence: clear built-in FX state left by
+            // live playback or a previous offline render (see
+            // `reset_builtin_fx_offline`).
+            for snap in &track_snapshots {
+                reset_builtin_fx_offline(&effect_mgr, &snap.fx_chain);
+            }
+            for snap in &return_snapshots {
+                reset_builtin_fx_offline(&effect_mgr, &snap.fx_chain);
+            }
+            if let Some(snap) = &master_snapshot {
+                reset_builtin_fx_offline(&effect_mgr, &snap.fx_chain);
             }
         }
 
@@ -619,6 +656,9 @@ impl AudioGraph {
         // actual effect types in the chain, not chain emptiness. (C6)
         let has_vst3 = {
             let effect_mgr = self.effect_manager.lock();
+            // Same clean-slate rule as `render_offline`: the stem must see the
+            // FX state the mix render saw at t=0, not the state it left behind.
+            reset_builtin_fx_offline(&effect_mgr, &track_snap.fx_chain);
             fx_chain_hosts_vst3(&effect_mgr, &track_snap.fx_chain)
         };
 
