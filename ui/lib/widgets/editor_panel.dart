@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../audio_engine.dart';
@@ -8,6 +9,8 @@ import '../theme/theme_extension.dart';
 import '../theme/tokens.dart';
 import '../models/tool_mode.dart';
 import '../services/tool_mode_resolver.dart';
+import '../services/undo_redo_manager.dart';
+import 'drum_kit_editor/drum_kit_editor.dart';
 import 'editor_button_variant.dart';
 import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
@@ -84,6 +87,14 @@ class EditorPanel extends StatefulWidget {
   // Create sampler from audio clip
   final Function(String clipPath)? onCreateSamplerFromClip;
 
+  // Shared undo manager — drum-kit step toggles execute commands on it so
+  // Cmd+Z reverts them through the app's normal undo path.
+  final UndoRedoManager? undoManager;
+
+  // Playback position in seconds — drives the drum step sequencer's playing
+  // column highlight (same notifier the timeline playhead uses).
+  final ValueListenable<double>? playheadNotifier;
+
   const EditorPanel({
     super.key,
     this.audioEngine,
@@ -111,6 +122,8 @@ class EditorPanel extends StatefulWidget {
     this.isRecording = false,
     this.trackColor,
     this.onCreateSamplerFromClip,
+    this.undoManager,
+    this.playheadNotifier,
   });
 
   @override
@@ -168,10 +181,17 @@ class _EditorPanelState extends State<EditorPanel>
       widget.trackContext.selectedTrackId != null &&
       widget.audioEngine!.isSamplerTrack(widget.trackContext.selectedTrackId!);
 
-  /// Whether the selected track is a MIDI track without sampler instrument
+  /// Whether the selected track holds a drum-kit instrument (checked via engine)
+  bool get _isDrumKitTrack =>
+      widget.audioEngine != null &&
+      widget.trackContext.selectedTrackId != null &&
+      widget.audioEngine!.isDrumKitTrack(widget.trackContext.selectedTrackId!);
+
+  /// Whether the selected track is a MIDI track without a sampler/drum-kit
   bool get _isMidiTrack =>
       widget.trackContext.selectedTrackType?.toLowerCase() == 'midi' &&
-      !_isSamplerTrack;
+      !_isSamplerTrack &&
+      !_isDrumKitTrack;
 
   /// Whether the selected track is the Master bus (effects chain only — no
   /// instrument, no piano roll).
@@ -301,6 +321,8 @@ class _EditorPanelState extends State<EditorPanel>
     else if (clipChanged &&
         currentClipId != null &&
         !_userManuallySelectedTab) {
+      // Drum-kit tracks keep tab 0 (the step sequencer is the primary editor);
+      // only MIDI/sampler jump to the piano roll on clip select.
       if (_isMidiTrack || _isSamplerTrack) {
         _switchedToPianoRollAwaitingData = widget.currentEditingClip == null;
         _tabController.index = 1; // MIDI tab
@@ -625,6 +647,14 @@ class _EditorPanelState extends State<EditorPanel>
       ];
     }
 
+    if (_isDrumKitTrack) {
+      return [
+        _buildCollapsedTabButton(0, BI.gridOn, 'Drum Kit'),
+        const SizedBox(width: 4),
+        _buildCollapsedTabButton(1, BI.piano, 'Piano Roll'),
+      ];
+    }
+
     // MIDI track: [Instrument] [Piano Roll] [Effects]
     return [
       _buildCollapsedTabButton(0, _instrumentTabIcon, _getInstrumentTabLabel()),
@@ -912,6 +942,14 @@ class _EditorPanelState extends State<EditorPanel>
       ];
     }
 
+    if (_isDrumKitTrack) {
+      return [
+        _buildTabButton(0, BI.gridOn, 'Drum Kit', buttonKey: _instrumentTabKey),
+        const SizedBox(width: 4),
+        _buildTabButton(1, BI.piano, 'MIDI'),
+      ];
+    }
+
     // MIDI track: [Instrument] [MIDI]
     return [
       _buildTabButton(
@@ -945,6 +983,11 @@ class _EditorPanelState extends State<EditorPanel>
       // Tab 1: piano roll. The sampler is an engine-side instrument with no
       // InstrumentData, so it can't be shown through the DeviceChainView path.
       return [_buildSamplerTab(), _buildPianoRollTab()];
+    }
+
+    if (_isDrumKitTrack) {
+      // Tab 0: drum-kit editor (detail + step grid), Tab 1: piano roll
+      return [_buildDrumKitTab(), _buildPianoRollTab()];
     }
 
     // MIDI track: Tab 0: instrument + effects chain, Tab 1: piano roll
@@ -1217,6 +1260,20 @@ class _EditorPanelState extends State<EditorPanel>
       onCreateSamplerFromClip: widget.onCreateSamplerFromClip != null
           ? () => widget.onCreateSamplerFromClip?.call(clipData.filePath)
           : null,
+    );
+  }
+
+  /// Tab 0 for a drum-kit track: the Layout-A editor (detail panel + step grid).
+  Widget _buildDrumKitTab() {
+    return DrumKitEditor(
+      audioEngine: widget.audioEngine,
+      trackId: widget.trackContext.selectedTrackId,
+      clipData: widget.currentEditingClip,
+      onClipUpdated: widget.onMidiClipUpdated,
+      undoManager: widget.undoManager,
+      beatsPerBar: widget.beatsPerBar,
+      tempo: widget.projectTempo,
+      playheadNotifier: widget.playheadNotifier,
     );
   }
 

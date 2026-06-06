@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_positional_boolean_parameters
+import '../../models/drum_kit_info.dart';
 import '../../models/sampler_info.dart';
 
 /// Abstract interface for AudioEngine to enable testing.
@@ -100,6 +101,26 @@ abstract class AudioEngineInterface {
   bool isSamplerTrack(int trackId);
   SamplerInfo? getSamplerInfo(int trackId);
   List<double> getSamplerWaveformPeaks(int trackId, int resolution);
+
+  // Drum-kit operations (v0.6)
+  int createDrumKitForTrack(int trackId);
+  int addDrumPad(int trackId, int pinnedNote);
+  String removeDrumPad(int trackId, int padIndex);
+  bool loadDrumPadSample(int trackId, int padIndex, String path);
+  String setDrumPadParameter(
+    int trackId,
+    int padIndex,
+    String param,
+    String value,
+  );
+  bool isDrumKitTrack(int trackId);
+  int drumNextFreeNote(int trackId, int start);
+  DrumKitInfo? getDrumKitInfo(int trackId);
+  List<double> getDrumPadWaveformPeaks(
+    int trackId,
+    int padIndex,
+    int resolution,
+  );
 
   // MIDI clip operations
   int createMidiClip();

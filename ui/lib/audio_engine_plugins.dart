@@ -531,6 +531,121 @@ mixin _PluginsMixin on _AudioEngineBase {
   }
 
   // ========================================================================
+  // Drum Kit API (v0.6) — N pinned-note pads in one instrument
+  // ========================================================================
+
+  /// Create a drum-kit instrument for a track.
+  /// Returns instrument ID on success, or -1 on error.
+  int createDrumKitForTrack(int trackId) {
+    return _createDrumKitForTrack(trackId);
+  }
+
+  /// Add an empty pad pinned to [pinnedNote].
+  /// Returns the new pad's index, or -1 on error (e.g. note already pinned).
+  int addDrumPad(int trackId, int pinnedNote) {
+    return _addDrumPad(trackId, pinnedNote);
+  }
+
+  /// Remove the pad at [padIndex]. Returns the engine's status string.
+  String removeDrumPad(int trackId, int padIndex) {
+    final resultPtr = _removeDrumPad(trackId, padIndex);
+    final result = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    return result;
+  }
+
+  /// Load an audio file into the pad at [padIndex]. Returns true on success.
+  bool loadDrumPadSample(int trackId, int padIndex, String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      return _loadDrumPadSample(trackId, padIndex, pathPtr.cast()) == 1;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Set a per-pad parameter. Param names mirror the sampler's:
+  /// "pan", "muted", "soloed", "volume_db", "attack_ms", "release_ms",
+  /// "transpose_semitones", "fine_cents". Returns the engine's status string.
+  String setDrumPadParameter(
+    int trackId,
+    int padIndex,
+    String param,
+    String value,
+  ) {
+    final paramPtr = param.toNativeUtf8();
+    final valuePtr = value.toNativeUtf8();
+    try {
+      final resultPtr = _setDrumPadParameter(
+        trackId,
+        padIndex,
+        paramPtr.cast(),
+        valuePtr.cast(),
+      );
+      final result = resultPtr.toDartString();
+      _freeRustString(resultPtr);
+      return result;
+    } finally {
+      calloc.free(paramPtr);
+      calloc.free(valuePtr);
+    }
+  }
+
+  /// Whether the track holds a drum-kit instrument.
+  bool isDrumKitTrack(int trackId) {
+    try {
+      return _isDrumKitTrack(trackId) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// The next unpinned MIDI note >= [start] in the kit, or -1 if none free.
+  int drumNextFreeNote(int trackId, int start) {
+    return _drumNextFreeNote(trackId, start);
+  }
+
+  /// Full drum-kit state (pads + per-pad params), or null if not a drum kit.
+  DrumKitInfo? getDrumKitInfo(int trackId) {
+    final resultPtr = _getDrumKitInfo(trackId);
+    final jsonStr = resultPtr.toDartString();
+    _freeRustString(resultPtr);
+    if (jsonStr.startsWith('Error')) return null;
+    try {
+      final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
+      return DrumKitInfo.fromJson(decoded);
+    } catch (e) {
+      Log.e('Failed to parse drum kit info: $e');
+      return null;
+    }
+  }
+
+  /// Waveform peaks (0.0-1.0) for the pad's loaded sample, or empty list.
+  List<double> getDrumPadWaveformPeaks(
+    int trackId,
+    int padIndex,
+    int resolution,
+  ) {
+    final pLength = calloc<ffi.Size>();
+    try {
+      final ptr = _getDrumPadWaveformPeaks(
+        trackId,
+        padIndex,
+        resolution,
+        pLength,
+      );
+      if (ptr == ffi.nullptr) return [];
+      final length = pLength.value;
+      final peaks = List<double>.generate(length, (i) => ptr[i].toDouble());
+      // Same allocation scheme as the sampler peaks — reuse its free fn.
+      _freeSamplerWaveformPeaks(ptr, length);
+      return peaks;
+    } finally {
+      calloc.free(pLength);
+    }
+  }
+
+  // ========================================================================
   // M7 API - VST3 Plugin Hosting
   // ========================================================================
 

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'models/drum_kit_info.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 import 'utils/logger.dart';
@@ -703,6 +704,43 @@ class AudioEngine implements AudioEngineInterface {
 
   @override
   List<double> getSamplerWaveformPeaks(int trackId, int resolution) => [];
+
+  // Drum Kit API (stubs for web - not yet implemented)
+  @override
+  int createDrumKitForTrack(int trackId) => -1;
+
+  @override
+  int addDrumPad(int trackId, int pinnedNote) => -1;
+
+  @override
+  String removeDrumPad(int trackId, int padIndex) => 'Not supported on web';
+
+  @override
+  bool loadDrumPadSample(int trackId, int padIndex, String path) => false;
+
+  @override
+  String setDrumPadParameter(
+    int trackId,
+    int padIndex,
+    String param,
+    String value,
+  ) => 'Not supported on web';
+
+  @override
+  bool isDrumKitTrack(int trackId) => false;
+
+  @override
+  int drumNextFreeNote(int trackId, int start) => -1;
+
+  @override
+  DrumKitInfo? getDrumKitInfo(int trackId) => null;
+
+  @override
+  List<double> getDrumPadWaveformPeaks(
+    int trackId,
+    int padIndex,
+    int resolution,
+  ) => [];
 
   bool vst3HasEditor(int effectId) => false;
   String vst3OpenEditor(int effectId) => 'Not supported';
