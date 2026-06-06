@@ -159,12 +159,14 @@ fn read_input_samples(
 
 /// Update monitoring fade gain with a 20ms ramp to avoid clicks.
 /// Modifies `fade_gain` in place toward 0.0 or 1.0.
+/// `sample_rate` is the rate the stream actually runs at — the ramp is one
+/// step per callback frame, so 20 ms is only 20 ms at the real rate (C4).
 #[inline]
-fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool) {
+fn update_monitoring_fade(fade_gain: &mut f64, should_monitor: bool, sample_rate: f64) {
     let target = if should_monitor { 1.0_f64 } else { 0.0_f64 };
     #[allow(clippy::float_cmp)]
     if *fade_gain != target {
-        let step = 1.0 / (0.020 * f64::from(TARGET_SAMPLE_RATE));
+        let step = 1.0 / (0.020 * sample_rate);
         if target > *fade_gain {
             *fade_gain = (*fade_gain + step).min(1.0);
         } else {
@@ -489,6 +491,13 @@ impl AudioGraph {
         effect_manager.lock().set_sample_rate(stream_sample_rate);
         master_limiter.lock().set_sample_rate(stream_sample_rate);
 
+        // Publish the real stream rate so the rest of the engine (recording
+        // duration math C22, offline-render pin/restore) can read it.
+        self.stream_sample_rate
+            .store(config.sample_rate.0, Ordering::Relaxed);
+        // Captured by the callback for the monitoring fade ramp (C4).
+        let monitoring_ramp_rate = f64::from(config.sample_rate.0);
+
         // M6: Clone track synth manager
         let track_synth_manager = self.track_synth_manager.clone();
 
@@ -625,6 +634,7 @@ impl AudioGraph {
                                             update_monitoring_fade(
                                                 &mut track.monitoring_fade_gain,
                                                 should_monitor,
+                                                monitoring_ramp_rate,
                                             );
 
                                             if track.monitoring_fade_gain > 0.0 {
@@ -1016,6 +1026,7 @@ impl AudioGraph {
                                 update_monitoring_fade(
                                     &mut track_snap.monitoring_fade_gain,
                                     should_monitor,
+                                    monitoring_ramp_rate,
                                 );
                                 if track_snap.monitoring_fade_gain > 0.0 {
                                     let ch = track_snap.input_channel as usize;
@@ -1266,7 +1277,7 @@ mod tests {
     // Exact float comparisons are intentional here: the values under test are
     // deterministic sentinels produced by clamping/sanitizing (exactly 0.0 / ±1.0).
     #![allow(clippy::float_cmp)]
-    use super::{pick_stereo_config_index, sanitize_sample, write_frame};
+    use super::{pick_stereo_config_index, sanitize_sample, update_monitoring_fade, write_frame};
 
     #[test]
     fn sanitize_replaces_non_finite_with_silence() {
@@ -1296,6 +1307,26 @@ mod tests {
         let mut buf = [0.0f32; 1];
         write_frame(&mut buf, 0, 1, 1.0, 0.0);
         assert!((buf[0] - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn monitoring_fade_takes_20ms_at_the_stream_rate() {
+        // C4: the ramp steps once per callback frame, so 20 ms is only 20 ms
+        // when the step is derived from the rate the stream actually runs at.
+        for rate in [44_100.0_f64, 48_000.0, 96_000.0] {
+            let mut gain = 0.0_f64;
+            let mut steps = 0u32;
+            while gain < 1.0 {
+                update_monitoring_fade(&mut gain, true, rate);
+                steps += 1;
+                assert!(steps < 100_000, "ramp never completed at {rate} Hz");
+            }
+            let expected = (0.020 * rate) as u32;
+            assert!(
+                steps.abs_diff(expected) <= 1,
+                "20 ms ramp at {rate} Hz should take ~{expected} frames, took {steps}"
+            );
+        }
     }
 
     #[test]

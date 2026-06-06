@@ -248,7 +248,11 @@ pub fn stop_recording() -> Result<Option<u64>, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
 
-    let clip_option = graph.recorder.stop_recording()?;
+    // Use the rate the stream actually ran at — duration math and resampling
+    // inside stop_recording depend on it (C22).
+    let clip_option = graph
+        .recorder
+        .stop_recording(graph.current_stream_sample_rate())?;
 
     // Stop audio input to prevent buffer overflow
     {

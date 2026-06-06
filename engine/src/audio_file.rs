@@ -850,7 +850,7 @@ fn interleave_channels(left: &[f32], right: &[f32], frames: usize) -> Vec<f32> {
 }
 
 /// Resample audio from source sample rate to target sample rate using FFT-based resampling
-fn resample_audio(
+pub(crate) fn resample_audio(
     input: &[f32],
     source_rate: u32,
     target_rate: u32,

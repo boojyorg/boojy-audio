@@ -362,9 +362,22 @@ impl Synth {
     }
 
     fn apply_filter(&mut self, input: f32) -> f32 {
-        // Map cutoff 0.0-1.0 to coefficient
-        // cutoff=1.0 means no filtering, cutoff=0.0 means heavy filtering
-        let coeff = self.filter_cutoff.clamp(0.01, 1.0);
+        // Map cutoff 0.0-1.0 to a one-pole coefficient, anchored at 48 kHz so
+        // the knob filters the same *frequency* at every device rate (C11).
+        //
+        // The knob historically fed the coefficient directly at 48 kHz, which
+        // pinned a cutoff *frequency* per knob position only at that rate. A
+        // one-pole `y = c·x + (1−c)·y` has fc = −ln(1−c)·fs/2π, so keeping fc
+        // fixed across rates means c(fs) = 1 − (1−c₄₈)^(48000/fs). At 48 kHz
+        // this is exactly the old behavior (existing projects are unchanged);
+        // cutoff=1.0 stays a perfect pass-through at every rate.
+        let knob = self.filter_cutoff.clamp(0.01, 1.0);
+        let anchor = crate::audio_file::TARGET_SAMPLE_RATE as f32;
+        let coeff = if (self.sample_rate - anchor).abs() < f32::EPSILON {
+            knob
+        } else {
+            1.0 - (1.0 - knob).powf(anchor / self.sample_rate)
+        };
 
         // Simple one-pole lowpass: y[n] = coeff * x[n] + (1-coeff) * y[n-1]
         self.filter_state = coeff * input + (1.0 - coeff) * self.filter_state;
@@ -1023,6 +1036,29 @@ mod tests {
         // Voice still active during release
         // Voice may still be active during release phase
         let _count = synth.active_voice_count();
+    }
+
+    #[test]
+    fn filter_mapping_is_anchored_at_48k() {
+        // C11: the cutoff knob historically fed the one-pole coefficient
+        // directly at 48 kHz. The rate-independent mapping must (a) be
+        // bit-identical at 48 kHz so existing projects don't change timbre,
+        // and (b) track the same cutoff *frequency* at other rates:
+        // c(fs) = 1 − (1−c₄₈)^(48000/fs).
+        let mut synth_48k = Synth::new(48_000.0);
+        synth_48k.filter_cutoff = 0.5;
+        // One-pole from zero state: y[0] = coeff · x[0].
+        assert!((synth_48k.apply_filter(1.0) - 0.5).abs() < 1e-6);
+
+        let mut synth_96k = Synth::new(96_000.0);
+        synth_96k.filter_cutoff = 0.5;
+        let expected = 1.0 - 0.5_f32.powf(0.5); // ≈ 0.2929
+        assert!((synth_96k.apply_filter(1.0) - expected).abs() < 1e-6);
+
+        // cutoff = 1.0 stays a perfect pass-through at every rate.
+        let mut open_44k = Synth::new(44_100.0);
+        open_44k.filter_cutoff = 1.0;
+        assert!((open_44k.apply_filter(0.7) - 0.7).abs() < 1e-6);
     }
 
     #[test]

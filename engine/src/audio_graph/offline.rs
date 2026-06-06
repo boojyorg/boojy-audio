@@ -179,10 +179,22 @@ impl AudioGraph {
         // released: a track hosting a VST3 plugin sends its MIDI to that plugin;
         // every other track (including ones with only built-in effects) feeds
         // the built-in synth. One effect-manager lock for the whole pass. (C6)
-        {
-            let effect_mgr = self.effect_manager.lock();
+        let live_fx_sample_rate = {
+            let mut effect_mgr = self.effect_manager.lock();
             for snap in &mut track_snapshots {
                 snap.has_vst3_instrument = fx_chain_hosts_vst3(&effect_mgr, &snap.fx_chain);
+            }
+
+            // Pin built-in FX to the export rate: the live stream may run at
+            // a different device rate (their coefficients follow it), but the
+            // offline render is written as a TARGET_SAMPLE_RATE file.
+            // Restored after the render.
+            let live_rate = effect_mgr.sample_rate();
+            if (live_rate - TARGET_SAMPLE_RATE as f32).abs() > f32::EPSILON {
+                effect_mgr.set_builtin_sample_rate(TARGET_SAMPLE_RATE as f32);
+                self.master_limiter
+                    .lock()
+                    .set_sample_rate(TARGET_SAMPLE_RATE as f32);
             }
 
             // Start the export from silence: clear built-in FX state left by
@@ -197,7 +209,9 @@ impl AudioGraph {
             if let Some(snap) = &master_snapshot {
                 reset_builtin_fx_offline(&effect_mgr, &snap.fx_chain);
             }
-        }
+
+            live_rate
+        };
 
         dlog!(
             "🎵 [AudioGraph] Rendering {} tracks (+ {} returns)",
@@ -579,6 +593,17 @@ impl AudioGraph {
             block_start += block_len;
         }
 
+        // Restore the live stream rate on the built-in FX (no-op when the
+        // stream already runs at TARGET_SAMPLE_RATE).
+        if (live_fx_sample_rate - TARGET_SAMPLE_RATE as f32).abs() > f32::EPSILON {
+            self.effect_manager
+                .lock()
+                .set_builtin_sample_rate(live_fx_sample_rate);
+            self.master_limiter
+                .lock()
+                .set_sample_rate(live_fx_sample_rate);
+        }
+
         dlog!(
             "✅ [AudioGraph] Offline render complete: {} samples",
             output.len()
@@ -654,12 +679,22 @@ impl AudioGraph {
         let mut vst3_events: Vec<QueuedVst3Event> = Vec::with_capacity(128);
         // Route MIDI to EITHER built-in synth OR VST3 (not both) — based on the
         // actual effect types in the chain, not chain emptiness. (C6)
-        let has_vst3 = {
-            let effect_mgr = self.effect_manager.lock();
+        let (has_vst3, live_fx_sample_rate) = {
+            let mut effect_mgr = self.effect_manager.lock();
+
+            // Same pin-to-export-rate rule as `render_offline` (restored below).
+            let live_rate = effect_mgr.sample_rate();
+            if (live_rate - TARGET_SAMPLE_RATE as f32).abs() > f32::EPSILON {
+                effect_mgr.set_builtin_sample_rate(TARGET_SAMPLE_RATE as f32);
+            }
+
             // Same clean-slate rule as `render_offline`: the stem must see the
             // FX state the mix render saw at t=0, not the state it left behind.
             reset_builtin_fx_offline(&effect_mgr, &track_snap.fx_chain);
-            fx_chain_hosts_vst3(&effect_mgr, &track_snap.fx_chain)
+            (
+                fx_chain_hosts_vst3(&effect_mgr, &track_snap.fx_chain),
+                live_rate,
+            )
         };
 
         let mut block_start = 0usize;
@@ -880,6 +915,14 @@ impl AudioGraph {
             dlog!("   Track {track_id} - {progress}% complete...");
 
             block_start += block_len;
+        }
+
+        // Restore the live stream rate on the built-in FX (no-op when the
+        // stream already runs at TARGET_SAMPLE_RATE).
+        if (live_fx_sample_rate - TARGET_SAMPLE_RATE as f32).abs() > f32::EPSILON {
+            self.effect_manager
+                .lock()
+                .set_builtin_sample_rate(live_fx_sample_rate);
         }
 
         dlog!(
