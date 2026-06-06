@@ -159,8 +159,17 @@ jobs:
           # Save private key to file
           echo "$SPARKLE_PRIVATE_KEY" > sparkle_private_key
 
-          # Generate EdDSA signature
-          SIGNATURE=$(./bin/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
+          # Generate EdDSA signature. sign_update prints the full XML attribute
+          # string (sparkle:edSignature="…" length="…"), but the appcast
+          # template adds its own sparkle:edSignature="…" wrapper — passing the
+          # raw output through double-wrapped the attribute and broke
+          # auto-update from v0.1.4 on. Extract the bare base64 here.
+          RAW_SIGNATURE=$(./bin/sign_update "Boojy-Audio-${{ github.ref_name }}-mac.dmg" -f sparkle_private_key)
+          SIGNATURE=$(printf '%s' "$RAW_SIGNATURE" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          if [ -z "$SIGNATURE" ]; then
+            echo "Could not extract edSignature from sign_update output: $RAW_SIGNATURE" >&2
+            exit 1
+          fi
           echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
 
           # Get file size

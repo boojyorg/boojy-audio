@@ -48,9 +48,10 @@ Docs/memory model (CLAUDE.md / `.claude/rules/` / `dreams.md` / auto-memory / gi
 
 ## Gates
 
-A `PostToolUse` hook (`.claude/hooks/post-edit-validation.sh`) runs a **fast** gate after each edit:
-`.rs` under `engine/` → `cargo check` + `cargo clippy`; `.dart` under `ui/` → `flutter analyze`. It
-skips gracefully if the toolchain is missing. Full test suites are **not** run in that loop — run
+A `PostToolUse` hook (`.claude/hooks/post-edit-validation.sh`) runs a **fast** gate after each edit,
+at CI strictness: `.rs` under `engine/` → `cargo check` + `cargo clippy --all-targets -- -D warnings`;
+`.dart` under `ui/` → `flutter analyze --fatal-infos`. It skips gracefully if the toolchain is
+missing. Full test suites are **not** run in that loop — run
 them manually / let CI run them. Before committing, all of the following must be green (CI enforces
 them on every PR — macOS full pipeline + Windows analyze/test/clippy, no VST3):
 

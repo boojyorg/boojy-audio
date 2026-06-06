@@ -2,9 +2,9 @@
 # post-edit-validation.sh — gate-only PostToolUse hook (Edit|Write|MultiEdit).
 #
 # Reads the edited file path from stdin JSON and runs a FAST compile/analyze gate
-# for that file type:
-#   *.rs   under engine/ -> cargo check, then cargo clippy   (from engine/)
-#   *.dart under ui/     -> fvm flutter analyze (or flutter analyze)  (from ui/)
+# for that file type (same strictness as CI — C76/C77):
+#   *.rs   under engine/ -> cargo check, then cargo clippy --all-targets -- -D warnings
+#   *.dart under ui/     -> fvm flutter analyze --fatal-infos (or flutter analyze --fatal-infos)
 #   anything else        -> no-op
 #
 # It is a GATE ONLY: it never writes into the repo tree and never touches dreams.md.
@@ -56,14 +56,18 @@ case "$file_path" in
   *engine/*.rs)
     command -v cargo >/dev/null 2>&1 || exit 0   # graceful skip: no Rust toolchain
     run_gate "$ROOT/engine" cargo check || exit 1
-    run_gate "$ROOT/engine" cargo clippy || exit 1
+    # Match CI exactly (rust-checks runs --all-targets -D warnings); a laxer
+    # local gate lets edits pass that CI then rejects (C76).
+    run_gate "$ROOT/engine" cargo clippy --all-targets -- -D warnings || exit 1
     exit 0
     ;;
   *ui/*.dart)
+    # --fatal-infos matches CI's flutter-checks; without it info-level lints
+    # (e.g. avoid_print) pass locally and fail CI (C77).
     if command -v fvm >/dev/null 2>&1; then
-      run_gate "$ROOT/ui" fvm flutter analyze || exit 1
+      run_gate "$ROOT/ui" fvm flutter analyze --fatal-infos || exit 1
     elif command -v flutter >/dev/null 2>&1; then
-      run_gate "$ROOT/ui" flutter analyze || exit 1
+      run_gate "$ROOT/ui" flutter analyze --fatal-infos || exit 1
     fi
     exit 0   # graceful skip if neither fvm nor flutter is on PATH
     ;;
