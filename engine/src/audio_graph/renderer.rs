@@ -329,6 +329,9 @@ impl AudioGraph {
                 .find(|d| d.name().ok().as_ref().is_some_and(|n| n == name))
         }
 
+        // A fresh stream supersedes any earlier device failure (C99).
+        self.stream_error.lock().take();
+
         // Check if a specific device is selected
         let selected_name = self.selected_output_device.lock().clone();
 
@@ -1262,8 +1265,15 @@ impl AudioGraph {
                 // Advance playhead
                 playhead_samples.fetch_add(frames as u64, Ordering::SeqCst);
             },
-            move |err| {
-                eprintln!("Audio stream error: {err}");
+            {
+                // C99: publish stream failures (device disconnect) so the UI
+                // can stop the transport and tell the user, instead of the
+                // playhead advancing in silence.
+                let stream_error = self.stream_error.clone();
+                move |err| {
+                    eprintln!("Audio stream error: {err}");
+                    *stream_error.lock() = Some(err.to_string());
+                }
             },
             None,
         )?;

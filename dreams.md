@@ -44,11 +44,18 @@ behind this cycle).
   errors C55), clip-move execute→undo→redo (C46/C63), export smoke (range C18, LUFS C16,
   stem-vs-mix C68). Found+fixed a real bug: offline renders reused live FX state (compressor
   envelopes/delay/reverb tails bled into exports) — built-in FX now reset per offline render.
-- [ ] **P8 — Real hardware** *(designated split-out → v0.5.3 if slimming)*: sample-rate sweep
-  (C2/C9/C4/C6/C11/C22/C26 + C21/C62); metronome loop-wrap doubling; MIDI hot-plug (needs real
-  hardware); C99 device-disconnect; C104 output-device persistence.
-- [ ] **Tag v0.5.2:** version-sync (CHANGELOG, ROADMAP, README, **bump `ui/pubspec.yaml`**),
-  archive the plan, tag.
+- [x] **P8 — Real hardware** *(code complete in 3 PRs: #56 DSP sweep, #57 VST3, #58 device
+  robustness)*: sample-rate sweep C2/C9/C4/C6/C11/C22 (Delay/Chorus/Reverb working
+  `set_sample_rate` + buffer resize; synth filter anchored at 48 kHz; recorder resamples takes to
+  engine rate; monitoring ramp; offline renders pin built-in FX to 48 kHz + restore); C26 VST3
+  reinit on rate change + C21/C62 block size honours buffer preset; metronome loop-wrap flam
+  (refractory guard + monotonic click clock); MIDI hot-plug reconnect-by-name; C99 stream death →
+  transport stops + banner (`get_audio_stream_error` FFI, take-semantics). C104 verified
+  already-covered app-level (user_settings + startup apply) — project.json would be the wrong
+  home. ⚠ **Hardware pass still owed (Tyr)** — checklist in PR #58: 44.1 kHz delay/recording,
+  VST3 rate switch, loop-wrap metronome, MIDI replug, interface yank.
+- [ ] **Tag v0.5.2:** AFTER the hardware pass — version-sync (CHANGELOG, ROADMAP, README, **bump
+  `ui/pubspec.yaml`**), archive the plan, tag.
 
 **If-time (explicit call, don't pull in silently):** C45/C47/C48/C49/C52/C54 (adjacent undo
 holes), C17 quantize, C40/C71 non-4/4, C81/C83/C87 release Lows. **Out:** UI ledger + mockups →

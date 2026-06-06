@@ -105,3 +105,15 @@ pub extern "C" fn get_selected_audio_output_device_ffi() -> *mut c_char {
         },
     )
 }
+
+/// Take (read-and-clear) the last audio output stream error (C99).
+/// Empty string = stream healthy. The UI polls this during playback.
+#[no_mangle]
+pub extern "C" fn get_audio_stream_error_ffi() -> *mut c_char {
+    ffi_catch(std::ptr::null_mut(), || {
+        match api::get_audio_stream_error() {
+            Ok(msg) => safe_cstring(msg).into_raw(),
+            Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
+        }
+    })
+}

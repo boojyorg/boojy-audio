@@ -87,6 +87,16 @@ pub fn get_sample_rate() -> u32 {
     AudioGraph::get_sample_rate()
 }
 
+/// Take (read-and-clear) the last audio output stream error (C99).
+/// Returns an empty string when the stream is healthy. The UI polls this and
+/// shows the error once — e.g. when the output device is disconnected
+/// mid-playback, which otherwise fails silently.
+pub fn get_audio_stream_error() -> Result<String, String> {
+    let graph_mutex = get_audio_graph()?;
+    let graph = graph_mutex.lock();
+    Ok(graph.take_stream_error().unwrap_or_default())
+}
+
 // ============================================================================
 // AUDIO INPUT METERING
 // ============================================================================

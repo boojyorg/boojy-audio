@@ -707,6 +707,9 @@ typedef _SetAudioOutputDeviceFfi =
 typedef _GetSelectedAudioOutputDeviceFfiNative = ffi.Pointer<Utf8> Function();
 typedef _GetSelectedAudioOutputDeviceFfi = ffi.Pointer<Utf8> Function();
 
+typedef _GetAudioStreamErrorFfiNative = ffi.Pointer<Utf8> Function();
+typedef _GetAudioStreamErrorFfi = ffi.Pointer<Utf8> Function();
+
 typedef _GetSampleRateFfiNative = ffi.Uint32 Function();
 typedef _GetSampleRateFfi = int Function();
 

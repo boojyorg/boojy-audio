@@ -375,6 +375,7 @@ class AudioEngine implements AudioEngineInterface {
   String setAudioOutputDevice(String deviceName) =>
       throw UnsupportedError('stub');
   String getSelectedAudioOutputDevice() => throw UnsupportedError('stub');
+  String getAudioStreamError() => throw UnsupportedError('stub');
   double getInputChannelLevel(int channel) => throw UnsupportedError('stub');
   int getInputChannelCount() => throw UnsupportedError('stub');
   int getSampleRate() => throw UnsupportedError('stub');
