@@ -6,6 +6,15 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **A comma in a track name no longer corrupts the mixer.** Renaming a track to something like
+  "Drums, Kit" silently shifted the data the UI reads for it — track type, volume and pan could
+  all mis-parse, and a send or return bus with a comma (or semicolon) in its name could corrupt
+  the whole sends list. Names now travel safely between the engine and the UI regardless of what
+  characters they contain.
+- **The engine boundary now rejects null pointers instead of risking a crash.** Every engine call
+  that takes a string from the UI (~40 of them) passed it straight into unsafe code with no null
+  check — any UI-side bug would have terminated the whole app instantly, losing unsaved work. All
+  of them now return a normal error instead.
 - **Closing the piano roll no longer leaves notes droning.** Clicking a note (or previewing a
   chord) and closing the editor before letting go left those notes sounding until you hit stop —
   the "note off" was simply never sent. The editor now releases everything it started, including

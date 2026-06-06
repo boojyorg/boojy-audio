@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -21,18 +20,13 @@ pub extern "C" fn create_track_ffi(track_type: *const c_char, name: *const c_cha
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let track_type_str = unsafe {
-                match CStr::from_ptr(track_type).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return -1,
-                }
+            let Some(track_type_str) = (unsafe { cstr_arg(track_type) }) else {
+                return -1;
             };
-            let name_str = unsafe {
-                match CStr::from_ptr(name).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return -1,
-                }
+            let Some(name_str) = (unsafe { cstr_arg(name) }) else {
+                return -1;
             };
+            let name_str = name_str.to_string();
 
             match api::create_track(track_type_str, name_str) {
                 Ok(id) => id as i64,
@@ -66,16 +60,15 @@ pub extern "C" fn set_track_volume_automation_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
+            // Null csv_data is valid here — it means "clear the automation curve".
             let csv = if csv_data.is_null() {
                 String::new()
             } else {
-                unsafe {
-                    match CStr::from_ptr(csv_data).to_str() {
-                        Ok(s) => s.to_string(),
-                        Err(_) => {
-                            return safe_cstring("Error: Invalid UTF-8 in csv_data".to_string())
-                                .into_raw()
-                        }
+                match unsafe { cstr_arg(csv_data) } {
+                    Some(s) => s.to_string(),
+                    None => {
+                        return safe_cstring("Error: Invalid UTF-8 in csv_data".to_string())
+                            .into_raw()
                     }
                 }
             };
@@ -196,13 +189,11 @@ pub extern "C" fn set_track_name_ffi(track_id: u64, name: *const c_char) -> *mut
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let name_str = unsafe {
-                if name.is_null() {
-                    return safe_cstring("Error: name is null".to_string()).into_raw();
-                }
-                CStr::from_ptr(name).to_string_lossy().to_string()
+            let Some(name_str) = (unsafe { cstr_arg(name) }) else {
+                return safe_cstring("Error: name is null or invalid UTF-8".to_string())
+                    .into_raw();
             };
-            match api::set_track_name(track_id, name_str) {
+            match api::set_track_name(track_id, name_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -283,4 +274,28 @@ pub extern "C" fn duplicate_track_ffi(track_id: u64) -> i64 {
             -1
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+
+    // C33: null pointers from the caller must come back as errors, not UB.
+
+    #[test]
+    fn create_track_ffi_null_args_return_error() {
+        assert_eq!(create_track_ffi(std::ptr::null(), std::ptr::null()), -1);
+
+        let track_type = CString::new("audio").unwrap();
+        assert_eq!(create_track_ffi(track_type.as_ptr(), std::ptr::null()), -1);
+    }
+
+    #[test]
+    fn set_track_name_ffi_null_name_returns_error() {
+        let ptr = set_track_name_ffi(1, std::ptr::null());
+        assert!(!ptr.is_null());
+        let msg = unsafe { CString::from_raw(ptr) };
+        assert!(msg.to_string_lossy().starts_with("Error:"));
+    }
 }

@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -14,16 +13,11 @@ pub extern "C" fn export_to_wav_ffi(output_path: *const c_char, normalize: bool)
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let output_path_str = unsafe {
-                match CStr::from_ptr(output_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid output path".to_string()).into_raw()
-                    }
-                }
+            let Some(output_path_str) = (unsafe { cstr_arg(output_path) }) else {
+                return safe_cstring("Error: Invalid output path".to_string()).into_raw();
             };
 
-            match api::export_to_wav(output_path_str, normalize) {
+            match api::export_to_wav(output_path_str.to_string(), normalize) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -49,25 +43,15 @@ pub extern "C" fn export_audio_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let output_path_str = unsafe {
-                match CStr::from_ptr(output_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid output path".to_string()).into_raw()
-                    }
-                }
+            let Some(output_path_str) = (unsafe { cstr_arg(output_path) }) else {
+                return safe_cstring("Error: Invalid output path".to_string()).into_raw();
             };
 
-            let options_json_str = unsafe {
-                match CStr::from_ptr(options_json).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid options JSON".to_string()).into_raw()
-                    }
-                }
+            let Some(options_json_str) = (unsafe { cstr_arg(options_json) }) else {
+                return safe_cstring("Error: Invalid options JSON".to_string()).into_raw();
             };
 
-            match api::export_audio(output_path_str, options_json_str) {
+            match api::export_audio(output_path_str.to_string(), options_json_str.to_string()) {
                 Ok(result_json) => safe_cstring(result_json).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -91,17 +75,12 @@ pub extern "C" fn export_wav_with_options_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let output_path_str = unsafe {
-                match CStr::from_ptr(output_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid output path".to_string()).into_raw()
-                    }
-                }
+            let Some(output_path_str) = (unsafe { cstr_arg(output_path) }) else {
+                return safe_cstring("Error: Invalid output path".to_string()).into_raw();
             };
 
             match api::export_wav_with_options(
-                output_path_str,
+                output_path_str.to_string(),
                 bit_depth,
                 sample_rate,
                 normalize,
@@ -130,17 +109,12 @@ pub extern "C" fn export_mp3_with_options_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let output_path_str = unsafe {
-                match CStr::from_ptr(output_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid output path".to_string()).into_raw()
-                    }
-                }
+            let Some(output_path_str) = (unsafe { cstr_arg(output_path) }) else {
+                return safe_cstring("Error: Invalid output path".to_string()).into_raw();
             };
 
             match api::export_mp3_with_options(
-                output_path_str,
+                output_path_str.to_string(),
                 bitrate,
                 sample_rate,
                 normalize,
@@ -164,25 +138,15 @@ pub extern "C" fn write_mp3_metadata_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let file_path_str = unsafe {
-                match CStr::from_ptr(file_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid file path".to_string()).into_raw()
-                    }
-                }
+            let Some(file_path_str) = (unsafe { cstr_arg(file_path) }) else {
+                return safe_cstring("Error: Invalid file path".to_string()).into_raw();
             };
 
-            let metadata_json_str = unsafe {
-                match CStr::from_ptr(metadata_json).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid metadata JSON".to_string()).into_raw()
-                    }
-                }
+            let Some(metadata_json_str) = (unsafe { cstr_arg(metadata_json) }) else {
+                return safe_cstring("Error: Invalid metadata JSON".to_string()).into_raw();
             };
 
-            match api::write_mp3_metadata(file_path_str, metadata_json_str) {
+            match api::write_mp3_metadata(file_path_str.to_string(), metadata_json_str.to_string()) {
                 Ok(msg) => safe_cstring(msg).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }
@@ -220,44 +184,28 @@ pub extern "C" fn export_stems_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let output_dir_str = unsafe {
-                match CStr::from_ptr(output_dir).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid output directory".to_string())
-                            .into_raw()
-                    }
-                }
+            let Some(output_dir_str) = (unsafe { cstr_arg(output_dir) }) else {
+                return safe_cstring("Error: Invalid output directory".to_string()).into_raw();
             };
 
-            let base_name_str = unsafe {
-                match CStr::from_ptr(base_name).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid base name".to_string()).into_raw()
-                    }
-                }
+            let Some(base_name_str) = (unsafe { cstr_arg(base_name) }) else {
+                return safe_cstring("Error: Invalid base name".to_string()).into_raw();
             };
 
-            let track_ids_str = unsafe {
-                match CStr::from_ptr(track_ids_json).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid track IDs".to_string()).into_raw()
-                    }
-                }
+            let Some(track_ids_str) = (unsafe { cstr_arg(track_ids_json) }) else {
+                return safe_cstring("Error: Invalid track IDs".to_string()).into_raw();
             };
 
-            let options_str = unsafe {
-                match CStr::from_ptr(options_json).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid options JSON".to_string()).into_raw()
-                    }
-                }
+            let Some(options_str) = (unsafe { cstr_arg(options_json) }) else {
+                return safe_cstring("Error: Invalid options JSON".to_string()).into_raw();
             };
 
-            match api::export_stems(output_dir_str, base_name_str, track_ids_str, options_str) {
+            match api::export_stems(
+                output_dir_str.to_string(),
+                base_name_str.to_string(),
+                track_ids_str.to_string(),
+                options_str.to_string(),
+            ) {
                 Ok(result_json) => safe_cstring(result_json).into_raw(),
                 Err(e) => safe_cstring(format!("Error: {e}")).into_raw(),
             }

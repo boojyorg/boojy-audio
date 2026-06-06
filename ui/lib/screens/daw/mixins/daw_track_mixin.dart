@@ -4,6 +4,7 @@ import '../../../models/instrument_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../services/commands/track_commands.dart';
 import '../../../services/vst3_editor_service.dart';
+import '../../../utils/csv_field.dart';
 import '../../../widgets/instrument_browser.dart';
 import '../../daw_screen.dart';
 import 'daw_screen_state.dart';
@@ -100,8 +101,9 @@ mixin DAWTrackMixin
     if (info.isEmpty) return null;
     final parts = info.split(',');
     if (parts.length >= 2) {
-      // Track name is at index 1: "track_id,name,type,..."
-      return parts[1];
+      // Track name is at index 1: "track_id,name,type,..." —
+      // percent-encoded by the engine (C34).
+      return decodeCsvField(parts[1]);
     }
     return null;
   }
