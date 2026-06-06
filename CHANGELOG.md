@@ -4,6 +4,8 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+## v0.5.3 — 2026-06-06
+
 ### Bug Fixes
 
 - **The Windows installer now actually ships the audio engine.** A wrong relative path in the
