@@ -1,7 +1,7 @@
 # Boojy Audio Roadmap
 
 **Current Version:** v0.5.1 (developing v0.5.2)
-**Working On:** v0.5.2 — Loop & device polish (metronome loop-wrap doubling, MIDI-keyboard hot-plug, carried device items C24/C99/C104) + the sampler blank-panel fix, the items deferred from v0.5.1.
+**Working On:** v0.5.2 — "Correct on real hardware, right after undo" — the correctness cycle set by the [2026-06-05 review chain](reviews/triage_2026_06_05.md): both criticals (stopped-path deadlock, clip-move undo desync), silent save/reload corruption, stuck notes + synth clicks, export correctness, FFI hardening, hook/CI parity, the first engine api/ffi tests, and the sample-rate sweep + carried device items (metronome loop-wrap, MIDI hot-plug, C99/C104). Spec: [plans/v0.5.2-plan.md](plans/v0.5.2-plan.md).
 **Goal:** v1.0 public release
 
 ---
@@ -18,8 +18,8 @@ A three-review pre-release audit ([codebase](reviews/codebase_review_2026_06_01.
 
 - **v0.5 — "Trust & Legibility":** correctness/hardening for the moment a session leaves the happy path (VST3 lifecycle, DeleteTrack undo content-loss, recorder audio-thread blocking, round-trip tempo, command/undo holes) **+** make the design tokens load-bearing (tokenise the ~390 hardcoded colours; painters theme + scale). Do first: fix CI/test trust (integration tests skip when the dylib is absent; clippy non-fatal) + the FEATURE_TRACKER accuracy sweep.
 - **v0.5.1 — "UI polish & fixes":** a small dogfood follow-up — the "+ MIDI Track" / "+ Audio Track" buttons moved into the top bar (out of the cramped mixer header), the Master strip made selectable so you can add effects to the master bus from the editor, the Library search field aligned flush with the loop bar, and a fix for right-click → Delete silently failing in debug builds (the confirm dialog read its theme from the wrong context).
-- **v0.5.2 — "loop & device polish":** the items deferred from v0.5.1 — the metronome downbeat doubling intermittently at loop wrap (the Dart-timer-driven loop-wrap races the audio thread; the click window has no "already-fired-this-beat" guard), MIDI-keyboard hot-plug (a keyboard connected mid-session is detected but doesn't play — midir's input isn't re-connected on re-enumeration), the sampler blank-panel fix, plus the carried device items C24 (VST3 block size on reload), C99 (device disconnect kills playback), C104 (output device not persisted).
-- **v0.6 — "Sound":** the dedicated feature cycle — stock instruments (a new MIDI track is currently silent), drum step sequencer, starter loop pack, effect presets, swing-to-engine. Sequenced *after* hardening so a beginner's first from-scratch song doesn't land on the shakiest code paths.
+- **v0.5.2 — "Correct on real hardware, right after undo"** *(rescoped by the [2026-06-05 review chain](reviews/triage_2026_06_05.md); absorbs the old "loop & device polish" scope)*: the second trust/correctness pass — the two criticals (C32 stopped-path deadlock, C46/C63 clip-move undo desync), silent save/reload corruption (C55/C61/C65/C66), stuck notes + synth clicks (C38/C41/C7/C10), export correctness (C16/C18/C68), FFI hardening (C33/C34), hook/CI parity + lockfiles (C76–C79), the first engine api/ffi tests (C69), then the sample-rate sweep + the carried device items (metronome loop-wrap doubling, MIDI hot-plug, C99/C104, sampler blank-panel fix). Spec: [plans/v0.5.2-plan.md](plans/v0.5.2-plan.md).
+- **v0.6 — "Sound"** *(rescoped 2026-06-05 — **no stock instruments**, deliberately deferred)*: drum kit (engine PR #44 + editor PR #45 already merged; 1 starter kit / 8 sounds), automation flag-flip + gesture QA, input monitoring UI, Join MIDI/audio clips (as proper Commands — subsumes C37/C50), reverse audio, clip normalize, plus the UI fixes ledger from the 2026-06-05 UI/UX review in steady small batches. Sequenced *after* the v0.5.2 hardening so a beginner's first from-scratch song doesn't land on the shakiest code paths.
 
 Shipped in v0.3.0:
 
@@ -36,7 +36,7 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 ## Version Plan
 
 | Version | Theme | Status |
-|---------|-------|--------|
+| --------- | ------- | -------- |
 | v0.2.2 | UI polish & piano roll | Complete |
 | v0.2.3 | Foundation & consolidation | Complete |
 | v0.2.4 | Finish the foundation | Complete |
@@ -46,8 +46,8 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 | v0.4.0 | Visual & UX polish (type/palette/scale → re-treats → top-bar) | Complete |
 | v0.5.0 | Trust & Legibility (correctness/hardening + token/painter legibility) | Complete |
 | v0.5.1 | UI polish & fixes (top-bar add-track, selectable Master, library alignment, delete fix) | Complete |
-| v0.5.2 | Loop & device polish (metronome loop-wrap, MIDI hot-plug, device handling) | Next |
-| v0.6.0 | Sound (stock instruments, drum sequencer, loops, effect presets) | Planned |
+| v0.5.2 | Correct on real hardware, right after undo (criticals, save/reload honesty, sample-rate sweep, device polish) | In progress |
+| v0.6.0 | Sound (drum kit + starter sounds, automation, monitoring, join/reverse/normalize, UI fixes) | Planned |
 
 ---
 
@@ -117,7 +117,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 ## Design References
 
 | Feature | Primary Reference | Reasoning |
-|---------|-------------------|-----------|
+| --------- | ------------------- | ----------- |
 | Piano Roll | FL Studio | Gold standard — ghost notes, scale highlighting, intuitive interactions |
 | Arrangement View | Studio One | Draggable sections, scratch pads, excellent drag-and-drop |
 | Audio Recording | Logic Pro | Excellent comping, beginner-friendly, professional results |
@@ -132,7 +132,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 ## Not Including (Design Decisions)
 
 | Feature | Reason |
-|---------|--------|
+| --------- | -------- |
 | Detachable windows | Keep UI simple, beginner-friendly |
 | Pattern-based workflow | Use arranger track instead |
 | Tagging system | Keep library simple |
