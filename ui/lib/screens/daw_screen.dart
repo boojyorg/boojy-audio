@@ -71,6 +71,7 @@ import 'daw/daw_menu_bar.dart';
 import 'daw/mixins/daw_mixins.dart';
 import '../utils/csv_field.dart';
 import '../utils/logger.dart';
+import '../utils/native_dialogs.dart';
 
 /// Main DAW screen with timeline, transport controls, and file import
 class DAWScreen extends StatefulWidget {
@@ -206,12 +207,8 @@ class _DAWScreenState extends State<DAWScreen>
         // Show start screen modal on launch
         if (mounted) {
           await _showStartScreen();
-          // Start tour after start screen if not completed
-          if (mounted && !userSettings.hasCompletedTour) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) _startTour();
-            });
-          }
+          // First-run tour auto-start removed for now (current tour isn't
+          // good enough yet) — still reachable via Help → Take a Tour.
         }
       }
     });
@@ -2711,16 +2708,12 @@ class _DAWScreenState extends State<DAWScreen>
     try {
       final baseName = projectManager?.currentName ?? 'Untitled';
 
-      // Use file_picker to choose save location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose file name with prompt "Export MP3" default name "$baseName.mp3")',
-      ]);
-
-      if (result.exitCode != 0) return; // User cancelled
-
-      String? filePath = result.stdout.toString().trim();
-      if (filePath.isEmpty) return;
+      // Native save dialog (AppleScript on macOS, file_picker elsewhere)
+      String? filePath = await pickSaveFilePath(
+        title: 'Export MP3',
+        defaultName: '${sanitizeFileName(baseName)}.mp3',
+      );
+      if (filePath == null || filePath.isEmpty) return; // User cancelled
 
       // Ensure .mp3 extension
       if (!filePath.endsWith('.mp3')) {
@@ -2773,16 +2766,12 @@ class _DAWScreenState extends State<DAWScreen>
     try {
       final baseName = projectManager?.currentName ?? 'Untitled';
 
-      // Use file_picker to choose save location
-      final result = await Process.run('osascript', [
-        '-e',
-        'POSIX path of (choose file name with prompt "Export WAV" default name "$baseName.wav")',
-      ]);
-
-      if (result.exitCode != 0) return; // User cancelled
-
-      String? filePath = result.stdout.toString().trim();
-      if (filePath.isEmpty) return;
+      // Native save dialog (AppleScript on macOS, file_picker elsewhere)
+      String? filePath = await pickSaveFilePath(
+        title: 'Export WAV',
+        defaultName: '${sanitizeFileName(baseName)}.wav',
+      );
+      if (filePath == null || filePath.isEmpty) return; // User cancelled
 
       // Ensure .wav extension
       if (!filePath.endsWith('.wav')) {

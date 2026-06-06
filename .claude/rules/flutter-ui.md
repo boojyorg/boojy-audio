@@ -71,3 +71,8 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.
 - **Use `Log.d()` / `Log.e()` / `Log.i()`** (from `utils/logger.dart`), not `print()`.
+- **File/folder dialogs go through `ui/lib/utils/native_dialogs.dart`**
+  (`pickFolder` / `pickSaveFilePath` / `sanitizeFileName`) — never call `osascript` inline.
+  AppleScript dialogs throw a `ProcessException` on Windows; that's exactly how Save As / Open /
+  Export shipped broken there through v0.5.3. The helper keeps AppleScript on macOS and uses
+  `file_picker` everywhere else.
