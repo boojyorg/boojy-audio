@@ -155,8 +155,15 @@ impl Recorder {
         Ok(())
     }
 
-    /// Stop recording and return the recorded audio clip
-    pub fn stop_recording(&self) -> Result<Option<AudioClip>, String> {
+    /// Stop recording and return the recorded audio clip.
+    ///
+    /// `stream_sample_rate` is the rate the audio stream actually ran at —
+    /// the recorded frames accrued one per output callback frame, so duration
+    /// math must use the real rate, not assume `TARGET_SAMPLE_RATE` (C22).
+    /// When the stream wasn't at the engine rate, the audio is resampled to
+    /// `TARGET_SAMPLE_RATE` so playback (whose time-math is fixed at the
+    /// engine rate, like every imported file) has the correct pitch/speed.
+    pub fn stop_recording(&self, stream_sample_rate: u32) -> Result<Option<AudioClip>, String> {
         let mut state = self.state.lock();
         let punch_completed = self.punch_complete.load(Ordering::SeqCst);
 
@@ -186,6 +193,20 @@ impl Recorder {
         if samples.is_empty() {
             return Ok(None);
         }
+
+        // Bring the recording to the engine rate if the stream ran elsewhere,
+        // so it plays back at the correct pitch/speed like any imported file.
+        let stream_sample_rate = if stream_sample_rate == 0 {
+            TARGET_SAMPLE_RATE
+        } else {
+            stream_sample_rate
+        };
+        let samples = if stream_sample_rate == TARGET_SAMPLE_RATE {
+            samples
+        } else {
+            crate::audio_file::resample_audio(&samples, stream_sample_rate, TARGET_SAMPLE_RATE, 2)
+                .map_err(|e| format!("Failed to resample recording: {e}"))?
+        };
 
         // Create audio clip from recorded samples
         let frame_count = samples.len() / 2; // Stereo
@@ -587,7 +608,7 @@ mod tests {
         assert!(recorder.start_recording().is_ok());
         assert_eq!(recorder.get_state(), RecordingState::Recording);
 
-        let result = recorder.stop_recording();
+        let result = recorder.stop_recording(TARGET_SAMPLE_RATE);
         assert!(result.is_ok());
         assert_eq!(recorder.get_state(), RecordingState::Idle);
     }
@@ -664,7 +685,7 @@ mod tests {
         recorder.start_recording().unwrap();
         assert_eq!(recorder.get_state(), RecordingState::WaitingForPunchIn);
 
-        let result = recorder.stop_recording().unwrap();
+        let result = recorder.stop_recording(TARGET_SAMPLE_RATE).unwrap();
         assert!(
             result.is_none(),
             "No audio should be captured when stopped during punch wait"
@@ -749,11 +770,69 @@ mod tests {
 
         // stop_recording should return the audio clip even though state is Idle
         // because punch_complete was true (auto-punch-out fired)
-        let clip = recorder.stop_recording().unwrap();
+        let clip = recorder.stop_recording(TARGET_SAMPLE_RATE).unwrap();
         assert!(
             clip.is_some(),
             "Should return recorded audio after auto-punch-out"
         );
         assert!(!clip.unwrap().samples.is_empty());
+    }
+
+    #[test]
+    fn stop_recording_honors_the_actual_stream_rate() {
+        // C22: recorded frames accrue one per output-callback frame, so when
+        // the stream runs at 44.1 kHz, 44100 frames are ONE second of audio —
+        // not 0.919 s. The clip must come back resampled to the engine rate
+        // with the wall-clock-correct duration.
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.start_recording().unwrap();
+
+        let refs = recorder.get_callback_refs();
+        for _ in 0..44_100 {
+            refs.process_frame(0.25, 0.25, true, 0.0);
+        }
+
+        let clip = recorder
+            .stop_recording(44_100)
+            .unwrap()
+            .expect("clip should be returned");
+        assert_eq!(clip.sample_rate, TARGET_SAMPLE_RATE);
+        assert!(
+            (clip.duration_seconds - 1.0).abs() < 0.01,
+            "44100 frames at a 44.1 kHz stream are 1.0 s, got {:.4}s",
+            clip.duration_seconds
+        );
+        // Resampled to the engine rate: ~48000 frames of stereo.
+        let frames = clip.samples.len() / 2;
+        assert!(
+            (frames as f64 - f64::from(TARGET_SAMPLE_RATE)).abs() < 200.0,
+            "expected ~48000 frames after resampling, got {frames}"
+        );
+    }
+
+    #[test]
+    fn stop_recording_at_engine_rate_is_untouched() {
+        // The common case (stream at 48 kHz) must not resample at all.
+        let recorder = Recorder::new();
+        recorder.set_count_in_bars(0);
+        recorder.start_recording().unwrap();
+
+        let refs = recorder.get_callback_refs();
+        for _ in 0..4_800 {
+            refs.process_frame(0.25, 0.25, true, 0.0);
+        }
+
+        let clip = recorder
+            .stop_recording(TARGET_SAMPLE_RATE)
+            .unwrap()
+            .expect("clip should be returned");
+        assert_eq!(clip.samples.len(), 4_800 * 2);
+        assert!((clip.duration_seconds - 0.1).abs() < 1e-9);
+        // Samples pass through bit-exact — no resampler in the path.
+        assert!(clip
+            .samples
+            .iter()
+            .all(|&s| (s - 0.25).abs() < f32::EPSILON));
     }
 }

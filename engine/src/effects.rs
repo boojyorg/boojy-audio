@@ -666,6 +666,10 @@ pub struct Delay {
     buffer_left: Vec<f32>,
     buffer_right: Vec<f32>,
     write_pos: usize,
+
+    // Device sample rate — delay time in ms only maps to the right number of
+    // samples if this matches the rate the stream actually runs at (C2).
+    sample_rate: f32,
 }
 
 impl Default for Delay {
@@ -675,9 +679,12 @@ impl Default for Delay {
 }
 
 impl Delay {
+    /// Maximum delay time, which sizes the ring buffers.
+    const MAX_DELAY_SECONDS: f32 = 2.0;
+
     pub fn new() -> Self {
-        // Max 2 seconds delay
-        let max_samples = (TARGET_SAMPLE_RATE as f32 * 2.0) as usize;
+        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let max_samples = (sample_rate * Self::MAX_DELAY_SECONDS) as usize;
         Self {
             delay_time_ms: 500.0,
             feedback: 0.4,
@@ -685,12 +692,12 @@ impl Delay {
             buffer_left: vec![0.0; max_samples],
             buffer_right: vec![0.0; max_samples],
             write_pos: 0,
+            sample_rate,
         }
     }
 
     fn get_delay_samples(&self) -> usize {
-        ((self.delay_time_ms * 0.001 * TARGET_SAMPLE_RATE as f32) as usize)
-            .min(self.buffer_left.len() - 1)
+        ((self.delay_time_ms * 0.001 * self.sample_rate) as usize).min(self.buffer_left.len() - 1)
     }
 }
 
@@ -726,6 +733,18 @@ impl Effect for Delay {
         self.write_pos = 0;
     }
 
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            // Resize the ring buffers so MAX_DELAY_SECONDS still fits at the
+            // new rate (C6 — at 96 kHz the old fixed buffer held only 1 s).
+            let max_samples = (sample_rate * Self::MAX_DELAY_SECONDS) as usize;
+            self.buffer_left = vec![0.0; max_samples];
+            self.buffer_right = vec![0.0; max_samples];
+            self.write_pos = 0;
+        }
+    }
+
     fn name(&self) -> &'static str {
         "Delay"
     }
@@ -756,6 +775,10 @@ pub struct Reverb {
     allpass_buffers_r: Vec<Vec<f32>>,
     allpass_positions_l: Vec<usize>,
     allpass_positions_r: Vec<usize>,
+
+    // Device sample rate — the comb/allpass delay lengths are tuned in
+    // samples-at-44.1kHz and must be rescaled to the real rate (C2/C9).
+    sample_rate: f32,
 }
 
 impl Default for Reverb {
@@ -765,32 +788,15 @@ impl Default for Reverb {
 }
 
 impl Reverb {
+    /// Freeverb comb filter lengths, in samples at 44.1 kHz.
+    const COMB_LENGTHS_44K: [usize; 8] = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+    /// Freeverb allpass filter lengths, in samples at 44.1 kHz.
+    const ALLPASS_LENGTHS_44K: [usize; 4] = [556, 441, 341, 225];
+
     pub fn new() -> Self {
-        // Freeverb comb filter lengths (in samples at 44.1 kHz, scaled to 48 kHz)
-        let comb_lengths = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617]
-            .iter()
-            .map(|&len| (len as f32 * TARGET_SAMPLE_RATE as f32 / 44100.0) as usize)
-            .collect::<Vec<_>>();
-
-        // Allpass filter lengths
-        let allpass_lengths = [556, 441, 341, 225]
-            .iter()
-            .map(|&len| (len as f32 * TARGET_SAMPLE_RATE as f32 / 44100.0) as usize)
-            .collect::<Vec<_>>();
-
-        let mut comb_buffers_l = Vec::new();
-        let mut comb_buffers_r = Vec::new();
-        for &len in &comb_lengths {
-            comb_buffers_l.push(vec![0.0; len]);
-            comb_buffers_r.push(vec![0.0; len + 23]); // Stereo spread
-        }
-
-        let mut allpass_buffers_l = Vec::new();
-        let mut allpass_buffers_r = Vec::new();
-        for &len in &allpass_lengths {
-            allpass_buffers_l.push(vec![0.0; len]);
-            allpass_buffers_r.push(vec![0.0; len + 11]); // Stereo spread
-        }
+        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let (comb_buffers_l, comb_buffers_r, allpass_buffers_l, allpass_buffers_r) =
+            Self::alloc_buffers(sample_rate);
 
         Self {
             room_size: 0.5,
@@ -806,7 +812,41 @@ impl Reverb {
             allpass_buffers_r,
             allpass_positions_l: vec![0; 4],
             allpass_positions_r: vec![0; 4],
+            sample_rate,
         }
+    }
+
+    /// Allocate the comb/allpass delay lines for a device rate, scaling the
+    /// canonical 44.1 kHz Freeverb tunings so the reverb's character (mode
+    /// spacing, tail timing) is rate-independent.
+    #[allow(clippy::type_complexity)]
+    fn alloc_buffers(
+        sample_rate: f32,
+    ) -> (Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<Vec<f32>>) {
+        let scale = sample_rate / 44100.0;
+
+        let mut comb_buffers_l = Vec::new();
+        let mut comb_buffers_r = Vec::new();
+        for &len in &Self::COMB_LENGTHS_44K {
+            let len = ((len as f32 * scale) as usize).max(1);
+            comb_buffers_l.push(vec![0.0; len]);
+            comb_buffers_r.push(vec![0.0; len + 23]); // Stereo spread
+        }
+
+        let mut allpass_buffers_l = Vec::new();
+        let mut allpass_buffers_r = Vec::new();
+        for &len in &Self::ALLPASS_LENGTHS_44K {
+            let len = ((len as f32 * scale) as usize).max(1);
+            allpass_buffers_l.push(vec![0.0; len]);
+            allpass_buffers_r.push(vec![0.0; len + 11]); // Stereo spread
+        }
+
+        (
+            comb_buffers_l,
+            comb_buffers_r,
+            allpass_buffers_l,
+            allpass_buffers_r,
+        )
     }
 
     fn process_comb(
@@ -917,6 +957,18 @@ impl Effect for Reverb {
         self.comb_filter_state_r.fill(0.0);
         self.allpass_positions_l.fill(0);
         self.allpass_positions_r.fill(0);
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            let (comb_l, comb_r, allpass_l, allpass_r) = Self::alloc_buffers(sample_rate);
+            self.comb_buffers_l = comb_l;
+            self.comb_buffers_r = comb_r;
+            self.allpass_buffers_l = allpass_l;
+            self.allpass_buffers_r = allpass_r;
+            self.reset();
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -1050,6 +1102,10 @@ pub struct Chorus {
 
     // LFO
     lfo_phase: f32,
+
+    // Device sample rate — drives both the LFO phase increment and the
+    // ms→samples mapping of the modulated delay (C9).
+    sample_rate: f32,
 }
 
 impl Default for Chorus {
@@ -1059,9 +1115,12 @@ impl Default for Chorus {
 }
 
 impl Chorus {
+    /// Maximum modulated delay time, which sizes the ring buffers.
+    const MAX_DELAY_SECONDS: f32 = 0.05;
+
     pub fn new() -> Self {
-        // Max 50ms delay
-        let max_samples = (TARGET_SAMPLE_RATE as f32 * 0.05) as usize;
+        let sample_rate = TARGET_SAMPLE_RATE as f32;
+        let max_samples = (sample_rate * Self::MAX_DELAY_SECONDS) as usize;
         Self {
             rate_hz: 1.5,
             depth: 0.5,
@@ -1070,6 +1129,7 @@ impl Chorus {
             buffer_right: vec![0.0; max_samples],
             write_pos: 0,
             lfo_phase: 0.0,
+            sample_rate,
         }
     }
 }
@@ -1080,7 +1140,7 @@ impl Effect for Chorus {
 
         // LFO (sine wave)
         let lfo = (self.lfo_phase * 2.0 * PI).sin();
-        self.lfo_phase += self.rate_hz / TARGET_SAMPLE_RATE as f32;
+        self.lfo_phase += self.rate_hz / self.sample_rate;
         if self.lfo_phase >= 1.0 {
             self.lfo_phase -= 1.0;
         }
@@ -1089,8 +1149,7 @@ impl Effect for Chorus {
         let base_delay_ms = 15.0;
         let delay_variation_ms = 10.0 * self.depth;
         let delay_ms = base_delay_ms + lfo * delay_variation_ms;
-        let delay_samples =
-            ((delay_ms * 0.001 * TARGET_SAMPLE_RATE as f32) as usize).min(buffer_size - 1);
+        let delay_samples = ((delay_ms * 0.001 * self.sample_rate) as usize).min(buffer_size - 1);
 
         // Read from buffer
         let read_pos = (self.write_pos + buffer_size - delay_samples) % buffer_size;
@@ -1114,6 +1173,17 @@ impl Effect for Chorus {
         self.buffer_right.fill(0.0);
         self.write_pos = 0;
         self.lfo_phase = 0.0;
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f32) {
+        if sample_rate > 0.0 && (sample_rate - self.sample_rate).abs() > f32::EPSILON {
+            self.sample_rate = sample_rate;
+            let max_samples = ((sample_rate * Self::MAX_DELAY_SECONDS) as usize).max(1);
+            self.buffer_left = vec![0.0; max_samples];
+            self.buffer_right = vec![0.0; max_samples];
+            self.write_pos = 0;
+            self.lfo_phase = 0.0;
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -1254,6 +1324,31 @@ impl EffectManager {
         self.sample_rate = sample_rate;
         for effect in self.effects.values() {
             effect.lock().set_sample_rate(sample_rate);
+        }
+    }
+
+    /// The sample rate the effects are currently configured for.
+    pub fn sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
+    /// Set the rate on built-in effects only, leaving VST3 plugins untouched.
+    ///
+    /// Used by the offline renderer to pin built-in DSP to the export rate
+    /// (`TARGET_SAMPLE_RATE`) and restore the live stream rate afterwards.
+    /// VST3 is excluded for the same reason `reset_builtin_fx_offline` skips
+    /// it: a VST3 rate change is a full deactivate/reinitialize/activate
+    /// cycle, far too heavy to fire twice per export (VST3 export fidelity is
+    /// its own later cycle, C27–C30).
+    pub fn set_builtin_sample_rate(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        for effect in self.effects.values() {
+            let mut effect = effect.lock();
+            #[cfg(all(feature = "vst3", not(target_os = "ios")))]
+            if matches!(*effect, EffectType::VST3(_)) {
+                continue;
+            }
+            effect.set_sample_rate(sample_rate);
         }
     }
 
@@ -1683,5 +1778,116 @@ mod process_block_equivalence_tests {
     #[test]
     fn chorus_block_matches_frames() {
         assert_block_matches_frames(Chorus::new(), Chorus::new());
+    }
+}
+
+#[cfg(test)]
+mod sample_rate_tests {
+    //! v0.5.2 P8 (C2/C6/C9): time-based effects must track the device rate.
+    //! The renderer fans the real stream rate out via
+    //! `EffectManager::set_sample_rate`; before P8 the Delay/Chorus/Reverb
+    //! implementations inherited the no-op trait default, so a 500 ms delay
+    //! on a 44.1 kHz stream measured ~544 ms.
+    // The compared rates are exact assignments (no arithmetic), so equality
+    // is the intended assertion.
+    #![allow(clippy::float_cmp)]
+    use super::*;
+
+    /// Feed an impulse and return the index of the first sample whose
+    /// magnitude exceeds `threshold`, scanning up to `max_len` frames.
+    fn first_audible_frame<E: Effect>(fx: &mut E, max_len: usize, threshold: f32) -> Option<usize> {
+        for i in 0..max_len {
+            let input = if i == 0 { 1.0 } else { 0.0 };
+            let (l, _r) = fx.process_frame(input, input);
+            if l.abs() > threshold {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn delay_time_tracks_device_rate() {
+        // 100% wet, no feedback: the impulse re-emerges exactly one delay
+        // time later. 500 ms must be 24000 frames at 48 kHz and 22050 at
+        // 44.1 kHz — the same wall-clock time on both devices (C2).
+        for (rate, expected) in [(48_000.0_f32, 24_000_usize), (44_100.0, 22_050)] {
+            let mut delay = Delay::new();
+            delay.set_sample_rate(rate);
+            delay.wet_dry_mix = 1.0;
+            delay.feedback = 0.0;
+            let got = first_audible_frame(&mut delay, 30_000, 0.5)
+                .unwrap_or_else(|| panic!("no echo at {rate} Hz"));
+            assert_eq!(got, expected, "500 ms delay at {rate} Hz");
+        }
+    }
+
+    #[test]
+    fn delay_buffer_grows_for_high_rates() {
+        // At 96 kHz the old fixed 96000-sample buffer held only 1 s — a
+        // 1500 ms delay read wrapped garbage (C6). The buffer must resize so
+        // the full 2 s range still fits.
+        let mut delay = Delay::new();
+        delay.set_sample_rate(96_000.0);
+        delay.delay_time_ms = 1500.0;
+        delay.wet_dry_mix = 1.0;
+        delay.feedback = 0.0;
+        let got = first_audible_frame(&mut delay, 150_000, 0.5).expect("no echo at 96 kHz");
+        assert_eq!(got, 144_000, "1500 ms delay at 96 kHz");
+    }
+
+    #[test]
+    fn chorus_center_delay_tracks_device_rate() {
+        // depth = 0 pins the modulated delay at its 15 ms centre, so the
+        // wet impulse re-emerges 15 ms later regardless of device rate (C9).
+        for (rate, expected) in [(48_000.0_f32, 720_usize), (44_100.0, 661)] {
+            let mut chorus = Chorus::new();
+            chorus.set_sample_rate(rate);
+            chorus.depth = 0.0;
+            chorus.wet_dry_mix = 1.0;
+            let got = first_audible_frame(&mut chorus, 2_000, 0.5)
+                .unwrap_or_else(|| panic!("no wet output at {rate} Hz"));
+            assert_eq!(got, expected, "15 ms chorus centre delay at {rate} Hz");
+        }
+    }
+
+    #[test]
+    fn reverb_rescales_and_stays_safe_across_rate_changes() {
+        // The comb/allpass delay lines are retuned per rate. Shrinking the
+        // buffers (48 kHz → 44.1 kHz) must also reset the write positions —
+        // stale positions would index out of bounds and panic.
+        let impulse_response = |rev: &mut Reverb| -> Vec<f32> {
+            (0..4_000)
+                .map(|i| {
+                    let input = if i == 0 { 1.0 } else { 0.0 };
+                    rev.process_frame(input, input).0
+                })
+                .collect()
+        };
+
+        let mut rev = Reverb::new();
+        rev.wet_dry_mix = 1.0;
+        let at_48k = impulse_response(&mut rev);
+
+        rev.set_sample_rate(44_100.0); // shrink
+        let at_44k = impulse_response(&mut rev);
+        assert!(at_44k.iter().all(|s| s.is_finite()));
+        assert_ne!(at_48k, at_44k, "rate change must retune the delay lines");
+
+        rev.set_sample_rate(96_000.0); // grow — and survive more processing
+        let at_96k = impulse_response(&mut rev);
+        assert!(at_96k.iter().all(|s| s.is_finite()));
+    }
+
+    #[test]
+    fn effect_manager_builtin_rate_roundtrip() {
+        // The offline renderer pins built-ins to TARGET_SAMPLE_RATE and
+        // restores the live rate afterwards — the stored rate must follow.
+        let mut mgr = EffectManager::new();
+        assert_eq!(mgr.sample_rate(), TARGET_SAMPLE_RATE as f32);
+        mgr.set_builtin_sample_rate(44_100.0);
+        assert_eq!(mgr.sample_rate(), 44_100.0);
+        mgr.set_builtin_sample_rate(TARGET_SAMPLE_RATE as f32);
+        assert_eq!(mgr.sample_rate(), TARGET_SAMPLE_RATE as f32);
     }
 }

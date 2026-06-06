@@ -32,7 +32,15 @@ matching `render_offline` (C68) — a stem's compressor must see the same pre-fa
 Note the UI does not yet expose range/platform-target controls — the options work engine-side and
 arrive via the `ExportOptions` JSON.
 
-Two more offline-render invariants (locked by the v0.5.2 P7 tests in `engine/src/api/tests.rs`):
+Three more offline-render invariants (locked by the v0.5.2 P7/P8 tests in
+`engine/src/api/tests.rs`):
+
+- **Offline renders pin built-in FX to `TARGET_SAMPLE_RATE`.** Effect coefficients follow the
+  *live* stream rate (the renderer fans it out via `EffectManager::set_sample_rate` when the
+  stream opens — C12/P8), but offline renders are written as 48 kHz files. Both `render_offline`
+  and `render_track_offline` call `set_builtin_sample_rate(TARGET_SAMPLE_RATE)` first and restore
+  the live rate at the end. VST3 is excluded from the pin (a VST3 rate change is a full
+  deactivate/reinit cycle — C26/C27–C30).
 
 - **Offline renders start from silence.** Effect instances are shared with live playback, so both
   `render_offline` and `render_track_offline` call `reset_builtin_fx_offline` first — otherwise an
