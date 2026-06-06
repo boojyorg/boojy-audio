@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 // Conditional import for platform-specific code
 // ignore: unnecessary_import
 import 'daw_screen_io.dart'
@@ -48,6 +47,7 @@ import '../services/commands/send_commands.dart';
 import '../services/commands/project_commands.dart';
 import '../widgets/fx_picker_dialog.dart';
 import '../services/commands/clip_commands.dart';
+import '../services/bundled_content_service.dart';
 import '../services/library_preview_service.dart';
 import '../services/vst3_plugin_manager.dart';
 import '../services/project_manager.dart';
@@ -1643,10 +1643,10 @@ class _DAWScreenState extends State<DAWScreen>
 
   /// Create a new Drum Kit track seeded with standard empty pads.
   ///
-  /// Pads are pinned to General-MIDI percussion notes (kick/snare/hat/clap) so
-  /// the editor opens with a sensible grid. Samples are loaded by the user for
-  /// now; the bundled starter kit (PR3) will pre-fill them for a one-click beat.
-  void _createDrumKitTrack() {
+  /// Pads are pinned to General-MIDI percussion notes and pre-filled with the
+  /// bundled starter kit (copied out of the asset bundle on first use), so a
+  /// fresh Drum Kit makes sound with zero setup — the one-click first beat.
+  Future<void> _createDrumKitTrack() async {
     if (audioEngine == null) return;
 
     final trackId = audioEngine!.createTrack('midi', 'Drum Kit');
@@ -1661,15 +1661,33 @@ class _DAWScreenState extends State<DAWScreen>
       return;
     }
 
-    // GM percussion notes: 36 kick, 38 snare, 42 closed hat, 39 clap.
-    for (final note in const [36, 38, 42, 39]) {
-      audioEngine!.addDrumPad(trackId, note);
+    // The engine loads samples by filesystem path, so make sure the bundled
+    // kit is installed on disk (no-op after the first call). On failure the
+    // kit still appears, just with empty pads.
+    final drumsRoot = await BundledContentService.ensureInstalled();
+    var loadedAll = drumsRoot != null;
+    for (final (note, sample) in BundledContentService.starterKitPads) {
+      final padIndex = audioEngine!.addDrumPad(trackId, note);
+      if (drumsRoot != null && padIndex >= 0) {
+        final samplePath =
+            '$drumsRoot$pathSeparator'
+            '${sample.split('/').join(pathSeparator)}';
+        loadedAll &= audioEngine!.loadDrumPadSample(
+          trackId,
+          padIndex,
+          samplePath,
+        );
+      }
     }
 
     createDefaultMidiClip(trackId);
     refreshTrackWidgets();
     selectTrack(trackId);
-    _showSnackBar('Created drum kit');
+    _showSnackBar(
+      loadedAll
+          ? 'Created drum kit'
+          : 'Created drum kit (starter sounds unavailable)',
+    );
   }
 
   /// Convert an Audio track to a Sampler track

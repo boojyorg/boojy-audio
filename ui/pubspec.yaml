@@ -115,6 +115,14 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    # Bundled drum samples (CC0/in-house — see assets/samples/drums/LICENSES.md).
+    # Copied out to app-support on first use; the engine loads by filesystem path.
+    - assets/samples/drums/Kicks/
+    - assets/samples/drums/Snares/
+    - assets/samples/drums/Hats/
+    - assets/samples/drums/Claps/
+    - assets/samples/drums/Toms/
+    - assets/samples/drums/Cymbals/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
