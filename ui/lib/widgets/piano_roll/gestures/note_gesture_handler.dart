@@ -5,6 +5,7 @@ import '../../../models/midi_note_data.dart';
 import '../../../models/tool_mode.dart';
 import '../../piano_roll.dart';
 import '../piano_roll_state.dart';
+import '../audition_mixin.dart';
 import '../operations/note_operations.dart';
 import '../operations/selection_operations.dart';
 import '../operations/clipboard_operations.dart';
@@ -15,6 +16,7 @@ mixin NoteGestureHandlerMixin
     on
         State<PianoRoll>,
         PianoRollStateMixin,
+        AuditionMixin,
         NoteOperationsMixin,
         SelectionOperationsMixin,
         ClipboardOperationsMixin {
@@ -251,74 +253,12 @@ mixin NoteGestureHandlerMixin
   }
 
   // ============================================
-  // AUDITION SUPPORT
+  // AUDITION SUPPORT — provided by AuditionMixin (on-clause).
+  // This mixin used to carry its own diverged copies of startAudition /
+  // stopAudition / changeAuditionPitch / previewChord; they were shadowed
+  // dead code (AuditionMixin is mixed in later) and previewChord's copy
+  // still had the dispose-leak bug. One implementation only.
   // ============================================
-
-  /// Start sustained audition.
-  void startAudition(int midiNote, int velocity) {
-    if (!auditionEnabled) return;
-    stopAudition();
-
-    final trackId = currentClip?.trackId;
-    if (trackId != null && widget.audioEngine != null) {
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, velocity);
-      currentlyHeldNote = midiNote;
-    }
-  }
-
-  /// Stop the currently held audition note.
-  void stopAudition() {
-    if (currentlyHeldNote != null) {
-      final trackId = currentClip?.trackId;
-      if (trackId != null && widget.audioEngine != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(
-          trackId,
-          currentlyHeldNote!,
-          UIConstants.midiNoteOffVelocity,
-        );
-      }
-      currentlyHeldNote = null;
-    }
-  }
-
-  /// Change audition pitch while holding.
-  void changeAuditionPitch(int newMidiNote, int velocity) {
-    if (!auditionEnabled) return;
-    if (newMidiNote == currentlyHeldNote) return;
-
-    final trackId = currentClip?.trackId;
-    if (trackId != null && widget.audioEngine != null) {
-      if (currentlyHeldNote != null) {
-        widget.audioEngine!.sendTrackMidiNoteOff(
-          trackId,
-          currentlyHeldNote!,
-          UIConstants.midiNoteOffVelocity,
-        );
-      }
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, newMidiNote, velocity);
-      currentlyHeldNote = newMidiNote;
-    }
-  }
-
-  /// Preview a chord.
-  void previewChord(List<int> midiNotes) {
-    if (!auditionEnabled) return;
-    final trackId = currentClip?.trackId;
-    if (trackId == null || widget.audioEngine == null) return;
-
-    for (final midiNote in midiNotes) {
-      widget.audioEngine!.sendTrackMidiNoteOn(trackId, midiNote, 100);
-    }
-    Future.delayed(const Duration(milliseconds: 500), () {
-      for (final midiNote in midiNotes) {
-        widget.audioEngine?.sendTrackMidiNoteOff(
-          trackId,
-          midiNote,
-          UIConstants.midiNoteOffVelocity,
-        );
-      }
-    });
-  }
 
   /// Stamp a chord at the given position.
   void stampChordAt(double beat, int baseNote) {
