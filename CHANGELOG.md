@@ -6,6 +6,17 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Closing the piano roll no longer leaves notes droning.** Clicking a note (or previewing a
+  chord) and closing the editor before letting go left those notes sounding until you hit stop —
+  the "note off" was simply never sent. The editor now releases everything it started, including
+  chord previews still inside their half-second window.
+- **Short staccato notes on the synth no longer click.** Releasing a key while the note was still
+  ramping up made the volume jump discontinuously to the sustain level before fading — an audible
+  click on every quick tap. The release now fades from wherever the note actually was.
+- **Playing more than 8 simultaneous notes no longer clicks.** The 9th note used to cut an
+  existing voice dead mid-waveform (synth and sampler both). The stolen voice now fades out over a
+  few milliseconds while the new note starts immediately — and the engine prefers recycling a
+  voice that was already fading out.
 - **Saving can no longer claim success when it actually failed.** When the engine reported a save
   error (full disk, permissions, missing audio data), the app still showed "saved", repointed the
   project — and auto-save — at the broken path, and quietly kept writing there. A failed save now

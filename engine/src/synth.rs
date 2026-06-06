@@ -10,6 +10,10 @@ use std::sync::Arc;
 
 const MAX_VOICES: usize = 8;
 
+/// Fade-out time for a stolen voice — long enough to avoid a click, short
+/// enough to be inaudible as a "note".
+const STEAL_FADE_SECS: f32 = 0.005;
+
 // ============================================================================
 // OSCILLATOR
 // ============================================================================
@@ -94,6 +98,7 @@ struct Voice {
     env_state: EnvelopeState,
     env_level: f32,
     env_time: f32,
+    release_start_level: f32, // level when release started (for smooth fade)
     is_active: bool,
     sustain_pending: bool, // note-off received while sustain pedal held
 }
@@ -108,6 +113,7 @@ impl Voice {
             env_state: EnvelopeState::Idle,
             env_level: 0.0,
             env_time: 0.0,
+            release_start_level: 0.0,
             is_active: false,
             sustain_pending: false,
         }
@@ -121,6 +127,7 @@ impl Voice {
         self.env_state = EnvelopeState::Attack;
         self.env_level = 0.0;
         self.env_time = 0.0;
+        self.release_start_level = 0.0;
         self.is_active = true;
         self.sustain_pending = false;
     }
@@ -130,8 +137,7 @@ impl Voice {
             if sustain_held {
                 self.sustain_pending = true;
             } else {
-                self.env_state = EnvelopeState::Release;
-                self.env_time = 0.0;
+                self.enter_release();
             }
         }
     }
@@ -139,9 +145,17 @@ impl Voice {
     fn release_sustain(&mut self) {
         if self.sustain_pending {
             self.sustain_pending = false;
-            self.env_state = EnvelopeState::Release;
-            self.env_time = 0.0;
+            self.enter_release();
         }
+    }
+
+    /// Begin the release phase from the envelope's *current* level — a
+    /// note-off during attack/decay must fade from where it is, not jump to
+    /// the sustain level (audible click on staccato notes).
+    fn enter_release(&mut self) {
+        self.release_start_level = self.env_level;
+        self.env_state = EnvelopeState::Release;
+        self.env_time = 0.0;
     }
 
     fn process(
@@ -215,8 +229,9 @@ impl Voice {
             EnvelopeState::Release => {
                 if params.release > 0.0 {
                     let release_progress = self.env_time / params.release;
-                    // Start from current level (sustain) and fade to 0
-                    self.env_level = params.sustain * (1.0 - release_progress);
+                    // Fade from the level captured at note-off (not the
+                    // sustain level — the note may still be in attack/decay)
+                    self.env_level = self.release_start_level * (1.0 - release_progress);
                     if self.env_level <= 0.001 {
                         self.env_level = 0.0;
                         self.env_state = EnvelopeState::Idle;
@@ -243,6 +258,10 @@ fn midi_to_freq(note: u8) -> f32 {
 
 pub struct Synth {
     voices: [Voice; MAX_VOICES],
+    // Stolen voices fading out over STEAL_FADE_SECS so reusing their slot
+    // doesn't cut the old note dead mid-waveform (audible click).
+    // Heap-allocated (Vec) to keep the TrackInstrument enum small.
+    steal_tails: Vec<Voice>,
     pub osc_type: OscillatorType,
     pub filter_cutoff: f32, // 0.0-1.0
     pub envelope: EnvelopeParams,
@@ -256,6 +275,7 @@ impl Synth {
     pub fn new(sample_rate: f32) -> Self {
         Self {
             voices: [Voice::new(); MAX_VOICES],
+            steal_tails: vec![Voice::new(); MAX_VOICES],
             osc_type: OscillatorType::Saw,
             filter_cutoff: 1.0, // Fully open
             envelope: EnvelopeParams::default(),
@@ -266,9 +286,24 @@ impl Synth {
     }
 
     pub fn note_on(&mut self, note: u8, velocity: u8) {
-        // Find free voice or steal oldest
+        // Find free voice or steal one
         let idx = self.find_free_voice_index();
+        if self.voices[idx].is_active {
+            self.start_steal_fade(self.voices[idx]);
+        }
         self.voices[idx].note_on(note, velocity);
+    }
+
+    /// Move a stolen voice into a fade-out tail so the new note can start
+    /// immediately while the old one ramps to silence.
+    fn start_steal_fade(&mut self, mut stolen: Voice) {
+        stolen.enter_release();
+        let slot = self
+            .steal_tails
+            .iter()
+            .position(|t| !t.is_active)
+            .unwrap_or(0);
+        self.steal_tails[slot] = stolen;
     }
 
     pub fn note_off(&mut self, note: u8) {
@@ -294,7 +329,7 @@ impl Synth {
     }
 
     pub fn all_notes_off(&mut self) {
-        for voice in &mut self.voices {
+        for voice in self.voices.iter_mut().chain(self.steal_tails.iter_mut()) {
             voice.is_active = false;
             voice.env_state = EnvelopeState::Idle;
             voice.env_level = 0.0;
@@ -307,6 +342,16 @@ impl Synth {
         // Mix all active voices
         for voice in &mut self.voices {
             output += voice.process(self.osc_type, &self.envelope, self.sample_rate);
+        }
+
+        // Mix stolen voices with a fast declick fade instead of the
+        // patch's release time
+        let fade_params = EnvelopeParams {
+            release: STEAL_FADE_SECS,
+            ..self.envelope
+        };
+        for tail in &mut self.steal_tails {
+            output += tail.process(self.osc_type, &fade_params, self.sample_rate);
         }
 
         // Apply simple one-pole lowpass filter
@@ -377,8 +422,12 @@ impl Synth {
                 return i;
             }
         }
-        // All voices active - steal first one
-        0
+        // All voices active — prefer stealing one that's already fading out
+        // (least audible to cut short), otherwise take the first
+        self.voices
+            .iter()
+            .position(|v| v.env_state == EnvelopeState::Release)
+            .unwrap_or(0)
     }
 
     pub fn active_voice_count(&self) -> usize {
@@ -990,6 +1039,65 @@ mod tests {
         // Square at phase 0.25 = 1, phase 0.75 = -1
         assert!((generate_waveform(OscillatorType::Square, 0.25) - 1.0).abs() < 0.01);
         assert!((generate_waveform(OscillatorType::Square, 0.75) - (-1.0)).abs() < 0.01);
+    }
+
+    #[test]
+    fn release_anchors_to_level_at_note_off() {
+        // Note-off mid-attack must fade from the attack level, not jump up
+        // to the sustain level (C7).
+        let mut voice = Voice::new();
+        let params = EnvelopeParams {
+            attack: 0.1,
+            decay: 0.1,
+            sustain: 0.7,
+            release: 0.3,
+        };
+        let sample_rate = 48000.0;
+
+        voice.note_on(60, 100);
+        // Run ~5ms of the 100ms attack → env_level ≈ 0.05
+        for _ in 0..240 {
+            voice.process_envelope(&params, sample_rate);
+        }
+        let level_before = voice.env_level;
+        assert!(level_before < 0.1, "expected early-attack level, got {level_before}");
+
+        voice.note_off(false);
+        let level_after = voice.process_envelope(&params, sample_rate);
+        // One release sample later the level must be continuous with the
+        // pre-release level — not snapped to sustain (0.7).
+        assert!(
+            (level_after - level_before).abs() < 0.01,
+            "release jumped from {level_before} to {level_after}"
+        );
+    }
+
+    #[test]
+    fn voice_steal_fades_old_note_instead_of_cutting() {
+        let mut synth = Synth::new(48000.0);
+        // Fill all voices and let them reach sustain
+        for note in 0..MAX_VOICES {
+            synth.note_on(60 + u8::try_from(note).unwrap(), 100);
+        }
+        for _ in 0..48000 / 2 {
+            synth.process_sample();
+        }
+        assert_eq!(synth.active_voice_count(), MAX_VOICES);
+
+        // 9th note steals a voice: the stolen note must keep sounding via a
+        // fade tail (C10), not vanish in a single sample.
+        synth.note_on(100, 100);
+        let tail_active = synth.steal_tails.iter().any(|t| t.is_active);
+        assert!(tail_active, "stolen voice was cut with no fade tail");
+
+        // After the 5ms fade (240 samples @ 48kHz) the tail must be finished.
+        for _ in 0..480 {
+            synth.process_sample();
+        }
+        assert!(
+            synth.steal_tails.iter().all(|t| !t.is_active),
+            "steal tail still active after the fade window"
+        );
     }
 
     #[test]
