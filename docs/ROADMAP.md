@@ -36,7 +36,7 @@ Shipped in v0.3.2 — **plugins & the audio thread**: VST3 plugins processed a w
 ## Version Plan
 
 | Version | Theme | Status |
-|---------|-------|--------|
+| --------- | ------- | -------- |
 | v0.2.2 | UI polish & piano roll | Complete |
 | v0.2.3 | Foundation & consolidation | Complete |
 | v0.2.4 | Finish the foundation | Complete |
@@ -117,7 +117,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 ## Design References
 
 | Feature | Primary Reference | Reasoning |
-|---------|-------------------|-----------|
+| --------- | ------------------- | ----------- |
 | Piano Roll | FL Studio | Gold standard — ghost notes, scale highlighting, intuitive interactions |
 | Arrangement View | Studio One | Draggable sections, scratch pads, excellent drag-and-drop |
 | Audio Recording | Logic Pro | Excellent comping, beginner-friendly, professional results |
@@ -132,7 +132,7 @@ For the full checklist, see [FEATURE_TRACKER.md](FEATURE_TRACKER.md).
 ## Not Including (Design Decisions)
 
 | Feature | Reason |
-|---------|--------|
+| --------- | -------- |
 | Detachable windows | Keep UI simple, beginner-friendly |
 | Pattern-based workflow | Use arranger track instead |
 | Tagging system | Keep library simple |
