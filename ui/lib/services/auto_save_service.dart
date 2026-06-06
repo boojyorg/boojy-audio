@@ -139,9 +139,14 @@ class AutoSaveService extends ChangeNotifier {
       final backupName = 'autosave_$timestamp.audio';
       final backupPath = '$_backupDirectory/$backupName';
 
-      // Save backup
+      // Save backup. Never repoint the project at the backup file — doing so
+      // would silently redirect every subsequent save into the backup folder.
       final uiLayout = _getUILayout?.call();
-      await _projectManager!.saveProjectToPath(backupPath, uiLayout);
+      await _projectManager!.saveProjectToPath(
+        backupPath,
+        uiLayout,
+        updateCurrentPath: false,
+      );
 
       // Create/update crash recovery marker
       await _updateCrashRecoveryMarker(backupPath);

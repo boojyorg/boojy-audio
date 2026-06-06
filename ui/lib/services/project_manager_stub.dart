@@ -43,8 +43,9 @@ class ProjectManager extends ChangeNotifier {
 
   Future<ProjectResult> saveProjectToPath(
     String path,
-    UILayoutData? uiLayout,
-  ) => throw UnsupportedError('stub');
+    UILayoutData? uiLayout, {
+    bool updateCurrentPath = true,
+  }) => throw UnsupportedError('stub');
 
   Future<ProjectResult> saveProjectAsCopy(
     String name,

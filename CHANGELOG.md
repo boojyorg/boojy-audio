@@ -6,6 +6,24 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Saving can no longer claim success when it actually failed.** When the engine reported a save
+  error (full disk, permissions, missing audio data), the app still showed "saved", repointed the
+  project — and auto-save — at the broken path, and quietly kept writing there. A failed save now
+  reports the real error and leaves the project pointing at the last good file. The same guard was
+  added on web, which could previously store the error message itself as the project's data.
+- **Auto-save backups no longer hijack where your project saves.** Every crash-recovery backup
+  silently became the "current" project file, so all later saves (including Cmd+S) went into the
+  hidden backup folder while the real project file stopped updating. Backups (and "save a copy")
+  now write their file without touching where the open project saves.
+- **A note still held down when you save is no longer lost.** Saving while a long note sustained
+  (or while recording a held chord) silently dropped that note from the file — it simply wasn't
+  there on reload. Held notes are now written out running to the end of their clip.
+- **Reloading a project no longer silently drops or shuffles audio clips.** After loading a
+  project, the engine's audio-file bookkeeping went out of sync with the clips on the timeline, so
+  the *next* save could skip copying audio files — or attach the wrong audio to a clip — and the
+  reload after that lost them, with no error anywhere. The bookkeeping is now re-synced on every
+  load; if a clip genuinely can't be restored, loading reports a real error instead of presenting
+  an incomplete project as fine, and saving refuses to write a file it knows would lose a clip.
 - **Adding or removing an effect while stopped can no longer freeze the app.** The audio engine's
   stopped path and the add/remove-effect call took the same two internal locks in opposite orders —
   a classic deadlock that silently froze the whole UI (no crash, no log) when you edited a track's
