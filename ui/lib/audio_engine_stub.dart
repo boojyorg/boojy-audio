@@ -2,6 +2,7 @@
 // This file should never be imported directly at runtime
 // ignore_for_file: avoid_positional_boolean_parameters
 
+import 'models/drum_kit_info.dart';
 import 'models/sampler_info.dart';
 import 'services/commands/audio_engine_interface.dart';
 
@@ -265,6 +266,49 @@ class AudioEngine implements AudioEngineInterface {
   @override
   List<double> getSamplerWaveformPeaks(int trackId, int resolution) =>
       throw UnsupportedError('stub');
+
+  // ========================================================================
+  // Drum Kit (v0.6)
+  // ========================================================================
+
+  @override
+  int createDrumKitForTrack(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  int addDrumPad(int trackId, int pinnedNote) => throw UnsupportedError('stub');
+
+  @override
+  String removeDrumPad(int trackId, int padIndex) =>
+      throw UnsupportedError('stub');
+
+  @override
+  bool loadDrumPadSample(int trackId, int padIndex, String path) =>
+      throw UnsupportedError('stub');
+
+  @override
+  String setDrumPadParameter(
+    int trackId,
+    int padIndex,
+    String param,
+    String value,
+  ) => throw UnsupportedError('stub');
+
+  @override
+  bool isDrumKitTrack(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  int drumNextFreeNote(int trackId, int start) =>
+      throw UnsupportedError('stub');
+
+  @override
+  DrumKitInfo? getDrumKitInfo(int trackId) => throw UnsupportedError('stub');
+
+  @override
+  List<double> getDrumPadWaveformPeaks(
+    int trackId,
+    int padIndex,
+    int resolution,
+  ) => throw UnsupportedError('stub');
 
   // ========================================================================
   // Instruments & Synth

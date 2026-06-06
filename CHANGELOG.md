@@ -4,6 +4,16 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Features
+
+- **Drum Kit — make your first beat.** A new Drum Kit instrument: a multi-pad one-shot sampler
+  with a step sequencer (Layout A: pad detail on the left, step grid on the right). Click cells
+  to place hits, drag a sample from the Library straight onto a pad row to load it, and tweak
+  each pad's Attack, Decay, Pitch, Reverse and Pan — every gesture undoable as a single step.
+  While the loop plays, the current 1/16 step is highlighted across all rows, GarageBand-style.
+  Drum hits are ordinary MIDI notes in a normal MIDI clip, so the piano-roll tab, arrangement,
+  undo and save/load all work unchanged.
+
 ## v0.5.4 — 2026-06-06
 
 ### Bug Fixes
@@ -187,7 +197,6 @@ All notable changes to Boojy Audio will be documented in this file.
   a Reverb to the master bus, the same way you would on any other track.
 - **The Library search field lines up with the loop bar.** It used to sit slightly lower inside a
   padded band; its top edge is now flush with the timeline ruler.
-
 ## v0.5.0 — 2026-06-04
 
 ### Bug Fixes

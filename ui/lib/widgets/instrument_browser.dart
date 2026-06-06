@@ -34,6 +34,13 @@ final List<Instrument> availableInstruments = [
     category: 'Instruments',
     icon: BI.waveform,
   ),
+  // Drum Kit - multi-pad one-shot sampler, one click to a first beat
+  Instrument(
+    id: 'drum_kit',
+    name: 'Drum Kit',
+    category: 'Instruments',
+    icon: BI.gridOn,
+  ),
 ];
 
 /// Shows instrument browser dialog and returns selected instrument
