@@ -40,18 +40,25 @@ pub fn save_project(project_name: String, project_path_str: String) -> Result<St
     let clips_map = clips_mutex.lock();
 
     for audio_file in &mut project_data.audio_files {
-        // Find the corresponding clip
-        if let Some(clip_arc) = clips_map.get(&audio_file.id) {
-            let source_path = Path::new(&clip_arc.file_path);
+        // Find the corresponding clip. A miss means the project.json would
+        // reference a file that was never copied — fail the save honestly
+        // instead of writing a project that silently drops the clip on load.
+        let Some(clip_arc) = clips_map.get(&audio_file.id) else {
+            return Err(format!(
+                "audio clip {} ('{}') has no loaded audio data — save aborted to avoid \
+                 writing a project that would lose it",
+                audio_file.id, audio_file.original_name
+            ));
+        };
+        let source_path = Path::new(&clip_arc.file_path);
 
-            // Copy file to project folder
-            let relative_path =
-                project::copy_audio_file_to_project(source_path, project_path, audio_file.id)
-                    .map_err(|e| e.to_string())?;
+        // Copy file to project folder
+        let relative_path =
+            project::copy_audio_file_to_project(source_path, project_path, audio_file.id)
+                .map_err(|e| e.to_string())?;
 
-            // Update the relative path in project data
-            audio_file.relative_path = relative_path;
-        }
+        // Update the relative path in project data
+        audio_file.relative_path = relative_path;
     }
 
     // Save project data to JSON
@@ -125,6 +132,15 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
     // Restore audio clips to tracks
     // Audio clips are stored separately from tracks and need to be re-attached
     let mut audio_clip_count = 0;
+    // `add_clip_to_track_with_params` assigns FRESH clip ids (and MIDI clips
+    // already consumed ids during restore), while `clips_map` is still keyed
+    // by the ids saved in project.json. Save uses the timeline clip id as the
+    // audio-file id, so the map must be re-keyed to the fresh ids — otherwise
+    // the next save silently skips (or miscopies) every audio file.
+    let mut remapped_clips = std::collections::HashMap::new();
+    // Clips that fail to restore must surface as a load error, not vanish
+    // from the track with a green "loaded" message.
+    let mut dropped_clips: Vec<String> = Vec::new();
     for track_data in &project_data.tracks {
         let Some(new_track_id) = id_map.get(&track_data.id).copied() else {
             eprintln!(
@@ -139,26 +155,46 @@ pub fn load_project(project_path_str: String) -> Result<String, String> {
                 if clip_data.midi_notes.is_some() {
                     continue; // Skip MIDI clips (already restored by restore_from_project_data)
                 }
-                if let Some(clip_arc) = clips_map.get(&audio_file_id) {
-                    let clip_id = graph.add_clip_to_track_with_params(
-                        new_track_id,
-                        clip_arc.clone(),
-                        clip_data.start_time,
-                        clip_data.offset,
-                        clip_data.duration,
+                let Some(clip_arc) = clips_map.get(&audio_file_id) else {
+                    dropped_clips.push(format!(
+                        "track '{}': audio file id {audio_file_id} missing from project",
+                        track_data.name
+                    ));
+                    continue;
+                };
+                let clip_id = graph.add_clip_to_track_with_params(
+                    new_track_id,
+                    clip_arc.clone(),
+                    clip_data.start_time,
+                    clip_data.offset,
+                    clip_data.duration,
+                );
+                if let Some(new_clip_id) = clip_id {
+                    remapped_clips.insert(new_clip_id, clip_arc.clone());
+                    audio_clip_count += 1;
+                    eprintln!(
+                        "   📎 Restored audio clip {} to track {} (saved id {}) at {:.2}s",
+                        audio_file_id, new_track_id, track_data.id, clip_data.start_time
                     );
-                    if clip_id.is_some() {
-                        audio_clip_count += 1;
-                        eprintln!(
-                            "   📎 Restored audio clip {} to track {} (saved id {}) at {:.2}s",
-                            audio_file_id, new_track_id, track_data.id, clip_data.start_time
-                        );
-                    }
+                } else {
+                    dropped_clips.push(format!(
+                        "track '{}': could not attach audio clip (file id {audio_file_id})",
+                        track_data.name
+                    ));
                 }
             }
         }
     }
+    *clips_map = remapped_clips;
     eprintln!("📎 [API] Restored {audio_clip_count} audio clips");
+
+    if !dropped_clips.is_empty() {
+        return Err(format!(
+            "Project loaded incompletely — {} audio clip(s) could not be restored: {}",
+            dropped_clips.len(),
+            dropped_clips.join("; ")
+        ));
+    }
 
     eprintln!("✅ [API] Project loaded successfully");
     Ok(format!("Loaded project: {}", project_data.name))

@@ -156,15 +156,20 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Save the project to a specific path (ID on web)
+  ///
+  /// Set [updateCurrentPath] to false for saves that must not repoint the
+  /// project at the written copy (backups, copies).
   Future<ProjectResult> saveProjectToPath(
     String projectId,
-    UILayoutData? uiLayout,
-  ) async {
+    UILayoutData? uiLayout, {
+    bool updateCurrentPath = true,
+  }) async {
     return _saveProjectWithId(
       projectId,
       _currentProjectName,
       uiLayout,
       isNew: false,
+      updateCurrentProject: updateCurrentPath,
     );
   }
 
@@ -184,6 +189,7 @@ class ProjectManager extends ChangeNotifier {
     String name,
     UILayoutData? uiLayout, {
     required bool isNew,
+    bool updateCurrentProject = true,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -194,6 +200,14 @@ class ProjectManager extends ChangeNotifier {
         name,
         '',
       ); // Path not used on web
+
+      // The engine returns an "Error: …" string on failure rather than
+      // throwing — storing that string would corrupt the saved project.
+      if (projectData.startsWith('Error:')) {
+        _isLoading = false;
+        notifyListeners();
+        return ProjectResult(success: false, message: projectData);
+      }
 
       // Get existing project to preserve creation date
       final existingProject = isNew
@@ -213,8 +227,10 @@ class ProjectManager extends ChangeNotifier {
       await _storage.saveProject(project);
       await _refreshProjectList();
 
-      _currentProjectId = projectId;
-      _currentProjectName = name;
+      if (updateCurrentProject) {
+        _currentProjectId = projectId;
+        _currentProjectName = name;
+      }
       _isLoading = false;
       notifyListeners();
 

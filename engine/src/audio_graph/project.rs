@@ -132,16 +132,17 @@ impl AudioGraph {
                     .midi_clips
                     .iter()
                     .map(|timeline_clip| {
+                        let duration_seconds = timeline_clip.clip.duration_samples as f64
+                            / f64::from(timeline_clip.clip.sample_rate);
                         let midi_notes = convert_midi_events_to_notes(
                             &timeline_clip.clip.events,
                             timeline_clip.clip.sample_rate,
+                            duration_seconds,
                         );
                         let midi_cc = convert_midi_events_to_cc(
                             &timeline_clip.clip.events,
                             timeline_clip.clip.sample_rate,
                         );
-                        let duration_seconds = timeline_clip.clip.duration_samples as f64
-                            / f64::from(timeline_clip.clip.sample_rate);
 
                         ClipData {
                             id: timeline_clip.id,
@@ -819,10 +820,16 @@ impl AudioGraph {
 // MIDI SERIALIZATION HELPERS
 // ============================================================================
 
-/// Convert MIDI events (NoteOn/NoteOff pairs) to `MidiNoteData` for serialization
+/// Convert MIDI events (NoteOn/NoteOff pairs) to `MidiNoteData` for serialization.
+///
+/// `clip_end_seconds` is the clip's duration: notes still held at the end of
+/// the event list (no NoteOff yet — e.g. saving while a long note sustains)
+/// are flushed with the clip end as their off time instead of being silently
+/// dropped.
 pub(crate) fn convert_midi_events_to_notes(
     events: &[crate::midi::MidiEvent],
     sample_rate: u32,
+    clip_end_seconds: f64,
 ) -> Vec<crate::project::MidiNoteData> {
     use crate::midi::MidiEventType;
     use crate::project::MidiNoteData;
@@ -851,6 +858,17 @@ pub(crate) fn convert_midi_events_to_notes(
             }
             MidiEventType::NoteOn { .. } | MidiEventType::ControlChange { .. } => {}
         }
+    }
+
+    // Flush notes still held at end-of-clip (no NoteOff recorded yet) so a
+    // save during a sustained note doesn't silently drop it.
+    for (note, (start, vel)) in active_notes {
+        notes.push(MidiNoteData {
+            note,
+            velocity: vel,
+            start_time: start,
+            duration: (clip_end_seconds - start).max(0.0),
+        });
     }
 
     // Sort by start time for consistency
@@ -957,12 +975,45 @@ pub(crate) fn reconstruct_midi_clip_from_notes(
 
 #[cfg(test)]
 mod tests {
-    use super::{convert_midi_events_to_cc, reconstruct_midi_clip_from_notes};
+    use super::{
+        convert_midi_events_to_cc, convert_midi_events_to_notes, reconstruct_midi_clip_from_notes,
+    };
     use crate::midi::{MidiEvent, MidiEventType};
     use crate::project::{MidiCcData, MidiNoteData};
 
     const SR: u32 = 48_000;
     const SR64: u64 = SR as u64;
+
+    #[test]
+    fn held_note_without_note_off_is_flushed_at_clip_end() {
+        // NoteOn at 1.0s with no matching NoteOff — e.g. saving while the
+        // note still sustains. It must be kept, ending at the clip end.
+        let events = vec![
+            MidiEvent::note_on(60, 100, 0),
+            MidiEvent::note_off(60, 0, SR64), // closed pair: 0.0s–1.0s
+            MidiEvent::note_on(64, 90, SR64), // held: never released
+        ];
+
+        let notes = convert_midi_events_to_notes(&events, SR, 4.0);
+
+        assert_eq!(notes.len(), 2, "the held note must not be dropped");
+        let held = notes.iter().find(|n| n.note == 64).expect("held note");
+        assert_eq!(held.velocity, 90);
+        assert!((held.start_time - 1.0).abs() < 1e-6);
+        assert!((held.duration - 3.0).abs() < 1e-6, "runs to clip end");
+    }
+
+    #[test]
+    fn flushed_note_duration_clamps_at_zero() {
+        // Pathological: NoteOn at/after the clip end must not yield a
+        // negative duration.
+        let events = vec![MidiEvent::note_on(60, 100, 2 * SR64)];
+
+        let notes = convert_midi_events_to_notes(&events, SR, 1.0);
+
+        assert_eq!(notes.len(), 1);
+        assert!(notes[0].duration.abs() < 1e-9);
+    }
 
     #[test]
     fn extracts_control_change_events() {
