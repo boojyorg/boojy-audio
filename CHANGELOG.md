@@ -4,6 +4,19 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Save As, Open Project, and Export now work on Windows.** Every file/folder dialog was macOS
+  AppleScript under the hood, so on Windows they failed with an OS error before a dialog ever
+  appeared. Windows now gets real native dialogs, the default projects folder resolves correctly
+  (`Documents\Boojy\Audio\Projects`), and project names with characters Windows forbids (like `:`)
+  are sanitized instead of failing the save.
+
+### Improvements
+
+- **The first-launch tutorial no longer starts automatically.** It needs more work before it earns
+  that spot; you can still take it any time via Help → Take a Tour.
+
 ## v0.5.3 — 2026-06-06
 
 ### Bug Fixes
