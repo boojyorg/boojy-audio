@@ -13,6 +13,11 @@ per-feature status → `FEATURE_TRACKER.md`; new-feature ideas → `IDEAS.md`.
   repro; part of the broader VST3-lifecycle hardening in v0.5).
 
 ## QoL / UX (unscheduled)
+- [ ] ASIO output support on Windows — the engine already has the code path (`cargo build
+  --features asio`, enumeration in `device.rs` behind the feature flag) but release builds don't
+  enable it: CI would need the Steinberg ASIO SDK (`CPAL_ASIO_DIR`) + LLVM for bindgen, plus SDK
+  licence review. Deliberately deferred 2026-06-06: WASAPI shared mode is the right beginner
+  default; revisit only if real users with audio interfaces report latency pain.
 - [ ] Effects & device overhaul — a universal **MIX** (dry/wet) knob across effects, a gain-reduction
   (GR) meter on the compressor, and an EQ dot-curve display. (Distinct from the v0.6 "effect presets"
   feature — this is the device-UI layer.)
