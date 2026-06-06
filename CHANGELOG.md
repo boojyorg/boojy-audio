@@ -6,6 +6,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Bug Fixes
 
+- **Exports now start from silence instead of inheriting playback state.** Offline renders (full
+  mix and stems) reused the live effect instances without clearing them, so an export made after
+  pressing play — or a stem bounced right after the full mix — could start with leftover compressor
+  envelopes, delay repeats and reverb tails from wherever the playhead last was. Built-in effects
+  are now reset at the start of every offline render, making exports deterministic. (VST3 plugin
+  state is deliberately left untouched — resetting it is a heavyweight reinitialise; VST3 export
+  fidelity is its own later cycle.)
 - **A comma in a track name no longer corrupts the mixer.** Renaming a track to something like
   "Drums, Kit" silently shifted the data the UI reads for it — track type, volume and pan could
   all mis-parse, and a send or return bus with a comma (or semicolon) in its name could corrupt
@@ -96,6 +103,11 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Improvements
 
+- **The engine's save/load, undo and export paths are now covered by automated tests.** First
+  slice of the engine test net: save → load round-trip fidelity (multi-clip tracks, held notes,
+  honest errors for missing audio files), clip-move execute → undo → redo against real engine
+  state, and export smoke tests (range honoured, loudness target applied, stem gain-staging
+  matches the mix). These lock in this cycle's fixes so they can't silently regress.
 - **"+ MIDI Track" / "+ Audio Track" moved into the top bar**, just left of the mixer toggle and
   Help — they were cramped into the mixer header before. They lift to the track-type colour on hover
   and collapse to icons on a narrow window.

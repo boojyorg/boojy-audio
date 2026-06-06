@@ -31,20 +31,19 @@ behind this cycle).
   peak-normalize); C18 export range ignored (sliced post-render so FX are warmed up; empty range =
   hard error); C68 stem gain-stage order ≠ mix (stems now fader/pan *after* FX, same as
   `render_offline`). Note: UI doesn't expose range/platform-target yet — engine-side truth only.
-- [x] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.
-- [x] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`--all-targets -- -D warnings`,
-  `--fatal-infos`); C78/C79 both lockfiles committed + .gitignore comments say WHY; appcast
-  edSignature double-wrap fixed at the source (extract bare base64 from `sign_update` output,
-  hard-fail if extraction comes up empty) — first correctly-signed feed = next tagged release.
 - [x] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr` (shared `cstr_arg` helper, all ~40
   sites across `ffi/`, not just the review's 5 — null-is-valid semantics preserved at 2 sites);
   C34 track-name comma injection (name percent-encoded at all 3 CSV emitters incl. sends/returns,
   decoded once in Dart via `decodeCsvField`).
-- [ ] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`-D warnings`, `--fatal-infos`);
-  C78/C79 commit both lockfiles; appcast edSignature double-wrap fix (auto-update broken since
-  v0.1.4).
-- [ ] **P7 — Engine test net, first slice (C69):** save/load round-trip, command
-  execute→undo→redo vs engine state, export smoke.
+- [x] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`--all-targets -- -D warnings`,
+  `--fatal-infos`); C78/C79 both lockfiles committed + .gitignore comments say WHY; appcast
+  edSignature double-wrap fixed at the source (extract bare base64 from `sign_update` output,
+  hard-fail if extraction comes up empty) — first correctly-signed feed = next tagged release.
+- [x] **P7 — Engine test net, first slice (C69):** 12 tests in `engine/src/api/tests.rs` against
+  the real global-singleton API: save/load round-trip (multi-clip C66, held notes C65, honest
+  errors C55), clip-move execute→undo→redo (C46/C63), export smoke (range C18, LUFS C16,
+  stem-vs-mix C68). Found+fixed a real bug: offline renders reused live FX state (compressor
+  envelopes/delay/reverb tails bled into exports) — built-in FX now reset per offline render.
 - [ ] **P8 — Real hardware** *(designated split-out → v0.5.3 if slimming)*: sample-rate sweep
   (C2/C9/C4/C6/C11/C22/C26 + C21/C62); metronome loop-wrap doubling; MIDI hot-plug (needs real
   hardware); C99 device-disconnect; C104 output-device persistence.
