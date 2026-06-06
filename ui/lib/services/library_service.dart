@@ -44,6 +44,13 @@ class LibraryService extends ChangeNotifier {
     }
   }
 
+  /// Test seam: set the bundled-drums root without a real install.
+  @visibleForTesting
+  void debugSetBundledDrumsRoot(String? root) {
+    _bundledDrumsRoot = root;
+    notifyListeners();
+  }
+
   /// Get default user content path based on platform
   static Future<String> getDefaultUserContentPath() async {
     if (kIsWeb || isIOS) {
