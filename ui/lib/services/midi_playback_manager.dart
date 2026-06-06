@@ -256,10 +256,10 @@ class MidiPlaybackManager extends ChangeNotifier {
       }
     }
 
-    // Only add to timeline if this is a new clip
     // Convert clip.startTime from beats to seconds for the engine
+    final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
     if (isNewClip) {
-      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
+      // New clip: adding to the track sets its start time
       final result = _audioEngine.addMidiClipToTrack(
         clip.trackId,
         rustClipId,
@@ -267,6 +267,15 @@ class MidiPlaybackManager extends ChangeNotifier {
       );
 
       if (result != 0) {}
+    } else {
+      // Existing clip: sync the engine's start time with the clip data.
+      // Without this, moving a clip (or undoing a move) re-added the notes
+      // but left the engine playing from the old position (C46/C63).
+      _audioEngine.setClipStartTime(
+        clip.trackId,
+        rustClipId,
+        clipStartTimeSeconds,
+      );
     }
   }
 
@@ -441,21 +450,9 @@ class MidiPlaybackManager extends ChangeNotifier {
   /// then updates the start time. For new clips: creates a new Rust clip.
   /// Used after recording overlap trimming/splitting modifies clip data.
   void rescheduleClip(MidiClipData clip, double tempo) {
+    // _scheduleMidiClipPlayback syncs notes AND start time for both new and
+    // existing clips, so no extra start-time patch is needed here.
     _scheduleMidiClipPlayback(clip, tempo);
-
-    // _scheduleMidiClipPlayback only sets start time for NEW clips.
-    // For existing clips that were trimmed (start time changed), we need
-    // to explicitly update the engine's start time.
-    final rustClipId = _dartToRustClipIds[clip.clipId];
-    if (rustClipId != null) {
-      final beatsPerSecond = tempo / 60.0;
-      final clipStartTimeSeconds = clip.startTime / beatsPerSecond;
-      _audioEngine.setClipStartTime(
-        clip.trackId,
-        rustClipId,
-        clipStartTimeSeconds,
-      );
-    }
   }
 
   /// Update all clips that share the same patternId with new notes and name
