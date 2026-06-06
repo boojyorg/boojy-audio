@@ -13,6 +13,18 @@ All notable changes to Boojy Audio will be documented in this file.
   While the loop plays, the current 1/16 step is highlighted across all rows, GarageBand-style.
   Drum hits are ordinary MIDI notes in a normal MIDI clip, so the piano-roll tab, arrangement,
   undo and save/load all work unchanged.
+- **A new Drum Kit comes pre-loaded with a starter kit.** Eight electronic sounds (808-style
+  kick, snare, closed/open hat, 909-style clap, two toms, splash) load onto the pads the moment
+  the kit is created — click steps and press play, no sample-hunting first. All bundled sounds
+  are CC0 or made in-house (see `assets/samples/drums/LICENSES.md`).
+- **The Library's Samples section now has content.** A built-in Drums collection (23 one-shots
+  in Kicks / Snares / Hats / Claps / Toms / Cymbals folders) ships with the app — browse it like
+  any folder and drag sounds onto drum pads or audio tracks.
+
+### Bug Fixes
+
+- **Library folder names now display correctly on Windows.** Folder scanning split paths on `/`
+  only, so Windows paths showed their full path as the name.
 
 ## v0.5.4 — 2026-06-06
 

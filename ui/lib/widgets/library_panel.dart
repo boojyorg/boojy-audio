@@ -873,11 +873,15 @@ class _LibraryPanelState extends State<LibraryPanel> {
   }
 
   List<Widget> _buildNestedCategoryContents(LibraryCategory category) {
-    if (category.subcategories.isEmpty) {
+    if (category.subcategories.isEmpty && category.items.isEmpty) {
       return [_buildEmptyState('No ${category.name.toLowerCase()} yet.')];
     }
 
     final widgets = <Widget>[];
+
+    // Top-level items — e.g. the built-in Drums folder under Samples.
+    // Folders get the same lazy-scan expansion as user folders.
+    widgets.addAll(category.items.map(_buildLibraryItemOrFolder));
     for (final sub in category.subcategories) {
       final subId = '${category.id}_${sub.id}';
       final isExpanded = _expandedItems.contains(subId);
