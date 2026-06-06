@@ -1,4 +1,4 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -9,11 +9,8 @@ pub extern "C" fn find_return_by_effect_type_ffi(effect_type: *const c_char) -> 
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let effect_type_str = unsafe {
-                match CStr::from_ptr(effect_type).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return -1,
-                }
+            let Some(effect_type_str) = (unsafe { cstr_arg(effect_type) }) else {
+                return -1;
             };
 
             // Sentinels: id (>0) found, 0 = none, -1 = error. 0 is unambiguous
@@ -40,12 +37,11 @@ pub extern "C" fn create_return_with_effect_ffi(
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let effect_type_str = unsafe {
-                match CStr::from_ptr(effect_type).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return -1,
-                }
+            let Some(effect_type_str) = (unsafe { cstr_arg(effect_type) }) else {
+                return -1;
             };
+            // null `name` means "use the default name" — a valid semantic, not an error.
+            // We only route the non-null path through CStr; null stays as None.
             let name_str = if name.is_null() {
                 None
             } else {
@@ -77,13 +73,8 @@ pub extern "C" fn add_shared_send_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let effect_type_str = unsafe {
-                match CStr::from_ptr(effect_type).to_str() {
-                    Ok(s) => s,
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid effect type".to_string()).into_raw()
-                    }
-                }
+            let Some(effect_type_str) = (unsafe { cstr_arg(effect_type) }) else {
+                return safe_cstring("Error: Invalid effect type".to_string()).into_raw();
             };
 
             match api::add_shared_send(source_track_id, effect_type_str) {

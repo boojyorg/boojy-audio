@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -74,17 +73,16 @@ pub extern "C" fn set_audio_output_device_ffi(device_name: *const c_char) -> *mu
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let name = unsafe {
-                if device_name.is_null() {
-                    ""
-                } else {
-                    match CStr::from_ptr(device_name).to_str() {
-                        Ok(s) => s,
-                        Err(_) => {
-                            return safe_cstring("Error: Invalid UTF-8".to_string()).into_raw()
-                        }
-                    }
-                }
+            // null `device_name` means "use the system default" — a valid semantic, not an
+            // error. We pass "" to the API in that case; only the non-null path goes through
+            // cstr_arg (which also guards against invalid UTF-8).
+            let name = if device_name.is_null() {
+                ""
+            } else {
+                let Some(s) = (unsafe { cstr_arg(device_name) }) else {
+                    return safe_cstring("Error: Invalid UTF-8".to_string()).into_raw();
+                };
+                s
             };
 
             match api::set_audio_output_device(name) {

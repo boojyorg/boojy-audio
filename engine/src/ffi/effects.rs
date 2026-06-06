@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -15,11 +14,8 @@ pub extern "C" fn add_effect_to_track_ffi(track_id: u64, effect_type: *const c_c
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let effect_type_str = unsafe {
-                match CStr::from_ptr(effect_type).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return -1,
-                }
+            let Some(effect_type_str) = (unsafe { cstr_arg(effect_type) }) else {
+                return -1;
             };
 
             match api::add_effect_to_track(track_id, effect_type_str) {
@@ -111,13 +107,8 @@ pub extern "C" fn set_effect_parameter_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let param_name_str = unsafe {
-                match CStr::from_ptr(param_name).to_str() {
-                    Ok(s) => s,
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid parameter name".to_string()).into_raw()
-                    }
-                }
+            let Some(param_name_str) = (unsafe { cstr_arg(param_name) }) else {
+                return safe_cstring("Error: Invalid parameter name".to_string()).into_raw();
             };
 
             match api::set_effect_parameter(effect_id, param_name_str, value) {
@@ -166,14 +157,8 @@ pub extern "C" fn reorder_track_effects_ffi(
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            let ids_str = unsafe {
-                match CStr::from_ptr(effect_ids_csv).to_str() {
-                    Ok(s) => s,
-                    Err(_) => {
-                        return safe_cstring("Error: Invalid effect IDs string".to_string())
-                            .into_raw()
-                    }
-                }
+            let Some(ids_str) = (unsafe { cstr_arg(effect_ids_csv) }) else {
+                return safe_cstring("Error: Invalid effect IDs string".to_string()).into_raw();
             };
 
             match api::reorder_track_effects(track_id, ids_str) {

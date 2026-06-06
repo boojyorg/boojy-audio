@@ -1,6 +1,6 @@
 //! Send/return bus management API functions
 
-use super::helpers::get_audio_graph;
+use super::helpers::{encode_csv_field, get_audio_graph};
 use crate::effects::{Chorus, Compressor, Delay, EffectType, Limiter, ParametricEQ, Reverb};
 use crate::track::{Send, TrackId, TrackType};
 
@@ -351,7 +351,9 @@ pub fn get_track_sends(track_id: TrackId) -> Result<String, String> {
                     "{},{:.2},{}",
                     target_id,
                     linear_to_db(*amount),
-                    return_track.name
+                    // Encoded: a `,`/`;` in the name would corrupt fields or
+                    // split entries (C34). Dart decodes via decodeCsvField.
+                    encode_csv_field(&return_track.name)
                 )
             })
         })
@@ -377,7 +379,13 @@ pub fn get_all_returns() -> Result<String, String> {
             }
             let effect_type = primary_effect_type_for_return(&effect_manager, &track.fx_chain)
                 .unwrap_or_else(|| "unknown".to_string());
-            Some(format!("{},{},{}", track.id, track.name, effect_type))
+            Some(format!(
+                "{},{},{}",
+                track.id,
+                // Encoded for the same reason as get_track_sends (C34).
+                encode_csv_field(&track.name),
+                effect_type
+            ))
         })
         .collect();
 

@@ -1,7 +1,6 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
 use base64::Engine;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -36,16 +35,13 @@ pub extern "C" fn add_vst3_effect_to_track_ffi(track_id: u64, plugin_path: *cons
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            let plugin_path_str = unsafe {
-                match CStr::from_ptr(plugin_path).to_str() {
-                    Ok(s) => s.to_string(),
-                    Err(_) => return -1,
-                }
+            let Some(plugin_path_str) = (unsafe { cstr_arg(plugin_path) }) else {
+                return -1;
             };
 
             println!("[FFI] Adding VST3 plugin to track {track_id}: {plugin_path_str}");
 
-            match api::add_vst3_effect_to_track(track_id, &plugin_path_str) {
+            match api::add_vst3_effect_to_track(track_id, plugin_path_str) {
                 Ok(effect_id) => {
                     println!("[FFI] VST3 plugin added with effect ID: {effect_id}");
                     effect_id as i64
@@ -253,8 +249,9 @@ pub extern "C" fn get_vst3_state_ffi(effect_id: i64) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn set_vst3_state_ffi(effect_id: i64, state_b64: *const c_char) -> *mut c_char {
     ffi_catch(safe_cstring("Error: panic".to_string()).into_raw(), || {
-        let c_str = unsafe { CStr::from_ptr(state_b64) };
-        let b64_str = c_str.to_str().unwrap_or("");
+        let Some(b64_str) = (unsafe { cstr_arg(state_b64) }) else {
+            return safe_cstring("Error: null or invalid UTF-8 state".to_string()).into_raw();
+        };
         match base64::engine::general_purpose::STANDARD.decode(b64_str) {
             Ok(data) => match api::set_vst3_state(effect_id as u64, &data) {
                 Ok(()) => safe_cstring(String::new()).into_raw(),

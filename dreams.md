@@ -31,7 +31,10 @@ behind this cycle).
   peak-normalize); C18 export range ignored (sliced post-render so FX are warmed up; empty range =
   hard error); C68 stem gain-stage order ≠ mix (stems now fader/pan *after* FX, same as
   `render_offline`). Note: UI doesn't expose range/platform-target yet — engine-side truth only.
-- [ ] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.
+- [x] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr` (shared `cstr_arg` helper, all ~40
+  sites across `ffi/`, not just the review's 5 — null-is-valid semantics preserved at 2 sites);
+  C34 track-name comma injection (name percent-encoded at all 3 CSV emitters incl. sends/returns,
+  decoded once in Dart via `decodeCsvField`).
 - [ ] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`-D warnings`, `--fatal-infos`);
   C78/C79 commit both lockfiles; appcast edSignature double-wrap fix (auto-update broken since
   v0.1.4).

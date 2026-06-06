@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -14,12 +13,7 @@ pub extern "C" fn load_audio_file_to_track_ffi(
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            if path.is_null() {
-                return -1;
-            }
-
-            let c_str = unsafe { CStr::from_ptr(path) };
-            let Ok(path_str) = c_str.to_str() else {
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
                 return -1;
             };
 
@@ -40,12 +34,7 @@ pub extern "C" fn load_audio_file_ffi(path: *const c_char) -> i64 {
     ffi_catch(
         -1,
         AssertUnwindSafe(|| {
-            if path.is_null() {
-                return -1;
-            }
-
-            let c_str = unsafe { CStr::from_ptr(path) };
-            let Ok(path_str) = c_str.to_str() else {
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
                 return -1;
             };
 

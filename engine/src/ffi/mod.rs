@@ -2,7 +2,7 @@ use crate::api;
 /// Hand-written C-compatible FFI layer (raw `dart:ffi` on the Dart side).
 /// This is the deliberate engine boundary — `flutter_rust_bridge` was considered
 /// and dropped. See `.claude/rules/ffi.md`. Don't reintroduce FRB casually.
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -39,6 +39,22 @@ pub(crate) fn ffi_catch<T>(default: T, f: impl FnOnce() -> T + std::panic::Unwin
         eprintln!("[FFI] Caught panic at FFI boundary");
         default
     }
+}
+
+/// Borrow a C-string argument passed across the FFI boundary (C33).
+///
+/// Returns `None` when the pointer is null or the bytes are not valid UTF-8,
+/// so callers map it onto their error return instead of hitting UB inside
+/// `CStr::from_ptr`.
+///
+/// # Safety
+/// If non-null, `ptr` must point to a valid NUL-terminated string that stays
+/// alive for the duration of the call.
+pub(crate) unsafe fn cstr_arg<'a>(ptr: *const c_char) -> Option<&'a str> {
+    if ptr.is_null() {
+        return None;
+    }
+    unsafe { CStr::from_ptr(ptr) }.to_str().ok()
 }
 
 // ── Structured FFI error types ──────────────────────────────────────────

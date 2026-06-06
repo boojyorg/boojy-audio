@@ -89,3 +89,35 @@ where
         Ok(queued_msg.to_string())
     }
 }
+
+/// Percent-encode a free-text field (e.g. a track name) for the engine's
+/// `,`/`;`-delimited CSV result strings (C34). Encodes `%`, `,` and `;` so a
+/// name like "Drums, Kit" can't shift later fields or split entries. The Dart
+/// side decodes with `decodeCsvField` (ui/lib/utils/csv_field.dart) — keep the
+/// two in sync.
+pub fn encode_csv_field(s: &str) -> String {
+    // '%' first, so the escapes we insert aren't re-encoded.
+    s.replace('%', "%25")
+        .replace(',', "%2C")
+        .replace(';', "%3B")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_csv_field;
+
+    #[test]
+    fn encode_csv_field_passes_plain_names_through() {
+        assert_eq!(encode_csv_field("Drums"), "Drums");
+        assert_eq!(encode_csv_field("Vocal Take 3"), "Vocal Take 3");
+    }
+
+    #[test]
+    fn encode_csv_field_escapes_delimiters_and_percent() {
+        assert_eq!(encode_csv_field("Drums, Kit"), "Drums%2C Kit");
+        assert_eq!(encode_csv_field("a;b"), "a%3Bb");
+        assert_eq!(encode_csv_field("100%"), "100%25");
+        // A name that already looks like an escape round-trips unambiguously.
+        assert_eq!(encode_csv_field("%2C"), "%252C");
+    }
+}

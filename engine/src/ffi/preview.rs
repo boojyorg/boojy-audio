@@ -1,6 +1,5 @@
-use super::{ffi_catch, safe_cstring};
+use super::{cstr_arg, ffi_catch, safe_cstring};
 use crate::api;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -14,13 +13,10 @@ pub extern "C" fn preview_load_audio_async_ffi(path: *const c_char) {
     ffi_catch(
         (),
         AssertUnwindSafe(|| {
-            if path.is_null() {
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
                 return;
-            }
-            let c_str = unsafe { CStr::from_ptr(path) };
-            if let Ok(path_str) = c_str.to_str() {
-                api::preview_load_audio_async(path_str.to_string());
-            }
+            };
+            api::preview_load_audio_async(path_str.to_string());
         }),
     );
 }
@@ -37,13 +33,8 @@ pub extern "C" fn preview_load_audio_ffi(path: *const c_char) -> *mut c_char {
     ffi_catch(
         std::ptr::null_mut(),
         AssertUnwindSafe(|| {
-            if path.is_null() {
-                return safe_cstring("Error: null path".to_string()).into_raw();
-            }
-
-            let c_str = unsafe { CStr::from_ptr(path) };
-            let Ok(path_str) = c_str.to_str() else {
-                return safe_cstring("Error: invalid UTF-8".to_string()).into_raw();
+            let Some(path_str) = (unsafe { cstr_arg(path) }) else {
+                return safe_cstring("Error: null path or invalid UTF-8".to_string()).into_raw();
             };
 
             match api::preview_load_audio(path_str.to_string()) {
