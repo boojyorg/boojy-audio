@@ -32,9 +32,10 @@ behind this cycle).
   hard error); C68 stem gain-stage order ≠ mix (stems now fader/pan *after* FX, same as
   `render_offline`). Note: UI doesn't expose range/platform-target yet — engine-side truth only.
 - [ ] **P5 — FFI hardening:** C33 null-guard `CStr::from_ptr`; C34 track-name comma injection.
-- [ ] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`-D warnings`, `--fatal-infos`);
-  C78/C79 commit both lockfiles; appcast edSignature double-wrap fix (auto-update broken since
-  v0.1.4).
+- [x] **P6 — Gates + release hygiene:** C76/C77 hook = CI (`--all-targets -- -D warnings`,
+  `--fatal-infos`); C78/C79 both lockfiles committed + .gitignore comments say WHY; appcast
+  edSignature double-wrap fixed at the source (extract bare base64 from `sign_update` output,
+  hard-fail if extraction comes up empty) — first correctly-signed feed = next tagged release.
 - [ ] **P7 — Engine test net, first slice (C69):** save/load round-trip, command
   execute→undo→redo vs engine state, export smoke.
 - [ ] **P8 — Real hardware** *(designated split-out → v0.5.3 if slimming)*: sample-rate sweep

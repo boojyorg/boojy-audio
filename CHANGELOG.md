@@ -70,6 +70,10 @@ All notable changes to Boojy Audio will be documented in this file.
   different signal level in the stem than in the mix, changing its loudness and character. Stems
   now use the exact gain-stage order of the mix; re-importing your stems reproduces what you
   exported.
+- **Auto-update can find and verify new versions again.** Every release since v0.1.4 published its
+  update feed with a malformed security signature (the signing tool's output was wrapped twice), so
+  the in-app updater silently rejected every update — manual downloads were the only way to
+  upgrade. The next release publishes a correctly signed feed.
 
 ## v0.5.1 — 2026-06-05
 

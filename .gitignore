@@ -1,7 +1,8 @@
 # Rust
 /engine/target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock is COMMITTED (C78): the engine ships a cdylib to end users — without
+# the lock, two CI runs of the same commit can resolve different transitive deps.
 /ui/macos/Runner/libengine.dylib
 
 # Flutter
@@ -10,7 +11,8 @@ Cargo.lock
 /ui/.flutter-plugins-dependencies
 /ui/.packages
 /ui/build/
-/ui/pubspec.lock
+# pubspec.lock is COMMITTED (C79): this is an app, not a library — the lock pins
+# what users actually get.
 
 # macOS
 /ui/macos/Flutter/ephemeral/
