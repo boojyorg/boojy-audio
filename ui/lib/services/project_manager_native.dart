@@ -116,22 +116,40 @@ class ProjectManager extends ChangeNotifier {
   }
 
   /// Save the project to a specific path
+  ///
+  /// Set [updateCurrentPath] to false for saves that must not repoint the
+  /// project at the written file (auto-save backups, copies) — otherwise
+  /// every later save would silently target the backup/copy instead of the
+  /// real project.
   Future<ProjectResult> saveProjectToPath(
     String path,
-    UILayoutData? uiLayout,
-  ) async {
+    UILayoutData? uiLayout, {
+    bool updateCurrentPath = true,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final result = _audioEngine.saveProject(_currentProjectName, path);
 
+      // The engine returns an "Error: …" string on failure rather than
+      // throwing. Treating that as success would repoint the project (and
+      // auto-save) at a corrupt path while the UI shows "saved". Mirror the
+      // load-path guard: bail out before touching any project state.
+      if (result.startsWith('Error:')) {
+        _isLoading = false;
+        notifyListeners();
+        return ProjectResult(success: false, message: result);
+      }
+
       // Save UI layout data if provided
       if (uiLayout != null) {
         _saveUILayout(path, uiLayout);
       }
 
-      _currentProjectPath = path;
+      if (updateCurrentPath) {
+        _currentProjectPath = path;
+      }
       _isLoading = false;
       notifyListeners();
 
@@ -158,7 +176,13 @@ class ProjectManager extends ChangeNotifier {
     final originalName = _currentProjectName;
     _currentProjectName = name;
 
-    final result = await saveProjectToPath(projectPath, uiLayout);
+    // A copy must not become the current project — keep saves targeting the
+    // original path.
+    final result = await saveProjectToPath(
+      projectPath,
+      uiLayout,
+      updateCurrentPath: false,
+    );
 
     // Restore original name (copy doesn't change current project)
     _currentProjectName = originalName;
