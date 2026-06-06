@@ -205,7 +205,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Stem export (per-track)
 - [x] Export MIDI
 - [x] Import MIDI
-- [ ] Export with LUFS normalization
+- [ ] Export with LUFS normalization *(partial: engine applies platform LUFS targets correctly since v0.5.2, but the export dialog doesn't expose them yet)*
 - [ ] Export progress tracking
 - [ ] ID3 metadata for MP3
 - [ ] Export FLAC
@@ -229,7 +229,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 
 - [ ] Basic synthesizer (8-voice, ADSR, filter)
 - [ ] Boojy Synth (wavetable, Serum-style)
-- [ ] Boojy Sampler (simple/advanced modes)
+- [ ] Boojy Sampler (simple/advanced modes) *(partial: basic sampler usable since v0.5.2 — load sample, root note, attack/release, loop; simple/advanced modes not built)*
 - [ ] Boojy Drums (pad grid + step sequencer)
 - [ ] Preset Player (piano, strings, etc.)
 
