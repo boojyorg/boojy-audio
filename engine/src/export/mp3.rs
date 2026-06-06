@@ -6,7 +6,7 @@
 use super::normalize::normalize_peak;
 use super::options::{ExportOptions, ExportResult, Mp3Bitrate};
 use super::resample::{mono_to_stereo, resample_stereo, stereo_to_mono};
-use super::wav::ENGINE_SAMPLE_RATE;
+use super::wav::{apply_platform_lufs, slice_export_range, ENGINE_SAMPLE_RATE};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -56,8 +56,12 @@ pub fn export_mp3(
         }
     };
 
-    // Make a mutable copy of samples for processing
-    let mut processed = samples.to_vec();
+    // Trim to the requested export range first — everything downstream
+    // (mixdown, resample, loudness) operates on the trimmed audio. (C18)
+    let mut processed = slice_export_range(samples, options)?;
+
+    // Platform LUFS target runs on the stereo engine-rate buffer. (C16)
+    let lufs_applied = apply_platform_lufs(&mut processed, options, "MP3 Export");
 
     // Apply mono mixdown if requested
     if options.mono {
@@ -75,8 +79,10 @@ pub fn export_mp3(
         processed = resample_stereo(&processed, ENGINE_SAMPLE_RATE, options.sample_rate)?;
     }
 
-    // Apply normalization if requested
-    if options.normalize {
+    // Apply peak normalization if requested (runs last so resampling can't
+    // shift the final peak). Skipped when a platform LUFS target was
+    // applied — that target owns the loudness.
+    if options.normalize && !lufs_applied {
         eprintln!("📊 [MP3 Export] Normalizing to -0.1 dBFS");
         normalize_peak(&mut processed, -0.1);
     }
