@@ -556,6 +556,12 @@ impl AudioGraph {
                     // re-acquire effect_manager and track_manager *per sample*
                     // with blocking locks (C1) — the exact realtime stall the
                     // playing path was deliberately hardened against.
+                    //
+                    // LOCK ORDER: track_manager BEFORE effect_manager — the API
+                    // layer (api/effects.rs add/remove_effect_to_track) takes
+                    // track→effect; acquiring effect→track here is an AB/BA
+                    // deadlock that silently froze the UI on add/remove-effect
+                    // while stopped (C32).
                     let mut synth_guard =
                         Some(if let Some(guard) = track_synth_manager.try_lock() {
                             guard
@@ -563,14 +569,14 @@ impl AudioGraph {
                             SYNTH_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
                             track_synth_manager.lock()
                         });
+                    let tm = track_manager.lock();
+                    let has_solo = tm.has_solo();
                     let mut effect_guard = if let Some(guard) = effect_manager.try_lock() {
                         guard
                     } else {
                         EFFECT_LOCK_CONTENTION.fetch_add(1, Ordering::Relaxed);
                         effect_manager.lock()
                     };
-                    let tm = track_manager.lock();
-                    let has_solo = tm.has_solo();
 
                     for frame_idx in 0..frames {
                         let (input_left, input_right) = read_input_samples(&input_manager);

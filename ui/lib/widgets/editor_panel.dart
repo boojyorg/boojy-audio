@@ -13,6 +13,7 @@ import 'piano_roll.dart';
 import 'audio_editor/audio_editor.dart';
 import 'device_chain/device_chain_view.dart';
 import 'device_chain/device_dropdown.dart';
+import 'sampler_editor/sampler_editor.dart';
 import 'preset_nav.dart';
 import 'preset_browser_dropdown.dart';
 import 'instrument_browser.dart';
@@ -620,9 +621,7 @@ class _EditorPanelState extends State<EditorPanel>
       return [
         _buildCollapsedTabButton(0, BI.musicNote, 'Sampler'),
         const SizedBox(width: 4),
-        _buildCollapsedTabButton(1, BI.piano, 'Piano Roll'),
-        const SizedBox(width: 4),
-        _buildCollapsedTabButton(2, BI.lightning, 'Effects'),
+        _buildCollapsedTabButton(1, BI.piano, 'MIDI'),
       ];
     }
 
@@ -942,8 +941,10 @@ class _EditorPanelState extends State<EditorPanel>
     }
 
     if (_isSamplerTrack) {
-      // Tab 0: sampler + effects chain, Tab 1: piano roll
-      return [_buildChainTab(), _buildPianoRollTab()];
+      // Tab 0: the sampler editor (waveform + Load + loop/root/attack controls),
+      // Tab 1: piano roll. The sampler is an engine-side instrument with no
+      // InstrumentData, so it can't be shown through the DeviceChainView path.
+      return [_buildSamplerTab(), _buildPianoRollTab()];
     }
 
     // MIDI track: Tab 0: instrument + effects chain, Tab 1: piano roll
@@ -975,8 +976,15 @@ class _EditorPanelState extends State<EditorPanel>
     );
   }
 
-  /// Build the Sampler Editor tab
-  /// Shows audio waveform with sampler-specific controls (Attack, Release, Root Note)
+  /// Build the Sampler Editor tab — the real sampler UI (waveform, loop markers,
+  /// root note, attack/release, and the Load button for picking a sample).
+  Widget _buildSamplerTab() {
+    return SamplerEditor(
+      audioEngine: widget.audioEngine,
+      trackId: widget.trackContext.selectedTrackId,
+    );
+  }
+
   Widget _buildTabButton(
     int index,
     IconData icon,
