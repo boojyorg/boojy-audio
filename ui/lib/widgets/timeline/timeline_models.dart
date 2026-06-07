@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../constants/ui_constants.dart';
 import '../../models/clip_data.dart';
 import '../../models/midi_note_data.dart';
@@ -23,6 +25,11 @@ class MidiClipCallbacks {
   /// nest commands and destroy the right region on undo).
   final Function(MidiClipData clip, double splitPointBeats)? onSplit;
 
+  /// Join the currently selected clips into one, undoably (same path as
+  /// Cmd+J / Edit → Join Clips). Operates on the timeline selection, so no
+  /// clip argument is needed.
+  final VoidCallback? onJoinSelected;
+
   /// Build an undoable command that resolves the given MIDI overlap (H-11).
   /// Returns null if no command is available. The caller composes the returned
   /// command into the move's undo step instead of applying the overlap
@@ -37,6 +44,7 @@ class MidiClipCallbacks {
     this.onBatchDeleted,
     this.onExported,
     this.onSplit,
+    this.onJoinSelected,
     this.buildMidiOverlapCommand,
   });
 }

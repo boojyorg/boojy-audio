@@ -6,6 +6,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Join clips (Cmd+J) is now a real, undoable edit.** Select two or more MIDI clips on a
+  track and join them via Cmd+J, Edit → Join Clips, or the new right-click → Join Clips
+  entry. Looped clips are unrolled first so the joined clip sounds exactly like the clips it
+  replaces (repeats, start offsets and truncated notes all preserved), clip automation is
+  carried across, and the result takes the first clip's name. One Cmd+Z brings the original
+  clips back — previously "Consolidate" was permanent and silently dropped loop repeats.
+
 - **Volume automation lanes are now on.** One Automation button above the mixer strips shows
   every track's volume lane in the timeline at once (GarageBand-style); click again to hide
   them. Draw points and hear the curve on playback and in exports. Drawing, moving and erasing

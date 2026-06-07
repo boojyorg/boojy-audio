@@ -41,7 +41,7 @@ class DawMenuConfig {
   final VoidCallback onDuplicate;
   final VoidCallback? onSplitAtMarker;
   final VoidCallback? onQuantizeClip;
-  final VoidCallback? onConsolidateClips;
+  final VoidCallback? onJoinClips;
   final VoidCallback? onBounceMidiToAudio;
   final bool hasSelectedMidiClip;
   final bool hasSelectedAudioClip;
@@ -83,7 +83,7 @@ class DawMenuConfig {
     required this.onDuplicate,
     required this.onSplitAtMarker,
     required this.onQuantizeClip,
-    required this.onConsolidateClips,
+    required this.onJoinClips,
     required this.onBounceMidiToAudio,
     required this.hasSelectedMidiClip,
     required this.hasSelectedAudioClip,
@@ -279,9 +279,9 @@ List<PlatformMenu> buildDawMenus(BuildContext context, DawMenuConfig config) {
           onSelected: config.onQuantizeClip,
         ),
         PlatformMenuItem(
-          label: 'Consolidate Clips',
+          label: 'Join Clips',
           shortcut: const SingleActivator(LogicalKeyboardKey.keyJ, meta: true),
-          onSelected: config.onConsolidateClips,
+          onSelected: config.onJoinClips,
         ),
         PlatformMenuItem(
           label: 'Bounce MIDI to Audio',

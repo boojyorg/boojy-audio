@@ -91,6 +91,7 @@ class BoojyIcons {
   static IconData get cut => Icons.content_cut;
   static IconData get copy => Icons.content_copy;
   static IconData get paste => Icons.paste;
+  static IconData get join => Icons.call_merge;
   static IconData get selectAll => Icons.select_all;
   static IconData get deselect => Icons.deselect;
   static IconData get gridOn => Icons.grid_on;
