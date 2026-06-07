@@ -602,6 +602,41 @@ pub fn set_audio_clip_transpose(
     }
 }
 
+/// Set whether an audio clip plays its audible window backwards
+///
+/// # Arguments
+/// * `track_id` - Track containing the clip
+/// * `clip_id` - ID of the clip to modify
+/// * `reversed` - true to play the clip backwards
+///
+/// # Returns
+/// Success message
+pub fn set_audio_clip_reverse(
+    track_id: TrackId,
+    clip_id: u64,
+    reversed: bool,
+) -> Result<String, String> {
+    let graph_mutex = graph()?;
+    let graph = graph_mutex.lock();
+    let track_manager = graph.track_manager.lock();
+
+    if let Some(track_arc) = track_manager.get_track(track_id) {
+        let mut track = track_arc.lock();
+
+        // Find and update the clip
+        for clip in &mut track.audio_clips {
+            if clip.id == clip_id {
+                clip.reversed = reversed;
+                return Ok(format!("Clip {clip_id} reversed: {reversed}"));
+            }
+        }
+
+        Err(format!("Clip {clip_id} not found on track {track_id}"))
+    } else {
+        Err(format!("Track {track_id} not found"))
+    }
+}
+
 /// Remove an audio clip from a track
 ///
 /// # Arguments

@@ -15,6 +15,7 @@ class TrackData {
   // Input routing
   int inputDeviceIndex; // -1 = no input assigned
   int inputChannel; // 0-based channel within device
+  bool inputMonitoring; // hear live input while armed (engine defaults true)
 
   TrackData({
     required this.id,
@@ -27,11 +28,13 @@ class TrackData {
     required this.armed,
     this.inputDeviceIndex = -1,
     this.inputChannel = 0,
+    this.inputMonitoring = true,
   });
 
   /// Parse track info from CSV format:
-  /// "track_id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel"
-  /// Handles 7-field (legacy), 8-field (with armed), and 10-field (with input routing) formats
+  /// "track_id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel,input_monitoring"
+  /// Handles 7-field (legacy), 8-field (with armed), 10-field (with input
+  /// routing), and 11-field (with input monitoring) formats
   static TrackData? fromCSV(String csv) {
     try {
       final parts = csv.split(',');
@@ -51,6 +54,8 @@ class TrackData {
             ? (int.tryParse(parts[8]) ?? -1)
             : -1,
         inputChannel: parts.length >= 10 ? (int.tryParse(parts[9]) ?? 0) : 0,
+        inputMonitoring:
+            parts.length < 11 || parts[10] == 'true' || parts[10] == '1',
       );
     } catch (e) {
       return null;
@@ -59,7 +64,7 @@ class TrackData {
 
   /// Convert to CSV format for serialization
   String toCSV() {
-    return '$id,$name,$type,$volumeDb,$pan,$mute,$solo,$armed,$inputDeviceIndex,$inputChannel';
+    return '$id,$name,$type,$volumeDb,$pan,$mute,$solo,$armed,$inputDeviceIndex,$inputChannel,$inputMonitoring';
   }
 
   /// Create a copy with optional field overrides
@@ -74,6 +79,7 @@ class TrackData {
     bool? armed,
     int? inputDeviceIndex,
     int? inputChannel,
+    bool? inputMonitoring,
   }) {
     return TrackData(
       id: id ?? this.id,
@@ -86,6 +92,7 @@ class TrackData {
       armed: armed ?? this.armed,
       inputDeviceIndex: inputDeviceIndex ?? this.inputDeviceIndex,
       inputChannel: inputChannel ?? this.inputChannel,
+      inputMonitoring: inputMonitoring ?? this.inputMonitoring,
     );
   }
 }

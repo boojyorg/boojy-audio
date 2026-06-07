@@ -73,7 +73,6 @@ class MixerAutomationState {
   final AutomationParameter Function(int trackId)? getSelectedParameter;
   final Function(int trackId, AutomationParameter param)? onParameterChanged;
   final Function(int trackId)? onResetParameter;
-  final Function(int trackId)? onAddParameter;
   final ValueNotifier<Map<int, double?>>? previewNotifier;
 
   const MixerAutomationState({
@@ -84,7 +83,6 @@ class MixerAutomationState {
     this.getSelectedParameter,
     this.onParameterChanged,
     this.onResetParameter,
-    this.onAddParameter,
     this.previewNotifier,
   });
 }

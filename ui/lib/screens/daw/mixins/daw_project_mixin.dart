@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../../../utils/logger.dart';
 import '../../../utils/native_dialogs.dart';
+import '../../../models/clip_data.dart';
 import '../../../models/project_view_state.dart';
 import '../../../models/project_version.dart';
 import '../../../models/version_type.dart';
@@ -892,6 +893,7 @@ mixin DAWProjectMixin
         if (timelineState != null) {
           timelineState.restoreAudioClips(layout.audioClips!);
         }
+        _syncAudioClipEditDataToEngine(layout.audioClips!);
       });
     }
 
@@ -914,6 +916,39 @@ mixin DAWProjectMixin
         layout.loopStartBeats!,
         layout.loopEndBeats!,
         manual: true,
+      );
+    }
+  }
+
+  /// Re-push per-clip edit parameters (gain/warp/transpose/reverse) to the
+  /// engine after load. The engine's own project file only stores clip
+  /// position; edit params live in ui_layout.json, so without this re-push
+  /// saved processing is silently absent from playback until the user opens
+  /// the audio editor for that clip.
+  void _syncAudioClipEditDataToEngine(List<ClipData> savedClips) {
+    final engine = audioEngine;
+    if (engine == null) return;
+    for (final clip in savedClips) {
+      final edit = clip.editData;
+      if (edit == null) continue;
+      engine.setAudioClipGain(clip.trackId, clip.clipId, edit.gainDb);
+      engine.setAudioClipWarp(
+        clip.trackId,
+        clip.clipId,
+        edit.syncEnabled,
+        edit.stretchFactor,
+        edit.warpMode.index,
+      );
+      engine.setAudioClipTranspose(
+        clip.trackId,
+        clip.clipId,
+        edit.transposeSemitones,
+        edit.fineCents,
+      );
+      engine.setAudioClipReverse(
+        clip.trackId,
+        clip.clipId,
+        reversed: edit.reversed,
       );
     }
   }

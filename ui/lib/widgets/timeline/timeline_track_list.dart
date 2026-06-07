@@ -604,6 +604,8 @@ mixin TimelineTrackListMixin
           .automationCallbacks
           .onPointUpdated
           ?.call(trackId, pointId, point),
+      onPointDragEnd: (pointId) =>
+          widget.automationCallbacks.onPointDragEnd?.call(trackId, pointId),
       onPointDeleted: (pointId) =>
           widget.automationCallbacks.onPointDeleted?.call(trackId, pointId),
       onHeightChanged: (newHeight) => widget

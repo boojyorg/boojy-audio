@@ -469,6 +469,22 @@ mixin _TransportMixin on _AudioEngineBase {
     }
   }
 
+  /// Set whether an audio clip plays backwards
+  String setAudioClipReverse(
+    int trackId,
+    int clipId, {
+    required bool reversed,
+  }) {
+    try {
+      final result = _setAudioClipReverse(trackId, clipId, reversed);
+      final str = result.toDartString();
+      _freeRustString(result);
+      return str;
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
   /// Get waveform peaks for visualization
   List<double> getWaveformPeaks(int clipId, int resolution) {
     try {

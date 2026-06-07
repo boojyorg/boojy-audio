@@ -98,8 +98,14 @@ mixin ParameterOperationsMixin on State<AudioEditor>, AudioEditorStateMixin {
       editData.fineCents,
     );
 
-    // Future: FFI for reverse and normalize (v0.3.0)
-    // - setAudioClipReverse(trackId, clipId, reversed)
+    // Send reverse playback to audio engine
+    engine.setAudioClipReverse(
+      clip.trackId,
+      clip.clipId,
+      reversed: editData.reversed,
+    );
+
+    // Future: FFI for normalize
     // - setAudioClipNormalize(trackId, clipId, targetDb)
   }
 

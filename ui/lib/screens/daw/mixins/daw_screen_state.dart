@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../audio_engine.dart';
 import '../../../models/clip_data.dart';
@@ -5,6 +7,7 @@ import '../../../models/instrument_data.dart';
 import '../../../models/project_metadata.dart';
 import '../../../models/tool_mode.dart';
 import '../../../models/track_automation_data.dart';
+import '../../../services/commands/automation_commands.dart';
 import '../../../services/undo_redo_manager.dart';
 import '../../../services/library_service.dart';
 import '../../../services/library_preview_service.dart';
@@ -199,6 +202,107 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
       final csv = lane.toEngineDbCsv(tempo);
       audioEngine!.setTrackVolumeAutomation(trackId, csv);
     }
+  }
+
+  // ============================================
+  // AUTOMATION LANE GESTURES (undoable)
+  // ============================================
+
+  /// Pre-drag snapshots of automation points, keyed by `trackId:pointId`.
+  /// Captured on the first drag tick, consumed at drag end to commit one
+  /// MoveAutomationPointCommand per drag (not one per tick).
+  final Map<String, AutomationPoint> _automationDragOriginals = {};
+
+  AutomationPoint? _findAutomationPoint(
+    int trackId,
+    AutomationParameter param,
+    String pointId,
+  ) {
+    final points = automationController.getLane(trackId, param)?.points;
+    if (points == null) return null;
+    for (final p in points) {
+      if (p.id == pointId) return p;
+    }
+    return null;
+  }
+
+  void Function(int trackId)? _automationSyncFor(AutomationParameter param) {
+    return param == AutomationParameter.volume
+        ? syncVolumeAutomationToEngine
+        : null;
+  }
+
+  void onAutomationPointAdded(int trackId, AutomationPoint point) {
+    final param = automationController.visibleParameter;
+    unawaited(
+      undoRedoManager.execute(
+        AddAutomationPointCommand(
+          controller: automationController,
+          trackId: trackId,
+          parameter: param,
+          point: point,
+          onLaneChanged: _automationSyncFor(param),
+        ),
+      ),
+    );
+  }
+
+  void onAutomationPointUpdated(
+    int trackId,
+    String pointId,
+    AutomationPoint point,
+  ) {
+    final param = automationController.visibleParameter;
+    // Capture the pre-drag point once; the undo command commits at drag end.
+    final key = '$trackId:$pointId';
+    if (!_automationDragOriginals.containsKey(key)) {
+      final original = _findAutomationPoint(trackId, param, pointId);
+      if (original != null) {
+        _automationDragOriginals[key] = original;
+      }
+    }
+    // Live apply for visual + audible feedback during the drag.
+    automationController.updatePoint(trackId, param, pointId, point);
+    if (param == AutomationParameter.volume) {
+      syncVolumeAutomationToEngine(trackId);
+    }
+  }
+
+  void onAutomationPointDragEnd(int trackId, String pointId) {
+    final param = automationController.visibleParameter;
+    final oldPoint = _automationDragOriginals.remove('$trackId:$pointId');
+    if (oldPoint == null) return;
+    final newPoint = _findAutomationPoint(trackId, param, pointId);
+    if (newPoint == null || newPoint == oldPoint) return;
+    unawaited(
+      undoRedoManager.execute(
+        MoveAutomationPointCommand(
+          controller: automationController,
+          trackId: trackId,
+          parameter: param,
+          oldPoint: oldPoint,
+          newPoint: newPoint,
+          onLaneChanged: _automationSyncFor(param),
+        ),
+      ),
+    );
+  }
+
+  void onAutomationPointDeleted(int trackId, String pointId) {
+    final param = automationController.visibleParameter;
+    final point = _findAutomationPoint(trackId, param, pointId);
+    if (point == null) return;
+    unawaited(
+      undoRedoManager.execute(
+        RemoveAutomationPointCommand(
+          controller: automationController,
+          trackId: trackId,
+          parameter: param,
+          point: point,
+          onLaneChanged: _automationSyncFor(param),
+        ),
+      ),
+    );
   }
 
   void setMasterTrackHeight(double height) {

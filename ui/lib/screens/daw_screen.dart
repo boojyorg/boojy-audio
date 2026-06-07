@@ -3750,40 +3750,10 @@ class _DAWScreenState extends State<DAWScreen>
             onCreateClipOnTrack: _onCreateClipOnTrack,
           ),
           automationCallbacks: AutomationCallbacks(
-            onPointAdded: (trackId, point) {
-              automationController.addPoint(
-                trackId,
-                automationController.visibleParameter,
-                point,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
-            onPointUpdated: (trackId, pointId, point) {
-              automationController.updatePoint(
-                trackId,
-                automationController.visibleParameter,
-                pointId,
-                point,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
-            onPointDeleted: (trackId, pointId) {
-              automationController.removePoint(
-                trackId,
-                automationController.visibleParameter,
-                pointId,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
+            onPointAdded: onAutomationPointAdded,
+            onPointUpdated: onAutomationPointUpdated,
+            onPointDragEnd: onAutomationPointDragEnd,
+            onPointDeleted: onAutomationPointDeleted,
             onPreviewValue: onAutomationPreviewValue,
             getAutomationLane: (trackId) => automationController.getLane(
               trackId,
@@ -3970,40 +3940,10 @@ class _DAWScreenState extends State<DAWScreen>
                 ),
                 onMasterTrackHeightChanged: setMasterTrackHeight,
                 automationCallbacks: AutomationCallbacks(
-                  onPointAdded: (trackId, point) {
-                    automationController.addPoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      point,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
-                  onPointUpdated: (trackId, pointId, point) {
-                    automationController.updatePoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      pointId,
-                      point,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
-                  onPointDeleted: (trackId, pointId) {
-                    automationController.removePoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      pointId,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
+                  onPointAdded: onAutomationPointAdded,
+                  onPointUpdated: onAutomationPointUpdated,
+                  onPointDragEnd: onAutomationPointDragEnd,
+                  onPointDeleted: onAutomationPointDeleted,
                   onPreviewValue: onAutomationPreviewValue,
                   getAutomationLane: (trackId) => automationController.getLane(
                     trackId,
@@ -4037,9 +3977,6 @@ class _DAWScreenState extends State<DAWScreen>
                       audioEngine?.setTrackPan(trackId, 0.0); // Center
                       setState(() {}); // Trigger UI update
                     }
-                  },
-                  onAddParameter: (trackId) {
-                    // Future: Additional automation params (send levels, plugin params) (v0.4.0)
                   },
                   previewNotifier: automationPreviewNotifier,
                 ),

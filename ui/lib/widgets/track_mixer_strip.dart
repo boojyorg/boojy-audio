@@ -55,6 +55,7 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
   final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
+  final VoidCallback? onMonitorToggle; // Toggle input monitoring (audio tracks)
   final VoidCallback? onAutomationToggle; // Toggle automation lane visibility
   final bool showAutomation; // Whether automation lane is visible
 
@@ -63,7 +64,6 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(AutomationParameter)?
   onParameterChanged; // Parameter dropdown changed
   final VoidCallback? onResetParameter; // Reset parameter to default
-  final VoidCallback? onAddParameter; // Add another parameter lane
 
   // Automation lane data (for inline lane in mixer)
   final TrackAutomationLane? automationLane;
@@ -85,6 +85,7 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(String)? onNameChanged; // Inline rename callback
   final bool isSelected; // Track selection state
   final bool isArmed; // Recording arm state
+  final bool inputMonitoring; // Hear live input while armed (audio tracks)
 
   // MIDI instrument selection
   final InstrumentData? instrumentData;
@@ -159,12 +160,12 @@ class TrackMixerStrip extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onArmShiftClick,
+    this.onMonitorToggle,
     this.onAutomationToggle,
     this.showAutomation = false,
     this.selectedParameter = AutomationParameter.volume,
     this.onParameterChanged,
     this.onResetParameter,
-    this.onAddParameter,
     this.automationLane,
     this.pixelsPerBeat = 20.0,
     this.totalBeats = 256.0,
@@ -181,6 +182,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onNameChanged,
     this.isSelected = false,
     this.isArmed = false,
+    this.inputMonitoring = true,
     this.instrumentData,
     this.onInstrumentSelect,
     this.vst3PluginCount = 0,
@@ -805,7 +807,7 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
   }
 
   /// Build automation controls section (parameter row)
-  /// Row 3: [ + ] + [Volume ▼] dropdown + [value] + [↺] reset
+  /// Row 3: [Volume ▼] dropdown + [value] + [↺] reset
   Widget _buildAutomationControlsSection(BuildContext context) {
     final scale = _scaleFactor;
     final rowHeight = _lerp(20, 24, scale);
@@ -818,9 +820,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
         height: rowHeight,
         child: Row(
           children: [
-            // [ + ] add parameter button (shorter, wider)
-            _buildAddParameterButton(context, fontSize, rowHeight),
-            const SizedBox(width: 4),
             // [Volume ▼] dropdown
             _buildParameterDropdown(context, fontSize, rowHeight),
             const SizedBox(width: 4),
@@ -858,7 +857,8 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           dropdownColor: colors.elevated,
           icon: Icon(BI.caretDown, size: 14, color: colors.textSecondary),
           style: TextStyle(color: colors.textPrimary, fontSize: fontSize),
-          items: AutomationParameter.values.map((p) {
+          // Only engine-backed parameters — pan automation is UI-only today.
+          items: AutomationParameter.engineBacked.map((p) {
             return DropdownMenuItem<AutomationParameter>(
               value: p,
               child: Text(p.displayName),
@@ -958,32 +958,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             size: rowHeight * 0.6,
             color: colors.textSecondary,
           ),
-        ),
-      ),
-    );
-  }
-
-  /// Build add parameter button (shorter and wider)
-  Widget _buildAddParameterButton(
-    BuildContext context,
-    double fontSize,
-    double rowHeight,
-  ) {
-    final colors = context.colors;
-    final buttonHeight = rowHeight * 0.75; // Shorter than row height
-
-    return GestureDetector(
-      onTap: widget.onAddParameter,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          height: buttonHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 10), // Wider padding
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Icon(BI.add, size: fontSize + 2, color: colors.textSecondary),
         ),
       ),
     );
@@ -1635,6 +1609,21 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           SizedBox(width: spacing),
           // Record arm button - Red when active
           _buildArmButton(canArm, buttonSize, fontSize),
+        ],
+        // Input monitoring button - audio tracks only (the engine only
+        // monitors audio input; MIDI tracks have nothing to pass through)
+        if (!widget.isReturnTrack &&
+            widget.trackType.toLowerCase() == 'audio' &&
+            widget.onMonitorToggle != null) ...[
+          SizedBox(width: spacing),
+          _buildControlButton(
+            'I',
+            widget.inputMonitoring,
+            context.colors.success,
+            widget.onMonitorToggle,
+            buttonSize,
+            fontSize,
+          ),
         ],
       ],
     );
