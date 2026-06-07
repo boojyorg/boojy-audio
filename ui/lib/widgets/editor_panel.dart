@@ -1142,14 +1142,17 @@ class _EditorPanelState extends State<EditorPanel>
             }
           },
           child: Container(
-            width: 28,
-            height: 28,
+            // 30px matches the [Synth]/[MIDI] tab height (16px icon + 6px
+            // vertical padding + border) so the toolbar reads as one family —
+            // the tools previously sat at 28px and looked slightly recessed.
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(4),
               border: border,
             ),
-            child: Icon(icon, size: 16, color: iconColor),
+            child: Icon(icon, size: 18, color: iconColor),
           ),
         ),
       ),
