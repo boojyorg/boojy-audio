@@ -288,6 +288,24 @@ mixin DAWScreenStateMixin on State<DAWScreen> {
     );
   }
 
+  /// Reset button in the strip's automation section: clear the whole lane.
+  void onAutomationLaneCleared(int trackId) {
+    final param = automationController.visibleParameter;
+    final points = automationController.getLane(trackId, param)?.points;
+    if (points == null || points.isEmpty) return;
+    unawaited(
+      undoRedoManager.execute(
+        ClearAutomationLaneCommand(
+          controller: automationController,
+          trackId: trackId,
+          parameter: param,
+          points: List.of(points),
+          onLaneChanged: _automationSyncFor(param),
+        ),
+      ),
+    );
+  }
+
   void onAutomationPointDeleted(int trackId, String pointId) {
     final param = automationController.visibleParameter;
     final point = _findAutomationPoint(trackId, param, pointId);

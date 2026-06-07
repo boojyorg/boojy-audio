@@ -104,3 +104,39 @@ class RemoveAutomationPointCommand extends Command {
   @override
   String get description => 'Delete ${parameter.displayName} Automation Point';
 }
+
+/// Command to clear every point on a lane (the reset button in the strip's
+/// automation section). The points are snapshotted before clearing so undo
+/// restores them with their original ids.
+class ClearAutomationLaneCommand extends Command {
+  final AutomationController controller;
+  final int trackId;
+  final AutomationParameter parameter;
+  final List<AutomationPoint> points; // captured before clearing
+  final void Function(int trackId)? onLaneChanged;
+
+  ClearAutomationLaneCommand({
+    required this.controller,
+    required this.trackId,
+    required this.parameter,
+    required this.points,
+    this.onLaneChanged,
+  });
+
+  @override
+  Future<void> execute(AudioEngineInterface engine) async {
+    controller.clearLane(trackId, parameter);
+    onLaneChanged?.call(trackId);
+  }
+
+  @override
+  Future<void> undo(AudioEngineInterface engine) async {
+    for (final point in points) {
+      controller.addPoint(trackId, parameter, point);
+    }
+    onLaneChanged?.call(trackId);
+  }
+
+  @override
+  String get description => 'Clear ${parameter.displayName} Automation';
+}

@@ -9,8 +9,10 @@ All notable changes to Boojy Audio will be documented in this file.
 - **Volume automation lanes are now on.** One Automation button above the mixer strips shows
   every track's volume lane in the timeline at once (GarageBand-style); click again to hide
   them. Draw points and hear the curve on playback and in exports. Drawing, moving and erasing
-  points are all undoable (a drag is one undo step). Pan automation stays hidden until the
-  engine can play it back — no controls that silently do nothing.
+  points are all undoable (a drag is one undo step). The strip's normal controls stay put when
+  lanes open — the lane-aligned space below gains a parameter dropdown, a live value readout
+  while dragging points, and a reset button that clears the lane (undoable). Pan automation
+  stays hidden until the engine can play it back — no controls that silently do nothing.
 - **Reverse now actually reverses the audio.** The Reverse toggle in the audio editor used to
   flip the waveform on screen but play the clip forwards; the engine now plays the clip's
   audible window backwards, in live playback and in exports, with warp and transpose still
