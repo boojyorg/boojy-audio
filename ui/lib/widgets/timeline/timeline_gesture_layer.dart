@@ -556,8 +556,16 @@ mixin TimelineGestureLayerMixin
             // (allows multi-drag if user drags instead of clicking)
             if (wasAlreadySelected && !modifiers.isShiftPressed) {
               pendingAudioClipTapSelection = clip.clipId;
+              audioSelectionBeforeReplace = null;
             } else {
               pendingAudioClipTapSelection = null;
+              // Snapshot the selection a plain click is about to replace, so
+              // tap-up can repair it if Shift turns out to be held (missed
+              // modifier read — see field doc).
+              audioSelectionBeforeReplace =
+                  !modifiers.isShiftPressed && !wasAlreadySelected
+                  ? Set.from(selectedAudioClipIds)
+                  : null;
               selectAudioClipMulti(
                 clip.clipId,
                 addToSelection: false,
@@ -574,12 +582,26 @@ mixin TimelineGestureLayerMixin
               return;
             }
 
+            // Re-read Shift at tap-up: the pointer-down read can miss a
+            // modifier pressed while the window wasn't key.
+            final shiftAtTapUp = ModifierKeyState.current().isShiftPressed;
+
             // If we had a pending tap selection (clicked on already-selected clip),
-            // now reduce to single selection since no drag occurred
-            if (pendingAudioClipTapSelection == clip.clipId) {
+            // now reduce to single selection since no drag occurred — unless
+            // Shift is held (shift-click must not collapse the multi-selection)
+            if (pendingAudioClipTapSelection == clip.clipId && !shiftAtTapUp) {
               selectAudioClipMulti(clip.clipId, forceSelect: true);
+            } else if (shiftAtTapUp && audioSelectionBeforeReplace != null) {
+              // Shift was missed at pointer-down and a plain-click replace
+              // ran — repair it into the intended additive shift-click.
+              setState(() {
+                selectedAudioClipIds
+                  ..addAll(audioSelectionBeforeReplace!)
+                  ..add(clip.clipId);
+              });
             }
             pendingAudioClipTapSelection = null;
+            audioSelectionBeforeReplace = null;
           },
           onSecondaryTapDown: (details) {
             // Right-click: show context menu
@@ -588,6 +610,7 @@ mixin TimelineGestureLayerMixin
           onHorizontalDragStart: (details) {
             // Clear pending tap selection - user is dragging, not clicking
             pendingAudioClipTapSelection = null;
+            audioSelectionBeforeReplace = null;
 
             // Check modifier keys at drag start
             final modifiers = ModifierKeyState.current();
@@ -1520,8 +1543,16 @@ mixin TimelineGestureLayerMixin
                     // (allows multi-drag if user drags instead of clicking)
                     if (wasAlreadySelected && !modifiers.isShiftPressed) {
                       pendingMidiClipTapSelection = midiClip.clipId;
+                      midiSelectionBeforeReplace = null;
                     } else {
                       pendingMidiClipTapSelection = null;
+                      // Snapshot the selection a plain click is about to
+                      // replace, so tap-up can repair it if Shift turns out
+                      // to be held (missed modifier read — see field doc).
+                      midiSelectionBeforeReplace =
+                          !modifiers.isShiftPressed && !wasAlreadySelected
+                          ? Set.from(selectedMidiClipIds)
+                          : null;
                       selectMidiClipMulti(
                         midiClip.clipId,
                         addToSelection: false,
@@ -1556,22 +1587,42 @@ mixin TimelineGestureLayerMixin
                       return;
                     }
 
+                    // Re-read Shift at tap-up: the pointer-down read can miss
+                    // a modifier pressed while the window wasn't key.
+                    final shiftAtTapUp =
+                        ModifierKeyState.current().isShiftPressed;
+
                     // If we had a pending tap selection (clicked on already-selected clip),
-                    // now reduce to single selection since no drag occurred
-                    if (pendingMidiClipTapSelection == midiClip.clipId) {
+                    // now reduce to single selection since no drag occurred —
+                    // unless Shift is held, which means this was a shift-click
+                    // and collapsing would destroy the multi-selection.
+                    if (pendingMidiClipTapSelection == midiClip.clipId &&
+                        !shiftAtTapUp) {
                       selectMidiClipMulti(midiClip.clipId, forceSelect: true);
                       widget.midiClipCallbacks.onSelected?.call(
                         midiClip.clipId,
                         midiClip,
                       );
+                    } else if (shiftAtTapUp &&
+                        midiSelectionBeforeReplace != null) {
+                      // Shift was missed at pointer-down and a plain-click
+                      // replace ran — repair it into the intended additive
+                      // shift-click (previous selection + this clip).
+                      setState(() {
+                        selectedMidiClipIds
+                          ..addAll(midiSelectionBeforeReplace!)
+                          ..add(midiClip.clipId);
+                      });
                     }
                     pendingMidiClipTapSelection = null;
+                    midiSelectionBeforeReplace = null;
                   },
             onHorizontalDragStart: isLiveRecording
                 ? null
                 : (details) {
                     // Clear pending tap selection - user is dragging, not clicking
                     pendingMidiClipTapSelection = null;
+                    midiSelectionBeforeReplace = null;
 
                     // Check modifier keys at drag start
                     final modifiers = ModifierKeyState.current();
