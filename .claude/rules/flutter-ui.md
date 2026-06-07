@@ -64,6 +64,15 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **Timeline layout:** `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and
   `timeline_track_list.dart` (private methods share one library). Import `timeline_view.dart` only,
   never the part files directly.
+- **Timeline coordinate spaces (gesture math):** track rows and clips live INSIDE the horizontal
+  scroll view at full content width, so their `details.localPosition.dx` is already **content
+  space** — never add `scrollController.offset` to it (`calculateBeatPosition` once did; every
+  beat computed from a row gesture drifted right by the scrolled amount — broken drag-to-create /
+  double-click-create / empty-click deselect whenever scrolled past bar 1). The **ruler** and the
+  `context.findRenderObject()`-based drag-ghost math are OUTSIDE that scroll → viewport space →
+  there `+ scrollOffset` is correct. Box-selection state: X content space, Y visible space (the
+  overlay Stack is the content-space one the playhead mounts in). When in doubt, check which
+  render box the position is relative to before adding/subtracting scroll offsets.
 - **`daw_screen.dart` / mixin trap:** `_DAWScreenState` **does** mix in `DAWClipMixin` etc., and
   some mixin methods are live (`splitSelectedClipAtPlayhead`, `joinSelectedClips`) — but other
   mixin methods have **private `_` duplicates in `daw_screen.dart` that the call sites actually
