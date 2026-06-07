@@ -64,9 +64,12 @@ CocoaPods-vs-SwiftPM troubleshooting (no iOS target ships).
 - **Timeline layout:** `timeline_view.dart` uses `part` files for `timeline_gesture_layer.dart` and
   `timeline_track_list.dart` (private methods share one library). Import `timeline_view.dart` only,
   never the part files directly.
-- **`daw_screen.dart` trap:** it wires **private `_` copies** of its mixins; the actual mixin files
-  are **dead/diverged**. Edit the wired private methods in `daw_screen.dart`, *not* the mixins —
-  editing the mixins changes nothing the app runs.
+- **`daw_screen.dart` / mixin trap:** `_DAWScreenState` **does** mix in `DAWClipMixin` etc., and
+  some mixin methods are live (`splitSelectedClipAtPlayhead`, `joinSelectedClips`) — but other
+  mixin methods have **private `_` duplicates in `daw_screen.dart` that the call sites actually
+  use** (e.g. `_bounceMidiToAudio`), leaving the mixin copy dead/diverged. Before editing either
+  copy, check which one the Cmd-shortcuts/menus/callbacks reference; edit that one and delete the
+  other when possible (the v0.6 join work removed the dead `_consolidateSelectedClips` this way).
 - **UI persistence:** new fields saved in `ui_layout.json` must go through
   `ProjectPersistence.collect()` / `applyUILayout()` — don't scatter field lists across project
   managers.

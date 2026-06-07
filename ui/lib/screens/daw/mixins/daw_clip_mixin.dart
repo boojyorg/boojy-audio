@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../utils/logger.dart';
+import '../../../models/clip_automation_data.dart';
 import '../../../models/clip_data.dart';
 import '../../../models/midi_note_data.dart';
 import '../../../models/midi_event.dart';
@@ -333,26 +334,42 @@ mixin DAWClipMixin
   }
 
   // ============================================
-  // CONSOLIDATE CLIPS
+  // JOIN CLIPS
   // ============================================
 
-  /// Consolidate multiple selected MIDI clips into a single clip
-  void consolidateSelectedClips() {
+  /// Join multiple selected MIDI clips on one track into a single clip.
+  ///
+  /// Loops are unrolled into literal notes first (via
+  /// [MidiClipData.unrolledNotes]) so the joined clip sounds identical to the
+  /// clips it replaces; gaps between clips stay as empty space. The whole
+  /// operation is one undo step.
+  void joinSelectedClips() {
     final timelineState = timelineKey.currentState;
     if (timelineState == null) return;
 
-    // Get selected MIDI clips
     final selectedMidiClips = timelineState.selectedMidiClips;
+    final selectedAudioCount = timelineState.selectedAudioClipIds.length;
+
+    // Audio join lands with the engine render path (v0.6 batch 4); refuse
+    // honestly rather than silently ignoring part of the selection.
+    if (selectedMidiClips.isNotEmpty && selectedAudioCount > 0) {
+      statusMessage = 'Join works on one clip type at a time';
+      return;
+    }
+    if (selectedMidiClips.isEmpty && selectedAudioCount >= 2) {
+      statusMessage = 'Joining audio clips is not supported yet';
+      return;
+    }
 
     if (selectedMidiClips.length < 2) {
-      statusMessage = 'Select 2 or more MIDI clips to consolidate';
+      statusMessage = 'Select 2 or more MIDI clips to join';
       return;
     }
 
     // Ensure all clips are on the same track
     final trackIds = selectedMidiClips.map((c) => c.trackId).toSet();
     if (trackIds.length > 1) {
-      statusMessage = 'Cannot consolidate clips from different tracks';
+      statusMessage = 'Cannot join clips from different tracks';
       return;
     }
 
@@ -362,44 +379,46 @@ mixin DAWClipMixin
     final sortedClips = List<MidiClipData>.from(selectedMidiClips)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Calculate consolidated clip bounds
+    // Calculate joined clip bounds
     final firstClipStart = sortedClips.first.startTime;
     final lastClipEnd = sortedClips
         .map((c) => c.endTime)
         .reduce((a, b) => a > b ? a : b);
     final totalDuration = lastClipEnd - firstClipStart;
 
-    // Merge all notes with adjusted timing
+    // Merge all notes, unrolling each clip's loops/offset into literal notes
+    // positioned relative to the joined clip's start
     final mergedNotes = <MidiNoteData>[];
     for (final clip in sortedClips) {
       final clipOffset = clip.startTime - firstClipStart;
-      for (final note in clip.notes) {
-        mergedNotes.add(
-          note.copyWith(
-            startTime: note.startTime + clipOffset,
-            id: '${note.note}_${note.startTime + clipOffset}_${DateTime.now().microsecondsSinceEpoch}',
-          ),
-        );
+      for (final note in clip.unrolledNotes()) {
+        mergedNotes.add(note.copyWith(startTime: note.startTime + clipOffset));
       }
     }
-
-    // Sort notes by start time
     mergedNotes.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Create consolidated clip
-    final consolidatedClip = MidiClipData(
+    // Carry clip automation across, shifted onto the joined timeline
+    final mergedAutomation = ClipAutomation.joined([
+      for (final clip in sortedClips)
+        (clip.automation, clip.startTime - firstClipStart, clip.duration),
+    ]);
+
+    // Create the joined clip — named after the first clip, standalone
+    // (joining breaks any pattern link, the merged content is new material)
+    final joinedClip = MidiClipData(
       clipId: DateTime.now().millisecondsSinceEpoch,
       trackId: trackId,
       startTime: firstClipStart,
       duration: totalDuration,
       loopLength: totalDuration,
       notes: mergedNotes,
-      name: 'Consolidated',
+      name: sortedClips.first.name,
       color: sortedClips.first.color,
+      automation: mergedAutomation,
     );
 
     // Route the whole operation through one undo step: delete each original
-    // clip, then create the consolidated one. Undo reverses both (restoring the
+    // clip, then create the joined one. Undo reverses both (restoring the
     // originals), so Cmd+Z no longer undoes some unrelated earlier action.
     final commands = <Command>[
       for (final clip in sortedClips)
@@ -417,7 +436,7 @@ mixin DAWClipMixin
           },
         ),
       CreateMidiClipCommand(
-        clipData: consolidatedClip,
+        clipData: joinedClip,
         onClipCreated: (clip) {
           midiClipController.addClip(clip);
           midiClipController.updateClip(clip, playheadPosition);
@@ -432,12 +451,12 @@ mixin DAWClipMixin
     ];
 
     undoRedoManager.execute(
-      CompositeCommand(commands, 'Consolidate ${sortedClips.length} clips'),
+      CompositeCommand(commands, 'Join ${sortedClips.length} clips'),
     );
 
     timelineState.clearClipSelection();
 
-    statusMessage = 'Consolidated ${sortedClips.length} clips into one';
+    statusMessage = 'Joined ${sortedClips.length} clips into one';
   }
 
   // ============================================

@@ -96,6 +96,7 @@ class KeyboardShortcutsOverlay extends StatelessWidget {
                       _Shortcut('\u2318 C', 'Copy'),
                       _Shortcut('\u2318 V', 'Paste'),
                       _Shortcut('\u2318 A', 'Select All'),
+                      _Shortcut('\u2318 J', 'Join Clips'),
                       _Shortcut('Delete', 'Delete Selected'),
                     ]),
                     const SizedBox(height: 20),
