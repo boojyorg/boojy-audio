@@ -918,9 +918,15 @@ mixin TimelineTrackListMixin
                       child: GestureDetector(
                         onTapDown: (details) {
                           // Handle deselection on tap down (before drag can intercept)
-                          // But DON'T deselect if modifier keys are held (user might be Cmd+clicking to drag duplicate)
+                          // But DON'T deselect if modifier keys are held (user might be Cmd+clicking
+                          // to drag duplicate, or Shift+clicking / shift-box-selecting additively).
+                          // NOTE: this fires on press-holds >100ms via the tap recognizer's
+                          // deadline even when the press is on a clip — without the Shift guard
+                          // a slow shift-click was nuking the multi-selection mid-gesture.
                           final modifiers = ModifierKeyState.current();
-                          if (modifiers.isCtrlOrCmd || modifiers.isAltPressed) {
+                          if (modifiers.isCtrlOrCmd ||
+                              modifiers.isAltPressed ||
+                              modifiers.isShiftPressed) {
                             // Don't clear selection when modifier keys are held - let clip gesture handle it
                             return;
                           }
@@ -985,7 +991,15 @@ mixin TimelineTrackListMixin
                               }
                             : null,
                         onHorizontalDragStart: (details) {
-                          final tool = effectiveToolMode;
+                          // Resolve the tool from live modifier state, not the
+                          // cached tempToolMode — the cache goes stale when a
+                          // modifier release is missed (focus moved while held),
+                          // which silently killed drag-to-create. Same reason
+                          // the clip handlers re-read modifiers directly.
+                          final tool =
+                              ModifierKeyState.current()
+                                  .getOverrideToolMode() ??
+                              widget.toolMode;
                           final beatPosition = calculateBeatPosition(
                             details.localPosition,
                           );
@@ -1024,9 +1038,6 @@ mixin TimelineTrackListMixin
                               }
                             }
 
-                            final scrollOffset = scrollController.hasClients
-                                ? scrollController.offset
-                                : 0.0;
                             final verticalOffset =
                                 widget.verticalScrollController?.hasClients ==
                                     true
@@ -1047,14 +1058,18 @@ mixin TimelineTrackListMixin
 
                             setState(() {
                               isBoxSelecting = true;
-                              // Store position in VISIBLE coordinates (for overlay rendering)
-                              // Selection logic will convert back to content coordinates
+                              // X is CONTENT space (track rows are full content
+                              // width inside the horizontal scroll, so
+                              // localPosition.dx is already content-relative);
+                              // Y is VISIBLE space. The overlay painter and
+                              // selection logic both rely on this split —
+                              // adding the scroll offset here shifted the
+                              // selected region right by the scrolled amount.
                               boxSelectionStart = Offset(
-                                details.localPosition.dx + scrollOffset,
+                                details.localPosition.dx,
                                 visibleY,
                               );
                               boxSelectionEnd = boxSelectionStart;
-                              boxSelectionScrollOffset = scrollOffset;
                               boxSelectionTrackYOffset = trackYOffset;
                               // Capture shift state and initial selection for proper additive behavior
                               boxSelectionShiftHeld = shiftHeld;
@@ -1083,9 +1098,6 @@ mixin TimelineTrackListMixin
                         onHorizontalDragUpdate: (details) {
                           // Box selection update
                           if (isBoxSelecting) {
-                            final scrollOffset = scrollController.hasClients
-                                ? scrollController.offset
-                                : 0.0;
                             final verticalOffset =
                                 widget.verticalScrollController?.hasClients ==
                                     true
@@ -1099,9 +1111,9 @@ mixin TimelineTrackListMixin
                                 verticalOffset;
 
                             setState(() {
-                              // Update end position in VISIBLE coordinates (for overlay rendering)
+                              // X content space, Y visible space (see drag start)
                               boxSelectionEnd = Offset(
-                                details.localPosition.dx + scrollOffset,
+                                details.localPosition.dx,
                                 visibleY,
                               );
                             });

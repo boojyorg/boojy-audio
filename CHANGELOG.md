@@ -4,6 +4,24 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ## Unreleased
 
+### Bug Fixes
+
+- **Timeline gestures now work when scrolled past bar 1.** Every beat position computed from a
+  click or drag on a track row was shifted right by the scrolled amount: drag-to-create and
+  double-click-create placed clips in the wrong bar (or silently refused because the shifted spot
+  "overlapped" a clip), clicking empty space could fail to deselect, and box selection selected a
+  region to the right of the box you drew. All track-row gesture math now uses the correct
+  coordinate space.
+- **Shift-click multi-select no longer collapses the selection.** Two causes: a slow shift-click
+  (held >100 ms) triggered the track's tap handler, which cleared the whole selection because it
+  only guarded against Cmd/Alt — Shift is now guarded too; and if macOS delivered the Shift press
+  while the window wasn't focused (e.g. right after Cmd+Tab or clicking out of a plugin window),
+  the click ran as a plain click and replaced the selection — that case is now detected at
+  mouse-up and repaired into the intended additive shift-click.
+- **Drag-to-create no longer randomly stops working after using modifier keys.** The
+  drag-to-create gate trusted a cached tool override that could go stale when a modifier key was
+  released while the window wasn't focused; it now reads the live modifier state.
+
 ### Features
 
 - **Join clips (Cmd+J) is now a real, undoable edit.** Select two or more MIDI clips on a
