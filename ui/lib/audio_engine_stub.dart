@@ -120,6 +120,13 @@ class AudioEngine implements AudioEngineInterface {
   ) => throw UnsupportedError('stub');
 
   @override
+  String setAudioClipReverse(
+    int trackId,
+    int clipId, {
+    required bool reversed,
+  }) => throw UnsupportedError('stub');
+
+  @override
   bool removeAudioClip(int trackId, int clipId) =>
       throw UnsupportedError('stub');
 

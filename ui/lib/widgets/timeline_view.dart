@@ -133,8 +133,8 @@ class TimelineView extends StatefulWidget {
   /// When false, the master timeline row is hidden (v0.3).
   final bool masterTimelineVisible;
 
-  // Automation state
-  final int? automationVisibleTrackId;
+  // Automation state — global: when true, every track shows its lane
+  final bool automationVisible;
   final ScrollController?
   automationScrollController; // For syncing automation lane scroll
 
@@ -179,7 +179,7 @@ class TimelineView extends StatefulWidget {
     this.verticalScrollController,
     this.toolMode = ToolMode.draw,
     this.onToolModeChanged,
-    this.automationVisibleTrackId,
+    this.automationVisible = false,
     this.automationScrollController,
     this.isPlaying = false,
     this.onAddMidiTrack,
@@ -770,9 +770,8 @@ class TimelineViewState extends State<TimelineView>
       totalTracksHeight +=
           widget.trackHeightState.clipHeights[track.id] ??
           UIConstants.defaultClipHeight;
-      // Add automation lane height if visible for this track
-      if (UIConstants.enableAutomation &&
-          widget.automationVisibleTrackId == track.id) {
+      // Add automation lane height when lanes are shown (global toggle)
+      if (UIConstants.enableAutomation && widget.automationVisible) {
         totalTracksHeight +=
             widget.trackHeightState.automationHeights[track.id] ??
             UIConstants.defaultAutomationHeight;

@@ -53,7 +53,7 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Record arm button
 - [x] Count-in metronome (1 bar)
 - [x] Punch in/out
-- [ ] Input monitoring (auto mode) — (partial: `set_track_input_monitoring_ffi` + Dart binding wired; no UI control, user can't change monitoring state)
+- [x] Input monitoring (auto mode) — "I" toggle next to M/S/R on audio mixer strips (v0.6); arming still auto-enables monitoring
 - [ ] Loop recording (multiple takes)
 - [ ] Comping / take lanes
 - [ ] Pre-roll / Post-roll
@@ -110,14 +110,14 @@ Detailed checklist of all features planned for v1.0 and their current status.
 - [x] Fade in/out (basic)
 - [x] Warp/time stretch
 - [x] Pitch shift (semitones/cents)
-- [ ] Reverse audio (UI toggle exists; no engine FFI yet — playback unaffected)
+- [x] Reverse audio — editor toggle wired through `set_audio_clip_reverse_ffi` to engine reverse playback (v0.6)
 - [ ] Normalize
 - [ ] Transient detection
 
 ### Automation
 
-- [ ] Basic automation lanes (volume/pan) — (partial: engine backend + project persistence complete; all UI surfaces gated behind `UIConstants.enableAutomation = false`, so no user-reachable lane — this is the v0.5 "automation flag-flip" rescue, B-3)
-- [ ] Draw automation points — (partial: draw-point logic implemented; unreachable while `UIConstants.enableAutomation = false` hides the lane)
+- [ ] Basic automation lanes (volume/pan) — (partial: volume lanes live end-to-end since v0.6 flag-flip; pan automation still engine-less and hidden from the parameter picker)
+- [x] Draw automation points — reachable since the v0.6 flag-flip; add/move/erase all undoable
 - [ ] Automation shapes (sine, square, ramp)
 - [ ] Per-parameter automation lanes
 

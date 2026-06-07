@@ -18,98 +18,35 @@ void main() {
     // 1. Visibility
     // ========================================
     group('visibility', () {
-      test('initially has no visible automation', () {
-        expect(controller.visibleTrackId, isNull);
-        expect(controller.hasVisibleAutomation, isFalse);
+      test('initially hidden', () {
+        expect(controller.visible, isFalse);
       });
 
-      test('showAutomationForTrack sets visible track', () {
-        controller.showAutomationForTrack(1);
-
-        expect(controller.visibleTrackId, 1);
-        expect(controller.hasVisibleAutomation, isTrue);
+      test('setting visible shows lanes globally', () {
+        controller.visible = true;
+        expect(controller.visible, isTrue);
       });
 
-      test('hideAutomation clears visible track', () {
-        controller.showAutomationForTrack(1);
-        controller.hideAutomation();
+      test('toggleVisible flips visibility', () {
+        controller.toggleVisible();
+        expect(controller.visible, isTrue);
 
-        expect(controller.visibleTrackId, isNull);
-        expect(controller.hasVisibleAutomation, isFalse);
+        controller.toggleVisible();
+        expect(controller.visible, isFalse);
       });
 
-      test('only one track visible at a time', () {
-        controller.showAutomationForTrack(1);
-        expect(controller.visibleTrackId, 1);
+      test('setting the same value does not notify', () {
+        var notifications = 0;
+        controller.addListener(() => notifications++);
 
-        controller.showAutomationForTrack(2);
-        expect(controller.visibleTrackId, 2);
-        expect(controller.isAutomationVisibleForTrack(1), isFalse);
-        expect(controller.isAutomationVisibleForTrack(2), isTrue);
-      });
+        controller.visible = false; // already false
+        expect(notifications, 0);
 
-      test(
-        'isAutomationVisibleForTrack returns false for non-visible tracks',
-        () {
-          expect(controller.isAutomationVisibleForTrack(1), isFalse);
+        controller.visible = true;
+        expect(notifications, 1);
 
-          controller.showAutomationForTrack(1);
-          expect(controller.isAutomationVisibleForTrack(1), isTrue);
-          expect(controller.isAutomationVisibleForTrack(2), isFalse);
-        },
-      );
-
-      test('toggleAutomationForTrack shows when hidden', () {
-        controller.toggleAutomationForTrack(1);
-
-        expect(controller.visibleTrackId, 1);
-        expect(controller.hasVisibleAutomation, isTrue);
-      });
-
-      test('toggleAutomationForTrack hides when already visible', () {
-        controller.showAutomationForTrack(1);
-        controller.toggleAutomationForTrack(1);
-
-        expect(controller.visibleTrackId, isNull);
-        expect(controller.hasVisibleAutomation, isFalse);
-      });
-
-      test('toggleAutomationForTrack switches to new track', () {
-        controller.showAutomationForTrack(1);
-        controller.toggleAutomationForTrack(2);
-
-        expect(controller.visibleTrackId, 2);
-        expect(controller.isAutomationVisibleForTrack(1), isFalse);
-        expect(controller.isAutomationVisibleForTrack(2), isTrue);
-      });
-
-      test('visibleLane returns null when no track visible', () {
-        expect(controller.visibleLane, isNull);
-      });
-
-      test('visibleLane returns the lane for visible track and parameter', () {
-        controller.addPoint(
-          1,
-          AutomationParameter.volume,
-          AutomationPoint(time: 0.0, value: 0.5),
-        );
-        controller.showAutomationForTrack(1);
-
-        final lane = controller.visibleLane;
-        expect(lane, isNotNull);
-        expect(lane!.parameter, AutomationParameter.volume);
-        expect(lane.points.length, 1);
-      });
-
-      test('showAutomationForTrack creates empty lanes for the track', () {
-        controller.showAutomationForTrack(1);
-
-        final volumeLane = controller.getLane(1, AutomationParameter.volume);
-        final panLane = controller.getLane(1, AutomationParameter.pan);
-        expect(volumeLane, isNotNull);
-        expect(panLane, isNotNull);
-        expect(volumeLane!.hasAutomation, isFalse);
-        expect(panLane!.hasAutomation, isFalse);
+        controller.visible = true; // already true
+        expect(notifications, 1);
       });
     });
 
@@ -130,46 +67,6 @@ void main() {
         controller.setVisibleParameter(AutomationParameter.pan);
         controller.setVisibleParameter(AutomationParameter.volume);
         expect(controller.visibleParameter, AutomationParameter.volume);
-      });
-
-      test('getParameterForTrack returns parameter for visible track', () {
-        controller.showAutomationForTrack(1);
-        expect(controller.getParameterForTrack(1), AutomationParameter.volume);
-      });
-
-      test('getParameterForTrack returns null for non-visible track', () {
-        controller.showAutomationForTrack(1);
-        expect(controller.getParameterForTrack(2), isNull);
-      });
-
-      test('getParameterForTrack returns null when no track visible', () {
-        expect(controller.getParameterForTrack(1), isNull);
-      });
-
-      test('getParameterForTrack reflects setVisibleParameter', () {
-        controller.showAutomationForTrack(1);
-        controller.setVisibleParameter(AutomationParameter.pan);
-        expect(controller.getParameterForTrack(1), AutomationParameter.pan);
-      });
-
-      test('visibleLane updates when parameter changes', () {
-        controller.addPoint(
-          1,
-          AutomationParameter.volume,
-          AutomationPoint(time: 0.0, value: 0.5),
-        );
-        controller.addPoint(
-          1,
-          AutomationParameter.pan,
-          AutomationPoint(time: 1.0, value: -0.5),
-        );
-        controller.showAutomationForTrack(1);
-
-        expect(controller.visibleLane!.parameter, AutomationParameter.volume);
-
-        controller.setVisibleParameter(AutomationParameter.pan);
-        expect(controller.visibleLane!.parameter, AutomationParameter.pan);
-        expect(controller.visibleLane!.points.first.value, -0.5);
       });
     });
 
@@ -443,13 +340,12 @@ void main() {
         expect(controller.hasAutomation(1), isFalse);
       });
 
-      test(
-        'returns false for track with empty lanes (shown but no points)',
-        () {
-          controller.showAutomationForTrack(1);
-          expect(controller.hasAutomation(1), isFalse);
-        },
-      );
+      test('returns false for track with empty lanes (point removed)', () {
+        final point = AutomationPoint(time: 0.0, value: 0.5);
+        controller.addPoint(1, AutomationParameter.volume, point);
+        controller.removePoint(1, AutomationParameter.volume, point.id);
+        expect(controller.hasAutomation(1), isFalse);
+      });
 
       test('returns true after addPoint', () {
         controller.addPoint(
@@ -730,7 +626,9 @@ void main() {
       });
 
       test('toJson does not include empty lanes', () {
-        controller.showAutomationForTrack(1);
+        final point = AutomationPoint(time: 0.0, value: 0.5);
+        controller.addPoint(1, AutomationParameter.volume, point);
+        controller.removePoint(1, AutomationParameter.volume, point.id);
         final json = controller.toJson();
         expect((json['automation'] as Map).isEmpty, isTrue);
       });
@@ -809,13 +707,13 @@ void main() {
           AutomationParameter.volume,
           AutomationPoint(time: 0.0, value: 0.5),
         );
-        controller.showAutomationForTrack(1);
+        controller.visible = true;
         controller.setVisibleParameter(AutomationParameter.pan);
 
         controller.loadFromJson(null);
 
         expect(controller.hasAutomation(1), isFalse);
-        expect(controller.visibleTrackId, isNull);
+        expect(controller.visible, isFalse);
         expect(controller.visibleParameter, AutomationParameter.volume);
       });
 
@@ -847,14 +745,14 @@ void main() {
       });
 
       test('loadFromJson resets visibility state', () {
-        controller.showAutomationForTrack(1);
+        controller.visible = true;
         controller.setVisibleParameter(AutomationParameter.pan);
 
         controller.loadFromJson(<String, dynamic>{
           'automation': <String, dynamic>{},
         });
 
-        expect(controller.visibleTrackId, isNull);
+        expect(controller.visible, isFalse);
         expect(controller.visibleParameter, AutomationParameter.volume);
       });
 
@@ -864,8 +762,10 @@ void main() {
           AutomationParameter.volume,
           AutomationPoint(time: 0.0, value: 0.5),
         );
-        // Track 2 has empty lanes (shown but no points)
-        controller.showAutomationForTrack(2);
+        // Track 2 has empty lanes (point added then removed)
+        final p2 = AutomationPoint(time: 0.0, value: 0.5);
+        controller.addPoint(2, AutomationParameter.volume, p2);
+        controller.removePoint(2, AutomationParameter.volume, p2.id);
 
         final json = controller.toJson();
         final automation = json['automation'] as Map<String, dynamic>;
@@ -913,12 +813,12 @@ void main() {
           AutomationParameter.volume,
           AutomationPoint(time: 0.0, value: 0.5),
         );
-        controller.showAutomationForTrack(1);
-        expect(controller.visibleTrackId, 1);
+        controller.visible = true;
 
         controller.onTrackDeleted(1);
-        expect(controller.visibleTrackId, isNull);
-        expect(controller.hasVisibleAutomation, isFalse);
+        // Global visibility is unaffected by deleting a track
+        expect(controller.visible, isTrue);
+        expect(controller.hasAutomation(1), isFalse);
       });
 
       test('onTrackDeleted does not affect other tracks', () {
@@ -938,10 +838,10 @@ void main() {
         expect(controller.hasAutomation(2), isTrue);
       });
 
-      test('onTrackDeleted does not affect visibility of other track', () {
-        controller.showAutomationForTrack(2);
+      test('onTrackDeleted does not affect global visibility', () {
+        controller.visible = true;
         controller.onTrackDeleted(1);
-        expect(controller.visibleTrackId, 2);
+        expect(controller.visible, isTrue);
       });
 
       test('onTrackDuplicated copies automation to new track', () {
@@ -1055,11 +955,10 @@ void main() {
       });
 
       test('resets visibility', () {
-        controller.showAutomationForTrack(1);
+        controller.visible = true;
         controller.clear();
 
-        expect(controller.visibleTrackId, isNull);
-        expect(controller.hasVisibleAutomation, isFalse);
+        expect(controller.visible, isFalse);
       });
 
       test('resets visible parameter to volume', () {
@@ -1099,29 +998,19 @@ void main() {
     // 9. Notifications
     // ========================================
     group('notifications', () {
-      test('showAutomationForTrack notifies listeners', () {
+      test('setting visible notifies listeners', () {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.showAutomationForTrack(1);
+        controller.visible = true;
         expect(notified, isTrue);
       });
 
-      test('hideAutomation notifies listeners', () {
-        controller.showAutomationForTrack(1);
-
+      test('toggleVisible notifies listeners', () {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.hideAutomation();
-        expect(notified, isTrue);
-      });
-
-      test('toggleAutomationForTrack notifies listeners', () {
-        var notified = false;
-        controller.addListener(() => notified = true);
-
-        controller.toggleAutomationForTrack(1);
+        controller.toggleVisible();
         expect(notified, isTrue);
       });
 
@@ -1298,13 +1187,12 @@ void main() {
         expect(ids, containsAll([1, 3]));
       });
 
-      test(
-        'includes tracks with empty lanes created by showAutomationForTrack',
-        () {
-          controller.showAutomationForTrack(5);
-          expect(controller.allTrackIds.contains(5), isTrue);
-        },
-      );
+      test('includes tracks whose lanes are empty (point removed)', () {
+        final point = AutomationPoint(time: 0.0, value: 0.5);
+        controller.addPoint(5, AutomationParameter.volume, point);
+        controller.removePoint(5, AutomationParameter.volume, point.id);
+        expect(controller.allTrackIds.contains(5), isTrue);
+      });
     });
   });
 

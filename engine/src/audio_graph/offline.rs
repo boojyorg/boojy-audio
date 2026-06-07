@@ -293,8 +293,8 @@ impl AudioGraph {
                             if playhead_seconds >= timeline_clip.start_time
                                 && playhead_seconds < clip_end
                             {
-                                let time_in_clip = playhead_seconds - timeline_clip.start_time
-                                    + timeline_clip.offset;
+                                let time_in_clip = timeline_clip
+                                    .time_in_clip(playhead_seconds, effective_duration);
                                 let clip_gain = timeline_clip.get_gain();
                                 let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 
@@ -731,8 +731,8 @@ impl AudioGraph {
                         if playhead_seconds >= timeline_clip.start_time
                             && playhead_seconds < clip_end
                         {
-                            let time_in_clip =
-                                playhead_seconds - timeline_clip.start_time + timeline_clip.offset;
+                            let time_in_clip = timeline_clip
+                                .time_in_clip(playhead_seconds, effective_duration);
                             let clip_gain = timeline_clip.get_gain();
                             let pitch_ratio = f64::from(timeline_clip.get_pitch_ratio());
 

@@ -18,6 +18,11 @@ enum AutomationParameter {
     this.defaultValue,
   );
 
+  /// Parameters the engine can actually play back. Pan automation is
+  /// UI-only (no engine-side track pan automation yet), so it is hidden
+  /// from pickers until the engine supports it.
+  static const List<AutomationParameter> engineBacked = [volume];
+
   /// Get center value (useful for pan)
   double get centerValue => (minValue + maxValue) / 2;
 

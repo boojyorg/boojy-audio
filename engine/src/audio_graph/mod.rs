@@ -367,6 +367,7 @@ impl AudioGraph {
             cached_stretch_factor: 0.0,
             transpose_semitones: 0,
             transpose_cents: 0,
+            reversed: false,
             volume_automation: Vec::new(),
             pan_automation: Vec::new(),
         });
@@ -440,6 +441,7 @@ impl AudioGraph {
                 cached_stretch_factor: 0.0,
                 transpose_semitones: 0,
                 transpose_cents: 0,
+                reversed: false,
                 volume_automation: Vec::new(),
                 pan_automation: Vec::new(),
             });
@@ -477,6 +479,7 @@ impl AudioGraph {
                 cached_stretch_factor: 0.0,
                 transpose_semitones: 0,
                 transpose_cents: 0,
+                reversed: false,
                 volume_automation: Vec::new(),
                 pan_automation: Vec::new(),
             });

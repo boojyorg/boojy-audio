@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import '../models/track_automation_data.dart';
 
 /// Manages track automation state including lanes, points, and visibility.
-/// Implements one-track-at-a-time visibility for automation lanes.
+/// Visibility is global (GarageBand model): one toggle shows every track's
+/// lane at once.
 class AutomationController extends ChangeNotifier {
   // Automation data per track: Map<trackId, Map<parameter, lane>>
   final Map<int, Map<AutomationParameter, TrackAutomationLane>>
   _trackAutomation = {};
 
-  // Visibility state (one track at a time)
-  int? _visibleTrackId;
+  // Global visibility (all tracks at once)
+  bool _visible = false;
   AutomationParameter _visibleParameter = AutomationParameter.volume;
 
   // Getters
-  int? get visibleTrackId => _visibleTrackId;
+  bool get visible => _visible;
   AutomationParameter get visibleParameter => _visibleParameter;
-  bool get hasVisibleAutomation => _visibleTrackId != null;
 
   /// Get all track IDs that have automation data
   Iterable<int> get allTrackIds => _trackAutomation.keys;
@@ -23,23 +23,6 @@ class AutomationController extends ChangeNotifier {
   /// Get automation lane for a track/parameter
   TrackAutomationLane? getLane(int trackId, AutomationParameter param) {
     return _trackAutomation[trackId]?[param];
-  }
-
-  /// Get the currently visible lane (if any)
-  TrackAutomationLane? get visibleLane {
-    if (_visibleTrackId == null) return null;
-    return getLane(_visibleTrackId!, _visibleParameter);
-  }
-
-  /// Check if automation is visible for a specific track
-  bool isAutomationVisibleForTrack(int trackId) {
-    return _visibleTrackId == trackId;
-  }
-
-  /// Get the automation parameter for a track (null if not visible)
-  AutomationParameter? getParameterForTrack(int trackId) {
-    if (_visibleTrackId == trackId) return _visibleParameter;
-    return null;
   }
 
   /// Check if a track has any automation points
@@ -54,28 +37,15 @@ class AutomationController extends ChangeNotifier {
     return _trackAutomation[trackId]?[param]?.hasAutomation ?? false;
   }
 
-  /// Show automation lane for a track (hides others - one track at a time)
-  void showAutomationForTrack(int trackId) {
-    _visibleTrackId = trackId;
-    // Create empty lanes if they don't exist
-    _ensureLanesExist(trackId);
+  /// Show/hide automation lanes for all tracks
+  set visible(bool value) {
+    if (_visible == value) return;
+    _visible = value;
     notifyListeners();
   }
 
-  /// Hide automation (for all tracks)
-  void hideAutomation() {
-    _visibleTrackId = null;
-    notifyListeners();
-  }
-
-  /// Toggle automation visibility for a track
-  void toggleAutomationForTrack(int trackId) {
-    if (_visibleTrackId == trackId) {
-      hideAutomation();
-    } else {
-      showAutomationForTrack(trackId);
-    }
-  }
+  /// Toggle global automation lane visibility
+  void toggleVisible() => visible = !_visible;
 
   /// Set the visible parameter (Volume, Pan)
   void setVisibleParameter(AutomationParameter param) {
@@ -138,9 +108,6 @@ class AutomationController extends ChangeNotifier {
   /// Clear all automation for a track
   void clearTrackAutomation(int trackId) {
     _trackAutomation.remove(trackId);
-    if (_visibleTrackId == trackId) {
-      _visibleTrackId = null;
-    }
     notifyListeners();
   }
 
@@ -211,7 +178,7 @@ class AutomationController extends ChangeNotifier {
   /// Load from JSON
   void loadFromJson(Map<String, dynamic>? json) {
     _trackAutomation.clear();
-    _visibleTrackId = null;
+    _visible = false;
     _visibleParameter = AutomationParameter.volume;
 
     if (json == null) return;
@@ -248,7 +215,7 @@ class AutomationController extends ChangeNotifier {
   /// Clear all state (for new project)
   void clear() {
     _trackAutomation.clear();
-    _visibleTrackId = null;
+    _visible = false;
     _visibleParameter = AutomationParameter.volume;
     notifyListeners();
   }

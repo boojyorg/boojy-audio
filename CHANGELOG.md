@@ -6,6 +6,21 @@ All notable changes to Boojy Audio will be documented in this file.
 
 ### Features
 
+- **Volume automation lanes are now on.** One Automation button above the mixer strips shows
+  every track's volume lane in the timeline at once (GarageBand-style); click again to hide
+  them. Draw points and hear the curve on playback and in exports. Drawing, moving and erasing
+  points are all undoable (a drag is one undo step). The strip's normal controls stay put when
+  lanes open — the lane-aligned space below gains a parameter dropdown, a live value readout
+  while dragging points, and a reset button that clears the lane (undoable). Pan automation
+  stays hidden until the engine can play it back — no controls that silently do nothing.
+- **Reverse now actually reverses the audio.** The Reverse toggle in the audio editor used to
+  flip the waveform on screen but play the clip forwards; the engine now plays the clip's
+  audible window backwards, in live playback and in exports, with warp and transpose still
+  honoured.
+- **Input monitoring toggle on armed audio tracks.** While an audio track is record-armed, a
+  green "I" button appears next to M/S/R to control whether you hear your live input — the
+  feedback escape hatch, shown exactly when it matters. Arming turns monitoring on by default;
+  disarming hides the button again.
 - **Drum Kit — make your first beat.** A new Drum Kit instrument: a multi-pad one-shot sampler
   with a step sequencer (Layout A: pad detail on the left, step grid on the right). Click cells
   to place hits, drag a sample from the Library straight onto a pad row to load it, and tweak
@@ -25,6 +40,13 @@ All notable changes to Boojy Audio will be documented in this file.
 
 - **Library folder names now display correctly on Windows.** Folder scanning split paths on `/`
   only, so Windows paths showed their full path as the name.
+- **Saved clip processing is audible again after reopening a project.** Per-clip gain, warp,
+  transpose and reverse were stored with the project but never re-sent to the engine on load —
+  they only kicked in once you opened the audio editor for that clip. They are now re-applied
+  as part of project load.
+- **Input monitoring on interfaces with more than two inputs.** Inputs 3, 5, 7… always
+  monitored the right channel; even/odd inputs now map to left/right of the captured stereo
+  pair (C9).
 
 ## v0.5.4 — 2026-06-06
 

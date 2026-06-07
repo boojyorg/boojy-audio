@@ -92,6 +92,7 @@ class AutomationCallbacks {
   final Function(int trackId, AutomationPoint point)? onPointAdded;
   final Function(int trackId, String pointId, AutomationPoint point)?
   onPointUpdated;
+  final Function(int trackId, String pointId)? onPointDragEnd;
   final Function(int trackId, String pointId)? onPointDeleted;
   final Function(int trackId, double? value)? onPreviewValue;
   final TrackAutomationLane? Function(int trackId)? getAutomationLane;
@@ -99,6 +100,7 @@ class AutomationCallbacks {
   const AutomationCallbacks({
     this.onPointAdded,
     this.onPointUpdated,
+    this.onPointDragEnd,
     this.onPointDeleted,
     this.onPreviewValue,
     this.getAutomationLane,

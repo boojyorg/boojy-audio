@@ -64,27 +64,23 @@ class MixerInstrumentCallbacks {
   });
 }
 
-/// Grouped state/config for mixer automation controls
+/// Grouped state/config for mixer automation controls.
+/// Visibility is global: one toggle shows every track's lane. Each strip's
+/// lane-aligned section gets the shared parameter + a per-track reset.
 class MixerAutomationState {
-  final int? visibleTrackId;
-  final Function(int trackId)? onToggle;
-  final double pixelsPerBeat;
-  final double totalBeats;
-  final AutomationParameter Function(int trackId)? getSelectedParameter;
-  final Function(int trackId, AutomationParameter param)? onParameterChanged;
-  final Function(int trackId)? onResetParameter;
-  final Function(int trackId)? onAddParameter;
+  final bool visible;
+  final VoidCallback? onToggle;
+  final AutomationParameter parameter;
+  final ValueChanged<AutomationParameter>? onParameterChanged;
+  final void Function(int trackId)? onReset;
   final ValueNotifier<Map<int, double?>>? previewNotifier;
 
   const MixerAutomationState({
-    this.visibleTrackId,
+    this.visible = false,
     this.onToggle,
-    this.pixelsPerBeat = 20.0,
-    this.totalBeats = 256.0,
-    this.getSelectedParameter,
+    this.parameter = AutomationParameter.volume,
     this.onParameterChanged,
-    this.onResetParameter,
-    this.onAddParameter,
+    this.onReset,
     this.previewNotifier,
   });
 }

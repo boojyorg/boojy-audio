@@ -287,7 +287,8 @@ pub fn get_all_track_ids() -> Result<String, String> {
 
 /// Get track info (for UI display)
 ///
-/// Returns: "`track_id,name,type,volume_db,pan,mute,solo,armed`"
+/// Returns:
+/// "`track_id,name,type,volume_db,pan,mute,solo,armed,input_device,input_channel,input_monitoring`"
 pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
     let graph_mutex = get_audio_graph()?;
     let graph = graph_mutex.lock();
@@ -304,7 +305,7 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
         };
         let input_device = track.input_device_index.map_or(-1, |i| i as i32);
         Ok(format!(
-            "{},{},{},{:.2},{:.2},{},{},{},{},{}",
+            "{},{},{},{:.2},{:.2},{},{},{},{},{},{}",
             track.id,
             // Percent-encoded: a comma in the name must not shift the fields
             // after it (C34). Dart decodes via decodeCsvField.
@@ -316,7 +317,8 @@ pub fn get_track_info(track_id: TrackId) -> Result<String, String> {
             u8::from(track.solo),
             u8::from(track.armed),
             input_device,
-            track.input_channel
+            track.input_channel,
+            u8::from(track.input_monitoring)
         ))
     } else {
         Err(format!("Track {track_id} not found"))

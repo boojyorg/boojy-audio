@@ -39,6 +39,7 @@ class _AudioEngineBase {
   late final _SetAudioClipGainFfi _setAudioClipGain;
   late final _SetAudioClipWarpFfi _setAudioClipWarp;
   late final _SetAudioClipTransposeFfi _setAudioClipTranspose;
+  late final _SetAudioClipReverseFfi _setAudioClipReverse;
   late final _GetWaveformPeaksFfi _getWaveformPeaks;
   late final _FreeWaveformPeaksFfi _freeWaveformPeaks;
 
@@ -502,6 +503,12 @@ class _AudioEngineBase {
       _setAudioClipTranspose = _lib
           .lookup<ffi.NativeFunction<_SetAudioClipTransposeFfiNative>>(
             'set_audio_clip_transpose_ffi',
+          )
+          .asFunction();
+
+      _setAudioClipReverse = _lib
+          .lookup<ffi.NativeFunction<_SetAudioClipReverseFfiNative>>(
+            'set_audio_clip_reverse_ffi',
           )
           .asFunction();
 

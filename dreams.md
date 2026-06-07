@@ -23,8 +23,8 @@ small mixer fixes in, §6.B strip mockup still parked pending a design conversat
 
 ### Milestones
 
-- [ ] **Publish v0.5.4 draft release** (Tyr) — notes are paste-ready on the draft (verify it
-  actually went out: `gh release list` should show v0.5.4 as Latest, not Draft).
+- [x] **Publish v0.5.4 draft release** — verified 2026-06-07: `gh release list` shows v0.5.4 as
+  Latest.
 - [ ] **Windows smoke test, round 2** (Tyr, parallel to dev): 5 CLAUDE.md steps + Save As
   (native dialog → `Documents\Boojy\Audio\Projects`), Open round-trip, Export WAV. Failures →
   small v0.5.5 before any v0.6 tag; suspects = Rust `save_project` / `project_manager_native`
@@ -34,8 +34,11 @@ small mixer fixes in, §6.B strip mockup still parked pending a design conversat
 - [x] **PR3 — starter kit** (#66 merged): 23 CC0/in-house WAVs bundled + first-use copy-out +
   8 pads pre-loaded on create (GM notes 36/38/42/46/39/41/47/49) + Samples category wired
   (+ fixed: top-level category items never rendered; + Windows `p.basename` fix in scanFolder).
-- [ ] **Sound quick wins** (NEXT): automation flag-flip + QA · reverse-audio FFI · input
-  monitoring UI.
+- [x] **Sound quick wins** (2026-06-07, PR pending): automation flag-flip (volume-only — pan +
+  clip-lane hidden behind honest flags, lane gestures undoable) · reverse-audio FFI + engine DSP
+  (+ load-time re-push of all clip edit params — was silently lost on reopen) · input monitoring
+  "I" toggle on audio strips (+ C9 even/odd channel fix). Manual QA owed: Tyr walkthrough per
+  v0.6-plan §verify step 2.
 - [ ] **Join clips as Commands** (fixes C37/C50) → **normalize** → **UI batches 5–8** per plan.
 
 **Carried decisions:** ASIO deferred (WASAPI right for beginners). Windows machine = per-release
