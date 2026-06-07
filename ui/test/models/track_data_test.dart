@@ -4,9 +4,9 @@ import 'package:boojy_audio/models/track_data.dart';
 void main() {
   group('TrackData', () {
     group('fromCSV', () {
-      test('parses 10-field format (full)', () {
+      test('parses 11-field format (full, with input monitoring)', () {
         final track = TrackData.fromCSV(
-          '1,Piano,midi,-6.0,0.3,false,true,false,2,1',
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,1,0',
         );
 
         expect(track, isNotNull);
@@ -20,6 +20,27 @@ void main() {
         expect(track.armed, false);
         expect(track.inputDeviceIndex, 2);
         expect(track.inputChannel, 1);
+        expect(track.inputMonitoring, false);
+      });
+
+      test('parses inputMonitoring as "1"', () {
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,1,1',
+        );
+
+        expect(track, isNotNull);
+        expect(track!.inputMonitoring, true);
+      });
+
+      test('parses 10-field format (monitoring defaults true)', () {
+        final track = TrackData.fromCSV(
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,1',
+        );
+
+        expect(track, isNotNull);
+        expect(track!.inputDeviceIndex, 2);
+        expect(track.inputChannel, 1);
+        expect(track.inputMonitoring, true);
       });
 
       test('decodes a percent-encoded name with a comma (C34)', () {
@@ -179,13 +200,16 @@ void main() {
           inputChannel: 1,
         );
 
-        expect(track.toCSV(), '1,Piano,midi,-6.0,0.3,false,true,false,2,1');
+        expect(
+          track.toCSV(),
+          '1,Piano,midi,-6.0,0.3,false,true,false,2,1,true',
+        );
       });
 
       test(
         'roundtrip: fromCSV -> toCSV -> fromCSV produces identical data',
         () {
-          const csv = '3,Synth,midi,-12.0,0.7,true,false,true,4,2';
+          const csv = '3,Synth,midi,-12.0,0.7,true,false,true,4,2,0';
           final track1 = TrackData.fromCSV(csv)!;
           final csv2 = track1.toCSV();
           final track2 = TrackData.fromCSV(csv2)!;
@@ -200,6 +224,7 @@ void main() {
           expect(track2.armed, track1.armed);
           expect(track2.inputDeviceIndex, track1.inputDeviceIndex);
           expect(track2.inputChannel, track1.inputChannel);
+          expect(track2.inputMonitoring, track1.inputMonitoring);
         },
       );
     });
@@ -287,6 +312,12 @@ void main() {
       test('updates inputChannel only', () {
         final copy = original.copyWith(inputChannel: 3);
         expect(copy.inputChannel, 3);
+      });
+
+      test('updates inputMonitoring only', () {
+        final copy = original.copyWith(inputMonitoring: false);
+        expect(copy.inputMonitoring, false);
+        expect(copy.armed, original.armed);
       });
 
       test('updates multiple fields', () {

@@ -60,7 +60,6 @@ import '../widgets/project_settings_dialog.dart';
 import '../widgets/export_dialog.dart';
 import '../models/project_version.dart';
 import '../models/version_type.dart';
-import '../models/track_automation_data.dart';
 import '../services/version_manager.dart';
 import '../services/clip_naming_service.dart';
 import '../services/midi_file_service.dart';
@@ -3750,40 +3749,10 @@ class _DAWScreenState extends State<DAWScreen>
             onCreateClipOnTrack: _onCreateClipOnTrack,
           ),
           automationCallbacks: AutomationCallbacks(
-            onPointAdded: (trackId, point) {
-              automationController.addPoint(
-                trackId,
-                automationController.visibleParameter,
-                point,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
-            onPointUpdated: (trackId, pointId, point) {
-              automationController.updatePoint(
-                trackId,
-                automationController.visibleParameter,
-                pointId,
-                point,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
-            onPointDeleted: (trackId, pointId) {
-              automationController.removePoint(
-                trackId,
-                automationController.visibleParameter,
-                pointId,
-              );
-              if (automationController.visibleParameter ==
-                  AutomationParameter.volume) {
-                syncVolumeAutomationToEngine(trackId);
-              }
-            },
+            onPointAdded: onAutomationPointAdded,
+            onPointUpdated: onAutomationPointUpdated,
+            onPointDragEnd: onAutomationPointDragEnd,
+            onPointDeleted: onAutomationPointDeleted,
             onPreviewValue: onAutomationPreviewValue,
             getAutomationLane: (trackId) => automationController.getLane(
               trackId,
@@ -3835,7 +3804,7 @@ class _DAWScreenState extends State<DAWScreen>
           isRecording: isRecording,
           masterTimelineVisible: masterTimelineVisible,
           // Automation state
-          automationVisibleTrackId: automationController.visibleTrackId,
+          automationVisible: automationController.visible,
           automationScrollController:
               timelineKey.currentState?.scrollController,
         ),
@@ -3970,40 +3939,10 @@ class _DAWScreenState extends State<DAWScreen>
                 ),
                 onMasterTrackHeightChanged: setMasterTrackHeight,
                 automationCallbacks: AutomationCallbacks(
-                  onPointAdded: (trackId, point) {
-                    automationController.addPoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      point,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
-                  onPointUpdated: (trackId, pointId, point) {
-                    automationController.updatePoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      pointId,
-                      point,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
-                  onPointDeleted: (trackId, pointId) {
-                    automationController.removePoint(
-                      trackId,
-                      automationController.visibleParameter,
-                      pointId,
-                    );
-                    if (automationController.visibleParameter ==
-                        AutomationParameter.volume) {
-                      syncVolumeAutomationToEngine(trackId);
-                    }
-                  },
+                  onPointAdded: onAutomationPointAdded,
+                  onPointUpdated: onAutomationPointUpdated,
+                  onPointDragEnd: onAutomationPointDragEnd,
+                  onPointDeleted: onAutomationPointDeleted,
                   onPreviewValue: onAutomationPreviewValue,
                   getAutomationLane: (trackId) => automationController.getLane(
                     trackId,
@@ -4011,36 +3950,19 @@ class _DAWScreenState extends State<DAWScreen>
                   ),
                 ),
                 automationState: MixerAutomationState(
-                  visibleTrackId: automationController.visibleTrackId,
-                  onToggle: (trackId) {
+                  visible: automationController.visible,
+                  onToggle: () {
                     setState(() {
-                      automationController.toggleAutomationForTrack(trackId);
+                      automationController.toggleVisible();
                     });
                   },
-                  pixelsPerBeat:
-                      timelineKey.currentState?.pixelsPerBeat ?? 20.0,
-                  totalBeats: 256.0,
-                  getSelectedParameter: (trackId) =>
-                      automationController.visibleParameter,
-                  onParameterChanged: (trackId, param) {
+                  parameter: automationController.visibleParameter,
+                  onParameterChanged: (param) {
                     setState(() {
                       automationController.setVisibleParameter(param);
                     });
                   },
-                  onResetParameter: (trackId) {
-                    // Reset the parameter to its default value
-                    final param = automationController.visibleParameter;
-                    if (param == AutomationParameter.volume) {
-                      audioEngine?.setTrackVolume(trackId, 0.0); // 0 dB
-                      setState(() {}); // Trigger UI update
-                    } else if (param == AutomationParameter.pan) {
-                      audioEngine?.setTrackPan(trackId, 0.0); // Center
-                      setState(() {}); // Trigger UI update
-                    }
-                  },
-                  onAddParameter: (trackId) {
-                    // Future: Additional automation params (send levels, plugin params) (v0.4.0)
-                  },
+                  onReset: onAutomationLaneCleared,
                   previewNotifier: automationPreviewNotifier,
                 ),
               ),

@@ -45,6 +45,8 @@ pub struct TimelineClip {
     pub transpose_semitones: i32,
     /// Fine pitch adjustment in cents (-50 to +50)
     pub transpose_cents: i32,
+    /// Play the clip's audible window backwards
+    pub reversed: bool,
 
     // --- Clip-based Automation ---
     /// Volume automation curve (time in beats relative to clip start)
@@ -66,6 +68,20 @@ impl TimelineClip {
         } else {
             10_f32.powf(self.gain_db / 20.0)
         }
+    }
+
+    /// Playback position within the clip source in seconds (pre-warp/pitch).
+    /// Honors the `reversed` flag by reflecting progress within the clip's
+    /// audible window, so all downstream warp/pitch math applies unchanged.
+    /// `effective_duration` is the clip's on-timeline duration (post-warp).
+    pub fn time_in_clip(&self, playhead_seconds: f64, effective_duration: f64) -> f64 {
+        let progress = playhead_seconds - self.start_time;
+        let progress = if self.reversed {
+            (effective_duration - progress).max(0.0)
+        } else {
+            progress
+        };
+        progress + self.offset
     }
 
     /// Get pitch shift ratio for playback
@@ -714,6 +730,62 @@ mod tests {
         let (left, right) = track.get_pan_gains();
         assert!(left < 0.01);
         assert!((right - 1.0).abs() < 0.01);
+    }
+
+    fn make_timeline_clip(start_time: f64, offset: f64, duration_seconds: f64) -> TimelineClip {
+        let frames = (duration_seconds * 48000.0) as usize;
+        let clip = AudioClip {
+            samples: vec![0.0; frames],
+            channels: 1,
+            sample_rate: 48000,
+            duration_seconds,
+            file_path: String::new(),
+        };
+        TimelineClip {
+            id: 1,
+            clip: Arc::new(clip),
+            start_time,
+            offset,
+            duration: None,
+            gain_db: 0.0,
+            warp_enabled: false,
+            stretch_factor: 1.0,
+            warp_mode: 0,
+            stretched_cache: None,
+            cached_stretch_factor: 0.0,
+            transpose_semitones: 0,
+            transpose_cents: 0,
+            reversed: false,
+            volume_automation: Vec::new(),
+            pan_automation: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_time_in_clip_forward() {
+        let clip = make_timeline_clip(10.0, 0.5, 4.0);
+        // 1.5s into the clip on the timeline → 1.5s progress + 0.5s offset
+        assert!((clip.time_in_clip(11.5, 4.0) - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_time_in_clip_reversed_reflects_window() {
+        let mut clip = make_timeline_clip(10.0, 0.5, 4.0);
+        clip.reversed = true;
+        // At clip start, reversed playback reads from the end of the window
+        assert!((clip.time_in_clip(10.0, 4.0) - 4.5).abs() < 1e-9);
+        // 1.5s in → mirrored to 2.5s progress + offset
+        assert!((clip.time_in_clip(11.5, 4.0) - 3.0).abs() < 1e-9);
+        // Near clip end, reversed playback approaches the window start (offset)
+        assert!((clip.time_in_clip(14.0, 4.0) - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_time_in_clip_reversed_clamps_past_end() {
+        let mut clip = make_timeline_clip(0.0, 0.0, 2.0);
+        clip.reversed = true;
+        // Past the clip window, progress reflection clamps at 0 (no negative reads)
+        assert!((clip.time_in_clip(5.0, 2.0) - 0.0).abs() < 1e-9);
     }
 
     #[test]

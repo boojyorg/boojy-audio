@@ -55,25 +55,12 @@ class TrackMixerStrip extends StatefulWidget {
   final VoidCallback? onSoloToggle;
   final VoidCallback? onArmToggle; // Toggle recording arm (exclusive)
   final VoidCallback? onArmShiftClick; // Shift+click for multi-arm mode
-  final VoidCallback? onAutomationToggle; // Toggle automation lane visibility
+  final VoidCallback? onMonitorToggle; // Toggle input monitoring (audio tracks)
   final bool showAutomation; // Whether automation lane is visible
+  final AutomationParameter selectedParameter; // Lane parameter (dropdown)
+  final Function(AutomationParameter)? onParameterChanged;
+  final VoidCallback? onResetAutomation; // Clear all points on the lane
 
-  // Automation parameter controls
-  final AutomationParameter selectedParameter; // Currently selected parameter
-  final Function(AutomationParameter)?
-  onParameterChanged; // Parameter dropdown changed
-  final VoidCallback? onResetParameter; // Reset parameter to default
-  final VoidCallback? onAddParameter; // Add another parameter lane
-
-  // Automation lane data (for inline lane in mixer)
-  final TrackAutomationLane? automationLane;
-  final double pixelsPerBeat;
-  final double totalBeats;
-  final Function(AutomationPoint)? onAutomationPointAdded;
-  final Function(String pointId, AutomationPoint)? onAutomationPointUpdated;
-  final Function(String pointId)? onAutomationPointDeleted;
-  final Function(double? value)?
-  onPreviewValue; // Callback for live value display during drag
   final double? previewParameterValue; // Live preview value during drag
 
   final Function(bool isShiftHeld)?
@@ -85,6 +72,7 @@ class TrackMixerStrip extends StatefulWidget {
   final Function(String)? onNameChanged; // Inline rename callback
   final bool isSelected; // Track selection state
   final bool isArmed; // Recording arm state
+  final bool inputMonitoring; // Hear live input while armed (audio tracks)
 
   // MIDI instrument selection
   final InstrumentData? instrumentData;
@@ -159,19 +147,11 @@ class TrackMixerStrip extends StatefulWidget {
     this.onSoloToggle,
     this.onArmToggle,
     this.onArmShiftClick,
-    this.onAutomationToggle,
+    this.onMonitorToggle,
     this.showAutomation = false,
     this.selectedParameter = AutomationParameter.volume,
     this.onParameterChanged,
-    this.onResetParameter,
-    this.onAddParameter,
-    this.automationLane,
-    this.pixelsPerBeat = 20.0,
-    this.totalBeats = 256.0,
-    this.onAutomationPointAdded,
-    this.onAutomationPointUpdated,
-    this.onAutomationPointDeleted,
-    this.onPreviewValue,
+    this.onResetAutomation,
     this.previewParameterValue,
     this.onTap,
     this.onDoubleTap,
@@ -181,6 +161,7 @@ class TrackMixerStrip extends StatefulWidget {
     this.onNameChanged,
     this.isSelected = false,
     this.isArmed = false,
+    this.inputMonitoring = true,
     this.instrumentData,
     this.onInstrumentSelect,
     this.vst3PluginCount = 0,
@@ -426,66 +407,173 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               ),
             ],
           ),
-          // Row 2: Automation SplitButton + dB + Volume Slider
-          // Check for volume preview during automation drag
-          Builder(
-            builder: (context) {
-              // Use preview value if dragging volume automation
-              final hasVolumePreview =
-                  widget.previewParameterValue != null &&
-                  widget.selectedParameter == AutomationParameter.volume;
-              final displayVolumeDb = hasVolumePreview
-                  ? VolumeConversion.normalizedToDb(
-                      widget.previewParameterValue!,
-                    )
-                  : widget.volumeDb;
-
-              return SizedBox(
-                height: rowHeight,
-                child: Row(
-                  children: [
-                    // Automation SplitButton (Icon+Auto | dropdown)
-                    if (UIConstants.enableAutomation) ...[
-                      _buildAutomationButton(context, rowHeight),
-                      const SizedBox(width: 4),
-                    ],
-                    // dB value display — drag vertically to scrub, click to type.
-                    VolumeReadoutBox(
-                      volumeDb: displayVolumeDb,
-                      onVolumeChanged: widget.onVolumeChanged,
-                      onVolumeDragStart: widget.onVolumeDragStart,
-                      onVolumeDragEnd: widget.onVolumeDragEnd,
-                      width: dbContainerWidth,
-                      fontSize: dbFontSize,
-                      textColor: hasVolumePreview
-                          ? context.colors.textPrimary
-                          : context.colors.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    // Volume Slider (height scales, X position fixed)
-                    Expanded(
-                      child: CapsuleFader(
-                        leftLevel: widget.peakLevelLeft,
-                        rightLevel: widget.peakLevelRight,
-                        volumeDb: displayVolumeDb,
-                        onVolumeChanged: widget.onVolumeChanged,
-                        onDragStart: widget.onVolumeDragStart,
-                        onDragEnd: widget.onVolumeDragEnd,
-                        onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
-                        inputLevel: widget.isArmed ? widget.inputLevel : null,
-                      ),
-                    ),
-                  ],
+          // Row 2: dB + Volume Slider
+          SizedBox(
+            height: rowHeight,
+            child: Row(
+              children: [
+                // dB value display — drag vertically to scrub, click to type.
+                VolumeReadoutBox(
+                  volumeDb: widget.volumeDb,
+                  onVolumeChanged: widget.onVolumeChanged,
+                  onVolumeDragStart: widget.onVolumeDragStart,
+                  onVolumeDragEnd: widget.onVolumeDragEnd,
+                  width: dbContainerWidth,
+                  fontSize: dbFontSize,
+                  textColor: context.colors.textSecondary,
                 ),
-              );
-            },
+                const SizedBox(width: 8),
+                // Volume Slider (height scales, X position fixed)
+                Expanded(
+                  child: CapsuleFader(
+                    leftLevel: widget.peakLevelLeft,
+                    rightLevel: widget.peakLevelRight,
+                    volumeDb: widget.volumeDb,
+                    onVolumeChanged: widget.onVolumeChanged,
+                    onDragStart: widget.onVolumeDragStart,
+                    onDragEnd: widget.onVolumeDragEnd,
+                    onDoubleTap: () => widget.onVolumeChanged?.call(0.0),
+                    inputLevel: widget.isArmed ? widget.inputLevel : null,
+                  ),
+                ),
+              ],
+            ),
           ),
-          // Row 3-4: Automation Controls (only when visible)
-          if (UIConstants.enableAutomation && widget.showAutomation)
-            _buildAutomationControlsSection(context),
           // Send rows (when sends exist)
           if (widget.sends.isNotEmpty) _buildSendRows(context),
         ],
+      ),
+    );
+  }
+
+  /// Automation controls in the lane-aligned space below the normal strip
+  /// rows: [Volume ▾] parameter dropdown + value readout + clear-lane reset.
+  Widget _buildAutomationSection(BuildContext context) {
+    final colors = context.colors;
+    const double rowHeight = 20.0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
+      ),
+      child: ClipRect(
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildParameterDropdown(context, rowHeight),
+                const SizedBox(width: 4),
+                _buildParameterValueDisplay(context, rowHeight),
+                const SizedBox(width: 4),
+                _buildResetButton(context, rowHeight),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Parameter dropdown ([Volume ▾]; gains entries as the engine grows)
+  Widget _buildParameterDropdown(BuildContext context, double rowHeight) {
+    final colors = context.colors;
+
+    return Container(
+      height: rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: colors.dark,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<AutomationParameter>(
+          value: widget.selectedParameter,
+          isDense: true,
+          dropdownColor: colors.elevated,
+          icon: Icon(BI.caretDown, size: 14, color: colors.textSecondary),
+          style: TextStyle(color: colors.textPrimary, fontSize: 10),
+          // Only engine-backed parameters — pan automation is UI-only today.
+          items: AutomationParameter.engineBacked.map((p) {
+            return DropdownMenuItem<AutomationParameter>(
+              value: p,
+              child: Text(p.displayName),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              widget.onParameterChanged?.call(value);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Automation value readout — live point value during a drag, otherwise
+  /// the track's current volume.
+  Widget _buildParameterValueDisplay(BuildContext context, double rowHeight) {
+    final colors = context.colors;
+    final hasPreview = widget.previewParameterValue != null;
+
+    final String valueText;
+    if (hasPreview) {
+      // Preview value is normalized (0-1), convert to dB
+      valueText = VolumeConversion.normalizedToDisplayString(
+        widget.previewParameterValue!,
+      );
+    } else {
+      valueText = widget.volumeDb <= -60.0
+          ? '-∞ dB'
+          : '${widget.volumeDb.toStringAsFixed(1)} dB';
+    }
+
+    return Container(
+      width: UIConstants.dbContainerWidth,
+      height: rowHeight,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.darkest,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        valueText,
+        maxLines: 1,
+        style: TextStyle(
+          color: hasPreview ? colors.textPrimary : colors.textSecondary,
+          fontSize: UIConstants.dbFontSize,
+        ),
+      ),
+    );
+  }
+
+  /// Reset button — clears every point on the lane (undoable)
+  Widget _buildResetButton(BuildContext context, double rowHeight) {
+    final colors = context.colors;
+
+    return Tooltip(
+      message: 'Clear automation points',
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        onTap: widget.onResetAutomation,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            width: rowHeight,
+            height: rowHeight,
+            decoration: BoxDecoration(
+              color: colors.dark,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Icon(
+              BI.refresh,
+              size: rowHeight * 0.6,
+              color: colors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -584,13 +672,12 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
 
   /// 1-row layout for heights below 50px.
   /// Width-responsive: controls drop off progressively to protect fader width.
-  /// Drop order: automation → dB → pan → R → M/S → (name + fader always visible)
+  /// Drop order: dB → pan → R → M/S → (name + fader always visible)
   Widget _buildOneRowLayout(BuildContext context) {
     final colors = context.colors;
     final width = widget.stripWidth;
 
     // Width breakpoints — controls drop to give fader more space
-    final showAutomation = width >= 380;
     final showDb = width >= 350;
     final showPan = width >= 280;
     final showRecord = width >= 220;
@@ -631,19 +718,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             ),
           ),
           const SizedBox(width: BT.xs),
-
-          // Automation button (first to drop)
-          if (UIConstants.enableAutomation && showAutomation) ...[
-            GestureDetector(
-              onTap: widget.onAutomationToggle,
-              child: Icon(
-                BI.chartLine,
-                size: buttonSize,
-                color: widget.showAutomation ? colors.accent : colors.textMuted,
-              ),
-            ),
-            const SizedBox(width: BT.xs),
-          ],
 
           // M/S/R buttons (drop R first, then M/S)
           if (showMsr) ...[
@@ -799,191 +873,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
             fontSize: size * 0.55,
             fontWeight: BT.weightSemiBold,
           ),
-        ),
-      ),
-    );
-  }
-
-  /// Build automation controls section (parameter row)
-  /// Row 3: [ + ] + [Volume ▼] dropdown + [value] + [↺] reset
-  Widget _buildAutomationControlsSection(BuildContext context) {
-    final scale = _scaleFactor;
-    final rowHeight = _lerp(20, 24, scale);
-    final fontSize = _lerp(9, 10, scale);
-    final param = widget.selectedParameter;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: SizedBox(
-        height: rowHeight,
-        child: Row(
-          children: [
-            // [ + ] add parameter button (shorter, wider)
-            _buildAddParameterButton(context, fontSize, rowHeight),
-            const SizedBox(width: 4),
-            // [Volume ▼] dropdown
-            _buildParameterDropdown(context, fontSize, rowHeight),
-            const SizedBox(width: 4),
-            // [value] display
-            _buildParameterValueDisplay(context, param, fontSize),
-            const SizedBox(width: 4),
-            // [↺] reset button
-            _buildResetButton(context, rowHeight),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build parameter dropdown (Volume, Pan, etc.)
-  Widget _buildParameterDropdown(
-    BuildContext context,
-    double fontSize,
-    double rowHeight,
-  ) {
-    final colors = context.colors;
-    final param = widget.selectedParameter;
-
-    return Container(
-      height: rowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: colors.dark,
-        borderRadius: BorderRadius.circular(2),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<AutomationParameter>(
-          value: param,
-          isDense: true,
-          dropdownColor: colors.elevated,
-          icon: Icon(BI.caretDown, size: 14, color: colors.textSecondary),
-          style: TextStyle(color: colors.textPrimary, fontSize: fontSize),
-          items: AutomationParameter.values.map((p) {
-            return DropdownMenuItem<AutomationParameter>(
-              value: p,
-              child: Text(p.displayName),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              widget.onParameterChanged?.call(value);
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  /// Build parameter value display (matches volume display style above)
-  Widget _buildParameterValueDisplay(
-    BuildContext context,
-    AutomationParameter param,
-    double fontSize,
-  ) {
-    final colors = context.colors;
-    final hasPreview = widget.previewParameterValue != null;
-    const double dbFontSize = UIConstants.dbFontSize; // Match volume display
-    const double containerWidth =
-        UIConstants.dbContainerWidth; // Match volume display width
-
-    // Get current value based on parameter type
-    // Use preview value during drag if available
-    final String valueText;
-    if (param == AutomationParameter.volume) {
-      if (hasPreview) {
-        // Preview value is normalized (0-1), convert to dB
-        valueText = VolumeConversion.normalizedToDisplayString(
-          widget.previewParameterValue!,
-        );
-      } else {
-        valueText = widget.volumeDb <= -60.0
-            ? '-∞ dB'
-            : '${widget.volumeDb.toStringAsFixed(1)} dB';
-      }
-    } else if (param == AutomationParameter.pan) {
-      final panValue = hasPreview ? widget.previewParameterValue! : widget.pan;
-      if (panValue == 0) {
-        valueText = 'C';
-      } else if (panValue < 0) {
-        valueText = '${(panValue * 100).abs().toInt()}L';
-      } else {
-        valueText = '${(panValue * 100).toInt()}R';
-      }
-    } else {
-      valueText = '0';
-    }
-
-    return Container(
-      width: containerWidth,
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-      decoration: BoxDecoration(
-        color: colors.darkest,
-        borderRadius: BorderRadius.circular(3), // Match volume display
-      ),
-      child: Text(
-        valueText,
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.clip,
-        style: TextStyle(
-          color: hasPreview
-              ? colors.textPrimary
-              : colors.textSecondary, // Highlight during drag
-          fontSize: dbFontSize, // Match volume display
-          fontFamily: BT.fontFamilyMono,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
-  }
-
-  /// Build reset button
-  Widget _buildResetButton(BuildContext context, double rowHeight) {
-    final colors = context.colors;
-
-    return GestureDetector(
-      onTap: widget.onResetParameter,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: rowHeight,
-          height: rowHeight,
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Icon(
-            BI.refresh,
-            size: rowHeight * 0.6,
-            color: colors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Build add parameter button (shorter and wider)
-  Widget _buildAddParameterButton(
-    BuildContext context,
-    double fontSize,
-    double rowHeight,
-  ) {
-    final colors = context.colors;
-    final buttonHeight = rowHeight * 0.75; // Shorter than row height
-
-    return GestureDetector(
-      onTap: widget.onAddParameter,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          height: buttonHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 10), // Wider padding
-          decoration: BoxDecoration(
-            color: colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Icon(BI.add, size: fontSize + 2, color: colors.textSecondary),
         ),
       ),
     );
@@ -1294,7 +1183,22 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
                             ),
                           ),
                   ),
-                  child: _buildStandardLayout(context, isHovered),
+                  // When the automation lane is visible, the strip grows by
+                  // automationHeight — but the normal controls stay pinned in
+                  // the clipHeight area so the fader doesn't move. The extra
+                  // space hosts the lane-aligned automation controls.
+                  child: widget.showAutomation
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: widget.clipHeight,
+                              child: _buildStandardLayout(context, isHovered),
+                            ),
+                            Expanded(child: _buildAutomationSection(context)),
+                          ],
+                        )
+                      : _buildStandardLayout(context, isHovered),
                 ),
                 // Resize handle: bottom edge on regular tracks, top edge on
                 // return tracks (returns are pinned at the bottom of the mixer,
@@ -1636,6 +1540,24 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
           // Record arm button - Red when active
           _buildArmButton(canArm, buttonSize, fontSize),
         ],
+        // Input monitoring button - audio tracks only (the engine only
+        // monitors audio input; MIDI tracks have nothing to pass through).
+        // Only shown while armed: monitoring is irrelevant otherwise, and
+        // this is when the feedback escape hatch matters.
+        if (!widget.isReturnTrack &&
+            widget.isArmed &&
+            widget.trackType.toLowerCase() == 'audio' &&
+            widget.onMonitorToggle != null) ...[
+          SizedBox(width: spacing),
+          _buildControlButton(
+            'I',
+            widget.inputMonitoring,
+            context.colors.success,
+            widget.onMonitorToggle,
+            buttonSize,
+            fontSize,
+          ),
+        ],
       ],
     );
   }
@@ -1712,63 +1634,6 @@ class _TrackMixerStripState extends State<TrackMixerStrip> {
               fontSize: fontSize,
               fontWeight: BT.weightSemiBold,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Build automation toggle button (grey when off, blue when on)
-  /// Shows text only if volume slider would still be >= 80px wide
-  Widget _buildAutomationButton(BuildContext context, double rowHeight) {
-    final colors = context.colors;
-    final isActive = widget.showAutomation;
-    final buttonHeight = (rowHeight * 0.85).clamp(16.0, 22.0);
-    final fontSize = (rowHeight * 0.4).clamp(8.0, 10.0);
-    final iconSize = (rowHeight * 0.5).clamp(10.0, 14.0);
-
-    // Calculate if showing text would leave enough room for volume slider
-    // Strip width - horizontal padding (12) - dB container (56) - gaps (12) = available
-    // Button with text: ~80px, icon only: ~28px
-    // Show text if slider would be >= 80px
-    final availableForButtonAndSlider = widget.stripWidth - 12 - 56 - 12;
-    const buttonWithTextWidth = 80.0;
-    const minSliderWidth = 80.0;
-    final showText =
-        (availableForButtonAndSlider - buttonWithTextWidth) >= minSliderWidth;
-
-    return GestureDetector(
-      onTap: widget.onAutomationToggle,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          height: buttonHeight,
-          padding: EdgeInsets.symmetric(horizontal: showText ? 6 : 4),
-          decoration: BoxDecoration(
-            // Same style as piano roll toggle buttons (Legato, Reverse, etc.)
-            color: isActive ? colors.accent : colors.dark,
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.timeline,
-                size: iconSize,
-                color: isActive ? colors.elevated : colors.textPrimary,
-              ),
-              if (showText) ...[
-                const SizedBox(width: 4),
-                Text(
-                  'Automation',
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: BT.weightMedium,
-                    color: isActive ? colors.elevated : colors.textPrimary,
-                  ),
-                ),
-              ],
-            ],
           ),
         ),
       ),

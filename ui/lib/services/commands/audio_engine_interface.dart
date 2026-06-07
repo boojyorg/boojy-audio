@@ -24,6 +24,7 @@ abstract class AudioEngineInterface {
     int semitones,
     int cents,
   );
+  String setAudioClipReverse(int trackId, int clipId, {required bool reversed});
   int loadAudioFileToTrack(
     String filePath,
     int trackId, {

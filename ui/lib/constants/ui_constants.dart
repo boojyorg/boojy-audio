@@ -9,9 +9,15 @@ class UIConstants {
   // FEATURE FLAGS
   // ============================================
 
-  /// Show automation lanes in timeline, mixer, and piano roll.
+  /// Show track automation lanes in the timeline and mixer.
   /// Set to false to hide automation UI while preserving all data/engine code.
-  static const bool enableAutomation = false;
+  static const bool enableAutomation = true;
+
+  /// Show the per-clip automation lane in the piano roll.
+  /// Kept off: the engine never reads clip-level automation (no FFI setter,
+  /// no render-path caller), so the lane would be purely cosmetic. Flip only
+  /// once clip automation is wired end-to-end.
+  static const bool enableClipAutomation = false;
 
   // ============================================
   // TIMELINE CONSTANTS

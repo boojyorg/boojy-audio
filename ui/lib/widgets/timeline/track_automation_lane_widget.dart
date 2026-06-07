@@ -30,8 +30,11 @@ class TrackAutomationLaneWidget extends StatefulWidget {
   /// Called when a point is added
   final Function(AutomationPoint)? onPointAdded;
 
-  /// Called when a point is updated (moved)
+  /// Called when a point is updated (moved) — fires on every drag tick
   final Function(String pointId, AutomationPoint)? onPointUpdated;
+
+  /// Called once when a point drag ends (for undo commit)
+  final Function(String pointId)? onPointDragEnd;
 
   /// Called when a point is deleted
   final Function(String pointId)? onPointDeleted;
@@ -60,6 +63,7 @@ class TrackAutomationLaneWidget extends StatefulWidget {
     this.onParameterChanged,
     this.onPointAdded,
     this.onPointUpdated,
+    this.onPointDragEnd,
     this.onPointDeleted,
     this.onDrawValue,
     this.onHeightChanged,
@@ -192,6 +196,21 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
                       ),
                     ),
                   ),
+                ),
+              ),
+            ),
+          ),
+          // Parameter label (top-left, fixed against horizontal scroll)
+          Positioned(
+            left: 6,
+            top: 4,
+            child: IgnorePointer(
+              child: Text(
+                widget.lane.parameter.displayName,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textMuted,
                 ),
               ),
             ),
@@ -452,6 +471,10 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // Notify parent so it can commit the whole drag as one undo step.
+    if (_draggingPointId != null) {
+      widget.onPointDragEnd?.call(_draggingPointId!);
+    }
     setState(() {
       _draggingPointId = null;
       _isDrawing = false;
