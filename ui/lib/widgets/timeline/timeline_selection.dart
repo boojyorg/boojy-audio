@@ -234,8 +234,8 @@ mixin TimelineSelectionMixin on State<TimelineView>, TimelineViewStateMixin {
         trackTop +=
             widget.trackHeightState.clipHeights[regularTracks[i].id] ??
             UIConstants.defaultClipHeight;
-        // Include automation height if visible for this track
-        if (widget.automationVisibleTrackId == regularTracks[i].id) {
+        // Include automation height when lanes are shown (global toggle)
+        if (widget.automationVisible) {
           trackTop +=
               widget.trackHeightState.automationHeights[regularTracks[i].id] ??
               UIConstants.defaultAutomationHeight;

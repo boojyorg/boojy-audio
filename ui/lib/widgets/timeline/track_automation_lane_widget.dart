@@ -200,6 +200,21 @@ class _TrackAutomationLaneWidgetState extends State<TrackAutomationLaneWidget> {
               ),
             ),
           ),
+          // Parameter label (top-left, fixed against horizontal scroll)
+          Positioned(
+            left: 6,
+            top: 4,
+            child: IgnorePointer(
+              child: Text(
+                widget.lane.parameter.displayName,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textMuted,
+                ),
+              ),
+            ),
+          ),
           // Resize handle at top (invisible 6px strip)
           Positioned(
             left: 0,

@@ -5,7 +5,7 @@ import '../audio_engine.dart';
 import 'track_mixer_strip.dart';
 import '../utils/track_colors.dart';
 import '../models/instrument_data.dart';
-import '../models/track_automation_data.dart';
+import '../constants/ui_constants.dart';
 import '../models/track_data.dart';
 import '../models/track_send_data.dart';
 import '../services/undo_redo_manager.dart';
@@ -753,14 +753,57 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
   }
 
   Widget _buildHeader() {
-    // Empty 24px strip kept as the mixer's alignment spacer: it mirrors the
-    // timeline loop bar's height so the first track strip lines up with the
-    // first arrangement row. Add-track buttons now live in the top bar.
+    // 24px strip mirroring the timeline nav bar's height so the first track
+    // strip lines up with the first arrangement row. Hosts the global
+    // automation toggle (GarageBand model: one switch shows every track's
+    // lane in the timeline).
     return Container(
       height: 24, // Match timeline nav bar height
       decoration: BoxDecoration(
         color: context.colors.dark,
         border: Border(bottom: BorderSide(color: context.colors.divider)),
+      ),
+      child: UIConstants.enableAutomation
+          ? Row(children: [const SizedBox(width: 6), _buildAutomationToggle()])
+          : null,
+    );
+  }
+
+  /// Global automation toggle: shows/hides automation lanes for all tracks.
+  Widget _buildAutomationToggle() {
+    final colors = context.colors;
+    final isActive = widget.automationState.visible;
+    return GestureDetector(
+      onTap: widget.automationState.onToggle,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: 18,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: isActive ? colors.accent : colors.surface,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                BI.chartLine,
+                size: 11,
+                color: isActive ? colors.darkest : colors.textSecondary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Automation',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: BT.weightMedium,
+                  color: isActive ? colors.darkest : colors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1442,38 +1485,7 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
               onMonitorToggle: track.type.toLowerCase() == 'audio'
                   ? () => _handleMonitorToggle(track)
                   : null,
-              showAutomation: widget.automationState.visibleTrackId == track.id,
-              onAutomationToggle: () =>
-                  widget.automationState.onToggle?.call(track.id),
-              selectedParameter:
-                  widget.automationState.getSelectedParameter?.call(track.id) ??
-                  AutomationParameter.volume,
-              onParameterChanged: (param) => widget
-                  .automationState
-                  .onParameterChanged
-                  ?.call(track.id, param),
-              onResetParameter: () =>
-                  widget.automationState.onResetParameter?.call(track.id),
-              automationLane: widget.automationCallbacks.getAutomationLane
-                  ?.call(track.id),
-              pixelsPerBeat: widget.automationState.pixelsPerBeat,
-              totalBeats: widget.automationState.totalBeats,
-              onAutomationPointAdded: (point) => widget
-                  .automationCallbacks
-                  .onPointAdded
-                  ?.call(track.id, point),
-              onAutomationPointUpdated: (pointId, point) => widget
-                  .automationCallbacks
-                  .onPointUpdated
-                  ?.call(track.id, pointId, point),
-              onAutomationPointDeleted: (pointId) => widget
-                  .automationCallbacks
-                  .onPointDeleted
-                  ?.call(track.id, pointId),
-              onPreviewValue: (value) => widget
-                  .automationCallbacks
-                  .onPreviewValue
-                  ?.call(track.id, value),
+              showAutomation: widget.automationState.visible,
               previewParameterValue:
                   widget.automationState.previewNotifier?.value[track.id],
               onDuplicatePressed: () => _duplicateTrack(track),
