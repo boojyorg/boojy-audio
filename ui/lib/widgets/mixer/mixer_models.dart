@@ -1,5 +1,6 @@
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import '../../models/track_automation_data.dart';
 import '../../models/track_data.dart';
 import '../../models/library_item.dart';
 import '../../models/vst3_plugin_data.dart';
@@ -64,15 +65,22 @@ class MixerInstrumentCallbacks {
 }
 
 /// Grouped state/config for mixer automation controls.
-/// Visibility is global: one toggle shows every track's lane.
+/// Visibility is global: one toggle shows every track's lane. Each strip's
+/// lane-aligned section gets the shared parameter + a per-track reset.
 class MixerAutomationState {
   final bool visible;
   final VoidCallback? onToggle;
+  final AutomationParameter parameter;
+  final ValueChanged<AutomationParameter>? onParameterChanged;
+  final void Function(int trackId)? onReset;
   final ValueNotifier<Map<int, double?>>? previewNotifier;
 
   const MixerAutomationState({
     this.visible = false,
     this.onToggle,
+    this.parameter = AutomationParameter.volume,
+    this.onParameterChanged,
+    this.onReset,
     this.previewNotifier,
   });
 }

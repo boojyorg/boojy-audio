@@ -97,6 +97,40 @@ void main() {
     });
   });
 
+  group('ClearAutomationLaneCommand', () {
+    test(
+      'execute clears the lane, undo restores all points (same ids)',
+      () async {
+        final a = AutomationPoint(time: 0.0, value: 0.2);
+        final b = AutomationPoint(time: 4.0, value: 0.9);
+        controller.addPoint(5, AutomationParameter.volume, a);
+        controller.addPoint(5, AutomationParameter.volume, b);
+
+        final changedTrackIds = <int>[];
+        final command = ClearAutomationLaneCommand(
+          controller: controller,
+          trackId: 5,
+          parameter: AutomationParameter.volume,
+          points: List.of(
+            controller.getLane(5, AutomationParameter.volume)!.points,
+          ),
+          onLaneChanged: changedTrackIds.add,
+        );
+
+        await command.execute(mockEngine);
+        expect(
+          controller.getLane(5, AutomationParameter.volume)?.points,
+          isEmpty,
+        );
+
+        await command.undo(mockEngine);
+        expect(findPoint(5, a.id)?.value, 0.2);
+        expect(findPoint(5, b.id)?.value, 0.9);
+        expect(changedTrackIds, [5, 5]);
+      },
+    );
+  });
+
   group('RemoveAutomationPointCommand', () {
     test('execute removes the point, undo restores it (same id)', () async {
       final point = AutomationPoint(time: 1.0, value: 0.6);

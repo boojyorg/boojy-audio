@@ -1486,6 +1486,10 @@ class TrackMixerPanelState extends State<TrackMixerPanel> {
                   ? () => _handleMonitorToggle(track)
                   : null,
               showAutomation: widget.automationState.visible,
+              selectedParameter: widget.automationState.parameter,
+              onParameterChanged: widget.automationState.onParameterChanged,
+              onResetAutomation: () =>
+                  widget.automationState.onReset?.call(track.id),
               previewParameterValue:
                   widget.automationState.previewNotifier?.value[track.id],
               onDuplicatePressed: () => _duplicateTrack(track),

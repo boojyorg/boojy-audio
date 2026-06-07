@@ -3956,6 +3956,13 @@ class _DAWScreenState extends State<DAWScreen>
                       automationController.toggleVisible();
                     });
                   },
+                  parameter: automationController.visibleParameter,
+                  onParameterChanged: (param) {
+                    setState(() {
+                      automationController.setVisibleParameter(param);
+                    });
+                  },
+                  onReset: onAutomationLaneCleared,
                   previewNotifier: automationPreviewNotifier,
                 ),
               ),
